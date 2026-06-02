@@ -56,7 +56,7 @@
           "provider": "docling",
           "max_doc_chars": 8000,
           "provider_config": {
-            "entity_config": {
+            "vlm_pipeline": {
               "model_type": "inline",
               "inline_model": {
                 "repo_id": "numind/NuExtract-2.0-2B",

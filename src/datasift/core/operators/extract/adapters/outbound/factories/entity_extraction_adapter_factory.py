@@ -134,10 +134,10 @@ class EntityExtractionAdapterFactory:
             )
 
         elif mode == EntityExtractionMode.DOCLING:
-            # Pass through entity_config from provider_config for custom model configuration
-            entity_config = provider_config.get(DoclingClientConfigConstants.ENTITY_CONFIG)
-            if entity_config:
-                adapter_config[DoclingClientConfigConstants.ENTITY_CONFIG] = entity_config
+            # Pass through vlm_pipeline from provider_config for custom model configuration
+            vlm_pipeline = provider_config.get(DoclingClientConfigConstants.VLM_PIPELINE)
+            if vlm_pipeline:
+                adapter_config[DoclingClientConfigConstants.VLM_PIPELINE] = vlm_pipeline
 
         elif mode == EntityExtractionMode.NONE:
             # No configuration needed for NONE mode

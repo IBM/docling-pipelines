@@ -24,11 +24,7 @@ def _find_project_root() -> Path:
     # Search upward for datasift package structure
     for parent in [current, *list(current.parents)]:
         # Check if this directory has the datasift package structure
-        if (
-            (parent / "integrations").exists()
-            and (parent / "storage").exists()
-            and (parent / "core").exists()
-        ):
+        if (parent / "integrations").exists() and (parent / "storage").exists() and (parent / "core").exists():
             # Return two levels up: datasift -> src -> project_root
             return parent.parent.parent
 
@@ -327,7 +323,7 @@ class DoclingClientConfigConstants:
     """
 
     # Configuration keys
-    ENTITY_CONFIG = "entity_config"
+    VLM_PIPELINE = "vlm_pipeline"
     MODEL_TYPE = "model_type"
     INLINE_MODEL = "inline_model"
 

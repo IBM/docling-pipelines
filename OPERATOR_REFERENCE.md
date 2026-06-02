@@ -550,7 +550,7 @@ This simplified design removes the port/adapter overhead while maintaining clean
 | `entity_extraction.provider_config.api_base`              | string |       No | -                         | API endpoint URL (e.g., `http://localhost:11434/v1` for Ollama)                                    |
 | `entity_extraction.provider_config.container_id`          | string | Conditional | -                     | WatsonX container ID (required for watsonx mode)                                                   |
 | `entity_extraction.provider_config.container_kind`        | string |       No | `project`                 | WatsonX container kind (watsonx mode)                                                              |
-| `entity_extraction.entity_config`                         | object |       No | `{}`                      | Custom inline model configuration for Docling entity extraction (docling mode only)                |
+| `entity_extraction.provider_config.vlm_pipeline`          | object |       No | `{}`                      | Custom VLM model configuration for Docling entity extraction (docling mode only)                   |
 | `max_workers`                                             | int    |       No | auto                      | Maximum parallel workers (auto-detected based on CPU)                                              |
 | `use_processes`                                           | bool   |       No | `false`                   | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                      |
 
@@ -807,16 +807,18 @@ The operator provides the following metadata after execution:
     },
     "entity_extraction": {
       "provider": "docling",
-      "entity_config": {
-        "model_type": "inline",
-        "inline_model": {
-          "repo_id": "numind/NuExtract-2.0-2B",
-          "inference_framework": "transformers",
-          "scale": 2.0,
-          "temperature": 0.0,
-          "max_new_tokens": 4096,
-          "load_in_8bit": true,
-          "torch_dtype": "bfloat16"
+      "provider_config": {
+        "vlm_pipeline": {
+          "model_type": "inline",
+          "inline_model": {
+            "repo_id": "numind/NuExtract-2.0-2B",
+            "inference_framework": "transformers",
+            "scale": 2.0,
+            "temperature": 0.0,
+            "max_new_tokens": 4096,
+            "load_in_8bit": true,
+            "torch_dtype": "bfloat16"
+          }
         }
       },
       "custom_schema": {
@@ -831,9 +833,9 @@ The operator provides the following metadata after execution:
 }
 ```
 
-**Custom Model Configuration for Docling Entity Extraction**
+**Custom VLM Configuration for Docling Entity Extraction**
 
-The `entity_config` parameter enables custom inline model configuration for the Docling entity extraction adapter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
+The `vlm_pipeline` parameter enables custom VLM model configuration for the Docling entity extraction adapter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
 
 **Note:** For API-based entity extraction, use `entity_extraction.provider: "litellm"` or `"watsonx"` instead of Docling.
 
@@ -841,24 +843,24 @@ The `entity_config` parameter enables custom inline model configuration for the 
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `entity_config` | object | No | Custom inline model configuration for Docling entity extraction |
-| `entity_config.model_type` | string | Yes* | Model type: must be `inline` (*required if `entity_config` provided) |
-| `entity_config.inline_model` | object | Yes* | Inline model configuration (*required if `entity_config` provided) |
-| `entity_config.inline_model.repo_id` | string | Yes | HuggingFace model repository ID (e.g., `numind/NuExtract-2.0-2B`) |
-| `entity_config.inline_model.inference_framework` | string | No | Inference framework: `transformers`, `vllm`, or `mlx` (default: `transformers`) |
-| `entity_config.inline_model.scale` | float | No | Image scaling factor (default: `2.0`) |
-| `entity_config.inline_model.temperature` | float | No | Sampling temperature (default: `0.0`) |
-| `entity_config.inline_model.max_new_tokens` | int | No | Maximum generation length (default: `4096`) |
-| `entity_config.inline_model.load_in_8bit` | bool | No | Enable 8-bit quantization (default: `true`) |
-| `entity_config.inline_model.torch_dtype` | string | No | Precision type: `bfloat16`, `float16`, `float32` (default: `bfloat16`) |
-| `entity_config.inline_model.prompt` | string | No | Custom prompt template (default: `""`) |
-| `entity_config.inline_model.response_format` | string | No | Response format: `markdown`, `doctags`, `html`, etc. (default: `markdown`) |
+| `vlm_pipeline` | object | No | Custom VLM model configuration for Docling entity extraction |
+| `vlm_pipeline.model_type` | string | Yes* | Model type: must be `inline` (*required if `vlm_pipeline` provided) |
+| `vlm_pipeline.inline_model` | object | Yes* | Inline model configuration (*required if `vlm_pipeline` provided) |
+| `vlm_pipeline.inline_model.repo_id` | string | Yes | HuggingFace model repository ID (e.g., `numind/NuExtract-2.0-2B`) |
+| `vlm_pipeline.inline_model.inference_framework` | string | No | Inference framework: `transformers`, `vllm`, or `mlx` (default: `transformers`) |
+| `vlm_pipeline.inline_model.scale` | float | No | Image scaling factor (default: `2.0`) |
+| `vlm_pipeline.inline_model.temperature` | float | No | Sampling temperature (default: `0.0`) |
+| `vlm_pipeline.inline_model.max_new_tokens` | int | No | Maximum generation length (default: `4096`) |
+| `vlm_pipeline.inline_model.load_in_8bit` | bool | No | Enable 8-bit quantization (default: `true`) |
+| `vlm_pipeline.inline_model.torch_dtype` | string | No | Precision type: `bfloat16`, `float16`, `float32` (default: `bfloat16`) |
+| `vlm_pipeline.inline_model.prompt` | string | No | Custom prompt template (default: `""`) |
+| `vlm_pipeline.inline_model.response_format` | string | No | Response format: `markdown`, `doctags`, `html`, etc. (default: `markdown`) |
 
 **Usage Notes:**
 
 - **Inline Models Only**: Only HuggingFace models loaded directly into memory are supported. DocumentExtractor does not support remote API endpoints.
 - **API-Based Extraction**: For API-based entity extraction (Ollama via LiteLLM, OpenAI, etc.), use `entity_extraction.provider: "litellm"` or `"watsonx"` instead.
-- **Default Behavior**: If `entity_config` is not provided, Docling uses its default model configuration.
+- **Default Behavior**: If `vlm_pipeline` is not provided, Docling uses its default model configuration.
 - **Performance**: Inline models require sufficient GPU memory and are suitable for local deployment with GPU resources.
 - **Compatibility**: Ensure the chosen model supports the inference framework and hardware configuration.
 

@@ -227,6 +227,22 @@ The Extract Operator is a unified extraction operator that provides text and ent
 - `temperature` (Float, Optional): Sampling temperature (default: 0.0)
 - `max_tokens` (Integer, Optional): Maximum response tokens (default: 2000)
 
+**For Docling:**
+- `vlm_pipeline` (Object, Optional): Custom VLM model configuration for Docling entity extraction
+  - `model_type` (String, Required): Model type - must be `"inline"` (API model not supported by DocumentExtractor)
+  - `inline_model` (Object, Required when model_type is "inline"): Inline model configuration
+    - `repo_id` (String, Required): HuggingFace model repository ID (e.g., `"microsoft/Florence-2-large"`)
+    - `inference_framework` (String, Optional): Inference framework (default: `"transformers"`)
+    - `scale` (Float, Optional): Image scaling factor (default: 2.0)
+    - `temperature` (Float, Optional): Sampling temperature (default: 0.0)
+    - `max_new_tokens` (Integer, Optional): Maximum tokens to generate (default: 4096)
+    - `load_in_8bit` (Boolean, Optional): Load model in 8-bit precision (default: true)
+    - `torch_dtype` (String, Optional): PyTorch data type (default: `"bfloat16"`)
+    - `prompt` (String, Optional): Custom prompt template (default: empty string)
+    - `response_format` (String, Optional): Response format (default: `"markdown"`)
+
+**Note:** Docling entity extraction uses template-based extraction with Docling's DocumentExtractor. When `vlm_pipeline` is not provided, it uses the default model configuration. Custom models allow fine-tuning extraction behavior for specific document types.
+
 #### 11. `entity_extraction.custom_schema` (JSON)
 **Type:** JSON Object  
 **Required:** No  
@@ -737,6 +753,65 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
         "invoice_date": "string"
       },
       "expand_extracted_data": true
+    }
+  }
+}
+```
+
+### Example 8: Docling Entity Extraction with Custom Model
+```json
+{
+  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library"
+    },
+    "entity_extraction": {
+      "provider": "docling",
+      "provider_config": {
+        "vlm_pipeline": {
+          "model_type": "inline",
+          "inline_model": {
+            "repo_id": "microsoft/Florence-2-large",
+            "inference_framework": "transformers",
+            "scale": 2.0,
+            "temperature": 0.0,
+            "max_new_tokens": 4096,
+            "load_in_8bit": true,
+            "torch_dtype": "bfloat16"
+          }
+        }
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "vendor_name": "string",
+        "total_amount": "number",
+        "invoice_date": "string"
+      },
+      "expand_extracted_data": true
+    }
+  }
+}
+```
+
+### Example 9: Docling Entity Extraction with Default Model
+```json
+{
+  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library"
+    },
+    "entity_extraction": {
+      "provider": "docling",
+      "custom_schema": {
+        "person_name": "string",
+        "organization": "string",
+        "location": "string"
+      },
+      "output_column": "entities"
     }
   }
 }

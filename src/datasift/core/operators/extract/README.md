@@ -330,7 +330,7 @@ Vision-Language Model (VLM) based entity extraction using Docling's VLM pipeline
 
 **Custom Model Configuration:**
 
-Users can configure custom inline VLM models for entity extraction using the `entity_config` parameter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
+Users can configure custom inline VLM models for entity extraction using the `vlm_pipeline` parameter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
 
 **Inline Model (HuggingFace with Transformers):**
 ```json
@@ -341,7 +341,7 @@ Users can configure custom inline VLM models for entity extraction using the `en
   "entity_extraction": {
     "provider": "docling",
     "provider_config": {
-      "entity_config": {
+      "vlm_pipeline": {
         "model_type": "inline",
         "inline_model": {
           "repo_id": "numind/NuExtract-2.0-2B",
@@ -590,9 +590,9 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 
 | Parameter               | Type   | Default | Description                                                                                     |
 |-------------------------|--------|---------|-------------------------------------------------------------------------------------------------|
-| `entity_extraction.provider_config.entity_config` | object | `null`  | Custom VLM model configuration (see Custom Model Configuration section above for full details) |
+| `entity_extraction.provider_config.vlm_pipeline` | object | `null`  | Custom VLM model configuration (see Custom Model Configuration section above for full details) |
 
-**entity_config Structure:**
+**vlm_pipeline Structure:**
 
 For inline models (HuggingFace):
 ```json

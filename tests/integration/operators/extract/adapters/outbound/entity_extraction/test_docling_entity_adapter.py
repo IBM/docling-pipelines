@@ -43,7 +43,7 @@ def basic_config():
 def inline_model_config():
     """Configuration with inline model."""
     return {
-        "entity_config": {
+        "vlm_pipeline": {
             "model_type": "inline",
             "inline_model": {
                 "repo_id": "numind/NuExtract-2.0-2B",
@@ -67,55 +67,55 @@ class TestDoclingEntityAdapterValidation:
         """Test validation of valid inline model configuration."""
         adapter = DoclingEntityAdapter(config=inline_model_config)
         # Should not raise
-        assert adapter.entity_config is not None
-        assert adapter.entity_config["model_type"] == "inline"
+        assert adapter.vlm_pipeline is not None
+        assert adapter.vlm_pipeline["model_type"] == "inline"
 
     def test_validate_missing_model_type(self):
         """Test error when model_type is missing."""
-        config = {"entity_config": {"inline_model": {"repo_id": "test/model"}}}
+        config = {"vlm_pipeline": {"inline_model": {"repo_id": "test/model"}}}
         # Should not raise - model_type is optional
         adapter = DoclingEntityAdapter(config=config)
-        assert adapter.entity_config is not None
+        assert adapter.vlm_pipeline is not None
 
     def test_validate_invalid_model_type(self):
         """Test error when model_type is invalid."""
-        config = {"entity_config": {"model_type": "invalid_type", "inline_model": {"repo_id": "test/model"}}}
+        config = {"vlm_pipeline": {"model_type": "invalid_type", "inline_model": {"repo_id": "test/model"}}}
         with pytest.raises(ValueError, match=r"model_type.*must be 'inline'"):
             DoclingEntityAdapter(config=config)
 
     def test_validate_inline_missing_repo_id(self):
         """Test error when repo_id is missing for inline model."""
-        config = {"entity_config": {"model_type": "inline", "inline_model": {}}}
+        config = {"vlm_pipeline": {"model_type": "inline", "inline_model": {}}}
         with pytest.raises(ValueError, match=r"repo_id.*is required"):
             DoclingEntityAdapter(config=config)
 
     def test_validate_inline_invalid_repo_id_type(self):
         """Test error when repo_id is not a string."""
-        config = {"entity_config": {"model_type": "inline", "inline_model": {"repo_id": 123}}}
+        config = {"vlm_pipeline": {"model_type": "inline", "inline_model": {"repo_id": 123}}}
         with pytest.raises(ValueError, match=r"repo_id.*must be a string"):
             DoclingEntityAdapter(config=config)
 
-    def test_validate_entity_config_not_dict(self):
-        """Test error when entity_config is not a dictionary."""
-        config = {"entity_config": "not a dict"}
-        with pytest.raises(ValueError, match=r"entity_config.*must be a dictionary"):
+    def test_validate_vlm_pipeline_not_dict(self):
+        """Test error when vlm_pipeline is not a dictionary."""
+        config = {"vlm_pipeline": "not a dict"}
+        with pytest.raises(ValueError, match=r"vlm_pipeline.*must be a dictionary"):
             DoclingEntityAdapter(config=config)
 
     def test_validate_model_type_not_string(self):
         """Test error when model_type is not a string."""
-        config = {"entity_config": {"model_type": 123, "inline_model": {"repo_id": "test/model"}}}
+        config = {"vlm_pipeline": {"model_type": 123, "inline_model": {"repo_id": "test/model"}}}
         with pytest.raises(ValueError, match=r"model_type.*must be a string"):
             DoclingEntityAdapter(config=config)
 
     def test_validate_inline_model_not_dict(self):
         """Test error when inline_model is not a dictionary."""
-        config = {"entity_config": {"model_type": "inline", "inline_model": "not a dict"}}
+        config = {"vlm_pipeline": {"model_type": "inline", "inline_model": "not a dict"}}
         with pytest.raises(ValueError, match=r"inline_model.*must be a dictionary"):
             DoclingEntityAdapter(config=config)
 
     def test_validate_inline_missing_inline_model(self):
         """Test error when inline_model is missing for inline type."""
-        config = {"entity_config": {"model_type": "inline"}}
+        config = {"vlm_pipeline": {"model_type": "inline"}}
         with pytest.raises(ValueError, match=r"inline_model.*is required"):
             DoclingEntityAdapter(config=config)
 
@@ -127,23 +127,23 @@ class TestDoclingEntityAdapterInitialization:
         """Test initialization with inline model configuration."""
         adapter = DoclingEntityAdapter(config=inline_model_config)
 
-        assert adapter.entity_config is not None
-        assert adapter.entity_config["model_type"] == "inline"
-        assert adapter.entity_config["inline_model"]["repo_id"] == "numind/NuExtract-2.0-2B"
+        assert adapter.vlm_pipeline is not None
+        assert adapter.vlm_pipeline["model_type"] == "inline"
+        assert adapter.vlm_pipeline["inline_model"]["repo_id"] == "numind/NuExtract-2.0-2B"
 
     def test_init_without_custom_config(self, basic_config):
         """Test default initialization without custom model config (backward compatibility)."""
         adapter = DoclingEntityAdapter(config=basic_config)
 
-        assert adapter.entity_config is None
+        assert adapter.vlm_pipeline is None
 
     def test_init_with_minimal_inline_config(self):
         """Test initialization with minimal inline configuration."""
-        config = {"entity_config": {"model_type": "inline", "inline_model": {"repo_id": "test/model"}}}
+        config = {"vlm_pipeline": {"model_type": "inline", "inline_model": {"repo_id": "test/model"}}}
         adapter = DoclingEntityAdapter(config=config)
 
-        assert adapter.entity_config is not None
-        assert adapter.entity_config["inline_model"]["repo_id"] == "test/model"
+        assert adapter.vlm_pipeline is not None
+        assert adapter.vlm_pipeline["inline_model"]["repo_id"] == "test/model"
 
 
 class TestDoclingEntityAdapterVLMOptions:
@@ -162,7 +162,7 @@ class TestDoclingEntityAdapterVLMOptions:
         # Reset mock since it was called during initialization
         mock_inline_options.reset_mock()
 
-        options = adapter._build_vlm_extraction_options(entity_config=adapter.entity_config)
+        options = adapter._build_vlm_extraction_options(vlm_pipeline=adapter.vlm_pipeline)
 
         # Verify InlineVlmOptions was called with correct parameters
         mock_inline_options.assert_called_once()
@@ -188,7 +188,7 @@ class TestDoclingEntityAdapterVLMOptions:
     ):
         """Test that default values are applied correctly for inline model."""
         config = {
-            "entity_config": {
+            "vlm_pipeline": {
                 "model_type": "inline",
                 "inline_model": {
                     "repo_id": "test/model"
@@ -198,7 +198,7 @@ class TestDoclingEntityAdapterVLMOptions:
         }
         adapter = DoclingEntityAdapter(config=config)
 
-        adapter._build_vlm_extraction_options(entity_config=adapter.entity_config)
+        adapter._build_vlm_extraction_options(vlm_pipeline=adapter.vlm_pipeline)
 
         # Verify defaults were applied
         call_kwargs = mock_inline_options.call_args.kwargs
@@ -216,7 +216,7 @@ class TestDoclingEntityAdapterVLMOptions:
         """Test that None is returned when no custom config is provided."""
         adapter = DoclingEntityAdapter(config=basic_config)
 
-        options = adapter._build_vlm_extraction_options(entity_config=adapter.entity_config)
+        options = adapter._build_vlm_extraction_options(vlm_pipeline=adapter.vlm_pipeline)
 
         assert options is None
 
@@ -319,7 +319,7 @@ class TestDoclingEntityAdapterErrorHandling:
         ):
             adapter = DoclingEntityAdapter(config=inline_model_config)
             with pytest.raises(ValueError, match="Docling VLM dependencies not available"):
-                adapter._build_vlm_extraction_options(entity_config=adapter.entity_config)
+                adapter._build_vlm_extraction_options(vlm_pipeline=adapter.vlm_pipeline)
 
     def test_build_vlm_options_handles_configuration_error(self, inline_model_config):
         """Test handling of configuration errors when building VLM options."""
@@ -328,7 +328,7 @@ class TestDoclingEntityAdapterErrorHandling:
         ):
             adapter = DoclingEntityAdapter(config=inline_model_config)
             with pytest.raises(ValueError, match="Invalid VLM configuration"):
-                adapter._build_vlm_extraction_options(entity_config=adapter.entity_config)
+                adapter._build_vlm_extraction_options(vlm_pipeline=adapter.vlm_pipeline)
 
 
 class TestDoclingEntityAdapterAdapterInfo:

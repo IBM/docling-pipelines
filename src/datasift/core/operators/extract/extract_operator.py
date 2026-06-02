@@ -1059,10 +1059,10 @@ class ExtractOperator(AbstractOperator):
                                     OperatorConstants.Config.DEFAULT: 4096,
                                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                                 },
-                                DoclingClientConfigConstants.ENTITY_CONFIG: {
-                                    OperatorConstants.Misc.NAME: "Entity Config",
+                                DoclingClientConfigConstants.VLM_PIPELINE: {
+                                    OperatorConstants.Misc.NAME: "VLM Pipeline",
                                     OperatorConstants.Config.DESCRIPTION: (
-                                        "Custom inline model configuration for Docling entity extraction (docling provider only). "
+                                        "Custom VLM model configuration for Docling entity extraction (docling provider only). "
                                         "Requires model_type='inline' and inline_model with repo_id (HuggingFace model). "
                                         "Note: Only inline models supported; API models not supported by DocumentExtractor."
                                     ),
