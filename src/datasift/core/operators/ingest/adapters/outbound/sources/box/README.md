@@ -107,8 +107,7 @@ Examples:
     "credentials": {
       "credentials_json_path": "${BOX_JWT_CONFIG_FILE}"
     },
-    "included_extensions": [".pdf", ".docx", ".txt"],
-    "store_binary_content": true
+    "included_extensions": [".pdf", ".docx", ".txt"]
   }
 }
 ```
@@ -131,8 +130,7 @@ Examples:
     },
     "included_extensions": [".pdf", ".docx", ".pptx", ".xlsx", ".txt"],
     "max_files": 1000,
-    "force_ingest": true,
-    "store_binary_content": true
+    "force_ingest": true
   }
 }
 ```
@@ -143,7 +141,6 @@ Examples:
 |--------|------|-------------|
 | `id` | string | Box file ID |
 | `name` | string | File name |
-| `content` | bytes | File content (if `store_binary_content=True`) |
 | `source_url` | string | Box file URL (`https://app.box.com/file/{id}`) |
 | `modified_time` | datetime | Last modification timestamp |
 | `box_id` | string | Box file ID (metadata) |

@@ -59,10 +59,12 @@
       "name": "generate_embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "litellm",
-        "embeddings_model_id": "text-embedding-3-small",
         "doc_column": "content",
-        "embeddings_column": "embeddings"
+        "embeddings_column": "embeddings",
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/text-embedding-3-small"
+        }
       },
       "depends_on": [
         "chunk_documents"
@@ -81,8 +83,8 @@
         "provider_config": {
           "host": "localhost",
           "port": 9200,
-          "username": "admin",
-          "password": "<MyStrongPass123!>",
+"username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

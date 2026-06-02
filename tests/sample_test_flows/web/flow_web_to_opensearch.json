@@ -25,8 +25,7 @@
           "timeout": 30
         },
         "max_files": 100,
-        "force_ingest": true,
-        "store_binary_content": true
+        "force_ingest": true
       }
     },
     {
@@ -92,8 +91,8 @@
         "provider_config": {
           "host": "localhost",
           "port": 9200,
-          "username": "admin",
-          "password": "<admin>",
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

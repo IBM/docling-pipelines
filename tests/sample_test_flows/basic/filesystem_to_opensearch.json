@@ -88,6 +88,8 @@
         "chunk"
       ],
       "config": {
+"provider": "litellm",
+        "model_id": "openai/granite4",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
         "doc_column": "content",
@@ -115,8 +117,8 @@
         "provider_config": {
           "host": "localhost",
           "port": 9200,
-          "username": "admin",
-          "password": "admin",
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

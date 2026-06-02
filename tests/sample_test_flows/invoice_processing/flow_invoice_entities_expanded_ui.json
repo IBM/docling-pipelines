@@ -15,7 +15,6 @@
       "config": {
         "paths": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
         "include_filter": ".pdf",
-        "store_binary_content": true,
         "max_workers": 2
       }
     },
@@ -68,12 +67,12 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "litellm",
-        "embeddings_model_id": "openai/granite4",
+        "provider": "litellm",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
         "doc_column": "content",
         "provider_config": {
+          "model_id": "openai/granite4",
           "api_base": "http://localhost:11434/v1",
           "api_key": "${OLLAMA_API_KEY}"
         }
@@ -95,8 +94,8 @@
         "provider_config": {
           "host": "localhost",
           "port": 9200,
-          "username": "admin",
-          "password": "<MyStrongPass123!>",
+"username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

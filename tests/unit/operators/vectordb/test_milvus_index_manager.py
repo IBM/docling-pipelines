@@ -73,7 +73,6 @@ class TestIndexManagerInitialization:
         assert manager.collection_name == "test_collection"
         assert manager.index_type == "HNSW"
         assert manager.metric_type == "L2"
-        assert manager.vector_dimension == 384
         assert manager.primary_key_field == "pk"
         assert manager.auto_id is False
 
@@ -84,7 +83,6 @@ class TestIndexManagerInitialization:
             collection_name="custom_collection",
             index_type="IVF_FLAT",
             metric_type="COSINE",
-            vector_dimension=768,
             primary_key_field="id",
             auto_id=True,
         )
@@ -92,7 +90,6 @@ class TestIndexManagerInitialization:
         assert manager.collection_name == "custom_collection"
         assert manager.index_type == "IVF_FLAT"
         assert manager.metric_type == "COSINE"
-        assert manager.vector_dimension == 768
         assert manager.primary_key_field == "id"
         assert manager.auto_id is True
 
@@ -302,3 +299,255 @@ class TestIndexTypes:
         """Test that default parameters exist for all index types"""
         for index_type in MilvusIndexTypes.ALL_TYPES:
             assert index_type in INDEX_DEFAULT_PARAMETERS
+
+
+class TestMultiModelSupport:
+    """Test multi-model embeddings support"""
+
+    @pytest.fixture
+    def multi_model_features(self):
+        """Feature configuration for multi-model embeddings"""
+        return {
+            "doc_id_hash": {
+                "name": "Document ID",
+                "available_for_vector_db": True,
+                "mandatory_for_vector_db": True,
+                "type": "string",
+                "is_primary": True,
+            },
+            "content": {
+                "name": "Content",
+                "available_for_vector_db": True,
+                "type": "text",
+            },
+            "embeddings": {
+                "name": "Primary Embeddings",
+                "available_for_vector_db": True,
+                "mandatory_for_vector_db": True,
+                "type": "vector",
+            },
+            "embeddings_alt": {
+                "name": "Alternative Embeddings",
+                "available_for_vector_db": True,
+                "type": "vector",
+            },
+        }
+
+    @pytest.fixture
+    def multi_model_mappings(self):
+        """Feature mappings for multi-model embeddings"""
+        return {
+            "doc_id_hash": "pk",
+            "content": "text",
+            "embeddings": "vector_embeddings",
+            "embeddings_alt": "vector_embeddings_alt",
+        }
+
+    def test_create_schema_with_multiple_vector_fields(self, mock_client, multi_model_features, multi_model_mappings):
+        """Test creating schema with multiple vector fields"""
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="multi_model_collection",
+            available_features=multi_model_features,
+            feature_mappings=multi_model_mappings,
+        )
+
+        # Dimension mapping for two models
+        dimension_mapping = {
+            "embeddings": 768,
+            "embeddings_alt": 384,
+        }
+
+        fields = manager._create_schema_fields(dimension_mapping=dimension_mapping)
+
+        # Check that both vector fields are created
+        field_names = [f.name for f in fields]
+        assert "vector_embeddings" in field_names
+        assert "vector_embeddings_alt" in field_names
+
+        # Check vector field dimensions
+        vector_fields = {f.name: f for f in fields if hasattr(f, "dim")}
+        assert vector_fields["vector_embeddings"].dim == 768
+        assert vector_fields["vector_embeddings_alt"].dim == 384
+
+    def test_create_collection_with_multiple_vector_indexes(
+        self, mock_client, multi_model_features, multi_model_mappings
+    ):
+        """Test creating collection with indexes for multiple vector fields"""
+        mock_client.has_collection.return_value = False
+        mock_client.prepare_index_params.return_value = MagicMock()
+
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="multi_model_collection",
+            available_features=multi_model_features,
+            feature_mappings=multi_model_mappings,
+        )
+
+        dimension_mapping = {
+            "embeddings": 768,
+            "embeddings_alt": 384,
+        }
+
+        manager.create_collection(dimension_mapping=dimension_mapping)
+
+        # Verify collection was created
+        mock_client.create_collection.assert_called_once()
+
+        # Verify index params were prepared
+        mock_client.prepare_index_params.assert_called_once()
+
+
+class TestNullableFields:
+    """Test nullable field handling"""
+
+    @pytest.fixture
+    def features_with_optional_fields(self):
+        """Feature configuration with optional fields"""
+        return {
+            "doc_id_hash": {
+                "name": "Document ID",
+                "available_for_vector_db": True,
+                "mandatory_for_vector_db": True,
+                "type": "string",
+                "is_primary": True,
+            },
+            "content": {
+                "name": "Content",
+                "available_for_vector_db": True,
+                "type": "text",
+            },
+            "embeddings": {
+                "name": "Embeddings",
+                "available_for_vector_db": True,
+                "mandatory_for_vector_db": True,
+                "type": "vector",
+            },
+            "optional_field": {
+                "name": "Optional Field",
+                "available_for_vector_db": True,
+                "mandatory_for_vector_db": False,
+                "type": "string",
+            },
+        }
+
+    @pytest.fixture
+    def mappings_with_optional_fields(self):
+        """Feature mappings with optional fields"""
+        return {
+            "doc_id_hash": "pk",
+            "content": "text",
+            "embeddings": "vector_embeddings",
+            "optional_field": "optional_data",
+        }
+
+    def test_optional_fields_are_nullable(
+        self, mock_client, features_with_optional_fields, mappings_with_optional_fields
+    ):
+        """Test that non-mandatory fields are created with nullable=True"""
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_collection",
+            available_features=features_with_optional_fields,
+            feature_mappings=mappings_with_optional_fields,
+        )
+
+        dimension_mapping = {"embeddings": 384}
+        fields = manager._create_schema_fields(dimension_mapping=dimension_mapping)
+
+        # Find the optional field
+        optional_field = next((f for f in fields if f.name == "optional_data"), None)
+        assert optional_field is not None
+        assert optional_field.nullable is True
+
+    def test_content_field_is_always_added(
+        self, mock_client, features_with_optional_fields, mappings_with_optional_fields
+    ):
+        """Test that content field is always added (hardcoded, not nullable)"""
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_collection",
+            available_features=features_with_optional_fields,
+            feature_mappings=mappings_with_optional_fields,
+        )
+
+        dimension_mapping = {"embeddings": 384}
+        fields = manager._create_schema_fields(dimension_mapping=dimension_mapping)
+
+        # Check primary key field (always mandatory, is_primary=True)
+        pk_field = next((f for f in fields if f.name == "pk"), None)
+        assert pk_field is not None
+        assert pk_field.is_primary is True
+
+        # Check content field (hardcoded, always added, not nullable)
+        content_field = next((f for f in fields if f.name == "text"), None)
+        assert content_field is not None
+        # Content field is hardcoded and doesn't have nullable attribute set
+        assert not hasattr(content_field, "nullable") or content_field.nullable is False
+
+
+class TestSparseVectorMode:
+    """Test sparse vector mode with hardcoded configuration"""
+
+    def test_sparse_mode_initialization(self, mock_client):
+        """Test initialization in sparse vector mode"""
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="sparse_collection",
+            add_sparse_vector=True,
+        )
+
+        assert manager.add_sparse_vector is True
+
+    def test_sparse_mode_creates_sparse_vector_field(self, mock_client, basic_features, feature_mappings):
+        """Test that sparse mode creates sparse vector field"""
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="sparse_collection",
+            available_features=basic_features,
+            feature_mappings=feature_mappings,
+            add_sparse_vector=True,
+        )
+
+        dimension_mapping = {"embeddings": 384}
+        fields = manager._create_schema_fields(dimension_mapping=dimension_mapping)
+
+        # Check for sparse vector field
+        field_names = [f.name for f in fields]
+        assert "sparse_vector" in field_names
+
+    def test_sparse_mode_content_field_has_analyzer(self, mock_client, basic_features, feature_mappings):
+        """Test that content field has enable_analyzer=True in sparse mode"""
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="sparse_collection",
+            available_features=basic_features,
+            feature_mappings=feature_mappings,
+            add_sparse_vector=True,
+        )
+
+        dimension_mapping = {"embeddings": 384}
+        fields = manager._create_schema_fields(dimension_mapping=dimension_mapping)
+
+        # Find content field
+        content_field = next((f for f in fields if f.name == "text"), None)
+        assert content_field is not None
+        assert content_field.enable_analyzer is True
+
+    def test_dense_mode_content_field_no_analyzer(self, mock_client, basic_features, feature_mappings):
+        """Test that content field has enable_analyzer=False in dense mode"""
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="dense_collection",
+            available_features=basic_features,
+            feature_mappings=feature_mappings,
+            add_sparse_vector=False,
+        )
+
+        dimension_mapping = {"embeddings": 384}
+        fields = manager._create_schema_fields(dimension_mapping=dimension_mapping)
+
+        # Find content field
+        content_field = next((f for f in fields if f.name == "text"), None)
+        assert content_field is not None
+        assert content_field.enable_analyzer is False

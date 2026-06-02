@@ -17,8 +17,7 @@
       "type": "ingest_local",
       "config": {
         "paths": "./tests/fixtures/customer_support_docs",
-        "include_filter": "txt",
-        "store_binary_content": false
+        "include_filter": "txt"
       }
     },
     {
@@ -103,8 +102,8 @@
         "provider_config": {
           "host": "localhost",
           "port": 9200,
-          "username": "admin",
-          "password": "<admin>",
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

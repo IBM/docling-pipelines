@@ -13,7 +13,6 @@
       "config": {
         "paths": "tests/fixtures/customer_support_docs/",
         "include_filter": "txt",
-        "store_binary_content": true,
         "max_workers": 1
       }
     },
@@ -37,7 +36,7 @@
         "provider": "litellm",
         "provider_config": {
           "model_id": "<model name>",
-          "api_key": "<api key>",
+          "api_key": "${API_KEY}",
           "api_base": "http://localhost:11434/v1"
         },
         "pii_threshold": 0.5,

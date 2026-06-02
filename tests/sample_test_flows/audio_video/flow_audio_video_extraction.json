@@ -13,8 +13,7 @@
       "type": "ingest_local",
       "config": {
         "paths": "sample_flows",
-        "include_filter": "wav",
-        "store_binary_content": true
+        "include_filter": "wav"
       }
     },
     {

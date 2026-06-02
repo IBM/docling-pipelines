@@ -15,7 +15,6 @@
       "config": {
         "paths": "tests/fixtures/customer_support_docs/",
         "include_filter": "txt",
-        "store_binary_content": true,
         "max_workers": 1
       }
     },
@@ -39,7 +38,7 @@
         "provider": "litellm",
         "provider_config": {
           "model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct",
-          "api_key": "<api key>"
+          "api_key": "${API_KEY}"
         },
         "pii_threshold": 0.5,
         "hap_threshold": 0.8,

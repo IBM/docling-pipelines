@@ -58,7 +58,6 @@ def main():
                 "config": {
                     "paths": "./tests/fixtures/invoices",
                     "include_filter": "pdf",
-                    "store_binary_content": False,
                 },
             },
             {

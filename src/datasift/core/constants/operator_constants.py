@@ -420,6 +420,7 @@ class OperatorConstants:
         INDEX_PARAMETERS: Final[str] = "index_parameters"
         PRIMARY_KEY_FIELD: Final[str] = "primary_key_field"
         DEFAULT_PRIMARY_KEY_FIELD: Final[str] = "pk"
+        DEFAULT_TEXT_FIELD_NAME: Final[str] = "text"
 
         # Environment Variable Keys for OpenSearch
         OPENSEARCH_HOST: Final[str] = "OPENSEARCH_HOST"
@@ -481,6 +482,7 @@ class OperatorConstants:
         TYPE_DOUBLE: Final[str] = "double"
         TYPE_FLOAT: Final[str] = "float"
         TYPE_STRING: Final[str] = "string"
+        TYPE_TEXT: Final[str] = "text"
 
         # Integer Data Types
         TYPE_INT8: Final[str] = "int8"

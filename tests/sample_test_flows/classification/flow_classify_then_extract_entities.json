@@ -16,7 +16,6 @@
       "config": {
         "paths": "./tests/fixtures/invoices",
         "include_filter": "txt,pdf,docx",
-        "store_binary_content": true,
         "max_workers": 2
       }
     },
@@ -28,7 +27,7 @@
         "provider_config": {
           "model_id": "openai/granite4:latest",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "<api-key>"
+          "api_key": "${OLLAMA_API_KEY}"
         },
         "confidence_threshold": 7.0,
         "doc_column": "content",

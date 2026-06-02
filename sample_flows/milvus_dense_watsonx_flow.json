@@ -3,7 +3,7 @@
   "description": "Complete document processing pipeline with Milvus: Ingest -> Extract -> Chunk -> Embed -> Store in Milvus",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": false,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -15,7 +15,6 @@
       "config": {
         "paths": "./sample_documents",
         "include_filter": "pdf,txt,docx",
-        "store_binary_content": true,
         "max_workers": 4,
         "max_files": 2
       }
@@ -73,7 +72,6 @@
         "provider": "milvus",
         "index_name": "sample_documents_collection_dense",
         "doc_id_column": "doc_id_hash",
-        "embeddings_column": "embeddings",
         "add_sparse_vector": false,
         "create_index": true,
         "provider_config": {

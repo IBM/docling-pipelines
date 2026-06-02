@@ -127,8 +127,8 @@ class AuthoringFlowCreateRequest(BaseModel):
 
     global_config: dict[str, Any] = Field(
         default_factory=dict,
-        description="Global configuration applied to all operators",
-        examples=[{"doc_column": "content", "disable_validation": True}],
+        description="Global configuration applied to all operators. Note: disable_validation must be a boolean (true/false), not a string.",
+        examples=[{"doc_column": "content", "disable_validation": False}],
     )
 
     tags: list[str] = Field(
@@ -225,8 +225,8 @@ class AuthoringFlowUpdateRequest(BaseModel):
 
     global_config: dict[str, Any] | None = Field(
         default=None,
-        description="Global configuration applied to all operators",
-        examples=[{"doc_column": "content", "disable_validation": True}],
+        description="Global configuration applied to all operators. Note: disable_validation must be a boolean (true/false), not a string.",
+        examples=[{"doc_column": "content", "disable_validation": False}],
     )
 
     tags: list[str] | None = Field(
@@ -313,8 +313,8 @@ class AuthoringFlowResponse(BaseModel):
 
     global_config: dict[str, Any] = Field(
         default_factory=dict,
-        description="Global configuration applied to all operators",
-        examples=[{"doc_column": "content", "disable_validation": True}],
+        description="Global configuration applied to all operators. Note: disable_validation must be a boolean (true/false), not a string.",
+        examples=[{"doc_column": "content", "disable_validation": False}],
     )
 
     flow_source: str = Field(

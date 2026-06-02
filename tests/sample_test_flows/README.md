@@ -328,7 +328,7 @@ datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensea
 ```json
 "global_config": {
   "doc_column": "content",              // Default document column name
-  "disable_validation": true,           // Skip validation for faster execution
+  "disable_validation": false,          // Boolean: Skip validation (default: false, keep validations enabled)
   "force_ingest": true,                 // Force re-ingestion of documents
   "enable_micro_batching": true,        // Enable batch processing
   "micro_batch_size": 10                // Batch size for processing

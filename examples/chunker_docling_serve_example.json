@@ -16,8 +16,7 @@
         "name": "ingest",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "./tests/fixtures/invoices",
-          "store_binary_content": false
+          "input_folder": "./tests/fixtures/invoices"
         },
         "input_edges": [],
         "output_edges": [

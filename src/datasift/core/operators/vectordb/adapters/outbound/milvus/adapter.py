@@ -106,21 +106,10 @@ class MilvusAdapter(VectorStorePort):
         metric_type = adapter_config.get(OperatorConstants.VectorDB.METRIC_TYPE, DEFAULT_METRIC_TYPE)
         index_parameters = adapter_config.get(OperatorConstants.VectorDB.INDEX_PARAMETERS, {})
 
-        # Override index_type for sparse vector mode and validate metric_type
+        # Note: Sparse vector mode uses hardcoded index configuration in MilvusIndexManager
+        # The index_type and metric_type parameters here are only used for dense vectors
         if self.add_sparse_vector:
-            index_type = "SPARSE_INVERTED_INDEX"
-
-            if metric_type.upper() != "BM25":
-                from datasift.exceptions.datasift_exceptions import DatasiftException
-                from datasift.exceptions.error_codes import ErrorCode
-
-                raise DatasiftException(
-                    message=f"Sparse vector mode requires metric_type='BM25', but got '{metric_type}'",
-                    status_code=400,
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                )
-
-            logger.info(f"Sparse vector mode enabled: using index_type={index_type}, metric_type={metric_type}")
+            logger.info("Sparse vector mode enabled: using hardcoded SPARSE_INVERTED_INDEX with BM25")
 
         # Initialize Milvus client
         self.client_manager = MilvusClient(
@@ -144,11 +133,9 @@ class MilvusAdapter(VectorStorePort):
             collection_name=self.collection_name or "",
             index_type=index_type,
             metric_type=metric_type,
-            vector_dimension=self.vector_dimension,
             index_parameters=index_parameters,
             available_features=available_features,
             feature_mappings=feature_mappings,
-            embeddings_column=self.embeddings_column,
             primary_key_field=self.primary_key_field,
             auto_id=False,
             add_sparse_vector=self.add_sparse_vector,
@@ -227,20 +214,9 @@ class MilvusAdapter(VectorStorePort):
         Args:
             dimension_mapping: Dictionary mapping vector column names to their dimensions
         """
-        # Get dimension from mapping
-        if self.embeddings_column not in dimension_mapping:
-            raise ValueError(
-                f"Embeddings column '{self.embeddings_column}' not found in dimension_mapping. "
-                f"Available columns: {list(dimension_mapping.keys())}"
-            )
-        dimension = dimension_mapping[self.embeddings_column]
-
-        # Update dimension
-        self.index_manager.vector_dimension = dimension
-        self.vector_dimension = dimension
-
-        self.index_manager.create_collection()
-        logger.info(f"Created collection: {self.collection_name} with dimension: {dimension}")
+        # Pass the full dimension_mapping to create_collection for multi-model support
+        self.index_manager.create_collection(dimension_mapping=dimension_mapping)
+        logger.info(f"Created collection: {self.collection_name} with dimension mapping: {dimension_mapping}")
 
     def refresh_index(self) -> None:
         """Refresh the collection to make recent changes visible.
@@ -277,11 +253,9 @@ class MilvusAdapter(VectorStorePort):
         return detect_vector_dimension(table=table, embeddings_column=col_name)
 
     def detect_all_vector_dimensions(self, table: pa.Table, *, vector_columns: list[str]) -> dict[str, int]:
-        """Detect dimensions for all vector columns.
+        """Detect dimensions for all specified vector columns.
 
-        Note: Milvus adapter currently supports only single-model embeddings.
-        For compatibility, this detects all requested columns but only the primary
-        embeddings_column will be used during index creation.
+        Supports multi-model embeddings by detecting dimensions for all vector columns.
 
         Args:
             table: PyArrow table containing embeddings

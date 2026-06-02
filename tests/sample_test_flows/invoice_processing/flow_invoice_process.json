@@ -27,7 +27,6 @@
       "config": {
         "paths": "./tests/fixtures/invoices/",
         "include_filter": ".pdf",
-        "store_binary_content": true,
         "max_files": 30,
         "force_ingest": true
       }
@@ -100,8 +99,8 @@
         "provider_config": {
           "host": "localhost",
           "port": 9200,
-          "username": "admin",
-          "password": "<MyStrongPass123!>",
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": false,
           "verify_certs": false,
           "engine": "faiss",

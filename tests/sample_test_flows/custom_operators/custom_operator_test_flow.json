@@ -15,8 +15,7 @@
       "name": "ingest",
       "operator": "ingest_local",
       "config": {
-        "paths": "./tests/fixtures/customer_support_docs",
-        "store_binary_content": true
+        "paths": "./tests/fixtures/customer_support_docs"
       },
       "input_edges": [],
       "output_edges": [{"node_id_ref": "22222222-3333-4444-5555-666666666666"}]

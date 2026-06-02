@@ -218,7 +218,7 @@ def basic_operator_config():
     Return a basic operator configuration for testing.
     Can be extended by individual tests.
     """
-    return {"max_files": 10, "force_ingest": True, "store_binary_content": True}
+    return {"max_files": 10, "force_ingest": True}
 
 
 @pytest.fixture

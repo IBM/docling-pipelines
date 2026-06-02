@@ -3,7 +3,7 @@
   "description": "Ingest documents from AWS S3 bucket, extract text, chunk text, generate embeddings using Ollama, and store in OpenSearch.",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": false,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -82,8 +82,8 @@
         "provider_config": {
           "host": "9.30.97.49",
           "port": 9200,
-          "username": "admin",
-          "password": "<insert_opensearch_password>",
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": true,
           "verify_certs": false,
           "batch_size": 100,

@@ -209,15 +209,15 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Class:** `core.operators.ingest.ingest_local.IngestLocalOperator`
 
-| Parameter             | Type          | Required | Default              | Description                                                                             |
-| --------------------- | ------------- | -------: | -------------------- | ----------------------------------------------------------------------------------------|
-| `paths`               | string/list   |      Yes | `../test-data/input` | Path(s) to file(s) or folder(s) to ingest. Can be a single path string or list of paths |
-| `include_filter`      | string        |       No | -                    | Comma-separated extensions to include                                                   |
-| `exclude_filter`      | string        |       No | -                    | Comma-separated extensions to exclude                                                   |
-| `max_files`           | int           |       No | `100`                | Maximum number of files to ingest                                                       |
-| `max_file_size`       | int           |       No | `100`                | Maximum file size in MB                                                                 |
-| `force_ingest`        | bool          |       No | `false`              | Reprocess already-seen documents                                                        |
-| `retain_deleted_docs` | bool          |       No | project constant     | Retain source-deleted docs in incremental scenarios                                     |
+| Parameter             | Type        | Required | Default              | Description                                                                             |
+| --------------------- | ----------- | -------: | -------------------- | --------------------------------------------------------------------------------------- |
+| `paths`               | string/list |      Yes | `../test-data/input` | Path(s) to file(s) or folder(s) to ingest. Can be a single path string or list of paths |
+| `include_filter`      | string      |       No | -                    | Comma-separated extensions to include                                                   |
+| `exclude_filter`      | string      |       No | -                    | Comma-separated extensions to exclude                                                   |
+| `max_files`           | int         |       No | `100`                | Maximum number of files to ingest                                                       |
+| `max_file_size`       | int         |       No | `100`                | Maximum file size in MB                                                                 |
+| `force_ingest`        | bool        |       No | `false`              | Reprocess already-seen documents                                                        |
+| `retain_deleted_docs` | bool        |       No | project constant     | Retain source-deleted docs in incremental scenarios                                     |
 
 **Input Schema**
 
@@ -275,15 +275,15 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Output Schema**
 
-| Column            | Type   | Description                                           |
-| ----------------- | ------ | ----------------------------------------------------- |
-| `id`              | string | MD5 hash of the source path                           |
-| `name`            | string | Source identifier (file path, URL, etc.)              |
-| `document_format` | string | File extension (e.g., `.pdf`, `.xlsx`, `.docx`)       |
-| `metadata`        | string | JSON-serialized metadata from the source document     |
-| `source_id`       | string | The source identifier                                 |
-| `path`            | string | Source path/URL for on-demand binary loading          |
-| `modified_time`   | int64  | Document modification timestamp (Unix timestamp)      |
+| Column            | Type   | Description                                       |
+| ----------------- | ------ | ------------------------------------------------- |
+| `id`              | string | MD5 hash of the source path                       |
+| `name`            | string | Source identifier (file path, URL, etc.)          |
+| `document_format` | string | File extension (e.g., `.pdf`, `.xlsx`, `.docx`)   |
+| `metadata`        | string | JSON-serialized metadata from the source document |
+| `source_id`       | string | The source identifier                             |
+| `path`            | string | Source path/URL for on-demand binary loading      |
+| `modified_time`   | int64  | Document modification timestamp (Unix timestamp)  |
 
 **Exceptions**
 
@@ -320,20 +320,20 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Class:** `core.operators.quality.classification.document_classifier.DocumentClassifierOperator`
 
-| Parameter              | Type      | Required | Default                  | Description                                                                               |
-| ---------------------- | --------- | -------- | ------------------------ | ----------------------------------------------------------------------------------------- |
-| `provider`             | string    | No       | `"litellm"`              | LLM provider: `"litellm"` or `"watsonx"`                                                  |
-| `provider_config`      | object    | No       | `{}`                | Provider-specific configuration including `model_id` (see below)                          |
-| `provider_config.model_id` | string | No   | `"openai/granite3.1-dense:8b"`   | Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"` for Ollama, `"openai/gpt-4o-mini"`, `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`)  |
-| `document_types`       | list/dict | No       | Auto-loaded         | Document types to classify into (list or dict with descriptions)                          |
-| `confidence_threshold` | float     | No       | `7.0`               | Minimum confidence for classification (1-10 scale)                                        |
-| `doc_column`           | string    | No       | `"content"`         | Column containing document text                                                           |
-| `output_column`        | string    | No       | `"document_type"`   | Column name for classification result                                                     |
-| `include_confidence`   | boolean   | No       | `true`              | Include confidence score in output                                                        |
-| `include_reasoning`    | boolean   | No       | `false`             | Include reasoning explanation in output                                                   |
-| `max_content_length`   | integer   | No       | `2000`              | Maximum content length to send to LLM                                                     |
-| `max_workers`          | integer   | No       | Auto                | Number of parallel workers                                                                |
-| `use_processes`        | boolean   | No       | `false`             | Use processes instead of threads                                                          |
+| Parameter                  | Type      | Required | Default                        | Description                                                                                                                                                                     |
+|----------------------------| --------- | -------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider`                 | string    | No       | `"litellm"`                    | LLM provider: `"litellm"` or `"watsonx"`                                                                                                                                        |
+| `provider_config`          | object    | No       | `{}`                           | Provider-specific configuration (api_key, api_base, etc.)                                                                                                                       |
+| `provider_config.model_id` | string    | No       | `"openai/granite3.1-dense:8b"` | Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"` for Ollama, `"openai/gpt-4o-mini"`, `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`) |
+| `document_types`           | list/dict | No       | Auto-loaded                    | Document types to classify into (list or dict with descriptions)                                                                                                                |
+| `confidence_threshold`     | float     | No       | `7.0`                          | Minimum confidence for classification (1-10 scale)                                                                                                                              |
+| `doc_column`               | string    | No       | `"content"`                    | Column containing document text                                                                                                                                                 |
+| `output_column`            | string    | No       | `"document_type"`              | Column name for classification result                                                                                                                                           |
+| `include_confidence`       | boolean   | No       | `true`                         | Include confidence score in output                                                                                                                                              |
+| `include_reasoning`        | boolean   | No       | `false`                        | Include reasoning explanation in output                                                                                                                                         |
+| `max_content_length`       | integer   | No       | `2000`                         | Maximum content length to send to LLM                                                                                                                                           |
+| `max_workers`              | integer   | No       | Auto                           | Number of parallel workers                                                                                                                                                      |
+| `use_processes`            | boolean   | No       | `false`                        | Use processes instead of threads                                                                                                                                                |
 
 **Provider-Specific Configuration**
 
@@ -395,6 +395,7 @@ Adds the following columns:
 **Metadata**
 
 The operator tracks document processing statistics in metadata:
+
 - `processed_docs`: Number of successfully classified documents
 - `failed_docs`: List of failed document paths with reasons (errors during processing)
 - `failed_docs_count`: Total number of failed documents

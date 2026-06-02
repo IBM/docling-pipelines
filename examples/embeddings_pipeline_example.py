@@ -211,7 +211,6 @@ def main() -> int:
         "paths": ingest_path,
         "include_filter": include_filter,
         "max_files": 10,
-        "store_binary_content": True,
         "force_ingest": True,
     }
 

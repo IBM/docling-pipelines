@@ -3,7 +3,7 @@
   "description": "Extraction pipeline using Docling entity extraction with inline HuggingFace model configuration",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "false",
+    "disable_validation": false,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -14,8 +14,7 @@
       "type": "ingest_local",
       "config": {
         "paths": "../../../tests/fixtures/invoices",
-        "include_filter": "pdf,docx",
-        "store_binary_content": true
+        "include_filter": "pdf,docx"
       }
     },
     {

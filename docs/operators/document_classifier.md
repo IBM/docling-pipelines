@@ -439,8 +439,7 @@ The operator provides detailed processing statistics in metadata:
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "paths": "./documents",
-        "store_binary_content": true
+        "paths": "./documents"
       }
     },
     {

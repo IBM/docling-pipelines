@@ -237,6 +237,15 @@ class AuthoringFlow:
         if self.description and len(self.description) > 2000:
             errors.append("Flow description cannot exceed 2000 characters")
 
+        # Validate disable_validation is boolean if present in global_config
+        if OperatorConstants.Config.DISABLE_VALIDATION in self.global_config:
+            disable_val = self.global_config[OperatorConstants.Config.DISABLE_VALIDATION]
+            if not isinstance(disable_val, bool):
+                errors.append(
+                    f"global_config.disable_validation must be a boolean (true/false), "
+                    f"got {type(disable_val).__name__}: {disable_val}"
+                )
+
         # Validate flow is not empty
         if not self.flow or len(self.flow) == 0:
             raise FlowInvalidDataException(

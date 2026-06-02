@@ -14,8 +14,7 @@
       "type": "ingest_local",
       "config": {
         "paths": "./tests/fixtures/invoices",
-        "include_filter": "pdf,docx,txt,md",
-        "store_binary_content": true
+        "include_filter": "pdf,docx,txt,md"
       }
     },
     {

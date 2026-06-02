@@ -20,9 +20,9 @@
           "recursive": true
         },
         "credentials": {
-          "client_id": "<value>",
-          "client_secret": "<value>",
-          "tenant_id": "<value>"
+          "client_id": "${SHAREPOINT_CLIENT_ID}",
+          "client_secret": "${SHAREPOINT_CLIENT_SECRET}",
+          "tenant_id": "${SHAREPOINT_TENANT_ID}"
         },
         "include_filter": ".txt,.pdf,.docx",
         "force_ingest": true
@@ -96,8 +96,8 @@
         "provider_config": {
           "host": "localhost",
           "port": 9200,
-          "username": "<value>",
-          "password": "<value>",
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

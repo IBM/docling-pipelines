@@ -65,11 +65,11 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "litellm",
-        "embeddings_model_id": "openai/nomic-embed-text",
+        "provider": "litellm",
         "doc_column": "content",
         "embeddings_column": "embeddings",
         "provider_config": {
+          "model_id": "openai/nomic-embed-text",
           "api_base": "http://localhost:11434/v1",
           "api_key": "${OLLAMA_API_KEY}"
         }
@@ -91,8 +91,8 @@
         "provider_config": {
           "host": "9.30.97.49",
           "port": 9200,
-          "username": "admin",
-          "password": "<insert_opensearch_password_here>",
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
           "use_ssl": true,
           "verify_certs": false,
           "batch_size": 100,

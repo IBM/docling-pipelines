@@ -15,7 +15,6 @@
       "config": {
         "paths": "./sample_documents",
         "include_filter": "pdf,txt,docx",
-        "store_binary_content": true,
         "max_workers": 4
       }
     },

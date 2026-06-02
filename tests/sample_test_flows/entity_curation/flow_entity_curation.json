@@ -16,7 +16,6 @@
       "config": {
         "paths": "./tests/fixtures/invoices",
         "include_filter": "txt,pdf,docx",
-        "store_binary_content": "true",
         "max_workers": 2
       }
     },

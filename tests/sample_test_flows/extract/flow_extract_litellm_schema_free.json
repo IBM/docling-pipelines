@@ -14,8 +14,7 @@
       "type": "ingest_local",
       "config": {
         "paths": "./tests/fixtures/invoices",
-        "include_filter": "pdf,docx,txt",
-        "store_binary_content": true
+        "include_filter": "pdf,docx,txt"
       }
     },
     {
@@ -26,7 +25,7 @@
         "provider_config": {
           "model_id": "openai/granite4:latest",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "<ollama_key>"
+          "api_key": "${OLLAMA_API_KEY}"
         },
         "confidence_threshold": 7.0,
         "doc_column": "content",
