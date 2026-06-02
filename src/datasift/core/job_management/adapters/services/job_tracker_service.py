@@ -745,8 +745,9 @@ class JobTrackerService(JobStatsService):
             pages_count = metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED]
             if isinstance(pages_count, int):
                 job_stats.total_pages_processed += pages_count
-                # Set execution_time to current UTC timestamp when pages are processed
-                job_stats.execution_time = int(datetime.now(UTC).timestamp())
+                # Set execution_time to duration in seconds (current time - start time)
+                current_timestamp = int(datetime.now(UTC).timestamp())
+                job_stats.execution_time = current_timestamp - job_stats.start_time
 
         # Update page_type_stats if present in metadata
         if OperatorConstants.Metadata.PAGE_TYPE_STATS in metadata:
