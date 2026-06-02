@@ -151,8 +151,6 @@ class BranchingOperator(AbstractOperator):
         branch_id: str | None = self.branch_criteria[idx].get(OperatorConstants.Misc.LINK_ID)
         metadata["branches"][branch_id] = {
             "result_index": idx,
-            "docs_filtered": total_docs - filtered_table.num_rows,
-            "remaining_docs": filtered_table.num_rows,
             "processed_docs": filtered_table.num_rows,
             "skipped_docs_count": len(skipped_docs),
             "failed_docs_count": len(failed_docs),

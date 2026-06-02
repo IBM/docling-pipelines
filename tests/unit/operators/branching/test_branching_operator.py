@@ -212,7 +212,9 @@ class TestUnconditionalBranching:
 
         _, metadata = operator.runner(table)
 
-        assert metadata["branches"]["b1"]["remaining_docs"] == table.num_rows
+        # Verify branch metadata exists
+        assert "b1" in metadata["branches"]
+        assert metadata["branches"]["b1"]["processed_docs"] == table.num_rows
 
 
 # ---------------------------------------------------------------------------
@@ -595,33 +597,7 @@ class TestMetadata:
         _, metadata = operator.runner(table)
 
         branch_meta = metadata["branches"]["b1"]
-        assert "remaining_docs" in branch_meta
-        assert "docs_filtered" in branch_meta
         assert "processed_docs" in branch_meta
-
-    def test_metadata_remaining_docs_correct(self):
-        """Branch metadata remaining_docs matches the actual filtered row count."""
-        table = make_table()  # 6 rows, score > 3 → 3 rows
-        branches = [
-            make_branch(link_id="b1", link_name="high", criteria_list=["score > 3"]),
-        ]
-        operator = make_operator(branches)
-
-        result_tables, metadata = operator.runner(table)
-
-        assert metadata["branches"]["b1"]["remaining_docs"] == result_tables[0].num_rows
-
-    def test_metadata_docs_filtered_correct(self):
-        """Branch metadata docs_filtered = total_docs - remaining_docs."""
-        table = make_table()  # 6 rows, score > 3 → 3 pass, 3 filtered
-        branches = [
-            make_branch(link_id="b1", link_name="high", criteria_list=["score > 3"]),
-        ]
-        operator = make_operator(branches)
-
-        _, metadata = operator.runner(table)
-
-        assert metadata["branches"]["b1"]["docs_filtered"] == 3
 
     def test_metadata_contains_total_docs(self):
         """runner() metadata contains total_docs_count."""
