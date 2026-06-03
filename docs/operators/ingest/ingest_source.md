@@ -15,16 +15,17 @@ The [`IngestSourceOperator`](../../../src/datasift/core/operators/ingest/ingest_
 
 ## Supported Providers
 
-### 1. Amazon S3
-Ingest documents from Amazon S3 buckets.
+### 1. Amazon S3 and S3-Compatible Storage
+Ingest documents from Amazon S3 buckets and S3-compatible storage services (IBM Cloud Object Storage, MinIO, etc.).
 
-**Configuration:**
+**Configuration (AWS S3):**
 ```python
 node_config = {
     'provider': 's3',
     'connection_params': {
         'bucket': 'your-bucket-name',
-        'prefix': 'optional/path/prefix/'  # Optional
+        'prefix': 'optional/path/prefix/',  # Optional
+        'region': 'us-east-1'  # Optional
     },
     'credentials': {
         'access_key': 'YOUR_AWS_ACCESS_KEY',
@@ -33,19 +34,10 @@ node_config = {
 }
 ```
 
-**Parameters:**
-- `bucket` (required): S3 bucket name
-- `prefix` (optional): Path prefix to filter objects
-- `access_key` (required): AWS access key ID
-- `secret_key` (required): AWS secret access key
-
-### 2. IBM Cloud Object Storage (COS)
-Ingest documents from IBM Cloud Object Storage (S3-compatible).
-
-**Configuration:**
+**Configuration (IBM Cloud Object Storage):**
 ```python
 node_config = {
-    'provider': 'ibm_cos',
+    'provider': 's3',
     'connection_params': {
         'bucket': 'your-bucket-name',
         'prefix': 'optional/path/prefix/',  # Optional
@@ -59,13 +51,20 @@ node_config = {
 ```
 
 **Parameters:**
-- `bucket` (required): COS bucket name
+- `bucket` (required): S3 bucket name
 - `prefix` (optional): Path prefix to filter objects
-- `endpoint_url` (required): IBM COS endpoint URL
-- `access_key` (required): IBM COS access key (HMAC credentials)
-- `secret_key` (required): IBM COS secret key (HMAC credentials)
+- `endpoint_url` (optional): Custom S3 endpoint URL for S3-compatible storage (e.g., IBM COS, MinIO). Leave empty for AWS S3.
+- `region` (optional): AWS region (e.g., 'us-east-1'). Optional for S3-compatible storage.
+- `access_key` (required): AWS access key ID or S3-compatible access key
+- `secret_key` (required): AWS secret access key or S3-compatible secret key
+- `recursive` (optional): Whether to recursively traverse subdirectories (default: True)
+- `file_extensions` (optional): List of file extensions to include (e.g., ['.pdf', '.docx'])
+- `exclude_patterns` (optional): List of glob patterns to exclude (e.g., ['*.tmp', '.DS_Store'])
+- `max_file_size_mb` (optional): Maximum file size in MB to process
+- `skip_hidden_files` (optional): Whether to skip hidden files (default: True)
+- `skip_empty_files` (optional): Whether to skip files with zero size (default: True)
 
-### 3. Microsoft SharePoint
+### 2. Microsoft SharePoint
 Ingest documents from SharePoint document libraries.
 
 **Configuration:**
@@ -93,7 +92,7 @@ node_config = {
 - `client_secret` (required): Azure AD application client secret
 - `tenant_id` (required): Azure AD tenant ID
 
-### 4. Microsoft OneDrive
+### 3. Microsoft OneDrive
 Ingest documents from OneDrive folders.
 
 **Configuration:**
@@ -123,7 +122,7 @@ node_config = {
 - `client_secret` (required): Azure AD application client secret
 - `tenant_id` (required): Azure AD tenant ID
 
-### 5. Google Drive
+### 4. Google Drive
 Ingest documents from Google Drive folders using OAuth 2.0 authentication.
 
 **Configuration:**
@@ -162,7 +161,7 @@ The operator uses read-only access by default for security. Available scopes:
 
 **Important:** If you change scopes, you must delete the existing token file to re-authenticate with the new permissions.
 
-### 6. Box
+### 5. Box
 Ingest documents from Box folders using JWT authentication.
 
 **Configuration:**
@@ -222,7 +221,7 @@ The adapter uses JWT (JSON Web Token) authentication which provides:
 - Rotate keys periodically as per security policy
 - Use environment variables for file paths in production
 
-### 7. Custom Loaders
+### 6. Custom Loaders
 Extend functionality with custom LangChain-compatible loaders.
 
 **Configuration:**
@@ -331,7 +330,7 @@ The operator supports include/exclude filtering by file extension:
 - **include_filter**: Comma-separated list of extensions to include (e.g., "pdf,txt,docx")
 - **exclude_filter**: Comma-separated list of extensions to exclude (e.g., "tmp,log")
 
-### S3/IBM COS Filtering
+### S3 Filtering
 The operator automatically filters out:
 - **Directory markers**: Objects with keys ending in `/`
 - **Hidden files**: Files or directories starting with `.` (except `.` and `..`)
@@ -406,7 +405,7 @@ Error: ('invalid_scope: Bad Request', {'error': 'invalid_scope', 'error_descript
 ```
 Error: Could not connect to endpoint
 ```
-**Solution:** Check network connectivity and endpoint URLs (especially for IBM COS).
+**Solution:** Check network connectivity and endpoint URLs (especially for S3-compatible storage like IBM COS).
 
 **Permission Errors:**
 ```
@@ -592,7 +591,7 @@ Initialize the operator with configuration.
 
 **Parameters:**
 - `node_config` (dict): Configuration dictionary containing:
-  - `provider` (str): Provider identifier (s3, ibm_cos, google_drive, sharepoint, onedrive, web, custom)
+  - `provider` (str): Provider identifier (s3, google_drive, sharepoint, onedrive, box_driver, filesystem, web, custom)
   - `connection_params` (dict): Provider-specific connection parameters
   - `credentials` (dict): Authentication credentials
   - `job_id` (str, optional): Job identifier for tracking
@@ -639,7 +638,23 @@ node_config = {
 }
 ```
 
-### Example 2: Google Drive Recursive
+### Example 2: S3-Compatible Storage (IBM COS)
+```python
+node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'enterprise-data',
+        'prefix': 'contracts/',
+        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud'
+    },
+    'credentials': {
+        'access_key': os.getenv('IBM_COS_ACCESS_KEY'),
+        'secret_key': os.getenv('IBM_COS_SECRET_KEY')
+    }
+}
+```
+
+### Example 3: Google Drive Recursive
 ```python
 node_config = {
     'provider': 'google_drive',
@@ -655,7 +670,7 @@ node_config = {
 }
 ```
 
-### Example 3: Box with JWT Authentication
+### Example 4: Box with JWT Authentication
 ```python
 node_config = {
     'provider': 'box_driver',
@@ -670,22 +685,6 @@ node_config = {
     },
     'included_extensions': ['.pdf', '.docx', '.txt', '.pptx', '.xlsx'],
     'max_files': 100
-}
-```
-
-### Example 4: IBM COS with Custom Endpoint
-```python
-node_config = {
-    'provider': 'ibm_cos',
-    'connection_params': {
-        'bucket': 'enterprise-data',
-        'prefix': 'contracts/',
-        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud'
-    },
-    'credentials': {
-        'access_key': os.getenv('IBM_COS_ACCESS_KEY'),
-        'secret_key': os.getenv('IBM_COS_SECRET_KEY')
-    }
 }
 ```
 
