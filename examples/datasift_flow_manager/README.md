@@ -39,7 +39,7 @@ This example creates test data, executes a full pipeline, shows results, and cle
 
 ### Required Software
 - Python 3.12 (as specified in `.python-version`)
-- Ollama running on `http://localhost:11434` (for LLM operations)
+- Ollama running on `http://localhost:11434` (for local LLM operations and embeddings)
 - OpenSearch running on `http://localhost:9200` (optional, for vector storage examples)
 
 ### Required Models
@@ -48,6 +48,8 @@ This example creates test data, executes a full pipeline, shows results, and cle
 ollama pull nomic-embed-text  # Used in sample_flow.json
 ollama pull granite4          # Used in 06_basic_test_flow.json
 ```
+
+**Note:** The examples use Ollama locally via LiteLLM, so **no real API keys are required** (no OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.). The flow configuration includes a dummy `api_key: "ollama"` parameter to satisfy LiteLLM's validation, but this value is not actually used by Ollama. All processing happens on your local machine.
 
 ## Setup Instructions
 

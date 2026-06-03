@@ -28,6 +28,12 @@ Run:
     source src/datasift_opensource/backend/.venv/bin/activate
     export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
     python examples/datasift_flow_manager/00_complete_example.py
+
+Note:
+    This example uses Ollama locally for embeddings via LiteLLM.
+    No real API keys are required (no OPENAI_API_KEY, etc.).
+    The flow includes a dummy api_key: "ollama" for validation only.
+    All processing happens on your local machine.
 """
 
 import shutil
