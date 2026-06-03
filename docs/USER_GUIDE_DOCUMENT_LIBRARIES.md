@@ -150,7 +150,7 @@ curl -X GET "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-
 ```
 
 #### 3. Update a Document Library
-**Endpoint**: `PUT /api/v1/document-libraries/{library_id}`
+**Endpoint**: `PATCH /api/v1/document-libraries/{library_id}`
 
 **Request Body** (all fields optional):
 ```json
@@ -165,7 +165,7 @@ curl -X GET "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-
 
 **Example using curl**:
 ```bash
-curl -X PUT "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000" \
+curl -X PATCH "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Financial Documents Q1 2024 - Updated",
@@ -185,24 +185,32 @@ curl -X PUT "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-
 curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000"
 ```
 
-#### 5. Add Document Set to Library
-**Endpoint**: `POST /api/v1/document-libraries/{library_id}/document-sets/{document_set_id}`
+#### 5. Add Document Sets to Library (Bulk)
+**Endpoint**: `PUT /api/v1/document-libraries/{library_id}/document-sets`
 
-**Response** (200 OK): Returns updated library object with new document set
+**Query Parameters**:
+- `document_sets_ids` (required): Comma-separated list of document set UUIDs
+
+**Response** (204 No Content): Document sets added successfully
 
 **Example using curl**:
 ```bash
-curl -X POST "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets/abc123"
+curl -X PUT "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets?document_sets_ids=abc123,def456,ghi789"
 ```
 
-#### 6. Remove Document Set from Library
-**Endpoint**: `DELETE /api/v1/document-libraries/{library_id}/document-sets/{document_set_id}`
+#### 6. Remove Document Sets from Library (Bulk)
+**Endpoint**: `DELETE /api/v1/document-libraries/{library_id}/document-sets`
 
-**Response** (200 OK): Returns updated library object without the document set
+**Query Parameters**:
+- `document_sets_ids` (required): Comma-separated list of document set UUIDs
+
+**Response** (204 No Content): Document sets removed successfully
+
+**Note**: This removes the associations but does NOT delete the document sets themselves.
 
 **Example using curl**:
 ```bash
-curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets/abc123"
+curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets?document_sets_ids=abc123,def456"
 ```
 
 #### 7. List All Document Libraries
