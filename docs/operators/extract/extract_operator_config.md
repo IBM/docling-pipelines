@@ -549,7 +549,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 1: Basic Text Extraction
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -568,7 +567,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 2: Text + Entity Extraction with Ollama (via LiteLLM)
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -595,7 +593,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 3: VLM-Enhanced Extraction
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -622,7 +619,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 4: Docling Serve Extraction
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -645,7 +641,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 5: Multi-Format Output
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -665,7 +660,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 6: LiteLLM Entity Extraction with OpenAI
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -691,7 +685,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 7: LiteLLM Entity Extraction with Remote vLLM (Streaming)
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -721,7 +714,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 8: Docling Entity Extraction with Custom Model
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
@@ -758,7 +750,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ### Example 9: Docling Entity Extraction with Default Model
 ```json
 {
-  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction": {
