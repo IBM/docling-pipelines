@@ -99,7 +99,7 @@ document_library_patch_example = {
 }
 
 document_library_example = {
-    "asset_id": "7af0b030-05bc-11f0-ad30-153202918e02",
+    "library_id": "7af0b030-05bc-11f0-ad30-153202918e02",
     "name": "Document library",
     "description": "Document library description",
     "purpose": "Leave Policies",
@@ -185,7 +185,7 @@ class DocumentLibraryPrototype(BaseModel):
 
 
     Fields:
-        asset_id: Optional identifier (can be provided on create)
+        library_id: Optional identifier (can be provided on create)
         name: Required library name (1-256 chars)
         description: Optional description (max 1024 chars)
         purpose: Optional additional information (max 1024 chars)
@@ -194,7 +194,7 @@ class DocumentLibraryPrototype(BaseModel):
         tags: Optional list of tags
     """
 
-    asset_id: str | None = Field(
+    library_id: str | None = Field(
         default=None,
         title="Asset ID",
         description="Identifier of the document library",
