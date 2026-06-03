@@ -41,7 +41,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from datasift.core.constants.constants import Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.embeddings_operator import EmbeddingsOperator
+from datasift.core.operators.functional.embeddings import EmbeddingsOperator
 from datasift.integrations.ollama.client import OllamaClient
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -262,13 +262,13 @@ def main() -> int:
     print("=" * 80)
 
     extract_config: dict[str, Any] = {
-        "text_extraction": {
-            "provider": "docling_library",
-            "doc_column": "content",
-            "extract_tables": True,
-            "extract_images": False,
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: "docling_library",
+            OperatorConstants.Config.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
         },
-        "entity_extraction": {"provider": "none"},
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE
+        },
     }
 
     try:
@@ -306,12 +306,12 @@ def main() -> int:
 
     chunk_config: dict[str, Any] = {
         "chunk_type": "hybrid",
-        "doc_column": "content",
-        "chunk_size": args.chunk_size,
+        OperatorConstants.Config.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+        OperatorConstants.Processing.CHUNK_SIZE: args.chunk_size,
         "chunk_overlap": 128,
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
         "retain_original_content": False,
-        "summarization": {"enabled": True},
+        OperatorConstants.Config.SUMMARIZATION: {OperatorConstants.Config.ENABLED: True},
     }
 
     try:
@@ -353,11 +353,16 @@ def main() -> int:
     print("=" * 80)
 
     embeddings_config: dict[str, Any] = {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": args.model,
-        "embeddings_column": "embeddings",
+        OperatorConstants.Config.PROVIDER: OperatorConstants.Config.PROVIDER_LITELLM,
+        OperatorConstants.Config.PROVIDER_CONFIG: {
+            OperatorConstants.Config.MODEL_ID: f"openai/{args.model}",
+            OperatorConstants.LLM.API_BASE: "http://localhost:11434",
+            OperatorConstants.Config.BATCH_SIZE: 32,
+            OperatorConstants.Processing.TIMEOUT: 120,
+        },
+        OperatorConstants.Columns.EMBEDDINGS_COLUMN: OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
+        OperatorConstants.Config.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
         "overlap_ratio": 0.2,
-        "doc_column": "content",
     }
 
     try:
@@ -374,8 +379,8 @@ def main() -> int:
             f"Failed={embeddings_metadata.get('failed_docs_count', 0)}"
         )
 
-        if "embeddings" in embeddings_table.column_names and embeddings_table.num_rows > 0:
-            embeddings_data: Any = embeddings_table["embeddings"][0].as_py()
+        if OperatorConstants.Columns.EMBEDDINGS in embeddings_table.column_names and embeddings_table.num_rows > 0:
+            embeddings_data: Any = embeddings_table[OperatorConstants.Columns.EMBEDDINGS][0].as_py()
             if embeddings_data:
                 if isinstance(embeddings_data, list):
                     if isinstance(embeddings_data[0], list):

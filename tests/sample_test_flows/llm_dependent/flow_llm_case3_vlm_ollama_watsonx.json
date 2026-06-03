@@ -65,9 +65,7 @@
                 "api_base": "http://localhost:11434",
                 "model_id": "llama3.2-vision"
               }
-            },
-            "extract_tables": true,
-            "extract_images": false
+            }
           }
         },
         "entity_extraction": {

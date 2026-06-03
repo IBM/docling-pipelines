@@ -38,8 +38,6 @@ This architecture enables:
       "provider": "docling_library",
       "doc_column": "content",
       "provider_config": {
-        "extract_tables": true,
-        "extract_images": true
       }
     },
     "entity_extraction": {
@@ -63,8 +61,6 @@ Standard document extraction using the Docling library locally. Supports optiona
     "provider": "docling_library",
     "doc_column": "content",
     "provider_config": {
-      "extract_tables": true,
-      "extract_images": true
     }
   },
   "entity_extraction": {
@@ -548,8 +544,6 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 |-----------|------|---------|-------------|
 | `text_extraction.provider` | string | `"docling_library"` | Text extraction strategy: `"docling_library"` or `"docling_serve"` |
 | `text_extraction.doc_column` | string | `"doc_content"` | Column name for storing extracted content |
-| `text_extraction.provider_config.extract_tables` | boolean | `true` | Whether to extract tables from documents |
-| `text_extraction.provider_config.extract_images` | boolean | `true` | Whether to extract images from documents |
 | `text_extraction.provider_config.additional_formats` | array | `[]` | Additional output formats (e.g., `["html", "markdown"]`) |
 | `max_workers` | integer | auto | Maximum number of parallel workers (auto-detected based on CPU) |
 | `text_extraction.provider_config.use_processes` | boolean | `false` | Use ProcessPoolExecutor instead of ThreadPoolExecutor |
@@ -690,8 +684,6 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
       "provider": "docling_library",
       "doc_column": "content",
       "provider_config": {
-        "extract_tables": true,
-        "extract_images": true
       }
     },
     "entity_extraction": {
@@ -927,7 +919,6 @@ ffmpeg -version
 ```
 
 **Used By:** Text extraction with ASR (Automatic Speech Recognition) when processing audio/video files
-
 
 ### Ollama Integration (for LiteLLM entity extraction with Ollama)
 

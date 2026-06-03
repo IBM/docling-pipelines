@@ -172,11 +172,11 @@ class OperatorMetadataItem(BaseModel):
         ...     },
         ...     required_features=[],
         ...     attributes={
-        ...         "text_extraction_mode": OperatorFeature(
-        ...             type="string",
-        ...             description="Text extraction strategy",
+        ...         "text_extraction": OperatorFeature(
+        ...             type="json",
+        ...             description="Text extraction configuration with provider and settings",
         ...             required=True,
-        ...             default="docling_library"
+        ...             default={"provider": "docling_library", "doc_column": "doc_content"}
         ...         )
         ...     }
         ... )
@@ -265,19 +265,19 @@ class OperatorMetadataItem(BaseModel):
                     },
                     "required_features": [],
                     "attributes": {
-                        "text_extraction_mode": {
-                            "type": "string",
-                            "description": "Text extraction strategy (docling_library or docling_serve)",
-                            "required": True,
-                            "default": "docling_library",
+                        "text_extraction": {
+                            "type": "object",
+                            "description": "Text extraction configuration with provider and settings",
+                            "required": False,
+                            "default": {"provider": "docling_library", "doc_column": "doc_content"},
                             "available_for_filter": None,
                             "available_for_vector_db": None,
                         },
-                        "entity_extraction_mode": {
-                            "type": "string",
-                            "description": "Entity extraction strategy (litellm, watsonx, docling, or none)",
+                        "entity_extraction": {
+                            "type": "object",
+                            "description": "Entity extraction configuration with provider and settings",
                             "required": False,
-                            "default": "none",
+                            "default": {"provider": "none"},
                             "available_for_filter": None,
                             "available_for_vector_db": None,
                         },

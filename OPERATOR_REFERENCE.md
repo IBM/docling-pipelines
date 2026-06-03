@@ -520,8 +520,6 @@ This simplified design removes the port/adapter overhead while maintaining clean
 | `text_extraction.provider`                                | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
 | `text_extraction.doc_column`                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
 | `text_extraction.additional_formats`                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`                       |
-| `text_extraction.extract_tables`                          | bool   |       No | `false`                   | Extract tables from documents                                                                      |
-| `text_extraction.extract_images`                          | bool   |       No | `false`                   | Extract images from documents                                                                      |
 | `text_extraction.vlm_pipeline`                            | object |       No | `null`                    | VLM (Vision-Language Model) pipeline configuration (docling_library mode)                          |
 | `text_extraction.vlm_pipeline.preset`                     | string |       No | `fast`                    | VLM preset name: `fast`, `accurate`, or custom preset                                              |
 | `text_extraction.vlm_pipeline.engine`                     | string |       No | `ollama`                  | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.                                        |
@@ -569,8 +567,6 @@ This simplified design removes the port/adapter overhead while maintaining clean
 - `content_doctags` - Docling's native DocTags format (if `additional_formats` includes "doctags")
 - `entities` (or configured `output_column`) - Extracted entities as JSON string (if entity extraction enabled)
 - `doc_id_hash` - Document hash identifier
-- `tables` - Extracted tables as JSON (if `extract_tables=true`)
-- `images` - Extracted images metadata as JSON (if `extract_images=true`)
 - `pages_processed` - Estimated number of pages for the extracted document text, calculated using 3000 characters = 1 page
 - Individual entity columns (if `expand_extracted_data=true`)
 
@@ -599,8 +595,6 @@ The operator provides the following metadata after execution:
       "provider": "docling_library",
       "doc_column": "content",
       "provider_config": {
-        "extract_tables": true,
-        "extract_images": true
       }
     },
     "entity_extraction": {
@@ -727,8 +721,6 @@ The operator provides the following metadata after execution:
       "provider": "docling_library",
       "provider_config": {
         "additional_formats": ["html", "json", "text"],
-        "extract_tables": true,
-        "extract_images": true
       }
     },
     "entity_extraction": {
@@ -1326,8 +1318,6 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 }
 ```
 
-
-
 ---
 
 #### BranchingOperator
@@ -1564,8 +1554,6 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 **See Also:** [PII and HAP Documentation](docs/operators/pii_and_hap/pii_and_hap.md)
 
 ---
-
-
 
 #### EdedupOperator
 
@@ -2182,7 +2170,6 @@ For new backends, implement the document set ports, register adapters with the f
 
 ### Constructor
 - `DatasiftFlowManager(flow_file=None, flow_def=None, job_id=None, job_run_id=None, flow_id=None, enable_custom_operators=None)`
-
 
 Exactly one of `flow_file` or `flow_def` must be provided.
 

@@ -57,8 +57,6 @@ class TestExtractOperatorIntegration:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "document",
-                "extract_tables": True,
-                "extract_images": False,
                 "provider_config": {"max_workers": 2},
             },
             "entity_extraction": {"provider": "none"},
@@ -133,8 +131,6 @@ class TestExtractOperatorIntegration:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "document",
-                "extract_tables": True,
-                "extract_images": True,
                 "provider_config": {
                     "vlm_pipeline": {"enabled": True, "preset": "granite_docling", "engine": "transformers"},
                     "max_workers": 1,  # VLM is resource-intensive
@@ -348,8 +344,6 @@ class TestExtractOperatorRealWorld:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "document",
-                "extract_tables": True,
-                "extract_images": False,
                 "provider_config": {"max_workers": 2},
             },
             "entity_extraction": {"provider": "none"},

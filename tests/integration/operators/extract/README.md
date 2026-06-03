@@ -176,8 +176,6 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
         "provider": "docling_library",
         "doc_column": "document",
         "provider_config": {
-            "extract_tables": true,
-            "extract_images": false
         }
     },
     "entity_extraction": {

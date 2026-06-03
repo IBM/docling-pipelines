@@ -257,9 +257,7 @@ class TestExtractOperatorSpecialCase:
         result = propagator.propagate_features(
             node_id="extract-node",
             operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
-            operator_config={
-                OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE
-            },
+            operator_config={OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE},
             input_features=input_features,
             global_config={},
             parent_results=[],
@@ -291,7 +289,7 @@ class TestExtractOperatorSpecialCase:
         result = propagator.propagate_features(
             node_id="extract-node",
             operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
-            operator_config={OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: "ollama"},
+            operator_config={OperatorConstants.Config.PROVIDER: "litellm"},
             input_features=input_features,
             global_config={},
             parent_results=[],

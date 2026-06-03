@@ -96,8 +96,6 @@ extract_config = {
     "text_extraction": {
         "doc_column": "content",
         "provider_config": {
-            "extract_tables": True,
-            "extract_images": True
         }
     }
 }

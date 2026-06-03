@@ -40,8 +40,6 @@ The Extract Operator is a unified extraction operator that provides text and ent
 - `provider` (String): Text extraction strategy (`docling_library`, `docling_serve`)
 - `doc_column` (String): Column name for extracted content
 - `additional_formats` (Array): Additional output formats
-- `extract_tables` (Boolean): Extract tables from documents
-- `extract_images` (Boolean): Extract images from documents
 - `provider_config` (Object): Provider-specific configuration only
 - VLM parameters in `text_extraction.provider_config.vlm_pipeline` (for docling_library mode)
 - Docling Serve parameters in `text_extraction.provider_config` (for docling_serve mode)
@@ -52,8 +50,6 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "provider": "docling_library",
   "doc_column": "content",
   "provider_config": {
-    "extract_tables": true,
-    "extract_images": true
   }
 }
 ```
@@ -117,37 +113,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 }
 ```
 
-#### 5. `text_extraction.provider_config.extract_tables` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `true`
-**Description:** Whether to extract tables from documents.
-
-**Examples:**
-```json
-"text_extraction": {
-  "provider_config": {
-    "extract_tables": true
-  }
-}
-```
-
-#### 6. `text_extraction.provider_config.extract_images` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `true`
-**Description:** Whether to extract images from documents.
-
-**Examples:**
-```json
-"text_extraction": {
-  "provider_config": {
-    "extract_images": false
-  }
-}
-```
-
-#### 7. `text_extraction.provider_config.additional_formats` (Array)
+#### 5. `text_extraction.provider_config.additional_formats` (Array)
 **Type:** Array of strings
 **Required:** No
 **Default:** `[]` (empty array - markdown only)
@@ -179,7 +145,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 - **Additional formats are only generated for documents processed through Docling** (docling_library or docling_serve modes). Plain text files (.txt, .md) are read directly and will not generate these additional format columns.
 - Only request formats you actually need to minimize memory usage and storage
 
-#### 8. `max_workers` (Integer)
+#### 6. `max_workers` (Integer)
 **Type:** Integer  
 **Required:** No  
 **Default:** Auto (CPU-based)  
@@ -190,7 +156,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 "max_workers": 4
 ```
 
-#### 9. `use_processes` (Boolean)
+#### 7. `use_processes` (Boolean)
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
@@ -203,7 +169,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 ### Entity Extraction Parameters
 
-#### 10. `entity_extraction.provider_config` (Object)
+#### 8. `entity_extraction.provider_config` (Object)
 **Type:** JSON Object
 **Required:** No
 **Default:** `{}`
@@ -243,7 +209,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 **Note:** Docling entity extraction uses template-based extraction with Docling's DocumentExtractor. When `vlm_pipeline` is not provided, it uses the default model configuration. Custom models allow fine-tuning extraction behavior for specific document types.
 
-#### 11. `entity_extraction.custom_schema` (JSON)
+#### 9. `entity_extraction.custom_schema` (JSON)
 **Type:** JSON Object  
 **Required:** No  
 **Default:** None
@@ -260,7 +226,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 }
 ```
 
-#### 12. `entity_extraction.expand_extracted_data` (Boolean)
+#### 10. `entity_extraction.expand_extracted_data` (Boolean)
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
@@ -275,7 +241,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 ### VLM (Vision-Language Model) Parameters
 
-#### 13. `text_extraction.provider_config.vlm_pipeline` (Object)
+#### 11. `text_extraction.provider_config.vlm_pipeline` (Object)
 **Type:** JSON Object
 **Required:** No
 **Default:** `null`
@@ -531,14 +497,14 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 
 ### `tables` (String)
 **Type:** String
-**Description:** Extracted tables from document (when `extract_tables` is enabled)
+**Description:** Extracted tables from document 
 **Available for Filter:** Yes
 **Available for Vector DB:** Yes
 **Note:** Added as serialized JSON when tables are extracted from documents
 
 ### `images` (String)
 **Type:** String
-**Description:** Extracted images from document (when `extract_images` is enabled)
+**Description:** Extracted images from document 
 **Available for Filter:** Yes
 **Available for Vector DB:** Yes
 **Note:** Added as serialized JSON when images are extracted from documents
@@ -589,8 +555,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
     "text_extraction": {
       "provider": "docling_library",
       "provider_config": {
-        "extract_tables": true,
-        "extract_images": false
       }
     },
     "entity_extraction": {
@@ -645,8 +609,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
             "model_id": "llama3.2-vision"
           }
         },
-        "extract_tables": true,
-        "extract_images": true
       }
     },
     "entity_extraction": {
@@ -690,8 +652,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
       "provider": "docling_library",
       "provider_config": {
         "additional_formats": ["html", "json", "text"],
-        "extract_tables": true,
-        "extract_images": true
       }
     },
     "entity_extraction": {

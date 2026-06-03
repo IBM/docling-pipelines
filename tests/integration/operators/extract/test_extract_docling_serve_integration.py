@@ -127,11 +127,9 @@ def multiple_pdf_paths() -> list[Path]:
 def docling_serve_config() -> dict[str, Any]:
     """Default configuration for docling-serve integration."""
     return {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
-        OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+        OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
+        OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
         OperatorConstants.Columns.DOC_COLUMN: "doc_content",
-        OperatorConstants.Config.EXTRACT_TABLES: True,
-        OperatorConstants.Config.EXTRACT_IMAGES: True,
         OperatorConstants.Config.BASE_URL: DOCLING_SERVE_URL,
         OperatorConstants.Processing.TIMEOUT: 300,
         OperatorConstants.Processing.POLL_INTERVAL: 2,

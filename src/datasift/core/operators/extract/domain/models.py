@@ -65,8 +65,7 @@ class ExtractionRequest:
     """Request for text extraction from a document.
 
     Contains document-specific parameters for extraction. Configuration settings
-    (extract_tables, extract_images, VLM settings, etc.) are passed to the adapter
-    at initialization time, not per-request.
+    (VLM settings, etc.) are passed to the adapter at initialization time, not per-request.
 
     Attributes:
         file_path: Path to the document file

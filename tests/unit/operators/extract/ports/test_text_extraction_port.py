@@ -59,8 +59,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 5}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -73,8 +71,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -90,8 +86,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 7.0}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -104,8 +98,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -124,8 +116,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {}  # No page_count
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -138,8 +128,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -156,8 +144,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -170,8 +156,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -188,8 +172,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -202,8 +184,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -220,8 +200,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -234,8 +212,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -253,8 +229,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 0}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -267,8 +241,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -286,8 +258,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": -5}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -300,8 +270,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -319,8 +287,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": "invalid"}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -333,8 +299,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -352,8 +316,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": None}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -366,8 +328,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -385,8 +345,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -399,8 +357,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -418,8 +374,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -432,8 +386,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
@@ -451,8 +403,6 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 15}
         doc_contents = [""]
         doc_metadata_list = [{}]
-        doc_tables_list = [[]]
-        doc_images_list = [[]]
         format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
@@ -465,8 +415,6 @@ class TestTextExtractionPageCount:
             idx=0,
             doc_contents=doc_contents,
             doc_metadata_list=doc_metadata_list,
-            doc_tables_list=doc_tables_list,
-            doc_images_list=doc_images_list,
             format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,

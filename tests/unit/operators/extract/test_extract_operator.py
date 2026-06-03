@@ -77,8 +77,6 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
         "text_extraction": {
             "provider": "docling_library",
             "doc_column": "doc_content",
-            "extract_tables": True,
-            "extract_images": True,
         },
         "max_workers": 2,
     }
@@ -151,8 +149,6 @@ def test_extract_operator_multi_format_output(sample_pdf_files):
             "doc_column": "doc_content",
             "provider_config": {
                 "additional_formats": ["html", "json"],
-                "extract_tables": True,
-                "extract_images": True,
             },
         },
         "max_workers": 2,
@@ -224,8 +220,6 @@ def test_extract_operator_default_format(sample_pdf_files):
         "text_extraction": {
             "provider": "docling_library",
             "doc_column": "doc_content",
-            "extract_tables": True,
-            "extract_images": True,
         },
         "max_workers": 2,
     }
@@ -417,8 +411,6 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
         "text_extraction": {
             "provider": "docling_library",
             "doc_column": "doc_content",
-            "extract_tables": True,
-            "extract_images": False,
         },
         "entity_extraction": {
             "provider": "litellm",
@@ -740,8 +732,6 @@ def test_extract_operator_asr_with_audio_file():
                 },
             },
             "doc_column": "doc_content",
-            "extract_tables": False,
-            "extract_images": False,
         },
     }
 
@@ -883,8 +873,6 @@ def test_extract_operator_docling_serve_all_parameters():
                 "image_export_mode": "embedded",
             },
             "doc_column": "content",
-            "extract_tables": True,
-            "extract_images": True,
         },
         "max_workers": 4,
     }
@@ -1053,8 +1041,6 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
         "text_extraction": {
             "provider": "docling_library",
             "doc_column": "doc_content",
-            "extract_tables": True,
-            "extract_images": False,
         },
         "entity_extraction": {
             "provider": "litellm",
@@ -1134,8 +1120,6 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
         "text_extraction": {
             "provider": "docling_library",
             "doc_column": "doc_content",
-            "extract_tables": True,
-            "extract_images": False,
         },
         "entity_extraction": {
             "provider": "litellm",
@@ -1206,8 +1190,6 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
         "text_extraction": {
             "provider": "docling_library",
             "doc_column": "doc_content",
-            "extract_tables": True,
-            "extract_images": False,
         },
         "entity_extraction": {
             "provider": "litellm",
@@ -1913,8 +1895,6 @@ def test_extract_operator_prefers_path_only_input_without_binary_content(
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "doc_content",
-                "extract_tables": False,
-                "extract_images": False,
             },
             "max_workers": 1,  # Reduce worker count to minimize memory overhead
         }

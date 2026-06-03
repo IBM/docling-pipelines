@@ -240,9 +240,7 @@ class OperatorConstants:
         # Extraction Configuration
         EXPAND_EXTRACTED_DATA: Final[str] = "expand_extracted_data"
         EXTRACT_CUSTOM_SCHEMA: Final[str] = "extract_schema"
-        EXTRACT_IMAGES: Final[str] = "extract_images"
         EXTRACT_JSON: Final[str] = "extract_json"
-        EXTRACT_TABLES: Final[str] = "extract_tables"
         JSON_SCHEMA: Final[str] = "json_schema"
         LANGUAGES: Final[str] = "languages"
         MAX_WORKERS: Final[str] = "max_workers"
@@ -557,10 +555,6 @@ class OperatorConstants:
 
     class ExtractionModes:
         """Extraction mode constants for ExtractOperator."""
-
-        # Configuration Parameter Names
-        TEXT_EXTRACTION_MODE: Final[str] = "provider"
-        ENTITY_EXTRACTION_MODE: Final[str] = "provider"
 
         # Text Extraction Mode Values
         TEXT_MODE_DOCLING_LIBRARY: Final[str] = "docling_library"

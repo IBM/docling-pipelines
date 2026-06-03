@@ -67,9 +67,7 @@
               "engine_options": {
                 "model_id": "base"
               }
-            },
-            "extract_tables": true,
-            "extract_images": false
+            }
           }
         },
         "entity_extraction": {

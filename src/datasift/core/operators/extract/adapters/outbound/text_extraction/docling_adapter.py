@@ -38,12 +38,9 @@ class DoclingAdapter(TextExtractionPort):
     - Standard Docling extraction using DocumentExtractor
     - VLM pipeline support for advanced document understanding
     - Template-based structured extraction for structured data
-    - Table and image extraction
     - Page-level extraction results
 
     Configuration:
-        extract_tables: Extract tables from documents (default: True)
-        extract_images: Extract images from documents (default: True)
         use_vlm_pipeline: Enable VLM extraction (default: False)
         vlm_preset: VLM preset name when VLM is enabled (default: "granite_docling")
         vlm_engine_type: VLM engine type (optional, uses Docling defaults if not set)
@@ -246,8 +243,6 @@ class DoclingAdapter(TextExtractionPort):
             result = OperatorUtils.extract_content(
                 file_path=file_path,
                 binary_content=binary_content,
-                extract_tables=self.extract_tables,
-                extract_images=self.extract_images,
                 converter_config=converter_config,
                 additional_formats=self.additional_formats,
             )

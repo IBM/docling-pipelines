@@ -33,8 +33,6 @@ class TextExtractionAdapterFactory:
     Example Usage:
         # Create Docling adapter (standard extraction)
         config = {
-            "extract_tables": True,
-            "extract_images": False,
             "doc_column": "document"
         }
         adapter = TextExtractionAdapterFactory.create_adapter(
@@ -45,8 +43,6 @@ class TextExtractionAdapterFactory:
 
         # Create Docling adapter with VLM enabled
         vlm_config = {
-            "extract_tables": True,
-            "extract_images": True,
             "doc_column": "document",
             "provider_config": {
                 "vlm_pipeline": {
@@ -105,13 +101,6 @@ class TextExtractionAdapterFactory:
         adapter_config: dict[str, Any] = {
             OperatorConstants.Config.DOC_COLUMN: text_extraction_config.get(
                 OperatorConstants.Config.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-            ),
-            # These are now read from provider_config as they are provider-specific
-            OperatorConstants.Config.EXTRACT_TABLES: provider_config.get(
-                OperatorConstants.Config.EXTRACT_TABLES, False
-            ),
-            OperatorConstants.Config.EXTRACT_IMAGES: provider_config.get(
-                OperatorConstants.Config.EXTRACT_IMAGES, False
             ),
             OperatorConstants.Extraction.ADDITIONAL_FORMATS: provider_config.get(
                 OperatorConstants.Extraction.ADDITIONAL_FORMATS, []
@@ -300,8 +289,6 @@ class TextExtractionAdapterFactory:
 
         # Validate boolean flags if present
         for flag in [
-            OperatorConstants.Config.EXTRACT_TABLES,
-            OperatorConstants.Config.EXTRACT_IMAGES,
             OperatorConstants.Config.EXPAND_EXTRACTED_DATA,
         ]:
             if flag in config and not isinstance(config[flag], bool):
@@ -332,10 +319,8 @@ class TextExtractionAdapterFactory:
         if vlm_provider_config is not None and not isinstance(vlm_provider_config, dict):
             raise ValueError("DoclingAdapter 'vlm_provider_config' must be a dictionary")
 
-        # Validate boolean flags if present
-        for flag in [OperatorConstants.Config.EXTRACT_TABLES, OperatorConstants.Config.EXTRACT_IMAGES]:
-            if flag in config and not isinstance(config[flag], bool):
-                raise ValueError(f"DoclingAdapter '{flag}' must be a boolean")
+        # No additional validation needed for VLM config
+        pass
 
     @staticmethod
     def _validate_docling_serve_config(config: dict[str, Any]) -> None:

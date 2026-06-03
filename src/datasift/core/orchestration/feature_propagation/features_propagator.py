@@ -348,7 +348,7 @@ class FeaturePropagator:
         if operator_short_name == OperatorConstants.Operators.EXTRACT_OPERATOR:
             # Extract operator: Add/remove entity features based on entity extraction mode
             entity_mode = operator_config.get(
-                OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE,
+                OperatorConstants.Config.PROVIDER,
                 OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
             )
             if entity_mode == OperatorConstants.ExtractionModes.ENTITY_MODE_NONE:

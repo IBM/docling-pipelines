@@ -51,19 +51,24 @@ def _build_classifier_config() -> dict:
     }
 
 
-def _build_extract_config(*, text_extraction_mode: str) -> dict:
-    config = {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: text_extraction_mode,
-        OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+def _build_extract_config(*, text_extraction_mode: str, provider_config: dict | None = None) -> dict:
+    text_extraction_config = {
+        OperatorConstants.Config.PROVIDER: text_extraction_mode,
         OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
-        OperatorConstants.Config.EXTRACT_TABLES: False,
-        OperatorConstants.Config.EXTRACT_IMAGES: False,
+    }
+    if text_extraction_mode == OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE:
+        text_extraction_config[OperatorConstants.Config.BASE_URL] = "http://localhost:5001"
+    if provider_config:
+        text_extraction_config[OperatorConstants.Config.PROVIDER_CONFIG] = provider_config
+
+    return {
+        OperatorConstants.Config.TEXT_EXTRACTION: text_extraction_config,
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+        },
         OperatorConstants.Config.MAX_WORKERS: 1,
         OperatorConstants.Config.USE_PROCESSES: False,
     }
-    if text_extraction_mode == OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE:
-        config[OperatorConstants.Config.BASE_URL] = "http://localhost:5001"
-    return config
 
 
 def _mock_classification_response() -> str:
@@ -167,6 +172,48 @@ def test_classifier_content_reextraction_with_docling_serve():
         assert OperatorConstants.Columns.DOC_COLUMN_DEFAULT in extract_output.column_names
         assert CLASSIFIER_TEMP_COLUMN not in extract_output.column_names
         assert extract_output[OperatorConstants.Columns.DOC_COLUMN_DEFAULT].to_pylist() == [FRESH_SERVE_CONTENT]
+        assert extract_metadata[Metrics.External.PROCESSED_DOCS] == 1
+
+
+@pytest.mark.integration
+def test_classifier_content_no_reuse_with_provider_config():
+    """Test that prefetched content is NOT reused when provider_config is set, even with docling_library mode."""
+    extract_operator = ExtractOperator(
+        config=_build_extract_config(
+            text_extraction_mode=OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+            provider_config={"some_key": "some_value"},
+        )
+    )
+
+    classifier_output = pa.table(
+        {
+            OperatorConstants.Columns.ID: ["doc-1"],
+            OperatorConstants.Columns.NAME: [PDF_FIXTURE_PATH.name],
+            OperatorConstants.Columns.PATH: [str(PDF_FIXTURE_PATH)],
+            OperatorConstants.Columns.BINARY_CONTENT: [PDF_FIXTURE_PATH.read_bytes()],
+            CLASSIFIER_TEMP_COLUMN: [REUSED_CONTENT],
+            OperatorConstants.Columns.DOCUMENT_TYPE: ["invoice"],
+        }
+    )
+    with patch(
+        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.OperatorUtils.extract_content",
+        return_value={
+            OperatorConstants.Extraction.SUCCESS: True,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: FRESH_LIBRARY_CONTENT,
+            OperatorConstants.Metadata.METADATA: {"page_count": 1},
+        },
+    ) as mock_docling_extract_content:
+        extract_tables, extract_metadata = extract_operator.transform(
+            classifier_output,
+            metadata=extract_operator.create_base_metadata(total_docs_count=classifier_output.num_rows),
+        )
+        extract_output = extract_tables[0]
+
+        # Verify content is NOT reused: extraction method should be called
+        mock_docling_extract_content.assert_called_once()
+        assert OperatorConstants.Columns.DOC_COLUMN_DEFAULT in extract_output.column_names
+        assert CLASSIFIER_TEMP_COLUMN not in extract_output.column_names
+        assert extract_output[OperatorConstants.Columns.DOC_COLUMN_DEFAULT].to_pylist() == [FRESH_LIBRARY_CONTENT]
         assert extract_metadata[Metrics.External.PROCESSED_DOCS] == 1
 
 

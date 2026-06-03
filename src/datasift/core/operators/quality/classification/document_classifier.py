@@ -522,8 +522,6 @@ class DocumentClassifierOperator(AbstractOperator):
                         OperatorUtils.extract_content,
                         task["doc_name"],
                         task["binary_content"],
-                        False,  # extract_tables - not needed for classification
-                        False,  # extract_images - not needed for classification
                     )
 
                     future_to_task[future] = task

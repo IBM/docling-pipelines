@@ -971,11 +971,7 @@ class TestOperatorUtilsExtractTextFile:
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "This is a test document.\nWith multiple lines."
-        assert result[OperatorConstants.Columns.TABLES] == []
-        assert result[OperatorConstants.Columns.IMAGES] == []
         assert OperatorConstants.Metadata.METADATA in result
-        assert result[OperatorConstants.Metadata.METADATA]["table_count"] == 0
-        assert result[OperatorConstants.Metadata.METADATA]["image_count"] == 0
         assert result[OperatorConstants.Metadata.METADATA]["is_text_file"] is True
 
     def test_extract_text_file_latin1_fallback(self):
@@ -1030,12 +1026,8 @@ class TestOperatorUtilsExtractTextFile:
         result = OperatorUtils.extract_text_file(file_path, binary_content)
 
         metadata = result[OperatorConstants.Metadata.METADATA]
-        assert "table_count" in metadata
-        assert "image_count" in metadata
         assert "char_count" in metadata
         assert "is_text_file" in metadata
-        assert metadata["table_count"] == 0
-        assert metadata["image_count"] == 0
         assert metadata["char_count"] == len("Test content")
         assert metadata["is_text_file"] is True
 
@@ -1093,18 +1085,6 @@ class TestOperatorUtilsExtractTextFile:
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Special chars: @#$%^&*()_+-=[]{}|;:',.<>?/~`"
-
-    def test_extract_text_file_returns_empty_tables_and_images(self):
-        """Test that tables and images are always empty lists for text files."""
-        file_path = "/path/to/document.txt"
-        binary_content = b"Text content"
-
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
-
-        assert result[OperatorConstants.Columns.TABLES] == []
-        assert result[OperatorConstants.Columns.IMAGES] == []
-        assert result[OperatorConstants.Metadata.METADATA]["table_count"] == 0
-        assert result[OperatorConstants.Metadata.METADATA]["image_count"] == 0
 
 
 # ---------------------------------------------------------------------------

@@ -25,10 +25,7 @@
         "text_extraction": {
           "provider": "docling_library",
           "doc_column": "content",
-          "provider_config": {
-            "extract_tables": false,
-            "extract_images": false
-          }
+          "provider_config": {}
         },
         "entity_extraction": {
           "provider": "litellm",

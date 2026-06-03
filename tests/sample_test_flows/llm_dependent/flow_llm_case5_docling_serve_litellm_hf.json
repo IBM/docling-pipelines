@@ -63,9 +63,7 @@
             "verify_ssl": false,
             "do_ocr": true,
             "ocr_engine": "easyocr",
-            "pdf_backend": "dlparse_v4",
-            "extract_tables": true,
-            "extract_images": false
+            "pdf_backend": "dlparse_v4"
           },
           "doc_column": "content"
         },

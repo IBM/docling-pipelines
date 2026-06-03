@@ -104,7 +104,7 @@ watsonx:
 }
 ```
 
-#### 6. `document_types` (List or Dictionary)
+#### 3. `document_types` (List or Dictionary)
 **Type:** List or Dictionary
 **Required:** No
 **Default:** Auto-loaded from document class definitions
@@ -140,7 +140,7 @@ If not specified, the operator loads 30+ predefined document types from `common/
 - Insurance: `insurance_claim`, `acord_form`
 - And many more...
 
-#### 8. `confidence_threshold` (Float)
+#### 4. `confidence_threshold` (Float)
 **Type:** Float
 **Required:** No
 **Default:** `7.0`
@@ -156,7 +156,7 @@ If not specified, the operator loads 30+ predefined document types from `common/
 "confidence_threshold": 8.5
 ```
 
-#### 9. `output_column` (String)
+#### 5. `output_column` (String)
 **Type:** String
 **Required:** No
 **Default:** `"document_type"`
@@ -172,7 +172,7 @@ If not specified, the operator loads 30+ predefined document types from `common/
 "output_column": "doc_category"
 ```
 
-#### 10. `include_confidence` (Boolean)
+#### 6. `include_confidence` (Boolean)
 **Type:** Boolean
 **Required:** No
 **Default:** `true`
@@ -188,7 +188,7 @@ If not specified, the operator loads 30+ predefined document types from `common/
 "include_confidence": false
 ```
 
-#### 11. `include_reasoning` (Boolean)
+#### 7. `include_reasoning` (Boolean)
 **Type:** Boolean
 **Required:** No
 **Default:** `false`
@@ -204,39 +204,7 @@ If not specified, the operator loads 30+ predefined document types from `common/
 "include_reasoning": false
 ```
 
-#### 12. `extract_tables` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `true`
-**Description:** Extract tables from documents during content extraction.
-
-**Valid Values:**
-- `true` - Extract and include table content
-- `false` - Skip table extraction
-
-**Examples:**
-```json
-"extract_tables": true
-"extract_tables": false
-```
-
-#### 13. `extract_images` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `true`
-**Description:** Extract images from documents during content extraction.
-
-**Valid Values:**
-- `true` - Extract and include image descriptions
-- `false` - Skip image extraction
-
-**Examples:**
-```json
-"extract_images": true
-"extract_images": false
-```
-
-#### 14. `max_workers` (Integer)
+#### 8. `max_workers` (Integer)
 **Type:** Integer
 **Required:** No
 **Default:** Auto-calculated based on CPU cores
@@ -252,7 +220,7 @@ If not specified, the operator loads 30+ predefined document types from `common/
 "max_workers": 8
 ```
 
-#### 15. `use_processes` (Boolean)
+#### 9. `use_processes` (Boolean)
 **Type:** Boolean
 **Required:** No
 **Default:** `false`

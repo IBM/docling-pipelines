@@ -81,7 +81,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pyarrow as pa
 from dotenv import load_dotenv
@@ -103,11 +103,13 @@ def get_basic_config() -> dict[str, Any]:
     Requirements: pip install docling
     """
     return {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
-        OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
-        OperatorConstants.Config.EXTRACT_TABLES: True,
-        OperatorConstants.Config.EXTRACT_IMAGES: True,
-        OperatorConstants.Columns.DOC_COLUMN: "doc_content",
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+        },
         OperatorConstants.Config.MAX_WORKERS: 4,
     }
 
@@ -120,12 +122,18 @@ def get_docling_serve_config(*, base_url: str = "http://localhost:5001") -> dict
     Requirements: Docling Serve running (docker run -p 5001:5001 ds4sd/docling-serve:latest)
     """
     return {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
-        OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
-        OperatorConstants.Config.DOCLING_SERVE_BASE_URL: base_url,
-        OperatorConstants.Config.DOCLING_SERVE_TIMEOUT: 300,
-        OperatorConstants.Config.DOCLING_SERVE_DO_OCR: True,
-        OperatorConstants.Columns.DOC_COLUMN: "doc_content",
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.BASE_URL: base_url,
+                OperatorConstants.Processing.TIMEOUT: 300,
+                OperatorConstants.Config.DO_OCR: True,
+            },
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+        },
     }
 
 
@@ -176,27 +184,36 @@ def get_vlm_config(
     if engine not in engine_type_map:
         raise ValueError(f"Unknown VLM engine: {engine}. Supported: {list(engine_type_map.keys())}")
 
-    # Base configuration
+    # Base configuration with VLM nested under text_extraction.provider_config
     config: dict[str, Any] = {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
-        OperatorConstants.Config.USE_VLM_PIPELINE: True,
-        OperatorConstants.Config.VLM_PRESET: preset,
-        OperatorConstants.Config.VLM_ENGINE_TYPE: engine_type_map[engine],
-        OperatorConstants.Config.EXTRACT_TABLES: True,
-        OperatorConstants.Config.EXTRACT_IMAGES: True,
-        OperatorConstants.Columns.DOC_COLUMN: "doc_content",
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.VLM_PIPELINE: {
+                    OperatorConstants.Config.ENABLED: True,
+                    OperatorConstants.Config.PRESET: preset,
+                    OperatorConstants.Config.ENGINE: engine_type_map[engine],
+                }
+            },
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+        },
     }
 
     # Engine-specific configuration
     if engine in ["transformers", "mlx"]:
-        # Local inference engines - no provider config needed
+        # Local inference engines - no engine_options needed
         config[OperatorConstants.Config.MAX_WORKERS] = 2  # VLM is resource-intensive
 
     elif engine == "ollama":
         # Ollama API
         base_url = api_base_url or "http://localhost:11434"
         model_name = model or "llama3.2-vision"
-        config[OperatorConstants.Config.VLM_PROVIDER_CONFIG] = {
+        config[OperatorConstants.Config.TEXT_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG][
+            OperatorConstants.Config.VLM_PIPELINE
+        ][OperatorConstants.Config.ENGINE_OPTIONS] = {
             OperatorConstants.Config.VLM_API_BASE_URL: f"{base_url}/v1/chat/completions",
             OperatorConstants.Config.VLM_MODEL_NAME: model_name,
         }
@@ -207,7 +224,9 @@ def get_vlm_config(
         if not all([api_key, container_id, model]):
             raise ValueError("Watsonx engine requires api_key, container_id, and model parameters")
         base_url = api_base_url or "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29"
-        config[OperatorConstants.Config.VLM_PROVIDER_CONFIG] = {
+        config[OperatorConstants.Config.TEXT_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG][
+            OperatorConstants.Config.VLM_PIPELINE
+        ][OperatorConstants.Config.ENGINE_OPTIONS] = {
             OperatorConstants.Config.VLM_API_KEY: api_key,
             OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID: container_id,
             OperatorConstants.Config.VLM_MODEL_NAME: model,
@@ -221,7 +240,9 @@ def get_vlm_config(
             raise ValueError("OpenAI engine requires api_key parameter")
         model_name = model or "gpt-4-vision-preview"
         base_url = api_base_url or "https://api.openai.com/v1/chat/completions"
-        config[OperatorConstants.Config.VLM_PROVIDER_CONFIG] = {
+        config[OperatorConstants.Config.TEXT_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG][
+            OperatorConstants.Config.VLM_PIPELINE
+        ][OperatorConstants.Config.ENGINE_OPTIONS] = {
             OperatorConstants.Config.VLM_API_KEY: api_key,
             OperatorConstants.Config.VLM_MODEL_NAME: model_name,
             OperatorConstants.Config.VLM_API_BASE_URL: base_url,
@@ -231,7 +252,9 @@ def get_vlm_config(
     elif engine == "lmstudio":
         # LM Studio API
         base_url = api_base_url or "http://localhost:1234/v1/chat/completions"
-        config[OperatorConstants.Config.VLM_PROVIDER_CONFIG] = {
+        config[OperatorConstants.Config.TEXT_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG][
+            OperatorConstants.Config.VLM_PIPELINE
+        ][OperatorConstants.Config.ENGINE_OPTIONS] = {
             OperatorConstants.Config.VLM_API_BASE_URL: base_url,
         }
         config[OperatorConstants.Config.MAX_WORKERS] = 2
@@ -240,16 +263,18 @@ def get_vlm_config(
         # Generic API
         if not api_base_url:
             raise ValueError("Generic API engine requires api_base_url parameter")
-        provider_config: dict[str, Any] = {
+        engine_options: dict[str, Any] = {
             OperatorConstants.Config.VLM_API_BASE_URL: api_base_url,
         }
         if api_key:
-            provider_config[OperatorConstants.Config.VLM_API_KEY] = api_key
+            engine_options[OperatorConstants.Config.VLM_API_KEY] = api_key
         if headers:
-            provider_config["headers"] = headers
+            engine_options["headers"] = headers
         if params:
-            provider_config[OperatorConstants.Config.PARAMETERS] = params
-        config[OperatorConstants.Config.VLM_PROVIDER_CONFIG] = provider_config
+            engine_options[OperatorConstants.Config.PARAMETERS] = params
+        config[OperatorConstants.Config.TEXT_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG][
+            OperatorConstants.Config.VLM_PIPELINE
+        ][OperatorConstants.Config.ENGINE_OPTIONS] = engine_options
         config[OperatorConstants.Config.MAX_WORKERS] = 4
 
     return config
@@ -283,20 +308,26 @@ def get_ollama_entity_config(
         custom_schema: Optional schema dictionary for structured extraction
     """
     config = {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: text_mode,
-        OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA,
-        OperatorConstants.Columns.DOC_COLUMN: "doc_content",
-        OperatorConstants.Config.EXTRACT_TABLES: True,
-        OperatorConstants.Config.EXTRACT_IMAGES: True,
-        OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME: model,
-        OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE: temperature,
-        OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS: max_tokens,
-        OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS: max_doc_chars,
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: text_mode,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM,
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.MODEL_ID: model,
+                OperatorConstants.LLM.TEMPERATURE: temperature,
+                OperatorConstants.LLM.MAX_TOKENS: max_tokens,
+                OperatorConstants.LLM.API_BASE: "http://localhost:11434/v1",
+            },
+            OperatorConstants.LLM.MAX_DOC_CHARS: max_doc_chars,
+        },
         OperatorConstants.Config.MAX_WORKERS: 2,  # Reduce for LLM processing
     }
 
     if custom_schema:
-        config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
+        entity_config = cast(dict[str, Any], config[OperatorConstants.Config.ENTITY_EXTRACTION])
+        entity_config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
 
     return config
 
@@ -319,17 +350,20 @@ def get_docling_entity_config(
         expand_data: Expand entity data into individual columns
     """
     config = {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: text_mode,
-        OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING,
-        OperatorConstants.Columns.DOC_COLUMN: "doc_content",
-        OperatorConstants.Config.EXTRACT_TABLES: True,
-        OperatorConstants.Config.EXTRACT_IMAGES: True,
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: text_mode,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING,
+            OperatorConstants.Config.EXPAND_EXTRACTED_DATA: expand_data,
+        },
         OperatorConstants.Config.MAX_WORKERS: 2,
-        OperatorConstants.Config.EXPAND_EXTRACTED_DATA: expand_data,
     }
 
     if custom_schema:
-        config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
+        entity_config = cast(dict[str, Any], config[OperatorConstants.Config.ENTITY_EXTRACTION])
+        entity_config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
 
     return config
 
@@ -361,29 +395,35 @@ def get_litellm_entity_config(
         api_base: Optional custom API base URL
         custom_schema: Optional schema dictionary for structured extraction
     """
-    config = {
-        OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: text_mode,
-        OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM,
-        OperatorConstants.Columns.DOC_COLUMN: "doc_content",
-        OperatorConstants.Config.EXTRACT_TABLES: True,
-        OperatorConstants.Config.EXTRACT_IMAGES: True,
-        OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME: model,
-        OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE: temperature,
-        OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS: max_tokens,
-        OperatorConstants.Config.MAX_WORKERS: 4,
-    }
-
     provider_config = {}
     if api_key:
         provider_config[OperatorConstants.Config.API_KEY] = api_key
     if api_base:
         provider_config[OperatorConstants.LLM.API_BASE] = api_base
 
-    if provider_config:
-        config[OperatorConstants.Config.PROVIDER_CONFIG] = provider_config
+    provider_config.update(
+        {
+            OperatorConstants.Config.MODEL_ID: model,
+            OperatorConstants.LLM.TEMPERATURE: temperature,
+            OperatorConstants.LLM.MAX_TOKENS: max_tokens,
+        }
+    )
+
+    config = {
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: text_mode,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM,
+            OperatorConstants.Config.PROVIDER_CONFIG: provider_config,
+        },
+        OperatorConstants.Config.MAX_WORKERS: 4,
+    }
 
     if custom_schema:
-        config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
+        entity_config = cast(dict[str, Any], config[OperatorConstants.Config.ENTITY_EXTRACTION])
+        entity_config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
 
     return config
 
@@ -590,18 +630,21 @@ def main() -> int:
                 logger.error(f"Invalid JSON schema: {e}")
                 return 1
 
-        # Update config with entity extraction
-        config[OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE] = (
-            OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA
+        # Update config with entity extraction (using litellm with Ollama backend)
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.PROVIDER] = (
+            OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM
         )
-        config[OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME] = "llama3.2"
-        config[OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE] = 0.0
-        config[OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS] = 4096
-        config[OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS] = 8000
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG] = {
+            OperatorConstants.Config.MODEL_ID: "llama3.2",
+            OperatorConstants.LLM.TEMPERATURE: 0.0,
+            OperatorConstants.LLM.MAX_TOKENS: 4096,
+            OperatorConstants.LLM.API_BASE: "http://localhost:11434/v1",
+        }
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.LLM.MAX_DOC_CHARS] = 8000
         config[OperatorConstants.Config.MAX_WORKERS] = 2  # Reduce for LLM
 
         if custom_schema:
-            config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
+            config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
 
         print("\nEntity Extraction: Ollama LLM-based extraction")
         print("Note: Ensure Ollama is running: ollama serve")
@@ -656,11 +699,11 @@ def main() -> int:
             # }
 
         # Update config with entity extraction
-        config[OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE] = (
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.PROVIDER] = (
             OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING
         )
-        config[OperatorConstants.Config.EXPAND_EXTRACTED_DATA] = False
-        config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.EXPAND_EXTRACTED_DATA] = False
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
 
         print("\nEntity Extraction: Docling template-based extraction")
         print("Fast, deterministic extraction for standardized documents")

@@ -31,9 +31,7 @@
             "additional_formats": [
               "html",
               "json"
-            ],
-            "extract_tables": true,
-            "extract_images": false
+            ]
           }
         },
         "entity_extraction": {

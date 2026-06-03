@@ -35,10 +35,7 @@
         "text_extraction": {
           "provider": "docling_library",
           "doc_column": "content",
-          "provider_config": {
-            "extract_tables": true,
-            "extract_images": false
-          }
+          "provider_config": {}
         },
         "max_workers": 4
       },

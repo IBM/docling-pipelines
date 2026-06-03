@@ -11,7 +11,6 @@ import pyarrow.compute as pc
 from charset_normalizer import from_bytes
 from docling.datamodel.base_models import FormatToExtensions, InputFormat
 from docling.document_converter import DocumentConverter
-from docling_core.types.doc.document import PictureItem, TableItem
 from docling_core.types.io import DocumentStream
 from pyarrow import Table
 
@@ -1010,11 +1009,7 @@ class OperatorUtils:
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
                 OperatorConstants.Columns.DOC_COLUMN_DEFAULT: raw_text,
-                OperatorConstants.Columns.TABLES: [],
-                OperatorConstants.Columns.IMAGES: [],
                 OperatorConstants.Metadata.METADATA: {
-                    "table_count": 0,
-                    "image_count": 0,
                     "char_count": len(raw_text),
                     "is_text_file": True,
                 },
@@ -1028,46 +1023,9 @@ class OperatorUtils:
             }
 
     @staticmethod
-    def _extract_tables_from_result(result: Any) -> list[dict[str, Any]]:
-        """
-        Extract tables from Docling conversion result.
-
-        Args:
-            result: Docling conversion result object
-
-        Returns:
-            List of table dictionaries with 'ref' and 'data' keys
-        """
-        tables = []
-        for item, _ in result.document.iterate_items():
-            if isinstance(item, TableItem):
-                table_df = item.export_to_dataframe(doc=result.document)
-                tables.append({"ref": item.self_ref, "data": table_df.to_dict() if table_df is not None else None})
-        return tables
-
-    @staticmethod
-    def _extract_images_from_result(result: Any) -> list[dict[str, Any]]:
-        """
-        Extract images from Docling conversion result.
-
-        Args:
-            result: Docling conversion result object
-
-        Returns:
-            List of image dictionaries with 'ref' and 'caption' keys
-        """
-        images = []
-        for item, _ in result.document.iterate_items():
-            if isinstance(item, PictureItem):
-                images.append({"ref": item.self_ref, "caption": getattr(item, "caption", None)})
-        return images
-
-    @staticmethod
     def extract_content(
         file_path: str,
         binary_content: bytes,
-        extract_tables: bool,
-        extract_images: bool,
         converter_config: dict[str, Any] | None = None,
         additional_formats: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -1079,14 +1037,10 @@ class OperatorUtils:
         2. Temporary file creation
         3. Document conversion
         4. Multi-format export (markdown is MANDATORY, additional formats optional)
-        5. Table extraction (if enabled)
-        6. Image extraction (if enabled)
 
         Args:
             file_path: Path to the document file (used for logging and extension detection)
             binary_content: Binary content of the document
-            extract_tables: Whether to extract tables from the document
-            extract_images: Whether to extract images from the document
             converter_config: Optional configuration for DocumentConverter initialization.
                              If provided, should contain 'format_options' key with format-specific settings.
                              Example: {'format_options': {InputFormat.PDF: PdfFormatOption(...)}}
@@ -1103,9 +1057,7 @@ class OperatorUtils:
                 - content_json: JSON format (if 'json' in additional_formats)
                 - content_text: Plain text format (if 'text' in additional_formats)
                 - content_doctags: DocTags format (if 'doctags' in additional_formats)
-                - tables: List of extracted tables with references
-                - images: List of extracted images with captions
-                - metadata: Extraction metadata (table_count, image_count, char_count, page_count, formats)
+                - metadata: Extraction metadata (char_count, page_count, formats)
                 - error: Error message if extraction failed
         """
         # Markdown is ALWAYS generated (required by downstream operators like Chunker, Embeddings, PII, HAP)
@@ -1209,10 +1161,6 @@ class OperatorUtils:
                     ] = None
                     formats_failed.append(fmt)
 
-            # Extract tables and images using helper methods
-            tables = OperatorUtils._extract_tables_from_result(result) if extract_tables else []
-            images = OperatorUtils._extract_images_from_result(result) if extract_images else []
-
             # Get character count from markdown (default format)
             markdown_content = content_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT, "")
             char_count = len(markdown_content) if markdown_content else 0
@@ -1225,11 +1173,7 @@ class OperatorUtils:
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
                 **content_dict,  # Spread all format columns
-                OperatorConstants.Columns.TABLES: tables,
-                OperatorConstants.Columns.IMAGES: images,
                 OperatorConstants.Metadata.METADATA: {
-                    "table_count": len(tables),
-                    "image_count": len(images),
                     "char_count": char_count,
                     "page_count": native_page_count,
                     "output_formats_requested": all_formats,

@@ -32,9 +32,7 @@
         "output_column": "document_type",
         "include_confidence": true,
         "include_reasoning": true,
-        "max_content_length": 8000,
-        "extract_tables": true,
-        "extract_images": true
+        "max_content_length": 8000
       },
       "depends_on": [
         "ingest"
@@ -48,8 +46,6 @@
           "provider": "docling_library",
           "doc_column": "content",
           "provider_config": {
-            "extract_tables": false,
-            "extract_images": false,
             "additional_formats": [
               "html",
               "json"

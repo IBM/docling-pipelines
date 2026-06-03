@@ -67,8 +67,6 @@
             "do_ocr": true,
             "ocr_engine": "easyocr",
             "pdf_backend": "dlparse_v4",
-            "extract_tables": true,
-            "extract_images": false,
             "additional_formats": [
               "html",
               "json"

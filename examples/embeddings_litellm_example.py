@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pyarrow as pa
 
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
 
 # Add backend to path
@@ -42,7 +43,14 @@ def example_openai():
 
     try:
         # Initialize operator with LiteLLM provider
-        operator = EmbeddingsOperator(provider="litellm", model_name="text-embedding-3-small")
+        config = {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.Config.PROVIDER_LITELLM,
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.MODEL_ID: "openai/text-embedding-3-small",
+                OperatorConstants.Config.BATCH_SIZE: 32,
+            },
+        }
+        operator = EmbeddingsOperator(config=config)
 
         # Create sample data
         table = pa.table(
@@ -61,11 +69,12 @@ def example_openai():
         print("Provider: OpenAI (via LiteLLM)")
 
         # Generate embeddings
-        result = operator.process(table)
+        result_tables, _metadata = operator.transform(table)
+        result = result_tables[0]
 
         print(f"\nOutput: {len(result)} embeddings generated")
-        print(f"Embedding dimension: {len(result['embeddings'][0].as_py())}")
-        print(f"First embedding (first 5 values): {result['embeddings'][0].as_py()[:5]}")
+        print(f"Embedding dimension: {len(result[OperatorConstants.Columns.EMBEDDINGS][0].as_py())}")
+        print(f"First embedding (first 5 values): {result[OperatorConstants.Columns.EMBEDDINGS][0].as_py()[:5]}")
 
         print("\nSuccess! OpenAI embeddings generated via LiteLLM.")
 
@@ -99,10 +108,14 @@ def example_azure():
 
     try:
         # Initialize operator with Azure deployment
-        operator = EmbeddingsOperator(
-            provider="litellm",
-            model_name="azure/your-deployment-name",  # Replace with your deployment
-        )
+        config = {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.Config.PROVIDER_LITELLM,
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.MODEL_ID: "azure/your-deployment-name",  # Replace with your deployment
+                OperatorConstants.Config.BATCH_SIZE: 32,
+            },
+        }
+        operator = EmbeddingsOperator(config=config)
 
         # Create sample data
         table = pa.table(
@@ -117,10 +130,11 @@ def example_azure():
         print("Provider: Azure OpenAI (via LiteLLM)")
 
         # Generate embeddings
-        result = operator.process(table)
+        result_tables, _metadata = operator.transform(table)
+        result = result_tables[0]
 
         print(f"\nOutput: {len(result)} embeddings generated")
-        print(f"Embedding dimension: {len(result['embeddings'][0].as_py())}")
+        print(f"Embedding dimension: {len(result[OperatorConstants.Columns.EMBEDDINGS][0].as_py())}")
 
         print("\nSuccess! Azure OpenAI embeddings generated via LiteLLM.")
 
@@ -144,7 +158,14 @@ def example_cohere():
 
     try:
         # Initialize operator with Cohere model
-        operator = EmbeddingsOperator(provider="litellm", model_name="embed-english-v3.0")
+        config = {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.Config.PROVIDER_LITELLM,
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.MODEL_ID: "cohere/embed-english-v3.0",
+                OperatorConstants.Config.BATCH_SIZE: 32,
+            },
+        }
+        operator = EmbeddingsOperator(config=config)
 
         # Create sample data
         table = pa.table(
@@ -162,10 +183,11 @@ def example_cohere():
         print("Provider: Cohere (via LiteLLM)")
 
         # Generate embeddings
-        result = operator.process(table)
+        result_tables, _metadata = operator.transform(table)
+        result = result_tables[0]
 
         print(f"\nOutput: {len(result)} embeddings generated")
-        print(f"Embedding dimension: {len(result['embeddings'][0].as_py())}")
+        print(f"Embedding dimension: {len(result[OperatorConstants.Columns.EMBEDDINGS][0].as_py())}")
 
         print("\nSuccess! Cohere embeddings generated via LiteLLM.")
 
@@ -183,12 +205,19 @@ def example_error_handling():
 
     try:
         # Try to initialize with missing API key
-        operator = EmbeddingsOperator(provider="litellm", model_name="text-embedding-3-small")
+        config = {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.Config.PROVIDER_LITELLM,
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.MODEL_ID: "openai/text-embedding-3-small",
+                OperatorConstants.Config.BATCH_SIZE: 32,
+            },
+        }
+        operator = EmbeddingsOperator(config=config)
 
         # This will fail if OPENAI_API_KEY is not set
         table = pa.table({"text": ["test"], "doc_id": ["doc1"]})
 
-        _result = operator.process(table)
+        _result_tables, _metadata = operator.transform(table)
         print("Embeddings generated successfully")
 
     except Exception as e:
@@ -210,11 +239,15 @@ def example_custom_endpoint():
 
     try:
         # Initialize with custom endpoint
-        _operator = EmbeddingsOperator(
-            provider="litellm",
-            model_name="text-embedding-3-small",
-            api_base="https://custom-endpoint.com/v1",  # Custom endpoint
-        )
+        config = {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.Config.PROVIDER_LITELLM,
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.MODEL_ID: "openai/text-embedding-3-small",
+                OperatorConstants.LLM.API_BASE: "https://custom-endpoint.com/v1",  # Custom endpoint
+                OperatorConstants.Config.BATCH_SIZE: 32,
+            },
+        }
+        _operator = EmbeddingsOperator(config=config)
 
         print("Operator initialized with custom endpoint")
         print("API Base: https://custom-endpoint.com/v1")

@@ -205,8 +205,6 @@ class TestS3IngestExtractPipeline:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "content",
-                "extract_tables": False,
-                "extract_images": False,
                 "provider_config": {"max_workers": 2},
             },
             "entity_extraction": {"provider": "none"},
@@ -316,8 +314,6 @@ class TestS3IngestExtractPipeline:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "content",
-                "extract_tables": False,
-                "extract_images": False,
                 "max_workers": 2,
             },
             "entity_extraction": {"provider": "none"},

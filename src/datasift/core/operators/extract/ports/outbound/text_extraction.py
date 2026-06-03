@@ -5,7 +5,6 @@ hexagonal architecture principles. The port contains the parallel processing
 orchestration logic, while adapters implement the specific extraction mechanics.
 """
 
-import json
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -54,8 +53,6 @@ class TextExtractionPort(ABC):
         max_workers: Number of parallel workers for processing
         use_processes: Whether to use ProcessPoolExecutor (True) or ThreadPoolExecutor (False)
         doc_column: Column name for storing extracted document content
-        extract_tables: Whether to extract tables from documents
-        extract_images: Whether to extract images from documents
     """
 
     ADAPTER_NAME: str = "base"
@@ -77,8 +74,6 @@ class TextExtractionPort(ABC):
                 - max_workers: Number of parallel workers (default: 4)
                 - use_processes: Use processes vs threads (default: False)
                 - doc_column: Column name for extracted content (default: "doc_content")
-                - extract_tables: Extract tables flag (default: True)
-                - extract_images: Extract images flag (default: True)
                 - additional_formats: List of additional output formats (default: [])
                 - ingest_source: Ingest source configuration for on-demand binary fetching (optional)
                 - job_run_id: Job run identifier for progress tracking (optional)
@@ -90,8 +85,6 @@ class TextExtractionPort(ABC):
         self.max_workers = config.get("max_workers", 4)
         self.use_processes = config.get("use_processes", False)
         self.doc_column = config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.extract_tables = config.get("extract_tables", False)
-        self.extract_images = config.get("extract_images", False)
         self.common_log_arguments = config.get("common_log_arguments", {})
         self.additional_formats = config.get(OperatorConstants.Extraction.ADDITIONAL_FORMATS, [])
 
@@ -235,8 +228,6 @@ class TextExtractionPort(ABC):
         )
         doc_contents: list[str] = [""] * table.num_rows
         doc_metadata_list: list[dict[str, Any]] = [{}] * table.num_rows
-        doc_tables_list: list[list[dict[str, Any]]] = [[]] * table.num_rows
-        doc_images_list: list[list[dict[str, Any]]] = [[]] * table.num_rows
 
         # Initialize format lists only for requested additional formats
         format_lists: dict[str, list[str | None]] = {}
@@ -293,8 +284,6 @@ class TextExtractionPort(ABC):
                         idx=idx,
                         doc_contents=doc_contents,
                         doc_metadata_list=doc_metadata_list,
-                        doc_tables_list=doc_tables_list,
-                        doc_images_list=doc_images_list,
                         format_lists=format_lists,
                         doc_pages_processed=doc_pages_processed,
                         remove_row_idx=remove_row_idx,
@@ -354,8 +343,6 @@ class TextExtractionPort(ABC):
         if remove_row_idx:
             table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
             doc_contents = [content for idx, content in enumerate(doc_contents) if idx not in remove_row_idx]
-            doc_tables_list = [data for idx, data in enumerate(doc_tables_list) if idx not in remove_row_idx]
-            doc_images_list = [data for idx, data in enumerate(doc_images_list) if idx not in remove_row_idx]
             # Remove rows from format lists
             for fmt in format_lists:
                 format_lists[fmt] = [
@@ -376,18 +363,6 @@ class TextExtractionPort(ABC):
                     # Only add column if it contains at least one non-None value
                     if any(content is not None for content in content_list):
                         table = TransformUtils.add_column(table=table, name=column_name, content=content_list)
-
-            if self.extract_tables:
-                doc_tables_serialized = [json.dumps(data) if data else None for data in doc_tables_list]
-                table = TransformUtils.add_column(
-                    table=table, name=OperatorConstants.Columns.TABLES, content=doc_tables_serialized
-                )
-
-            if self.extract_images:
-                doc_images_serialized = [json.dumps(data) if data else None for data in doc_images_list]
-                table = TransformUtils.add_column(
-                    table=table, name=OperatorConstants.Columns.IMAGES, content=doc_images_serialized
-                )
 
             # Add pages_processed column
             if doc_pages_processed:
@@ -471,8 +446,6 @@ class TextExtractionPort(ABC):
         idx: int,
         doc_contents: list[str],
         doc_metadata_list: list[dict[str, Any]],
-        doc_tables_list: list[list[dict[str, Any]]],
-        doc_images_list: list[list[dict[str, Any]]],
         format_lists: dict[str, list[str | None]],
         doc_pages_processed: list[int],
         remove_row_idx: list[int],
@@ -489,8 +462,6 @@ class TextExtractionPort(ABC):
             idx: Index in the result lists
             doc_contents: List to store extracted document contents
             doc_metadata_list: List to store document metadata
-            doc_tables_list: List to store extracted tables
-            doc_images_list: List to store extracted images
             format_lists: Dictionary mapping format names to their content lists
             doc_pages_processed: List to store page counts
             remove_row_idx: List of row indices to remove
@@ -506,14 +477,6 @@ class TextExtractionPort(ABC):
                 column_name = self.FORMAT_COLUMN_MAPPING.get(fmt)
                 if column_name and column_name in result:
                     content_list[idx] = result[column_name]
-
-            # Extract tables if present
-            if OperatorConstants.Columns.TABLES in result:
-                doc_tables_list[idx] = result[OperatorConstants.Columns.TABLES]
-
-            # Extract images if present
-            if OperatorConstants.Columns.IMAGES in result:
-                doc_images_list[idx] = result[OperatorConstants.Columns.IMAGES]
 
             # Calculate page count: use native page_count from metadata if available, else fallback to character-based
             extraction_metadata = result.get(OperatorConstants.Metadata.METADATA, {})

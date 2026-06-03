@@ -2418,8 +2418,6 @@ graph TB
       "provider": "docling_library",
       "doc_column": "content",
       "provider_config": {
-        "extract_tables": true,
-        "extract_images": false
       }
     },
     "entity_extraction": {
@@ -2434,7 +2432,6 @@ graph TB
 ```
 
 ### 8. Docling Integration Architecture
-
 
 ```mermaid
 graph TB
@@ -3294,7 +3291,6 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
   ]
 }
 ```
-
 
 #### Entry Points
 
@@ -4282,7 +4278,6 @@ The Assets Management module provides metadata management for document collectio
 - **Testability**: Easy to mock repositories and test business logic
 - **Flexibility**: Can swap DuckDB for PostgreSQL/MongoDB without changing domain
 - **Maintainability**: Clear boundaries between layers
-
 
 ### 3. Operators (`src/datasift/core/operators/`)
 

@@ -55,8 +55,6 @@ class TestIngestExtractIntegration:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "doc_content",
-                "extract_tables": True,
-                "extract_images": True,
             },
             "entity_extraction": {"provider": "none"},
         }
@@ -103,8 +101,6 @@ class TestIngestExtractIntegration:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "doc_content",
-                "extract_tables": False,
-                "extract_images": False,
             },
             "entity_extraction": {"provider": "docling"},
         }
@@ -141,8 +137,6 @@ class TestIngestExtractIntegration:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "doc_content",
-                "extract_tables": False,
-                "extract_images": False,
             },
             "entity_extraction": {"provider": "none"},
         }

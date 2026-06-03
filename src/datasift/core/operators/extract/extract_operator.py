@@ -30,9 +30,7 @@ Example Usage:
         "operator_params": {
             "text_extraction": {
                 "provider": "docling_library",
-                "doc_column": "document",
-                "extract_tables": true,
-                "extract_images": false
+                "doc_column": "document"
             },
             "max_workers": 4
         }
@@ -44,8 +42,7 @@ Example Usage:
         "operator_params": {
             "text_extraction": {
                 "provider": "docling_library",
-                "doc_column": "document",
-                "extract_tables": true
+                "doc_column": "document"
             },
             "entity_extraction": {
                 "provider": "litellm",
@@ -70,8 +67,6 @@ Example Usage:
             "text_extraction": {
                 "provider": "docling_library",
                 "doc_column": "document",
-                "extract_tables": true,
-                "extract_images": true,
                 "max_workers": 2,
                 "provider_config": {
                     "vlm_pipeline": {
@@ -175,8 +170,6 @@ class ExtractOperator(AbstractOperator):
                     - provider: Text provider ("docling_library", "docling_serve")
                     - provider_config: Provider-specific configuration
                     - doc_column: Column name for extracted content
-                    - extract_tables: Extract tables flag
-                    - extract_images: Extract images flag
                     - additional_formats: List of additional output formats
                 - entity_extraction: Optional nested object containing:
                     - provider: Entity provider ("litellm", "watsonx", "docling")
@@ -193,15 +186,15 @@ class ExtractOperator(AbstractOperator):
         """
         super().__init__(config)
 
-        # Extract text_extraction nested config
-        text_extraction_config = config.get(OperatorConstants.Config.TEXT_EXTRACTION, {})
-        if not text_extraction_config:
+        # Extract text_extraction nested config and store for later use
+        self.text_extraction_config = config.get(OperatorConstants.Config.TEXT_EXTRACTION, {})
+        if not self.text_extraction_config:
             raise FlowExecutionFailedException(
                 f"Missing required '{OperatorConstants.Config.TEXT_EXTRACTION}' configuration object"
             )
 
         # Parse text extraction mode
-        text_mode_str = text_extraction_config.get(
+        text_mode_str = self.text_extraction_config.get(
             OperatorConstants.Config.PROVIDER,
             OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
         )
@@ -234,14 +227,9 @@ class ExtractOperator(AbstractOperator):
             self.entity_extraction_mode = EntityExtractionMode.NONE
 
         # Extract common parameters from text_extraction
-        self.doc_column = text_extraction_config.get(
+        self.doc_column = self.text_extraction_config.get(
             OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
-
-        # Extract provider_config for provider-specific parameters
-        provider_config = text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
-        self.extract_tables = provider_config.get(OperatorConstants.Config.EXTRACT_TABLES, False)
-        self.extract_images = provider_config.get(OperatorConstants.Config.EXTRACT_IMAGES, False)
 
         # Extract entity extraction parameters
         if entity_extraction_config:
@@ -277,7 +265,7 @@ class ExtractOperator(AbstractOperator):
         try:
             self.text_adapter: TextExtractionPort = TextExtractionAdapterFactory.create_adapter(
                 mode=self.text_extraction_mode,
-                text_extraction_config=text_extraction_config,
+                text_extraction_config=self.text_extraction_config,
                 global_config=global_config,
                 max_workers=text_max_workers,
                 use_processes=use_processes,
@@ -624,17 +612,16 @@ class ExtractOperator(AbstractOperator):
         content_reused = False
 
         if DatasiftConstants.TEMP_CONTENT_COLUMN in table.column_names:
+            # Reuse prefetched content only when using docling_library mode with no provider_config
+            provider_config = self.text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
             can_reuse_prefetched_content = (
-                self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY
-                and not self.extract_tables
-                and not self.extract_images
+                self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY and not provider_config
             )
 
             if can_reuse_prefetched_content:
                 logger.info(
                     f"Reusing pre-fetched content from '{DatasiftConstants.TEMP_CONTENT_COLUMN}' for "
-                    f"{self.text_extraction_mode.value} with extract_tables={self.extract_tables} "
-                    f"and extract_images={self.extract_images}"
+                    f"{self.text_extraction_mode.value} (no provider_config)"
                 )
 
                 column_names = list(table.column_names)
@@ -657,9 +644,15 @@ class ExtractOperator(AbstractOperator):
                 content_reused = True
                 logger.info(f"Content reuse successful: skipping text extraction for {table.num_rows} documents")
             else:
+                reason = []
+                if self.text_extraction_mode != TextExtractionMode.DOCLING_LIBRARY:
+                    reason.append(f"text_mode={self.text_extraction_mode.value}")
+                if provider_config:
+                    reason.append("provider_config is set")
+                reason_str = ", ".join(reason) if reason else "unknown reason"
+
                 logger.info(
-                    f"Pre-fetched content found but not reusable for text_mode={self.text_extraction_mode.value}, "
-                    f"extract_tables={self.extract_tables}, extract_images={self.extract_images}. "
+                    f"Pre-fetched content found but not reusable ({reason_str}). "
                     f"Dropping '{DatasiftConstants.TEMP_CONTENT_COLUMN}' and performing fresh extraction."
                 )
                 table = table.drop([DatasiftConstants.TEMP_CONTENT_COLUMN])
@@ -850,22 +843,6 @@ class ExtractOperator(AbstractOperator):
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 OperatorConstants.Misc.TAGS: [],
             },
-            OperatorConstants.Columns.TABLES: {
-                OperatorConstants.Misc.NAME: "Tables",
-                OperatorConstants.Config.DESCRIPTION: "Extracted tables from document (when extract_tables is enabled)",
-                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
-                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-                OperatorConstants.Misc.TAGS: [],
-            },
-            OperatorConstants.Columns.IMAGES: {
-                OperatorConstants.Misc.NAME: "Images",
-                OperatorConstants.Config.DESCRIPTION: "Extracted images from document (when extract_images is enabled)",
-                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
-                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-                OperatorConstants.Misc.TAGS: [],
-            },
             OperatorConstants.Columns.PAGES_PROCESSED: {
                 OperatorConstants.Misc.NAME: "Pages Processed",
                 OperatorConstants.Config.DESCRIPTION: "Estimated page count based on content length (3000 chars per page)",
@@ -958,20 +935,6 @@ class ExtractOperator(AbstractOperator):
                                             OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                                         },
                                     },
-                                },
-                                OperatorConstants.Config.EXTRACT_TABLES: {
-                                    OperatorConstants.Misc.NAME: "Extract Tables",
-                                    OperatorConstants.Config.DESCRIPTION: "Whether to extract tables from documents",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                                },
-                                OperatorConstants.Config.EXTRACT_IMAGES: {
-                                    OperatorConstants.Misc.NAME: "Extract Images",
-                                    OperatorConstants.Config.DESCRIPTION: "Whether to extract images from documents",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                                 },
                                 OperatorConstants.Extraction.ADDITIONAL_FORMATS: {
                                     OperatorConstants.Misc.NAME: "Additional Output Formats",
