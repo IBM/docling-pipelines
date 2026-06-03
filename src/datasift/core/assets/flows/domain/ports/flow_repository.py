@@ -103,6 +103,23 @@ class FlowRepository(ABC):
         """
 
     @abstractmethod
+    def exists_by_name(self, flow_name: str) -> bool:
+        """Check if a flow exists in the repository by exact name match.
+
+        Args:
+            flow_name: Flow name to check
+
+        Returns:
+            True if a flow with the given name exists, False otherwise
+
+        Raises:
+            ValueError: If flow_name is invalid
+            PermissionError: If read permission denied
+            OSError: If file system operation fails
+            TimeoutError: If lock cannot be acquired
+        """
+
+    @abstractmethod
     def bulk_delete(self, flow_ids: list[str], batch_size: int = 10, max_workers: int = 4) -> dict[str, Any]:
         """Delete multiple flows by their IDs in parallel.
 

@@ -218,13 +218,9 @@ class FlowService:
 
         logger.info(f"Creating flow with name: {flow.name} (format: {'Elyra' if is_elyra else 'Authoring'})")
 
-        # Check for duplicate flow name using exact match
-        all_flows = self.repository.find_all()
-        logger.info(f"Found {len(all_flows)} existing flows")
-        for existing_flow in all_flows:
-            if existing_flow.name == flow.name:
-                logger.warning("Attempted to create flow with existing name: %s", flow.name)
-                raise FlowAlreadyExistsException(f"Flow with name '{flow.name}' already exists", flow_name=flow.name)
+        if self.repository.exists_by_name(flow.name):
+            logger.warning("Attempted to create flow with existing name: %s", flow.name)
+            raise FlowAlreadyExistsException(f"Flow with name '{flow.name}' already exists", flow_name=flow.name)
 
         saved_flow = self.repository.save(flow)
 

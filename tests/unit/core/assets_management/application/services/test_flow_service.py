@@ -20,12 +20,7 @@ class TestFlowServiceCreate:
     def test_create_flow_prevents_duplicate_name(self, mock_flow_repository, sample_flow_with_id):
         """Test that create_flow prevents creating flows with duplicate names."""
         # Arrange
-        existing_flow = Flow(
-            flow_id="different-id",
-            name=sample_flow_with_id.name,  # Same name
-            definition={"doc_type": "pipeline", "pipelines": []},
-        )
-        mock_flow_repository.find_all.return_value = [existing_flow]
+        mock_flow_repository.exists_by_name.return_value = True  # Simulate duplicate name
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
@@ -39,7 +34,7 @@ class TestFlowServiceCreate:
         """Test creating a flow with valid data."""
         # Arrange
         mock_flow_repository.save.return_value = sample_flow_domain
-        mock_flow_repository.find_all.return_value = []  # No existing flows
+        mock_flow_repository.exists_by_name.return_value = False  # No duplicate name
         service = FlowService(repository=mock_flow_repository)
 
         # Act
@@ -65,12 +60,7 @@ class TestFlowServiceCreate:
     def test_create_flow_with_existing_name_logs_warning(self, mock_flow_repository, sample_flow_with_id):
         """Test creating a flow when name already exists logs warning."""
         # Arrange
-        existing_flow = Flow(
-            flow_id="different-id",
-            name=sample_flow_with_id.name,  # Same name
-            definition={"doc_type": "pipeline", "pipelines": []},
-        )
-        mock_flow_repository.find_all.return_value = [existing_flow]
+        mock_flow_repository.exists_by_name.return_value = True  # Simulate duplicate name
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
@@ -85,7 +75,7 @@ class TestFlowServiceCreate:
     def test_create_flow_handles_repository_exception(self, mock_flow_repository, sample_flow_domain):
         """Test that repository exceptions bubble up naturally."""
         # Arrange
-        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.exists_by_name.return_value = False
         mock_flow_repository.save.side_effect = OSError("Disk full")
         service = FlowService(repository=mock_flow_repository)
 
@@ -106,7 +96,7 @@ class TestFlowServiceCreate:
                 "tags": [],
             },
         )
-        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.exists_by_name.return_value = False
         mock_flow_repository.save.return_value = authoring_flow
         service = FlowService(repository=mock_flow_repository)
 
@@ -125,7 +115,7 @@ class TestFlowServiceCreate:
             name="Test Flow",
             definition={"doc_type": "pipeline", "pipelines": []},
         )
-        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.exists_by_name.return_value = False
         mock_flow_repository.save.return_value = elyra_flow
         service = FlowService(repository=mock_flow_repository)
 

@@ -1,7 +1,40 @@
 """Factory for creating repository instances.
 
 Provides centralized repository creation based on environment configuration.
-Supports multiple repository types through the Abstract Factory pattern.
+Supports multiple repository types through the Abstract Factory pattern with
+registry-based extensibility.
+
+Architecture:
+    - AbstractRepositoryType: Base enum for all repository types
+    - RepositoryType: Concrete repository types (LOCAL)
+    - get_available_repository_types(): Registry mapping types to implementation classes
+    - create_flow_repository(): Factory method using registry pattern
+
+Extension Pattern:
+    This factory can be extended without modifying existing code by:
+
+    1. Creating a new repository type enum:
+        ```python
+        class CustomRepositoryType(AbstractRepositoryType):
+            CUSTOM = "custom"
+        ```
+
+    2. Creating an extended factory:
+        ```python
+        class ExtendedRepositoryFactory(RepositoryFactory):
+            @classmethod
+            def get_available_repository_types(cls):
+                base_types = super().get_available_repository_types()
+                return {
+                    **base_types,
+                    CustomRepositoryType.CUSTOM: CustomFlowRepository
+                }
+        ```
+
+    3. Using the extended factory:
+        ```python
+        repository = ExtendedRepositoryFactory.create_flow_repository()
+        ```
 """
 
 import logging
@@ -18,7 +51,18 @@ from datasift.exceptions.datasift_exceptions import RepositoryConfigurationExcep
 logger = logging.getLogger(__name__)
 
 
-class RepositoryType(Enum):
+class AbstractRepositoryType(Enum):
+    """Base enumeration for repository types.
+
+    Empty base class that allows different implementations to define their own
+    repository types without conflicts. Can be extended to add custom repository
+    types in derived implementations.
+    """
+
+    pass
+
+
+class RepositoryType(AbstractRepositoryType):
     """Enumeration of available repository types."""
 
     LOCAL = "local"
@@ -46,14 +90,44 @@ class RepositoryFactory:
                         Overrides yaml/base default when set
     """
 
-    @staticmethod
-    def _get_valid_types() -> list[str]:
-        """Get list of valid repository type values.
+    @classmethod
+    def get_available_repository_types(cls) -> dict[AbstractRepositoryType, type[FlowRepository]]:
+        """Get available repository types and their implementation classes.
+
+        Returns a mapping of repository type enums to their corresponding
+        FlowRepository implementation classes. This enables dynamic repository
+        instantiation and allows extended implementations to add additional
+        repository types by overriding this method.
+
+        Note:
+            This is a classmethod (not staticmethod) to support inheritance.
+            When a subclass overrides this method, other methods in the class
+            will automatically use the subclass's version via the cls parameter.
 
         Returns:
-            List of valid repository type strings from RepositoryType enum
+            Dictionary mapping AbstractRepositoryType to FlowRepository class
+
+        Example:
+            {
+                RepositoryType.LOCAL: LocalFlowRepository
+            }
         """
-        return [t.value for t in RepositoryType]
+        return {RepositoryType.LOCAL: LocalFlowRepository}
+
+    @classmethod
+    def _get_valid_types(cls) -> list[str]:
+        """Get list of valid repository type values.
+
+        Note:
+            Uses cls.get_available_repository_types() instead of
+            RepositoryFactory.get_available_repository_types() to ensure
+            subclass overrides are respected.
+
+        Returns:
+            List of valid repository type strings from available repository types
+        """
+        available_types = cls.get_available_repository_types()
+        return [repo_type.value for repo_type in available_types.keys()]
 
     @staticmethod
     def _load_yaml_config() -> dict:
@@ -81,9 +155,17 @@ class RepositoryFactory:
 
         return repo_type_str, resolved_config
 
-    @staticmethod
-    def create_flow_repository() -> FlowRepository:
+    @classmethod
+    def create_flow_repository(cls) -> FlowRepository:
         """Create a flow repository based on environment configuration and datasift-config.yaml.
+
+        Uses a registry pattern to dynamically instantiate repository implementations.
+        This allows extended implementations to add additional repository types
+        without modifying existing code.
+
+        Note:
+            This is a classmethod to support inheritance. When called on a subclass,
+            it will use the subclass's get_available_repository_types() registry.
 
         Returns:
             FlowRepository: Configured repository instance
@@ -92,8 +174,9 @@ class RepositoryFactory:
             RepositoryConfigurationException: If repository type is invalid
                                              or not yet implemented
         """
-        repo_type_str, repository_config = RepositoryFactory._get_repository_config()
-        valid_types = RepositoryFactory._get_valid_types()
+        repo_type_str, repository_config = cls._get_repository_config()
+        available_types = cls.get_available_repository_types()
+        valid_types = cls._get_valid_types()
 
         logger.info(f"Creating flow repository of type: '{repo_type_str}'")
 
@@ -107,18 +190,41 @@ class RepositoryFactory:
                 valid_types=valid_types,
             )
 
-        repository_type = RepositoryType(repo_type_str.lower())
+        # Find matching repository type enum from registry
+        repository_type = None
+        for repo_enum in available_types.keys():
+            if repo_enum.value == repo_type_str.lower():
+                repository_type = repo_enum
+                break
 
-        match repository_type:
-            case RepositoryType.LOCAL:
-                enable_locking = repository_config.get("enable_locking", True)
-                return LocalFlowRepository(enable_locking=enable_locking)
-            case _:
-                raise RepositoryConfigurationException(
-                    f"Repository type '{repository_type.value}' is not yet implemented",
-                    repository_type=repository_type.value,
-                    valid_types=valid_types,
-                )
+        if not repository_type:
+            raise RepositoryConfigurationException(
+                f"Repository type '{repo_type_str}' not found in registry",
+                repository_type=repo_type_str,
+                valid_types=valid_types,
+            )
+
+        # Get repository class from registry and instantiate
+        repository_class = available_types[repository_type]
+
+        try:
+            if repository_type == RepositoryType.LOCAL:
+                # Filter out configs, keep only constructor parameters for local repository type
+                filtered_config = {
+                    k: v
+                    for k, v in repository_config.items()
+                    if k in ("enable_locking", "lock_timeout", "lock_retry_interval")
+                }
+                return repository_class(**filtered_config)
+
+            # For other repository types, pass all configuration
+            return repository_class(**repository_config)
+        except TypeError as e:
+            raise RepositoryConfigurationException(
+                f"Failed to instantiate repository '{repository_type.value}': {e}",
+                repository_type=repository_type.value,
+                valid_types=valid_types,
+            ) from e
 
     @staticmethod
     def create_default_flow_repository() -> FlowRepository:

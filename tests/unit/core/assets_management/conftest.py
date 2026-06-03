@@ -96,6 +96,7 @@ def mock_flow_repository() -> Mock:
     mock_repo.find_all.return_value = []
     mock_repo.delete.return_value = True
     mock_repo.exists.return_value = False
+    mock_repo.exists_by_name.return_value = False  # Default: no duplicate names
 
     return mock_repo
 

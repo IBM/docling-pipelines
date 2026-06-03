@@ -226,6 +226,37 @@ class TestLocalFlowRepository:
 
         assert repository.exists(non_existent_id) is False
 
+    def test_exists_by_name_true(self, repository, sample_flow):
+        """Test exists_by_name returns True for existing flow name."""
+        repository.save(sample_flow)
+
+        assert repository.exists_by_name(sample_flow.name) is True
+
+    def test_exists_by_name_false(self, repository):
+        """Test exists_by_name returns False for non-existent flow name."""
+        assert repository.exists_by_name("Non-existent Flow") is False
+
+    def test_exists_by_name_exact_match(self, repository):
+        """Test exists_by_name uses exact match, not partial match."""
+        repository.save(
+            Flow(
+                name="Test Flow",
+                definition={"doc_type": "pipeline", "pipelines": []},
+                flow_id=str(uuid4()),
+            )
+        )
+
+        assert repository.exists_by_name("Test") is False
+        assert repository.exists_by_name("Test Flow") is True
+
+    def test_exists_by_name_validates_empty_name(self, repository):
+        """Test exists_by_name raises ValueError for empty or whitespace-only names."""
+        with pytest.raises(ValueError, match="flow_name cannot be empty"):
+            repository.exists_by_name("")
+
+        with pytest.raises(ValueError, match="flow_name cannot be empty"):
+            repository.exists_by_name("   ")
+
     def test_save_updates_existing_flow(self, repository, sample_flow):
         """Test that saving an existing flow updates it."""
         # Save initial flow
@@ -471,6 +502,12 @@ class TestLocalFlowRepository:
         with patch("os.access", return_value=False):
             with pytest.raises(PermissionError, match="No read permission"):
                 repository.find_all()
+
+    def test_permission_error_on_exists_by_name(self, repository):
+        """Test that exists_by_name raises PermissionError when directory is not readable."""
+        with patch("os.access", return_value=False):
+            with pytest.raises(PermissionError, match="No read permission"):
+                repository.exists_by_name("Test Flow")
 
     def test_permission_error_on_delete(self, repository, sample_flow):
         """Test that delete raises PermissionError when directory is not writable."""

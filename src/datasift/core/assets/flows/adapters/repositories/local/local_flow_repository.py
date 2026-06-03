@@ -841,3 +841,54 @@ class LocalFlowRepository(FlowRepository):
         """
         with self._file_lock(flow_id, exclusive=False, timeout=self.TIMEOUT_READ):
             return bool(self._find_flow_files(flow_id))
+
+    def exists_by_name(self, flow_name: str) -> bool:
+        """Check if a flow exists by exact name match.
+
+        Args:
+            flow_name: The flow name to check
+
+        Returns:
+            True if a flow with the given name exists, False otherwise
+
+        Raises:
+            ValueError: If flow_name is invalid
+            PermissionError: If read permission denied on flows directory
+            TimeoutError: If lock cannot be acquired within timeout
+        """
+        if not flow_name or not flow_name.strip():
+            raise ValueError("flow_name cannot be empty")
+
+        if not os.access(self.flows_dir, os.R_OK):
+            raise PermissionError(f"No read permission for directory: {self.flows_dir}")
+
+        try:
+            flow_files = self._find_all_flow_files()
+
+            for flow_file in flow_files:
+                try:
+                    flow_id = FlowFilesystemUtils.extract_flow_id_from_filename(flow_file.name)
+
+                    if flow_id is None:
+                        logger.warning("Could not extract flow_id from filename: %s", flow_file.name)
+                        continue
+
+                    with self._file_lock(flow_id, exclusive=False, timeout=self.TIMEOUT_LIST):
+                        flow_data = self._read_flow_file(flow_file)
+                        if flow_data.get("name") == flow_name:
+                            return True
+
+                except KeyError as e:
+                    logger.warning("Skipping corrupted flow file %s: missing required field %s", flow_file.name, e)
+                    continue
+                except (ValueError, OSError, FileNotFoundError) as e:
+                    logger.warning(
+                        "Failed to read flow file %s while checking flow name existence: %s", flow_file.name, e
+                    )
+                    continue
+
+            return False
+
+        except Exception as e:
+            logger.error("Failed to check flow existence by name '%s': %s", flow_name, e)
+            raise ValueError(f"Failed to check flow existence by name: {e}") from e
