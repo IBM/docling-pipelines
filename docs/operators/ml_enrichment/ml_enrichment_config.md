@@ -1,7 +1,7 @@
 # ML Enrichment Operator Configuration Reference
 
 ## Overview
-The ML Enrichment operator computes 30+ text quality features for document content using machine learning-based analysis. It extracts statistical, structural, and quality metrics that can be used for data quality assessment, filtering, and feature engineering.
+The ML Enrichment operator computes 27 text quality features for document content using machine learning-based analysis. It extracts statistical, structural, and quality metrics that can be used for data quality assessment, filtering, and feature engineering.
 
 - **Operator Name**: `ml_enrichment`
 - **Category**: Quality
