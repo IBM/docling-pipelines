@@ -50,7 +50,7 @@ class DocumentLibraryMapper:
             original_size=dto.original_size,
             final_size=dto.final_size,
             tags=dto.tags or [],
-            library_id=dto.asset_id,  # asset_id in DTO maps to library_id in domain
+            library_id=dto.library_id,
         )
 
     @staticmethod
@@ -70,7 +70,7 @@ class DocumentLibraryMapper:
             True
         """
         return DocumentLibraryDTO(
-            asset_id=domain.library_id,  # library_id in domain maps to asset_id in DTO
+            library_id=domain.library_id,
             name=domain.name,
             description=domain.description,
             purpose=domain.purpose,
@@ -102,7 +102,7 @@ class DocumentLibraryMapper:
             1
         """
         return DocumentLibraryWithDocumentSets(
-            asset_id=domain.library_id,
+            library_id=domain.library_id,
             name=domain.name,
             description=domain.description,
             purpose=domain.purpose,

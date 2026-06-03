@@ -308,7 +308,7 @@ def create_library(
     # Convert to response DTO
     response = DocumentLibraryMapper.domain_to_response(domain=domain_library)
 
-    logger.info(msg=f"Library created successfully: {response.asset_id}")
+    logger.info(msg=f"Library created successfully: {response.library_id}")
     return response
 
 

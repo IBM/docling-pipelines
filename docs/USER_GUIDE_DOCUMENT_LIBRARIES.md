@@ -572,7 +572,7 @@ The Document Library feature uses a hybrid storage approach:
 **1. Library Metadata (KeyValueStorage - JSON)**:
 ```sql
 CREATE TABLE document_libraries (
-    key VARCHAR PRIMARY KEY,           -- library asset_id
+    key VARCHAR PRIMARY KEY,           -- library id
     data JSON NOT NULL,                -- Full library metadata as JSON
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL
@@ -582,7 +582,7 @@ CREATE TABLE document_libraries (
 **JSON Structure in `data` column**:
 ```json
 {
-  "asset_id": "uuid",
+  "library_id": "uuid",
   "name": "Library Name",
   "description": "Description",
   "purpose": "Purpose",

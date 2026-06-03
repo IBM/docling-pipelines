@@ -256,7 +256,7 @@ class DocumentLibrary(BaseModel):
 
 
     Fields:
-        asset_id: Library identifier (UUID)
+        library_id: Library identifier (UUID)
         name: Library name
         description: Optional description
         purpose: Optional purpose/additional info
@@ -267,7 +267,7 @@ class DocumentLibrary(BaseModel):
         href: Optional hyperlink reference
     """
 
-    asset_id: str | None = Field(
+    library_id: str | None = Field(
         default=None,
         title="Asset ID",
         description="Identifier of the document library",

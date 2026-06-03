@@ -20,7 +20,7 @@ class DocumentLibrary:
     organizational structure.
 
     Attributes:
-        library_id: Unique identifier for the library (UUID) - called asset_id in API
+        library_id: Unique identifier for the library (UUID)
         name: Human-readable name (unique, required, max 256 chars)
         description: Optional description (max 1024 chars)
         purpose: Optional additional information (max 1024 chars)
