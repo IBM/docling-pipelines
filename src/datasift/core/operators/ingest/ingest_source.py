@@ -669,13 +669,15 @@ class IngestSourceOperator(AbstractOperator):
             # Extract document format from metadata
             document_format: str = doc.metadata.get("extension", "")
 
+            source_id = doc.metadata.get("source_id", source)
+
             # Create processed document
             processed_doc: dict[str, Any] = {
                 "id": doc_id,
                 "name": source,
                 "document_format": document_format,
                 "metadata": json.dumps(doc.metadata),
-                "source_id": source,
+                "source_id": source_id,
                 "path": source,
                 "modified_time": modified_time if isinstance(modified_time, int) else 0,
             }

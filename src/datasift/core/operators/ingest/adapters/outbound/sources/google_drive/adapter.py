@@ -1,9 +1,8 @@
-"""Google Drive source adapter using LangChain loader."""
+"""Google Drive source adapter using Google Drive API."""
 
 import os
 import pickle
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
@@ -11,124 +10,22 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from langchain_core.document_loaders import BaseLoader
-from langchain_core.documents import Document as LangChainDocument
-from langchain_google_community import GoogleDriveLoader
 
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
 from datasift.core.operators.ingest.domain.models import Document
 from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
-from datasift.core.operators.operator_utils import OperatorUtils, resolve_env_var
+from datasift.core.operators.operator_utils import resolve_env_var
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class PyPDFFileLoader(BaseLoader):
-    """
-    Custom loader that preserves original binary content without text extraction.
-
-    This loader solves three problems:
-    1. Avoids deprecated PyPDF2 dependency (uses pypdf only for validation)
-    2. Returns single document per file (not one per PDF page)
-    3. Preserves original binary content for Extract operator
-
-    The loader stores binary content as _binary_content attribute, which is then
-    picked up by IngestSourceOperator and stored in the binary_content column
-    for downstream processing by ExtractOperator.
-    """
-
-    def __init__(self, *, file: BytesIO, **kwargs: Any) -> None:
-        """
-        Initialize the loader with a file object.
-
-        Args:
-            file: BytesIO object containing file content
-            **kwargs: Additional metadata from GoogleDriveLoader
-        """
-        self.file = file
-        self.metadata = kwargs
-
-    def load(self) -> list[LangChainDocument]:
-        """
-        Load binary content without text extraction.
-
-        For PDF files: Validates using pypdf but stores original binary content.
-        For non-PDF files: Stores original binary content as-is.
-
-        Returns:
-            List containing single LangChain Document with binary content attached,
-            or empty list if binary read fails
-        """
-        try:
-            self.file.seek(0)
-            binary_content = self.file.read()
-
-            if not binary_content or len(binary_content) == 0:
-                logger.warning("Skipping file: Either the file is empty or binary content extraction failed")
-                return []
-
-            # Try to extract extension from filename first
-            import os
-
-            filename = self.metadata.get("name", "")
-            detected_extension = ""
-
-            if filename:
-                # Extract extension from filename (e.g., "document.pdf" -> ".pdf")
-                _, file_ext = os.path.splitext(filename)
-                if file_ext:
-                    detected_extension = file_ext.lower()
-
-            # Fall back to binary detection if no extension in filename
-            if not detected_extension:
-                detected_extension = OperatorUtils.detect_extension_from_bytes(binary_content=binary_content)
-
-            # For PDFs, validate and get page count using pypdf
-            total_pages = None
-            if detected_extension == ".pdf":
-                try:
-                    from pypdf import PdfReader
-
-                    self.file.seek(0)
-                    pdf_reader = PdfReader(self.file)
-                    total_pages = len(pdf_reader.pages)
-                    logger.info(
-                        f"GoogleDrive PyPDFFileLoader validated PDF: total_pages={total_pages}, "
-                        f"binary_size={len(binary_content)} bytes"
-                    )
-                except ImportError:
-                    logger.warning("pypdf not available for PDF validation, storing binary content anyway")
-                except Exception as e:
-                    logger.warning(f"Failed to validate PDF structure: {e}, storing binary content anyway")
-
-            doc_metadata = {**self.metadata, "extension": detected_extension}
-            if total_pages is not None:
-                doc_metadata["total_pages"] = total_pages
-
-            doc = LangChainDocument(
-                page_content="",
-                metadata=doc_metadata,
-            )
-            doc._binary_content = binary_content  # type: ignore[attr-defined]
-
-            return [doc]
-
-        except Exception as e:
-            logger.error(f"Failed to load binary content: {e}")
-            return []
-
-
 @register_source_adapter
 class GoogleDriveSourceAdapter(DocumentSourcePort):
     """
-    Adapter for ingesting documents from Google Drive using LangChain.
-
-    This adapter wraps LangChain's GoogleDriveLoader to provide a simpler,
-    more maintainable implementation with automatic OAuth2 or Service Account
-    authentication and Google Workspace file export.
+    Adapter for ingesting documents from Google Drive using Google Drive API.
 
     Features:
     - OAuth2 authentication with token caching (for user access)
@@ -141,22 +38,14 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
       - Google Slides → PDF
       - Google Drawings → PDF
     - File extension filtering
-    - Secure PDF processing using pypdf (not PyPDF2)
-
-    Benefits over direct API implementation:
-    - 73% less code (80 lines vs 300+ lines)
-    - Battle-tested by LangChain community
-    - Automatic updates and bug fixes
-    - Simpler error handling
-    - Support for both OAuth and Service Account authentication
-    - Uses secure pypdf library instead of PyPDF2 for PDF processing
+    - Lazy loading for performance optimization
     """
 
     # Metadata for connector discovery
     SOURCE_NAME = "google_drive"
     SOURCE_DISPLAY_NAME = "Google Drive"
-    SOURCE_DESCRIPTION = "Ingest documents from Google Drive using LangChain"
-    SOURCE_VERSION = "2.0.0"  # Updated to 2.0.0 to reflect LangChain implementation
+    SOURCE_DESCRIPTION = "Ingest documents from Google Drive using Google Drive API"
+    SOURCE_VERSION = "3.0.0"
 
     def _get_credentials(self, config: GoogleDriveSourceConfig) -> Credentials | ServiceAccountCredentials:
         """
@@ -242,45 +131,6 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
         return creds
 
-    def _map_file_extensions_to_types(self, file_extensions: list[str]) -> list[str] | None:
-        """Map file extensions to Google Drive loader file types."""
-        if not file_extensions:
-            return None
-
-        mime_type_map = {
-            ".pdf": "pdf",
-            ".doc": "document",
-            ".docx": "document",
-            ".xls": "sheet",
-            ".xlsx": "sheet",
-            ".ppt": "presentation",
-            ".pptx": "presentation",
-        }
-
-        file_types_raw = [mime_type_map.get(ext.lower()) for ext in file_extensions]
-        file_types: list[str] = [file_type for file_type in file_types_raw if file_type is not None]
-
-        return file_types if file_types else None
-
-    def _create_loader(
-        self,
-        config: GoogleDriveSourceConfig,
-        recursive: bool | None = None,
-    ) -> GoogleDriveLoader:
-        """
-        Create a LangChain loader for Google Drive.
-
-        Uses custom PyPDFFileLoader (which uses pypdf) instead of PyPDF2 to avoid security issues.
-        """
-        creds = self._get_credentials(config)
-        return GoogleDriveLoader(
-            folder_id=config.folder_id,
-            credentials=creds,
-            recursive=config.recursive if recursive is None else recursive,
-            file_types=self._map_file_extensions_to_types(config.file_extensions),
-            file_loader_cls=PyPDFFileLoader,
-        )
-
     def _prepare_document(self, *, file_metadata: dict, config: GoogleDriveSourceConfig) -> Document:
         """
         Convert Google Drive file metadata to domain document model (lazy loading).
@@ -325,6 +175,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 "mime_type": mime_type,
                 "file_size": file_size,
                 "file_id": doc_id,
+                "source_id": doc_id,  # Store file ID for binary fetching
                 "drive_name": doc_name,
                 "web_view_link": source_url,
                 # Store credentials for lazy loading
@@ -374,10 +225,22 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         query = " and ".join(query_parts)
 
         # List files with pagination
-        files = []
+        # Optimize pageSize based on max_files to reduce unnecessary API calls
+        files: list[dict[str, Any]] = []
         page_token = None
 
         while True:
+            # Determine optimal page size
+            if config.max_files is not None:
+                remaining = config.max_files - len(files)
+                if remaining <= 0:
+                    break
+                # If max_files < 100, use max_files as pageSize; otherwise use 100
+                page_size = min(remaining, 100)
+            else:
+                # No max_files limit, use default page size
+                page_size = 100
+
             results = (
                 service.files()
                 .list(
@@ -385,13 +248,17 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                     spaces="drive",
                     fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, webViewLink)",
                     pageToken=page_token,
-                    pageSize=100,
+                    pageSize=page_size,
                 )
                 .execute()
             )
 
             items = results.get("files", [])
             files.extend(items)
+
+            # Stop if we've reached max_files limit
+            if config.max_files is not None and len(files) >= config.max_files:
+                break
 
             page_token = results.get("nextPageToken")
             if not page_token:
@@ -461,7 +328,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
     async def fetch_documents(self, config: GoogleDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
-        Fetch documents from Google Drive using LangChain loader.
+        Fetch documents from Google Drive using Google Drive API.
 
         Args:
             config: Validated Google Drive configuration
@@ -470,7 +337,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             Document: Domain documents from Google Drive
 
         Raises:
-            ImportError: If langchain_google_community is not installed
+            ImportError: If google-api-python-client is not installed
             ValueError: If credentials are invalid or folder not found
         """
         try:
@@ -485,15 +352,14 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 fetched_count += 1
         except ImportError as e:
             raise ImportError(
-                "LangChain Google Drive dependencies not installed. "
-                "Install with: pip install langchain-google-community"
+                "Google API client not installed. Install with: pip install google-api-python-client"
             ) from e
         except Exception as e:
             raise ValueError(f"Failed to fetch documents from Google Drive: {e!s}") from e
 
     async def test_connection(self, config: GoogleDriveSourceConfig) -> tuple[bool, str]:
         """
-        Test Google Drive connection using LangChain loader.
+        Test Google Drive connection using Google Drive API.
 
         Args:
             config: Validated Google Drive configuration
@@ -502,11 +368,21 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             Tuple[bool, str]: (success, message)
         """
         try:
-            docs = self._create_loader(config, recursive=False).load()
-            return True, f"Successfully connected to Google Drive. Found {len(docs)} document(s) in folder."
-
+            from googleapiclient.discovery import build
         except ImportError:
-            return False, "LangChain Google Drive dependencies not installed"
+            return False, "Google API client not installed. Install with: pip install google-api-python-client"
+
+        try:
+            creds = self._get_credentials(config)
+            service = build("drive", "v3", credentials=creds)
+
+            # Test by listing files in the folder (limit to 1 for quick test)
+            query = f"'{config.folder_id}' in parents and trashed = false"
+            results = service.files().list(q=query, spaces="drive", fields="files(id, name)", pageSize=10).execute()
+
+            files = results.get("files", [])
+            return True, f"Successfully connected to Google Drive. Found {len(files)} document(s) in folder."
+
         except Exception as e:
             return False, f"Connection test failed: {e!s}"
 
@@ -667,8 +543,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         }
 
         # Add OAuth credentials if provided
-        if "credentials_json_path" in credentials:
-            config_dict["credentials_path"] = resolve_env_var(credentials.get("credentials_json_path"))
+        if "credentials_path" in credentials:
+            config_dict["credentials_path"] = resolve_env_var(credentials.get("credentials_path"))
             config_dict["token_path"] = resolve_env_var(credentials.get("token_path"))
 
         # Add Service Account credentials if provided

@@ -82,7 +82,7 @@ class TestGoogleDriveSourceAdapter:
                 "max_file_size_mb": 4,
             },
             credentials={
-                "credentials_json_path": "/tmp/creds.json",
+                "credentials_path": "/tmp/creds.json",
                 "token_path": "/tmp/token.json",
                 "scopes": ["scope1"],
             },
@@ -180,21 +180,26 @@ class TestGoogleDriveSourceAdapter:
         adapter = GoogleDriveSourceAdapter()
         config = self.make_config()
 
-        loader_instance = Mock()
-        loader_instance.load.return_value = [Mock(), Mock()]
+        # Mock the Google Drive API service
+        mock_service = Mock()
+        mock_files = Mock()
+        mock_list = Mock()
+        mock_list.execute.return_value = {"files": [{"id": "1", "name": "test1.pdf"}, {"id": "2", "name": "test2.pdf"}]}
+        mock_files.list.return_value = mock_list
+        mock_service.files.return_value = mock_files
 
         with (
             patch.object(adapter, "_get_credentials", return_value=Mock()),
             patch(
-                "datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter.GoogleDriveLoader",
-                return_value=loader_instance,
+                "googleapiclient.discovery.build",
+                return_value=mock_service,
             ),
         ):
             success, message = asyncio.run(adapter.test_connection(config))
             assert success is True
             assert "Found 2 document(s)" in message
 
-        with patch.object(adapter, "_get_credentials", side_effect=ImportError):
+        with patch.object(adapter, "_get_credentials", side_effect=Exception("Auth failed")):
             success, message = asyncio.run(adapter.test_connection(config))
             assert success is False
-            assert "dependencies not installed" in message
+            assert "Connection test failed" in message

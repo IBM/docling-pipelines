@@ -187,6 +187,8 @@ def _fetch_from_cloud_source(
     Returns:
         Binary content as bytes, or None if not found or error occurred
     """
+    from datasift.core.operators.operator_utils import resolve_env_var
+
     provider = ingest_source.get(OperatorConstants.Config.PROVIDER)
     connection_params = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
     credentials = ingest_source.get(OperatorConstants.Config.CREDENTIALS, {})
@@ -201,10 +203,26 @@ def _fetch_from_cloud_source(
         logger.error("Document metadata missing 'source_id', 'source', or 'path'")
         return None
 
+    # Resolve environment variables in credentials (they may be stored unresolved in metadata)
+    resolved_credentials = {}
+    for key, value in credentials.items():
+        if isinstance(value, str):
+            resolved_credentials[key] = resolve_env_var(value)
+        else:
+            resolved_credentials[key] = value
+
+    # Resolve environment variables in connection_params as well
+    resolved_connection_params = {}
+    for key, value in connection_params.items():
+        if isinstance(value, str):
+            resolved_connection_params[key] = resolve_env_var(value)
+        else:
+            resolved_connection_params[key] = value
+
     # For OneDrive/SharePoint: Pass item_id in credentials if available
     # This allows the adapter to extract the actual item ID when source_id is a web URL
     if "item_id" in doc_metadata:
-        credentials = {**credentials, "item_id": doc_metadata["item_id"]}
+        resolved_credentials = {**resolved_credentials, "item_id": doc_metadata["item_id"]}
 
     # Use dynamic adapter lookup
     if not SourceAdapterFactory.is_registered(provider):
@@ -215,11 +233,11 @@ def _fetch_from_cloud_source(
         # Get adapter instance
         adapter = SourceAdapterFactory.create(provider)
 
-        # Call adapter's fetch_binary_content method
+        # Call adapter's fetch_binary_content method with resolved credentials
         return adapter.fetch_binary_content(
             source_id=source_id,
-            connection_params=connection_params,
-            credentials=credentials,
+            connection_params=resolved_connection_params,
+            credentials=resolved_credentials,
         )
     except Exception as e:
         logger.error(f"Failed to fetch binary content using {provider} adapter: {e}", exc_info=True)

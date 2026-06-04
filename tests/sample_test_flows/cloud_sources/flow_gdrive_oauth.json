@@ -19,7 +19,7 @@
           "recursive": true
         },
         "credentials": {
-          "credentials_json_path": "${GOOGLE_DRIVE_CREDENTIALS_PATH}"
+          "credentials_path": "${GOOGLE_DRIVE_CREDENTIALS_PATH}"
         },
         "max_files": 100,
         "force_ingest": true

@@ -550,19 +550,25 @@ class AbstractOrchestrator(ABC):
         )
         if "ingest_source" in operator_type.lower() or "IngestSourceOperator" in operator_type:
             operator_config = ingest_operator.get(OperatorConstants.Config.CONFIG, {})
+            connection_params = operator_config.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
+            credentials = operator_config.get(OperatorConstants.Config.CREDENTIALS, {})
+
+            # Merge connection_params and credentials for adapter compatibility
+            # Some adapters expect all config in connection_params, others split them
+            merged_connection_params = {**connection_params, **credentials}
+
             global_config[OperatorConstants.Config.INGEST_SOURCE] = {
                 OperatorConstants.Config.PROVIDER: operator_config.get(OperatorConstants.Config.PROVIDER),
-                OperatorConstants.Config.CONNECTION_PARAMS: operator_config.get(
-                    OperatorConstants.Config.CONNECTION_PARAMS, {}
-                ),
-                OperatorConstants.Config.CREDENTIALS: operator_config.get(OperatorConstants.Config.CREDENTIALS, {}),
+                OperatorConstants.Config.CONNECTION_PARAMS: merged_connection_params,
+                OperatorConstants.Config.CREDENTIALS: credentials,
             }
             self.logger.info(
                 f"Populated global_config with ingest_source params for provider: {operator_config.get(OperatorConstants.Config.PROVIDER)}",
                 extra=self.common_log_arguments,
             )
             self.logger.debug(
-                f"global_config after population: ingest_source keys={list(global_config.get(OperatorConstants.Config.INGEST_SOURCE, {}).keys())}",
+                f"global_config after population: ingest_source keys={list(global_config.get(OperatorConstants.Config.INGEST_SOURCE, {}).keys())}, "
+                f"merged_connection_params keys={list(merged_connection_params.keys())}",
                 extra=self.common_log_arguments,
             )
         else:

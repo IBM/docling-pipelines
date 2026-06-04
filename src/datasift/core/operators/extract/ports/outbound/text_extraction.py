@@ -375,11 +375,13 @@ class TextExtractionPort(ABC):
             table_list, _ = hash_operator.transform(table)
             table = table_list[0]
         else:
-            logger.warning(
-                "No successful extractions - content column not added. All %d documents failed extraction.",
-                total_files,
-                extra=self.common_log_arguments,
+            # All extractions failed - stop pipeline
+            error_msg = (
+                f"All {total_files} document(s) failed extraction. "
+                f"No content was extracted. Cannot continue pipeline with empty content."
             )
+            logger.error(error_msg, extra=self.common_log_arguments)
+            raise ValueError(error_msg)
 
         # Set final status
         metadata[Metrics.External.NODE_STATUS] = (

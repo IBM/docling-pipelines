@@ -1308,10 +1308,16 @@ def test_extract_operator_invalid_entity_extraction_mode_error():
 
 @pytest.mark.unit
 def test_extract_operator_missing_required_columns(sample_pdf_files):
-    """Test ExtractOperator with table missing both path and binary content."""
+    """Test ExtractOperator with table missing both path and binary content.
+
+    When all documents fail extraction (e.g., missing required columns),
+    the operator should raise a FlowExecutionFailedException to prevent
+    downstream operators from processing incomplete data.
+    """
     import pyarrow as pa
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     table = pa.table(
         {
@@ -1327,10 +1333,15 @@ def test_extract_operator_missing_required_columns(sample_pdf_files):
     }
 
     operator = ExtractOperator(config=config)
-    result_tables, metadata = operator.transform(table)
 
-    assert len(result_tables) == 1
-    assert metadata["failed_docs_count"] > 0 or metadata["skipped_docs_count"] > 0
+    # When all documents fail extraction, operator raises FlowExecutionFailedException
+    with pytest.raises(FlowExecutionFailedException) as exc_info:
+        operator.transform(table)
+
+    # Verify the error message indicates all documents failed
+    error_message = str(exc_info.value).lower()
+    assert "failed extraction" in error_message
+    assert "cannot continue pipeline" in error_message
 
 
 @pytest.mark.unit

@@ -1,6 +1,6 @@
 # Google Drive Source Adapter
 
-A LangChain-based adapter for ingesting documents from Google Drive with OAuth2 or Service Account authentication and Google Workspace file export.
+A Google Drive API-based adapter for ingesting documents from Google Drive with OAuth2 or Service Account authentication and Google Workspace file export.
 
 ## Features
 
@@ -10,7 +10,7 @@ A LangChain-based adapter for ingesting documents from Google Drive with OAuth2 
 - **Recursive Traversal**: Optionally traverse subdirectories
 - **File Filtering**: Filter by file extensions and exclude patterns
 - **Size Limits**: Optional maximum file size filtering
-- **LangChain Integration**: Uses battle-tested `GoogleDriveLoader` from LangChain
+- **Lazy Loading**: Efficient metadata-first approach with on-demand binary content fetching
 
 ## Quick Start
 
@@ -28,11 +28,11 @@ A LangChain-based adapter for ingesting documents from Google Drive with OAuth2 
 
 ```bash
 # Using uv (recommended, from project root)
-uv pip install langchain-google-community google-auth-oauthlib google-auth-httplib2
+uv pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
 ```
 
 **Required packages:**
-- `langchain-google-community` - LangChain's Google Drive integration
+- `google-api-python-client` - Google Drive API client
 - `google-auth-oauthlib` - OAuth2 authentication flow
 - `google-auth-httplib2` - HTTP transport for Google APIs
 
@@ -319,7 +319,7 @@ To set up Application Default Credentials, see https://cloud.google.com/docs/aut
 ```
 
 **Root Cause**:
-This error occurs when the adapter cannot find valid OAuth2 credentials. The `langchain-google-community` library (v3.x) requires proper OAuth2 credentials to be configured.
+This error occurs when the adapter cannot find valid OAuth2 credentials. The Google Drive API requires proper OAuth2 credentials to be configured.
 
 **Solution**:
 1. **Ensure you have created OAuth2 credentials** (not Service Account credentials):
@@ -397,23 +397,13 @@ This error occurs when the adapter cannot find valid OAuth2 credentials. The `la
 uv pip install google-auth-oauthlib google-auth-httplib2
 ```
 
-### "ImportError: No module named 'langchain_google_community'"
+### "ImportError: No module named 'googleapiclient'"
 
 **Solution**:
 ```bash
 # From project root
-uv pip install langchain-google-community
+uv pip install google-api-python-client
 ```
-
-### File Type Filtering Issues
-
-**Note**: In `langchain-google-community` v3.x, the `file_types` parameter expects Google Drive MIME types, not file extensions:
-- `.pdf` → `'pdf'`
-- `.docx`, `.doc` → `'document'`
-- `.xlsx`, `.xls` → `'sheet'`
-- `.pptx`, `.ppt` → `'presentation'`
-
-The adapter automatically converts common file extensions to the appropriate MIME types.
 
 ## Performance Considerations
 
@@ -438,19 +428,19 @@ External Service (Google Drive via LangChain)
 
 ## Version History
 
+- **3.0.0**: Removed LangChain dependency, using Google Drive API directly
+  - Cleaner implementation with direct Google Drive API calls
+  - Removed unnecessary LangChain dependencies
+  - Improved lazy loading for better performance
+  - Maintained all authentication features (OAuth2 and Service Account)
 - **2.1.0**: Added Service Account authentication support
   - Support for both OAuth 2.0 and Service Account authentication
   - Non-interactive authentication for automated workflows
-  - Updated documentation with Service Account setup instructions
-- **2.0.1**: Fixed authentication for langchain-google-community v3.x
-  - Added OAuth2 credential handling with `google-auth-oauthlib`
-  - Fixed file type filtering to use MIME types instead of extensions
-  - Added automatic token caching and refresh
-- **2.0.0**: Refactored to use LangChain's GoogleDriveLoader (73% code reduction)
+- **2.0.0**: Initial LangChain-based implementation
 - **1.0.0**: Initial implementation with direct Google API calls
 
 ## References
 
-- [LangChain GoogleDriveLoader](https://python.langchain.com/docs/integrations/document_loaders/google_drive)
 - [Google Drive API](https://developers.google.com/drive/api/v3/about-sdk)
 - [OAuth 2.0 for Desktop Apps](https://developers.google.com/identity/protocols/oauth2/native-app)
+- [Service Account Authentication](https://developers.google.com/identity/protocols/oauth2/service-account)
