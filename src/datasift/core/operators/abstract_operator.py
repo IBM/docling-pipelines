@@ -88,7 +88,13 @@ class AbstractOperator(AbstractTableTransform):
         }
 
     @staticmethod
-    def record_failed_document(*, metadata: dict[str, Any], doc_id: str, doc_name: str, reason: str) -> None:
+    def record_failed_document(
+        *,
+        metadata: dict[str, Any],
+        doc_id: str,
+        doc_name: str,
+        reason: str,
+    ) -> None:
         # Record a failed document in metadata.
         metadata[Metrics.External.FAILED_DOCS_COUNT] += 1
         metadata[Metrics.External.FAILED_DOCS].append(
@@ -96,7 +102,13 @@ class AbstractOperator(AbstractTableTransform):
         )
 
     @staticmethod
-    def record_skipped_document(*, metadata: dict[str, Any], doc_id: str, doc_name: str, reason: str) -> None:
+    def record_skipped_document(
+        *,
+        metadata: dict[str, Any],
+        doc_id: str,
+        doc_name: str,
+        reason: str,
+    ) -> None:
         # Record a skipped document in metadata.
         metadata[Metrics.External.SKIPPED_DOCS_COUNT] += 1
         metadata[Metrics.External.SKIPPED_DOCS].append(

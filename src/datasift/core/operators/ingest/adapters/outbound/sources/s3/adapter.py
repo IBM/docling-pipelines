@@ -84,6 +84,9 @@ class S3SourceAdapter(DocumentSourcePort):
                 try:
                     document = await self._download_s3_object(s3_client, config, s3_obj)
                     if document:
+                        logger.info(
+                            f"Ingesting file: s3://{config.bucket}/{s3_obj['Key']} ({s3_obj.get('Size', 0)} bytes)"
+                        )
                         yield document
                         fetched_count += 1
                 except Exception as e:
@@ -174,6 +177,7 @@ class S3SourceAdapter(DocumentSourcePort):
         access_key = resolve_env_var(credentials.get("access_key"))
         secret_key = resolve_env_var(value=credentials.get("secret_key"))
         bucket = resolve_env_var(value=connection_params.get("bucket"))
+        prefix = resolve_env_var(value=connection_params.get("prefix", ""))
 
         if not access_key:
             raise ValueError("Missing required credential: 'access_key'")
@@ -181,13 +185,14 @@ class S3SourceAdapter(DocumentSourcePort):
             raise ValueError("Missing required credential: 'secret_key'")
         if not bucket:
             raise ValueError("Missing required connection parameter: 'bucket'")
+        # prefix is optional - empty string means scan entire bucket
 
         # Build configuration
         config_dict = {
             "access_key": access_key,
             "secret_key": secret_key,
             "bucket": bucket,
-            "prefix": connection_params.get("prefix", ""),
+            "prefix": prefix,
             "endpoint_url": connection_params.get("endpoint_url"),
             "region": connection_params.get("region"),
             "recursive": connection_params.get("recursive", True),
@@ -432,6 +437,14 @@ class S3SourceAdapter(DocumentSourcePort):
             bytes | None: Binary content of the S3 object, or None if not found or error occurred
         """
         try:
+            # Resolve environment variables in credentials
+            access_key = resolve_env_var(credentials.get("access_key"))
+            secret_key = resolve_env_var(credentials.get("secret_key"))
+
+            if not access_key or not secret_key:
+                logger.error(f"Missing S3 credentials for fetching {source_id}")
+                return None
+
             # Parse S3 URI to extract bucket and key
             if source_id.startswith("s3://"):
                 # Format: s3://bucket/key
@@ -440,7 +453,7 @@ class S3SourceAdapter(DocumentSourcePort):
                 key = parts[1] if len(parts) > 1 else ""
             else:
                 # Assume it's just the key, get bucket from connection_params
-                bucket_value = connection_params.get("bucket")
+                bucket_value = resolve_env_var(connection_params.get("bucket"))
                 if not bucket_value:
                     logger.error("Cannot determine S3 bucket from source_id or connection_params")
                     return None
@@ -449,17 +462,17 @@ class S3SourceAdapter(DocumentSourcePort):
 
             # Create S3 client
             client_kwargs: dict[str, Any] = {
-                "aws_access_key_id": credentials.get("access_key"),
-                "aws_secret_access_key": credentials.get("secret_key"),
+                "aws_access_key_id": access_key,
+                "aws_secret_access_key": secret_key,
             }
 
             # Add endpoint URL for S3-compatible storage
-            endpoint_url = connection_params.get("endpoint_url")
+            endpoint_url = resolve_env_var(connection_params.get("endpoint_url"))
             if endpoint_url:
                 client_kwargs["endpoint_url"] = endpoint_url
 
             # Add region if specified
-            region = connection_params.get("region")
+            region = resolve_env_var(connection_params.get("region"))
             if region:
                 client_kwargs["region_name"] = region
 

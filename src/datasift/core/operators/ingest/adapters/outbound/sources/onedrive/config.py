@@ -24,10 +24,10 @@ class OneDriveSourceConfig(BaseModel):
     tenant_id: str = Field(..., description="Azure AD tenant (directory) ID")
 
     # OneDrive configuration
-    drive_id: str = Field(..., description="Specific OneDrive drive ID. If None, uses user's default drive")
+    drive_id: str = Field(..., description="Specific OneDrive drive ID (required)")
 
     folder_path: str | None = Field(
-        None, description="Folder path to ingest from (e.g., '/Documents/Reports'). If None, starts from root"
+        None, description="Folder path to ingest from (e.g., '/Documents/Reports'). If None, starts from root."
     )
 
     # Behavior configuration
@@ -95,7 +95,7 @@ class OneDriveSourceConfig(BaseModel):
                 "client_id": "your-client-id",
                 "client_secret": "your-client-secret",  # pragma: allowlist secret
                 "tenant_id": "your-tenant-id",
-                "drive_id": None,
+                "drive_id": "b!abc123...",
                 "folder_path": "/Documents",
                 "recursive": True,
                 "file_extensions": [".pdf", ".docx", ".txt"],

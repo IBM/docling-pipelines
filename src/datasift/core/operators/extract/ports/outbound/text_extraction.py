@@ -263,7 +263,10 @@ class TextExtractionPort(ABC):
             for task in doc_tasks:
                 if "error" in task:
                     AbstractOperator.record_failed_document(
-                        metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=task["error"]
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=task["error"],
                     )
                     failed_count += 1
                     continue
@@ -299,7 +302,10 @@ class TextExtractionPort(ABC):
                 except Exception as e:
                     logger.error("Error processing document at index %s: %s", idx, e)
                     AbstractOperator.record_failed_document(
-                        metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=str(e),
                     )
                     failed_count += 1
 

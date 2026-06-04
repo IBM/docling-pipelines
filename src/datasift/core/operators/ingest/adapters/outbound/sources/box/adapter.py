@@ -169,6 +169,7 @@ class BoxSourceAdapter(DocumentSourcePort):
             extension=extension,
             modified_time=modified_time,
             metadata={
+                "source": source_url,  # Required for document_url in failed_docs
                 "box_id": doc_id,
                 "box_name": doc_name,
                 "path": full_path,
@@ -253,7 +254,7 @@ class BoxSourceAdapter(DocumentSourcePort):
         Fetch binary content for a specific Box file on-demand.
 
         Args:
-            source_id: Box file ID
+            source_id: Box file ID or URL (e.g., "702199884861" or "https://app.box.com/file/702199884861")
             connection_params: Box connection parameters (not used, credentials contain all needed info)
             credentials: Box credentials (credentials_json_path)
 
@@ -261,6 +262,18 @@ class BoxSourceAdapter(DocumentSourcePort):
             bytes | None: Binary content of the Box file, or None if not found or error occurred
         """
         try:
+            # Extract file ID from URL if needed
+            # Box URLs are in format: https://app.box.com/file/{file_id}
+            file_id = source_id
+            if source_id.startswith("http"):
+                # Extract numeric ID from URL
+                parts = source_id.rstrip("/").split("/")
+                if len(parts) >= 2 and parts[-2] == "file":
+                    file_id = parts[-1]
+                else:
+                    logger.error(f"Could not extract file ID from Box URL: {source_id}")
+                    return None
+
             # Build minimal config just for authentication
             credentials_path = credentials.get("credentials_json_path")
             if not credentials_path:
@@ -278,8 +291,8 @@ class BoxSourceAdapter(DocumentSourcePort):
             client = self._get_box_client(config=config)
 
             # Download file content using existing method
-            logger.info(f"Downloading binary content from Box: file_id={source_id}")
-            content = self._download_file_content(client=client, file_id=source_id)
+            logger.info(f"Downloading binary content from Box: file_id={file_id}")
+            content = self._download_file_content(client=client, file_id=file_id)
 
             logger.info(f"Successfully downloaded {len(content)} bytes from Box: {source_id}")
             return content

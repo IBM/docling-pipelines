@@ -17,10 +17,7 @@
         "connection_params": {
           "recursive": true,
           "max_file_size_mb": 50,
-          "exclude_patterns": [
-            "*.tmp",
-            "Trash/*"
-          ]
+          "exclude_patterns": ["*.tmp", "Trash/*"]
         },
         "credentials": {
           "credentials_json_path": "${BOX_JWT_CONFIG_FILE}"
@@ -52,16 +49,14 @@
     {
       "name": "chunk",
       "type": "chunker",
+      "depends_on": ["extract"],
       "config": {
         "chunk_type": "hybrid",
-        "doc_column": "${OperatorConstants.Columns.DOC_COLUMN_DEFAULT}",
+        "doc_column": "content",
         "chunk_size": 512,
         "chunk_overlap": 128,
         "retain_original_content": false
-      },
-      "depends_on": [
-        "extract"
-      ]
+      }
     },
     {
       "name": "embeddings",
@@ -69,7 +64,7 @@
       "config": {
         "embeddings_column": "${OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT}",
         "overlap_ratio": 0.2,
-        "doc_column": "${OperatorConstants.Columns.DOC_COLUMN_DEFAULT}",
+        "doc_column": "content",
         "provider_config": {
           "api_base": "http://localhost:11434/v1",
           "api_key": "${OLLAMA_API_KEY}",
@@ -84,11 +79,12 @@
     {
       "name": "vectordb",
       "type": "vectordb",
+      "depends_on": ["embeddings"],
       "config": {
         "provider": "opensearch",
         "index_name": "datasift_box_documents",
         "doc_id_column": "doc_id_hash",
-        "embeddings_column": "${OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT}",
+        "embeddings_column": "embeddings",
         "vector_dimension": 768,
         "create_index": "true",
         "provider_config": {
@@ -146,10 +142,7 @@
           "source_url": "box_url",
           "embeddings": "vector_embeddings"
         }
-      },
-      "depends_on": [
-        "embeddings"
-      ]
+      }
     }
   ]
 }

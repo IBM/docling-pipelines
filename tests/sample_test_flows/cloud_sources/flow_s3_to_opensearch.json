@@ -14,16 +14,15 @@
       "type": "ingest_source",
       "config": {
         "provider": "s3",
+        "connection_params": {
+          "bucket": "${S3_BUCKET_NAME}",
+          "prefix": "${S3_PREFIX:}"
+        },
         "credentials": {
           "access_key": "${S3_ACCESS_KEY}",
           "secret_key": "${S3_SECRET_ACCESS_KEY}"
         },
-        "connection_params": {
-          "bucket": "${S3_BUCKET_NAME}",
-          "prefix": ""
-        },
-        "include_filter": "pdf,docx,txt,pptx",
-        "max_files": 15,
+        "max_files": 100,
         "force_ingest": true
       }
     },
@@ -99,7 +98,7 @@
             "type": "string",
             "is_primary": true
           },
-          "text": {
+          "content": {
             "name": "Content",
             "available_for_vector_db": true,
             "type": "string"
@@ -118,14 +117,14 @@
         },
         "feature_mappings": {
           "doc_id_hash": "pk",
-          "text": "text",
+          "content": "text",
           "source_id": "source_id",
           "embeddings": "vector_embeddings"
         }
       },
       "depends_on": [
         "embeddings"
-      ]
+      ]    
     }
   ]
 }

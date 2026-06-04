@@ -91,9 +91,9 @@ class OneDriveSourceAdapter(DocumentSourcePort):
 
             # Resolve folder path to item ID if specified
             folder_item_id = None
-            if config.folder_path:
-                path = config.folder_path.strip("/")
-                endpoint = f"/drives/{config.drive_id}/root:/{path}"
+            if onedrive_config.folder_path:
+                path = onedrive_config.folder_path.strip("/")
+                endpoint = f"/drives/{onedrive_config.drive_id}/root:/{path}"
                 try:
                     data = loader._rest_client.call_rest_json(
                         method=RestMethod.GET,
@@ -103,7 +103,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                     folder_item_id = data.get("id")
                 except Exception as e:
                     raise ValueError(
-                        f"Folder path '{config.folder_path}' not found in drive '{config.drive_id}': {e!s}"
+                        f"Folder path '{onedrive_config.folder_path}' not found in drive '{onedrive_config.drive_id}': {e!s}"
                     ) from e
 
             # List files without downloading content
@@ -154,6 +154,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                     size=file_size,
                     extension=extension,
                     metadata={
+                        "source_id": doc_id,  # Required by binary_content_fetcher
                         "drive_id": onedrive_config.drive_id,
                         "item_id": doc_id,
                         "file_size": file_size,
@@ -245,11 +246,11 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             bytes | None: Binary content of the OneDrive file, or None if not found or error occurred
         """
         try:
-            # Extract required parameters
-            drive_id = connection_params.get("drive_id")
-            client_id = credentials.get("client_id")
-            client_secret = credentials.get("client_secret")
-            tenant_id = credentials.get("tenant_id")
+            # Extract required parameters and resolve environment variables
+            drive_id = resolve_env_var(connection_params.get("drive_id"))
+            client_id = resolve_env_var(credentials.get("client_id"))
+            client_secret = resolve_env_var(credentials.get("client_secret"))
+            tenant_id = resolve_env_var(credentials.get("tenant_id"))
 
             if not all([drive_id, client_id, client_secret, tenant_id]):
                 logger.error("Missing required parameters for OneDrive binary content fetch")
@@ -357,7 +358,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             "client_secret": resolve_env_var(credentials.get("client_secret", "")),
             "tenant_id": resolve_env_var(credentials.get("tenant_id", "")),
             "drive_id": resolve_env_var(connection_params.get("drive_id", "")),
-            "folder_path": connection_params.get("folder_path"),
+            "folder_path": resolve_env_var(connection_params.get("folder_path")),
             "recursive": connection_params.get("recursive", True),
             "file_extensions": included_extensions,
             "max_file_size_mb": connection_params.get("max_file_size_mb"),

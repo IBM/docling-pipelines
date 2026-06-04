@@ -17,15 +17,16 @@
         "connection_params": {
           "document_library_id": "${SHAREPOINT_DOCUMENT_LIBRARY_ID}",
           "recursive": true,
-          "credentials": {
-            "client_id": "${SHAREPOINT_CLIENT_ID}",
-            "client_secret": "${SHAREPOINT_CLIENT_SECRET}",
-            "tenant_id": "${SHAREPOINT_TENANT_ID}"
-          },
-          "include_filter": "pdf,docx,txt,pptx",
-          "max_files": 100,
-          "force_ingest": true
-        }
+          "folder_path": "${SHAREPOINT_FOLDER_PATH:}",
+          "file_extensions": [".pdf", ".docx", ".txt", ".pptx"]
+        },
+        "credentials": {
+          "client_id": "${SHAREPOINT_CLIENT_ID}",
+          "client_secret": "${SHAREPOINT_CLIENT_SECRET}",
+          "tenant_id": "${SHAREPOINT_TENANT_ID}"
+        },
+        "max_files": 100,
+        "force_ingest": true
       }
     },
     {
@@ -49,14 +50,12 @@
     {
       "name": "chunk",
       "type": "chunker",
+      "depends_on": ["extract_text"],
       "config": {
         "doc_column": "content",
         "chunk_size": 512,
         "chunk_overlap": 128
-      },
-      "depends_on": [
-        "extract_text"
-      ]
+      }
     },
     {
       "name": "embeddings",
@@ -78,6 +77,7 @@
     {
       "name": "store_opensearch",
       "type": "vectordb",
+      "depends_on": ["embeddings"],
       "config": {
         "provider": "opensearch",
         "index_name": "sharepoint_documents",
@@ -128,10 +128,7 @@
           "source_id": "source_id",
           "embeddings": "vector_embeddings"
         }
-      },
-      "depends_on": [
-        "embeddings"
-      ]
+      }
     }
   ]
 }

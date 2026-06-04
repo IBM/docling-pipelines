@@ -106,7 +106,6 @@ def get_supported_file_extensions() -> str:
     if is_asr_available():
         audio_video_extensions = ["wav", "mp3", "m4a", "aac", "ogg", "flac", "mp4", "avi", "mov"]
         base_extensions.extend(audio_video_extensions)
-
     return ",".join(base_extensions)
 
 
@@ -115,9 +114,16 @@ def resolve_env_var(value):
         return value
     if value.startswith("${") and value.endswith("}"):
         env_var_name = value[2:-1]
-        resolved = os.getenv(env_var_name)
-        if resolved is None:
-            raise ValueError(f"Environment variable {env_var_name} is not set")
+        # Check if it has a default value syntax: ${VAR:default} or ${VAR:-default}
+        if ":" in env_var_name:
+            parts = env_var_name.split(":", 1)
+            env_var_name = parts[0]
+            default_value = parts[1].lstrip("-")  # Remove optional '-' after colon
+            resolved = os.getenv(env_var_name, default_value)
+        else:
+            resolved = os.getenv(env_var_name)
+            if resolved is None:
+                raise ValueError(f"Environment variable {env_var_name} is not set")
         return resolved
     if value.startswith("$"):
         env_var_name = value[1:]
@@ -269,19 +275,38 @@ class OperatorUtils:
             - 'skipped_docs': A list of DocsStructure dictionaries for skipped items.
             - 'skipped_docs_count': The integer count of skipped items.
         """
-        # 1. Get the set of IDs from the output table for fast lookup.
-        output_ids_set = set(output_table.column(OperatorConstants.Misc.ID).to_pylist())
+        # 1. Use PyArrow compute to find IDs not in output (vectorized operation)
+        output_ids = output_table.column(OperatorConstants.Misc.ID)
+        input_ids = input_table.column(OperatorConstants.Misc.ID)
 
-        # 2. Get the ID and Name columns from the input table.
-        input_ids = input_table.column(OperatorConstants.Misc.ID).to_pylist()
-        input_names = input_table.column(OperatorConstants.Misc.NAME).to_pylist()
+        # 2. Create boolean mask for rows where input ID is NOT in output IDs
+        mask = pc.invert(pc.is_in(input_ids, output_ids))
 
-        # 3. Iterate through the input data and build the list of skipped docs.
+        # 3. Filter input table to get only skipped rows
+        skipped_table = input_table.filter(mask)
+
+        # 4. Build result using PyArrow arrays directly (no to_pylist conversion)
         skipped_docs_list: list[DocsStructure] = []
-        for doc_id, doc_name in zip(input_ids, input_names, strict=False):
-            # If the ID from the input is NOT in the output set, it was skipped.
-            if doc_id not in output_ids_set:
-                skipped_docs_list.append({"id": doc_id, "name": doc_name, "reason": reason, "document_url": ""})
+        if skipped_table.num_rows > 0:
+            # Access PyArrow arrays directly
+            skipped_ids_array = skipped_table.column(OperatorConstants.Misc.ID)
+            skipped_names_array = skipped_table.column(OperatorConstants.Misc.NAME)
+            skipped_paths_array = (
+                skipped_table.column("path")
+                if "path" in skipped_table.column_names
+                else pa.array([""] * skipped_table.num_rows)
+            )
+
+            # Build the list of skipped docs using array indexing
+            skipped_docs_list = [
+                {
+                    "id": skipped_ids_array[i].as_py(),
+                    "name": skipped_names_array[i].as_py(),
+                    "reason": reason,
+                    "document_url": str(skipped_paths_array[i].as_py() or ""),
+                }
+                for i in range(skipped_table.num_rows)
+            ]
 
         return {
             Metrics.External.SKIPPED_DOCS: skipped_docs_list,
@@ -882,7 +907,12 @@ class OperatorUtils:
                         raise ValueError(f"Failed to fetch binary content for document {doc_name}")
 
                 doc_tasks.append(
-                    {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}
+                    {
+                        "idx": row_idx,
+                        "doc_id": doc_id,
+                        "doc_name": doc_name,
+                        "binary_content": binary_content,
+                    }
                 )
             except Exception as e:
                 logger.error(f"Error preparing document at index {row_idx}: {e!s}")
@@ -1183,10 +1213,13 @@ class OperatorUtils:
             }
 
         except Exception as e:
-            logger.error("Error extracting content from %s: %s", file_path, str(e))
+            # Extract file extension for error context
+            file_suffix = Path(file_path).suffix.lower() if file_path else "unknown"
+            error_msg = str(e)
+            logger.error("Error extracting content from %s: %s", file_path, error_msg)
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
-                OperatorConstants.Extraction.ERROR: str(e),
+                OperatorConstants.Extraction.ERROR: f"Extraction failed for {file_suffix}: {error_msg}",
                 OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
             }
 
