@@ -251,6 +251,7 @@ class ExtractOperator(AbstractOperator):
         use_processes = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         # Prepare global config for job tracking and other global settings
+        # Include ingest_source for on-demand binary fetching from cloud sources
         global_config = {
             OperatorConstants.Config.COMMON_LOG_ARGUMENTS: config.get(
                 OperatorConstants.Config.COMMON_LOG_ARGUMENTS, {}
@@ -260,6 +261,10 @@ class ExtractOperator(AbstractOperator):
             DatasiftConstants.NODE_NAME: config.get(DatasiftConstants.NODE_NAME),
             DatasiftConstants.BATCH_ID: config.get(DatasiftConstants.BATCH_ID),
         }
+
+        # Preserve ingest_source from config if present (for cloud source binary fetching)
+        if OperatorConstants.Config.INGEST_SOURCE in config:
+            global_config[OperatorConstants.Config.INGEST_SOURCE] = config[OperatorConstants.Config.INGEST_SOURCE]
 
         # Create text extraction adapter - pass nested config directly
         try:
