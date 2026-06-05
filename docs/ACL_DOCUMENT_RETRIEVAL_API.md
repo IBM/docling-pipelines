@@ -63,7 +63,6 @@ curl -X GET "http://localhost:8080/api/v1/documents/doc-123" \
     "category": "tech",
     "author": "John Doe"
   },
-  "allowed_users": ["john.doe", "jane.smith"],
   "created_at": "2026-05-01T10:00:00Z",
   "updated_at": "2026-05-15T14:30:00Z"
 }
@@ -117,7 +116,6 @@ curl -X POST "http://localhost:8080/api/v1/documents/search" \
       "content": "Machine learning content...",
       "title": "ML Guide",
       "metadata": {"category": "tech"},
-      "allowed_users": ["john.doe"],
       "created_at": "2026-05-01T10:00:00Z",
       "updated_at": "2026-05-15T14:30:00Z"
     }

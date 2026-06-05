@@ -94,7 +94,7 @@ class ACLQueryBuilder:
                 {
                     "multi_match": {
                         "query": query_text,
-                        "fields": ["content", "title", "metadata.*"],
+                        "fields": ["text", "content", "title"],
                         "type": "best_fields",
                         "operator": "or",
                     }

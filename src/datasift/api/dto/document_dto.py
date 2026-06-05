@@ -10,14 +10,9 @@ class DocumentResponse(BaseModel):
 
     id: str = Field(..., description="Document ID")
     content: str = Field(..., description="Document content")
-    title: str | None = Field(None, description="Document title")
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Document metadata",
-    )
-    allowed_users: list[str] = Field(
-        ...,
-        description="List of users with access to this document",
     )
     created_at: str | None = Field(None, description="Creation timestamp")
     updated_at: str | None = Field(None, description="Last update timestamp")
@@ -33,12 +28,12 @@ class DocumentResponse(BaseModel):
             DocumentResponse instance
         """
         source = hit.get("_source", {})
+        # Support both 'content' and 'text' fields (VectorDB operator uses 'text' via feature_mappings)
+        content = source.get("content") or source.get("text", "")
         return cls(
             id=hit.get("_id", ""),
-            content=source.get("content", ""),
-            title=source.get("title"),
+            content=content,
             metadata=source.get("metadata", {}),
-            allowed_users=source.get("allowed_users", []),
             created_at=source.get("created_at"),
             updated_at=source.get("updated_at"),
         )
