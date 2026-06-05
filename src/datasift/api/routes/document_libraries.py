@@ -53,6 +53,9 @@ from datasift.core.assets.document_libraries.domain.ports.document_library_repos
 from datasift.core.assets.document_libraries.factories.document_library_repository_factory import (
     DocumentLibraryRepositoryFactory,
 )
+from datasift.core.assets.document_sets.application.services.document_set_service import (
+    DocumentSetService,
+)
 from datasift.core.constants.constants import DatasiftConstants
 
 # Ensure adapter is registered (import triggers @register decorator)
@@ -206,8 +209,10 @@ def get_document_library_repository() -> DocumentLibraryRepository:
         Uses factory pattern with KeyValueStorage for metadata and direct SQL for junction tables.
         Database path is configured via DatasiftConstants.
     """
-    config = {"database_path": DatasiftConstants.DOCUMENT_LIBRARY_DEFAULT_DB_PATH}
-    return DocumentLibraryRepositoryFactory.create(adapter_name="duckdb", config=config)
+    from datasift.core.assets.document_libraries.domain.types import RepositoryConfig
+
+    config: RepositoryConfig = {"database_path": DatasiftConstants.DOCUMENT_LIBRARY_DEFAULT_DB_PATH}
+    return DocumentLibraryRepositoryFactory.create(adapter_name="duckdb", config=config)  # type: ignore[arg-type]
 
 
 def get_document_library_service(
@@ -224,10 +229,51 @@ def get_document_library_service(
     return DocumentLibraryService(repository=repository)
 
 
-# Type alias for dependency injection
+def get_document_set_service():
+    """Create a document set service with factory-created components.
+
+    Reuses the same pattern as document_sets.py for consistency.
+    """
+    from datasift.core.assets.document_sets.application.services.document_set_service import (
+        DocumentSetService,
+    )
+    from datasift.core.assets.document_sets.domain.types import (
+        DataStoreConfig,
+        RepositoryConfig,
+    )
+    from datasift.core.assets.document_sets.factories import (
+        DataStoreFactory,
+        MetadataRepositoryFactory,
+    )
+    from datasift.core.constants.constants import DatasiftConstants
+
+    database_path = DatasiftConstants.DOCUMENT_SET_DEFAULT_DB_PATH
+
+    # Create metadata repository using factory
+    metadata_config: RepositoryConfig = {"database_path": database_path}
+    metadata_repository = MetadataRepositoryFactory.create(
+        adapter_name="duckdb",
+        config=metadata_config,  # type: ignore[arg-type]
+    )
+
+    # Create data store using factory
+    data_config: DataStoreConfig = {"database_path": database_path}
+    data_store = DataStoreFactory.create(
+        adapter_name="duckdb",
+        config=data_config,  # type: ignore[arg-type]
+    )
+
+    # Create service with port interfaces
+    return DocumentSetService(
+        metadata_repository=metadata_repository,  # type: ignore[arg-type]
+        data_store=data_store,  # type: ignore[arg-type]
+    )
+
+
 PaginationDep = Annotated[tuple[int, int], Depends(get_pagination_params)]
 FiltersDep = Annotated[dict, Depends(get_filter_params)]
 DocumentLibraryServiceDep = Annotated[DocumentLibraryService, Depends(get_document_library_service)]
+DocumentSetServiceDep = Annotated[DocumentSetService, Depends(get_document_set_service)]
 
 
 @document_libraries_router.post(
@@ -808,13 +854,15 @@ def remove_document_sets(
     },
 )
 def list_document_sets(
-    service: DocumentLibraryServiceDep,
+    library_service: DocumentLibraryServiceDep,
+    document_set_service: DocumentSetServiceDep,
     library_id: Annotated[str, Depends(get_library_id)],
 ) -> DocumentSetsRetrieved:
     """List document sets in a library.
 
     Args:
-        service: Injected document library service
+        library_service: Injected document library service
+        document_set_service: Injected document set service
         library_id: Library identifier from path
 
     Returns:
@@ -827,11 +875,36 @@ def list_document_sets(
     """
     logger.info(msg=f"Listing document sets for library: {library_id}")
 
-    # Get document set IDs via service
-    document_set_ids = service.get_document_sets(library_id=library_id)
+    # Get document set IDs via library service
+    document_set_ids = library_service.get_document_sets(library_id=library_id)
 
-    # Convert to DocumentSetsRetrieved DTO
-    response = DocumentLibraryMapper.document_set_ids_to_retrieved(document_set_ids=document_set_ids)
+    # Fetch full metadata for each document set
+    document_sets_metadata = []
+    for doc_set_id in document_set_ids:
+        doc_set = document_set_service.get_document_set(document_set_id=doc_set_id)
+        # Convert domain model to dict for mapper with all available fields
+        doc_set_dict = {
+            "id": doc_set.id,
+            "name": doc_set.name,
+            "description": doc_set.description,
+            "container_id": doc_set.metadata.get("container_id") if doc_set.metadata else None,
+            "container_type": doc_set.metadata.get("container_type") if doc_set.metadata else None,
+            "documents": {
+                "count": doc_set.total_documents,
+                "size_bytes": doc_set.total_size_bytes
+            } if doc_set.total_documents > 0 else None,
+            "tags": doc_set.metadata.get("tags", []) if doc_set.metadata else [],
+            "propagate_source_acls": doc_set.metadata.get("propagate_source_acls") if doc_set.metadata else None,
+            "is_derivative_available": doc_set.metadata.get("is_derivative_available") if doc_set.metadata else None,
+            "created_at": doc_set.created_at,
+            "updated_at": doc_set.updated_at,
+        }
+        document_sets_metadata.append(doc_set_dict)
+
+    # Convert to DocumentSetsRetrieved DTO using full metadata
+    response = DocumentLibraryMapper.create_document_sets_retrieved_response(
+        document_sets=document_sets_metadata
+    )
 
     logger.info(msg=f"Found {len(document_set_ids)} document sets in library: {library_id}")
     return response
