@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from datasift.core.constants import DatasiftConstants, ExecutionStatus
+from datasift.core.constants import TERMINAL_NODE_STATES, DatasiftConstants, ExecutionStatus
 from datasift.core.job_management.domain.ports import JobRunManager, JobStatsService
 from datasift.core.models.session_info import get_session_info
 from datasift.core.operators.operator_utils import OperatorUtils
@@ -199,12 +199,24 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         # Print operator summary if output formatter is available
         if self.execution_reporter and self.job_stats_service and self.job_run_id:
             # Get the complete job stats to access node stats
-            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+            job_stats = self.job_stats_service.get_job(
+                job_run_id=self.job_run_id, include_node_stats=True, include_batch_stats=True
+            )
             if job_stats and job_stats.node_stats and node_id in job_stats.node_stats:
                 node_stats = job_stats.node_stats[node_id]
-                self.execution_reporter.print_operator_summary(
-                    step_name=node_name, node_stats=node_stats, tables=tables
+
+                # Check if we should print the summary (handles both batch and non-batch modes)
+                should_print = self._should_print_operator_summary(
+                    node_id=node_id,
+                    node_stats=node_stats,
+                    global_config=global_config,
+                    job_stats=job_stats,
                 )
+
+                if should_print:
+                    self.execution_reporter.print_operator_summary(
+                        step_name=node_name, node_stats=node_stats, tables=tables
+                    )
 
         if is_last_step:
             log_extra = {**self.common_log_arguments, "node_id": node_id, "node_name": node_name}
@@ -391,6 +403,70 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                     "error": str(exc),
                 },
             )
+
+    @staticmethod
+    def _should_print_operator_summary(
+        *,
+        node_id: str,
+        node_stats,
+        global_config: dict[str, Any] | None,
+        job_stats,
+    ) -> bool:
+        """
+        Determine if operator summary should be printed.
+
+        For micro-batching mode: only print when ALL batches complete.
+        For non-batch mode: always print.
+
+        Args:
+            node_id: Node identifier
+            node_stats: Aggregated node statistics
+            global_config: Global configuration containing batch_id if in batch mode
+            job_stats: Complete job statistics including batch_node_stats
+
+        Returns:
+            True if summary should be printed, False otherwise
+        """
+        # Check if we're in a batch context
+        batch_id = global_config.get(DatasiftConstants.BATCH_ID) if global_config else None
+
+        if batch_id is None:
+            # Non-batch mode: always print
+            return True
+
+        # Micro-batching mode: only print when ALL batches complete
+        # Get batch records for this node to check completion status
+        batch_records = []
+        if job_stats.batch_node_stats and node_id in job_stats.batch_node_stats:
+            batch_records = list(job_stats.batch_node_stats[node_id].values())
+
+        if not batch_records:
+            # No batch records found, don't print (safe default)
+            return False
+
+        # Import aggregator functions to calculate batch completion
+        from datasift.core.job_management.application.aggregation.batch_aggregator import (
+            calculate_finished_batches,
+            count_batches_by_status,
+        )
+
+        # Calculate batch completion status
+        status_counts = count_batches_by_status(batch_records=batch_records)
+        finished_batches = calculate_finished_batches(status_counts=status_counts)
+        total_batches = len(batch_records)
+        has_pending = (
+            status_counts.get(ExecutionStatus.PENDING.value, 0) + status_counts.get(ExecutionStatus.QUEUED.value, 0)
+        ) > 0
+
+        # Print only when all batches done AND node in terminal state
+        # finished_batches > 0 ensures aggregation has run at least once
+        terminal_states_values = frozenset(state.value for state in TERMINAL_NODE_STATES)
+        return (
+            finished_batches > 0
+            and finished_batches == total_batches
+            and not has_pending
+            and node_stats.node_status in terminal_states_values
+        )
 
     def _create_log_folders(self, *, job_id, type_):
         """

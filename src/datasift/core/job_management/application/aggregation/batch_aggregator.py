@@ -72,7 +72,7 @@ def _get_empty_node_stats(*, node_id: str) -> NodeStats:
     )
 
 
-def _count_batches_by_status(*, batch_records: list[NodeStats]) -> dict[str, int]:
+def count_batches_by_status(*, batch_records: list[NodeStats]) -> dict[str, int]:
     """Counts batches by their status."""
     status_counts = {
         ExecutionStatus.RUNNING.value: 0,
@@ -543,7 +543,7 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
     return result
 
 
-def _calculate_finished_batches(*, status_counts: dict[str, int]) -> int:
+def calculate_finished_batches(*, status_counts: dict[str, int]) -> int:
     """
     Calculates the number of finished batches.
 
@@ -736,7 +736,7 @@ def aggregate_batch_node_stats(
     classification_info = _get_classification_progress(batch_records=batch_records)
 
     # Aggregate status
-    status_counts = _count_batches_by_status(batch_records=batch_records)
+    status_counts = count_batches_by_status(batch_records=batch_records)
     aggregated_status = _determine_aggregated_status(status_counts=status_counts, total_batches=total_batches)
 
     # Aggregate time fields
@@ -769,7 +769,7 @@ def aggregate_batch_node_stats(
     ) > 0
 
     # Calculate finished batches for progress
-    finished_batches = _calculate_finished_batches(status_counts=status_counts)
+    finished_batches = calculate_finished_batches(status_counts=status_counts)
 
     # Create data class instances for cleaner parameter passing
     doc_stats = DocumentStats(

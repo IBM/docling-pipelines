@@ -5,6 +5,7 @@ Exports all constants from constants.py and operator_constants.py
 
 from .constants import (
     TERMINAL_JOB_STATUSES,
+    TERMINAL_NODE_STATES,
     AttributeDataTypes,
     CatalogType,
     DatasiftConfigKeys,
@@ -34,6 +35,7 @@ from .operator_constants import OperatorConstants
 
 __all__ = [
     "TERMINAL_JOB_STATUSES",
+    "TERMINAL_NODE_STATES",
     "AttributeDataTypes",
     "CatalogType",
     "DataSourceType",
