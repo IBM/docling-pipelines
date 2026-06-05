@@ -1340,6 +1340,68 @@ Message code: CHUNKER_INVALID_CHUNK_TYPE
 }
 ```
 
+#### Issue: Semantic Chunking Requires Embeddings
+
+**Error Message:**
+
+```
+This server does not support embeddings
+```
+
+**Symptoms:**
+
+- Error occurs when using `chunk_type: "semantic"` in the Chunker operator
+- Pipeline fails during chunking phase
+- Works fine with `chunk_type: "simple"`
+
+**Root Cause:**
+
+Semantic chunking requires embeddings to calculate similarity between text segments. This requires:
+1. Ollama server running with embeddings support enabled
+2. An embedding model loaded in Ollama (e.g., `nomic-embed-text`)
+
+**Solution 1: Use Simple Chunking (Recommended for Quick Start)**
+
+Change your flow configuration to use simple chunking:
+
+```json
+{
+  "type": "chunker",
+  "name": "simple_chunker",
+  "config": {
+    "chunk_type": "simple",
+    "chunk_size": 512,
+    "chunk_overlap": 50
+  }
+}
+```
+
+**Solution 2: Enable Embeddings in Ollama**
+
+If you want to use semantic chunking:
+
+1. Ensure Ollama is running:
+```bash
+curl http://localhost:11434/api/tags
+```
+
+2. Pull an embedding model:
+```bash
+ollama pull nomic-embed-text
+```
+
+3. Verify embeddings work:
+```bash
+curl http://localhost:11434/api/embeddings -d '{
+  "model": "nomic-embed-text",
+  "prompt": "test"
+}'
+```
+
+4. Update your flow to use semantic chunking with embeddings configuration.
+
+**Note:** The default `complete_pipeline_flow.json` uses simple chunking for better first-time user experience.
+
 #### Issue: Audio/Video Processing Fails with ffmpeg Error
 
 **Error Message:**

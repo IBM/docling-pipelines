@@ -36,9 +36,9 @@
     },
     {
       "type": "chunker",
-      "name": "semantic_chunker",
+      "name": "simple_chunker",
       "config": {
-        "chunk_type": "semantic",
+        "chunk_type": "simple",
         "chunk_size": 512,
         "chunk_overlap": 50,
         "retain_original_content": false
@@ -61,7 +61,7 @@
         "overlap_ratio": 0.1
       },
       "depends_on": [
-        "semantic_chunker"
+        "simple_chunker"
       ]
     },
     {
