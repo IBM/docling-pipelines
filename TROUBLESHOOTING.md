@@ -2560,7 +2560,7 @@ A: The Python import path is not configured. Set PYTHONPATH from the project roo
 1. **Check this troubleshooting guide**
 2. **Review the documentation:**
    - [`README.md`](README.md) - Overview and operator reference
-   - [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
+   - [`docs/USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
    - [`QUICKSTART.md`](QUICKSTART.md) - Quick start guide
    - [`ARCHITECTURE.md`](ARCHITECTURE.md) - System architecture
 
@@ -2643,7 +2643,7 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 **Documentation:**
 
 - Main README: [`README.md`](README.md)
-- User Guide: [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md)
+- User Guide: [`docs/USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md)
 - Quick Start: [`QUICKSTART.md`](QUICKSTART.md)
 - Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
@@ -2704,10 +2704,10 @@ pkill -f "ollama serve"
 
 ### Quick Links
 
-- **Installation Guide**: [`USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation`](USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation)
-- **Ollama Setup**: [`USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup`](USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup)
-- **OpenSearch Setup**: [`USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman`](USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman)
-- **Flow Configuration**: [`USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration`](USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration)
+- **Installation Guide**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation`](docs/USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation)
+- **Ollama Setup**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup`](docs/USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup)
+- **OpenSearch Setup**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman`](docs/USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman)
+- **Flow Configuration**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration`](docs/USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration)
 - **Operator Reference**: [`README.md#operators`](README.md#operators)
 
 ---

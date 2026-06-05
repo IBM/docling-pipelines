@@ -93,7 +93,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 **New to datasift-operators?** Start here:
 
 - **[Quick Start Guide](QUICKSTART.md)** - Fast-track setup and first pipeline execution
-- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Comprehensive guide for new users covering:
+- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Comprehensive guide for new users covering:
   - Prerequisites and installation (Python 3.12, uv, dependencies)
   - Ollama setup for LLM operations and embeddings
   - OpenSearch setup with Podman/Docker for vector storage
@@ -116,7 +116,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 ### API & Reference
 
-- **[Operator Reference](OPERATOR_REFERENCE.md)** - Complete API documentation for operators and core components
+- **[Operator Reference](docs/OPERATOR_REFERENCE.md)** - Complete API documentation for operators and core components
 - **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Common issues and solutions
 
 ### Operator Documentation
@@ -345,80 +345,9 @@ When using distributed Prefect workers, all workers must resolve job stats stora
 
 ## Setup
 
-### Quick Start (Automated Setup)
-
-**New users: Use the automated setup script to install everything in one command!**
-
-```bash
-./scripts/setup_datasift_environment.sh
-```
-
-This script automatically installs and configures:
-
-- Python 3.12 verification
-- uv package manager
-- Ollama with default models (granite4, llama3.2, nomic-embed-text)
-- OpenSearch with Dashboards
-- Python virtual environment and dependencies
-
-**For detailed setup options and troubleshooting, see [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#quick-start-with-automated-setup)**
-
-**See also:**
-
-- [Manual Setup](#manual-setup) - Step-by-step manual installation
-- [Operator Specific Setup](#operator-specific-setup) - Configure Ollama and OpenSearch
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common setup issues and solutions
-
----
-
-### Manual Setup
-
-**Prefer automated setup?** See [Quick Start (Automated Setup)](#quick-start-automated-setup) above.
-
-This project uses [uv](https://docs.astral.sh/uv/) for fast Python package management.
-
-#### Prerequisites
-
-Install uv if you haven't already:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-#### Installation
-
-1. Clone the repository:
-
-```bash
-git clone <repository-url>
-cd datasift-opensource
-```
-
-2. Create a virtual environment and install dependencies:
-
-```bash
-# From project root
-uv sync --extra dev
-```
-
-This will:
-
-- Create a virtual environment in `.venv/` at project root
-- Install all project dependencies
-- Install development dependencies
-
-3. Activate the virtual environment:
-
-```bash
-# From project root
-source .venv/bin/activate
-```
-
-**See also:**
-
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Detailed setup with troubleshooting
-- [Operator Specific Setup](#operator-specific-setup) - Configure Ollama and OpenSearch
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common installation issues
+**For complete setup instructions, see:**
+- **[Quick Start Guide](QUICKSTART.md)** - Fast-track setup (5 minutes)
+- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed setup with troubleshooting
 
 ---
 
@@ -465,9 +394,9 @@ datasift-orchestrator --help
 
 **See also:**
 
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
+- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
 - [Example Flows](examples/) - Sample flow configurations
-- [Operator Reference](OPERATOR_REFERENCE.md) - Operator parameters and configuration options
+- [Operator Reference](docs/OPERATOR_REFERENCE.md) - Operator parameters and configuration options
 
 #### Executing Flows
 
@@ -560,7 +489,7 @@ operators = DatasiftFlowManager.list_operators()
 - [DatasiftFlowManager Examples](examples/datasift_flow_manager/) - Complete usage guide with code samples
 - [Quick Start Example](examples/datasift_flow_manager/01_execute_from_file.py) - Basic flow execution
 - [CLI Orchestrator](#cli-orchestrator) - Alternative command-line interface
-- [Operator Reference](OPERATOR_REFERENCE.md) - Complete API documentation
+- [Operator Reference](docs/OPERATOR_REFERENCE.md) - Complete API documentation
 
 ---
 
@@ -882,7 +811,7 @@ Coverage configuration is in `.coveragerc` at the project root.
 **See also:**
 
 - [Code Quality](#code-quality) - Pre-commit hooks and linting tools
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#verification-testing-and-troubleshooting) - Testing best practices
+- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md#verification-testing-and-troubleshooting) - Testing best practices
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common test failures and solutions
 
 ### Code Quality
@@ -996,7 +925,7 @@ app.include_router(example.router)
 
 - [FastAPI Server](#fastapi-server-todo) - Running the API server
 - [Environment Variables](#environment-variables) - Configuration options
-- [Operator Reference](OPERATOR_REFERENCE.md) - Operator API documentation
+- [Operator Reference](docs/OPERATOR_REFERENCE.md) - Operator API documentation
 
 ---
 
@@ -1023,7 +952,7 @@ DATASIFT_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 **See also:**
 
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Environment setup examples
+- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md) - Environment setup examples
 - [Operator Specific Setup](#operator-specific-setup) - Required services configuration
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Configuration issues
 
@@ -1031,210 +960,9 @@ DATASIFT_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 ## Operator Specific Setup
 
-**Required for pipeline execution:** Configure these services before running flows.
-
-**Quick Links:**
-
-- [Embeddings Operator Setup](#embeddings-operator-setup) - Embeddings configuration
-- [OpenSearch Vector Store](#opensearch-vector-store) - Vector database
-
-### Embeddings Operator Setup
-
-The [`EmbeddingsOperator`](src/datasift/core/operators/functional/embeddings/embeddings_operator.py) supports multiple embeddings providers: **HuggingFace** (native local/API), **LiteLLM** (100+ providers including Ollama), and **Watsonx** (IBM watsonx.ai).
-
-> **Provider Options**: For detailed configuration of HuggingFace, LiteLLM, or Watsonx providers, see the [Embeddings README](src/datasift/core/operators/functional/embeddings/README.md).
-
-The following steps show Ollama setup via LiteLLM as a recommended local option:
-
-#### Step 1 — Install Ollama
-
-- **macOS**: `brew install ollama` or download from https://ollama.ai/download
-- **Linux**: `curl -fsSL https://ollama.ai/install.sh | sh`
-- **Windows**: Download from https://ollama.ai/download
-
-#### Step 2 — Start the Ollama server
-
-```bash
-ollama serve
-```
-
-The server runs on `http://localhost:11434` by default.
-
-#### Step 3 — Pull a model
-
-```bash
-ollama pull granite4
-```
-
-The default model used by the operator is `granite4`. Other supported models include: `llama3`, `llama3.1`, `llama3.2`, `mistral`, `mixtral`, `codellama`, `phi`, `gemma`, `qwen`, `granite3.2:2b`, `granite3.2:8b`.
-
-#### Step 4 — Install the Python package
-
-```bash
-pip install ollama
-```
-
-> **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py) at runtime.
-
-**See also:**
-
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup) - Detailed Ollama configuration
-- [EmbeddingsOperator Documentation](src/datasift/core/operators/functional/embeddings/embeddings_operator.py) - Operator reference
-- [Operator Reference](OPERATOR_REFERENCE.md) - EmbeddingsOperator parameters
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Ollama connection issues
-
-### OpenSearch Vector Store
-
-The [`VectorDBOperator`](src/datasift/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter requires a running OpenSearch instance. The quickest way to get one locally is via the provided Compose file.
-
-#### Step 1 — Start OpenSearch
-
-**Docker:**
-
-```bash
-docker-compose -f docker/docker-compose.opensearch.yml up -d
-```
-
-**Podman:**
-
-```bash
-podman-compose -f docker/docker-compose.opensearch.yml up -d
-```
-
-This starts:
-
-- OpenSearch API on `http://localhost:9200` (default credentials: `admin` / `MyStrongPass123!`)
-- OpenSearch Dashboards on `http://localhost:5601`
-
-#### Step 2 — Verify it's running
-
-```bash
-curl -u admin:MyStrongPass123! http://localhost:9200/_cluster/health?pretty
-```
-
-#### Step 3 — Configure environment variables
-
-Copy the example env file and set your connection details:
-
-```bash
-cp .env.example .env
-```
-
-Key variables:
-| Variable | Default | Description |
-|---|---|---|
-| `OPENSEARCH_HOST` | `localhost` | OpenSearch host |
-| `OPENSEARCH_PORT` | `9200` | OpenSearch port |
-| `OPENSEARCH_USERNAME` | — | Username |
-| `OPENSEARCH_PASSWORD` | — | Password |
-| `OPENSEARCH_INDEX_NAME` | `datasift_test` | Index to write to |
-| `OPENSEARCH_USE_SSL` | `false` | Enable SSL |
-
-#### Step 4 — Stop OpenSearch
-
-```bash
-# Docker
-docker-compose -f docker/docker-compose.opensearch.yml down
-
-# Podman
-podman-compose -f docker/docker-compose.opensearch.yml down
-```
-
-**See also:**
-
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#opensearch-setup) - Detailed OpenSearch configuration
-- [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
-- [OpenSearch Operator Reference](docs/operators/vectordb/opensearch.md) - Technical API documentation
-- [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
-- [Operator Reference](OPERATOR_REFERENCE.md) - VectorDBOperator parameters
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - OpenSearch connection issues
-
----
-
-### Milvus Vector Store
-
-The [`VectorDBOperator`](src/datasift/core/operators/vectordb/vectordb_operator.py) with Milvus adapter requires a running Milvus instance. The quickest way to get one locally is via the provided Compose file.
-
-#### Step 1 — Start Milvus
-
-**Docker:**
-
-```bash
-docker-compose -f docker/docker-compose.milvus.yml up -d
-```
-
-**Podman:**
-
-```bash
-podman-compose -f docker/docker-compose.milvus.yml up -d
-```
-
-This starts:
-
-- Milvus standalone server on `localhost:19530`
-- Attu (Milvus web UI) on `http://localhost:8000`
-
-#### Step 2 — Verify it's running
-
-```bash
-python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Connected to Milvus successfully')"
-```
-
-#### Step 3 — Configure in flow
-
-Add Milvus operator to your flow configuration:
-
-```json
-{
-  "operator": "vectordb",
-  "config": {
-    "provider": "milvus",
-    "index_name": "my_collection",
-    "vector_dimension": 768,
-    "provider_config": {
-      "auth_type": "standalone",
-      "host": "localhost",
-      "port": 19530,
-      "index_type": "HNSW",
-      "metric_type": "L2"
-    }
-  }
-}
-```
-
-**Authentication Types:**
-- `standalone` - Local Milvus (optional username/password)
-- `grpc` - IBM wx.data with gRPC (requires username with `ibmlhapikey_` prefix and API key as password)
-- `uri` - Pre-constructed URI with embedded API key
-- `token` - IAM token-based (constructs URI internally)
-
-For detailed authentication configuration, see [Milvus Documentation](docs/milvus/README.md).
-
-**Supported Index Types:**
-- `HNSW` - Hierarchical Navigable Small World (recommended for most use cases)
-- `IVF_FLAT` - Inverted File with Flat compression
-- `FLAT` - Brute-force search (exact results, slower)
-- `IVF_SQ8` - Inverted File with Scalar Quantization
-- `IVF_PQ` - Inverted File with Product Quantization
-
-**Supported Metric Types:**
-- `L2` - Euclidean distance
-- `IP` - Inner product
-- `COSINE` - Cosine similarity
-
-#### Step 4 — Stop Milvus
-
-```bash
-# Docker
-docker-compose -f docker/docker-compose.milvus.yml down
-
-# Podman
-podman-compose -f docker/docker-compose.milvus.yml down
-```
-
-**See also:**
-- [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
-- [Milvus Official Documentation](https://milvus.io/docs) - Milvus documentation
+**For operator-specific configuration (Ollama, OpenSearch, Milvus), see:**
+- **[Quick Start Guide](QUICKSTART.md)** - Quick setup instructions
+- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed configuration guides
 
 ---
 

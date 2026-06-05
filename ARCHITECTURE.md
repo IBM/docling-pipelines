@@ -4281,83 +4281,21 @@ The Assets Management module provides metadata management for document collectio
 
 ### 3. Operators (`src/datasift/core/operators/`)
 
-Operators are organized by category (defined in `OperatorCategory` enum):
+Operators are organized by category (defined in `OperatorCategory` enum). For complete operator API documentation including parameters, configuration options, and usage examples, see [Operator Reference](docs/OPERATOR_REFERENCE.md).
 
-#### Extract Operators (`extract/`)
+**Operator Categories:**
+- **Extract**: Document text and entity extraction
+- **Ingest**: Data source ingestion (local files, S3, SharePoint, etc.)
+- **Functional**: Data transformation (chunking, embeddings, branching, merging)
+- **Quality**: Data quality checks (deduplication, classification, PII detection)
+- **VectorDB**: Vector storage (OpenSearch, Milvus)
+- **Storage**: Persistent storage (DocumentSet with DuckDB)
 
-- **ExtractOperator**: Unified extraction operator using hexagonal architecture (ports and adapters pattern)
-  - **Architecture Layers**:
-    - **Domain Layer**: `EntityExtractionService` for business logic, domain models for extraction modes and requests
-    - **Port Layer**: `TextExtractionPort` and `EntityExtractionPort` interfaces
-    - **Adapter Layer**: Concrete implementations for different extraction strategies
-    - **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` for adapter creation
-  - **Text Extraction Modes**:
-    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines (via `DoclingAdapter`)
-    - `docling_serve`: Remote extraction via Docling Serve API with OCR support (via `DoclingServeAdapter`)
-  - **Entity Extraction Modes**:
-    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.) (via `LLMEntityAdapter`)
-    - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models (via `LLMEntityAdapter` - same adapter as litellm)
-    - `docling`: Template-based entity extraction using Docling templates (via `DoclingEntityAdapter`)
-    - `none`: No entity extraction (default)
-  - **Key Features**:
-    - Hexagonal architecture enables easy addition of new extraction strategies
-    - Clear separation between business logic (services), interfaces (ports), and implementations (adapters)
-    - Unified LLM support: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter` for consistent behavior
-    - Independent text and entity extraction mode selection
-    - Outputs extracted text plus estimated page-count metrics
-  - **Configuration**: Supports both text and entity extraction in a single operator with independent mode selection
-
-#### Ingest Operators (`ingest/`)
-
-- **IngestLocalOperator**: Local filesystem ingestion
-- **IngestSourceOperator**: Multi-provider data ingestion (object storage, IBM COS, SharePoint, OneDrive, Google Drive, web pages, custom loaders)
-
-#### Functional Operators (`functional/`)
-
-- **BranchingOperator**: Conditional workflow branching
-- **MergeOperator**: Combine multiple tables from branches using row concatenation or column joins
-- **Chunker**: Document chunking with multiple strategies and optional multi-provider LLM summarization:
-  - **Simple**: Basic text splitting with configurable chunk size and overlap
-  - **Semantic**: Sentence-based chunking using NLTK
-  - **Hybrid**: Advanced chunking using Docling library
-    - Supports both local execution (`docling_library` provider) and remote execution via docling-serve API (`docling_serve` provider) for offloading computation
-  - **Summarization**: Optional LLM-based chunk summarization using service layer architecture:
-    - **SummarizationService**: Dedicated service encapsulating summarization business logic (prompt engineering, response parsing, sliding window processing)
-    - **Multi-Provider Support**: Uses shared LLM infrastructure (LiteLLM, Watsonx.ai) via `LLMInferencePort`
-    - **Hexagonal Architecture**: Service depends on `LLMInferencePort` interface, implemented by `LiteLLMInferenceAdapter` and `WatsonXInferenceAdapter`
-    - **Lazy Initialization**: Service created during `transform()` for optimal resource usage
-- **DocIdHash**: Document ID generation (internal operator)
-- **EntityCurationOperator**: Schema-based entity transformation with 9 built-in transformations (currency, date, number parsing)
-- **NoopOperator**: Pass-through for testing
-- **EmbeddingsOperator**: Vector embedding generation
-
-#### Quality Operators (`quality/`)
-
-- **DocumentClassifier**: LLM-based document classification (simplified service-based architecture with LiteLLM and Watsonx.ai support via shared LLM infrastructure)
-- **Dedup**: Deduplication
-- **DocQuality**: Document quality assessment using dpk_doc_quality (word count, mean word length, symbol ratios, bad words, etc.)
-- **MLEnrichment**: ML-based enrichment
-- **Readability**: Readability scoring
-- **Redaction**: PII redaction
-- **SQLFilter**: SQL-based filtering
-- **LanguageDetection**: Language identification (hexagonal architecture with FastText adapter)
-- **PIIAndHAPAnnotator**: PII and HAP detection (hexagonal architecture with Ollama, WatsonX, and LiteLLM adapters)
-
-#### VectorDB Operators (`vectordb/`)
-
-- **VectorDBOperator**: Generic vector database operator using hexagonal architecture (ports & adapters)
-  - Supports multiple vector databases through adapter pattern
-  - **OpenSearch Adapter**: OpenSearch vector storage and retrieval with multiple KNN engines (NMSLIB, Faiss, Lucene)
-  - **Milvus Adapter**: Milvus vector storage supporting both standalone and wx.data deployments with multiple index types (HNSW, IVF_FLAT, FLAT, etc.)
-
-#### Storage Operators (`storage/`)
-
-- **DocumentSetOperator**: Persistent storage operator for pipeline data using document sets
-  - Stores PyArrow table data with DuckDB backend
-  - Automatic schema evolution and metrics computation
-  - Incremental updates with soft-delete cleanup support
-  - Pass-through design for downstream operator chaining
-  - Hexagonal architecture with service/repository/storage layers
+**Architecture Highlights:**
+- Hexagonal architecture (ports & adapters) for extensibility
+- Multi-provider support (LiteLLM, Watsonx, Ollama, HuggingFace)
+- Service layer pattern for complex business logic
+- Factory pattern for adapter creation
 
 ### 4. CLI Application (`src/datasift/cli/`)
 

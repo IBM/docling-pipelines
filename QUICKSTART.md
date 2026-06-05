@@ -2,7 +2,7 @@
 
 **Get your first pipeline running in under 5 minutes!**
 
-This guide provides the fastest path from installation to a working document processing pipeline. For detailed setup and advanced features, see [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
+This guide provides the fastest path from installation to a working document processing pipeline. For detailed setup and advanced features, see [`USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md).
 
 ---
 
@@ -244,7 +244,7 @@ datasift-orchestrator --operator-help ingest_local
 ### Deep Dive Documentation
 
 - **[Flow Authoring Format Guide](docs/FLOW_AUTHORING_FORMAT.md)** - Complete guide to creating flows
-- **[Complete Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
+- **[Complete Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
 - **[Architecture Overview](ARCHITECTURE.md)** - System design and operator details
 - **[README](README.md)** - Full operator reference and examples
 - **[Job Stats Metadata Aggregation Guide](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer rules for micro-batch metadata aggregation
@@ -392,7 +392,7 @@ pkill -f "ollama serve"
 
 ## Need Help?
 
-- 📖 **Full Documentation**: [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md)
+- 📖 **Full Documentation**: [`docs/USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md)
 - 🏗️ **Architecture**: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - 💡 **Examples**: [`examples/`](examples/) directory
 - 🐛 **Issues**: Check existing issues or create a new one

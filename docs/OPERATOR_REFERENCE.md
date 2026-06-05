@@ -93,7 +93,7 @@ title: Operator Reference
 
 ## Overview
 
-[`OPERATOR_REFERENCE.md`](OPERATOR_REFERENCE.md) centralizes the public APIs that are visible to pipeline authors, application integrators, and operator users.
+This document centralizes the public APIs that are visible to pipeline authors, application integrators, and operator users.
 
 This reference is organized around four entry points:
 

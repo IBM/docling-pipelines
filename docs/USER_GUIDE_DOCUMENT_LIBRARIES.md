@@ -626,7 +626,7 @@ This architecture allows for:
 ## Related Documentation
 
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture overview
-- [OPERATOR_REFERENCE.md](../OPERATOR_REFERENCE.md) - Operator documentation
+- [OPERATOR_REFERENCE.md](OPERATOR_REFERENCE.md) - Operator documentation
 - [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md) - Pipeline setup guide
 
 ## Support

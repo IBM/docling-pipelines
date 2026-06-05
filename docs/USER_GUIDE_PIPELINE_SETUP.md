@@ -55,48 +55,26 @@ This comprehensive guide walks you through setting up and executing a complete D
 
 ## 1. Introduction
 
-### Quick Start with Automated Setup
+### Quick Start
 
-**New users can now use the automated setup script to install all prerequisites automatically!**
+**For fast setup (5 minutes), see [QUICKSTART.md](../QUICKSTART.md)** which provides automated installation and your first pipeline execution.
 
-The `setup_datasift_environment.sh` script automates the entire setup process, including Python verification, uv installation, Ollama setup, OpenSearch configuration, and Python environment creation.
+This guide provides comprehensive details for:
+- Manual installation and configuration
+- Understanding each component
+- Advanced configuration options
+- Troubleshooting and debugging
 
-#### Basic Usage
+### Prerequisites
 
+Before proceeding, ensure you have:
+- Python 3.12 installed
+- 5GB+ available disk space
+- Internet connection for downloading dependencies
+
+**Quick setup:** Use the automated script from [QUICKSTART.md](../QUICKSTART.md):
 ```bash
-# Run with default settings (installs everything)
 ./scripts/setup_datasift_environment.sh
-```
-
-This single command will:
-
-- Verify Python 3.12 installation
-- Install uv package manager
-- Install and start Ollama
-- Download default models (granite4, llama3.2, nomic-embed-text)
-- Install Podman/Docker
-- Start OpenSearch with Dashboards
-- Create Python virtual environment and install dependencies
-
-#### Interactive Mode
-
-For more control over what gets installed:
-
-```bash
-# Interactive mode - prompts for each component
-./scripts/setup_datasift_environment.sh --interactive
-```
-
-#### Custom Configuration
-
-```bash
-# Install only specific Ollama models
-./scripts/setup_datasift_environment.sh --models granite4,nomic-embed-text
-
-# Skip specific components
-./scripts/setup_datasift_environment.sh --skip-ollama
-./scripts/setup_datasift_environment.sh --skip-opensearch
-./scripts/setup_datasift_environment.sh --skip-python
 
 # Combine options
 ./scripts/setup_datasift_environment.sh --interactive --models granite4

@@ -428,6 +428,6 @@ external_app/
 
 ## See Also
 
-- [Operator Reference](../OPERATOR_REFERENCE.md)
+- [Operator Reference](OPERATOR_REFERENCE.md)
 - [Custom Operators Guide](../docs/CUSTOM_OPERATORS_GUIDE.md)
 - [Architecture Documentation](../ARCHITECTURE.md)

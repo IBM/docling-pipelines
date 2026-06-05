@@ -456,7 +456,7 @@ Planned features for future releases:
 ## Related Documentation
 
 - [Implementation Plan](ACL_DOCUMENT_RETRIEVAL_IMPLEMENTATION_PLAN.md)
-- [API Reference](../OPERATOR_REFERENCE.md)
+- [API Reference](OPERATOR_REFERENCE.md)
 - [Architecture](../ARCHITECTURE.md)
 - [Authentication Guide](../README_OAUTH2.md)
 

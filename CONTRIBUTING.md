@@ -938,7 +938,7 @@ Update documentation when you:
 
 - **[`README.md`](README.md)**: Project overview, setup, and quick start
 - **[`ARCHITECTURE.md`](ARCHITECTURE.md)**: System design and architecture
-- **[`OPERATOR_REFERENCE.md`](OPERATOR_REFERENCE.md)**: Detailed operator and API documentation
+- **[`docs/OPERATOR_REFERENCE.md`](docs/OPERATOR_REFERENCE.md)**: Detailed operator and API documentation
 - **[`QUICKSTART.md`](QUICKSTART.md)**: Quick start guide
 - **`docs/operators/`**: Operator-specific documentation
 - **`examples/`**: Code examples and sample flows
@@ -962,9 +962,9 @@ Update documentation when you:
 
 ### Resources
 
-- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)**: Comprehensive setup and usage
+- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)**: Comprehensive setup and usage
 - **[Architecture Documentation](ARCHITECTURE.md)**: System design details
-- **[Operator Reference](OPERATOR_REFERENCE.md)**: Detailed operator and API documentation
+- **[Operator Reference](docs/OPERATOR_REFERENCE.md)**: Detailed operator and API documentation
 - **[Examples](examples/)**: Sample flows and code examples
 
 ### Communication

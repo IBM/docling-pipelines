@@ -78,7 +78,7 @@ Distributed execution allows DataSift pipelines to process data across multiple 
 
 - DataSift installed and configured
 - Python 3.12+ with virtual environment activated
-- PYTHONPATH set correctly (see [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md))
+- PYTHONPATH set correctly (see [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md))
 - Ollama and OpenSearch running (for operators that require them)
 
 ---
@@ -1265,7 +1265,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
 ### 7.4 Related Documentation
 
-- **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md)
+- **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md)
 - **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
 - **Docker Documentation**: https://docs.docker.com/
@@ -1631,7 +1631,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
 ### 7.4 Related Documentation
 
-- **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md)
+- **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md)
 - **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
 - **Docker Documentation**: https://docs.docker.com/
@@ -1687,5 +1687,5 @@ Distributed execution in DataSift enables horizontal scaling and improved throug
 5. **Follow Best Practices**: Use descriptive names, set resource limits, secure credentials
 
 For additional help, consult:
-- [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
+- [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
 - [Prefect Documentation](https://docs.prefect.io/concepts/work-pools/) - Official Prefect docs

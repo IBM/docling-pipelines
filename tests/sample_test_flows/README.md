@@ -365,7 +365,7 @@ datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensea
 ## Additional Resources
 
 - **Architecture Documentation:** See `ARCHITECTURE.md` in project root
-- **User Guide:** See `USER_GUIDE_PIPELINE_SETUP.md` for setup instructions
+- **User Guide:** See `docs/USER_GUIDE_PIPELINE_SETUP.md` for setup instructions
 - **Operator Documentation:** See `src/datasift/core/operators/`
 - **Integration Tests:** See `tests/integration/` for more examples
 

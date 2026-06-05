@@ -423,7 +423,7 @@ Consider implementing caching at the service layer for frequently accessed libra
 
 - [USER_GUIDE_DOCUMENT_LIBRARIES.md](../../../../docs/USER_GUIDE_DOCUMENT_LIBRARIES.md) - User guide with API examples
 - [ARCHITECTURE.md](../../../../ARCHITECTURE.md) - System architecture overview
-- [OPERATOR_REFERENCE.md](../../../../OPERATOR_REFERENCE.md) - Operator documentation
+- [OPERATOR_REFERENCE.md](../../../../../docs/OPERATOR_REFERENCE.md) - Operator documentation
 
 ## Contributing
 

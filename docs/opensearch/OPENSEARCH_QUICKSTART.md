@@ -1,6 +1,6 @@
 # OpenSearch Operator — Quick Start
 
-> Start with the main setup guide: [`USER_GUIDE_PIPELINE_SETUP.md`](../../USER_GUIDE_PIPELINE_SETUP.md). It covers environment setup, OpenSearch startup, pipeline configuration, flow execution, verification, and troubleshooting.
+> Start with the main setup guide: [`USER_GUIDE_PIPELINE_SETUP.md`](../USER_GUIDE_PIPELINE_SETUP.md). It covers environment setup, OpenSearch startup, pipeline configuration, flow execution, verification, and troubleshooting.
 
 This page only keeps OpenSearch-specific test and reference pointers that are not covered in the main user guide.
 
