@@ -48,7 +48,15 @@ HEALTH_API_SUFFIX = "/health"
 
 
 class ColoredFormatter(logging.Formatter):
-    """Formatter that adds color coding to log messages."""
+    """Formatter that adds color coding to log messages when output is a TTY.
+    This formatter automatically detects whether output is going to a terminal (TTY)
+    or being redirected to a file/pipe. Colors are only applied when:
+    1. Output stream is a TTY (terminal)
+    2. NO_COLOR environment variable is not set
+    3. FORCE_COLOR environment variable is not explicitly disabled
+    When output is redirected to a file or NO_COLOR is set, plain text formatting
+    is used without ANSI escape sequences.
+    """
 
     LEVEL_COLORS: ClassVar[dict[int, str]] = {
         logging.DEBUG: Colors.DEBUG,
@@ -58,10 +66,34 @@ class ColoredFormatter(logging.Formatter):
         logging.CRITICAL: Colors.CRITICAL,
     }
 
-    def format(self, record):
-        # Get the color for this log level
-        level_color = self.LEVEL_COLORS.get(record.levelno, Colors.RESET)
+    def __init__(self, *args, **kwargs):
+        """Initialize formatter and determine if colors should be enabled.
+        Colors are enabled when:
+        - FORCE_COLOR=1/true/yes is set, OR
+        - Output is a TTY AND NO_COLOR is not set
+        """
+        super().__init__(*args, **kwargs)
+        self._colors_enabled = self._should_use_colors()
 
+    def _should_use_colors(self) -> bool:
+        """Determine if ANSI colors should be used based on environment and TTY status.
+        Returns:
+            True if colors should be used, False otherwise
+        """
+        # Check FORCE_COLOR environment variable
+        force_color = os.getenv('FORCE_COLOR', '').lower()
+        if force_color in ('1', 'true', 'yes'):
+            return True
+
+        # Check NO_COLOR environment variable (standard: https://no-color.org/)
+        if os.getenv('NO_COLOR', ''):
+            return False
+
+        # Check if stdout is a TTY (terminal)
+        # When output is redirected to file/pipe, isatty() returns False
+        return sys.stdout.isatty()
+
+    def format(self, record):
         # Format the message using parent formatter to populate record.asctime
         super().format(record)
 
@@ -72,15 +104,23 @@ class ColoredFormatter(logging.Formatter):
         level_str = record.levelname
         msg_str = record.getMessage()
 
-        # Construct colored message using LogRecord attributes
-        colored_message = (
-            f"{Colors.TIME}{time_str}{Colors.RESET} - "
-            f"{Colors.NAME}{name_str}{Colors.RESET} - "
-            f"{level_color}{Colors.BOLD}{level_str}{Colors.RESET} - "
-            f"{msg_str}"
-        )
+        # Use colors only if enabled (TTY output and not disabled by env vars)
+        if self._colors_enabled:
+            # Get the color for this log level
+            level_color = self.LEVEL_COLORS.get(record.levelno, Colors.RESET)
 
-        return colored_message
+            # Construct colored message using LogRecord attributes
+            colored_message = (
+                f"{Colors.TIME}{time_str}{Colors.RESET} - "
+                f"{Colors.NAME}{name_str}{Colors.RESET} - "
+                f"{level_color}{Colors.BOLD}{level_str}{Colors.RESET} - "
+                f"{msg_str}"
+            )
+            return colored_message
+        else:
+            # Plain text format without ANSI codes for file output
+            plain_message = f"{time_str} - {name_str} - {level_str} - {msg_str}"
+            return plain_message
 
 
 class ConditionalFormatter(logging.Formatter):
