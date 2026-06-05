@@ -228,12 +228,16 @@ class DocumentLibraryConstants:
     """
 
     # Field length limits
-    MAX_NAME_LENGTH = 256
-    MAX_DESCRIPTION_LENGTH = 1024
+    MAX_NAME_LENGTH = 128
+    MAX_DESCRIPTION_LENGTH = 2000
     MAX_PURPOSE_LENGTH = 1024
     MAX_CREATED_BY_LENGTH = 63
     MIN_HREF_LENGTH = 5
     MAX_HREF_LENGTH = 8000
+
+    # Name validation pattern
+    # Must start with letter, contain only letters/digits/spaces/underscores
+    NAME_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_ ]*$"
 
     # Size value limits (JavaScript MAX_SAFE_INTEGER for JSON compatibility)
     MAX_SAFE_INTEGER = 9007199254740991

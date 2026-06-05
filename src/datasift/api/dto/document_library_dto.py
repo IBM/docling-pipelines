@@ -11,8 +11,9 @@ Response DTOs:
   - DocumentSetForDocumentLibrary: Document set metadata in library context
 """
 
+import re
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ============================================================================
 # FIELD DEFINITIONS (moved from field_definitions.py
@@ -24,14 +25,20 @@ UUID_PATTERN_LOWER = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 NONEMPTY_PATTERN = r"^.*\S.*$"
 ANY_TEXT_PATTERN = r"^[\s\S]*$"
 PRINTABLE_ASCII_PATTERN = r"^[ -~]*$"
+# Name pattern: must start with letter, contain only letters/digits/spaces/underscores
+NAME_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_ ]*$"
 
 # Document Library field definitions
 name_field = Field(
     title="Document Library Name",
-    description="Name of the document library",
-    min_length=1,
-    max_length=256,
-    pattern=NONEMPTY_PATTERN
+    description="Name of the document library (3-128 characters, must start with a letter, can contain letters, digits, spaces, and underscores only. Example: 'My Library Name' or 'Test_Library_123')",
+    min_length=3,
+    max_length=128,
+    json_schema_extra={
+        "pattern": NAME_PATTERN,  # For OpenAPI docs only
+        "pattern_description": "Must start with a letter and contain only letters, digits, spaces, and underscores. Special characters like @#$%-!& are not allowed.",
+        "examples": ["My Library", "Test_Library_123", "Document Collection 2024"]
+    }
 )
 
 description_field = Field(
@@ -39,7 +46,7 @@ description_field = Field(
     title="Document Library Description",
     description="Description of the document library",
     min_length=0,
-    max_length=1024,
+    max_length=2000,
     pattern=ANY_TEXT_PATTERN
 )
 
@@ -186,8 +193,8 @@ class DocumentLibraryPrototype(BaseModel):
 
     Fields:
         library_id: Optional identifier (can be provided on create)
-        name: Required library name (1-256 chars)
-        description: Optional description (max 1024 chars)
+        name: Required library name (3-128 chars)
+        description: Optional description (max 2000 chars)
         purpose: Optional additional information (max 1024 chars)
         original_size: Optional input size in bytes
         final_size: Optional processed size in bytes
@@ -208,6 +215,18 @@ class DocumentLibraryPrototype(BaseModel):
     original_size: int | None = original_size_field
     final_size: int | None = final_size_field
     tags: list[str] | None = tags_field
+
+    @field_validator('name')
+    @classmethod
+    def validate_name_pattern(cls, v: str) -> str:
+        """Validate name matches required pattern with user-friendly error message."""
+        if not re.match(NAME_PATTERN, v):
+            raise ValueError(
+                "Name must start with a letter and can only contain letters, digits, spaces, and underscores. "
+                "Special characters like @#$%-!& are not allowed. "
+                "Examples: 'My Library', 'Test_Library_123', 'Document Collection 2024'"
+            )
+        return v
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -237,6 +256,18 @@ class DocumentLibraryPatch(BaseModel):
     original_size: int | None = original_size_field
     final_size: int | None = final_size_field
     tags: list[str] | None = tags_field
+
+    @field_validator('name')
+    @classmethod
+    def validate_name_pattern(cls, v: str | None) -> str | None:
+        """Validate name matches required pattern with user-friendly error message."""
+        if v is not None and not re.match(NAME_PATTERN, v):
+            raise ValueError(
+                "Name must start with a letter and can only contain letters, digits, spaces, and underscores. "
+                "Special characters like @#$%-!& are not allowed. "
+                "Examples: 'My Library', 'Test_Library_123', 'Document Collection 2024'"
+            )
+        return v
 
     model_config = ConfigDict(
         json_schema_extra={

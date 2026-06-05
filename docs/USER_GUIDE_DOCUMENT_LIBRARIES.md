@@ -90,9 +90,9 @@ All Document Library endpoints are under: `/api/v1/document-libraries`
 ```
 
 **Validation Rules**:
-- `name`: Required, 3-100 characters, alphanumeric with spaces/hyphens/underscores
-- `description`: Optional, max 500 characters
-- `tags`: Optional, max 20 tags, each 1-50 characters
+- `name`: Required, 3-128 characters, must start with a letter, alphanumeric with spaces/underscores only (NO hyphens)
+- `description`: Optional, max 2000 characters
+- `tags`: Optional, no limit on count or individual tag length
 
 **Response** (201 Created):
 ```json
@@ -246,27 +246,31 @@ curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41
 curl -X GET "http://localhost:8000/api/v1/document-libraries?skip=0&limit=10"
 ```
 
-#### 8. Search Document Libraries
-**Endpoint**: `GET /api/v1/document-libraries/search`
+#### 8. List Document Sets in a Library
+**Endpoint**: `GET /api/v1/document-libraries/{library_id}/document-sets`
 
-**Query Parameters**:
-- `name`: Search by name (partial match, case-insensitive)
-- `tags`: Filter by tags (comma-separated)
-- `skip`: Number of records to skip (default: 0)
-- `limit`: Maximum number of records to return (default: 100)
+**Path Parameters**:
+- `library_id` (required): UUID of the library
 
-**Response** (200 OK): Same format as list endpoint
+**Response** (200 OK):
+```json
+{
+  "document_sets": [
+    {
+      "document_set_id": "abc123",
+      "name": "Document Set 1"
+    },
+    {
+      "document_set_id": "def456",
+      "name": "Document Set 2"
+    }
+  ]
+}
+```
 
 **Example using curl**:
 ```bash
-# Search by name
-curl -X GET "http://localhost:8000/api/v1/document-libraries/search?name=financial"
-
-# Filter by tags
-curl -X GET "http://localhost:8000/api/v1/document-libraries/search?tags=finance,q1-2024"
-
-# Combined search
-curl -X GET "http://localhost:8000/api/v1/document-libraries/search?name=financial&tags=q1-2024&limit=20"
+curl -X GET "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets"
 ```
 
 ## Common Workflows
@@ -361,7 +365,7 @@ class DocumentLibraryClient:
         response.raise_for_status()
         return response.json()
     
-    def update_library(self, library_id: str, name: str = None, 
+    def update_library(self, library_id: str, name: str = None,
                       description: str = None, tags: list = None):
         """Update a document library"""
         url = f"{self.base_url}{self.api_path}/{library_id}"
@@ -373,7 +377,7 @@ class DocumentLibraryClient:
         if tags:
             payload["tags"] = tags
         
-        response = requests.put(url, json=payload)
+        response = requests.patch(url, json=payload)
         response.raise_for_status()
         return response.json()
     
@@ -383,38 +387,33 @@ class DocumentLibraryClient:
         response = requests.delete(url)
         response.raise_for_status()
     
-    def add_document_set(self, library_id: str, document_set_id: str):
-        """Add a document set to a library"""
-        url = f"{self.base_url}{self.api_path}/{library_id}/document-sets/{document_set_id}"
-        response = requests.post(url)
+    def add_document_sets(self, library_id: str, document_set_ids: list[str]):
+        """Add document sets to a library (bulk operation)"""
+        url = f"{self.base_url}{self.api_path}/{library_id}/document-sets"
+        params = {"document_sets_ids": ",".join(document_set_ids)}
+        response = requests.put(url, params=params)
+        response.raise_for_status()
+    
+    def remove_document_sets(self, library_id: str, document_set_ids: list[str]):
+        """Remove document sets from a library (bulk operation)"""
+        url = f"{self.base_url}{self.api_path}/{library_id}/document-sets"
+        params = {"document_sets_ids": ",".join(document_set_ids)}
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+    
+    def list_document_sets(self, library_id: str):
+        """List document sets in a library"""
+        url = f"{self.base_url}{self.api_path}/{library_id}/document-sets"
+        response = requests.get(url)
         response.raise_for_status()
         return response.json()
     
-    def remove_document_set(self, library_id: str, document_set_id: str):
-        """Remove a document set from a library"""
-        url = f"{self.base_url}{self.api_path}/{library_id}/document-sets/{document_set_id}"
-        response = requests.delete(url)
-        response.raise_for_status()
-        return response.json()
-    
-    def list_libraries(self, skip: int = 0, limit: int = 100):
-        """List all document libraries"""
+    def list_libraries(self, name: str = None, offset: int = 0, limit: int = 100):
+        """List all document libraries with optional name filter"""
         url = f"{self.base_url}{self.api_path}"
-        params = {"skip": skip, "limit": limit}
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
-    
-    def search_libraries(self, name: str = None, tags: list = None, 
-                        skip: int = 0, limit: int = 100):
-        """Search document libraries"""
-        url = f"{self.base_url}{self.api_path}/search"
-        params = {"skip": skip, "limit": limit}
+        params = {"offset": offset, "limit": limit}
         if name:
             params["name"] = name
-        if tags:
-            params["tags"] = ",".join(tags)
-        
         response = requests.get(url, params=params)
         response.raise_for_status()
         return response.json()
@@ -431,17 +430,16 @@ if __name__ == "__main__":
     )
     print(f"Created library: {library['library_id']}")
     
-    # Add document sets
-    client.add_document_set(library['library_id'], "docset-001")
-    client.add_document_set(library['library_id'], "docset-002")
+    # Add document sets (bulk operation)
+    client.add_document_sets(library['library_id'], ["docset-001", "docset-002"])
     
-    # Get updated library
-    updated_library = client.get_library(library['library_id'])
-    print(f"Library now has {len(updated_library['document_set_ids'])} document sets")
+    # List document sets in library
+    doc_sets = client.list_document_sets(library['library_id'])
+    print(f"Library has {len(doc_sets['document_sets'])} document sets")
     
-    # Search libraries
-    results = client.search_libraries(tags=["invoices"])
-    print(f"Found {results['total']} libraries with 'invoices' tag")
+    # List libraries with name filter
+    results = client.list_libraries(name="Invoice")
+    print(f"Found {len(results)} libraries matching 'Invoice'")
 ```
 
 ## Error Handling
@@ -505,7 +503,8 @@ except requests.exceptions.RequestException as e:
 ### 1. Naming Conventions
 - Use descriptive, meaningful names
 - Include time periods or versions when relevant
-- Example: "Financial Reports Q1 2024", "Legal Contracts 2024-v2"
+- Names must start with a letter and contain only letters, digits, spaces, and underscores
+- Example: "Financial Reports Q1 2024", "Legal Contracts 2024_v2"
 
 ### 2. Tagging Strategy
 - Use consistent tag naming (lowercase, hyphenated)
@@ -550,10 +549,11 @@ except requests.exceptions.RequestException as e:
 **Symptom**: 422 validation error
 
 **Solutions**:
-1. Check name length (3-100 characters)
-2. Verify description length (max 500 characters)
-3. Ensure tags are valid (max 20 tags, each 1-50 characters)
-4. Use only alphanumeric characters, spaces, hyphens, and underscores in names
+1. Check name length (3-128 characters minimum)
+2. Ensure name starts with a letter (a-z, A-Z)
+3. Verify description length (max 2000 characters)
+4. Use only alphanumeric characters, spaces, and underscores in names (no hyphens or special characters)
+5. Name pattern: `^[a-zA-Z][a-zA-Z0-9_ ]*$` (example: "My Library Name" or "Test_Library_123")
 
 ### Issue: API Server Not Running
 **Symptom**: Connection refused errors

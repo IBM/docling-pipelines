@@ -601,6 +601,16 @@ def datetime_field(description: str, example: str, **kwargs):
 # ============================================================================
 # Constants for Document Library DTOs following the same pattern as Flow DTOs.
 # Document Libraries are collections of Document Sets with aggregate metadata.
+#
+# Note: Document Libraries have stricter name validation than generic names:
+# - Must be 3-128 characters (not 1-256)
+# - Must start with a letter
+# - Can only contain letters, digits, spaces, and underscores (no hyphens or special chars)
+
+# Document Library Name Validation (stricter than generic NAME_* constants)
+DOCUMENT_LIBRARY_NAME_MIN_LENGTH = 3  # Minimum 3 characters for library names
+DOCUMENT_LIBRARY_NAME_MAX_LENGTH = 128  # Maximum 128 characters (not 256)
+DOCUMENT_LIBRARY_NAME_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_ ]*$"  # Must start with letter, alphanumeric with spaces/underscores only
 
 # Document Library Field Descriptions
 DOCUMENT_LIBRARY_ID_DESC = "Unique identifier for the document library (UUID format)"
@@ -643,9 +653,9 @@ DOCUMENT_LIBRARIES_LIMIT_DESC = "Maximum number of document libraries per page"
 LIBRARY_ID_DESC = DOCUMENT_LIBRARY_ID_DESC
 LIBRARY_ID_EXAMPLE = UUID_EXAMPLE
 LIBRARY_NAME_DESC = DOCUMENT_LIBRARY_NAME_DESC
-LIBRARY_NAME_MIN_LENGTH = NAME_MIN_LENGTH
-LIBRARY_NAME_MAX_LENGTH = NAME_MAX_LENGTH
-LIBRARY_NAME_PATTERN = NAME_PATTERN
+LIBRARY_NAME_MIN_LENGTH = DOCUMENT_LIBRARY_NAME_MIN_LENGTH  # 3 (not generic 1)
+LIBRARY_NAME_MAX_LENGTH = DOCUMENT_LIBRARY_NAME_MAX_LENGTH  # 128 (not generic 256)
+LIBRARY_NAME_PATTERN = DOCUMENT_LIBRARY_NAME_PATTERN  # Stricter pattern (must start with letter)
 LIBRARY_DESCRIPTION_DESC = DOCUMENT_LIBRARY_DESCRIPTION_DESC
 LIBRARY_DESCRIPTION_MIN_LENGTH = DESCRIPTION_MIN_LENGTH
 LIBRARY_DESCRIPTION_MAX_LENGTH = 1000  # Library description is shorter than flow description

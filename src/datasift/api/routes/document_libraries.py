@@ -288,8 +288,12 @@ DocumentSetServiceDep = Annotated[DocumentSetService, Depends(get_document_set_s
     Library names must be unique across the system.
 
     **Request Body:**
-    - `name` (required): Library name (1-255 characters, must be unique)
-    - `description` (optional): Library description (max 1000 characters)
+    - `name` (required): Library name (3-128 characters, must be unique, must start with letter, can only contain letters/digits/spaces/underscores)
+    - `description` (optional): Library description (max 2000 characters)
+    - `purpose` (optional): Purpose or use case (max 1024 characters)
+    - `original_size` (optional): Input size in bytes (non-negative integer)
+    - `final_size` (optional): Processed size in bytes (non-negative integer)
+    - `tags` (optional): List of tags (no limit on count or individual tag length)
 
     **Response:**
     - Returns the created library with generated metadata (library_id, created_at, updated_at)
@@ -509,8 +513,12 @@ def list_libraries(
     - `library_id` (required): UUID of the library to update
 
     **Request Body (all optional):**
-    - `name`: New library name (1-255 characters, must be unique if changed)
-    - `description`: New library description (max 1000 characters)
+    - `name`: New library name (3-128 characters, must be unique if changed, must start with letter, can only contain letters/digits/spaces/underscores)
+    - `description`: New library description (max 2000 characters)
+    - `purpose`: New purpose or use case (max 1024 characters)
+    - `original_size`: New input size in bytes (non-negative integer)
+    - `final_size`: New processed size in bytes (non-negative integer)
+    - `tags`: New list of tags (no limit on count or individual tag length)
 
     **Response:**
     - Returns the updated library with all metadata

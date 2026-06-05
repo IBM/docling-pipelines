@@ -65,18 +65,18 @@ class TestDocumentLibraryNameValidation:
     def test_create_library_with_name_too_long_raises_error(self):
         """Test that creating a library with name exceeding max length raises validation error."""
         # Arrange
-        long_name = "x" * 257  # Exceeds max length (256)
+        long_name = "A" + "x" * 128  # Exceeds max length (128)
 
         # Act & Assert
         with pytest.raises(DatasiftException) as exc_info:
             DocumentLibrary.create(name=long_name)
 
-        assert "256 characters" in str(exc_info.value)
+        assert "128 characters" in str(exc_info.value)
 
     def test_create_library_with_max_length_name_succeeds(self):
         """Test that creating a library with name at max length succeeds."""
         # Arrange
-        max_length_name = "x" * 256
+        max_length_name = "A" + "x" * 127  # Exactly 128 characters, starts with letter
 
         # Act
         library = DocumentLibrary.create(name=max_length_name)
@@ -107,18 +107,18 @@ class TestDocumentLibraryDescriptionValidation:
     def test_create_library_with_description_too_long_raises_error(self):
         """Test that creating a library with description exceeding max length raises validation error."""
         # Arrange
-        long_description = "x" * 1025  # Exceeds max length (1024)
+        long_description = "x" * 2001  # Exceeds max length (2000)
 
         # Act & Assert
         with pytest.raises(DatasiftException) as exc_info:
             DocumentLibrary.create(name="Test Library", description=long_description)
 
-        assert "1024 characters" in str(exc_info.value)
+        assert "2000 characters" in str(exc_info.value)
 
     def test_create_library_with_max_length_description_succeeds(self):
         """Test that creating a library with description at max length succeeds."""
         # Arrange
-        max_length_description = "x" * 1024
+        max_length_description = "x" * 2000
 
         # Act
         library = DocumentLibrary.create(name="Test Library", description=max_length_description)

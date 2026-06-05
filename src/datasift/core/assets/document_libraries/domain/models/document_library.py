@@ -4,6 +4,7 @@ This module contains the core domain model for Document Library,
 representing a collection of Document Sets.
 """
 
+import re
 from dataclasses import dataclass, field
 from uuid import uuid4
 
@@ -109,6 +110,22 @@ class DocumentLibrary:
         if not self.name or not isinstance(self.name, str):
             raise DatasiftException(
                 "Field 'name' must be a non-empty string",
+                status_code=400,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
+            )
+
+        # Validate name: must start with alphabetic character
+        if not self.name[0].isalpha():
+            raise DatasiftException(
+                "Field 'name' must start with an alphabetic character",
+                status_code=400,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
+            )
+
+        # Validate name: must match pattern (letters, digits, spaces, underscores only)
+        if not re.match(DocumentLibraryConstants.NAME_PATTERN, self.name):
+            raise DatasiftException(
+                "Field 'name' can only contain letters, digits, spaces, and underscores",
                 status_code=400,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
             )
