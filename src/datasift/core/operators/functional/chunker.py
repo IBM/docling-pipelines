@@ -20,7 +20,7 @@ from datasift.core.operators.functional.summarization_service import Summarizati
 from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from datasift.integrations.ollama.client import OllamaClient
+from datasift.integrations.ollama.client import InteractionMode, OllamaClient
 from datasift.integrations.ollama.embeddings import OllamaClientEmbeddings
 from datasift.utils.core.memmap_file_utils import write_chunks_to_file
 from datasift.utils.infrastructure import get_pyarrow_table_size_mb
@@ -59,7 +59,7 @@ CHUNK_OVERLAP_MAX_SIZE: int = 512  # Maximum overlap size
 
 # Semantic Chunking Constants
 SEMANTIC_EMBEDDINGS_MODEL_KEY: str = "semantic_embeddings_model"
-SEMANTIC_EMBEDDINGS_MODEL_DEFAULT: str = "granite4"  # Default Ollama model for embeddings
+SEMANTIC_EMBEDDINGS_MODEL_DEFAULT: str = "nomic-embed-text"  # Default Ollama model for embeddings
 
 # Docling Chunking Constants
 DOCLING_TOKENIZER_KEY: str = "docling_tokenizer"
@@ -841,7 +841,11 @@ class ChunkerOperator(AbstractOperator):
         """
         if self._ollama_client is None:
             try:
-                self._ollama_client = OllamaClient(model_name=self.semantic_embeddings_model, validate_model=True)
+                self._ollama_client = OllamaClient(
+                    model_name=self.semantic_embeddings_model,
+                    mode=InteractionMode.EMBEDDINGS,
+                    validate_model=True,
+                )
                 logger.info(
                     f"Initialized OllamaClient with model: {self.semantic_embeddings_model}",
                     extra=self.common_log_arguments,
