@@ -102,7 +102,7 @@ class MilvusBatchProcessor:
             feature_config: dict[str, Any] = self.available_features.get(feature_name, {})
 
             # Skip if explicitly marked as unavailable for vector db
-            if feature_config.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB) is False:
+            if not feature_config.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB, True):
                 continue
 
             # Skip binary data types that cannot be JSON serialized

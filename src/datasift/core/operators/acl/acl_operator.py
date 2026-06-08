@@ -386,7 +386,7 @@ class ACLOperator(AbstractOperator):
         metadata = self.create_base_metadata(total_docs_count=len(table))
 
         # Extract credentials and connection info from first row's metadata
-        if len(table) == 0:
+        if not table:
             logger.warning("Empty table provided to ACL operator", extra=self.common_log_arguments)
             return [table], metadata
 

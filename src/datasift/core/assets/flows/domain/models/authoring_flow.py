@@ -156,7 +156,7 @@ class AuthoringOperator:
             )
             return errors
 
-        if len(branches) == 0:
+        if not branches:
             errors.append(f"Branching operator '{self.name}' must define at least one branch")
             return errors
 

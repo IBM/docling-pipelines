@@ -183,7 +183,7 @@ class ElyraConverter:
 
         # Get nodes from pipeline
         nodes = pipeline.get(ElyraConstants.NODES, [])
-        if len(nodes) == 0:
+        if not nodes:
             logger.warning("No operators exist in the flow.")
             return {
                 DatasiftConstants.FLOW: {

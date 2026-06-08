@@ -107,7 +107,7 @@ class Flow:
         if not isinstance(self.definition, dict):
             raise FlowInvalidDataException(message="Flow definition must be a dictionary", field_name="definition")
 
-        if len(self.definition) == 0:
+        if not self.definition:
             raise FlowInvalidDataException(message="Flow definition cannot be empty", field_name="definition")
 
     def update_timestamp(self) -> None:

@@ -150,7 +150,7 @@ def _aggregate_time_fields(*, batch_records: list[NodeStats]) -> tuple:
     aggregated_start_time = min(start_times) if start_times else 0
     aggregated_end_time = max(end_times) if end_times else 0
     aggregated_time_taken = (
-        aggregated_end_time - aggregated_start_time if aggregated_start_time > 0 and aggregated_end_time > 0 else 0
+        aggregated_end_time - aggregated_start_time if aggregated_start_time and aggregated_end_time else 0
     )
 
     return aggregated_start_time, aggregated_end_time, aggregated_time_taken

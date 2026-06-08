@@ -1254,7 +1254,7 @@ class ChunkerOperator(AbstractOperator):
             )
             table_size = get_pyarrow_table_size_mb(table)
 
-            if memmap_threshold > 0 and table_size > memmap_threshold:
+            if table_size > memmap_threshold > 0:
                 # Write chunks to binary files and create path references
                 chunks_column_data = []
 

@@ -264,7 +264,7 @@ class MilvusIndexManager:
             feature_config = self.available_features.get(source_column_name, {})
 
             # Skip if explicitly marked as unavailable for vector db
-            if feature_config.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB) is False:
+            if not feature_config.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB, True):
                 continue
 
             # Skip vector type features (should have been in dimension_mapping)

@@ -256,10 +256,10 @@ class DocumentClassifierOperator(AbstractOperator):
             if not self.document_types:
                 errors.append("document_types cannot be empty")
             elif isinstance(self.document_types, list):
-                if len(self.document_types) == 0:
+                if not self.document_types:
                     errors.append("document_types list cannot be empty")
             elif isinstance(self.document_types, dict):
-                if len(self.document_types) == 0:
+                if not self.document_types:
                     errors.append("document_types dictionary cannot be empty")
 
         # Validate confidence threshold (optional, defaults to 7.0)

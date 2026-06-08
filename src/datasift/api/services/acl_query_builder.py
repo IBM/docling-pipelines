@@ -162,7 +162,7 @@ class ACLQueryBuilder:
             )
             return False
 
-        if len(allowed_users) == 0:
+        if not allowed_users:
             logger.debug("allowed_users is empty - access denied")
             return False
 

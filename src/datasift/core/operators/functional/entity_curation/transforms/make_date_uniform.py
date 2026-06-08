@@ -28,7 +28,7 @@ def make_date_uniform(*, date_str: Any) -> str | None:
         >>> make_date_uniform(date_str="2024/01/15")
         '2024-01-15'
     """
-    if not date_str or date_str is None:
+    if not date_str:
         return None
 
     value_str = str(date_str).strip()
