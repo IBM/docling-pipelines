@@ -13,6 +13,7 @@ from datasift.core.constants.constants import (
     Metrics,
 )
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.models.session_info import create_session_info
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # ---------------------------------------------------------------------------
@@ -108,6 +109,7 @@ def test_init_with_all_config_parameters():
 
 def test_init_with_minimal_config():
     """Constructor works with minimal config (only required fields)."""
+    create_session_info()
     config = {}
     operator = make_operator(config)
 

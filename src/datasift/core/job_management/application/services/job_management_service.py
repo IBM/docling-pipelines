@@ -8,12 +8,21 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from datasift.core.assets.flows.adapters.config.repository_factory import RepositoryFactory
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus, OrchestratorType
+from datasift.core.assets.flows.adapters.config.repository_factory import (
+    RepositoryFactory,
+)
+from datasift.core.constants.constants import (
+    DatasiftConstants,
+    ExecutionStatus,
+    OrchestratorType,
+)
 from datasift.core.job_management.domain.models import JobStats
 from datasift.core.job_management.domain.ports import JobRunManager, JobStatsService
-from datasift.core.models.session_info import create_session_info, set_session_info
-from datasift.exceptions.datasift_exceptions import FlowInvalidDataException, FlowNotFoundException
+from datasift.core.models.session_info import SessionInfo, get_session_info, set_session_info
+from datasift.exceptions.datasift_exceptions import (
+    FlowInvalidDataException,
+    FlowNotFoundException,
+)
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -124,7 +133,6 @@ class JobManagementService:
             job_run_id: Unique identifier for this job run
         """
         from datasift.utils.orchestration.elyra_converter import ElyraConverter
-
         flow = self.flow_repository.find_by_id(flow_id)
         if flow is None:
             raise FlowNotFoundException(f"Flow not found for flow_id: {flow_id}")
@@ -175,6 +183,7 @@ class JobManagementService:
 
         self.executor.submit(
             self._execute_flow_async,
+            get_session_info(),
             job_id,
             job_run_id,
             flow_dag_definition,
@@ -276,6 +285,7 @@ class JobManagementService:
 
     def _execute_flow_async(
         self,
+        session_info: SessionInfo,
         job_id: str,
         job_run_id: str,
         flow_definition: dict[str, Any],
@@ -291,14 +301,8 @@ class JobManagementService:
                 job_stats_service=self.job_stats_service,
                 job_run_manager=self.job_run_manager,
             )
-
-            session = create_session_info(
-                orchestrator=orchestrator,
-                job_id=job_id,
-                job_run_id=job_run_id,
-                flow_id=flow_config.get(DatasiftConstants.FLOW_ID, job_id),
-            )
-            set_session_info(session)
+            session_info.orchestrator = orchestrator
+            set_session_info(session_info=session_info)
 
             executable_flow = flow_definition.get(DatasiftConstants.FLOW, flow_definition)
             flow_executor = FlowExecutor(flow_def=executable_flow, orchestrator=orchestrator)

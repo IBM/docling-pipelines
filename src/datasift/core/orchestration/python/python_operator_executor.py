@@ -24,6 +24,7 @@ logger = get_logger()
 
 
 class PythonOperatorExecutor(AbstractOperatorExecutor):
+
     def __init__(
         self,
         *,

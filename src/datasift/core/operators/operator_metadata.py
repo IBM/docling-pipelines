@@ -122,6 +122,8 @@ class OperatorMetadata:
                 # Try static method first (new approach), fall back to instance method (backward compatibility)
                 try:
                     config_values = cls.get_metadata()
+                    # Note: In Enterprise version this method is defined as instance method.
+                    required_features = cls.get_required_features()
                 except TypeError as e:
                     # Backward compatibility: get_metadata() is not static, instantiate operator
                     logger.debug(
@@ -131,11 +133,10 @@ class OperatorMetadata:
                     if op is None:
                         raise ValueError(f"Failed to instantiate operator '{short_name}'") from e
                     config_values = op.get_metadata()
+                    required_features = op.get_required_features()
 
                 # Get required features from static method
-                required_features = cls.get_required_features()
                 config_values["required_features"] = required_features
-
                 # Add owner from class attribute
                 config_values["owner"] = getattr(cls, "owner", "datasift")
 

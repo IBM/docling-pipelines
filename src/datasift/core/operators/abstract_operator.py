@@ -10,6 +10,7 @@ from datasift.core.constants.constants import (
     Metrics,
 )
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.models.session_info import get_session_info
 from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -32,10 +33,11 @@ class AbstractOperator(AbstractTableTransform):
 
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
+        session_info = get_session_info()
         self.name = config.get(OperatorConstants.Misc.NAME)
         self.id = config.get(OperatorConstants.Misc.ID)
-        self.job_id = config.get(DatasiftConstants.JOB_ID)
-        self.job_run_id = config.get(DatasiftConstants.JOB_RUN_ID)
+        self.job_id = config.get(DatasiftConstants.JOB_ID, session_info.job_id)
+        self.job_run_id = config.get(DatasiftConstants.JOB_RUN_ID, session_info.job_run_id)
         self.context_id = config.get(DatasiftConstants.CONTEXT_ID, self.job_id)
         self.output_features_to_drop = config.get(DatasiftConstants.OUTPUT_FEATURES_TO_DROP, [])
         self.updated_features = config.get(DatasiftConstants.UPDATED_FEATURES, [])

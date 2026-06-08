@@ -3,7 +3,6 @@ Operator Registry for Datasift OSS Operators.
 
 This module provides a frozenset-based registry of all datasift (OSS) operators.
 Operators are imported as class references for immediate access without runtime discovery.
-
 The registry supports external operator providers through a plugin hook pattern,
 allowing host applications to inject their own operators at runtime.
 """
@@ -16,13 +15,13 @@ from datasift.core.operators.document_sets.document_set_operator import Document
 
 # Extract Operators
 from datasift.core.operators.extract.extract_operator import ExtractOperator
+from datasift.core.operators.functional import EntityCurationOperator
 
 # Functional Operators
 from datasift.core.operators.functional.branching_operator import BranchingOperator
 from datasift.core.operators.functional.chunker import ChunkerOperator
 from datasift.core.operators.functional.doc_id_hash import DocIdHashOperator
 from datasift.core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
-from datasift.core.operators.functional.entity_curation.entity_curation_operator import EntityCurationOperator
 from datasift.core.operators.functional.merge import MergeOperator
 from datasift.core.operators.functional.noop import NOOPOperator
 
@@ -60,10 +59,10 @@ DATASIFT_OPERATORS = frozenset(
         ChunkerOperator,
         DocIdHashOperator,
         EmbeddingsOperator,
-        EntityCurationOperator,
         MergeOperator,
         NOOPOperator,
         # Quality
+        EntityCurationOperator,
         DocumentClassifierOperator,
         DocQuality,
         EdedupOperator,
