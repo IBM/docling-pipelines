@@ -272,8 +272,12 @@ class TestFlowServicePartialUpdate:
         caplog.set_level(logging.INFO)
 
         # Arrange
+        updated_flow = Flow.from_dict(sample_flow_with_id.to_dict())
+        updated_flow.name = "new_name"
+        updated_flow.description = "new_desc"
+
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
-        mock_flow_repository.update.return_value = sample_flow_with_id
+        mock_flow_repository.partial_update.return_value = updated_flow
         service = FlowService(repository=mock_flow_repository)
         updates = {"name": "new_name", "description": "new_desc"}
 
@@ -290,8 +294,11 @@ class TestFlowServicePartialUpdate:
     def test_partial_update_flow_with_name_change(self, mock_flow_repository, sample_flow_with_id):
         """Test partial update with name change."""
         # Arrange
+        updated_flow = Flow.from_dict(sample_flow_with_id.to_dict())
+        updated_flow.name = "Updated Flow Name"
+
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
-        mock_flow_repository.update.return_value = sample_flow_with_id
+        mock_flow_repository.partial_update.return_value = updated_flow
         service = FlowService(repository=mock_flow_repository)
         updates = {"name": "Updated Flow Name"}
 
@@ -300,13 +307,16 @@ class TestFlowServicePartialUpdate:
 
         # Assert
         assert result.name == "Updated Flow Name"
-        mock_flow_repository.update.assert_called_once()
+        mock_flow_repository.partial_update.assert_called_once()
 
     def test_partial_update_flow_without_name_change(self, mock_flow_repository, sample_flow_with_id):
         """Test partial update without name change."""
         # Arrange
+        updated_flow = Flow.from_dict(sample_flow_with_id.to_dict())
+        updated_flow.description = "Updated description"
+
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
-        mock_flow_repository.update.return_value = sample_flow_with_id
+        mock_flow_repository.partial_update.return_value = updated_flow
         service = FlowService(repository=mock_flow_repository)
         updates = {"description": "Updated description"}
 
@@ -315,7 +325,7 @@ class TestFlowServicePartialUpdate:
 
         # Assert
         assert result.description == "Updated description"
-        mock_flow_repository.update.assert_called_once()
+        mock_flow_repository.partial_update.assert_called_once()
 
     def test_partial_update_flow_ignores_protected_fields(self, mock_flow_repository, sample_flow_with_id, caplog):
         """Test that protected fields (flow_id, created_on, created_by) are not updated."""
@@ -325,7 +335,7 @@ class TestFlowServicePartialUpdate:
 
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
-        mock_flow_repository.update.return_value = sample_flow_with_id
+        mock_flow_repository.partial_update.return_value = sample_flow_with_id
         service = FlowService(repository=mock_flow_repository)
         original_id = sample_flow_with_id.flow_id
         original_created = sample_flow_with_id.created_on
@@ -348,15 +358,17 @@ class TestFlowServicePartialUpdate:
         """Test that validation occurs before file operations."""
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
+        # Mock partial_update to raise validation error
+        mock_flow_repository.partial_update.side_effect = ValueError("Flow name cannot be empty")
         service = FlowService(repository=mock_flow_repository)
         updates = {"name": ""}  # Invalid empty name
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
+        with pytest.raises(ValueError, match="Flow name cannot be empty"):
             service.partial_update_flow("test-flow-id-123", updates)
 
-        # Verify update was never called
-        mock_flow_repository.update.assert_not_called()
+        # Verify partial_update was called (validation happens in repository now)
+        mock_flow_repository.partial_update.assert_called_once()
 
     def test_partial_update_flow_with_nonexistent_id_raises_error(self, mock_flow_repository):
         """Test partial update with non-existent flow ID raises FlowNotFoundException."""

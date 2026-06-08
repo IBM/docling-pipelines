@@ -480,6 +480,53 @@ class LocalFlowRepository(FlowRepository):
                 self._handle_file_operation_error("update", flow.flow_id, e, temp_path)
                 raise  # Ensure type checker knows this path doesn't return
 
+    def partial_update(self, existing_flow: Flow, updates: dict[str, Any]) -> Flow:
+        """Apply partial updates to an existing flow and persist changes.
+
+        This method applies the provided field updates to the flow entity,
+        validates the result, updates the timestamp, and persists using the
+        existing update() method.
+
+        Args:
+            existing_flow: Flow entity to update
+            updates: Dictionary of validated field updates (already filtered for
+                    protected and unknown fields by the service layer)
+
+        Returns:
+            Updated flow with refreshed timestamp
+
+        Raises:
+            ValueError: If validation fails after applying updates
+            PermissionError: If write permission denied
+            OSError: If file system operation fails
+            TimeoutError: If lock cannot be acquired
+
+        Note:
+            The service layer is responsible for filtering protected fields
+            and unknown fields before calling this method.
+        """
+        # Apply updates using setattr
+        for field, value in updates.items():
+            if hasattr(existing_flow, field):
+                setattr(existing_flow, field, value)
+                logger.debug("Applied update to field '%s' for flow %s", field, existing_flow.flow_id)
+
+        # Validate after updates
+        try:
+            existing_flow.validate()
+        except ValueError as exc:
+            logger.error("Flow validation failed after partial update: %s", exc)
+            raise ValueError(f"Invalid flow data after update: {exc!s}") from exc
+
+        # Update timestamp
+        existing_flow.update_timestamp()
+
+        # Persist using existing update method (handles locking and atomicity)
+        updated_flow = self.update(existing_flow)
+
+        logger.info("Partial update completed for flow %s", existing_flow.flow_id)
+        return updated_flow
+
     def _read_and_validate_flow(self, flow_file_path: Path, expected_flow_id: str) -> Flow:
         """Read and validate a flow file.
 

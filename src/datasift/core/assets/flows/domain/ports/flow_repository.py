@@ -168,3 +168,30 @@ class FlowRepository(ABC):
             TimeoutError: If lock cannot be acquired
         """
         pass
+
+    @abstractmethod
+    def partial_update(self, existing_flow: Flow, updates: dict[str, Any]) -> Flow:
+        """Apply partial updates to an existing flow.
+
+        This method applies the provided field updates to the flow entity,
+        validates the result, updates the timestamp, and persists the changes.
+
+        Args:
+            existing_flow: Flow entity to update
+            updates: Dictionary of validated field updates (already filtered for
+                    protected and unknown fields by the service layer)
+
+        Returns:
+            Updated flow with refreshed timestamp
+
+        Raises:
+            ValueError: If validation fails after applying updates
+            PermissionError: If write permission denied
+            OSError: If file system operation fails
+            TimeoutError: If lock cannot be acquired
+
+        Note:
+            The service layer is responsible for filtering protected fields
+            and unknown fields before calling this method.
+        """
+        pass

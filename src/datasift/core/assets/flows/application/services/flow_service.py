@@ -675,42 +675,33 @@ class FlowService:
 
         existing_flow = self.get_flow(flow_id)
 
-        valid_fields = self.UPDATABLE_FIELDS
-        protected_fields = self.PROTECTED_FIELDS
-
-        unknown_fields = [k for k in updates.keys() if k not in valid_fields and k not in protected_fields]
+        # Filter unknown fields
+        unknown_fields = [
+            k for k in updates.keys() if k not in self.UPDATABLE_FIELDS and k not in self.PROTECTED_FIELDS
+        ]
         if unknown_fields:
             logger.warning("Ignoring unknown fields: %s", unknown_fields)
 
         # Transform authoring format fields if present
         updates = self._transform_authoring_updates(updates=updates, existing_flow=existing_flow)
 
-        updated_fields = []
+        # Remove protected fields and build validated updates dictionary
+        validated_updates = {}
         for field, value in updates.items():
-            if field in protected_fields:
+            if field in self.PROTECTED_FIELDS:
                 logger.warning("Ignoring update to protected field: %s", field)
                 continue
+            if field in self.UPDATABLE_FIELDS:
+                validated_updates[field] = value
 
-            if field in valid_fields and hasattr(existing_flow, field):
-                setattr(existing_flow, field, value)
-                updated_fields.append(field)
-                logger.debug("Updated field %s for flow %s", field, flow_id)
-
-        if not updated_fields:
+        if not validated_updates:
             logger.info("No valid fields to update for flow %s", flow_id)
             return existing_flow
 
-        try:
-            existing_flow.validate()
-        except ValueError as exc:
-            logger.error("Flow validation failed after partial update: %s", exc)
-            raise FlowInvalidDataException(f"Invalid flow data after update: {exc!s}") from exc
+        # Delegate to repository for actual update (applies updates, validates, updates timestamp, persists)
+        updated_flow = self.repository.partial_update(existing_flow, validated_updates)
 
-        existing_flow.update_timestamp()
-
-        updated_flow = self.repository.update(existing_flow)
-
-        logger.info("Updated fields for flow %s: %s", flow_id, updated_fields)
+        logger.info("Updated fields for flow %s: %s", flow_id, list(validated_updates.keys()))
 
         return updated_flow
 
