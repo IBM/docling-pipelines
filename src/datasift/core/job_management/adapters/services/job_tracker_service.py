@@ -1139,7 +1139,7 @@ class JobTrackerService(JobStatsService):
 
     def write_job_logs(self, *, job_stats, job_log_path: str) -> None:
         """
-        Write job statistics to log file.
+        Write job statistics to log file with node_stats sorted chronologically.
 
         Args:
             job_stats: Job statistics to write (JobStats)
@@ -1160,6 +1160,22 @@ class JobTrackerService(JobStatsService):
                 job_stats_dict = job_stats.model_dump()
             else:
                 job_stats_dict = job_stats
+
+            # Sort node_stats by start_time to match execution order
+            if "node_stats" in job_stats_dict and isinstance(job_stats_dict["node_stats"], dict):
+                node_stats = job_stats_dict["node_stats"]
+                # Sort by start_time, then end_time, then name
+                sorted_node_stats = dict(
+                    sorted(
+                        node_stats.items(),
+                        key=lambda item: (
+                            item[1].get("start_time", 0),
+                            item[1].get("end_time", 0),
+                            item[1].get("name", ""),
+                        ),
+                    )
+                )
+                job_stats_dict["node_stats"] = sorted_node_stats
 
             # Write to file
             with open(job_log_path, "w") as f:

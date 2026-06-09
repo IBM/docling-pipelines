@@ -10,9 +10,13 @@ class JobStatsMapper:
 
     @staticmethod
     def to_dto(job_stats: JobStats) -> JobStatsDto:
-        """Convert JobStats domain model to JobStatsDto."""
-        # Convert nested node_stats
-        node_stats_dto = {node_id: NodeStatsMapper.to_dto(stats) for node_id, stats in job_stats.node_stats.items()}
+        """Convert JobStats domain model to JobStatsDto with chronologically sorted node_stats."""
+        # Sort node_stats by start_time to match execution order
+        sorted_node_items = sorted(
+            job_stats.node_stats.items(),
+            key=lambda item: (item[1].start_time, item[1].end_time, item[1].name),
+        )
+        node_stats_dto = {node_id: NodeStatsMapper.to_dto(stats) for node_id, stats in sorted_node_items}
 
         # Convert nested batch_node_stats
         batch_node_stats_dto = {
@@ -70,10 +74,8 @@ class JobStatsMapper:
         )
         node_sequence = [node_id for node_id, _ in sorted_nodes]
 
-        # Build node_metadata array
-        node_metadata = [
-            NodeStatsMapper.to_node_metadata_item(node_id, stats) for node_id, stats in job_stats.node_stats.items()
-        ]
+        # Build node_metadata array in the same order as node_sequence
+        node_metadata = [NodeStatsMapper.to_node_metadata_item(node_id, stats) for node_id, stats in sorted_nodes]
 
         # Convert to DTO
         job_stats_dto = JobStatsMapper.to_dto(job_stats)
