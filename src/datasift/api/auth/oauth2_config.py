@@ -25,7 +25,6 @@ class OAuth2Config(BaseSettings):
     oauth2_jwks_uri: str = Field(default="", description="JWKS URI for token validation")
 
     oauth2_scope: str = Field(default="openid profile email", description="OAuth2 scopes")
-    oauth2_token_validation: bool = Field(default=True, description="Validate OAuth2 tokens")
 
     oidc_issuer: str = Field(default="", description="OIDC issuer URL")
     oidc_audience: str = Field(default="", description="OIDC audience (usually client_id)")

@@ -18,7 +18,6 @@ class TestOAuth2Config:
         assert config.oauth2_enabled is False
         assert config.oauth2_provider == "generic"
         assert config.oauth2_scope == "openid profile email"
-        assert config.oauth2_token_validation is True
         assert config.oauth2_session_expire_minutes == 60
 
     def test_oauth2_config_custom_values(self):

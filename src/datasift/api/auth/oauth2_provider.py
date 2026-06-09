@@ -167,14 +167,6 @@ class OAuth2Provider(ABC):
         Raises:
             Exception: If token validation fails
         """
-        if not self.config.oauth2_token_validation:
-            logger.warning("Token validation is disabled")
-            try:
-                return jwt.get_unverified_claims(id_token)
-            except Exception as e:
-                logger.error(f"Failed to decode unverified token: {e!s}")
-                raise Exception(f"Token decode failed: {e!s}") from e
-
         try:
             jwks = await self.get_jwks()
 
