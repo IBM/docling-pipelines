@@ -246,7 +246,6 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Example 1: Basic OpenSearch Configuration
 ```json
 {
-  "id": "a6d2f9b1-8c3e-4a7d-b5f0-9e1c2d7a4b8f",
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",
@@ -264,7 +263,6 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Example 2: OpenSearch with NMSLIB Engine
 ```json
 {
-  "id": "a6d2f9b1-8c3e-4a7d-b5f0-9e1c2d7a4b8f",
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",
@@ -291,7 +289,6 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Example 3: OpenSearch with Faiss Engine
 ```json
 {
-  "id": "a6d2f9b1-8c3e-4a7d-b5f0-9e1c2d7a4b8f",
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",
@@ -317,7 +314,6 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Example 4: OpenSearch with Lucene Engine
 ```json
 {
-  "id": "a6d2f9b1-8c3e-4a7d-b5f0-9e1c2d7a4b8f",
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",
@@ -341,7 +337,6 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Example 5: AWS OpenSearch with Authentication
 ```json
 {
-  "id": "a6d2f9b1-8c3e-4a7d-b5f0-9e1c2d7a4b8f",
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",
@@ -364,7 +359,6 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Example 6: Hybrid Search with Sparse Embeddings
 ```json
 {
-  "id": "a6d2f9b1-8c3e-4a7d-b5f0-9e1c2d7a4b8f",
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",

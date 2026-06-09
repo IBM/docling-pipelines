@@ -201,7 +201,6 @@ Watsonx:
 ### Example 1: IBM watsonx.ai Embeddings via LiteLLM
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
@@ -220,7 +219,6 @@ Watsonx:
 ### Example 2: Watsonx.ai Embeddings (Native)
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
     "provider": "watsonx",
@@ -241,7 +239,6 @@ Watsonx:
 ### Example 3: Ollama Embeddings via LiteLLM (Local)
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
@@ -259,7 +256,6 @@ Watsonx:
 ### Example 4: HuggingFace Embeddings via LiteLLM
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
@@ -275,7 +271,6 @@ Watsonx:
 ### Example 5: OpenAI Embeddings via LiteLLM
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
@@ -291,7 +286,6 @@ Watsonx:
 ### Example 6: Cohere Embeddings via LiteLLM
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
     "provider": "litellm",

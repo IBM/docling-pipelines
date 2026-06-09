@@ -270,7 +270,6 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### Example 1: S3 Ingestion
 ```json
 {
-  "id": "f1c9e4b7-2a6d-4a85-b3f2-7e0c9d1a5b6e",
   "operator": "ingest_source",
   "config": {
     "provider": "s3",
@@ -291,7 +290,6 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### Example 2: SharePoint Ingestion
 ```json
 {
-  "id": "f1c9e4b7-2a6d-4a85-b3f2-7e0c9d1a5b6e",
   "operator": "ingest_source",
   "config": {
     "provider": "sharepoint",
@@ -314,7 +312,6 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### Example 3: Google Drive Ingestion
 ```json
 {
-  "id": "f1c9e4b7-2a6d-4a85-b3f2-7e0c9d1a5b6e",
   "operator": "ingest_source",
   "config": {
     "provider": "google_drive",

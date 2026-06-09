@@ -121,7 +121,6 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
 ### Example 1: Simple List-Based Filter
 ```json
 {
-  "id": "5e1a7b3c-8d2f-4c9a-b6e1-3f0d2a7c8b4e",
   "operator": "sql_filter",
   "config": {
     "criteria_list": [
@@ -136,7 +135,6 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
 ### Example 2: JSON-Based Complex Filter
 ```json
 {
-  "id": "5e1a7b3c-8d2f-4c9a-b6e1-3f0d2a7c8b4e",
   "operator": "sql_filter",
   "config": {
     "criteria_json": {
@@ -171,7 +169,6 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
 ### Example 3: Filter with Column Dropping
 ```json
 {
-  "id": "5e1a7b3c-8d2f-4c9a-b6e1-3f0d2a7c8b4e",
   "operator": "sql_filter",
   "config": {
     "filter_criteria": ["quality_score > 0.7"],
@@ -183,7 +180,6 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
 ### Example 4: Pattern Matching
 ```json
 {
-  "id": "5e1a7b3c-8d2f-4c9a-b6e1-3f0d2a7c8b4e",
   "operator": "sql_filter",
   "config": {
     "filter_criteria_json": {

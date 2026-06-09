@@ -345,7 +345,6 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ### Example 1: Simple Chunking
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "chunker",
   "config": {
     "chunk_type": "simple",
@@ -359,7 +358,6 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ### Example 2: Semantic Chunking
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "chunker",
   "config": {
     "chunk_type": "semantic",
@@ -374,7 +372,6 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ### Example 3: Hybrid Chunking with Summarization (Nested Structure)
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "chunker",
   "config": {
     "chunk_type": "hybrid",
@@ -400,7 +397,6 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ### Example 4: Remote Chunking with Docling-Serve
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "chunker",
   "config": {
     "chunk_type": "hybrid",

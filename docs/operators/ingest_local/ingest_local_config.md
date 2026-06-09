@@ -113,7 +113,6 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 ### Example 1: Basic Local Ingestion
 ```json
 {
-  "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
   "operator": "ingest_local",
   "config": {
     "paths": "/data/documents",
@@ -126,7 +125,6 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 ### Example 2: Filtered Ingestion with Size Limit
 ```json
 {
-  "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
   "operator": "ingest_local",
   "config": {
     "paths": "./documents",
@@ -141,7 +139,6 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 ### Example 3: Force Re-ingestion
 ```json
 {
-  "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
   "operator": "ingest_local",
   "config": {
     "paths": "/data/updated_docs",

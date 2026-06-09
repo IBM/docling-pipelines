@@ -168,7 +168,6 @@ Structured JSON format for complex conditions:
 ### Example 1: Quality-Based Branching
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "branching",
   "config": {
     "branch_criteria": [
@@ -205,7 +204,6 @@ Structured JSON format for complex conditions:
 ### Example 2: Language-Based Branching
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "branching",
   "config": {
     "branch_criteria": [
@@ -241,7 +239,6 @@ Structured JSON format for complex conditions:
 ### Example 3: Document Type Branching
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "branching",
   "config": {
     "branch_criteria": [
