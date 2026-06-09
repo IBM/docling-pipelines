@@ -152,12 +152,21 @@ curl -X GET "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-
 #### 3. Update a Document Library
 **Endpoint**: `PATCH /api/v1/document-libraries/{library_id}`
 
-**Request Body** (all fields optional):
+**Request Body**:
+- `name` (required): Library name (3-128 characters, must start with letter, can only contain letters/digits/spaces/underscores)
+- `description` (optional): Updated description
+- `purpose` (optional): Updated purpose
+- `original_size` (optional): Updated original size
+- `final_size` (optional): Updated final size
+- `tags` (optional): Updated tags list
+
+**Note:** Name field is currently required even for PATCH operations. Name cannot contain hyphens or special characters.
+
 ```json
 {
-  "name": "Financial Documents Q1 2024 - Updated",
+  "name": "Financial Documents Q1 2024 Updated",
   "description": "Updated collection description",
-  "tags": ["finance", "q1-2024", "reports", "audited"]
+  "tags": ["finance", "q1_2024", "reports", "audited"]
 }
 ```
 
@@ -168,8 +177,9 @@ curl -X GET "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-
 curl -X PATCH "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Financial Documents Q1 2024 - Updated",
-    "tags": ["finance", "q1-2024", "reports", "audited"]
+    "name": "Financial Documents Q1 2024 Updated",
+    "description": "Updated collection description",
+    "tags": ["finance", "q1_2024", "reports", "audited"]
   }'
 ```
 
@@ -217,7 +227,7 @@ curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41
 **Endpoint**: `GET /api/v1/document-libraries`
 
 **Query Parameters**:
-- `skip`: Number of records to skip (default: 0)
+- `offset`: Number of records to skip (default: 0)
 - `limit`: Maximum number of records to return (default: 100)
 
 **Response** (200 OK):
@@ -236,14 +246,14 @@ curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41
     }
   ],
   "total": 1,
-  "skip": 0,
+  "offset": 0,
   "limit": 100
 }
 ```
 
 **Example using curl**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/document-libraries?skip=0&limit=10"
+curl -X GET "http://localhost:8000/api/v1/document-libraries?offset=0&limit=10"
 ```
 
 #### 8. List Document Sets in a Library
@@ -289,48 +299,31 @@ LIBRARY_ID=$(curl -s -X POST "http://localhost:8000/api/v1/document-libraries" \
 
 echo "Created library: $LIBRARY_ID"
 
-# Step 2: Add document sets (assuming you have document set IDs)
-curl -X POST "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets/docset-001"
-curl -X POST "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets/docset-002"
-curl -X POST "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets/docset-003"
+# Step 2: Add document sets (single or multiple)
+# Add a single document set
+curl -X PUT "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets?document_sets_ids=docset-001"
+
+# Or add multiple document sets at once
+curl -X PUT "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets?document_sets_ids=docset-001,docset-002,docset-003"
 
 # Step 3: Verify the library
 curl -X GET "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" | jq
 ```
 
-### Workflow 2: Organize Documents by Tags
-
-```bash
-# Create libraries for different categories
-curl -X POST "http://localhost:8000/api/v1/document-libraries" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Legal Documents", "tags": ["legal", "contracts"]}'
-
-curl -X POST "http://localhost:8000/api/v1/document-libraries" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "HR Documents", "tags": ["hr", "personnel"]}'
-
-curl -X POST "http://localhost:8000/api/v1/document-libraries" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Financial Reports", "tags": ["finance", "reports"]}'
-
-# Search by tag
-curl -X GET "http://localhost:8000/api/v1/document-libraries/search?tags=finance" | jq
-```
-
-### Workflow 3: Update Library Metadata
+### Workflow 2: Update Library Metadata
 
 ```bash
 # Get current library state
 LIBRARY_ID="550e8400-e29b-41d4-a716-446655440000"
 curl -X GET "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" | jq
 
-# Update description and add tags
-curl -X PUT "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" \
+# Update description and add tags (use PATCH, name field is required)
+curl -X PATCH "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" \
   -H "Content-Type: application/json" \
   -d '{
+    "name": "Financial Documents Q1 2024",
     "description": "Updated description with more details",
-    "tags": ["finance", "q1-2024", "reports", "audited", "approved"]
+    "tags": ["finance", "q1_2024", "reports", "audited", "approved"]
   }' | jq
 ```
 
