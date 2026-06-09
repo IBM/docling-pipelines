@@ -63,7 +63,14 @@ def main():
             {
                 "name": "extract",
                 "type": "extract_operator",
-                "config": {"doc_column": "content"},
+                "config": {
+                    "text_extraction": {
+                        "provider": "docling_library",
+                        "doc_column": "content",
+                        "provider_config": {"additional_formats": ["html", "json"]},
+                    },
+                    "entity_extraction": {"provider": "none"},
+                },
                 "depends_on": ["ingest"],
             },
         ],
