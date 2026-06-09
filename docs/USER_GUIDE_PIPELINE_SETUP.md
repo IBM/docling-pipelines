@@ -25,6 +25,7 @@ This comprehensive guide walks you through setting up and executing a complete D
     - [11.8 Error Handling and Debugging](#118-error-handling-and-debugging)
 12. [Execution Models](#12-execution-models)
 13. [Job Stats Storage Configuration](#13-job-stats-storage-configuration)
+14. [API Authentication (Optional)](#14-api-authentication-optional)
 
 ---
 
@@ -2513,6 +2514,57 @@ This guide covers:
 - Troubleshooting and performance tuning
 
 ---
+
+## 14. API Authentication (Optional)
+
+If you're using the DataSift REST API, you can authenticate using either LDAP 
+
+### LDAP Authentication Setup
+
+For detailed LDAP authentication setup instructions, see [`examples/LDAP/README.md`](examples/LDAP/README.md).
+
+**Environment Configuration (.env):**
+
+```env
+# LDAP Server Settings
+LDAP_SERVER=ldap://localhost:389
+LDAP_BASE_DN=dc=example,dc=com
+LDAP_USER_DN=ou=users,dc=example,dc=com
+LDAP_BIND_DN=cn=admin,dc=example,dc=com
+LDAP_BIND_PASSWORD=admin_password
+LDAP_USE_SSL=false
+
+# JWT Secret (required for token generation)
+JWT_SECRET_KEY=your-secret-key-here
+```
+
+**Login and Get Token:**
+
+```bash
+# Login
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your-username", "password": "your-password"}'
+
+# Response includes access_token
+# {"access_token": "eyJhbGc...", "token_type": "bearer"}
+```
+
+**Use Token in API Requests:**
+
+```bash
+TOKEN="your-access-token"
+
+# Get current user
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/auth/me
+
+# List flows
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/flows
+```
+
+
 
 ## Additional Resources
 

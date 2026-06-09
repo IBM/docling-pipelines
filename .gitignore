@@ -65,5 +65,8 @@ examples/connectors/.env
 examples/connectors/*-service-account.json
 examples/connectors/google-service-account.json
 
+# LDAP credentials
+examples/LDAP/.env
+
 # Local test artifacts with credentials
 test_flows/

@@ -117,6 +117,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### API & Reference
 
 - **[Operator Reference](docs/OPERATOR_REFERENCE.md)** - Complete API documentation for operators and core components
+- **[LDAP Server Setup](examples/LDAP/README.md)** - Set up LDAP server for authentication
 - **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Common issues and solutions
 
 ### Operator Documentation

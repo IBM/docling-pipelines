@@ -53,57 +53,174 @@ class LDAPAuthenticator:
             Exception: If LDAP connection or authentication fails
         """
         ldap_client = None
+
         try:
             ldap_client = ldap.initialize(self.config.ldap_server)
             ldap_client.set_option(ldap.OPT_REFERRALS, 0)
             ldap_client.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
 
             if self.config.ldap_use_ssl:
-                ldap_client.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+                ldap_client.set_option(
+                    ldap.OPT_X_TLS_REQUIRE_CERT,
+                    ldap.OPT_X_TLS_NEVER,
+                )
                 ldap_client.start_tls_s()
 
+            # ------------------------------------------------------------------
+            # Active Directory: authenticate directly using username@domain
+            # ------------------------------------------------------------------
             if self.config.ldap_use_active_directory:
-                if self.config.ldap_ad_domain:
-                    user_dn = f"{username}@{self.config.ldap_ad_domain}"
-                else:
-                    user_dn = f"{username}"
+                if not self.config.ldap_ad_domain:
+                    raise Exception(
+                        "ldap_ad_domain must be configured when using Active Directory"
+                    )
+
+                bind_dn = f"{username}@{self.config.ldap_ad_domain}"
+
+                logger.info(f"Attempting AD authentication for user: {username}")
+
+                try:
+                    ldap_client.simple_bind_s(bind_dn, password)
+                except ldap.INVALID_CREDENTIALS:
+                    logger.warning(f"Invalid credentials for user: {username}")
+                    return None
+
+                # Authentication succeeded.
+                # Optionally fetch user attributes.
                 search_filter = f"(sAMAccountName={username})"
-                attributes = ["cn", "mail", "sAMAccountName", "userPrincipalName"]
-            else:
-                user_dn = f"uid={username},{self.config.ldap_user_dn}"
-                search_filter = f"(uid={username})"
-                attributes = ["cn", "mail", "uid"]
+                attributes = [
+                    "cn",
+                    "mail",
+                    "sAMAccountName",
+                    "userPrincipalName",
+                ]
 
-            ldap_client.simple_bind_s(user_dn, password)
+                result = ldap_client.search_s(
+                    self.config.ldap_user_dn,
+                    ldap.SCOPE_SUBTREE,
+                    search_filter,
+                    attributes,
+                )
 
-            result = ldap_client.search_s(self.config.ldap_user_dn, ldap.SCOPE_SUBTREE, search_filter, attributes)
+                email = ""
+                full_name = ""
 
-            if result:
-                _dn, attrs = result[0]
-                email = attrs.get("mail", [b""])[0].decode("utf-8") if "mail" in attrs else ""
-                full_name = attrs.get("cn", [b""])[0].decode("utf-8") if "cn" in attrs else ""
+                if result:
+                    _, attrs = result[0]
+
+                    email = (
+                        attrs.get("mail", [b""])[0].decode("utf-8")
+                        if "mail" in attrs
+                        else ""
+                    )
+
+                    full_name = (
+                        attrs.get("cn", [b""])[0].decode("utf-8")
+                        if "cn" in attrs
+                        else ""
+                    )
 
                 logger.info(f"Successfully authenticated user: {username}")
-                return User(username=username, email=email, full_name=full_name)
 
-            logger.warning(f"User not found in LDAP: {username}")
-            return None
+                return User(
+                    username=username,
+                    email=email,
+                    full_name=full_name,
+                )
 
-        except ldap.INVALID_CREDENTIALS:
-            logger.warning(f"Invalid credentials for user: {username}")
-            return None
+            # ------------------------------------------------------------------
+            # Standard LDAP/OpenLDAP: find user DN first, then bind as user
+            # ------------------------------------------------------------------
+
+            ldap_client.simple_bind_s(
+                self.config.ldap_bind_dn,
+                self.config.ldap_bind_password,
+            )
+
+            search_filter = f"(uid={username})"
+            attributes = ["cn", "mail", "uid"]
+
+            result = ldap_client.search_s(
+                self.config.ldap_user_dn,
+                ldap.SCOPE_SUBTREE,
+                search_filter,
+                attributes,
+            )
+
+            if not result:
+                logger.warning(f"User not found in LDAP: {username}")
+                return None
+
+            user_dn, attrs = result[0]
+
+            email = (
+                attrs.get("mail", [b""])[0].decode("utf-8")
+                if "mail" in attrs
+                else ""
+            )
+
+            full_name = (
+                attrs.get("cn", [b""])[0].decode("utf-8")
+                if "cn" in attrs
+                else ""
+            )
+
+            # Reconnect as the user to verify credentials
+            ldap_client.unbind_s()
+
+            ldap_client = ldap.initialize(self.config.ldap_server)
+            ldap_client.set_option(ldap.OPT_REFERRALS, 0)
+            ldap_client.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
+
+            if self.config.ldap_use_ssl:
+                ldap_client.set_option(
+                    ldap.OPT_X_TLS_REQUIRE_CERT,
+                    ldap.OPT_X_TLS_NEVER,
+                )
+                ldap_client.start_tls_s()
+
+            try:
+                ldap_client.simple_bind_s(user_dn, password)
+            except ldap.INVALID_CREDENTIALS:
+                logger.warning(f"Invalid credentials for user: {username}")
+                return None
+
+            logger.info(f"Successfully authenticated user: {username}")
+
+            return User(
+                username=username,
+                email=email,
+                full_name=full_name,
+            )
+
         except ldap.SERVER_DOWN:
-            logger.error(f"LDAP server is down: {self.config.ldap_server}")
+            logger.error(
+                f"LDAP server is down: {self.config.ldap_server}"
+            )
             raise Exception("LDAP server is unavailable") from None
+
+        except ldap.INVALID_DN_SYNTAX as e:
+            logger.error(
+                f"LDAP DN syntax error for user {username}: {e!s}"
+            )
+            raise Exception(
+                "LDAP configuration error: invalid bind DN format"
+            ) from e
+
         except Exception as e:
-            logger.error(f"LDAP authentication error for user {username}: {e!s}")
-            raise Exception(f"LDAP authentication error: {e!s}") from e
+            logger.error(
+                f"LDAP authentication error for user {username}: {e!s}"
+            )
+            raise Exception(
+                f"LDAP authentication error: {e!s}"
+            ) from e
+
         finally:
             if ldap_client:
                 try:
                     ldap_client.unbind_s()
-                except Exception as e:
-                    logger.error(f"Error unbinding LDAP connection: {e!s}")
+                except Exception:
+                    pass
 
     def verify_connection(self) -> bool:
         """Verify LDAP server connection.
