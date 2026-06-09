@@ -837,14 +837,14 @@ class ChunkerOperator(AbstractOperator):
 
         Note:
             The client is initialized with validate_model=True to ensure the
-            specified model is available before use.
+            specified model is available before use. If provider_config contains
+            a 'host' parameter, it will be used to connect to a custom Ollama server.
         """
         if self._ollama_client is None:
             try:
+                host = self.provider_config.get(OperatorConstants.VectorDB.HOST) if self.provider_config else None
                 self._ollama_client = OllamaClient(
-                    model_name=self.semantic_embeddings_model,
-                    mode=InteractionMode.EMBEDDINGS,
-                    validate_model=True,
+                    model_name=self.semantic_embeddings_model, mode=InteractionMode.EMBEDDINGS, host=host, validate_model=True
                 )
                 logger.info(
                     f"Initialized OllamaClient with model: {self.semantic_embeddings_model}",

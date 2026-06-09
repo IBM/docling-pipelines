@@ -187,6 +187,28 @@ class TestChunkerOperator(unittest.TestCase):
         mock_ollama_client_class.assert_called_once()
         mock_semantic_chunker_class.assert_called_once()
 
+    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    def test_chunker_provider_config_host(self, mock_ollama_client_class):
+        """Test that host in the provider_config is passed to OllamaClient."""
+
+        mock_client_instance = MagicMock()
+        mock_ollama_client_class.return_value = mock_client_instance
+
+        config = {
+            "chunk_type": "semantic",
+            "semantic_embeddings_model": "nomic-embed-text",
+            "provider_config": {
+                "host": "http://test.server.com:11434",
+            },
+        }
+        operator = ChunkerOperator(config)
+        operator._get_ollama_client()
+
+        mock_ollama_client_class.assert_called_once()
+        call_kwargs = mock_ollama_client_class.call_args.kwargs
+        assert call_kwargs["model_name"] == "nomic-embed-text", "Model name mismatch"
+        assert call_kwargs["host"] == "http://test.server.com:11434", "Host not passed correctly"
+
 
 def test_operator_metadata():
     """Test that operator returns correct metadata"""
