@@ -79,9 +79,12 @@ DEFAULT_STRATEGIES = {
     Metrics.External.TOTAL_CHUNKS: AggregationStrategy.SUM,
     # SQL Filter operator
     Metrics.External.TOTAL_DOCS: AggregationStrategy.SUM,
-    "total_bytes_count": AggregationStrategy.SUM,
-    "docs_after_filter": AggregationStrategy.SUM,
-    "bytes_after_filter": AggregationStrategy.SUM,
+    Metrics.External.DOCS_BEFORE_FILTER: AggregationStrategy.SUM,
+    Metrics.External.DOCS_AFTER_FILTER: AggregationStrategy.SUM,
+    Metrics.External.COLUMNS_BEFORE_FILTER: AggregationStrategy.FIRST,
+    Metrics.External.COLUMNS_AFTER_FILTER: AggregationStrategy.LAST,
+    Metrics.External.BYTES_BEFORE_FILTER: AggregationStrategy.SUM,
+    Metrics.External.BYTES_AFTER_FILTER: AggregationStrategy.SUM,
     # Dedup operator
     Metrics.External.REMOVED_DOCUMENTS: AggregationStrategy.SUM,
     # VectorDB operator

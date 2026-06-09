@@ -238,9 +238,9 @@ class SQLFilterOperator(AbstractOperator):
         input_table_columns_set: set[str] = set(input_table.column_names)
 
         # initialize the metadata dictionary
-        metadata["total_docs_count"] = total_docs
-        metadata["total_bytes_count"] = total_bytes
-        metadata["total_columns_count"] = total_columns
+        metadata[Metrics.External.DOCS_BEFORE_FILTER] = total_docs
+        metadata[Metrics.External.COLUMNS_BEFORE_FILTER] = total_columns
+        metadata[Metrics.External.BYTES_BEFORE_FILTER] = total_bytes
 
         # initialize the SQL statement used for filtering
         sql_statement: str = "SELECT * FROM input_table"
@@ -350,9 +350,9 @@ class SQLFilterOperator(AbstractOperator):
             metadata: Metadata dictionary to update
             table: PyArrow table to extract metrics from
         """
-        metadata["docs_after_filter"] = table.num_rows
-        metadata["columns_after_filter"] = table.num_columns
-        metadata["bytes_after_filter"] = table.nbytes
+        metadata[Metrics.External.DOCS_AFTER_FILTER] = table.num_rows
+        metadata[Metrics.External.COLUMNS_AFTER_FILTER] = table.num_columns
+        metadata[Metrics.External.BYTES_AFTER_FILTER] = table.nbytes
         metadata[Metrics.External.PROCESSED_DOCS] = OperatorUtils.find_doc_count(table=table)
 
     def _has_protected_columns(self) -> tuple[bool, list[str]]:

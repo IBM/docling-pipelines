@@ -65,7 +65,7 @@ def test_basic_filter_greater_than():
     """Filter rows where score > 5 keeps only rows with score 6, 8, 10."""
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 3, f"Expected 3 rows, got {result.num_rows}"
@@ -77,7 +77,7 @@ def test_basic_filter_equals():
     """Filter rows where language = 'en'."""
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["language = 'en'"]})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 3
@@ -89,7 +89,7 @@ def test_basic_filter_less_than_or_equal():
     """Filter rows where word_count <= 150."""
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["word_count <= 150"]})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     word_counts = result["word_count"].to_pylist()
@@ -113,7 +113,7 @@ def test_and_logical_operator():
             OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_AND,
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     for row_idx in range(result.num_rows):
@@ -135,7 +135,7 @@ def test_and_logical_operator_no_match():
             OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_AND,
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 0
@@ -158,7 +158,7 @@ def test_or_logical_operator():
             OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_OR,
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 2
@@ -178,7 +178,7 @@ def test_or_logical_operator_broader_match():
             OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_OR,
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     scores = result["score"].to_pylist()
@@ -199,7 +199,7 @@ def test_filter_criteria_json_simple():
         "value": 5,
     }
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     scores = result["score"].to_pylist()
@@ -217,7 +217,7 @@ def test_filter_criteria_json_nested_and():
         ],
     }
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     for row_idx in range(result.num_rows):
@@ -238,7 +238,7 @@ def test_filter_criteria_json_nested_or():
         ],
     }
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 2
@@ -260,7 +260,7 @@ def test_features_to_drop_removes_column():
             OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: ["language"],
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert "language" not in result.column_names
@@ -280,7 +280,7 @@ def test_features_to_drop_multiple_columns():
             ],
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert "language" not in result.column_names
@@ -296,7 +296,7 @@ def test_features_to_drop_without_filter():
             OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: ["language"],
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert "language" not in result.column_names
@@ -312,7 +312,7 @@ def test_filter_returns_empty_table():
     """Filter that matches no rows returns an empty table."""
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 9999"]})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 0
@@ -329,7 +329,7 @@ def test_filter_all_rows_pass():
     """Filter that matches all rows returns the full table."""
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == table.num_rows
@@ -339,7 +339,7 @@ def test_no_filter_criteria_returns_full_table():
     """No filter criteria at all returns the full table unchanged."""
     table = make_table()
     operator = make_operator({})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == table.num_rows
@@ -448,7 +448,7 @@ def test_invalid_column_in_transform_returns_original_table():
             OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["nonexistent_col > 5"],
         }
     )
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     # Original table is returned unchanged
@@ -736,6 +736,43 @@ def test_transform_metadata_filter_stats_per_criterion():
     assert metadata[key] == 2  # 5 rows total, 3 pass, 2 filtered
 
 
+def test_metadata_after_values_not_greater_than_before():
+    """Test that after-filter metrics are never greater than before-filter metrics."""
+    table = make_table()
+
+    operator = make_operator(
+        {
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: ["language"],
+        }
+    )
+    _, metadata = operator.transform(table)
+
+    # Verify all before/after metrics exist
+    assert Metrics.External.DOCS_BEFORE_FILTER in metadata
+    assert Metrics.External.DOCS_AFTER_FILTER in metadata
+    assert Metrics.External.BYTES_BEFORE_FILTER in metadata
+    assert Metrics.External.BYTES_AFTER_FILTER in metadata
+    assert Metrics.External.COLUMNS_BEFORE_FILTER in metadata
+    assert Metrics.External.COLUMNS_AFTER_FILTER in metadata
+
+    # Verify logical consistency: after <= before
+    assert metadata[Metrics.External.DOCS_AFTER_FILTER] <= metadata[Metrics.External.DOCS_BEFORE_FILTER]
+    assert metadata[Metrics.External.BYTES_AFTER_FILTER] <= metadata[Metrics.External.BYTES_BEFORE_FILTER]
+    assert metadata[Metrics.External.COLUMNS_AFTER_FILTER] <= metadata[Metrics.External.COLUMNS_BEFORE_FILTER]
+
+
+def test_metadata_no_filtering_before_equals_after():
+    """Test that before/after metrics are equal when no rows are filtered."""
+    table = make_table()
+
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]})
+    _, metadata = operator.transform(table)
+
+    assert metadata[Metrics.External.DOCS_BEFORE_FILTER] == metadata[Metrics.External.DOCS_AFTER_FILTER]
+    assert metadata[Metrics.External.COLUMNS_BEFORE_FILTER] == metadata[Metrics.External.COLUMNS_AFTER_FILTER]
+
+
 # ---------------------------------------------------------------------------
 # 13. short_name
 # ---------------------------------------------------------------------------
@@ -764,7 +801,7 @@ def test_filter_with_single_row_table():
         }
     )
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 1
@@ -784,7 +821,7 @@ def test_filter_with_single_row_table_no_match():
     )
 
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 0
@@ -1059,7 +1096,7 @@ def test_error_handling_preserves_table_structure():
     with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Critical error")
 
-        result_tables, metadata = operator.transform(table)
+        result_tables, _metadata = operator.transform(table)
         result = result_tables[0]
 
         # Verify table structure is completely preserved
@@ -1082,7 +1119,7 @@ def test_failed_docs_metadata_structure():
     with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Test error")
 
-        result_tables, metadata = operator.transform(table)
+        _result_tables, metadata = operator.transform(table)
 
         # Verify failed_docs structure
         assert Metrics.External.FAILED_DOCS in metadata

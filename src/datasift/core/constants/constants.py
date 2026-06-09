@@ -130,8 +130,8 @@ class DatasiftConstants:
     # Used for resolving conflicts when multiple operators have the same short_name
     OPERATOR_PRIORITY_MAP: ClassVar[dict[str, int]] = {
         OWNER_ENTERPRISE: 0,  # Enterprise operators have highest precedence
-        OWNER_CUSTOM: 1,      # Custom operators have medium priority
-        OWNER_DATASIFT: 2,    # OSS datasift operators have lowest priority
+        OWNER_CUSTOM: 1,  # Custom operators have medium priority
+        OWNER_DATASIFT: 2,  # OSS datasift operators have lowest priority
     }
 
     # Feature Flag States
@@ -393,6 +393,14 @@ class Metrics:
         CHUNKS_INDEXED_SUCCESSFULLY = "chunks_indexed_successfully"
         CHUNKS_FAILED_TO_INDEX = "chunks_failed_to_index"
         ERROR = "error"
+
+        # SQL Filter operator metrics
+        DOCS_BEFORE_FILTER = "docs_before_filter"
+        DOCS_AFTER_FILTER = "docs_after_filter"
+        BYTES_BEFORE_FILTER = "bytes_before_filter"
+        BYTES_AFTER_FILTER = "bytes_after_filter"
+        COLUMNS_BEFORE_FILTER = "columns_before_filter"
+        COLUMNS_AFTER_FILTER = "columns_after_filter"
 
     class Internal:
         DELETED_FROM_LAST_RUN = "deleted_from_last_run"
