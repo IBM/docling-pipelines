@@ -18,6 +18,29 @@
       }
     },
     {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/granite4:latest",
+          "api_key": "${OLLAMA_API_KEY}",
+          "api_base": "http://localhost:11434/v1",
+          "temperature": 0.0,
+          "max_tokens": 1000
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
       "name": "extract",
       "type": "extract_operator",
       "config": {
@@ -48,7 +71,7 @@
         "max_workers": 2
       },
       "depends_on": [
-        "ingest"
+        "classify"
       ]
     },
     {
@@ -67,14 +90,14 @@
       "name": "embed",
       "type": "embeddings",
       "config": {
+        "provider": "litellm",
         "embeddings_column": "embeddings",
+        "doc_column": "content",
         "provider_config": {
+          "model_id": "openai/nomic-embed-text",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}",
-          "max_concurrent_requests": 10,
-          "model_id": "openai/nomic-embed-text"
-        },
-        "provider": "litellm"
+          "api_key": "<ollama>"
+        }
       },
       "depends_on": [
         "chunk"

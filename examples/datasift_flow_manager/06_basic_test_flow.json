@@ -53,10 +53,14 @@
         "chunk"
       ],
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "granite4",
+        "provider": "litellm",
         "embeddings_column": "embeddings",
-        "doc_column": "content"
+        "doc_column": "content",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<ollama>"
+        }
       }
     }
   ]

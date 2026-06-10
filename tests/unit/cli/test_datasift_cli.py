@@ -154,7 +154,7 @@ class TestLoadFlowDefinition:
         flow_def = load_flow_definition(file_path=real_flow_invoice)
         # After compilation, should have runtime DAG format
         assert "dag" in flow_def
-        assert len(flow_def["dag"]) == 5
+        assert len(flow_def["dag"]) == 6
         assert "global_config" in flow_def
 
     def test_file_not_found(self, tmp_path):
@@ -328,12 +328,13 @@ class TestIntegrationScenarios:
 
         # Verify structure (after compilation to runtime DAG)
         assert "dag" in flow_def
-        assert len(flow_def["dag"]) == 5
+        assert len(flow_def["dag"]) == 6
         assert "global_config" in flow_def
 
         # Verify operators
         operators = [node["operator"] for node in flow_def["dag"]]
         assert "ingest_local" in operators
+        assert "document_classifier" in operators
         assert "extract_operator" in operators
         assert "chunker" in operators
         assert "embeddings" in operators
