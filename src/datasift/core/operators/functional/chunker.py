@@ -804,6 +804,7 @@ class ChunkerOperator(AbstractOperator):
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
             separators=[".", "\n\n", "\n", " ", ""],  # plural, list
+            add_start_index=True,
         )
         return text_splitter.split_documents([doc])
 
@@ -1189,10 +1190,11 @@ class ChunkerOperator(AbstractOperator):
             return None, True
 
         chunked_content: list[dict[str, Any]] = []
-        for chunk in chunks:
+        for chunk_seq, chunk in enumerate(chunks):
             chunked_content.append(
                 {
                     OperatorConstants.Columns.CHUNK: chunk.page_content,
+                    OperatorConstants.Columns.CHUNK_SEQUENCE_NUMBER: chunk_seq,
                     OperatorConstants.Processing.START_INDEX: chunk.metadata.get(
                         OperatorConstants.Processing.START_INDEX, 0
                     )
