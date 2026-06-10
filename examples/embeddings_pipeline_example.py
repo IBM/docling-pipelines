@@ -311,7 +311,7 @@ def main() -> int:
         "chunk_overlap": 128,
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
         "retain_original_content": False,
-        OperatorConstants.Config.SUMMARIZATION: {OperatorConstants.Config.ENABLED: True},
+        OperatorConstants.Config.SUMMARIZATION: {},
     }
 
     try:

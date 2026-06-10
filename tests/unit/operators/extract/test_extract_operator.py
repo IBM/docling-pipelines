@@ -543,7 +543,6 @@ def test_extract_operator_docling_library_vlm_mode_config():
             "provider": "docling_library",
             "provider_config": {
                 "vlm_pipeline": {
-                    "enabled": True,
                     "preset": "granite_docling",
                     "engine": "transformers",
                 },
@@ -630,7 +629,6 @@ def test_extract_operator_asr_config_validation():
             "provider": "docling_library",
             "provider_config": {
                 "asr_pipeline": {
-                    "enabled": True,
                     "model_id": "whisper_turbo",
                 },
             },
@@ -665,7 +663,6 @@ def test_extract_operator_asr_model_names():
                 "provider": "docling_library",
                 "provider_config": {
                     "asr_pipeline": {
-                        "enabled": True,
                         "model_id": model_name,
                     },
                 },
@@ -686,9 +683,7 @@ def test_extract_operator_asr_without_model_name():
         "text_extraction": {
             "provider": "docling_library",
             "provider_config": {
-                "asr_pipeline": {
-                    "enabled": True,
-                },
+                "asr_pipeline": {},
             },
             "doc_column": "doc_content",
         },
@@ -727,7 +722,6 @@ def test_extract_operator_asr_with_audio_file():
             "provider": "docling_library",
             "provider_config": {
                 "asr_pipeline": {
-                    "enabled": True,
                     "model_id": "whisper_turbo",
                 },
             },
@@ -763,7 +757,6 @@ def test_extract_operator_asr_with_entity_extraction():
                 "provider": "docling_library",
                 "provider_config": {
                     "asr_pipeline": {
-                        "enabled": True,
                         "model_id": "whisper_turbo",
                     },
                 },
@@ -1650,7 +1643,6 @@ def test_extract_operator_docling_library_vlm_all_parameters():
             "provider": "docling_library",
             "provider_config": {
                 "vlm_pipeline": {
-                    "enabled": True,
                     "preset": "granite_docling",
                     "engine": "transformers",
                     "api_key": "test-key",  # pragma: allowlist secret

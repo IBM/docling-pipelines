@@ -67,7 +67,6 @@
         "chunk_overlap": 128,
         "retain_original_content": false,
         "summarization": {
-          "enabled": true,
           "provider": "litellm",
           "provider_config": {
             "model_id": "openai/llama3.2",

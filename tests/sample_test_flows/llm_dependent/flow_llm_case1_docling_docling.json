@@ -122,7 +122,6 @@
         "chunk_overlap": 50,
         "retain_original_content": false,
         "summarization": {
-          "enabled": true,
           "provider": "litellm",
           "provider_config": {
             "model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct",

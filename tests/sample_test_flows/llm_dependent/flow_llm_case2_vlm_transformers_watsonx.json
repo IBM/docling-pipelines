@@ -143,7 +143,6 @@
         "chunk_overlap": 50,
         "retain_original_content": false,
         "summarization": {
-          "enabled": true,
           "provider": "watsonx",
           "provider_config": {
             "model_id": "ibm/granite-3-8b-instruct",

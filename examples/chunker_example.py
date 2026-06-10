@@ -82,9 +82,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
         "breakpoint_threshold_amount": 95.0,  # Split at 95th percentile of dissimilarity
         "doc_column": "content",
         "retain_original_content": False,
-        "summarization": {
-            "enabled": False  # Disable for faster execution
-        },
+        "summarization": {},
     }
     print("\n>>>>>>>>>>>>> Testing SEMANTIC chunking")
     print(f">>>>>>>>>>>>> Embeddings model: {config['semantic_embeddings_model']}")
@@ -195,7 +193,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",  # Tokenizer for chunking
         "doc_column": "content",
         "retain_original_content": False,
-        "summarization": {"enabled": True},
+        "summarization": {"provider": "litellm"},
     }
     print(f"\n>>>>>>>>>>>>> Testing HYBRID chunking with chunk_size: {config['chunk_size']} tokens")
     print(f">>>>>>>>>>>>> Tokenizer: {config['docling_tokenizer']}")

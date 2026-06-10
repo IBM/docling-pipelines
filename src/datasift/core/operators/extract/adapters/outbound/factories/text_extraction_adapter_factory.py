@@ -114,11 +114,9 @@ class TextExtractionAdapterFactory:
             # VLM configuration comes from provider_config.vlm_pipeline
             vlm_pipeline = provider_config.get(OperatorConstants.Config.VLM_PIPELINE, {})
 
-            use_vlm = vlm_pipeline.get(OperatorConstants.Misc.ENABLED, False)
-
             adapter_config.update(
                 {
-                    OperatorConstants.Config.USE_VLM_PIPELINE: use_vlm,
+                    OperatorConstants.Config.USE_VLM_PIPELINE: bool(vlm_pipeline),
                     OperatorConstants.Config.VLM_PRESET: vlm_pipeline.get(
                         OperatorConstants.Config.PRESET, OperatorConstants.Config.DEFAULT
                     ),
@@ -136,12 +134,9 @@ class TextExtractionAdapterFactory:
 
             adapter_config.update(
                 {
-                    OperatorConstants.Config.USE_ASR_PIPELINE: asr_pipeline.get(
-                        OperatorConstants.Config.ENABLED, False
-                    ),
+                    OperatorConstants.Config.USE_ASR_PIPELINE: bool(asr_pipeline),
                     OperatorConstants.Config.ASR_MODEL_NAME: asr_pipeline.get(
-                        OperatorConstants.Config.MODEL_NAME,
-                        asr_pipeline.get(OperatorConstants.Config.MODEL_ID, OperatorConstants.Config.ASR_MODEL_DEFAULT),
+                        OperatorConstants.Config.MODEL_ID, OperatorConstants.Config.ASR_MODEL_DEFAULT
                     ),
                 }
             )

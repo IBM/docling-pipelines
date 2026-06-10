@@ -83,9 +83,7 @@ Enable VLM pipeline for enhanced extraction with vision-language models:
       "vlm_pipeline": {
         "preset": "fast",
         "engine": "transformers",
-        "engine_options": {
-          "model_id": "microsoft/Florence-2-large"
-        }
+        "engine_options": {}
       }
     }
   },
@@ -115,7 +113,7 @@ Ollama:
         "engine": "ollama",
         "engine_options": {
           "api_base": "http://localhost:11434",
-          "model_id": "openai/llama3.2-vision"
+          "model_id": "llama3.2-vision"
         }
       }
     }
@@ -133,9 +131,9 @@ OpenAI:
         "preset": "accurate",
         "engine": "openai",
         "engine_options": {
-          "api_key": "your-api-key",  # pragma: allowlist secret
           "api_base": "https://api.openai.com/v1",
-          "model_id": "gpt-4-vision-preview"
+          "model_id": "gpt-4-vision-preview",
+          "api_key": "<your-api-key>"
         }
       }
     }
@@ -155,11 +153,7 @@ Enable ASR pipeline for audio and video file transcription:
     "doc_column": "content",
     "provider_config": {
       "asr_pipeline": {
-        "preset": "fast",
-        "engine": "whisper",
-        "engine_options": {
-          "model_id": "whisper_turbo"
-        }
+        "model_id": "whisper_turbo"
       }
     }
   },
@@ -555,14 +549,12 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 
 | Parameter             | Type    | Default             | Description                                                         |
 |-----------------------|---------|---------------------|---------------------------------------------------------------------|
-| `text_extraction.provider_config.vlm_pipeline`        | object  | `null`              | VLM (Vision-Language Model) pipeline configuration object           |
+| `text_extraction.provider_config.vlm_pipeline`        | object  | `null`              | VLM (Vision-Language Model) pipeline configuration object. Provide empty dict `{}` to enable with defaults, or omit to disable. |
 | `text_extraction.provider_config.vlm_pipeline.preset` | string  | `"fast"`            | VLM preset: `fast`, `accurate`, or custom                           |
 | `text_extraction.provider_config.vlm_pipeline.engine` | string  | `"ollama"`          | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.         |
 | `text_extraction.provider_config.vlm_pipeline.engine_options` | object | `{}`        | Engine-specific options (api_base, model_id, etc.)                  |
-| `text_extraction.provider_config.asr_pipeline`        | object  | `null`              | ASR (Automatic Speech Recognition) pipeline configuration object    |
-| `text_extraction.provider_config.asr_pipeline.preset` | string  | `"fast"`            | ASR preset: `fast`, `accurate`, or custom                           |
-| `text_extraction.provider_config.asr_pipeline.engine` | string  | `"whisper"`         | ASR engine: `whisper` or other supported engines                    |
-| `text_extraction.provider_config.asr_pipeline.engine_options` | object | `{}`        | Engine-specific options (model_id, etc.)                            |
+| `text_extraction.provider_config.asr_pipeline`        | object  | `null`              | ASR (Automatic Speech Recognition) pipeline configuration object. Provide empty dict `{}` to enable with defaults, or omit to disable. |
+| `text_extraction.provider_config.asr_pipeline.model_id` | string | `"whisper_turbo"` | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
 
 ### Docling Serve Mode Parameters
 
@@ -737,9 +729,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
         "vlm_pipeline": {
           "preset": "fast",
           "engine": "transformers",
-          "engine_options": {
-            "model_id": "microsoft/Florence-2-large"
-          }
+          "engine_options": {}
         }
       }
     },
@@ -817,9 +807,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
         "vlm_pipeline": {
           "preset": "fast",
           "engine": "transformers",
-          "engine_options": {
-            "model_id": "microsoft/Florence-2-large"
-          }
+          "engine_options": {}
         }
       }
     },
@@ -848,11 +836,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
       "doc_column": "content",
       "provider_config": {
         "asr_pipeline": {
-          "preset": "fast",
-          "engine": "whisper",
-          "engine_options": {
-            "model_id": "whisper_turbo"
-          }
+          "model_id": "whisper_turbo"
         }
       }
     },

@@ -255,12 +255,15 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Examples:**
 ```json
 "text_extraction": {
-  "vlm_pipeline": {
-    "preset": "fast",
-    "engine": "ollama",
-    "engine_options": {
-      "api_base": "http://localhost:11434",
-      "model_id": "llama3.2-vision"
+  "provider": "docling_library",
+  "provider_config": {
+    "vlm_pipeline": {
+      "preset": "fast",
+      "engine": "ollama",
+      "engine_options": {
+        "api_base": "http://localhost:11434",
+        "model_id": "llama3.2-vision"
+      }
     }
   }
 }
@@ -268,24 +271,34 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 **Transformers Example:**
 ```json
-"vlm_pipeline": {
-  "preset": "accurate",
-  "engine": "transformers",
-  "engine_options": {
-    "model_id": "microsoft/Florence-2-large"
+"text_extraction": {
+  "provider": "docling_library",
+  "provider_config": {
+    "vlm_pipeline": {
+      "preset": "accurate",
+      "engine": "transformers",
+      "engine_options": {
+        "model_id": "microsoft/Florence-2-large"
+      }
+    }
   }
 }
 ```
 
 **OpenAI Example:**
 ```json
-"vlm_pipeline": {
-  "preset": "fast",
-  "engine": "openai",
-  "engine_options": {
-    "api_key": "sk-...", # pragma: allowlist secret
-    "api_base": "https://api.openai.com/v1",
-    "model_id": "gpt-4-vision-preview"
+"text_extraction": {
+  "provider": "docling_library",
+  "provider_config": {
+    "vlm_pipeline": {
+      "preset": "fast",
+      "engine": "openai",
+      "engine_options": {
+        "api_key": "sk-...", # pragma: allowlist secret
+        "api_base": "https://api.openai.com/v1",
+        "model_id": "gpt-4-vision-preview"
+      }
+    }
   }
 }
 ```
@@ -605,7 +618,7 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
             "api_base": "http://localhost:11434",
             "model_id": "llama3.2-vision"
           }
-        },
+        }
       }
     },
     "entity_extraction": {
@@ -680,9 +693,53 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
     }
   }
 }
+
+### Example 7: WatsonX Entity Extraction
+Extract entities using IBM WatsonX AI models. This example demonstrates using WatsonX for structured entity extraction from documents with custom schema definition.
+
+```json
+{
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library"
+    },
+    "entity_extraction": {
+      "provider": "watsonx",
+      "provider_config": {
+        "model_id": "ibm/granite-13b-chat-v2",
+        "api_key": "YOUR_IBM_CLOUD_API_KEY",  # pragma: allowlist secret
+        "api_base": "https://us-south.ml.cloud.ibm.com",
+        "container_id": "your-project-id",
+        "container_kind": "project",
+        "temperature": 0.0,
+        "max_tokens": 2000
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "number",
+        "vendor_name": "string",
+        "invoice_date": "string"
+      },
+      "expand_extracted_data": true
+    }
+  }
+}
 ```
 
-### Example 7: LiteLLM Entity Extraction with Remote vLLM (Streaming)
+**Key Configuration:**
+- `model_id`: WatsonX model identifier (e.g., `ibm/granite-13b-chat-v2`)
+- `api_key`: IBM Cloud API key for authentication
+- `api_base`: WatsonX API endpoint URL (region-specific)
+- `container_id`: Project or space ID in WatsonX
+- `container_kind`: Either "project" or "space"
+- `temperature`: Controls randomness (0.0 for deterministic output)
+- `max_tokens`: Maximum tokens in the response
+- `expand_extracted_data`: Expands extracted entities into separate columns
+
+```
+
+### Example 8: LiteLLM Entity Extraction with Remote vLLM (Streaming)
 ```json
 {
   "operator": "extract_operator",
@@ -711,7 +768,7 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 }
 ```
 
-### Example 8: Docling Entity Extraction with Custom Model
+### Example 9: Docling Entity Extraction with Custom Model
 ```json
 {
   "operator": "extract_operator",
@@ -747,7 +804,7 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 }
 ```
 
-### Example 9: Docling Entity Extraction with Default Model
+### Example 10: Docling Entity Extraction with Default Model
 ```json
 {
   "operator": "extract_operator",
@@ -767,6 +824,35 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
   }
 }
 ```
+
+### Example 11: ASR Pipeline for Audio/Video Transcription
+
+Extract text from audio/video files using Automatic Speech Recognition:
+
+```json
+{
+  "operator_id": "extract_audio",
+  "operator_type": "ExtractOperator",
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "provider_config": {
+        "asr_pipeline": {
+          "model_id": "whisper_turbo"
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
+  },
+  "dependencies": []
+}
+```
+
+**Use Case:** Transcribing audio/video content from documents
+
+**Model Options:** `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants
 
 ## Best Practices
 

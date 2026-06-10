@@ -132,7 +132,7 @@ class TestExtractOperatorIntegration:
                 "provider": "docling_library",
                 "doc_column": "document",
                 "provider_config": {
-                    "vlm_pipeline": {"enabled": True, "preset": "granite_docling", "engine": "transformers"},
+                    "vlm_pipeline": {"preset": "granite_docling", "engine": "transformers"},
                     "max_workers": 1,  # VLM is resource-intensive
                 },
             },

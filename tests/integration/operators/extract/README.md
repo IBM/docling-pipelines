@@ -193,7 +193,6 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
         "doc_column": "document",
         "provider_config": {
             "vlm_pipeline": {
-                "enabled": true,
                 "preset": "fast",
                 "engine": "transformers",
                 "engine_options": {

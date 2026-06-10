@@ -153,10 +153,9 @@ The Chunker Operator provides intelligent text chunking with support for three s
 **Type:** JSON Object
 **Required:** No
 **Default:** `{}`
-**Description:** Nested configuration object for all summarization-related settings. This structure groups enabled flag, provider, provider_config, and summarization parameters together.
+**Description:** Nested configuration object for all summarization-related settings. When present with a provider specified, summarization is enabled.
 
 **Sub-parameters:**
-- `enabled` (Boolean): Enable/disable chunk summarization using LLM (default: `false`)
 - `provider` (String): LLM provider (`litellm` or `watsonx`)
 - `provider_config` (Object): Provider-specific configuration
 - `max_input_tokens` (Integer): Maximum tokens per LLM request
@@ -379,7 +378,6 @@ The Chunker Operator provides intelligent text chunking with support for three s
     "chunk_overlap": 50,
     "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": {
-      "enabled": true,
       "provider": "litellm",
       "provider_config": {
         "model_id": "openai/granite4",
@@ -455,7 +453,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 - `chunk_overlap` must be less than `chunk_size`
 - Semantic chunking requires Ollama server running
 - Hybrid chunking requires Docling library
-- Summarization requires `summarization.enabled: true` and valid model configuration
+- Summarization requires `summarization` object with `provider` and valid model configuration
 
 ## Complete Flow Example
 

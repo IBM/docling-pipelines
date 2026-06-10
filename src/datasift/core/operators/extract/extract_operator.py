@@ -888,7 +888,7 @@ class ExtractOperator(AbstractOperator):
                             OperatorConstants.Config.PROPERTIES: {
                                 OperatorConstants.Config.VLM_PIPELINE: {
                                     OperatorConstants.Misc.NAME: "VLM Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Vision-Language Model pipeline configuration for enhanced extraction (docling_library mode only)",
+                                    OperatorConstants.Config.DESCRIPTION: "Vision-Language Model pipeline configuration for enhanced extraction (docling_library mode only). Provide empty dict {} to enable with defaults, or omit to disable.",
                                     OperatorConstants.Config.REQUIRED: False,
                                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                                     OperatorConstants.Config.PROPERTIES: {
@@ -917,18 +917,11 @@ class ExtractOperator(AbstractOperator):
                                 },
                                 OperatorConstants.Config.ASR_PIPELINE: {
                                     OperatorConstants.Misc.NAME: "ASR Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Automatic Speech Recognition pipeline configuration for audio/video extraction (docling_library mode only)",
+                                    OperatorConstants.Config.DESCRIPTION: "Automatic Speech Recognition pipeline configuration for audio/video extraction (docling_library mode only). Provide empty dict {} to enable with defaults, or omit to disable.",
                                     OperatorConstants.Config.REQUIRED: False,
                                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                                     OperatorConstants.Config.PROPERTIES: {
-                                        OperatorConstants.Misc.ENABLED: {
-                                            OperatorConstants.Misc.NAME: "Enable ASR",
-                                            OperatorConstants.Config.DESCRIPTION: "Enable Automatic Speech Recognition for audio/video extraction",
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: False,
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                                        },
-                                        OperatorConstants.Config.MODEL_NAME: {
+                                        OperatorConstants.Config.MODEL_ID: {
                                             OperatorConstants.Misc.NAME: "ASR Model Name",
                                             OperatorConstants.Config.DESCRIPTION: (
                                                 "ASR model name (e.g., whisper_turbo, whisper_small, whisper_medium). "

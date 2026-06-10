@@ -191,7 +191,6 @@ def get_vlm_config(
             OperatorConstants.Config.DOC_COLUMN: "doc_content",
             OperatorConstants.Config.PROVIDER_CONFIG: {
                 OperatorConstants.Config.VLM_PIPELINE: {
-                    OperatorConstants.Config.ENABLED: True,
                     OperatorConstants.Config.PRESET: preset,
                     OperatorConstants.Config.ENGINE: engine_type_map[engine],
                 }

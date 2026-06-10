@@ -182,7 +182,6 @@ class ChunkerOperator(AbstractOperator):
         docling_tokenizer (str): HuggingFace tokenizer for docling chunking
         retain_original_content (bool): Whether to keep original content column
         summarization (dict): Summarization configuration
-            - enabled (bool): Generate summaries for each chunk
             - provider (str): LLM provider for summarization (litellm or watsonx)
             - provider_config (dict): Provider-specific configuration
                 - model_id (str): Model identifier for summarization
@@ -231,10 +230,8 @@ class ChunkerOperator(AbstractOperator):
         # Summarization configuration (nested structure only)
         summarization_config = config.get(OperatorConstants.Config.SUMMARIZATION, {})
 
-        # Read enabled flag from nested config
-        self.enable_summarization: bool = summarization_config.get(
-            OperatorConstants.Misc.ENABLED, ENABLE_SUMMARIZATION_DEFAULT
-        )
+        # Use dict presence pattern - empty dict enables with defaults
+        self.enable_summarization: bool = bool(summarization_config)
 
         if self.enable_summarization:
             # Multi-provider support for summarization
@@ -402,17 +399,10 @@ class ChunkerOperator(AbstractOperator):
                 },
                 OperatorConstants.Config.SUMMARIZATION: {
                     OperatorConstants.Misc.NAME: "Summarization Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Configuration for chunk summarization",
+                    OperatorConstants.Config.DESCRIPTION: "Configuration for chunk summarization. Provide empty dict {} to enable with defaults, or omit to disable.",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                     OperatorConstants.Config.PROPERTIES: {
-                        OperatorConstants.Misc.ENABLED: {
-                            OperatorConstants.Misc.NAME: "Enable Summarization",
-                            OperatorConstants.Config.DESCRIPTION: "Generate summaries for each chunk",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Config.DEFAULT: ENABLE_SUMMARIZATION_DEFAULT,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                        },
                         OperatorConstants.Config.PROVIDER: {
                             OperatorConstants.Misc.NAME: "Summarization Provider",
                             OperatorConstants.Config.DESCRIPTION: "LLM provider for summarization: 'litellm' (default, supports 100+ providers) or 'watsonx'",

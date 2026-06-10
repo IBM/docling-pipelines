@@ -70,7 +70,6 @@ Both flows use the following summarization setup:
 ```json
 {
   "summarization": {
-    "enabled": true,
     "provider": "litellm",
     "provider_config": {
       "model_id": "openai/llama3.2",

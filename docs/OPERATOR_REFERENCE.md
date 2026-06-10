@@ -520,14 +520,12 @@ This simplified design removes the port/adapter overhead while maintaining clean
 | `text_extraction.provider`                                | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
 | `text_extraction.doc_column`                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
 | `text_extraction.additional_formats`                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`                       |
-| `text_extraction.vlm_pipeline`                            | object |       No | `null`                    | VLM (Vision-Language Model) pipeline configuration (docling_library mode)                          |
-| `text_extraction.vlm_pipeline.preset`                     | string |       No | `fast`                    | VLM preset name: `fast`, `accurate`, or custom preset                                              |
-| `text_extraction.vlm_pipeline.engine`                     | string |       No | `ollama`                  | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.                                        |
-| `text_extraction.vlm_pipeline.engine_options`             | object |       No | `{}`                      | Engine-specific options (api_base, model_id, etc.)                                                 |
-| `text_extraction.asr_pipeline`                            | object |       No | `null`                    | ASR (Automatic Speech Recognition) pipeline configuration (docling_library mode)                   |
-| `text_extraction.asr_pipeline.preset`                     | string |       No | `fast`                    | ASR preset name: `fast`, `accurate`, or custom preset                                              |
-| `text_extraction.asr_pipeline.engine`                     | string |       No | `whisper`                 | ASR engine: `whisper` or other supported engines                                                   |
-| `text_extraction.asr_pipeline.engine_options`             | object |       No | `{}`                      | Engine-specific options (model_id, etc.)                                                           |
+| `text_extraction.provider_config.vlm_pipeline`            | object |       No | `null`                    | VLM (Vision-Language Model) pipeline configuration (docling_library mode). When present, VLM processing is enabled. |
+| `text_extraction.provider_config.vlm_pipeline.preset`     | string |       No | `fast`                    | VLM preset name: `fast`, `accurate`, or custom preset                                              |
+| `text_extraction.provider_config.vlm_pipeline.engine`     | string |       No | `ollama`                  | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.                                        |
+| `text_extraction.provider_config.vlm_pipeline.engine_options` | object |       No | `{}`                      | Engine-specific options (api_base, model_id, etc.)                                                 |
+| `text_extraction.provider_config.asr_pipeline`            | object |       No | `null`                    | ASR (Automatic Speech Recognition) pipeline configuration (docling_library mode). When present, ASR processing is enabled. |
+| `text_extraction.provider_config.asr_pipeline.model_id` | string |       No | `whisper_turbo`           | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
 | `text_extraction.provider_config`                         | object |       No | `{}`                      | Provider-specific configuration (docling_serve mode)                                               |
 | `text_extraction.provider_config.base_url`                | string |       No | `http://localhost:5001`   | Docling Serve API endpoint (docling_serve mode)                                                    |
 | `text_extraction.provider_config.api_key`                 | string |       No | `null`                    | Optional API key for authentication (docling_serve mode)                                           |
@@ -614,12 +612,14 @@ The operator provides the following metadata after execution:
   "config": {
     "text_extraction": {
       "provider": "docling_library",
-      "vlm_pipeline": {
-        "preset": "fast",
-        "engine": "ollama",
-        "engine_options": {
-          "api_base": "http://localhost:11434",
-          "model_id": "llama3.2-vision"
+      "provider_config": {
+        "vlm_pipeline": {
+          "preset": "fast",
+          "engine": "ollama",
+          "engine_options": {
+            "api_base": "http://localhost:11434",
+            "model_id": "llama3.2-vision"
+          }
         }
       }
     },
@@ -892,8 +892,8 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
   - A `custom_schema` in the operator configuration, OR
   - A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
   - If neither is provided, a `ConfigurationError` will be thrown with message: "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"
-- **VLM Pipeline**: Configure via nested `vlm_pipeline` object with `preset`, `engine`, and `engine_options` for enhanced extraction of complex documents
-- **ASR Pipeline**: Configure via nested `asr_pipeline` object with `preset`, `engine`, and `engine_options` for audio/video transcription
+- **VLM Pipeline**: Configure via nested `text_extraction.provider_config.vlm_pipeline` object with `preset`, `engine`, and `engine_options` for enhanced extraction of complex documents
+- **ASR Pipeline**: Configure via nested `text_extraction.provider_config.asr_pipeline` object with `model_id` for audio/video transcription
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
 - **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured
 - **Extension Detection**: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)
@@ -923,8 +923,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `breakpoint_threshold_amount`   | float  |       No | `null`                                   | Threshold amount                                               |
 | `docling_tokenizer`             | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Tokenizer for hybrid chunking (only used when chunk_type is hybrid) |
 | `retain_original_content`       | bool   |       No | `false`                                  | Keep original content                                          |
-| `summarization`                 | object |       No | `{}`                                     | **Nested config object** for all summarization settings        |
-| `summarization.enabled`          | bool   |       No | `false`                                  | Enable chunk summarization using LLM                           |
+| `summarization`                 | object |       No | `{}`                                     | **Nested config object** for all summarization settings. When present with provider specified, summarization is enabled. |
 | `summarization.provider`        | string |       No | `litellm`                                | LLM provider: `litellm` or `watsonx`                           |
 | `summarization.provider_config` | object |       No | `{}`                                     | Provider-specific configuration including `model_id`           |
 | `summarization.provider_config.model_id` | string | No | `granite4`                      | Model ID (auto-prefixed with `openai/` for LiteLLM)           |
@@ -937,7 +936,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 **Summarization Providers:**
 
-When `summarization.enabled` is `true`, the operator uses the common LLM infrastructure to generate summaries for each chunk:
+When `summarization` object is present with a `provider` specified, the operator uses the common LLM infrastructure to generate summaries for each chunk:
 
 - **LiteLLM** (default): Unified API for 100+ providers (OpenAI, Azure, Anthropic, Cohere, AWS Bedrock, GCP Vertex AI, etc.)
 - **Watsonx**: IBM watsonx.ai cloud service (enterprise AI)
@@ -960,7 +959,6 @@ The **recommended approach** is to use the nested `summarization` object:
 ```json
 {
   "summarization": {
-    "enabled": true,
     "provider": "litellm",
     "provider_config": {
       "model_id": "openai/llama3.2:3b",
@@ -980,7 +978,6 @@ The flat configuration structure is still supported:
 ```json
 {
   "summarization": {
-    "enabled": true,
     "provider": "litellm",
     "provider_config": {
       "model_id": "openai/llama3.2:3b",
@@ -1001,7 +998,7 @@ The flat configuration structure is still supported:
 
 - `chunk_sequence_number`
 - `start_index`
-- `chunked_content` (array of objects with `chunk`, `start_index`, and optional `summary` fields when `summarization.enabled` is `true`)
+- `chunked_content` (array of objects with `chunk`, `start_index`, and optional `summary` fields when summarization is configured)
 
 **Exceptions**
 
@@ -1041,7 +1038,6 @@ Chunking with LiteLLM summarization (Ollama) - Nested Structure:
     "chunk_size": 1000,
     "chunk_overlap": 200,
     "summarization": {
-      "enabled": true,
       "provider": "litellm",
       "provider_config": {
         "model_id": "openai/llama3.2:3b",
@@ -1067,7 +1063,6 @@ Chunking with Watsonx summarization - Nested Structure:
     "doc_column": "content",
     "chunk_size": 1000,
     "summarization": {
-      "enabled": true,
       "provider": "watsonx",
       "provider_config": {
         "model_id": "ibm/granite-13b-chat-v2",
@@ -1537,7 +1532,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `provider` | string | No | `litellm` | LLM provider (`ollama`, `watsonx`, `litellm`) |
-| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"any-string-works-for-ollama-no-need-of-api-key"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. | <!-- pragma: allowlist secret -->
+| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"<any-string-works-for-ollama-no-need-of-api-key>"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. |
 | `provider_config.model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
 | `doc_column` | string | No | `content` | Input text column |
 | `pii_types` | list[string] | No | all types | PII types to detect |

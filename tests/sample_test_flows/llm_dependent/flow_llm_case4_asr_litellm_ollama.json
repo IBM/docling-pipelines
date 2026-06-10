@@ -62,11 +62,7 @@
           "doc_column": "content",
           "provider_config": {
             "asr_pipeline": {
-              "preset": "fast",
-              "engine": "whisper",
-              "engine_options": {
-                "model_id": "base"
-              }
+                "model_id": "whisper_turbo"
             }
           }
         },
@@ -140,7 +136,6 @@
         "chunk_overlap": 50,
         "retain_original_content": false,
         "summarization": {
-          "enabled": true,
           "provider": "watsonx",
           "provider_config": {
             "model_id": "ibm/granite-3-8b-instruct",
