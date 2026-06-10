@@ -341,6 +341,10 @@ Watsonx:
 - For LiteLLM, `provider_config.model_id` is required; `provider_config.api_key` required for most providers
 - For Watsonx, `provider_config.model_id`, `provider_config.api_key`, `provider_config.api_base`, `provider_config.container_id`, and `provider_config.container_kind` are required
 
+### Validation Warnings
+
+- **Missing Chunker Warning**: If the `chunked_content` feature is not available (i.e., no Chunker operator before Embeddings), a validation warning will be generated. Using a Chunker operator before Embeddings provides better control over chunk size and overlap, resulting in more optimal embeddings.
+
 ## Complete Flow Example
 
 - [Sample Flow](../../../tests/sample_test_flows/invoice_processing/flow_invoice_process.json)

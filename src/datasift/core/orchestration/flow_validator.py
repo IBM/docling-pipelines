@@ -350,6 +350,9 @@ class FlowValidator:
             self.logger.warning(f"Validation warnings: {validate_results.warnings}")
         if validate_results.errors:
             self.logger.error(f"Validation errors: {validate_results.errors}")
+
+        # Raise exception if there are errors OR warnings (warnings need to be returned to API)
+        if validate_results.errors or validate_results.warnings:
             raise FlowValidationException(errors=validate_results.errors, warnings=validate_results.warnings)
 
     def validate_dag_with_features(self, *, flow_def: dict, global_config: dict) -> FeaturePropagationResult:

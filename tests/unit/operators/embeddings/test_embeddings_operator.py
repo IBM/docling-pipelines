@@ -335,6 +335,43 @@ class TestEmbeddingsOperatorValidation:
             # Should not have provider-related errors
             assert not any("provider" in err.lower() for err in errors)
 
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_missing_chunker_warning(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation warns when chunked_content feature is missing (no Chunker before Embeddings)."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+        errors = []
+        warnings = []
+        available_features = ["content", "id", "name"]  # No chunked_content feature
+
+        operator.validate(errors, warnings, available_features)
+
+        # Should have no errors
+        assert len(errors) == 0
+        # Should have warning about missing Chunker
+        assert len(warnings) > 0
+        warning_msg = str(warnings[0])
+        assert "chunker" in warning_msg.lower()
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_with_chunker_no_warning(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation passes without warning when chunked_content feature is present (Chunker before Embeddings)."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+        errors = []
+        warnings = []
+        available_features = ["content", "id", "name", "chunked_content"]  # Has chunked_content
+
+        operator.validate(errors, warnings, available_features)
+
+        # Should have no errors
+        assert len(errors) == 0
+        # Should have no warnings about Chunker
+        chunker_warnings = [w for w in warnings if "chunker" in str(w).lower()]
+        assert len(chunker_warnings) == 0
+
 
 # Transform Method Tests
 class TestEmbeddingsOperatorTransform:

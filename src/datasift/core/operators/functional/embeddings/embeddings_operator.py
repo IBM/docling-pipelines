@@ -277,6 +277,13 @@ class EmbeddingsOperator(AbstractOperator):
                     elif batch_size <= 0:
                         errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
 
+        # Check if chunked_content feature is available (always validate, even during flow validation)
+        chunked_content_exists = OperatorConstants.Columns.CHUNKED_CONTENT in available_features
+        if not chunked_content_exists:
+            from datasift.exceptions.error_messages import ValidationCodeMessages
+
+            warnings.append(ValidationCodeMessages.CHUNKER_OPERATOR_MISSING)
+
     @staticmethod
     def get_metadata() -> dict[str, Any]:
         """
