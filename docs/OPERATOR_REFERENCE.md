@@ -918,10 +918,10 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `chunk_type`                    | string |      Yes | `simple`                                 | `simple`, `semantic`, or `hybrid`                              |
 | `chunk_size`                    | int    |       No | project default                          | Character or token size depending on chunker                   |
 | `chunk_overlap`                 | int    |       No | `200`                                    | Overlap between chunks                                         |
-| `semantic_embeddings_model`     | string |       No | `granite4`                               | Ollama model for semantic chunking                             |
+| `semantic_embeddings_model`     | string |       No | None                                     | Ollama model for semantic chunking (required if chunk_type is semantic) |
 | `breakpoint_threshold_type`     | string |       No | `percentile`                             | Semantic split threshold method                                |
 | `breakpoint_threshold_amount`   | float  |       No | `null`                                   | Threshold amount                                               |
-| `docling_tokenizer`             | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Hybrid chunking tokenizer                                      |
+| `docling_tokenizer`             | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Tokenizer for hybrid chunking (only used when chunk_type is hybrid) |
 | `retain_original_content`       | bool   |       No | `false`                                  | Keep original content                                          |
 | `summarization`                 | object |       No | `{}`                                     | **Nested config object** for all summarization settings        |
 | `summarization.enabled`          | bool   |       No | `false`                                  | Enable chunk summarization using LLM                           |
@@ -1537,7 +1537,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `provider` | string | No | `litellm` | LLM provider (`ollama`, `watsonx`, `litellm`) |
-| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"any-string-works-for-ollama-no-need-of-api-key"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. |
+| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"any-string-works-for-ollama-no-need-of-api-key"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. | <!-- pragma: allowlist secret -->
 | `provider_config.model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
 | `doc_column` | string | No | `content` | Input text column |
 | `pii_types` | list[string] | No | all types | PII types to detect |

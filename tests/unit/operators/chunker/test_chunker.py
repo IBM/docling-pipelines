@@ -39,6 +39,19 @@ class TestChunkerOperator(unittest.TestCase):
         self.assertEqual(operator.chunk_overlap, 200)
         self.assertFalse(operator.retain_original_content)
 
+    def test_init_without_chunk_type_uses_default(self):
+        """Test operator initialization without chunk_type uses default 'simple'"""
+        config = {
+            "chunk_size": 1000,
+            "chunk_overlap": 200,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+        self.assertIsNotNone(operator, "Chunker Operator is not None")
+        self.assertEqual(operator.chunk_type, ChunkType.SIMPLE.value, "Should default to 'simple' chunk type")
+        self.assertEqual(operator.chunk_size, 1000)
+        self.assertEqual(operator.chunk_overlap, 200)
+
     def test_init_semantic_chunking(self):
         """Test operator initialization with semantic chunking config"""
         config = {
@@ -326,6 +339,43 @@ class TestChunkerValidation(unittest.TestCase):
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Negative std dev should produce errors")
+
+    def test_validate_semantic_missing_embeddings_model(self):
+        """Test validation rejects semantic chunking without embeddings model"""
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "doc_column": "content",
+            # Missing semantic_embeddings_model
+        }
+        operator = ChunkerOperator(config)
+        errors = []
+        warnings = []
+        operator.validate(errors, warnings, ["content"])
+
+        self.assertGreater(len(errors), 0, "Semantic chunking without embeddings model should produce errors")
+        # Verify the error message mentions the missing model
+        error_messages = " ".join(errors)
+        self.assertIn("semantic_embeddings_model", error_messages.lower())
+
+    def test_validate_semantic_multiple_errors(self):
+        """Test validation collects multiple semantic chunking errors at once"""
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "doc_column": "content",
+            # Missing semantic_embeddings_model
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "breakpoint_threshold_amount": 150,  # Invalid: must be 0-100 for percentile
+        }
+        operator = ChunkerOperator(config)
+        errors = []
+        warnings = []
+        operator.validate(errors, warnings, ["content"])
+
+        # Should catch both errors: missing model AND invalid threshold
+        self.assertEqual(len(errors), 2, "Should catch both missing model and invalid threshold errors")
+        error_messages = " ".join(errors)
+        self.assertIn("semantic_embeddings_model", error_messages.lower())
+        self.assertIn("percentile", error_messages.lower())
 
 
 class TestChunkerEdgeCases(unittest.TestCase):
@@ -923,11 +973,12 @@ class TestDoclingChunking(unittest.TestCase):
         self.assertGreater(len(errors), 0, "Chunk overlap >= chunk_size should produce errors")
 
     def test_docling_validation_empty_tokenizer(self):
-        """Test validation rejects empty tokenizer for docling"""
+        """Test validation rejects empty tokenizer and negative chunk_overlap for docling"""
         config = {
             "chunk_type": ChunkType.HYBRID.value,
             "chunk_size": 512,
-            "docling_tokenizer": "",
+            "chunk_overlap": -1,  # Invalid: negative
+            "docling_tokenizer": "",  # Invalid: empty
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
@@ -935,7 +986,16 @@ class TestDoclingChunking(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(len(errors), 0, "Empty tokenizer should produce errors")
+        # Should have exactly 3 errors:
+        # 1. chunk_overlap must be between 0 and 512
+        # 2. chunk_overlap must be non-negative for hybrid chunking
+        # 3. docling_tokenizer cannot be empty for hybrid chunking
+        self.assertEqual(len(errors), 3, f"Should have exactly 3 errors, got {len(errors)}: {errors}")
+
+        # Verify both types of errors are present
+        error_messages = " ".join(errors)
+        self.assertIn("docling_tokenizer", error_messages.lower())
+        self.assertIn("chunk_overlap", error_messages.lower())
 
 
 class TestChunkerSummarization(unittest.TestCase):

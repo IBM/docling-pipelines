@@ -93,6 +93,12 @@ class ChunkerValidator:
             BreakpointThresholdType,
         )
 
+        # Validate semantic embeddings model is provided and not empty
+        if semantic_embeddings_model is None or (
+            isinstance(semantic_embeddings_model, str) and not semantic_embeddings_model.strip()
+        ):
+            errors.append("semantic_embeddings_model is required and cannot be empty for semantic chunking")
+
         # Validate breakpoint threshold type
         if should_validate_field_fn(field_value=breakpoint_threshold_type):
             if breakpoint_threshold_type not in VALID_BREAKPOINT_TYPES:
@@ -102,35 +108,27 @@ class ChunkerValidator:
                 )
 
         # Validate breakpoint threshold amount if provided
-        if not should_validate_field_fn(field_value=breakpoint_threshold_amount):
-            return
+        if (
+            should_validate_field_fn(field_value=breakpoint_threshold_amount)
+            and breakpoint_threshold_amount is not None
+        ):
+            # Validate based on threshold type
+            is_percentile = breakpoint_threshold_type == BreakpointThresholdType.PERCENTILE.value
+            is_std_dev = breakpoint_threshold_type == BreakpointThresholdType.STANDARD_DEVIATION.value
 
-        if breakpoint_threshold_amount is None:
-            return
-
-        # Validate based on threshold type
-        is_percentile = breakpoint_threshold_type == BreakpointThresholdType.PERCENTILE.value
-        is_std_dev = breakpoint_threshold_type == BreakpointThresholdType.STANDARD_DEVIATION.value
-
-        if is_percentile:
-            is_percentile_invalid = not (0 <= breakpoint_threshold_amount <= 100)
-            if is_percentile_invalid:
-                errors.append(
-                    f"Invalid breakpoint_threshold_amount for percentile: {breakpoint_threshold_amount}. "
-                    "Must be between 0 and 100."
-                )
-        elif is_std_dev:
-            if breakpoint_threshold_amount < 0:
-                errors.append(
-                    f"Invalid breakpoint_threshold_amount for standard_deviation: {breakpoint_threshold_amount}. "
-                    "Must be non-negative."
-                )
-
-        # Validate semantic embeddings model is not empty
-        if should_validate_field_fn(field_value=semantic_embeddings_model):
-            is_model_empty = not semantic_embeddings_model or not semantic_embeddings_model.strip()
-            if is_model_empty:
-                errors.append("semantic_embeddings_model cannot be empty for semantic chunking")
+            if is_percentile:
+                is_percentile_invalid = not (0 <= breakpoint_threshold_amount <= 100)
+                if is_percentile_invalid:
+                    errors.append(
+                        f"Invalid breakpoint_threshold_amount for percentile: {breakpoint_threshold_amount}. "
+                        "Must be between 0 and 100."
+                    )
+            elif is_std_dev:
+                if breakpoint_threshold_amount < 0:
+                    errors.append(
+                        f"Invalid breakpoint_threshold_amount for standard_deviation: {breakpoint_threshold_amount}. "
+                        "Must be non-negative."
+                    )
 
     @staticmethod
     def validate_docling_chunker(
@@ -170,16 +168,13 @@ class ChunkerValidator:
 
         # Validate chunk_overlap for docling chunking
         if should_validate_field_fn(field_value=chunk_overlap):
-            if chunk_overlap is None:
-                return
+            if chunk_overlap is not None:
+                if chunk_overlap < 0:
+                    errors.append("Invalid input: chunk_overlap must be non-negative for hybrid chunking.")
 
-            if chunk_overlap < 0:
-                errors.append("Invalid input: chunk_overlap must be non-negative for hybrid chunking.")
-                return
-
-            is_overlap_too_large = chunk_size is not None and chunk_overlap >= chunk_size
-            if is_overlap_too_large:
-                errors.append("Invalid input: chunk_overlap must be less than chunk_size for hybrid chunking.")
+                is_overlap_too_large = chunk_size is not None and chunk_overlap >= chunk_size
+                if is_overlap_too_large:
+                    errors.append("Invalid input: chunk_overlap must be less than chunk_size for hybrid chunking.")
 
         # Validate tokenizer is not empty
         if should_validate_field_fn(field_value=docling_tokenizer):
@@ -228,20 +223,14 @@ class ChunkerValidator:
         # Validate max_input_tokens
         if max_input_tokens is not None and should_validate_field_fn(field_value=max_input_tokens):
             if not is_value_in_range(value=max_input_tokens, min_value=1000, max_value=32000):
-                errors.append(
-                    f"Invalid max_input_tokens: {max_input_tokens}. Must be between 1000 and 32000."
-                )
+                errors.append(f"Invalid max_input_tokens: {max_input_tokens}. Must be between 1000 and 32000.")
 
         # Validate summary_sentences
         if summary_sentences is not None and should_validate_field_fn(field_value=summary_sentences):
             if not is_value_in_range(value=summary_sentences, min_value=1, max_value=5):
-                errors.append(
-                    f"Invalid summary_sentences: {summary_sentences}. Must be between 1 and 5."
-                )
+                errors.append(f"Invalid summary_sentences: {summary_sentences}. Must be between 1 and 5.")
 
         # Validate summary_max_words
         if summary_max_words is not None and should_validate_field_fn(field_value=summary_max_words):
             if not is_value_in_range(value=summary_max_words, min_value=10, max_value=100):
-                errors.append(
-                    f"Invalid summary_max_words: {summary_max_words}. Must be between 10 and 100."
-                )
+                errors.append(f"Invalid summary_max_words: {summary_max_words}. Must be between 10 and 100.")

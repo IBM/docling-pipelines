@@ -4,7 +4,7 @@
   "description": "a sample flow to demonstrate the datasift pipeline command line execution",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": true,
+    "disable_validation": false,
     "force_ingest": true,
     "enable_micro_batching": true,
     "micro_batch_size": 10,
@@ -65,7 +65,8 @@
         "doc_column": "content",
         "chunk_size": 512,
         "chunk_overlap": 128,
-        "retain_original_content": false
+        "retain_original_content": false,
+        "provider_config": {}
       }
     },
     {

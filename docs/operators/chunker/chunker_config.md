@@ -12,7 +12,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 
 ### 1. `chunk_type` (String)
 **Type:** String
-**Required:** Yes
+**Required:** No
 **Default:** `"simple"`
 **Description:** Chunking strategy to use.
 
@@ -66,19 +66,19 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ### 4. `semantic_embeddings_model` (String)
 **Type:** String
 **Required:** No (Yes for semantic chunking)
-**Default:** `"granite4"`
-**Description:** Ollama model name for generating embeddings in semantic chunking.
+**Default:** None
+**Description:** Ollama model name for generating embeddings in semantic chunking. Must be explicitly provided when using semantic chunking.
 
-**Valid Values:**
-- `"granite4"` - IBM Granite 4 (default)
-- `"nomic-embed-text"` - Nomic Embed Text
-- `"llama3.2"` - Meta Llama 3.2
-- Any Ollama-compatible embedding model
+**Recommended Models:**
+- `"nomic-embed-text"` - General purpose embedding model (recommended for most use cases)
+- `"mxbai-embed-large"` - Higher quality embeddings with larger model
+- `"granite4"` - IBM Granite 4
+- Any other Ollama-compatible embedding model suitable for your domain and language
 
 **Examples:**
 ```json
-"semantic_embeddings_model": "granite4"
 "semantic_embeddings_model": "nomic-embed-text"
+"semantic_embeddings_model": "mxbai-embed-large"
 ```
 
 ### 5. `breakpoint_threshold_type` (String)
@@ -119,9 +119,9 @@ The Chunker Operator provides intelligent text chunking with support for three s
 
 ### 7. `docling_tokenizer` (String)
 **Type:** String
-**Required:** No (for hybrid chunking)
+**Required:** No (only used for hybrid chunking)
 **Default:** `"sentence-transformers/all-MiniLM-L6-v2"`
-**Description:** HuggingFace tokenizer model for Docling chunking.
+**Description:** HuggingFace tokenizer model for hybrid (Docling) chunking. This parameter is only used when `chunk_type` is set to `"hybrid"`. If not specified, the default tokenizer will be used.
 
 **Valid Values:**
 - `"sentence-transformers/all-MiniLM-L6-v2"` (default)
@@ -361,7 +361,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
   "operator": "chunker",
   "config": {
     "chunk_type": "semantic",
-    "semantic_embeddings_model": "granite4",
+    "semantic_embeddings_model": "nomic-embed-text",
     "breakpoint_threshold_type": "percentile",
     "breakpoint_threshold_amount": 95.0,
     "retain_original_content": false

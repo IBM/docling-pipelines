@@ -59,7 +59,6 @@ CHUNK_OVERLAP_MAX_SIZE: int = 512  # Maximum overlap size
 
 # Semantic Chunking Constants
 SEMANTIC_EMBEDDINGS_MODEL_KEY: str = "semantic_embeddings_model"
-SEMANTIC_EMBEDDINGS_MODEL_DEFAULT: str = "nomic-embed-text"  # Default Ollama model for embeddings
 
 # Docling Chunking Constants
 DOCLING_TOKENIZER_KEY: str = "docling_tokenizer"
@@ -220,9 +219,7 @@ class ChunkerOperator(AbstractOperator):
         )
         self.chunk_overlap: int = config.get(CHUNK_OVERLAP_KEY, CHUNK_OVERLAP_DEFAULT)
         self.retain_original_content: bool = config.get(RETAIN_ORIGINAL_CONTENT_KEY, RETAIN_ORIGINAL_CONTENT_DEFAULT)
-        self.semantic_embeddings_model: str = config.get(
-            SEMANTIC_EMBEDDINGS_MODEL_KEY, SEMANTIC_EMBEDDINGS_MODEL_DEFAULT
-        )
+        self.semantic_embeddings_model: str | None = config.get(SEMANTIC_EMBEDDINGS_MODEL_KEY)
         self.breakpoint_threshold_type: str = config.get(
             BREAKPOINT_THRESHOLD_TYPE_KEY, BREAKPOINT_THRESHOLD_TYPE_DEFAULT
         )
@@ -344,7 +341,7 @@ class ChunkerOperator(AbstractOperator):
                 CHUNK_TYPE_KEY: {
                     OperatorConstants.Misc.NAME: "Chunk Type",
                     OperatorConstants.Config.DESCRIPTION: "Type of Chunker model being used",
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: CHUNK_TYPE_DEFAULT,
                     OperatorConstants.Config.VALID_VALUES: VALID_CHUNK_TYPES,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
@@ -370,9 +367,8 @@ class ChunkerOperator(AbstractOperator):
                 },
                 SEMANTIC_EMBEDDINGS_MODEL_KEY: {
                     OperatorConstants.Misc.NAME: "Semantic Embeddings Model",
-                    OperatorConstants.Config.DESCRIPTION: "Ollama model name for generating embeddings in semantic chunking",
+                    OperatorConstants.Config.DESCRIPTION: "Ollama model name for generating embeddings in semantic chunking. Required if chunking type is semantic.",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: SEMANTIC_EMBEDDINGS_MODEL_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 BREAKPOINT_THRESHOLD_TYPE_KEY: {
@@ -844,7 +840,10 @@ class ChunkerOperator(AbstractOperator):
             try:
                 host = self.provider_config.get(OperatorConstants.VectorDB.HOST) if self.provider_config else None
                 self._ollama_client = OllamaClient(
-                    model_name=self.semantic_embeddings_model, mode=InteractionMode.EMBEDDINGS, host=host, validate_model=True
+                    model_name=self.semantic_embeddings_model,
+                    mode=InteractionMode.EMBEDDINGS,
+                    host=host,
+                    validate_model=True,
                 )
                 logger.info(
                     f"Initialized OllamaClient with model: {self.semantic_embeddings_model}",

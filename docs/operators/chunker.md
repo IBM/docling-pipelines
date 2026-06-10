@@ -68,7 +68,7 @@ Advanced chunking using the Docling library. Provides sophisticated document str
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `docling_tokenizer` | string | No | `sentence-transformers/all-MiniLM-L6-v2` | HuggingFace tokenizer model for Docling chunking |
+| `docling_tokenizer` | string | No | `sentence-transformers/all-MiniLM-L6-v2` | HuggingFace tokenizer model for hybrid (Docling) chunking. Only used when chunk_type is "hybrid" |
 
 ## Configuration Examples
 
