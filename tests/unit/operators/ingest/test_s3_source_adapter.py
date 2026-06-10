@@ -25,7 +25,7 @@ class TestS3SourceConfig:
     def test_strips_credentials_and_normalizes_fields(self):
         """Test that credentials are stripped and fields are normalized."""
         config = S3SourceConfig(
-            access_key=" AKIAIOSFODNN7EXAMPLE ",
+            access_key=" AKIAIOSFODNN7EXAMPLE ",  # pragma: allowlist secret
             secret_key=" wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY ",  # pragma: allowlist secret
             bucket=" my-bucket ",
             prefix="/documents/",
@@ -133,7 +133,7 @@ class TestS3SourceAdapter:
     def config(self):
         """Create test S3SourceConfig."""
         return S3SourceConfig(
-            access_key="AKIAIOSFODNN7EXAMPLE",
+            access_key="AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
             secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
             bucket="test-bucket",
             prefix="documents/",
@@ -167,7 +167,7 @@ class TestS3SourceAdapter:
             "max_file_size_mb": 50,
         }
         credentials = {
-            "access_key": "AKIAIOSFODNN7EXAMPLE",
+            "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
             "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
         }
         included_extensions = [".pdf", ".docx"]
@@ -215,7 +215,8 @@ class TestS3SourceAdapter:
         }
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
-            success, message = await adapter.test_connection(config)
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, message = await adapter.test_connection(config)
 
         assert success is True
         assert "Successfully connected" in message
@@ -235,7 +236,8 @@ class TestS3SourceAdapter:
         mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
-            success, message = await adapter.test_connection(config)
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, message = await adapter.test_connection(config)
 
         assert success is False
         assert "does not exist" in message
@@ -248,7 +250,8 @@ class TestS3SourceAdapter:
         mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
-            success, message = await adapter.test_connection(config)
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, message = await adapter.test_connection(config)
 
         assert success is False
         assert "Access denied" in message
@@ -331,15 +334,16 @@ class TestS3SourceAdapter:
         mock_paginator.paginate.return_value = mock_pages
 
         # Mock head_object responses (for content type, no binary download)
-        def mock_head_object(Bucket, Key):  # noqa: N803
+        def mock_head_object(**kwargs):
             return {
-                "ContentType": "application/pdf" if Key.endswith(".pdf") else "text/plain",
+                "ContentType": "application/pdf" if kwargs["Key"].endswith(".pdf") else "text/plain",
             }
 
         mock_client.head_object.side_effect = mock_head_object
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
-            documents = await collect_async(adapter.fetch_documents(config))
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                documents = await collect_async(adapter.fetch_documents(config))
 
         assert len(documents) == 2
         # Check that all documents are Document instances by class name and module
@@ -356,3 +360,211 @@ class TestS3SourceAdapter:
         assert documents[0].metadata["key"] == "documents/file1.pdf"
         # Verify get_object was NOT called (lazy loading)
         mock_client.get_object.assert_not_called()
+
+
+class TestResolveAwsAccountId:
+    """Tests for _resolve_aws_account_id and _get_aws_account_id."""
+
+    @pytest.fixture
+    def adapter(self):
+        return S3SourceAdapter()
+
+    @pytest.fixture
+    def aws_config(self):
+        return S3SourceConfig(
+            access_key="AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+            secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+            bucket="test-bucket",
+            region="us-east-1",
+        )
+
+    @pytest.fixture
+    def cos_config(self):
+        """S3-compatible (IBM COS) config — STS must be skipped."""
+        return S3SourceConfig(
+            access_key="AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+            secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+            bucket="test-bucket",
+            endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
+        )
+
+    def test_returns_account_id_for_aws(self, adapter, aws_config):
+        """STS GetCallerIdentity is called and account ID is returned for real AWS."""
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
+
+        with patch("boto3.client", return_value=mock_sts) as mock_boto:
+            account_id = adapter._get_aws_account_id(aws_config)
+
+        assert account_id == "123456789012"
+        mock_boto.assert_called_once_with(
+            "sts",
+            aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
+            aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+            region_name="us-east-1",
+        )
+
+    def test_skips_sts_for_s3_compatible_storage(self, adapter, cos_config):
+        """No STS call is made when endpoint_url is set (S3-compatible storage)."""
+        with patch("boto3.client") as mock_boto:
+            account_id = adapter._get_aws_account_id(cos_config)
+
+        assert account_id is None
+        mock_boto.assert_not_called()
+
+    def test_returns_none_on_sts_client_error(self, adapter, aws_config):
+        """Gracefully returns None when STS returns a ClientError."""
+        mock_sts = Mock()
+        error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
+        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
+
+        with patch("boto3.client", return_value=mock_sts):
+            account_id = adapter._get_aws_account_id(aws_config)
+
+        assert account_id is None
+
+    def test_returns_none_on_unexpected_exception(self, adapter, aws_config):
+        """Gracefully returns None on any unexpected error."""
+        with patch("boto3.client", side_effect=RuntimeError("network error")):
+            account_id = adapter._get_aws_account_id(aws_config)
+
+        assert account_id is None
+
+    def test_resolve_without_region(self, adapter):
+        """region_name is omitted from STS kwargs when config.region is None."""
+        config = S3SourceConfig(
+            access_key="AKIAIOSFODNN7EXAMPLE",
+            secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+            bucket="test-bucket",
+        )
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {"Account": "999888777666"}
+
+        with patch("boto3.client", return_value=mock_sts) as mock_boto:
+            account_id = adapter._get_aws_account_id(config)
+
+        assert account_id == "999888777666"
+        mock_boto.assert_called_once_with(
+            "sts",
+            aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
+            aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+        )
+
+
+class TestExpectedBucketOwnerPropagation:
+    """Tests that ExpectedBucketOwner is passed to S3 API calls when account ID is resolved."""
+
+    @pytest.fixture
+    def adapter(self):
+        return S3SourceAdapter()
+
+    @pytest.fixture
+    def config(self):
+        return S3SourceConfig(
+            access_key="AKIAIOSFODNN7EXAMPLE",
+            secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+            bucket="test-bucket",
+            prefix="docs/",
+        )
+
+    @pytest.mark.asyncio
+    async def test_test_connection_passes_expected_bucket_owner(self, adapter, config):
+        """list_objects_v2 receives ExpectedBucketOwner when account ID is resolved."""
+        mock_client = Mock()
+        mock_client.list_objects_v2.return_value = {"KeyCount": 1, "Contents": [{"Key": "docs/a.pdf"}]}
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value="123456789012"):
+                await adapter.test_connection(config)
+
+        mock_client.list_objects_v2.assert_called_once_with(
+            Bucket="test-bucket", Prefix="docs/", MaxKeys=1, ExpectedBucketOwner="123456789012"
+        )
+
+    @pytest.mark.asyncio
+    async def test_test_connection_omits_expected_bucket_owner_when_none(self, adapter, config):
+        """list_objects_v2 does NOT receive ExpectedBucketOwner when account ID is None."""
+        mock_client = Mock()
+        mock_client.list_objects_v2.return_value = {"KeyCount": 0}
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                await adapter.test_connection(config)
+
+        call_kwargs = mock_client.list_objects_v2.call_args[1]
+        assert "ExpectedBucketOwner" not in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_fetch_documents_head_object_passes_expected_bucket_owner(self, adapter, config):
+        """head_object receives ExpectedBucketOwner when account ID is resolved."""
+        mock_client = Mock()
+        mock_paginator = Mock()
+        mock_client.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {
+                        "Key": "docs/file.pdf",
+                        "Size": 1024,
+                        "LastModified": datetime(2024, 1, 1),
+                        "ETag": '"abc"',
+                        "StorageClass": "STANDARD",
+                    }
+                ]
+            }
+        ]
+        mock_client.head_object.return_value = {"ContentType": "application/pdf"}
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value="123456789012"):
+                await collect_async(adapter.fetch_documents(config))
+
+        mock_client.head_object.assert_called_once_with(
+            Bucket="test-bucket", Key="docs/file.pdf", ExpectedBucketOwner="123456789012"
+        )
+
+    @pytest.mark.asyncio
+    async def test_fetch_binary_content_passes_expected_bucket_owner(self, adapter):
+        """get_object receives ExpectedBucketOwner when account ID is resolved."""
+        mock_client = Mock()
+        mock_client.get_object.return_value = {"Body": Mock(read=Mock(return_value=b"data"))}
+
+        connection_params = {"bucket": "test-bucket", "region": "us-east-1"}
+        credentials = {"access_key": "AKIAIOSFODNN7EXAMPLE", "secret_key": "secret"}  # pragma: allowlist secret
+
+        with patch("boto3.client", return_value=mock_client):
+            with patch.object(adapter, "_resolve_aws_account_id", return_value="123456789012"):
+                result = adapter.fetch_binary_content(
+                    source_id="s3://test-bucket/docs/file.pdf",
+                    connection_params=connection_params,
+                    credentials=credentials,
+                )
+
+        assert result == b"data"
+        mock_client.get_object.assert_called_once_with(
+            Bucket="test-bucket", Key="docs/file.pdf", ExpectedBucketOwner="123456789012"
+        )
+
+    @pytest.mark.asyncio
+    async def test_fetch_binary_content_omits_expected_bucket_owner_for_cos(self, adapter):
+        """get_object does NOT include ExpectedBucketOwner for S3-compatible storage."""
+        mock_client = Mock()
+        mock_client.get_object.return_value = {"Body": Mock(read=Mock(return_value=b"data"))}
+
+        connection_params = {
+            "bucket": "test-bucket",
+            "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
+        }
+        credentials = {"access_key": "AKIAIOSFODNN7EXAMPLE", "secret_key": "secret"}  # pragma: allowlist secret
+
+        with patch("boto3.client", return_value=mock_client):
+            with patch.object(adapter, "_resolve_aws_account_id", return_value=None):
+                result = adapter.fetch_binary_content(
+                    source_id="s3://test-bucket/docs/file.pdf",
+                    connection_params=connection_params,
+                    credentials=credentials,
+                )
+
+        assert result == b"data"
+        call_kwargs = mock_client.get_object.call_args[1]
+        assert "ExpectedBucketOwner" not in call_kwargs

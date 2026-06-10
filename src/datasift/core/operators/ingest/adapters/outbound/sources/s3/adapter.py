@@ -113,8 +113,15 @@ class S3SourceAdapter(DocumentSourcePort):
         try:
             s3_client = self._create_s3_client(config)
 
+            # Resolve bucket owner for security verification (AWS S3 only)
+            account_id = self._get_aws_account_id(config)
+
+            list_kwargs: dict[str, Any] = {"Bucket": config.bucket, "Prefix": config.prefix, "MaxKeys": 1}
+            if account_id:
+                list_kwargs["ExpectedBucketOwner"] = account_id
+
             # Test bucket access by listing objects (limit to 1)
-            response = s3_client.list_objects_v2(Bucket=config.bucket, Prefix=config.prefix, MaxKeys=1)
+            response = s3_client.list_objects_v2(**list_kwargs)
 
             # Check if we have access
             if "Contents" in response or "KeyCount" in response:
@@ -232,6 +239,82 @@ class S3SourceAdapter(DocumentSourcePort):
             client_kwargs["region_name"] = config.region
 
         return boto3.client("s3", **client_kwargs)
+
+    def _get_aws_account_id(self, config: S3SourceConfig) -> str | None:
+        """
+        Retrieve the AWS account ID for the configured credentials via STS GetCallerIdentity.
+
+        This is used to populate ExpectedBucketOwner on S3 API calls, preventing
+        confused-deputy / bucket-hijacking attacks (SonarQube security finding).
+
+        Only attempted for real AWS S3 (i.e. no custom endpoint_url). Returns None
+        gracefully for S3-compatible storage, invalid credentials, or insufficient
+        STS permissions so callers can skip the parameter rather than fail hard.
+
+        Args:
+            config: S3 configuration
+
+        Returns:
+            AWS account ID string (e.g. "123456789012"), or None if unavailable
+        """
+        return self._resolve_aws_account_id(
+            access_key=config.access_key,
+            secret_key=config.secret_key,
+            region=config.region,
+            endpoint_url=config.endpoint_url,
+        )
+
+    def _resolve_aws_account_id(
+        self,
+        *,
+        access_key: str,
+        secret_key: str,
+        region: str | None,
+        endpoint_url: str | None,
+    ) -> str | None:
+        """
+        Resolve AWS account ID from credentials via STS GetCallerIdentity.
+
+        Skipped automatically for S3-compatible storage (endpoint_url present).
+        Degrades gracefully to None on any failure so S3 operations still proceed.
+
+        Args:
+            access_key: AWS access key ID
+            secret_key: AWS secret access key
+            region: Optional AWS region
+            endpoint_url: Custom S3 endpoint (non-None means S3-compatible, skip STS)
+
+        Returns:
+            AWS account ID string (e.g. "123456789012"), or None if unavailable
+        """
+        if endpoint_url:
+            # S3-compatible storage (IBM COS, MinIO, etc.) - STS not applicable
+            return None
+
+        try:
+            sts_kwargs: dict[str, Any] = {
+                "aws_access_key_id": access_key,
+                "aws_secret_access_key": secret_key,
+            }
+            if region:
+                sts_kwargs["region_name"] = region
+
+            sts_client = boto3.client("sts", **sts_kwargs)
+            identity = sts_client.get_caller_identity()
+            account_id: str = identity["Account"]
+            logger.debug("Resolved AWS account ID for ExpectedBucketOwner: %s", account_id)
+            return account_id
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            logger.warning(
+                "STS GetCallerIdentity failed (%s); S3 calls will proceed without ExpectedBucketOwner", error_code
+            )
+            return None
+        except Exception as e:
+            logger.warning(
+                "Unable to resolve AWS account ID via STS; S3 calls will proceed without ExpectedBucketOwner: %s", e
+            )
+            return None
 
     def _list_s3_objects(self, s3_client: Any, config: S3SourceConfig) -> list[dict[str, Any]]:
         """
@@ -363,9 +446,15 @@ class S3SourceAdapter(DocumentSourcePort):
 
             size = s3_obj.get("Size", 0)
 
+            # Resolve bucket owner for security verification (AWS S3 only)
+            account_id = self._get_aws_account_id(config)
+
             # Get content type from metadata (no download)
             try:
-                head_response = s3_client.head_object(Bucket=config.bucket, Key=key)
+                head_kwargs: dict[str, Any] = {"Bucket": config.bucket, "Key": key}
+                if account_id:
+                    head_kwargs["ExpectedBucketOwner"] = account_id
+                head_response = s3_client.head_object(**head_kwargs)
                 content_type = head_response.get("ContentType", "application/octet-stream")
             except Exception:
                 content_type = "application/octet-stream"
@@ -478,9 +567,21 @@ class S3SourceAdapter(DocumentSourcePort):
 
             s3_client = boto3.client("s3", **client_kwargs)
 
+            # Resolve bucket owner for security verification (AWS S3 only)
+            account_id = self._resolve_aws_account_id(
+                access_key=access_key,
+                secret_key=secret_key,
+                region=region,
+                endpoint_url=endpoint_url,
+            )
+
+            get_kwargs: dict[str, Any] = {"Bucket": bucket, "Key": key}
+            if account_id:
+                get_kwargs["ExpectedBucketOwner"] = account_id
+
             # Download binary content
             logger.info(f"Downloading binary content from S3: bucket={bucket}, key={key}")
-            response = s3_client.get_object(Bucket=bucket, Key=key)
+            response = s3_client.get_object(**get_kwargs)
             content = response["Body"].read()
 
             logger.info(f"Successfully downloaded {len(content)} bytes from S3: {source_id}")
