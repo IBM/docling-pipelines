@@ -19,6 +19,7 @@ from datasift.core.operators.functional.chunker import (
     ChunkerOperator,
     ChunkType,
 )
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 class TestChunkerOperator(unittest.TestCase):
@@ -307,6 +308,89 @@ class TestChunkerValidation(unittest.TestCase):
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Invalid chunk type should produce errors")
+    def test_validate_chunk_size_string_type(self):
+        """Test validation rejects chunk_size with string type"""
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": "1000",  # String instead of int
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+        errors = []
+        warnings = []
+        operator.validate(errors, warnings, ["content"])
+
+        self.assertGreater(len(errors), 0, "String type for chunk_size should produce errors")
+        # Check that the error message mentions the type issue
+        error_messages = [str(e) for e in errors]
+        self.assertTrue(
+            any("Invalid type for chunk_size" in msg for msg in error_messages),
+            f"Expected type error for chunk_size, got: {error_messages}"
+        )
+
+    def test_validate_chunk_overlap_string_type(self):
+        """Test validation rejects chunk_overlap with string type"""
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap": "200",  # String instead of int
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+        errors = []
+        warnings = []
+        operator.validate(errors, warnings, ["content"])
+
+        self.assertGreater(len(errors), 0, "String type for chunk_overlap should produce errors")
+        # Check that the error message mentions the type issue
+        error_messages = [str(e) for e in errors]
+        self.assertTrue(
+            any("Invalid type for chunk_overlap" in msg for msg in error_messages),
+            f"Expected type error for chunk_overlap, got: {error_messages}"
+        )
+
+    def test_validate_retain_original_content_string_type(self):
+        """Test validation rejects retain_original_content with string type"""
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap": 200,
+            "retain_original_content": "true",  # String instead of bool
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+        errors = []
+        warnings = []
+        operator.validate(errors, warnings, ["content"])
+
+        self.assertGreater(len(errors), 0, "String type for retain_original_content should produce errors")
+        # Check that the error message mentions the type issue
+        error_messages = [str(e) for e in errors]
+        self.assertTrue(
+            any("Invalid type for retain_original_content" in msg for msg in error_messages),
+            f"Expected type error for retain_original_content, got: {error_messages}"
+        )
+    def test_validate_multiple_errors_collected(self):
+        """Test that multiple validation errors are collected without early return"""
+        config = {
+            "chunk_type": "invalid_type",  # Invalid chunk_type
+            "chunk_size": 1000,
+            "chunk_overlap": -1,  # Invalid: negative
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+        errors = []
+        warnings = []
+        operator.validate(errors, warnings, ["content"])
+
+        # Should have at least 2 errors: one for chunk_overlap and one for chunk_type
+        self.assertGreaterEqual(len(errors), 2, f"Should collect multiple errors, got {len(errors)}: {errors}")
+
+        # Verify both error types are present
+        error_messages = " ".join(str(e) for e in errors)
+        self.assertIn("chunk_overlap", error_messages.lower(), "Should have chunk_overlap error")
+        self.assertIn("chunk_type", error_messages.lower(), "Should have chunk_type error")
+
 
     def test_validate_semantic_percentile_threshold_invalid(self):
         """Test validation rejects invalid percentile threshold"""
@@ -986,11 +1070,10 @@ class TestDoclingChunking(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        # Should have exactly 3 errors:
-        # 1. chunk_overlap must be between 0 and 512
-        # 2. chunk_overlap must be non-negative for hybrid chunking
-        # 3. docling_tokenizer cannot be empty for hybrid chunking
-        self.assertEqual(len(errors), 3, f"Should have exactly 3 errors, got {len(errors)}: {errors}")
+        # Should have exactly 2 errors:
+        # 1. chunk_overlap must be non-negative (from common validation)
+        # 2. docling_tokenizer cannot be empty for hybrid chunking
+        self.assertEqual(len(errors), 2, f"Should have exactly 2 errors, got {len(errors)}: {errors}")
 
         # Verify both types of errors are present
         error_messages = " ".join(errors)
@@ -1420,7 +1503,6 @@ class TestChunkerSummarization(unittest.TestCase):
     def test_summarization_service_validation_failure_raises_error(self):
         """Test that validation failures raise DatasiftException."""
         from datasift.core.operators.functional.summarization_service import SummarizationService
-        from datasift.exceptions.datasift_exceptions import DatasiftException
 
         mock_adapter = MagicMock()
         mock_adapter.validate.return_value = {"valid": False, "errors": ["API key is required"], "warnings": []}

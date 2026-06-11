@@ -280,8 +280,6 @@ class ChunkerOperator(AbstractOperator):
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
-        # if not is_parameterized_field(field=self.chunk_size) and isinstance(self.chunk_size, str):
-        self.chunk_size = int(self.chunk_size)
 
         # Initialize Ollama client for semantic chunking (lazy initialization)
         self._ollama_client: OllamaClient | None = None
@@ -529,6 +527,16 @@ class ChunkerOperator(AbstractOperator):
                     message_code=ValidationCodeMessages.CHUNKER_OPERATOR_MISPLACED.name,
                 )
             )
+
+        # Validate retain_original_content type
+        if self.should_validate_field(field_value=self.retain_original_content):
+            if not isinstance(self.retain_original_content, bool):
+                errors.append(
+                    ValidationMessage.create(
+                        message=f"Invalid type for retain_original_content: expected bool, got {type(self.retain_original_content).__name__}",
+                        message_code="CHUNKER_INVALID_RETAIN_ORIGINAL_CONTENT_TYPE",
+                    )
+                )
 
         # Validate simple chunker parameters (always validate these base parameters)
         ChunkerValidator.validate_simple_chunker(

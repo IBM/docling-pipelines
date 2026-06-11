@@ -10,6 +10,75 @@ class ChunkerValidator:
     """Validator for ChunkerOperator configuration parameters."""
 
     @staticmethod
+    def validate_common_chunk_parameters(
+        chunk_size: int,
+        chunk_overlap: int,
+        chunk_type: str,
+        should_validate_field_fn,
+        errors: list[Any],
+    ) -> None:
+        """
+        Validate common parameters shared across all chunking strategies.
+
+        This includes type validation and basic range validation for chunk_size,
+        chunk_overlap, and chunk_type. These validations are common to simple,
+        semantic, and hybrid chunking.
+
+        Args:
+            chunk_size: Size of each chunk (characters for simple, tokens for hybrid)
+            chunk_overlap: Overlap between consecutive chunks
+            chunk_type: Type of chunking strategy
+            should_validate_field_fn: Function to check if field should be validated
+            errors: List to append validation errors to
+        """
+        # Import constants to avoid circular dependency
+        from datasift.core.operators.functional.chunker import VALID_CHUNK_TYPES
+
+        # Validate chunk_size type
+        if should_validate_field_fn(field_value=chunk_size):
+            if chunk_size is not None and not isinstance(chunk_size, int):
+                errors.append(
+                    ValidationMessage.create(
+                        message=f"Invalid type for chunk_size: expected int, got {type(chunk_size).__name__}",
+                        message_code="CHUNKER_INVALID_CHUNK_SIZE_TYPE",
+                    )
+                )
+
+        # Validate chunk_overlap type
+        if should_validate_field_fn(field_value=chunk_overlap):
+            if chunk_overlap is not None and not isinstance(chunk_overlap, int):
+                errors.append(
+                    ValidationMessage.create(
+                        message=f"Invalid type for chunk_overlap: expected int, got {type(chunk_overlap).__name__}",
+                        message_code="CHUNKER_INVALID_CHUNK_OVERLAP_TYPE",
+                    )
+                )
+
+        # Validate chunk_overlap basic range constraints (common to all chunking types)
+        # These are the fundamental constraints that apply regardless of chunking strategy
+        if should_validate_field_fn(field_value=chunk_overlap):
+            if chunk_overlap is not None and isinstance(chunk_overlap, int):
+                # chunk_overlap must be non-negative
+                if chunk_overlap < 0:
+                    errors.append("Invalid input: chunk_overlap must be non-negative.")
+
+                # chunk_overlap must be less than chunk_size
+                # Only check this if chunk_overlap is non-negative to avoid confusing error messages
+                if chunk_overlap >= 0 and chunk_size is not None and isinstance(chunk_size, int) and chunk_overlap >= chunk_size:
+                    errors.append("Invalid input: chunk_overlap must be less than chunk_size.")
+
+        # Validate chunk_type (common to all chunking strategies)
+        if should_validate_field_fn(field_value=chunk_type):
+            if chunk_type not in VALID_CHUNK_TYPES:
+                errors.append(
+                    ValidationMessage.create(
+                        message=f"Invalid chunk_type: {chunk_type}",
+                        message_code=ValidationCodeMessages.CHUNKER_INVALID_CHUNK_TYPE.name,
+                        chunk_type=chunk_type,
+                    )
+                )
+
+    @staticmethod
     def validate_simple_chunker(
         chunk_size: int,
         chunk_overlap: int,
@@ -32,42 +101,35 @@ class ChunkerValidator:
             CHUNK_MAX_SIZE,
             CHUNK_MIN_SIZE,
             CHUNK_OVERLAP_MAX_SIZE,
-            CHUNK_OVERLAP_MIN_SIZE,
-            VALID_CHUNK_TYPES,
         )
 
-        # Validate chunk_size
+        # Validate common type checks first (includes chunk_type validation)
+        ChunkerValidator.validate_common_chunk_parameters(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            chunk_type=chunk_type,
+            should_validate_field_fn=should_validate_field_fn,
+            errors=errors,
+        )
+
+        # Validate chunk_size range (simple chunking specific)
         if should_validate_field_fn(field_value=chunk_size):
-            is_size_invalid = chunk_size is not None and not is_value_in_range(
-                value=chunk_size,
-                min_value=CHUNK_MIN_SIZE,
-                max_value=CHUNK_MAX_SIZE,
-            )
-            if is_size_invalid:
-                errors.append(f"Invalid input: chunk_size must be between {CHUNK_MIN_SIZE} and {CHUNK_MAX_SIZE}.")
+            if chunk_size is not None and isinstance(chunk_size, int):
+                if not is_value_in_range(
+                    value=chunk_size,
+                    min_value=CHUNK_MIN_SIZE,
+                    max_value=CHUNK_MAX_SIZE,
+                ):
+                    errors.append(f"Invalid input: chunk_size must be between {CHUNK_MIN_SIZE} and {CHUNK_MAX_SIZE}.")
 
-        # Validate chunk_overlap
+        # Validate chunk_overlap maximum range (simple chunking specific)
+        # Note: Basic validations (non-negative, less than chunk_size) are handled in validate_common_chunk_parameters()
         if should_validate_field_fn(field_value=chunk_overlap):
-            is_overlap_invalid = chunk_overlap is not None and not is_value_in_range(
-                value=chunk_overlap,
-                min_value=CHUNK_OVERLAP_MIN_SIZE,
-                max_value=CHUNK_OVERLAP_MAX_SIZE,
-            )
-            if is_overlap_invalid:
-                errors.append(
-                    f"Invalid input: chunk_overlap must be between {CHUNK_OVERLAP_MIN_SIZE} and {CHUNK_OVERLAP_MAX_SIZE}."
-                )
-
-        # Validate chunk_type
-        if should_validate_field_fn(field_value=chunk_type):
-            if chunk_type not in VALID_CHUNK_TYPES:
-                errors.append(
-                    ValidationMessage.create(
-                        message=f"Invalid chunk_type: {chunk_type}",
-                        message_code=ValidationCodeMessages.CHUNKER_INVALID_CHUNK_TYPE.name,
-                        chunk_type=chunk_type,
+            if chunk_overlap is not None and isinstance(chunk_overlap, int):
+                if chunk_overlap > CHUNK_OVERLAP_MAX_SIZE:
+                    errors.append(
+                        f"Invalid input: chunk_overlap must not exceed {CHUNK_OVERLAP_MAX_SIZE}."
                     )
-                )
 
     @staticmethod
     def validate_semantic_chunker(
@@ -141,6 +203,10 @@ class ChunkerValidator:
         """
         Validate docling chunking configuration with reduced nesting.
 
+        Note: Type validation for chunk_size and chunk_overlap is handled in
+        validate_simple_chunker() which is always called first. This method
+        only validates hybrid-specific range checks and tokenizer.
+
         Args:
             chunk_size: Size of each chunk in tokens
             chunk_overlap: Overlap between consecutive chunks
@@ -154,27 +220,21 @@ class ChunkerValidator:
             DOCLING_CHUNK_SIZE_MIN,
         )
 
-        # Validate chunk_size for docling chunking (token-based)
+        # Validate chunk_size range for docling chunking (token-based, hybrid-specific)
         if should_validate_field_fn(field_value=chunk_size):
-            is_size_invalid = chunk_size is not None and not is_value_in_range(
-                value=chunk_size,
-                min_value=DOCLING_CHUNK_SIZE_MIN,
-                max_value=DOCLING_CHUNK_SIZE_MAX,
-            )
-            if is_size_invalid:
-                errors.append(
-                    f"Invalid input: chunk_size for hybrid chunking must be between {DOCLING_CHUNK_SIZE_MIN} and {DOCLING_CHUNK_SIZE_MAX} tokens."
-                )
+            if chunk_size is not None and isinstance(chunk_size, int):
+                if not is_value_in_range(
+                    value=chunk_size,
+                    min_value=DOCLING_CHUNK_SIZE_MIN,
+                    max_value=DOCLING_CHUNK_SIZE_MAX,
+                ):
+                    errors.append(
+                        f"Invalid input: chunk_size for hybrid chunking must be between {DOCLING_CHUNK_SIZE_MIN} and {DOCLING_CHUNK_SIZE_MAX} tokens."
+                    )
 
-        # Validate chunk_overlap for docling chunking
-        if should_validate_field_fn(field_value=chunk_overlap):
-            if chunk_overlap is not None:
-                if chunk_overlap < 0:
-                    errors.append("Invalid input: chunk_overlap must be non-negative for hybrid chunking.")
-
-                is_overlap_too_large = chunk_size is not None and chunk_overlap >= chunk_size
-                if is_overlap_too_large:
-                    errors.append("Invalid input: chunk_overlap must be less than chunk_size for hybrid chunking.")
+        # Note: chunk_overlap basic validations (non-negative, less than chunk_size) are now
+        # handled in validate_common_chunk_parameters(). No additional hybrid-specific
+        # chunk_overlap validations are needed.
 
         # Validate tokenizer is not empty
         if should_validate_field_fn(field_value=docling_tokenizer):
