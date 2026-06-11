@@ -41,6 +41,7 @@
         "chunk_type": "semantic",
         "chunk_size": 512,
         "chunk_overlap": 50,
+        "semantic_embeddings_model": "nomic-embed-text",
         "retain_original_content": false
       },
       "depends_on": [
@@ -68,7 +69,7 @@
         "provider_config": {
           "model_id": "openai/nomic-embed-text",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "any-string-works-for-ollama-no-need-of-api-key"
+          "api_key": "${OLLAMA_API_KEY:-ollama}"
         },
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.1
@@ -83,9 +84,9 @@
       "config": {
         "provider": "litellm",
         "provider_config": {
-          "model_id": "openai/granite-embedding",
+          "model_id": "openai/granite-embedding:278m",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "any-string-works-for-ollama-no-need-of-api-key"
+          "api_key": "${OLLAMA_API_KEY:-ollama}"
         },
         "embeddings_column": "embeddings_alt",
         "overlap_ratio": 0.1
