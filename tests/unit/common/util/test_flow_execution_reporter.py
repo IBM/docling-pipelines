@@ -160,6 +160,38 @@ class TestColumnTracking:
         assert "id" not in new_cols
         assert "name" not in new_cols
 
+    def test_get_removed_columns_first_operator(self, reporter):
+        """Test no columns are removed for first operator."""
+        col_names = ["id", "name", "content"]
+        removed_cols = reporter._get_removed_columns(col_names=col_names)
+
+        assert removed_cols == []
+
+    def test_get_removed_columns_with_previous_tables(self, reporter):
+        """Test removed column detection with previous tables."""
+        prev_table = pa.table({"id": ["doc1"], "name": ["file1.pdf"], "path": ["/tmp/file1.pdf"], "size": [1024]})
+        curr_table = pa.table({"id": ["doc1"], "name": ["file1.pdf"], "content": ["text"]})
+
+        reporter._previous_tables = [prev_table]
+        reporter._current_tables = [curr_table]
+
+        removed_cols = reporter._get_removed_columns(col_names=["id", "name", "content"])
+
+        assert "path" in removed_cols
+        assert "size" in removed_cols
+        assert "id" not in removed_cols
+        assert "name" not in removed_cols
+        assert "content" not in removed_cols
+
+    def test_get_removed_columns_no_previous_tables(self, reporter):
+        """Test no columns removed when no previous tables."""
+        curr_table = pa.table({"id": ["doc1"], "name": ["file1.pdf"]})
+        reporter._current_tables = [curr_table]
+
+        removed_cols = reporter._get_removed_columns(col_names=["id", "name"])
+
+        assert removed_cols == []
+
     def test_extract_column_names_from_tables(self, reporter, sample_pyarrow_table):
         """Test extracting column names from PyArrow tables."""
         columns = reporter._extract_column_names([sample_pyarrow_table])
@@ -201,6 +233,46 @@ class TestColumnGrouping:
     def test_format_group_name_default(self, reporter):
         """Test default group name formatting."""
         assert reporter._format_group_name("custom") == "Custom Features"
+
+
+class TestColumnListPrinting:
+    """Tests for _print_column_list helper method."""
+
+    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    def test_print_column_list_few_columns(self, mock_logger, reporter):
+        """Test printing few columns uses simple comma-separated format."""
+        columns = ["id", "name", "content"]
+        reporter._print_column_list(columns)
+
+        mock_logger.info.assert_called_once()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "id, name, content" in call_args
+
+    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    def test_print_column_list_many_columns(self, mock_logger, reporter):
+        """Test printing many columns uses wrapped format."""
+        columns = [f"col_{i}" for i in range(15)]
+        reporter._print_column_list(columns)
+
+        assert mock_logger.info.call_count > 1
+
+    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    def test_print_column_list_very_many_columns(self, mock_logger, reporter):
+        """Test printing very many columns uses grouped format."""
+        columns = [f"ml_feature_{i}" for i in range(25)]
+        reporter._print_column_list(columns)
+
+        assert mock_logger.info.call_count > 1
+
+    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    def test_print_column_list_custom_indent(self, mock_logger, reporter):
+        """Test custom indent is used."""
+        columns = ["id", "name"]
+        custom_indent = "       "
+        reporter._print_column_list(columns, indent=custom_indent)
+
+        call_args = mock_logger.info.call_args[0][0]
+        assert call_args.startswith(custom_indent)
 
 
 class TestMetadataCategorization:

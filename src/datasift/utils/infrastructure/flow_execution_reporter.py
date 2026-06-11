@@ -136,32 +136,40 @@ class FlowExecutionReporter:
 
         # Get new columns added by this operator
         new_columns = self._get_new_columns(col_names=col_names)
+        # Get removed columns (columns that were in previous but not in current)
+        removed_columns = self._get_removed_columns(col_names=col_names)
         existing_columns = [col for col in col_names if col not in new_columns]
 
         total_cols = len(col_names)
         new_cols_count = len(new_columns)
+        removed_cols_count = len(removed_columns)
 
         logger.info("")
-        if new_cols_count > 0:
+        # Build the header message based on what changed
+        if new_cols_count > 0 and removed_cols_count > 0:
+            logger.info(
+                f" Data Columns: {total_cols} total ({new_cols_count} added, {removed_cols_count} removed by this operator)"
+            )
+        elif new_cols_count > 0:
             logger.info(f" Data Columns: {total_cols} total ({new_cols_count} added by this operator)")
+        elif removed_cols_count > 0:
+            logger.info(f" Data Columns: {total_cols} total ({removed_cols_count} removed by this operator)")
         else:
             logger.info(f" Data Columns: {total_cols} total")
 
         # Show new columns with appropriate formatting
         if new_columns:
             logger.info(f"   Added ({new_cols_count}):")
+            self._print_column_list(new_columns)
 
-            # Format new column display based on count
-            indent = "     "
-            if new_cols_count <= 10:
-                # Simple comma-separated list
-                logger.info(f"{indent}{', '.join(new_columns)}")
-            elif new_cols_count <= 20:
-                # Wrapped list without grouping
-                self._print_wrapped_columns(new_columns, indent=indent)
-            else:
-                # Many columns: group by prefix
-                self._print_grouped_columns(new_columns, indent=indent)
+            # Add spacing before removed/existing columns
+            if removed_columns or existing_columns:
+                logger.info("")
+
+        # Show removed columns with appropriate formatting
+        if removed_columns:
+            logger.info(f"   Removed ({removed_cols_count}):")
+            self._print_column_list(removed_columns)
 
             # Add spacing before existing columns
             if existing_columns:
@@ -173,9 +181,27 @@ class FlowExecutionReporter:
             if len(existing_columns) > 10:
                 logger.info(f"      ... and {len(existing_columns) - 10} more")
 
-        if not new_columns and not existing_columns:
+        if not new_columns and not removed_columns and not existing_columns:
             # No columns at all (shouldn't happen, but handle gracefully)
             logger.info("   (no columns)")
+
+    def _print_column_list(self, columns: list[str], *, indent: str = "     ") -> None:
+        """Print a list of columns with appropriate formatting based on count.
+
+        Args:
+            columns: List of column names to print
+            indent: Indentation string for each line
+        """
+        col_count = len(columns)
+        if col_count <= 10:
+            # Simple comma-separated list
+            logger.info(f"{indent}{', '.join(columns)}")
+        elif col_count <= 20:
+            # Wrapped list without grouping
+            self._print_wrapped_columns(columns, indent=indent)
+        else:
+            # Many columns: group by prefix
+            self._print_grouped_columns(columns, indent=indent)
 
     def _get_new_columns(self, *, col_names: list[str]) -> list[str]:
         """Get list of new columns added by this operator.
@@ -203,6 +229,33 @@ class FlowExecutionReporter:
 
         # First operator or no tables: all columns are "new"
         return col_names
+
+    def _get_removed_columns(self, *, col_names: list[str]) -> list[str]:
+        """Get list of columns removed by this operator.
+
+        Uses PyArrow tables as the source of truth for schema changes.
+
+        Args:
+            col_names: Current column names
+
+        Returns:
+            List of removed column names
+        """
+        # Use PyArrow tables to get actual schema changes
+        if self._previous_tables and self._current_tables:
+            try:
+                prev_cols = self._extract_column_names(self._previous_tables)
+                curr_cols = self._extract_column_names(self._current_tables)
+
+                # Removed columns are those in previous but not in current
+                if prev_cols:
+                    return list(prev_cols - curr_cols)
+            except Exception:
+                # If table comparison fails, return empty list
+                pass
+
+        # First operator or no previous tables: no columns removed
+        return []
 
     def _extract_column_names(self, tables: list) -> set[str]:
         """Extract all column names from a list of PyArrow tables.
