@@ -315,7 +315,7 @@ class FlowValidator:
 
         self.validate_first_operator(dag=dag, global_config=global_config, validate_results=validate_results)
         self.validate_acl_operator_placement(dag=dag, validate_results=validate_results)
-        self.validate_disjoint_operators(dag=dag, validate_results=validate_results)
+        self.validate_disjoint_operators(dag=dag, global_config=global_config, validate_results=validate_results)
         self.validate_no_cycles(dag=dag, validate_results=validate_results)
         self.validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
 
@@ -736,7 +736,7 @@ class FlowValidator:
             alerts=validate_results.errors,
         )
 
-    def validate_disjoint_operators(self, *, dag: list, validate_results: ValidateStepResults):
+    def validate_disjoint_operators(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain disconnected (disjoint) operators.
 
         Args:
@@ -747,17 +747,122 @@ class FlowValidator:
         undirected = self._make_undirected_graph(graph)
         components = self._find_connected_components(undirected)
 
+        id_to_index = {n["id"]: i for i, n in enumerate(dag)}
+        reported_nodes: set[str] = set()
+        reverse_graph: dict[str, list[str]] = self._build_reverse_graph(dag)
+
         if len(components) > 1:
-            # Identify the last operator node in the first connected component and report it in the error.
-            id_to_index = {n["id"]: i for i, n in enumerate(dag)}
-            index = id_to_index.get(list(components[0])[-1])
-            if index is not None:
+            self._validate_disconnected_components(
+                components=components,
+                graph=graph,
+                dag=dag,
+                id_to_index=id_to_index,
+                global_config=global_config,
+                validate_results=validate_results,
+                reported_nodes=reported_nodes,
+            )
+        # check if any nodes are isolated
+        self._validate_isolated_nodes(
+            dag=dag,
+            graph=graph,
+            reverse_graph=reverse_graph,
+            reported_nodes=reported_nodes,
+            validate_results=validate_results,
+        )
+
+    def _build_reverse_graph(self, dag: list) -> dict:
+        """Build reverse graph to find nodes without inputs."""
+        reverse_graph: dict[str, list[str]] = {n["id"]: [] for n in dag}
+        for node in dag:
+            for edge in node.get("output_edges", []):
+                target_node_id = edge.get("node_id_ref")
+                if target_node_id and target_node_id in reverse_graph:
+                    reverse_graph[target_node_id].append(node["id"])
+        return reverse_graph
+
+    def _validate_disconnected_components(
+        self,
+        *,
+        components: list,
+        graph: dict,
+        dag: list,
+        id_to_index: dict,
+        global_config: dict,
+        validate_results: ValidateStepResults,
+        reported_nodes: set,
+    ):
+        """Validate disconnected components and report terminal nodes that are not VectorDB operators."""
+        for component in components:
+            terminal_node_id = self._find_terminal_node(component, graph)
+            if terminal_node_id is None:
+                continue
+
+            self._report_non_vectordb_terminal(
+                terminal_node_id=terminal_node_id,
+                id_to_index=id_to_index,
+                dag=dag,
+                global_config=global_config,
+                validate_results=validate_results,
+                reported_nodes=reported_nodes,
+            )
+
+    def _find_terminal_node(self, component: set, graph: dict) -> str | None:
+        """Find the terminal node (node with no outgoing edges) in a component."""
+        for node_id in component:
+            if not graph.get(node_id, []):
+                return node_id
+        return None
+
+    def _report_non_vectordb_terminal(
+        self,
+        *,
+        terminal_node_id: str,
+        id_to_index: dict,
+        dag: list,
+        global_config: dict,
+        validate_results: ValidateStepResults,
+        reported_nodes: set,
+    ):
+        """Report terminal node if it's not a VectorDB operator."""
+        index = id_to_index.get(terminal_node_id)
+        if index is None:
+            return
+
+        terminal_node = dag[index]
+        category = self.get_operator_category(
+            op_def=terminal_node, global_config=global_config, alerts=validate_results.errors
+        )
+
+        if category != OperatorCategory.VectorDB:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.value,
+                    message_code=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name,
+                ),
+                op_def=terminal_node,
+                alerts=validate_results.errors,
+            )
+            reported_nodes.add(terminal_node_id)
+
+    def _validate_isolated_nodes(
+        self, *, dag: list, graph: dict, reverse_graph: dict, reported_nodes: set, validate_results: ValidateStepResults
+    ):
+        """Check for isolated nodes (nodes with no input AND no output)."""
+        for node in dag:
+            node_id = node.get("id")
+            if not node_id or node_id in reported_nodes:
+                continue
+
+            has_output = bool(graph.get(node_id, []))
+            has_input = bool(reverse_graph.get(node_id, []))
+
+            if not has_output and not has_input:
                 add_validation_alert(
                     message=ValidationMessage(
                         message=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.value,
                         message_code=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name,
                     ),
-                    op_def=dag[index],
+                    op_def=node,
                     alerts=validate_results.errors,
                 )
 

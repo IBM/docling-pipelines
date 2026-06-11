@@ -272,7 +272,7 @@ class TestFlowValidator:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Should not add errors for connected graph
-        validator.validate_disjoint_operators(dag=dag, validate_results=validate_results)
+        validator.validate_disjoint_operators(dag=dag, global_config={}, validate_results=validate_results)
 
         assert len(validate_results.errors) == 0
 
@@ -290,7 +290,7 @@ class TestFlowValidator:
 
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_disjoint_operators(dag=dag, validate_results=validate_results)
+        validator.validate_disjoint_operators(dag=dag, global_config={}, validate_results=validate_results)
 
         # Should add error for disconnected graph
         assert len(validate_results.errors) > 0
