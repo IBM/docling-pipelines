@@ -16,6 +16,7 @@ from datasift.core.operators.extract.ports.outbound.entity_extraction import Ent
 from datasift.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from datasift.core.ports.llm_inference_port import LLMInferencePort
 from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.llm import parse_llm_json_response
 
 logger = get_logger(__name__)
 
@@ -303,20 +304,14 @@ Extract all named entities and structured information from the document."""
         Returns:
             Parsed JSON dictionary, or empty dict if parsing fails
         """
-        import json
-        import re
-
-        # Remove markdown code fences if present
-        response = response.strip()
-        if response.startswith("```"):
-            # Remove opening fence (```json or ```)
-            response = re.sub(r"^```(?:json)?\s*\n?", "", response)
-            # Remove closing fence
-            response = re.sub(r"\n?```\s*$", "", response)
-            response = response.strip()
+        from datasift.exceptions.datasift_exceptions import DatasiftException
 
         try:
-            return json.loads(response)
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse JSON response: %s. Response: %s", e, response[:200])
+            return parse_llm_json_response(
+                response,
+                log_on_error=True,
+                log_level="warning",
+            )
+        except DatasiftException:
+            # Return empty dict on parsing failure (maintains backward compatibility)
             return {}
