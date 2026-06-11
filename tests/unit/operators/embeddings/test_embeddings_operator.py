@@ -171,8 +171,7 @@ class TestEmbeddingsOperatorInitialization:
         operator = EmbeddingsOperator(litellm_config)
         required = operator.get_required_features()
 
-        assert "content" in required
-        assert len(required) == 1
+        assert len(required) == 0
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_adapter_validation_called_on_init(self, mock_factory, litellm_config, mock_llm_adapter):
@@ -243,7 +242,6 @@ class TestEmbeddingsOperatorMetadata:
         features = metadata[OperatorConstants.Config.FEATURES]
 
         assert OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in features
-        assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in features
 
         # Check embeddings feature details
         embeddings_feature = features[OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT]
@@ -298,21 +296,50 @@ class TestEmbeddingsOperatorValidation:
         assert len(errors) == 0
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
-    def test_validate_missing_content_feature(self, mock_factory, litellm_config, mock_llm_adapter):
-        """Test validation with missing content feature."""
+    def test_validate_missing_both_content_and_chunked_content(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation with missing both content and chunked_content features."""
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
         errors = []
         warnings = []
-        available_features = []  # No content feature
+        available_features = []  # No content or chunked_content
 
         operator.validate(errors, warnings, available_features)
 
         assert len(errors) > 0
-        # Handle ValidationMessage objects by converting to string
         error_msg = str(errors[0])
-        assert "content" in error_msg.lower()
+        assert "content" in error_msg.lower() or "chunked_content" in error_msg.lower()
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_with_chunked_content_only(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation passes with only chunked_content feature (no content)."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+        errors = []
+        warnings = []
+        available_features = ["chunked_content"]  # Only chunked_content
+
+        operator.validate(errors, warnings, available_features)
+
+        # Should not have errors since chunked_content is available
+        assert len(errors) == 0
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_with_content_only(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation passes with only content feature."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+        errors = []
+        warnings = []
+        available_features = ["content"]  # Only content
+
+        operator.validate(errors, warnings, available_features)
+
+        # Should not have errors since content is available
+        assert len(errors) == 0
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_validate_supported_providers(self, mock_factory, mock_llm_adapter):

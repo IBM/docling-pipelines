@@ -1201,7 +1201,6 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 **Output Schema**
 
 - `embeddings`
-- `doc_id_hash`
 
 **Exceptions**
 

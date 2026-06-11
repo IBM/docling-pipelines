@@ -190,11 +190,6 @@ Watsonx:
 - Returns single vector for entire document
 - Long documents are automatically chunked and averaged
 
-### 2. `doc_id_hash` (String)
-**Description:** Unique hash identifier for the document (auto-generated if not present).
-**Type:** String
-**Available for Vector DB:** Yes
-**Tags:** `mandatory`, `internal_feature`
 
 ## Configuration Examples
 

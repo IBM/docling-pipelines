@@ -202,7 +202,7 @@ class EmbeddingsOperator(AbstractOperator):
     @staticmethod
     def get_required_features() -> list[str]:
         """Return list of required input features."""
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+        return []
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
@@ -214,6 +214,16 @@ class EmbeddingsOperator(AbstractOperator):
             available_features: List of available input features
         """
         super().validate(errors, warnings, available_features)
+
+        # Check for content OR chunked_content column
+        has_content = OperatorConstants.Columns.DOC_COLUMN_DEFAULT in available_features
+        has_chunked_content = OperatorConstants.Columns.CHUNKED_CONTENT in available_features
+
+        if not has_content and not has_chunked_content:
+            errors.append(
+                f"Embeddings operator requires either '{OperatorConstants.Columns.DOC_COLUMN_DEFAULT}' "
+                f"or '{OperatorConstants.Columns.CHUNKED_CONTENT}' column to be available"
+            )
 
         # Get metadata and extract ATTRIBUTES for validation
         metadata = self.get_metadata()
@@ -305,16 +315,6 @@ class EmbeddingsOperator(AbstractOperator):
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                     OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_VECTOR,
-                },
-                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
-                    OperatorConstants.Misc.NAME: "Document ID Hash",
-                    OperatorConstants.Config.DESCRIPTION: "Unique hash identifier for the document",
-                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.Misc.TAGS: [
-                        OperatorConstants.Misc.MANDATORY,
-                        OperatorConstants.Misc.INTERNAL_FEATURE,
-                    ],
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
             },
             OperatorConstants.Config.ATTRIBUTES: {
@@ -822,8 +822,17 @@ class EmbeddingsOperator(AbstractOperator):
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
-        # Ensure doc_id_hash column exists using DocIdHashOperator
+        # Ensure doc_id_hash column exists
+        # DocIdHashOperator requires content column, so check if it's available
         if self.doc_id_hash_column not in table.column_names:
+            if self.doc_column not in table.column_names:
+                # Cannot generate doc_id_hash without content column
+                error = DatasiftException(
+                    f"Cannot generate '{self.doc_id_hash_column}' column: '{self.doc_column}' column is missing."
+                )
+                return self._handle_doc_hash_generation_failure(table, error, metadata)
+
+            # Generate doc_id_hash using DocIdHashOperator
             try:
                 doc_id_op: DocIdHashOperator = DocIdHashOperator(
                     config={
