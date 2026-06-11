@@ -42,7 +42,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 **Required:** Yes  
 **Description:** Provider-specific connection parameters. Structure varies by provider.
 
-**S3 Example:**
+**S3 Example (Folder):**
 ```json
 "connection_params": {
   "bucket": "my-documents",
@@ -50,6 +50,17 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
   "region": "us-east-1"
 }
 ```
+
+**S3 Example (Specific File):**
+```json
+"connection_params": {
+  "bucket": "my-documents",
+  "prefix": "invoices/report.pdf",
+  "region": "us-east-1"
+}
+```
+
+**Note:** S3 is the only provider that supports file-level ingestion via the `prefix` parameter. Other providers only support folder-level ingestion.
 
 **SharePoint Example:**
 ```json
@@ -185,6 +196,8 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ## Provider-Specific Configuration
 
 ### S3 / IBM COS
+
+**Folder Ingestion:**
 ```json
 {
   "provider": "s3",
@@ -200,6 +213,25 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
   }
 }
 ```
+
+**File-Level Ingestion (S3 Only):**
+```json
+{
+  "provider": "s3",
+  "connection_params": {
+    "bucket": "my-bucket",
+    "prefix": "documents/report.pdf",
+    "region": "us-east-1",
+    "endpoint_url": "https://s3.amazonaws.com"
+  },
+  "credentials": {
+    "aws_access_key_id": "AKIA...",
+    "aws_secret_access_key": "..."
+  }
+}
+```
+
+**Note:** The `prefix` parameter supports both folder paths (e.g., `"documents/"`) and specific file paths (e.g., `"documents/report.pdf"`). File-level ingestion is unique to S3 and not available for other providers.
 
 ### SharePoint
 ```json

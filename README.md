@@ -175,7 +175,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 - **Local Folder** - Ingest documents from local filesystem
 - **Cloud/Object Storage** - Ingest documents from multiple cloud providers ([see full list](docs/operators/ingest_source/ingest_source.md#supported-providers)):
-  - Amazon S3
+  - Amazon S3 (supports both folder and file-level ingestion)
   - IBM Cloud Object Storage (COS)
   - Microsoft SharePoint
   - Microsoft OneDrive
@@ -184,6 +184,8 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
   - Custom LangChain-compatible loaders
 - **CSV** - Ingest structured data from CSV files
 - **Web Pages** - Ingest web content with the `WebPageSourceAdapter`, backed by LangChain `RecursiveUrlLoader` for recursive crawling
+
+**Note:** Amazon S3 is the only provider that supports file-level ingestion (e.g., `prefix: "documents/report.pdf"`). Other providers only support folder-level ingestion.
 
 For detailed configuration and usage of each provider, see the [Ingest Source Operator documentation](docs/operators/ingest_source/ingest_source.md).
 

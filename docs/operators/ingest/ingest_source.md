@@ -52,7 +52,7 @@ node_config = {
 
 **Parameters:**
 - `bucket` (required): S3 bucket name
-- `prefix` (optional): Path prefix to filter objects
+- `prefix` (optional): S3 key prefix to filter objects. Supports both folder-level (e.g., `'documents/reports/'`) and file-level (e.g., `'documents/report.pdf'`) ingestion. **Note:** File-level ingestion is unique to S3 and not available for other providers.
 - `endpoint_url` (optional): Custom S3 endpoint URL for S3-compatible storage (e.g., IBM COS, MinIO). Leave empty for AWS S3.
 - `region` (optional): AWS region (e.g., 'us-east-1'). Optional for S3-compatible storage.
 - `access_key` (required): AWS access key ID or S3-compatible access key
@@ -623,13 +623,13 @@ Get operator metadata including features and attributes.
 
 ## Examples
 
-### Example 1: S3 with Prefix Filtering
+### Example 1: S3 with Folder Prefix Filtering
 ```python
 node_config = {
     'provider': 's3',
     'connection_params': {
         'bucket': 'company-documents',
-        'prefix': '2024/invoices/'
+        'prefix': '2024/invoices/'  # Ingests all files in this folder
     },
     'credentials': {
         'access_key': os.getenv('AWS_ACCESS_KEY'),
@@ -638,7 +638,22 @@ node_config = {
 }
 ```
 
-### Example 2: S3-Compatible Storage (IBM COS)
+### Example 2: S3 with File-Level Ingestion
+```python
+node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'company-documents',
+        'prefix': '2024/invoices/report.pdf'  # Ingests only this specific file
+    },
+    'credentials': {
+        'access_key': os.getenv('AWS_ACCESS_KEY'),
+        'secret_key': os.getenv('AWS_SECRET_KEY')
+    }
+}
+```
+
+### Example 3: S3-Compatible Storage (IBM COS)
 ```python
 node_config = {
     'provider': 's3',

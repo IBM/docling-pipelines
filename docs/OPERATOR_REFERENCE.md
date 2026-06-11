@@ -293,6 +293,7 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Example**
 
+**Folder Ingestion:**
 ```json
 {
   "id": "ingest-source-node",
@@ -307,6 +308,24 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
   }
 }
 ```
+
+**File-Level Ingestion (S3 Only):**
+```json
+{
+  "id": "ingest-source-node",
+  "name": "s3-file-ingest",
+  "operator": "ingest_source",
+  "config": {
+    "source_type": "s3",
+    "provider_config": {
+      "bucket": "example-bucket",
+      "prefix": "incoming/document.pdf"
+    }
+  }
+}
+```
+
+**Note:** S3 is the only provider that supports file-level ingestion. Use the `prefix` parameter to specify either a folder path (e.g., `"incoming/"`) or a specific file path (e.g., `"incoming/document.pdf"`).
 
 ---
 
