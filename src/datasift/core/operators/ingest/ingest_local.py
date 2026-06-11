@@ -198,30 +198,42 @@ class IngestLocalOperator(AbstractOperator):
         return [table], combined_metadata
 
     def process_files(self, root_folder: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """
+        Process files with streaming batch-fetch logic.
+
+        Streams files as they're discovered and processes in batches until
+        max_files newly processed documents are reached. This ensures continuous
+        progress across multiple runs even when encountering already-processed files.
+        """
         data: list[dict[str, Any]] = []
-        file_count: int = 0
-        processed_count: int = 0
-        max_files_reached: bool = False
+        examined_count: int = 0  # Total files examined
+        processed_count: int = 0  # Newly processed files
 
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=0)
 
         # Process single file
         if os.path.isfile(root_folder):
-            file_count = 1
+            examined_count = 1
             single_doc: dict[str, Any] | None = self.process_file(
-                os.path.dirname(root_folder), os.path.basename(root_folder), metadata, file_count
+                os.path.dirname(root_folder), os.path.basename(root_folder), metadata
             )
             if single_doc:
                 processed_count = 1
                 data.append(single_doc)
         else:
-            # Process directory
+            # Process directory with streaming batch logic
             for root, dirs, files in os.walk(root_folder, topdown=True):
-                if max_files_reached:
-                    break
-                if files and dirs:
+                # Check if we've processed enough NEW files
+                if processed_count >= self.max_files:
                     logger.info(
+                        f"Reached max_files limit ({self.max_files}), examined {examined_count} files, processed {processed_count} new files",
+                        extra=self.common_log_arguments,
+                    )
+                    break
+
+                if files and dirs:
+                    logger.debug(
                         ">>> %s/%s/%s",
                         root,
                         dirs[0],
@@ -229,33 +241,50 @@ class IngestLocalOperator(AbstractOperator):
                         extra=self.common_log_arguments,
                     )
                 elif files:
-                    logger.info(">>> %s/%s", root, files[0], extra=self.common_log_arguments)
-                elif dirs:
-                    logger.info("No files found in: %s", root, extra=self.common_log_arguments)
-                else:
-                    logger.info(
-                        "No files or subdirectories found in: %s",
-                        root,
-                        extra=self.common_log_arguments,
-                    )
+                    logger.debug(">>> %s/%s", root, files[0], extra=self.common_log_arguments)
 
                 for file in files:
-                    file_count += 1
-                    doc: dict[str, Any] | None = self.process_file(root, file, metadata, file_count)
+                    # Check if we've processed enough NEW files
+                    if processed_count >= self.max_files:
+                        logger.info(
+                            f"Reached max_files limit ({self.max_files}), examined {examined_count} files, processed {processed_count} new files",
+                            extra=self.common_log_arguments,
+                        )
+                        break
+
+                    examined_count += 1
+                    doc: dict[str, Any] | None = self.process_file(root, file, metadata)
                     if doc:
                         processed_count += 1
                         data.append(doc)
-                    elif file_count > self.max_files:
-                        max_files_reached = True
-                        break
+                        logger.debug(
+                            f"Processed file {processed_count}/{self.max_files}: {file}",
+                            extra=self.common_log_arguments,
+                        )
 
         # Update total docs and processed count
-        metadata[Metrics.External.TOTAL_DOCS] = file_count
+        metadata[Metrics.External.TOTAL_DOCS] = examined_count
         metadata[Metrics.External.PROCESSED_DOCS] = processed_count
+
+        logger.info(
+            f"Completed processing: examined {examined_count} files, processed {processed_count} new files",
+            extra=self.common_log_arguments,
+        )
 
         return data, metadata
 
-    def process_file(self, root: str, file: str, metadata: dict[str, Any], file_count: int) -> dict[str, Any] | None:
+    def process_file(self, root: str, file: str, metadata: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        Process a single file and return document metadata.
+
+        Args:
+            root: Root directory path
+            file: Filename
+            metadata: Metadata dictionary for tracking
+
+        Returns:
+            Document dictionary if processed successfully, None otherwise
+        """
         abs_path: str = os.path.join(root, file)
         stats: os.stat_result = os.stat(abs_path)
         if not self.check_constraints(
@@ -263,7 +292,6 @@ class IngestLocalOperator(AbstractOperator):
             file_stats=stats,
             abs_path=abs_path,
             metadata=metadata,
-            file_count=file_count,
         ):
             return None
         doc_id: str = str(stats.st_ino)
@@ -348,8 +376,22 @@ class IngestLocalOperator(AbstractOperator):
         file_stats: os.stat_result,
         abs_path: str,
         metadata: dict[str, Any],
-        file_count: int,
     ) -> bool:
+        """
+        Check file constraints (size, extension filters).
+
+        Note: max_files limit is now checked in process_files() based on
+        processed_count, not total examined files.
+
+        Args:
+            file: Filename
+            file_stats: File statistics
+            abs_path: Absolute file path
+            metadata: Metadata dictionary for tracking
+
+        Returns:
+            True if file passes constraints, False otherwise
+        """
         if file_stats.st_size >= self.max_file_size:
             logger.warn(
                 "File size exceeded max permitted size %s",
@@ -361,13 +403,6 @@ class IngestLocalOperator(AbstractOperator):
                 doc_id=str(file_stats.st_ino),
                 doc_name=abs_path,
                 reason=f"File Size exceeded max permitted size for the file {abs_path} with the file size {file_stats.st_size}",
-            )
-            return False
-
-        elif file_count > self.max_files:
-            logger.info(
-                f"File count exceeded max files permitted: {self.max_files}",
-                extra=self.common_log_arguments,
             )
             return False
 

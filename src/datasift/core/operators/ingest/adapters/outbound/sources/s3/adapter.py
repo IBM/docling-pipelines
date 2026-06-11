@@ -54,7 +54,11 @@ class S3SourceAdapter(DocumentSourcePort):
 
     async def fetch_documents(self, config: S3SourceConfig) -> AsyncGenerator[Document, None]:
         """
-        Fetch documents from S3 bucket.
+        Fetch documents from S3 bucket using streaming pagination.
+
+        This method streams documents as they're listed from S3, without loading
+        all object metadata into memory first. The operator's batch-fetch logic
+        will handle the max_files limit during processing.
 
         Args:
             config: Validated S3 configuration
@@ -71,27 +75,26 @@ class S3SourceAdapter(DocumentSourcePort):
             # Create S3 client
             s3_client = self._create_s3_client(config)
 
-            # List and filter objects
-            s3_objects = self._list_s3_objects(s3_client, config)
-
             logger.info(
-                f"Found {len(s3_objects)} matching objects in S3 bucket '{config.bucket}' with prefix '{config.prefix}'"
+                f"Streaming S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'"
             )
 
-            # Download and yield documents
+            # Stream objects using async generator
             fetched_count = 0
-            for s3_obj in s3_objects:
+            async for s3_obj in self._stream_s3_objects(s3_client, config):
                 try:
                     document = await self._download_s3_object(s3_client, config, s3_obj)
                     if document:
+                        fetched_count += 1
                         logger.info(
-                            f"Ingesting file: s3://{config.bucket}/{s3_obj['Key']} ({s3_obj.get('Size', 0)} bytes)"
+                            f"Ingesting file #{fetched_count}: s3://{config.bucket}/{s3_obj['Key']} ({s3_obj.get('Size', 0)} bytes)"
                         )
                         yield document
-                        fetched_count += 1
                 except Exception as e:
                     logger.error(f"Failed to download S3 object {s3_obj['Key']}: {e}", exc_info=True)
                     continue
+
+            logger.info(f"Completed streaming from S3 bucket '{config.bucket}', fetched {fetched_count} documents")
 
         except (ClientError, BotoCoreError) as e:
             logger.error(f"S3 error while fetching documents: {e}", exc_info=True)
@@ -316,30 +319,36 @@ class S3SourceAdapter(DocumentSourcePort):
             )
             return None
 
-    def _list_s3_objects(self, s3_client: Any, config: S3SourceConfig) -> list[dict[str, Any]]:
+    async def _stream_s3_objects(self, s3_client: Any, config: S3SourceConfig) -> AsyncGenerator[dict[str, Any], None]:
         """
-        List and filter S3 objects based on configuration.
+        Stream S3 objects as they're listed, without loading all into memory.
 
-        Stops early once max_files matching objects have been collected.
+        This method yields S3 object metadata one at a time as pages are received
+        from S3, enabling true streaming behavior. The max_files limit is NOT
+        applied here - it's handled by the operator's batch-fetch logic.
 
         Args:
             s3_client: boto3 S3 client
             config: S3 configuration
 
-        Returns:
-            List of S3 object metadata dictionaries
+        Yields:
+            S3 object metadata dictionaries
         """
-        objects: list[dict[str, Any]] = []
-
-        logger.info(f"Listing S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
+        logger.info(f"Streaming S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
 
         paginator = s3_client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=config.bucket, Prefix=config.prefix)
 
+        total_listed = 0
+        total_yielded = 0
+
         for page_number, page in enumerate(pages, start=1):
             page_contents = page.get("Contents", [])
-            logger.info(
-                f"Received S3 page {page_number} with {len(page_contents)} object(s) for bucket '{config.bucket}'"
+            total_listed += len(page_contents)
+
+            logger.debug(
+                f"Received S3 page {page_number} with {len(page_contents)} object(s) "
+                f"(total listed: {total_listed}, yielded: {total_yielded})"
             )
 
             if not page_contents:
@@ -349,15 +358,14 @@ class S3SourceAdapter(DocumentSourcePort):
                 if self._should_skip_object(obj, config):
                     continue
 
-                objects.append(obj)
+                total_yielded += 1
+                yield obj
 
-                if config.max_files is not None and len(objects) >= config.max_files:
-                    logger.info(
-                        f"Reached max_files limit ({config.max_files}) while listing S3 bucket '{config.bucket}'"
-                    )
-                    return objects
+        logger.info(
+            f"Completed listing S3 bucket '{config.bucket}': "
+            f"listed {total_listed} objects, yielded {total_yielded} after filtering"
+        )
 
-        return objects
 
     def _should_skip_object(self, obj: dict[str, Any], config: S3SourceConfig) -> bool:
         """

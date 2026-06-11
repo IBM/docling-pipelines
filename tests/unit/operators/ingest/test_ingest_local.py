@@ -148,8 +148,10 @@ class TestIngestLocalOperator:
             table = tables[0]
 
             # Verify processing stops immediately after max_files is reached
-            assert metadata["total_docs_count"] == 11, (
-                "file_count should be max_files + 1 (the file that triggered the limit)"
+            # With the new batch-fetch logic, we check BEFORE processing each file,
+            # so total_docs_count equals processed_docs when max_files is reached
+            assert metadata["total_docs_count"] == 10, (
+                "total_docs_count should equal max_files with new batch-fetch logic"
             )
             assert metadata["processed_docs"] == 10, "Should process exactly max_files documents"
             assert table.num_rows == 10, "Should have exactly max_files rows in table"

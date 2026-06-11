@@ -179,7 +179,7 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(ValueError, match="provider should use _load_documents_via_adapter"):
+        with pytest.raises(ValueError, match="provider should use _process_documents_from_adapter"):
             operator._get_loader()
 
     def test_get_loader_ibm_cos(self):
@@ -201,7 +201,7 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(ValueError, match="provider should use _load_documents_via_adapter"):
+        with pytest.raises(ValueError, match="provider should use _process_documents_from_adapter"):
             operator._get_loader()
 
     def test_get_loader_google_drive(self):
@@ -224,7 +224,7 @@ class TestGetLoader:
         # Calling _get_loader() should raise ValueError
         with pytest.raises(
             ValueError,
-            match="google_drive provider should use _load_documents_via_adapter",
+            match="google_drive provider should use _process_documents_from_adapter",
         ):
             operator._get_loader()
 
@@ -246,7 +246,7 @@ class TestGetLoader:
 
         with pytest.raises(
             ValueError,
-            match="sharepoint provider should use _load_documents_via_adapter",
+            match="sharepoint provider should use _process_documents_from_adapter",
         ):
             operator._get_loader()
 
@@ -269,7 +269,7 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(ValueError, match="onedrive provider should use _load_documents_via_adapter"):
+        with pytest.raises(ValueError, match="onedrive provider should use _process_documents_from_adapter"):
             operator._get_loader()
 
     @patch("importlib.import_module")
@@ -672,8 +672,19 @@ class TestTransform:
 
         operator = IngestSourceOperator(config)
 
-        # Patch the _load_documents_via_adapter method to return our mocked documents
-        with patch.object(operator, "_load_documents_via_adapter", mock_load_documents_via_adapter):
+        # Patch the _process_documents_from_adapter method to return our mocked documents
+        # This is the new method used for adapter-based providers with batch-fetch logic
+        def mock_process_from_adapter(metadata_dict):
+            """Mock the new _process_documents_from_adapter method"""
+            docs = mock_load_documents_via_adapter()
+            doc_data = []
+            for idx, doc in enumerate(docs):
+                processed_doc = operator.process_document(doc, idx, metadata_dict)
+                if processed_doc:
+                    doc_data.append(processed_doc)
+            return doc_data
+
+        with patch.object(operator, "_process_documents_from_adapter", mock_process_from_adapter):
             # Also need to mock SourceAdapterFactory.is_registered to return True
             with patch(
                 "datasift.core.operators.ingest.ingest_source.SourceAdapterFactory.is_registered",

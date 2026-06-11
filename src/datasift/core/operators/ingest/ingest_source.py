@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import importlib
+import itertools
 import json
 from typing import Any, ClassVar, Iterator, cast
 
@@ -247,9 +248,6 @@ class MicrosoftGraphLoader(BaseLoader):
         return list(self.lazy_load())
 
 
-# Aliases for backward compatibility with tests
-SharePointLoader = MicrosoftGraphLoader
-OneDriveLoader = MicrosoftGraphLoader
 
 
 # Configuration keys
@@ -441,6 +439,13 @@ class IngestSourceOperator(AbstractOperator):
         """
         Process documents from the configured LangChain loader or new adapter.
 
+        Implements batch-fetch logic: fetches documents in batches of max_files,
+        processes them, and continues fetching until max_files newly processed
+        documents are reached or no more documents are available.
+
+        For adapters: Uses async generator pattern for true memory efficiency,
+        processing documents as they're yielded instead of loading all into memory.
+
         Args:
             metadata: Metadata dictionary for tracking
 
@@ -449,6 +454,7 @@ class IngestSourceOperator(AbstractOperator):
         """
         doc_data: list[dict[str, Any]] = []
         processed_count: int = 0
+        total_fetched: int = 0
 
         try:
             logger.info(
@@ -456,38 +462,64 @@ class IngestSourceOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
-            # Try to use new adapter architecture first
-            documents: list[Document] | Iterator[Document]
+            # Get document iterator (lazy loading)
             if SourceAdapterFactory.is_registered(self.provider):
-                # Use lazy loading for adapters to respect max_files limit
-                documents = self._load_documents_via_adapter()
+                # Use async generator for memory-efficient streaming
+                doc_data = self._process_documents_from_adapter(metadata)
+                return doc_data
             else:
                 loader: BaseLoader = self._get_loader()
                 # Use lazy_load if available, otherwise fall back to load()
                 if hasattr(loader, "lazy_load"):
                     documents = cast(Iterator[Document], loader.lazy_load())
                 else:
-                    documents = loader.load()
+                    documents = iter(loader.load())
 
-            # Process documents one at a time, respecting max_files limit
-            for idx, doc in enumerate(documents):
-                if processed_count >= self.max_files:
+                # Process documents in batches until max_files newly processed docs reached
+                while processed_count < self.max_files:
+                    # Fetch next batch of documents
+                    batch = list(itertools.islice(documents, self.max_files))
+
+                    if not batch:
+                        # No more documents available
+                        logger.info(
+                            f"No more documents available. Total fetched: {total_fetched}, processed: {processed_count}",
+                            extra=self.common_log_arguments,
+                        )
+                        break
+
+                    total_fetched += len(batch)
                     logger.info(
-                        f"Reached max files limit: {self.max_files}",
+                        f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
                         extra=self.common_log_arguments,
                     )
-                    break
 
-                # Process individual document
-                processed_doc: dict[str, Any] | None = self.process_document(doc, idx, metadata)
-                if processed_doc:
-                    doc_data.append(processed_doc)
-                    processed_count += 1
+                    # Process each document in the batch
+                    for idx, doc in enumerate(batch):
+                        if processed_count >= self.max_files:
+                            logger.info(
+                                f"Reached max files limit: {self.max_files}",
+                                extra=self.common_log_arguments,
+                            )
+                            break
 
-            logger.info(
-                f"Processed {processed_count} documents from {self.provider}",
-                extra=self.common_log_arguments,
-            )
+                        # Calculate global index for this document
+                        global_idx = total_fetched - len(batch) + idx
+
+                        # Process individual document
+                        processed_doc: dict[str, Any] | None = self.process_document(doc, global_idx, metadata)
+                        if processed_doc:
+                            doc_data.append(processed_doc)
+                            processed_count += 1
+
+                    # If we've processed enough documents, stop fetching more batches
+                    if processed_count >= self.max_files:
+                        break
+
+                logger.info(
+                    f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
+                    extra=self.common_log_arguments,
+                )
 
         except Exception as e:
             logger.error(
@@ -503,43 +535,42 @@ class IngestSourceOperator(AbstractOperator):
 
         return doc_data
 
-    def _load_documents_via_adapter(self) -> list[Document]:
+    def _process_documents_from_adapter(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         """
-        Load documents using the adapter architecture with automatic provider selection.
+        Process documents from adapter using async generator for memory efficiency.
 
-        This method uses the SourceAdapterFactory to automatically select and instantiate
-        the correct adapter based on the provider name. It eliminates the need for
-        provider-specific if-else conditions and delegates configuration building to
-        provider-specific config builders.
+        This method preserves the async generator pattern from adapters, processing
+        documents as they're yielded instead of loading all into memory first.
+        Implements batch-fetch logic with incremental processing support.
+
+        Args:
+            metadata: Metadata dictionary for tracking
 
         Returns:
-            List of LangChain Document objects
+            List of processed document dictionaries
 
         Raises:
             ValueError: If provider is not registered or configuration is invalid
         """
-        # Get the adapter class for this provider
-        adapter_class = SourceAdapterFactory.get_adapter_class(self.provider)
-        if not adapter_class:
-            raise ValueError(
-                f"No adapter registered for provider '{self.provider}'. "
-                f"Available providers: {', '.join(SourceAdapterFactory.get_registered_names())}"
-            )
-
-        # Create adapter instance once and build config using it
+        # Create adapter instance and build config
         adapter, config = self._build_adapter_config(self.provider)
 
-        # Run async fetch in sync context and convert to LangChain Documents
-        async def fetch_all():
-            langchain_docs = []
-            # fetch_documents is an async generator, iterate directly
+        doc_data: list[dict[str, Any]] = []
+        processed_count: int = 0
+        total_fetched: int = 0
+
+        # Process documents using async generator with batch-fetch logic
+        async def process_async_generator():
+            nonlocal processed_count, total_fetched
+
+            batch: list[Document] = []
+            batch_size = self.max_files
+
+            # Iterate through async generator
             async for domain_doc in adapter.fetch_documents(config):  # type: ignore[misc]
                 # Convert domain Document to LangChain Document
-                # LangChain Document expects page_content (str) and metadata (dict)
-                # Note: We store binary content as a special attribute, not in metadata
-                # to avoid JSON serialization issues
                 langchain_doc = Document(
-                    page_content="",  # Will be populated by extract_content
+                    page_content="",
                     metadata={
                         "source": domain_doc.source_url,
                         "name": domain_doc.name,
@@ -548,30 +579,78 @@ class IngestSourceOperator(AbstractOperator):
                         "size": domain_doc.size,
                         "mimetype": domain_doc.mimetype,
                         "extension": domain_doc.extension,
-                        # Mark that binary content is available
                         "has_binary_content": True,
                         **domain_doc.metadata,
                     },
                 )
-                # Store binary content as a private attribute to avoid JSON serialization
-                # This will be accessed by extract_content method
                 langchain_doc._binary_content = domain_doc.content  # type: ignore[attr-defined]
-                langchain_docs.append(langchain_doc)
-            return langchain_docs
 
-        # Handle both async contexts (Jupyter, Prefect) and sync contexts (CLI)
+                batch.append(langchain_doc)
+                total_fetched += 1
+
+                # Process batch when it reaches batch_size
+                if len(batch) >= batch_size:
+                    logger.info(
+                        f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
+                        extra=self.common_log_arguments,
+                    )
+
+                    # Process documents in batch
+                    for idx, doc in enumerate(batch):
+                        if processed_count >= self.max_files:
+                            logger.info(
+                                f"Reached max files limit: {self.max_files}",
+                                extra=self.common_log_arguments,
+                            )
+                            return  # Stop processing
+
+                        global_idx = total_fetched - len(batch) + idx
+                        processed_doc = self.process_document(doc, global_idx, metadata)
+                        if processed_doc:
+                            doc_data.append(processed_doc)
+                            processed_count += 1
+
+                    # Clear batch and check if we've processed enough
+                    batch.clear()
+                    if processed_count >= self.max_files:
+                        return  # Stop fetching more documents
+
+            # Process remaining documents in final batch
+            if batch and processed_count < self.max_files:
+                logger.info(
+                    f"Fetched final batch of {len(batch)} documents (total fetched: {total_fetched})",
+                    extra=self.common_log_arguments,
+                )
+
+                for idx, doc in enumerate(batch):
+                    if processed_count >= self.max_files:
+                        break
+
+                    global_idx = total_fetched - len(batch) + idx
+                    processed_doc = self.process_document(doc, global_idx, metadata)
+                    if processed_doc:
+                        doc_data.append(processed_doc)
+                        processed_count += 1
+
+        # Run async generator in sync context
         try:
             asyncio.get_running_loop()
-            # Event loop already running - run in separate thread to avoid nested loop error
+            # Event loop already running - run in separate thread
             import concurrent.futures
-
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, fetch_all())
-                documents = future.result()
+                future = executor.submit(asyncio.run, process_async_generator())
+                future.result()
         except RuntimeError:
             # No event loop - safe to create new one
-            documents = asyncio.run(fetch_all())
-        return documents
+            asyncio.run(process_async_generator())
+
+        logger.info(
+            f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
+            extra=self.common_log_arguments,
+        )
+
+        return doc_data
+
 
     def _build_adapter_config(self, provider: str):
         """
@@ -718,14 +797,14 @@ class IngestSourceOperator(AbstractOperator):
         Factory method to initialize the correct LangChain loader.
 
         Note: Providers using hexagonal architecture adapters (S3, SharePoint, OneDrive, Google Drive, Web)
-        should not call this method. They are handled via _load_documents_via_adapter().
+        should not call this method. They are handled via _process_documents_from_adapter().
         """
 
         # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive, Google Drive , Box & Web
         # These providers now use the hexagonal architecture adapter
         if self.provider in ADAPTER_MANAGED_PROVIDERS:
             raise ValueError(
-                f"{self.provider} provider should use _load_documents_via_adapter(). "
+                f"{self.provider} provider should use _process_documents_from_adapter(). "
                 "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
 
