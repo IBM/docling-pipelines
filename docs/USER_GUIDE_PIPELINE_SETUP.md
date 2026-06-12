@@ -2144,72 +2144,63 @@ if __name__ == "__main__":
 
 The programmatic API integrates seamlessly with Jupyter notebooks for interactive pipeline development.
 
-**Notebook Workflow Pattern:**
+#### Prerequisites: Installing DataSift in Your Notebook Environment
 
-```python
-# Cell 1: Setup and imports
-from pathlib import Path
-from pprint import pprint
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+Before using `DatasiftFlowManager` in Jupyter notebooks, you must install the DataSift package as a wheel (WHL) file in your notebook environment.
 
-print('Imports loaded successfully.')
+**Step 1: Build the WHL Package**
 
-# Cell 2: Define flow file path
-flow_file = Path('sample_flows/complete_pipeline_flow.json')
-print(f'Using flow file: {flow_file}')
+From the project root directory, use `uv` to build the wheel package:
 
-# Cell 3: List available operators (summary table)
-operators_summary = DatasiftFlowManager.list_operators()
-print(operators_summary)
-
-# Or get detailed view
-operators_detailed = DatasiftFlowManager.list_operators(verbose=True)
-print(operators_detailed)
-
-# Cell 4: Create flow manager with explicit IDs
-# Note: job_id and job_run_id are auto-generated as UUIDs if not provided
-import uuid
-
-manager = DatasiftFlowManager(
-    flow_file=str(flow_file),
-    job_id=str(uuid.uuid4()),
-    job_run_id=str(uuid.uuid4()),
-    flow_id='notebook-flow-complete-pipeline',
-)
-print('Manager created.')
-
-# Cell 5: Validate before execution
-validation_result = manager.validate()
-pprint(validation_result)
-
-if not validation_result['valid']:
-    raise RuntimeError('Flow validation failed.')
-
-# Cell 6: Execute the flow
-try:
-    result = manager.execute()
-    print('Flow executed successfully.')
-    print(f'Result type: {type(result).__name__}')
-except Exception as exc:
-    print(f'Execution failed: {exc}')
-    raise
-
-# Cell 7: Access execution metadata
-metadata = manager.get_execution_metadata()
-pprint(metadata)
-
-# Cell 8: Retrieve execution logs
-logs = manager.get_execution_logs()
-print(f'Captured log lines: {len(logs)}')
-
-if logs:
-    print('Last 10 log lines:')
-    for line in logs[-10:]:
-        print(line)
-
-# Cell 9: Interactive inspection
-print('Inspect these objects: result, metadata, logs')
+```bash
+# From project root (datasift-opensource/)
+uv build --wheel
 ```
+
+This command will:
+- Create a `dist/` directory in your project root
+- Generate two files:
+  - `datasift-<version>.tar.gz` (source distribution)
+  - `datasift-<version>-py3-none-any.whl` (wheel package)
+
+**Example output:**
+```
+Building datasift
+  - Building sdist
+  - Built datasift-0.1.0.tar.gz
+  - Building wheel
+  - Built datasift-0.1.0-py3-none-any.whl
+```
+
+**Step 2: Install the WHL Package in Your Notebook Environment**
+
+```bash
+uv pip install dist/datasift-<version>-py3-none-any.whl
+```
+
+**Step 3: Install Jupyter (if not already installed)**
+
+```bash
+# Install Jupyter using uv
+uv pip install jupyter
+```
+
+**Step 2: Start Jupyter Notebook Server**
+
+Note: Provide the full path instaed of realtiove path here - https://github.ibm.com/wdp-gov/docling-pipelines/blob/fcbc75fc6ec4ac77307863c95d44b9af3ea106ff/sample_flows/complete_pipeline_flow.json#L16
+
+From the project root directory:
+
+```bash
+# Start Jupyter Notebook
+jupyter notebook examples/datasift_flow_manager/sample_jupyter_notebook.ipynb
+```
+
+This will:
+- Start the Jupyter server (typically on `http://localhost:8888`)
+- Open your default web browser automatically
+- Display the Jupyter file browser showing your project directory and run results at the bottem of the page
+
 
 **Benefits in Notebooks:**
 
