@@ -16,6 +16,7 @@ EXPECTED_METADATA_COLUMNS = {
     "id",
     "name",
     "path",
+    "document_format",
     "size",
     "created_time",
     "modified_time",

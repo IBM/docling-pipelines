@@ -225,7 +225,7 @@ pyobjc-framework-coreml==12.1 ; sys_platform == 'darwin'
 pyobjc-framework-quartz==12.1 ; sys_platform == 'darwin'
 pyobjc-framework-vision==12.1 ; sys_platform == 'darwin'
 pyparsing==3.3.2
-pypdf==6.10.0
+pypdf==6.12.1
 pypdfium2==5.7.1
 pyphen==0.17.2
 python-dateutil==2.9.0.post0

@@ -14,6 +14,7 @@ from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 EXPECTED_METADATA_COLUMNS = {
     "id",
     "name",
+    "document_format",
     "path",
     "size",
     "created_time",

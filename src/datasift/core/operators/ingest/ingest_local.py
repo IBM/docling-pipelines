@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
@@ -310,6 +311,7 @@ class IngestLocalOperator(AbstractOperator):
         doc: dict[str, Any] = {
             "id": doc_id,
             "name": abs_path,
+            "document_format": Path(file).suffix,
             "size": stats.st_size,
             "created_time": round(stats.st_ctime),
             "modified_time": modified_time,
@@ -434,6 +436,13 @@ class IngestLocalOperator(AbstractOperator):
                 "path": {
                     OperatorConstants.Columns.NAME: "File Path",
                     OperatorConstants.Config.DESCRIPTION: "The absolute path to the document file",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                },
+                OperatorConstants.Metadata.DOCUMENT_FORMAT: {
+                    OperatorConstants.Columns.NAME: "Document Format",
+                    OperatorConstants.Config.DESCRIPTION: "File format/extension of the document (e.g., .pdf, .xlsx)",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,

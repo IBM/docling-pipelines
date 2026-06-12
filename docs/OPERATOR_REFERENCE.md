@@ -227,6 +227,7 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 - `id`
 - `name`
+- `document_format`
 - `size`
 - `created_time`
 - `modified_time`
