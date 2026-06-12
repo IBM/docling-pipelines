@@ -38,17 +38,19 @@ class TestFilesystemSourceConfig:
                 follow_symlinks=False,
             )
 
-    def test_rejects_non_directory(self, tmp_path):
+    def test_accepts_file_path(self, tmp_path):
+        """Test that config accepts file paths (single file mode)."""
         file_path = tmp_path / "file.txt"
         file_path.write_text("x")
 
-        with pytest.raises(ValidationError, match="Root path is not a directory"):
-            FilesystemSourceConfig(
-                root_path=str(file_path),
-                recursive=True,
-                max_file_size_mb=None,
-                follow_symlinks=False,
-            )
+        # Should not raise - files are now accepted
+        config = FilesystemSourceConfig(
+            root_path=str(file_path),
+            recursive=True,
+            max_file_size_mb=None,
+            follow_symlinks=False,
+        )
+        assert config.root_path == str(file_path.resolve())
 
     def test_normalizes_extensions_and_validates_size(self, tmp_path):
         config = FilesystemSourceConfig(
@@ -135,6 +137,7 @@ class TestFilesystemSourceAdapter:
         assert adapter._is_excluded(str(tmp_path / "ok.txt"), config) is False
 
     def test_fetch_documents_skips_large_files_and_handles_read_errors(self, tmp_path):
+        """Test that large files are skipped and read errors are handled in directory mode."""
         small = tmp_path / "small.txt"
         small.write_text("hello")
         large = tmp_path / "large.txt"
@@ -149,12 +152,44 @@ class TestFilesystemSourceAdapter:
         )
         adapter = FilesystemSourceAdapter()
 
+        # Store original stat results
+        tmp_path_stat = tmp_path.stat()
         large_stat = large.stat()
+        small_stat = small.stat()
 
         def fake_open(path, mode="rb", *args, **kwargs):
             if str(path).endswith("small.txt"):
                 raise OSError("boom")
             return mock_open(read_data=b"x")()
+
+        def fake_stat(self):
+            """Return appropriate stat based on path."""
+            path_str = str(self)
+            if path_str == str(tmp_path):
+                # Return directory stat for root_path
+                return tmp_path_stat
+            elif path_str == str(large):
+                # Return large file stat (2MB)
+                return os.stat_result(
+                    (
+                        large_stat.st_mode,
+                        large_stat.st_ino,
+                        large_stat.st_dev,
+                        large_stat.st_nlink,
+                        large_stat.st_uid,
+                        large_stat.st_gid,
+                        2 * 1024 * 1024,  # 2MB size
+                        int(large_stat.st_atime),
+                        int(large_stat.st_mtime),
+                        int(large_stat.st_ctime),
+                    )
+                )
+            elif path_str == str(small):
+                # Return small file stat
+                return small_stat
+            else:
+                # Call original stat
+                return type(self).stat(self)
 
         with (
             patch.object(
@@ -168,20 +203,7 @@ class TestFilesystemSourceAdapter:
             ),
             patch(
                 "pathlib.Path.stat",
-                return_value=os.stat_result(
-                    (
-                        large_stat.st_mode,
-                        large_stat.st_ino,
-                        large_stat.st_dev,
-                        large_stat.st_nlink,
-                        large_stat.st_uid,
-                        large_stat.st_gid,
-                        2 * 1024 * 1024,
-                        int(large_stat.st_atime),
-                        int(large_stat.st_mtime),
-                        int(large_stat.st_ctime),
-                    )
-                ),
+                fake_stat,
             ),
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))

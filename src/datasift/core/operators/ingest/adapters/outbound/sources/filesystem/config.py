@@ -18,7 +18,7 @@ class FilesystemSourceConfig(BaseModel):
     """
 
     # Required fields
-    root_path: str = Field(..., description="Root directory path to ingest documents from")
+    root_path: str = Field(..., description="Root directory or file path to ingest documents from")
 
     # Optional fields with defaults
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
@@ -39,12 +39,10 @@ class FilesystemSourceConfig(BaseModel):
     @field_validator("root_path")
     @classmethod
     def validate_root_path(cls, v: str) -> str:
-        """Validate that root path exists and is a directory."""
+        """Validate that root path exists (can be file or directory)."""
         expanded_path = os.path.expanduser(v)
         if not os.path.exists(expanded_path):
             raise ValueError(f"Root path does not exist: {v}")
-        if not os.path.isdir(expanded_path):
-            raise ValueError(f"Root path is not a directory: {v}")
         return expanded_path
 
     @field_validator("file_extensions")

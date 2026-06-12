@@ -255,18 +255,26 @@ def _read_from_local_file(
     matching the existing IngestLocal behavior.
 
     Args:
-        doc_metadata: Document metadata containing 'path' key
+        doc_metadata: Document metadata containing 'path' or 'source' key
 
     Returns:
         Binary content as bytes, or None if file not found or error occurred
     """
-    file_path = doc_metadata.get("path")
+    from urllib.parse import unquote, urlparse
+
+    # Try to get file path from various metadata fields
+    file_path = doc_metadata.get("path") or doc_metadata.get("source") or doc_metadata.get("source_id")
 
     if not file_path:
-        logger.error("Document metadata missing 'path' for local file reading")
+        logger.error("Document metadata missing 'path', 'source', or 'source_id' for local file reading")
         return None
 
     try:
+        # Parse file:// URLs to extract actual path
+        if isinstance(file_path, str) and file_path.startswith("file://"):
+            parsed = urlparse(file_path)
+            file_path = unquote(parsed.path)
+
         path = Path(file_path)
 
         if not path.exists():

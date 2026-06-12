@@ -47,6 +47,52 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
         """
         root_path = Path(config.root_path)
 
+        # Single file mode - if root_path is a file
+        if root_path.is_file():
+            try:
+                # Get file metadata first to check size
+                stat = root_path.stat()
+
+                # Check file size limit
+                if config.max_file_size_mb:
+                    file_size_mb = stat.st_size / (1024 * 1024)
+                    if file_size_mb > config.max_file_size_mb:
+                        print(
+                            f"Skipping file {root_path}: size {file_size_mb:.2f}MB exceeds limit {config.max_file_size_mb}MB"
+                        )
+                        return
+
+                # Read file content
+                with open(root_path, "rb") as f:
+                    content = f.read()
+
+                mimetype, _ = mimetypes.guess_type(str(root_path))
+
+                # Create domain document
+                document = Document(
+                    id=str(root_path.absolute()),
+                    name=root_path.name,
+                    content=content,
+                    source_url=f"file://{root_path.absolute()}",
+                    modified_time=datetime.fromtimestamp(stat.st_mtime),
+                    created_time=datetime.fromtimestamp(stat.st_ctime),
+                    mimetype=mimetype,
+                    size=stat.st_size,
+                    extension=root_path.suffix.lower(),
+                    metadata={
+                        "absolute_path": str(root_path.absolute()),
+                        "parent_directory": str(root_path.parent),
+                    },
+                )
+
+                yield document
+                return
+
+            except Exception as e:
+                print(f"Error processing file {root_path}: {e}")
+                raise
+
+        # Directory mode
         # Walk through directory tree
         for file_path in self._walk_directory(root_path, config):
             try:
