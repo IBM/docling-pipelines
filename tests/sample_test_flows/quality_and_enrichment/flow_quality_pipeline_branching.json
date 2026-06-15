@@ -71,8 +71,8 @@
       "config": {
         "doc_column": "content",
         "readability_score_list": [
-          "flesch_ease",
-          "flesch_kincaid",
+          "flesch_reading_ease",
+          "flesch_kincaid_grade",
           "gunning_fog",
           "difficult_words",
           "dale_chall_readability_score"
@@ -92,7 +92,7 @@
             "criteria_json": {
               "criteria_list": [
                 {
-                  "variable": "flesch_ease_textstat",
+                  "variable": "flesch_reading_ease",
                   "operator": ">",
                   "value": 60
                 }
@@ -105,7 +105,7 @@
             "criteria_json": {
               "criteria_list": [
                 {
-                  "variable": "flesch_ease_textstat",
+                  "variable": "flesch_reading_ease",
                   "operator": "<=",
                   "value": 60
                 }
@@ -201,7 +201,7 @@
             "available_for_vector_db": true,
             "type": "string"
           },
-          "flesch_ease_textstat": {
+          "flesch_reading_ease": {
             "name": "Flesch Reading Ease",
             "available_for_vector_db": true,
             "type": "float"
@@ -218,7 +218,7 @@
           "content": "text",
           "embeddings": "vector_embeddings",
           "lang_name": "language",
-          "flesch_ease_textstat": "readability_score",
+          "flesch_reading_ease": "readability_score",
           "ml_num_words": "word_count"
         }
       },
@@ -314,12 +314,12 @@
             "available_for_vector_db": true,
             "type": "string"
           },
-          "flesch_ease_textstat": {
+          "flesch_reading_ease": {
             "name": "Flesch Reading Ease",
             "available_for_vector_db": true,
             "type": "float"
           },
-          "difficult_words_textstat": {
+          "difficult_words": {
             "name": "Difficult Words Count",
             "available_for_vector_db": true,
             "type": "float"
@@ -331,8 +331,8 @@
           "content": "text",
           "embeddings": "vector_embeddings",
           "lang_name": "language",
-          "flesch_ease_textstat": "readability_score",
-          "difficult_words_textstat": "difficult_words"
+          "flesch_reading_ease": "readability_score",
+          "difficult_words": "difficult_words"
         }
       },
       "depends_on": [

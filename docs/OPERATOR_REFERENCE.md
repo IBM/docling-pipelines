@@ -1501,7 +1501,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 #### ReadabilityOperator
 
-**Purpose:** Compute readability metrics using `dpk_readability`.
+**Purpose:** Compute readability metrics using pyphen-based implementation.
 
 **Category:** Quality
 

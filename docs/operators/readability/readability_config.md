@@ -19,15 +19,15 @@ The Readability operator computes text readability scores for document content u
 **Example:**
 ```json
 "readability_score_list": [
-  "flesch_ease",
-  "flesch_kincaid",
+  "flesch_reading_ease",
+  "flesch_kincaid_grade",
   "gunning_fog"
 ]
 ```
 
 ## Available Readability Scores
 
-### 1. flesch_ease
+### 1. flesch_reading_ease
 - **Name**: Flesch Reading Ease
 - **Type**: Float
 - **Range**: 0-100 (higher = easier to read)
@@ -41,7 +41,7 @@ The Readability operator computes text readability scores for document content u
   - 30-49: Difficult (College)
   - 0-29: Very Difficult (College graduate)
 
-### 2. flesch_kincaid
+### 2. flesch_kincaid_grade
 - **Name**: Flesch Kincaid Grade
 - **Type**: Float
 - **Description**: Estimates the U.S. school grade level needed to understand the text
@@ -110,17 +110,17 @@ The Readability operator computes text readability scores for document content u
 ### 13. reading_time
 - **Name**: Reading Time
 - **Type**: Float
-- **Description**: The reading time of the given text in seconds
-- **Calculation**: Assumes 14.69ms per character (approximately 200 words per minute)
+- **Description**: The reading time of the given text in minutes
+- **Calculation**: Assumes approximately 200 words per minute
 
 ## Output Features
 
 All selected readability scores are added as columns to the output table. Each score is filterable and can be used in downstream operators.
 
-**Column Names**: Each score is added with suffix `_textstat`:
-- `flesch_ease_textstat`
-- `flesch_kincaid_textstat`
-- `gunning_fog_textstat`
+**Column Names**: Each score is added directly to the table:
+- `flesch_reading_ease`
+- `flesch_kincaid_grade`
+- `gunning_fog`
 - etc.
 
 ## Configuration Examples
@@ -128,12 +128,13 @@ All selected readability scores are added as columns to the output table. Each s
 ### Example 1: Basic Readability Analysis
 ```json
 {
-  "id": "readability-node-1",
-  "operator": "readability",
+  "name": "document_readability",
+  "type": "readability",
   "config": {
+    "doc_column": "content",
     "readability_score_list": [
-      "flesch_ease",
-      "flesch_kincaid",
+      "flesch_reading_ease",
+      "flesch_kincaid_grade",
       "gunning_fog"
     ]
   }
@@ -143,12 +144,13 @@ All selected readability scores are added as columns to the output table. Each s
 ### Example 2: Comprehensive Analysis (All Scores)
 ```json
 {
-  "id": "readability-node-2",
-  "operator": "readability",
+  "name": "document_readability",
+  "type": "readability",
   "config": {
+    "doc_column": "content",
     "readability_score_list": [
-      "flesch_ease",
-      "flesch_kincaid",
+      "flesch_reading_ease",
+      "flesch_kincaid_grade",
       "gunning_fog",
       "smog_index",
       "coleman_liau_index",
@@ -168,11 +170,12 @@ All selected readability scores are added as columns to the output table. Each s
 ### Example 3: Grade Level Focus
 ```json
 {
-  "id": "readability-node-3",
-  "operator": "readability",
+  "name": "document_readability",
+  "type": "readability",
   "config": {
+    "doc_column": "content",
     "readability_score_list": [
-      "flesch_kincaid",
+      "flesch_kincaid_grade",
       "gunning_fog",
       "text_standard"
     ]
@@ -212,9 +215,10 @@ All selected readability scores are added as columns to the output table. Each s
       "type": "readability",
       "depends_on": ["extract_documents"],
       "config": {
+        "doc_column": "content",
         "readability_score_list": [
-          "flesch_ease",
-          "flesch_kincaid",
+          "flesch_reading_ease",
+          "flesch_kincaid_grade",
           "gunning_fog",
           "difficult_words",
           "reading_time"
@@ -227,8 +231,8 @@ All selected readability scores are added as columns to the output table. Each s
       "depends_on": ["compute_readability"],
       "config": {
         "criteria_list": [
-          "flesch_ease_textstat >= 60",
-          "flesch_kincaid_textstat <= 10"
+          "flesch_reading_ease >= 60",
+          "flesch_kincaid_grade <= 10"
         ]
       }
     }
@@ -239,8 +243,8 @@ All selected readability scores are added as columns to the output table. Each s
 ## Score Selection Guidelines
 
 ### For General Audience
-- `flesch_ease` - Overall readability
-- `flesch_kincaid` - Grade level
+- `flesch_reading_ease` - Overall readability
+- `flesch_kincaid_grade` - Grade level
 - `text_standard` - Consensus grade level
 
 ### For Technical Content
@@ -249,16 +253,16 @@ All selected readability scores are added as columns to the output table. Each s
 - `difficult_words` - Vocabulary complexity
 
 ### For Educational Content
-- `flesch_kincaid` - Grade level alignment
+- `flesch_kincaid_grade` - Grade level alignment
 - `spache_readability` - Primary grades (1-4)
 - `dale_chall_readability_score` - Vocabulary difficulty
 
 ### For ESL/EFL Content
 - `mcalpine_eflaw` - ESL-specific metric
-- `flesch_ease` - General readability
+- `flesch_reading_ease` - General readability
 - `difficult_words` - Vocabulary challenge
 
 ### For Quick Assessment
-- `flesch_ease` - Single comprehensive score
+- `flesch_reading_ease` - Single comprehensive score
 - `text_standard` - Consensus grade level
 - `reading_time` - Time estimate

@@ -1,13 +1,8 @@
+"""Readability operator implementation using pyphen-based metrics."""
+
 from typing import Any
 
 import pyarrow as pa
-from dpk_readability.common import (
-    contents_column_name_cli_param,
-    score_list_cli_param,
-    score_list_default,
-    short_name,
-)
-from dpk_readability.transform import ReadabilityTransform
 
 from datasift.core.constants.constants import (
     AttributeDataTypes,
@@ -17,13 +12,14 @@ from datasift.core.constants.constants import (
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.operator_utils import OperatorUtils
+from datasift.core.operators.quality.readability.readability_metrics import ReadabilityMetrics
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
-DEFAULT_READABILITY_SCORES: list[str] = [
-    OperatorConstants.Columns.FLESCH_EASE,
-    OperatorConstants.Columns.FLESCH_KINCAID,
+DEFAULT_READABILITY_SCORES = [
+    OperatorConstants.Columns.FLESCH_READING_EASE,
+    OperatorConstants.Columns.FLESCH_KINCAID_GRADE,
     OperatorConstants.Columns.GUNNING_FOG,
     OperatorConstants.Columns.SMOG_INDEX,
     OperatorConstants.Columns.COLEMAN_LIAU_INDEX,
@@ -37,28 +33,34 @@ DEFAULT_READABILITY_SCORES: list[str] = [
     OperatorConstants.Columns.READING_TIME,
 ]
 
+CONTENTS_COLUMN_NAME_PARAM = "readability_contents_column_name"
+SCORE_LIST_PARAM = "readability_score_list"
 
-class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
+
+class ReadabilityOperator(AbstractOperator):
     """
-    Transform class that implements readability scores for each document based on its content
+    Transform class that implements readability scores for each document based on its content.
+    Uses custom pyphen-based implementation for accurate syllable counting.
     """
 
-    short_name: str = short_name
+    short_name: str = "readability"
     category: OperatorCategory = OperatorCategory.Quality
-    owner = DatasiftConstants.OWNER_DATASIFT
+    owner: str | None = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         self.contents_column_name: str = config.get(
-            contents_column_name_cli_param, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+            CONTENTS_COLUMN_NAME_PARAM, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
-        self.score_list: list[str] = config.get(score_list_cli_param, score_list_default)
+        self.score_list: list[str] = config.get(SCORE_LIST_PARAM, DEFAULT_READABILITY_SCORES)
         if isinstance(self.score_list, str):
             self.score_list = [self.score_list]
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
+        # Initialize our custom readability metrics calculator
+        self.metrics_calculator = ReadabilityMetrics()
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -68,13 +70,13 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ReadabilityOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Readability Operator",
             OperatorConstants.Config.FEATURES: {
-                OperatorConstants.Columns.FLESCH_EASE: {
+                OperatorConstants.Columns.FLESCH_READING_EASE: {
                     OperatorConstants.Misc.NAME: "Flesch Reading Ease",
-                    OperatorConstants.Config.DESCRIPTION: "Rates text on a 0 to 100 scale where higher scores mean easier reading.",
+                    OperatorConstants.Config.DESCRIPTION: "Rates text on a 0-100 scale where higher scores mean easier reading.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                OperatorConstants.Columns.FLESCH_KINCAID: {
+                OperatorConstants.Columns.FLESCH_KINCAID_GRADE: {
                     OperatorConstants.Misc.NAME: "Flesch Kincaid Grade",
                     OperatorConstants.Config.DESCRIPTION: "Estimates the U.S. school grade level needed to understand the text.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
@@ -148,7 +150,7 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
                 },
             },
             OperatorConstants.Config.ATTRIBUTES: {
-                "readability_score_list": {
+                SCORE_LIST_PARAM: {
                     OperatorConstants.Misc.NAME: "Readability Scores",
                     OperatorConstants.Config.DESCRIPTION: "Select which readability scores to compute for your documents.",
                     OperatorConstants.Config.REQUIRED: True,
@@ -163,22 +165,63 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
     def get_static_required_features() -> list[str]:
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
-    @staticmethod
-    def get_required_features() -> list[str]:
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+    def get_required_features(self) -> list[str]:
+        return [self.contents_column_name]
+
+    def _calculate_scores_for_text(self, *, text: str) -> dict[str, float]:
+        """Calculate readability scores for a single text"""
+        if not text:
+            return dict.fromkeys(self.score_list, 0.0)
+
+        stats = self.metrics_calculator.text_stats(text=text)
+        scores = {}
+
+        for score in self.score_list:
+            method = getattr(self.metrics_calculator, score)
+            scores[score] = method(stats=stats)
+
+        return scores
+
+    def _process_all_rows(self, *, content_column: pa.Array) -> dict[str, list[float]]:
+        """Process all rows and build score columns"""
+        score_columns: dict[str, list[float]] = {score: [] for score in self.score_list}
+
+        content_list = content_column.to_pylist()
+
+        for text in content_list:
+            text = text if text is not None else ""
+            scores = self._calculate_scores_for_text(text=text)
+
+            for score in self.score_list:
+                score_columns[score].append(scores[score])
+
+        return score_columns
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
-        """Transform function for readability scores"""
-        self.score_list = [s if s.endswith("_textstat") else f"{s}_textstat" for s in self.score_list]
-        transformed_table: pa.Table = super().transform(table=table)[0][0]
+        """Transform function for readability scores - calculates only requested metrics"""
+        # Get the content column
+        if self.contents_column_name not in table.column_names:
+            raise ValueError(f"Content column '{self.contents_column_name}' not found in table")
 
-        # Casting large_string returned by the dpk_readability transform to string for Python runtime compatibility
-        for i, field in enumerate(transformed_table.schema):
-            if pa.types.is_large_string(field.type):
-                column: pa.ChunkedArray = transformed_table.column(i)
-                casted_column: pa.ChunkedArray = column.cast(pa.string())
-                transformed_table = transformed_table.set_column(i, field.name, casted_column)
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
+        content_column = table.column(self.contents_column_name)
+
+        # Calculate readability scores for each document
+        score_columns = self._process_all_rows(content_column=content_column)
+
+        # Create new columns for each score
+        new_columns = []
+        new_fields = []
+
+        for score in self.score_list:
+            new_columns.append(pa.array(score_columns[score], type=pa.float64()))
+            new_fields.append(pa.field(score, pa.float64()))
+
+        # Combine original table with new score columns
+        transformed_table = table.append_column(new_fields[0], new_columns[0])
+        for i in range(1, len(new_fields)):
+            transformed_table = transformed_table.append_column(new_fields[i], new_columns[i])
+
+        metadata = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
         metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
         return [transformed_table], metadata
 

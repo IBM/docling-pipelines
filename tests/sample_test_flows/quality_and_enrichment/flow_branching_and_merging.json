@@ -74,8 +74,8 @@
       "config": {
         "doc_column": "content",
         "readability_score_list": [
-          "flesch_ease",
-          "flesch_kincaid",
+          "flesch_reading_ease",
+          "flesch_kincaid_grade",
           "gunning_fog",
           "difficult_words",
           "dale_chall_readability_score"
@@ -160,7 +160,7 @@
         "criteria_json": {
           "criteria_list": [
             {
-              "variable": "flesch_ease_textstat",
+              "variable": "flesch_reading_ease",
               "operator": ">",
               "value": 0
             }
@@ -272,17 +272,17 @@
             "available_for_vector_db": true,
             "type": "string"
           },
-          "flesch_ease_textstat": {
+          "flesch_reading_ease": {
             "name": "Flesch Reading Ease",
             "available_for_vector_db": true,
             "type": "float"
           },
-          "flesch_kincaid_textstat": {
+          "flesch_kincaid_grade": {
             "name": "Flesch-Kincaid Grade",
             "available_for_vector_db": true,
             "type": "float"
           },
-          "gunning_fog_textstat": {
+          "gunning_fog": {
             "name": "Gunning Fog Index",
             "available_for_vector_db": true,
             "type": "float"
@@ -299,9 +299,9 @@
           "content": "text",
           "embeddings": "vector_embeddings",
           "lang_name": "language",
-          "flesch_ease_textstat": "readability_score",
-          "flesch_kincaid_textstat": "grade_level",
-          "gunning_fog_textstat": "fog_index",
+          "flesch_reading_ease": "readability_score",
+          "flesch_kincaid_grade": "grade_level",
+          "gunning_fog": "fog_index",
           "docq_total_words": "word_count"
         }
       },

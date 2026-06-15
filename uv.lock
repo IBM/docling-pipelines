@@ -835,6 +835,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "pymilvus" },
     { name = "pypdf" },
+    { name = "pyphen" },
     { name = "python-dotenv" },
     { name = "python-jose", extra = ["cryptography"] },
     { name = "python-ldap" },
@@ -847,7 +848,6 @@ dependencies = [
     { name = "sqlmodel" },
     { name = "tabulate" },
     { name = "tenacity" },
-    { name = "textstat" },
     { name = "toml" },
     { name = "torch" },
     { name = "transformers" },
@@ -954,6 +954,7 @@ requires-dist = [
     { name = "pyjwt", specifier = "==2.13.0" },
     { name = "pymilvus", specifier = "==2.6.13" },
     { name = "pypdf", specifier = "==6.13.1" },
+    { name = "pyphen", specifier = "==0.17.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.0.2" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = "==1.3.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==7.0.0" },
@@ -971,7 +972,6 @@ requires-dist = [
     { name = "sqlmodel", specifier = "==0.0.38" },
     { name = "tabulate", specifier = "==0.9.0" },
     { name = "tenacity", specifier = "==8.3.0" },
-    { name = "textstat", specifier = "==0.7.13" },
     { name = "toml", specifier = "==0.10.2" },
     { name = "torch", specifier = "==2.11.0" },
     { name = "transformers", specifier = ">=5.8.1,<5.9.0" },
@@ -4744,20 +4744,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ab/e2/e9a00f0ccb71718418230718b3d900e71a5d16e701a3dae079a21e9cd8f8/text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93", size = 76885, upload-time = "2019-08-30T21:36:45.405Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a6/a5/c0b6468d3824fe3fde30dbb5e1f687b291608f9473681bbf7dabbf5a87d7/text_unidecode-1.3-py2.py3-none-any.whl", hash = "sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8", size = 78154, upload-time = "2019-08-30T21:37:03.543Z" },
-]
-
-[[package]]
-name = "textstat"
-version = "0.7.13"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "nltk" },
-    { name = "pyphen" },
-    { name = "setuptools" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8c/0f/b673fcec5ad6e976b2e8368ef3651fe0fea3348a1191bacfcd41a17ddec6/textstat-0.7.13.tar.gz", hash = "sha256:a88d1da76287cd27ca4ce7bcba1ebaf2890544a5f0bb6a5758fa84cef3bceccb", size = 138932, upload-time = "2026-02-18T21:07:39.525Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/31/0eb4cc5bb021b4ceaaa602c59ba16ce99256b9dd30981bef3f3a53d8555f/textstat-0.7.13-py3-none-any.whl", hash = "sha256:04b1ec995d1e8b2e628759497e6b23204a9ec91dcd652447d8cbba9478f25471", size = 177050, upload-time = "2026-02-18T21:07:38.163Z" },
 ]
 
 [[package]]
