@@ -49,7 +49,12 @@ Note -
 <!-- For UI changes, include screenshots or videos demonstrating the changes -->
 <!-- If not applicable, remove this section -->
 
+### Pre-Commit Hook Results
+<!-- Paste the output of pre-commit hooks execution to verify all checks passed -->
+
+
 ### Note
  1. **Keyword Arguments** - Ensure function arguments are keyword-based, not positional - [Link](https://docs.python.org/3/glossary.html#term-argument)
  2. **Metadata Independence:** When adding or modifying operator metadata, ensure the data does not depend on instance variables.
  3. **Method Requirements:** Ensure `get_metadata` is a static method. If `get_required_features` depends on instance variables, the operator must implement `get_static_required_features` using the default values referenced in `get_required_features`
+ 4. For every PR, ensure that the pre-commit hook output has been included.
