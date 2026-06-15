@@ -20,10 +20,10 @@ The operator validates file extensions and only processes documents with the fol
 ## Configuration Parameters
 
 #### 1. `provider` (String)
-**Type:** String
-**Required:** No
-**Default:** `"litellm"`
-**Description:** LLM provider to use for classification.
+**Type:** String  
+**Required:** No  
+**Default:** `"litellm"`  
+**Description:** LLM provider to use for classification.  
 
 **Valid Values:**
 - `"litellm"` - Unified interface for 100+ LLM providers (OpenAI, Anthropic, Azure, AWS Bedrock, Google, Ollama via OpenAI-compatible API, etc.)
@@ -36,10 +36,10 @@ The operator validates file extensions and only processes documents with the fol
 ```
 
 #### 2. `provider_config` (JSON/Dictionary)
-**Type:** JSON Object
-**Required:** No (Yes for watsonx and most litellm providers)
-**Default:** `{}`
-**Description:** Provider-specific configuration parameters including model_id.
+**Type:** JSON Object  
+**Required:** No (Yes for watsonx and most litellm providers)  
+**Default:** `{}`  
+**Description:** Provider-specific configuration parameters including model_id.  
 
 **For LiteLLM:**
 - `model_id` (String, Required): Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"`, `"openai/gpt-4o-mini"`)
@@ -105,10 +105,10 @@ watsonx:
 ```
 
 #### 3. `document_types` (List or Dictionary)
-**Type:** List or Dictionary
-**Required:** No
-**Default:** Auto-loaded from document class definitions
-**Description:** Document types to classify into.
+**Type:** List or Dictionary  
+**Required:** No  
+**Default:** Auto-loaded from document class definitions  
+**Description:** Document types to classify into.  
 
 **Valid Values:**
 
@@ -141,10 +141,10 @@ If not specified, the operator loads 30+ predefined document types from `common/
 - And many more...
 
 #### 4. `confidence_threshold` (Float)
-**Type:** Float
-**Required:** No
-**Default:** `7.0`
-**Description:** Minimum confidence score for classification (1-10 scale).
+**Type:** Float  
+**Required:** No  
+**Default:** `7.0`  
+**Description:** Minimum confidence score for classification (1-10 scale).  
 
 **Valid Values:**
 - Range: `1.0` to `10.0`
@@ -157,10 +157,10 @@ If not specified, the operator loads 30+ predefined document types from `common/
 ```
 
 #### 5. `output_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"document_type"`
-**Description:** Column name for classification result.
+**Type:** String  
+**Required:** No  
+**Default:** `"document_type"`  
+**Description:** Column name for classification result.  
 
 **Valid Values:**
 - Any valid column name
@@ -173,10 +173,10 @@ If not specified, the operator loads 30+ predefined document types from `common/
 ```
 
 #### 6. `include_confidence` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `true`
-**Description:** Include confidence score in output.
+**Type:** Boolean  
+**Required:** No  
+**Default:** `true`  
+**Description:** Include confidence score in output.  
 
 **Valid Values:**
 - `true` - Adds `{output_column}_confidence` column with scores 1-10
@@ -189,10 +189,10 @@ If not specified, the operator loads 30+ predefined document types from `common/
 ```
 
 #### 7. `include_reasoning` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `false`
-**Description:** Include reasoning explanation in output.
+**Type:** Boolean  
+**Required:** No  
+**Default:** `false`  
+**Description:** Include reasoning explanation in output.  
 
 **Valid Values:**
 - `true` - Adds `{output_column}_reasoning` column with LLM's explanation
@@ -205,10 +205,10 @@ If not specified, the operator loads 30+ predefined document types from `common/
 ```
 
 #### 8. `max_workers` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** Auto-calculated based on CPU cores
-**Description:** Maximum number of parallel workers for processing.
+**Type:** Integer  
+**Required:** No  
+**Default:** Auto-calculated based on CPU cores  
+**Description:** Maximum number of parallel workers for processing.  
 
 **Valid Values:**
 - Range: `1` to `32`
@@ -221,10 +221,10 @@ If not specified, the operator loads 30+ predefined document types from `common/
 ```
 
 #### 9. `use_processes` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `false`
-**Description:** Use process-based parallelism instead of threads.
+**Type:** Boolean  
+**Required:** No  
+**Default:** `false`  
+**Description:** Use process-based parallelism instead of threads.  
 
 **Valid Values:**
 - `true` - Use multiprocessing (better for CPU-intensive tasks)
@@ -241,10 +241,10 @@ If not specified, the operator loads 30+ predefined document types from `common/
 **The operator adds the following columns to the PyArrow table:**
 
 ### 1. `document_type` (String)
-**Description:** Classified document type
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
-**Type:** String
+**Description:** Classified document type  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
+**Type:** String  
 
 **Example Values:**
 - `"invoice"` - Commercial invoice
@@ -254,9 +254,9 @@ If not specified, the operator loads 30+ predefined document types from `common/
 - `"passport"` - Identity document
 
 ### 2. `document_type_confidence` (Float) - Optional
-**Description:** Confidence score for classification (1-10 scale)
-**Available for Filter:** Yes
-**Type:** Float
+**Description:** Confidence score for classification (1-10 scale)  
+**Available for Filter:** Yes  
+**Type:** Float  
 **Enabled By:** `include_confidence: true`
 
 **Example Values:**
@@ -266,9 +266,9 @@ If not specified, the operator loads 30+ predefined document types from `common/
 - `5.0` - Low confidence
 
 ### 3. `document_type_reasoning` (String) - Optional
-**Description:** LLM's explanation for the classification decision
-**Available for Filter:** No
-**Type:** String
+**Description:** LLM's explanation for the classification decision  
+**Available for Filter:** No  
+**Type:** String  
 **Enabled By:** `include_reasoning: true`
 
 **Example Values:**

@@ -697,7 +697,7 @@ class ModelInfo:
 - [Extract Operator](./extract_operator.md) - Document content extraction
 - [Embeddings Operator](./embeddings.md) - Vector embeddings generation
 - [Architecture Guide](../../ARCHITECTURE.md) - System architecture overview
-- [Operator Reference](../OPERATOR_REFERENCE.md) - Complete operator API reference
+- [Operator Reference](../../reference/OPERATORS.md) - Complete operator API reference
 
 ---
 

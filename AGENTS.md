@@ -103,7 +103,7 @@ Datasift provides 20+ operators across 5 categories:
 - **VectorDB**: Vector storage (VectorDBOperator with OpenSearch adapter)
 
 For operator information:
-- **API Reference**: [docs/OPERATOR_REFERENCE.md](docs/OPERATOR_REFERENCE.md) - Complete parameter specifications for all operators
+- **API Reference**: [docs/reference/OPERATORS.md](docs/reference/OPERATORS.md) - Complete parameter specifications for all operators
 - **Implementation Guides**: [`docs/operators/`](docs/operators/) - Detailed guides for complex operators (architecture, troubleshooting, best practices)
 
 ## Common Workflow Patterns

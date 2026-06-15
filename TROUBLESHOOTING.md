@@ -238,7 +238,7 @@ Batch progress looks incorrect in aggregated results
 1. Review [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
 2. Add explicit mappings for newly introduced metadata fields when needed.
 3. Add or update tests covering multi-batch aggregation behavior.
-4. See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) for maintainer guidance.
+4. See [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md) for maintainer guidance.
 
 ---
 

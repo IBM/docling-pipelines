@@ -24,7 +24,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### 1. `provider` (String)
 **Type:** String  
 **Required:** Yes  
-**Description:** Storage provider type. Determines which adapter to use for document ingestion.
+**Description:** Storage provider type. Determines which adapter to use for document ingestion.  
 
 **Valid Values:** `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `google_drive`, `filesystem`, `web`, `custom`
 
@@ -40,7 +40,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### 2. `connection_params` (JSON)
 **Type:** JSON Object  
 **Required:** Yes  
-**Description:** Provider-specific connection parameters. Structure varies by provider.
+**Description:** Provider-specific connection parameters. Structure varies by provider.  
 
 **S3 Example (Folder):**
 ```json
@@ -81,7 +81,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### 3. `credentials` (JSON)
 **Type:** JSON Object  
 **Required:** Yes  
-**Description:** Authentication credentials for the provider. Structure varies by provider.
+**Description:** Authentication credentials for the provider. Structure varies by provider.  
 
 **S3 Example:**
 ```json
@@ -111,7 +111,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 **Type:** Integer  
 **Required:** No  
 **Default:** `100`  
-**Description:** Maximum number of files to ingest from the source.
+**Description:** Maximum number of files to ingest from the source.  
 
 **Examples:**
 ```json
@@ -121,7 +121,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### 5. `include_filter` (List)
 **Type:** List (comma-separated string)  
 **Required:** No  
-**Description:** File extensions to include. Only files with these extensions will be processed.
+**Description:** File extensions to include. Only files with these extensions will be processed.  
 
 **Examples:**
 ```json
@@ -131,7 +131,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 ### 6. `exclude_filter` (List)
 **Type:** List (comma-separated string)  
 **Required:** No  
-**Description:** File extensions to exclude. Files with these extensions will be skipped.
+**Description:** File extensions to exclude. Files with these extensions will be skipped.  
 
 **Examples:**
 ```json
@@ -142,7 +142,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
-**Description:** Force re-ingestion of previously processed documents. When false, documents are skipped if they haven't been modified.
+**Description:** Force re-ingestion of previously processed documents. When false, documents are skipped if they haven't been modified.  
 
 **Examples:**
 ```json
@@ -153,7 +153,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 **Type:** Boolean  
 **Required:** No  
 **Default:** `true`  
-**Description:** Skip files starting with '.' (hidden files).
+**Description:** Skip files starting with '.' (hidden files).  
 
 **Examples:**
 ```json
@@ -166,32 +166,32 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 **Type:** String  
 **Description:** The source identifier (URL, file path, etc.) for the document  
 **Available for Filter:** Yes  
-**Available for Vector DB:** No
+**Available for Vector DB:** No  
 
 ### `binary_content` (Binary)
 **Type:** Binary  
 **Description:** The raw binary content of the document for downstream extraction operators  
 **Available for Filter:** No  
-**Available for Vector DB:** No
+**Available for Vector DB:** No  
 
 ### `metadata` (String)
 **Type:** String (JSON)  
 **Description:** JSON-serialized metadata from the source document  
 **Available for Filter:** Yes  
-**Available for Vector DB:** No
+**Available for Vector DB:** No  
 
 ### `source_id` (String)
 **Type:** String  
 **Description:** The source identifier (file path, URL, etc.)  
 **Available for Filter:** Yes  
-**Available for Vector DB:** No
+**Available for Vector DB:** No  
 
 ### `doc_id_hash` (String)
 **Type:** String  
 **Description:** Hash ID of the document  
 **Available for Vector DB:** Yes  
 **Is Primary:** Yes  
-**Tags:** `mandatory`, `primary`
+**Tags:** `mandatory`, `primary`  
 
 ## Provider-Specific Configuration
 

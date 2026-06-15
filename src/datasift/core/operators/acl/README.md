@@ -317,5 +317,5 @@ datasift-orchestrator --flow-file flow.json --log-level debug
 
 - [ACL Operator Architecture](docs/operators/acl/ACL_OPERATOR_ARCHITECTURE.md)
 - [Implementation Plan Phase 1](docs/operators/acl/ACL_IMPLEMENTATION_PLAN_PHASE1_REVISED.md)
-- [Operator Reference](../../../../../docs/OPERATOR_REFERENCE.md)
-- [User Guide: Pipeline Setup](../../../../../docs/USER_GUIDE_PIPELINE_SETUP.md)
+- [Operator Reference](../../../../../docs/reference/OPERATORS.md)
+- [User Guide: Pipeline Setup](../../../../../USER_GUIDE_PIPELINE_SETUP.md)

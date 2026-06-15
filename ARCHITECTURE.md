@@ -271,9 +271,9 @@ Maintainer rule:
 
 - if a new operator adds metadata fields that need anything other than the default `LAST` behavior, update [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py)
 - add or update tests covering the new aggregation behavior
-- document the field in [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)
+- document the field in [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md)
 
-See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) for detailed aggregation rules and maintainer guidance.
+See [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md) for detailed aggregation rules and maintainer guidance.
 
 ## Core Concepts
 
@@ -418,7 +418,7 @@ The [`PackageAdapter`](src/datasift/core/orchestration/operator_loader/adapters/
 - **Module Inspection**: Automatic discovery of operators in the package's operator module
 - **Standard Packaging**: Uses `importlib.metadata` for package discovery
 
-See [`CustomOperatorLoader`](src/datasift/core/orchestration/operator_loader/loader_service.py) for implementation details and [CUSTOM_OPERATORS_GUIDE.md](docs/CUSTOM_OPERATORS_GUIDE.md) for complete usage documentation.
+See [`CustomOperatorLoader`](src/datasift/core/orchestration/operator_loader/loader_service.py) for implementation details and [CUSTOM_OPERATORS_GUIDE.md](docs/guides/CUSTOM_OPERATORS_GUIDE.md) for complete usage documentation.
 
 ````
 
@@ -4281,7 +4281,7 @@ The Assets Management module provides metadata management for document collectio
 
 ### 3. Operators (`src/datasift/core/operators/`)
 
-Operators are organized by category (defined in `OperatorCategory` enum). For complete operator API documentation including parameters, configuration options, and usage examples, see [Operator Reference](docs/OPERATOR_REFERENCE.md).
+Operators are organized by category (defined in `OperatorCategory` enum). For complete operator API documentation including parameters, configuration options, and usage examples, see [Operator Reference](docs/reference/OPERATORS.md).
 
 **Operator Categories:**
 - **Extract**: Document text and entity extraction

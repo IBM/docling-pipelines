@@ -14,7 +14,7 @@ The Language Detection operator automatically detects the language of document c
 **Type:** String  
 **Required:** No  
 **Default:** `"fasttext"`  
-**Description:** Language detection provider to use.
+**Description:** Language detection provider to use.  
 
 **Valid Values:**
 - `"fasttext"` - Facebook's FastText model (176+ languages, high accuracy)
@@ -30,7 +30,7 @@ The Language Detection operator automatically detects the language of document c
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
-**Description:** Whether to filter out documents where language detection fails or returns unknown language.
+**Description:** Whether to filter out documents where language detection fails or returns unknown language.  
 
 **Behavior:**
 - `true`: Documents with detection failures are removed from the pipeline
@@ -48,7 +48,7 @@ The Language Detection operator automatically detects the language of document c
 **Description:** ISO 639-1 language code of the detected language  
 **Available for Filter:** Yes  
 **Available for Vector DB:** Yes  
-**Type:** String
+**Type:** String  
 
 **Example Values:**
 - `"en"` - English
@@ -61,7 +61,7 @@ The Language Detection operator automatically detects the language of document c
 ### 2. `lang_score` (Float)
 **Description:** Confidence score of the language detection (0.0 to 1.0)  
 **Available for Filter:** Yes  
-**Type:** Float
+**Type:** Float  
 
 **Example Values:**
 - `0.95` - High confidence
@@ -157,6 +157,6 @@ The Language Detection operator automatically detects the language of document c
 
 ## Related Documentation
 
-- [Language Detection Overview](../../../README.md) - Detailed operator documentation
+- [Language Detection Overview](../../README.md) - Detailed operator documentation
 - [FastText Adapter](../../../src/datasift/core/operators/quality/language_detection/adapters/outbound/fasttext_adapter.py) - FastText implementation
 - [Langdetect Adapter](../../../src/datasift/core/operators/quality/language_detection/adapters/outbound/langdetect_adapter.py) - Langdetect implementation

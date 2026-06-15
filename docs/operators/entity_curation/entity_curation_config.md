@@ -20,10 +20,10 @@ The Entity Curation Operator transforms extracted entities into structured, cura
 ## Configuration Parameters
 
 ### 1. `entities_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"entities"`
-**Description:** Column containing extracted entities (dict or JSON string).
+**Type:** String  
+**Required:** No  
+**Default:** `"entities"`  
+**Description:** Column containing extracted entities (dict or JSON string).  
 
 **Sample Data Structure for entities:**
 ```python
@@ -37,10 +37,10 @@ The Entity Curation Operator transforms extracted entities into structured, cura
 ```
 
 ### 2. `document_type_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"document_type"`
-**Description:** Column containing document type identifier for schema lookup.
+**Type:** String  
+**Required:** No  
+**Default:** `"document_type"`  
+**Description:** Column containing document type identifier for schema lookup.  
 
 **Sample Data Structure for document_type:**
 ```python

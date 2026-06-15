@@ -413,8 +413,8 @@ curl https://api.openai.com/v1/embeddings \
 
 ## Additional Resources
 
-- [Operator Reference](../../../../../../docs/OPERATOR_REFERENCE.md#embeddingsoperator)
-- [Architecture Guide](../../../../../ARCHITECTURE.md#6-embeddings-operator-integration-architecture)
+- [Operator Reference](../../../../../../docs/reference/OPERATORS.md#embeddingsoperator)
+- [Architecture Guide](../../../../../../ARCHITECTURE.md#6-embeddings-operator-integration-architecture)
 - [HuggingFace Sentence Transformers](https://www.sbert.net/)
 - [IBM watsonx.ai Documentation](https://www.ibm.com/watsonx/developer/)
 - [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)

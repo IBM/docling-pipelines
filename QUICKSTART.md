@@ -239,15 +239,15 @@ datasift-orchestrator --operator-help ingest_local
 2. **Edit the configuration**: Change `paths`, `chunk_size`, models, etc.
 3. **Run your custom flow**: `datasift-orchestrator --flow-file my_flow.json`
 
-**Flow Format:** DataSift uses a simplified authoring format where you define operators with `type`, `name`, `config`, and `depends_on` fields. See the **[Flow Authoring Format Guide](docs/FLOW_AUTHORING_FORMAT.md)** for complete examples and best practices.
+**Flow Format:** DataSift uses a simplified authoring format where you define operators with `type`, `name`, `config`, and `depends_on` fields. See the **[Flow Authoring Format Guide](docs/guides/FLOW_AUTHORING_FORMAT.md)** for complete examples and best practices.
 
 ### Deep Dive Documentation
 
-- **[Flow Authoring Format Guide](docs/FLOW_AUTHORING_FORMAT.md)** - Complete guide to creating flows
-- **[Complete Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
+- **[Flow Authoring Format Guide](docs/guides/FLOW_AUTHORING_FORMAT.md)** - Complete guide to creating flows
+- **[Complete Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
 - **[Architecture Overview](ARCHITECTURE.md)** - System design and operator details
 - **[README](README.md)** - Full operator reference and examples
-- **[Job Stats Metadata Aggregation Guide](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer rules for micro-batch metadata aggregation
+- **[Job Stats Metadata Aggregation Guide](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer rules for micro-batch metadata aggregation
 - **[Examples Directory](examples/)** - More complex pipeline examples
 
 ---

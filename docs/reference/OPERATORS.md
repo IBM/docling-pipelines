@@ -1865,8 +1865,8 @@ When `add_sparse_vector: true` is set:
 - Vector dimensions are auto-detected from actual embedding data for each vector column
 - OpenSearch supports multiple vector columns with different dimensions in a single index
 - Milvus currently supports single vector column (multi-model support planned for future update)
-- See [`docs/milvus/README.md`](../../docs/milvus/README.md) for detailed Milvus configuration
-- See [`PROVIDER_CONFIG_GUIDE.md`](src/datasift/core/operators/vectordb/PROVIDER_CONFIG_GUIDE.md) for provider configuration patterns
+- See [`docs/integrations/milvus/README.md`](../integrations/milvus/README.md) for detailed Milvus configuration
+- See [`PROVIDER_CONFIG_GUIDE.md`](../../src/datasift/core/operators/vectordb/PROVIDER_CONFIG_GUIDE.md) for provider configuration patterns
 
 **Provider Config (OpenSearch)**
 

@@ -22,10 +22,10 @@ The operator uses `dpk_doc_id.DocIDTransform` when available, otherwise falls ba
 ## Configuration Parameters
 
 ### 1. `doc_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"content"`
-**Description:** Column containing document content for hashing.
+**Type:** String  
+**Required:** No  
+**Default:** `"content"`  
+**Description:** Column containing document content for hashing.  
 
 **Examples:**
 ```json
@@ -33,10 +33,10 @@ The operator uses `dpk_doc_id.DocIDTransform` when available, otherwise falls ba
 ```
 
 ### 2. `doc_id_hash_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"doc_id_hash"`
-**Description:** Name of the output column for the generated hash IDs. This parameter allows you to customize the name of the column where document hash IDs will be stored.
+**Type:** String  
+**Required:** No  
+**Default:** `"doc_id_hash"`  
+**Description:** Name of the output column for the generated hash IDs. This parameter allows you to customize the name of the column where document hash IDs will be stored.  
 
 **Examples:**
 ```json
@@ -50,11 +50,11 @@ The operator uses `dpk_doc_id.DocIDTransform` when available, otherwise falls ba
 ## Output Features
 
 ### `doc_id_hash` (String)
-**Type:** String
-**Description:** Generated hash ID for the document (output column).
-**Available for Vector DB:** Yes
-**Is Primary:** Yes
-**Tags:** `mandatory`, `primary`
+**Type:** String  
+**Description:** Generated hash ID for the document (output column).  
+**Available for Vector DB:** Yes  
+**Is Primary:** Yes  
+**Tags:** `mandatory`, `primary`  
 
 This is the actual output column that contains the generated hash values. The column name can be customized using the `doc_id_hash_column` configuration parameter.
 

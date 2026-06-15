@@ -287,7 +287,7 @@ Once LDAP is running, configure datasift to use it for authentication:
 
 2. Test authentication with datasift API using test user credentials
 
-3. For OAuth2 integration, refer to `README_OAUTH2.md`
+3. For OAuth2 integration, refer to [OAuth2 Authentication Guide](../../docs/api/OAUTH2_AUTHENTICATION.md)
 
 ## Additional Resources
 

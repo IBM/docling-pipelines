@@ -202,4 +202,4 @@ FROM node_stats GROUP BY node_id, name;
 
 - [Job Management Architecture](../../README.md)
 - [DatasiftFlowManager Examples](../datasift_flow_manager/)
-- [Operator Reference](../../docs/OPERATOR_REFERENCE.md)
+- [Operator Reference](../../docs/reference/OPERATORS.md)

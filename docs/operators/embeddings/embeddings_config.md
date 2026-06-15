@@ -21,10 +21,10 @@ The Embeddings Operator generates vector embeddings for text content using Huggi
 The EmbeddingsOperator uses a nested configuration structure where provider-specific parameters (like `model_id`, `api_key`, `api_base`, etc.) are grouped under the `provider_config` object. This ensures clean separation between operator-level parameters and provider-specific settings.
 
 ### 1. `provider` (String)
-**Type:** String
-**Required:** Yes
-**Default:** `"litellm"`
-**Description:** Embedding provider type. Uses unified adapter architecture.
+**Type:** String  
+**Required:** Yes  
+**Default:** `"litellm"`  
+**Description:** Embedding provider type. Uses unified adapter architecture.  
 
 **Valid Values:**
 - `"huggingface"` - Native HuggingFace local or API embeddings
@@ -39,9 +39,9 @@ The EmbeddingsOperator uses a nested configuration structure where provider-spec
 ```
 
 ### 2. `provider_config` (Object)
-**Type:** JSON Object
-**Required:** Varies by provider
-**Description:** Provider-specific configuration parameters including model_id.
+**Type:** JSON Object  
+**Required:** Varies by provider  
+**Description:** Provider-specific configuration parameters including model_id.  
 
 **For LiteLLM:**
 - `model_id` (String, Required): Model identifier with provider prefix
@@ -148,10 +148,10 @@ Watsonx:
 ```
 
 ### 3. `embeddings_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"embeddings"`
-**Description:** Name of the output column for embeddings.
+**Type:** String  
+**Required:** No  
+**Default:** `"embeddings"`  
+**Description:** Name of the output column for embeddings.  
 
 **Examples:**
 ```json
@@ -159,10 +159,10 @@ Watsonx:
 ```
 
 ### 4. `overlap_ratio` (Float)
-**Type:** Float
-**Required:** No
-**Default:** `0.2`
-**Description:** Overlap ratio for chunking long text that exceeds model token limits.
+**Type:** Float  
+**Required:** No  
+**Default:** `0.2`  
+**Description:** Overlap ratio for chunking long text that exceeds model token limits.  
 
 **Valid Values:**
 - Minimum: `0.0` (no overlap)
@@ -178,9 +178,9 @@ Watsonx:
 ## Output Features
 
 ### 1. `embeddings` (Vector)
-**Description:** Dense vector embeddings for similarity search.
-**Type:** List of floats (vector)
-**Available for Vector DB:** Yes (Mandatory)
+**Description:** Dense vector embeddings for similarity search.  
+**Type:** List of floats (vector)  
+**Available for Vector DB:** Yes (Mandatory)  
 
 **For Chunked Content:**
 - Returns list of vectors (one per chunk)

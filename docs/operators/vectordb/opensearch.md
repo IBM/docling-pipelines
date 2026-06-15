@@ -414,7 +414,7 @@ for failed_doc in metadata['failed_docs']:
 
 ## Troubleshooting
 
-See [`docs/opensearch/DOCKER_SETUP.md`](../opensearch/DOCKER_SETUP.md) for troubleshooting.
+See [`docs/integrations/opensearch/`](../../integrations/opensearch/) for troubleshooting and setup guides.
 
 ## Related Operators
 

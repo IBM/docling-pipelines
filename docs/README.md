@@ -1,56 +1,140 @@
-# Documentation
+# DataSift Documentation
 
-This directory contains comprehensive documentation for the datasift-open project.
+Welcome to the DataSift documentation! This guide will help you navigate our comprehensive documentation and find exactly what you need.
 
-## Contents
+## 🚀 Getting Started
 
-### Getting Started
-- Installation guide
-- Quick start tutorial
-- Basic concepts
+**New to DataSift?** Start here:
 
-### User Guide
-- Flow configuration
-- Operator reference
+- **[Quick Start Guide](../QUICKSTART.md)** - Get your first pipeline running in 5 minutes
+- **[Complete Setup Guide](../USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
+- **[Troubleshooting Guide](../TROUBLESHOOTING.md)** - Solutions to common issues
 
-  - [Document Libraries](USER_GUIDE_DOCUMENT_LIBRARIES.md) - Managing collections of document sets
-  - [Ingest Source](operators/ingest_source/ingest_source.md) - Multi-provider document ingestion
-  - [PII and HAP Detection](operators/pii_and_hap/pii_and_hap.md) - PII and HAP detection with multiple providers
+## 📖 Guides
 
-- CLI usage
-- Python API usage
+Task-oriented guides to help you accomplish specific goals:
 
-### Developer Guide
-- Architecture overview
-- Creating custom operators
-- Plugin development
-- Contributing guidelines
+### Core Guides
+- **[Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)** - Learn the simplified flow authoring format
+- **[Flow Configuration Guide](guides/FLOW_CONFIGURATION_GUIDE.md)** - Complete flow configuration reference
+- **[Python API Guide](guides/PYTHON_API_GUIDE.md)** - Use DataSift programmatically
 
-### API Reference
-- Core API documentation
-- Operator API
-- Configuration API
+### Developer Guides
+- **[Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)** - Build custom data source connectors
+- **[Custom Operators Guide](guides/CUSTOM_OPERATORS_GUIDE.md)** - Create your own operators
+- **[External Operator Integration](guides/EXTERNAL_OPERATOR_INTEGRATION.md)** - Integrate external operators
 
-### Examples
-- Sample flows
-- Common use cases
-- Best practices
+### Advanced Topics
+- **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)** - Production deployment and optimization
+- **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)** - LLM integration patterns
+- **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)** - Managing document collections
 
-## Building Documentation
+## ⚙️ Operator Configurations
 
-Documentation is built using Sphinx or MkDocs (to be determined).
+Configuration examples and patterns for all operators:
 
-```bash
-# Build documentation
-cd docs
-make html
+### Core Pipeline Operators
+- **[IngestLocal](operators/ingest_local/)** - Ingest documents from local filesystem
+- **[IngestSource](operators/ingest_source/)** - Ingest from external sources (S3, SharePoint, etc.)
+- **[Extract](operators/extract/)** - Extract text and entities from documents
+- **[Chunker](operators/chunker/)** - Split documents into chunks
+- **[Embeddings](operators/embeddings/)** - Generate vector embeddings
+- **[VectorDB](operators/vectordb/)** - Store vectors in OpenSearch or Milvus
 
-# View documentation
-open _build/html/index.html
+### All Operator Configurations
+Browse the complete list of operator configuration examples in the [operators/](operators/) directory.
+
+## 📚 Reference
+
+Quick lookup documentation for parameters and APIs:
+
+- **[Global Configuration Reference](reference/GLOBAL_CONFIG.md)** - Flow-level configuration parameters
+- **[Operator Reference](reference/OPERATORS.md)** - Complete operator parameter specifications
+
+## 🌐 REST API
+
+Documentation for the DataSift REST API server:
+
+- **[Document Retrieval API](api/ACL_DOCUMENT_RETRIEVAL.md)** - ACL-based document retrieval endpoints
+- **[OAuth2 Authentication](api/OAUTH2_AUTHENTICATION.md)** - OAuth2 and OIDC authentication setup
+
+## 🔌 Integrations
+
+Integration-specific documentation:
+
+- **[OpenSearch](integrations/opensearch/)** - Vector storage with OpenSearch
+  - [Quick Start](integrations/opensearch/OPENSEARCH_QUICKSTART.md)
+  - [Environment Setup](integrations/opensearch/ENVIRONMENT_SETUP.md)
+  - [Schema Templates](integrations/opensearch/SCHEMA_TEMPLATES.md)
+- **[Milvus](integrations/milvus/)** - Vector storage with Milvus
+- **[Prefect](integrations/prefect/)** - Distributed execution with Prefect
+  - [Distributed Execution Guide](integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
+
+## 🛠️ Contributing
+
+Resources for contributors:
+
+- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to DataSift
+
+## 🔬 Internals
+
+Internal documentation for maintainers:
+
+- **[Metadata Aggregation Strategy](internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Metadata aggregation in micro-batching
+
+## 🚀 Deployment
+
+Deployment guides for production environments:
+
+- **[OpenShift Deployment](deployment/OPENSHIFT.md)** - Deploy DataSift on OpenShift
+
+## 💡 Architecture
+
+Understand how DataSift works:
+
+- **[Architecture Overview](../ARCHITECTURE.md)** - System design and operator catalog
+
+## 📋 Documentation Organization
+
+Our documentation is organized by user journey:
+
+```
+docs/
+├── guides/              # How-to guides (task-oriented)
+├── operators/           # Operator configuration examples
+├── reference/           # Parameter and API lookups
+├── api/                 # REST API documentation
+├── integrations/        # Integration-specific docs
+├── internals/           # Internal maintainer docs
+└── deployment/          # Deployment guides
 ```
 
-## Contributing to Documentation
-- Use clear, concise language
-- Include code examples
-- Add diagrams where helpful
-- Keep documentation up-to-date with code changes
+**Note:** Comprehensive operator documentation (architecture, implementation details) is located in the source code directories at `src/datasift/core/operators/*/README.md`.
+
+## 🔍 Finding What You Need
+
+**I want to...**
+
+- **Get started quickly** → [Quick Start Guide](../QUICKSTART.md)
+- **Set up my environment** → [Complete Setup Guide](../USER_GUIDE_PIPELINE_SETUP.md)
+- **Write my first flow** → [Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)
+- **Look up a parameter** → [Global Config Reference](reference/GLOBAL_CONFIG.md) or [Operator Reference](reference/OPERATORS.md)
+- **See operator config examples** → [Operator Configs Directory](operators/)
+- **Understand operator internals** → Check `src/datasift/core/operators/*/README.md` in source code
+- **Use the Python API** → [Python API Guide](guides/PYTHON_API_GUIDE.md)
+- **Set up OAuth2 authentication** → [OAuth2 Authentication Guide](api/OAUTH2_AUTHENTICATION.md)
+- **Create a custom connector** → [Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)
+- **Deploy to production** → [Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)
+- **Troubleshoot an issue** → [Troubleshooting Guide](../TROUBLESHOOTING.md)
+- **Contribute code** → [Contributing Guide](../CONTRIBUTING.md)
+
+## 📞 Need Help?
+
+- Check the [Troubleshooting Guide](../TROUBLESHOOTING.md) for common issues
+- Review the [Architecture Overview](../ARCHITECTURE.md) to understand system design
+- Browse [operator configuration examples](operators/) for usage patterns
+- Check existing GitHub issues or create a new one
+
+---
+
+**Happy data processing! 🚀**

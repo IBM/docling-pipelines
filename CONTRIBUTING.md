@@ -176,7 +176,7 @@ uv run pytest -v --cov=src --cov-report=html
 If your change adds or modifies operator-emitted metadata used in job stats:
 - review [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py)
 - add or update aggregation tests when the field should not use the default `LAST` behavior
-- update [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) when the change introduces a new aggregation pattern or maintainer rule
+- update [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md) when the change introduces a new aggregation pattern or maintainer rule
 
 ## Code Style Guidelines
 
@@ -938,7 +938,7 @@ Update documentation when you:
 
 - **[`README.md`](README.md)**: Project overview, setup, and quick start
 - **[`ARCHITECTURE.md`](ARCHITECTURE.md)**: System design and architecture
-- **[`docs/OPERATOR_REFERENCE.md`](docs/OPERATOR_REFERENCE.md)**: Detailed operator and API documentation
+- **[`docs/reference/OPERATORS.md`](docs/reference/OPERATORS.md)**: Detailed operator and API documentation
 - **[`QUICKSTART.md`](QUICKSTART.md)**: Quick start guide
 - **`docs/operators/`**: Operator-specific documentation
 - **`examples/`**: Code examples and sample flows
@@ -964,7 +964,7 @@ Update documentation when you:
 
 - **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)**: Comprehensive setup and usage
 - **[Architecture Documentation](ARCHITECTURE.md)**: System design details
-- **[Operator Reference](docs/OPERATOR_REFERENCE.md)**: Detailed operator and API documentation
+- **[Operator Reference](docs/reference/OPERATORS.md)**: Detailed operator and API documentation
 - **[Examples](examples/)**: Sample flows and code examples
 
 ### Communication

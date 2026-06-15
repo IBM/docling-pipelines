@@ -11,9 +11,9 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 ## Configuration Parameters
 
 ### 1. `paths` (String)
-**Type:** String
-**Required:** Yes
-**Description:** Path to the file or folder containing documents to ingest.
+**Type:** String  
+**Required:** Yes  
+**Description:** Path to the file or folder containing documents to ingest.  
 
 **Examples:**
 ```json
@@ -28,7 +28,7 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 **Type:** Integer  
 **Required:** No  
 **Default:** `100`  
-**Description:** Maximum number of files to ingest. Processing stops after reaching this limit.
+**Description:** Maximum number of files to ingest. Processing stops after reaching this limit.  
 
 **Examples:**
 ```json
@@ -39,7 +39,7 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 **Type:** Integer  
 **Required:** No  
 **Default:** `100` (MB)  
-**Description:** Maximum file size in megabytes. Files larger than this will be skipped.
+**Description:** Maximum file size in megabytes. Files larger than this will be skipped.  
 
 **Examples:**
 ```json
@@ -50,7 +50,7 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 **Type:** List (comma-separated string)  
 **Required:** No  
 **Default:** `"pdf,docx,pptx,txt,md"`  
-**Description:** File extensions to include. Only files with these extensions will be processed.
+**Description:** File extensions to include. Only files with these extensions will be processed.  
 
 **Examples:**
 ```json
@@ -64,7 +64,7 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 ### 5. `exclude_filter` (List)
 **Type:** List (comma-separated string)  
 **Required:** No  
-**Description:** File extensions to exclude. Files with these extensions will be skipped even if they match include_filter.
+**Description:** File extensions to exclude. Files with these extensions will be skipped even if they match include_filter.  
 
 **Examples:**
 ```json
@@ -75,7 +75,7 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
-**Description:** Force re-ingestion of previously processed documents. When false, documents are skipped if they haven't been modified since last ingestion.
+**Description:** Force re-ingestion of previously processed documents. When false, documents are skipped if they haven't been modified since last ingestion.  
 
 **Examples:**
 ```json
@@ -86,7 +86,7 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
-**Description:** Whether to retain documents in the system that have been deleted from the source folder.
+**Description:** Whether to retain documents in the system that have been deleted from the source folder.  
 
 **Examples:**
 ```json
@@ -96,23 +96,23 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 ## Output Features
 
 ### `path` (String)
-**Type:** String
-**Description:** The absolute path to the document file
-**Available for Filter:** Yes
-**Available for Vector DB:** No
+**Type:** String  
+**Description:** The absolute path to the document file  
+**Available for Filter:** Yes  
+**Available for Vector DB:** No  
 
 ### `document_format` (String)
-**Type:** String
-**Description:** File format/extension of the document (e.g., `.pdf`, `.xlsx`)
-**Available for Filter:** Yes
-**Available for Vector DB:** No
+**Type:** String  
+**Description:** File format/extension of the document (e.g., `.pdf`, `.xlsx`)  
+**Available for Filter:** Yes  
+**Available for Vector DB:** No  
 
 ### `doc_id_hash` (String)
-**Type:** String
-**Description:** Hash ID of the document row
-**Available for Vector DB:** Yes
+**Type:** String  
+**Description:** Hash ID of the document row  
+**Available for Vector DB:** Yes  
 **Is Primary:** Yes
-**Tags:** `mandatory`, `primary`
+**Tags:** `mandatory`, `primary`  
 
 ## Configuration Examples
 

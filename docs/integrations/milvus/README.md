@@ -382,7 +382,7 @@ Datasift provides two example pipeline flows demonstrating different Milvus depl
     "port": 19530,
     "secure": false,
     "username": "root",
-    "password": "Milvus",
+    "password": "<YOUR_PASSWORD>",
     "metric_type": "BM25",
     "index_type": "SPARSE_INVERTED_INDEX"
   }
@@ -527,7 +527,7 @@ For a complete working example, see [`sample_flows/milvus_dense_watsonx_flow.jso
       "host": "localhost",
       "port": 19530,
       "username": "root",
-      "password": "Milvus",
+      "password": "<YOUR_PASSWORD>",
       "database": "default",
       "index_type": "HNSW",
       "metric_type": "L2",
@@ -571,7 +571,7 @@ For a complete working example, see [`sample_flows/milvus_sparse_localhost_flow.
       "host": "localhost",
       "port": 19530,
       "username": "root",
-      "password": "Milvus",
+      "password": "<YOUR_PASSWORD>",
       "database": "default",
       "index_type": "SPARSE_INVERTED_INDEX",
       "metric_type": "BM25"
@@ -835,7 +835,7 @@ To migrate from OpenSearch to Milvus:
        "host": "localhost",
        "port": 19530,  // Changed from 9200
        "username": "root",
-       "password": "Milvus",
+       "password": "<YOUR_PASSWORD>",
        "index_type": "HNSW",  // Instead of "engine"
        "metric_type": "L2"  // Instead of "space_type"
      }

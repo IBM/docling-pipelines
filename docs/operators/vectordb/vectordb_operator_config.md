@@ -22,7 +22,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** String  
 **Required:** No  
 **Default:** `"opensearch"`  
-**Description:** Type of vector database provider to use.
+**Description:** Type of vector database provider to use.  
 
 **Valid Values:** `opensearch`, `pinecone`, `weaviate`
 
@@ -34,7 +34,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 #### 2. `index_name` (String)
 **Type:** String  
 **Required:** Yes  
-**Description:** Name of the vector database index/collection where documents will be stored.
+**Description:** Name of the vector database index/collection where documents will be stored.  
 
 **Examples:**
 ```json
@@ -45,7 +45,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** String  
 **Required:** No  
 **Default:** `"doc_id_hash"`  
-**Description:** Column containing document IDs. Used as primary key in the vector database.
+**Description:** Column containing document IDs. Used as primary key in the vector database.  
 
 **Examples:**
 ```json
@@ -60,7 +60,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** String  
 **Required:** No  
 **Default:** `"embeddings"`  
-**Description:** Column containing dense vector embeddings for similarity search.
+**Description:** Column containing dense vector embeddings for similarity search.  
 
 **Examples:**
 ```json
@@ -74,7 +74,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 #### 5. `sparse_embeddings_column` (String)
 **Type:** String  
 **Required:** No  
-**Description:** Column containing sparse vector embeddings for hybrid search (dense + sparse).
+**Description:** Column containing sparse vector embeddings for hybrid search (dense + sparse).  
 
 **Examples:**
 ```json
@@ -85,7 +85,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** Boolean  
 **Required:** No  
 **Default:** `true`  
-**Description:** Create index if it doesn't exist. When false, expects index to already exist.
+**Description:** Create index if it doesn't exist. When false, expects index to already exist.  
 
 **Examples:**
 ```json
@@ -96,7 +96,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** Integer  
 **Required:** No  
 **Default:** `384`  
-**Description:** Dimension of dense vector embeddings. Auto-detected from data if not specified.
+**Description:** Dimension of dense vector embeddings. Auto-detected from data if not specified.  
 
 **Examples:**
 ```json
@@ -107,7 +107,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** Integer  
 **Required:** No  
 **Default:** `100`  
-**Description:** Number of documents to index in each batch. Larger batches improve throughput but use more memory.
+**Description:** Number of documents to index in each batch. Larger batches improve throughput but use more memory.  
 
 **Examples:**
 ```json
@@ -119,7 +119,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 #### 9. `host` (String)
 **Type:** String  
 **Required:** Yes  
-**Description:** Vector database server host address.
+**Description:** Vector database server host address.  
 
 **Examples:**
 ```json
@@ -130,7 +130,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** Integer  
 **Required:** No  
 **Default:** `9200`  
-**Description:** Vector database server port.
+**Description:** Vector database server port.  
 
 **Examples:**
 ```json
@@ -140,7 +140,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 #### 11. `username` (String)
 **Type:** String  
 **Required:** No  
-**Description:** Username for database authentication.
+**Description:** Username for database authentication.  
 
 **Examples:**
 ```json
@@ -150,7 +150,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 #### 12. `password` (String)
 **Type:** String  
 **Required:** No  
-**Description:** Password for database authentication.
+**Description:** Password for database authentication.  
 
 **Examples:**
 ```json
@@ -161,7 +161,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** Boolean  
 **Required:** No  
 **Default:** `true`  
-**Description:** Use SSL/TLS for connection.
+**Description:** Use SSL/TLS for connection.  
 
 **Examples:**
 ```json
@@ -172,7 +172,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Type:** Boolean  
 **Required:** No  
 **Default:** `true`  
-**Description:** Verify SSL certificates. Set to false for self-signed certificates (not recommended for production).
+**Description:** Verify SSL certificates. Set to false for self-signed certificates (not recommended for production).  
 
 **Examples:**
 ```json
@@ -184,7 +184,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 #### 15. `provider_config` (JSON)
 **Type:** JSON Object  
 **Required:** No  
-**Description:** Provider-specific configuration parameters. Structure varies by provider.
+**Description:** Provider-specific configuration parameters. Structure varies by provider.  
 
 **OpenSearch Example:**
 ```json
@@ -221,25 +221,25 @@ The Vector Database Operator provides a unified interface for storing documents 
 **Available for Vector DB:** Yes  
 **Mandatory for Vector DB:** Yes  
 **Is Primary:** Yes  
-**Tags:** `mandatory`, `primary`
+**Tags:** `mandatory`, `primary`  
 
 ### `embeddings` (Vector)
 **Type:** Vector (Dense)  
 **Description:** Dense vector embeddings for similarity search  
 **Available for Vector DB:** Yes  
 **Mandatory for Vector DB:** Yes  
-**Tags:** `mandatory`
+**Tags:** `mandatory`  
 
 ### `sparse_embeddings` (Vector)
 **Type:** Vector (Sparse)  
 **Description:** Sparse vector embeddings for hybrid search  
-**Available for Vector DB:** Yes
+**Available for Vector DB:** Yes  
 
 ### `content` (String)
 **Type:** String  
 **Description:** The text content of the document  
 **Available for Filter:** Yes  
-**Available for Vector DB:** Yes
+**Available for Vector DB:** Yes  
 
 ## Configuration Examples
 

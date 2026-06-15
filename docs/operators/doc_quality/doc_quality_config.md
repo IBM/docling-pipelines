@@ -15,7 +15,7 @@ The operator adds 11 document quality metrics to the PyArrow table:
 ### 1. `docq_total_words` (Integer)
 **Description:** Total number of words in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 **Example Values:**
 - `150` - Short document
@@ -25,7 +25,7 @@ The operator adds 11 document quality metrics to the PyArrow table:
 ### 2. `docq_mean_word_len` (Float)
 **Description:** Mean length of words in characters  
 **Available for Filter:** Yes  
-**Type:** Float
+**Type:** Float  
 
 **Example Values:**
 - `4.2` - Simple vocabulary
@@ -46,7 +46,7 @@ The operator adds 11 document quality metrics to the PyArrow table:
 ### 4. `docq_sentence_count` (Integer)
 **Description:** Number of sentences in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 **Example Values:**
 - `5` - Few sentences
@@ -57,7 +57,7 @@ The operator adds 11 document quality metrics to the PyArrow table:
 **Description:** Ratio of lorem ipsum placeholder text occurrences  
 **Available for Filter:** Yes  
 **Type:** Float  
-**Range:** 0.0 to 1.0
+**Range:** 0.0 to 1.0  
 
 **Example Values:**
 - `0.0` - No placeholder text
@@ -67,7 +67,7 @@ The operator adds 11 document quality metrics to the PyArrow table:
 ### 6. `docq_contain_bad_word` (Boolean)
 **Description:** Whether text contains profanity or inappropriate words  
 **Available for Filter:** Yes  
-**Type:** Boolean
+**Type:** Boolean  
 
 **Example Values:**
 - `false` - Clean content
@@ -77,7 +77,7 @@ The operator adds 11 document quality metrics to the PyArrow table:
 **Description:** Ratio of lines starting with bullet points  
 **Available for Filter:** Yes  
 **Type:** Float  
-**Range:** 0.0 to 1.0
+**Range:** 0.0 to 1.0  
 
 **Example Values:**
 - `0.0` - No bullet points
@@ -120,7 +120,7 @@ The operator adds 11 document quality metrics to the PyArrow table:
 ### 11. `docq_contain_common_en_words` (Float)
 **Description:** Whether text contains common English words (the, and, to, that, of, with, be, have)  
 **Available for Filter:** Yes  
-**Type:** Float
+**Type:** Float  
 
 **Example Values:**
 - `1.0` - Contains common words

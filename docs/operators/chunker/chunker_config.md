@@ -11,10 +11,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ## Configuration Parameters
 
 ### 1. `chunk_type` (String)
-**Type:** String
-**Required:** No
-**Default:** `"simple"`
-**Description:** Chunking strategy to use.
+**Type:** String  
+**Required:** No  
+**Default:** `"simple"`  
+**Description:** Chunking strategy to use.  
 
 **Valid Values:**
 - `"simple"` - Fixed-size chunking with overlap (traditional approach)
@@ -29,10 +29,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 2. `chunk_size` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `2048`
-**Description:** Size of each chunk. Units depend on chunk_type:
+**Type:** Integer  
+**Required:** No  
+**Default:** `2048`  
+**Description:** Size of each chunk. Units depend on chunk_type:  
 - Simple: characters (500-5000)
 - Hybrid: tokens (100-2048)
 - Semantic: not used
@@ -48,10 +48,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 3. `chunk_overlap` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `200`
-**Description:** Number of characters/tokens that consecutive chunks share to retain context across boundaries.
+**Type:** Integer  
+**Required:** No  
+**Default:** `200`  
+**Description:** Number of characters/tokens that consecutive chunks share to retain context across boundaries.  
 
 **Valid Values:**
 - Minimum: `0`
@@ -64,10 +64,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 4. `semantic_embeddings_model` (String)
-**Type:** String
-**Required:** No (Yes for semantic chunking)
-**Default:** None
-**Description:** Ollama model name for generating embeddings in semantic chunking. Must be explicitly provided when using semantic chunking.
+**Type:** String  
+**Required:** No (Yes for semantic chunking)  
+**Default:** None  
+**Description:** Ollama model name for generating embeddings in semantic chunking. Must be explicitly provided when using semantic chunking.  
 
 **Recommended Models:**
 - `"nomic-embed-text"` - General purpose embedding model (recommended for most use cases)
@@ -82,10 +82,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 5. `breakpoint_threshold_type` (String)
-**Type:** String
-**Required:** No (for semantic chunking)
-**Default:** `"percentile"`
-**Description:** Method for determining semantic chunk boundaries.
+**Type:** String  
+**Required:** No (for semantic chunking)  
+**Default:** `"percentile"`  
+**Description:** Method for determining semantic chunk boundaries.  
 
 **Valid Values:**
 - `"percentile"` - Split at percentile threshold of dissimilarity scores (e.g: 95th percentile = split at top 5% most dissimilar points)
@@ -100,10 +100,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 6. `breakpoint_threshold_amount` (Float)
-**Type:** Float
-**Required:** No
-**Default:** `None` (uses LangChain defaults)
-**Description:** Threshold value for the selected breakpoint type.
+**Type:** Float  
+**Required:** No  
+**Default:** `None` (uses LangChain defaults)  
+**Description:** Threshold value for the selected breakpoint type.  
 
 **Valid Values:**
 - For percentile: `0-100` (e.g., 95.0 for 95th percentile)
@@ -118,10 +118,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 7. `docling_tokenizer` (String)
-**Type:** String
-**Required:** No (only used for hybrid chunking)
-**Default:** `"sentence-transformers/all-MiniLM-L6-v2"`
-**Description:** HuggingFace tokenizer model for hybrid (Docling) chunking. This parameter is only used when `chunk_type` is set to `"hybrid"`. If not specified, the default tokenizer will be used.
+**Type:** String  
+**Required:** No (only used for hybrid chunking)  
+**Default:** `"sentence-transformers/all-MiniLM-L6-v2"`  
+**Description:** HuggingFace tokenizer model for hybrid (Docling) chunking. This parameter is only used when `chunk_type` is set to `"hybrid"`. If not specified, the default tokenizer will be used.  
 
 **Valid Values:**
 - `"sentence-transformers/all-MiniLM-L6-v2"` (default)
@@ -135,10 +135,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 8. `retain_original_content` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `false`
-**Description:** Whether to keep the original content column after chunking.
+**Type:** Boolean  
+**Required:** No  
+**Default:** `false`  
+**Description:** Whether to keep the original content column after chunking.  
 
 **Valid Values:**
 - `true` - Keep original content alongside chunks
@@ -150,10 +150,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 9. `summarization` (Object)
-**Type:** JSON Object
-**Required:** No
-**Default:** `{}`
-**Description:** Nested configuration object for all summarization-related settings. When present with a provider specified, summarization is enabled.
+**Type:** JSON Object  
+**Required:** No  
+**Default:** `{}`  
+**Description:** Nested configuration object for all summarization-related settings. When present with a provider specified, summarization is enabled.  
 
 **Sub-parameters:**
 - `provider` (String): LLM provider (`litellm` or `watsonx`)
@@ -181,19 +181,19 @@ The Chunker Operator provides intelligent text chunking with support for three s
 **Sub-parameters:**
 
 #### 10.1 `provider` (String)
-**Type:** String
-**Required:** No
-**Default:** `"litellm"`
-**Description:** LLM provider for summarization.
+**Type:** String  
+**Required:** No  
+**Default:** `"litellm"`  
+**Description:** LLM provider for summarization.  
 
 **Valid Values:**
 - `"litellm"` - LiteLLM (supports 100+ providers including Ollama, OpenAI, Anthropic, HuggingFace)
 - `"watsonx"` - IBM WatsonX
 
 #### 10.2 `provider_config` (Object)
-**Type:** JSON Object
-**Required:** Yes (when summarization is enabled)
-**Description:** Provider-specific configuration including model_id.
+**Type:** JSON Object  
+**Required:** Yes (when summarization is enabled)  
+**Description:** Provider-specific configuration including model_id.  
 
 **For LiteLLM:**
 - `model_id` (String, Required): Model identifier (auto-prefixed with `openai/` for Ollama models)
@@ -208,30 +208,30 @@ The Chunker Operator provides intelligent text chunking with support for three s
 - `container_kind` (String, Required): Container type (`"project"` or `"space"`)
 
 #### 10.3 `summary_sentences` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `2`
-**Description:** Number of sentences in each summary.
+**Type:** Integer  
+**Required:** No  
+**Default:** `2`  
+**Description:** Number of sentences in each summary.  
 
 **Valid Values:**
 - Minimum: `1`
 - Maximum: `5`
 
 #### 10.4 `summary_max_words` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `20`
-**Description:** Maximum words per summary.
+**Type:** Integer  
+**Required:** No  
+**Default:** `20`  
+**Description:** Maximum words per summary.  
 
 **Valid Values:**
 - Minimum: `10`
 - Maximum: `100`
 
 #### 10.5 `max_input_tokens` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `8000`
-**Description:** Maximum input tokens per summarization request.
+**Type:** Integer  
+**Required:** No  
+**Default:** `8000`  
+**Description:** Maximum input tokens per summarization request.  
 
 **Valid Values:**
 - Minimum: `1000`
@@ -272,10 +272,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 **Backward Compatibility Note:** The flat configuration structure (using `summarization_provider`, `summarization_provider_config`, `summary_sentences`, etc. at the top level) is still supported but deprecated. The nested `summarization` object is the recommended approach.
 
 ### 11. `provider` (String)
-**Type:** String
-**Required:** No
-**Default:** `None`
-**Description:** Chunking provider for remote/distributed chunking. When not specified, uses local chunking based on `chunk_type`.
+**Type:** String  
+**Required:** No  
+**Default:** `None`  
+**Description:** Chunking provider for remote/distributed chunking. When not specified, uses local chunking based on `chunk_type`.  
 
 **Valid Values:**
 - `"docling_library"` - Local Docling library (same as not specifying provider)
@@ -289,10 +289,10 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ```
 
 ### 12. `provider_config` (Object)
-**Type:** Object (JSON)
-**Required:** No (Yes if provider is "docling_serve")
-**Default:** `{}`
-**Description:** Provider-specific configuration options for remote chunking.
+**Type:** Object (JSON)  
+**Required:** No (Yes if provider is "docling_serve")  
+**Default:** `{}`  
+**Description:** Provider-specific configuration options for remote chunking.  
 
 **For `docling_serve` provider:**
 - `api_base` (string, required): Base URL of docling-serve instance
@@ -313,22 +313,22 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ## Output Features
 
 ### 1. `chunk_sequence_number` (Integer)
-**Description:** Sequential chunk number for each text chunk, representing its position within a larger document.
-**Type:** Integer (int64)
-**Available for Vector DB:** Yes
-**Tags:** `mandatory`, `internal_feature`
+**Description:** Sequential chunk number for each text chunk, representing its position within a larger document.  
+**Type:** Integer (int64)  
+**Available for Vector DB:** Yes  
+**Tags:** `mandatory`, `internal_feature`  
 
 ### 2. `start_index` (Integer)
-**Description:** Chunk starting token position in the source document.
-**Type:** Integer (int64)
-**Available for Vector DB:** Yes
-**Tags:** `mandatory`, `internal_feature`
+**Description:** Chunk starting token position in the source document.  
+**Type:** Integer (int64)  
+**Available for Vector DB:** Yes  
+**Tags:** `mandatory`, `internal_feature`  
 
 ### 3. `chunked_content` (List)
-**Description:** Content containing segmented portions of larger text data.
-**Type:** List of dictionaries
-**Available for Filter:** No
-**Tags:** `mandatory`
+**Description:** Content containing segmented portions of larger text data.  
+**Type:** List of dictionaries  
+**Available for Filter:** No  
+**Tags:** `mandatory`  
 
 **Chunk Object Structure:**
 ```json

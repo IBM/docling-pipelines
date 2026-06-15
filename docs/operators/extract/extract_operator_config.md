@@ -31,10 +31,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ### Core Parameters
 
 #### 1. `text_extraction` (Object)
-**Type:** JSON Object
-**Required:** No
-**Default:** `{}`
-**Description:** Text extraction configuration object containing all text extraction parameters.
+**Type:** JSON Object  
+**Required:** No  
+**Default:** `{}`  
+**Description:** Text extraction configuration object containing all text extraction parameters.  
 
 **Sub-parameters:**
 - `provider` (String): Text extraction strategy (`docling_library`, `docling_serve`)
@@ -55,10 +55,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ```
 
 #### 2. `entity_extraction` (Object)
-**Type:** JSON Object
-**Required:** No
-**Default:** `{}`
-**Description:** Entity extraction configuration object containing all entity extraction parameters.
+**Type:** JSON Object  
+**Required:** No  
+**Default:** `{}`  
+**Description:** Entity extraction configuration object containing all entity extraction parameters.  
 
 **Sub-parameters:**
 - `provider` (String): Entity extraction strategy (`litellm`, `watsonx`, `docling`, `none`)
@@ -88,10 +88,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ```
 
 #### 3. `text_extraction.doc_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"content"`
-**Description:** Name of the column to store extracted document content.
+**Type:** String  
+**Required:** No  
+**Default:** `"content"`  
+**Description:** Name of the column to store extracted document content.  
 
 **Examples:**
 ```json
@@ -101,10 +101,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ```
 
 #### 4. `entity_extraction.output_column` (String)
-**Type:** String
-**Required:** No
-**Default:** `"entities"`
-**Description:** Name of the column to store extracted entities.
+**Type:** String  
+**Required:** No  
+**Default:** `"entities"`  
+**Description:** Name of the column to store extracted entities.  
 
 **Examples:**
 ```json
@@ -114,10 +114,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ```
 
 #### 5. `text_extraction.provider_config.additional_formats` (Array)
-**Type:** Array of strings
-**Required:** No
-**Default:** `[]` (empty array - markdown only)
-**Description:** Additional output formats to generate beyond the mandatory markdown format. Each format creates a separate column in the output table.
+**Type:** Array of strings  
+**Required:** No  
+**Default:** `[]` (empty array - markdown only)  
+**Description:** Additional output formats to generate beyond the mandatory markdown format. Each format creates a separate column in the output table.  
 
 **Valid Values:** `"html"`, `"json"`, `"text"`, `"doctags"`, `"doclang"`
 
@@ -149,7 +149,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Type:** Integer  
 **Required:** No  
 **Default:** Auto (CPU-based)  
-**Description:** Maximum number of parallel workers for extraction. Auto-detects optimal value based on CPU count.
+**Description:** Maximum number of parallel workers for extraction. Auto-detects optimal value based on CPU count.  
 
 **Examples:**
 ```json
@@ -160,7 +160,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
-**Description:** Use ProcessPoolExecutor instead of ThreadPoolExecutor for CPU-intensive tasks.
+**Description:** Use ProcessPoolExecutor instead of ThreadPoolExecutor for CPU-intensive tasks.  
 
 **Examples:**
 ```json
@@ -170,10 +170,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ### Entity Extraction Parameters
 
 #### 8. `entity_extraction.provider_config` (Object)
-**Type:** JSON Object
-**Required:** No
-**Default:** `{}`
-**Description:** Provider-specific configuration for entity extraction only, including model_id and authentication. Operator-level keys such as `output_column`, `max_doc_chars`, `custom_schema`, and `expand_extracted_data` must be defined directly under `entity_extraction`, not inside `provider_config`.
+**Type:** JSON Object  
+**Required:** No  
+**Default:** `{}`  
+**Description:** Provider-specific configuration for entity extraction only, including model_id and authentication. Operator-level keys such as `output_column`, `max_doc_chars`, `custom_schema`, and `expand_extracted_data` must be defined directly under `entity_extraction`, not inside `provider_config`.  
 
 **For LiteLLM:**
 - `model_id` (String, Required): Model identifier. **Must include provider prefix when using LiteLLM** (e.g., `"openai/gpt-4"`, `"openai/llama3.2"` for Ollama, `"anthropic/claude-3-opus"`)
@@ -212,8 +212,8 @@ The Extract Operator is a unified extraction operator that provides text and ent
 #### 9. `entity_extraction.custom_schema` (JSON)
 **Type:** JSON Object  
 **Required:** No  
-**Default:** None
-**Description:** Schema dictionary for structured extraction. Defines the structure of entities to extract.
+**Default:** None  
+**Description:** Schema dictionary for structured extraction. Defines the structure of entities to extract.  
 
 **Examples:**
 ```json
@@ -230,7 +230,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
-**Description:** Whether to expand entity data JSON into individual columns (applies to entity extraction only).
+**Description:** Whether to expand entity data JSON into individual columns (applies to entity extraction only).  
 
 **Examples:**
 ```json
@@ -242,10 +242,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ### VLM (Vision-Language Model) Parameters
 
 #### 11. `text_extraction.provider_config.vlm_pipeline` (Object)
-**Type:** JSON Object
-**Required:** No
-**Default:** `null`
-**Description:** Provider-specific VLM pipeline configuration for enhanced extraction (docling_library mode only). When provided, enables Vision-Language Model processing.
+**Type:** JSON Object  
+**Required:** No  
+**Default:** `null`  
+**Description:** Provider-specific VLM pipeline configuration for enhanced extraction (docling_library mode only). When provided, enables Vision-Language Model processing.  
 
 **Sub-parameters:**
 - `preset` (String): VLM preset name (`fast`, `accurate`, or custom)
@@ -308,10 +308,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 All Docling Serve parameters should be nested under `text_extraction.provider_config` when using `provider: "docling_serve"`.
 
 #### 14. `text_extraction.provider_config.base_url` (String)
-**Type:** String
-**Required:** No
-**Default:** `"http://localhost:5001"`
-**Description:** Base URL for the docling-serve service (docling_serve mode only).
+**Type:** String  
+**Required:** No  
+**Default:** `"http://localhost:5001"`  
+**Description:** Base URL for the docling-serve service (docling_serve mode only).  
 
 **Examples:**
 ```json
@@ -324,10 +324,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 15. `text_extraction.provider_config.api_key` (String)
-**Type:** String
-**Required:** No
-**Default:** None
-**Description:** Optional API key sent as X-API-KEY when calling docling-serve.
+**Type:** String  
+**Required:** No  
+**Default:** None  
+**Description:** Optional API key sent as X-API-KEY when calling docling-serve.  
 
 **Examples:**
 ```json
@@ -340,10 +340,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 16. `text_extraction.provider_config.timeout` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `300`
-**Description:** Request timeout in seconds for docling-serve operations.
+**Type:** Integer  
+**Required:** No  
+**Default:** `300`  
+**Description:** Request timeout in seconds for docling-serve operations.  
 
 **Examples:**
 ```json
@@ -356,10 +356,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 17. `text_extraction.provider_config.poll_interval` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `2`
-**Description:** Polling interval in seconds when waiting for docling-serve task completion.
+**Type:** Integer  
+**Required:** No  
+**Default:** `2`  
+**Description:** Polling interval in seconds when waiting for docling-serve task completion.  
 
 **Examples:**
 ```json
@@ -372,10 +372,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 18. `text_extraction.provider_config.max_retries` (Integer)
-**Type:** Integer
-**Required:** No
-**Default:** `3`
-**Description:** Maximum retry attempts for docling-serve status polling.
+**Type:** Integer  
+**Required:** No  
+**Default:** `3`  
+**Description:** Maximum retry attempts for docling-serve status polling.  
 
 **Examples:**
 ```json
@@ -388,10 +388,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 19. `text_extraction.provider_config.do_ocr` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `true`
-**Description:** Whether OCR should be enabled when processing documents with docling-serve.
+**Type:** Boolean  
+**Required:** No  
+**Default:** `true`  
+**Description:** Whether OCR should be enabled when processing documents with docling-serve.  
 
 **Examples:**
 ```json
@@ -404,10 +404,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 25. `text_extraction.provider_config.ocr_engine` (String)
-**Type:** String
-**Required:** No
-**Default:** `"easyocr"`
-**Description:** OCR engine name passed to docling-serve.
+**Type:** String  
+**Required:** No  
+**Default:** `"easyocr"`  
+**Description:** OCR engine name passed to docling-serve.  
 
 **Examples:**
 ```json
@@ -420,10 +420,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 26. `text_extraction.provider_config.ocr_languages` (JSON)
-**Type:** JSON Array
-**Required:** No
-**Default:** None
-**Description:** List of OCR languages passed to docling-serve.
+**Type:** JSON Array  
+**Required:** No  
+**Default:** None  
+**Description:** List of OCR languages passed to docling-serve.  
 
 **Examples:**
 ```json
@@ -436,10 +436,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 27. `text_extraction.provider_config.pdf_backend` (String)
-**Type:** String
-**Required:** No
-**Default:** `"dlparse_v2"`
-**Description:** PDF backend to use in docling-serve.
+**Type:** String  
+**Required:** No  
+**Default:** `"dlparse_v2"`  
+**Description:** PDF backend to use in docling-serve.  
 
 **Examples:**
 ```json
@@ -452,10 +452,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 28. `text_extraction.provider_config.table_mode` (String)
-**Type:** String
-**Required:** No
-**Default:** `"fast"`
-**Description:** Table structure extraction mode for docling-serve.
+**Type:** String  
+**Required:** No  
+**Default:** `"fast"`  
+**Description:** Table structure extraction mode for docling-serve.  
 
 **Valid Values:** `fast`, `accurate`
 
@@ -470,10 +470,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ```
 
 #### 29. `text_extraction.provider_config.image_export_mode` (String)
-**Type:** String
-**Required:** No
-**Default:** `"placeholder"`
-**Description:** Image export mode passed to docling-serve.
+**Type:** String  
+**Required:** No  
+**Default:** `"placeholder"`  
+**Description:** Image export mode passed to docling-serve.  
 
 **Examples:**
 ```json
@@ -488,11 +488,11 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 ## Output Features
 
 ### `content` (String)
-**Type:** String
-**Description:** The markdown content extracted from the document (always generated). Column name can be customized via `doc_column` parameter (default: "content")
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
-**Tags:** `mandatory`
+**Type:** String  
+**Description:** The markdown content extracted from the document (always generated). Column name can be customized via `doc_column` parameter (default: "content")  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
+**Tags:** `mandatory`  
 
 ### `doc_id_hash` (String)
 **Type:** String  
@@ -500,40 +500,40 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 **Available for Vector DB:** Yes  
 **Mandatory for Vector DB:** Yes  
 **Is Primary:** Yes  
-**Tags:** `mandatory`, `primary`
+**Tags:** `mandatory`, `primary`  
 
 ### `entities` (String)
-**Type:** String
-**Description:** Extracted entities from document content (when entity extraction is enabled)
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
+**Type:** String  
+**Description:** Extracted entities from document content (when entity extraction is enabled)  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
 
 ### `content_html` (String)
-**Type:** String
-**Description:** HTML format of extracted content (when `additional_formats` includes "html")
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
+**Type:** String  
+**Description:** HTML format of extracted content (when `additional_formats` includes "html")  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
 **Note:** Only present when "html" is specified in `additional_formats` parameter
 
 ### `content_json` (String)
-**Type:** String
-**Description:** JSON structured format of extracted content (when `additional_formats` includes "json")
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
+**Type:** String  
+**Description:** JSON structured format of extracted content (when `additional_formats` includes "json")  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
 **Note:** Only present when "json" is specified in `additional_formats` parameter
 
 ### `content_text` (String)
-**Type:** String
-**Description:** Plain text format of extracted content (when `additional_formats` includes "text")
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
+**Type:** String  
+**Description:** Plain text format of extracted content (when `additional_formats` includes "text")  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
 **Note:** Only present when "text" is specified in `additional_formats` parameter
 
 ### `content_doctags` (String)
-**Type:** String
-**Description:** Docling's native DocTags format (when `additional_formats` includes "doctags")
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
+**Type:** String  
+**Description:** Docling's native DocTags format (when `additional_formats` includes "doctags")  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
 **Note:** Only present when "doctags" is specified in `additional_formats` parameter
 
 ### `content_doclang` (String)
@@ -544,10 +544,10 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 **Note:** Only present when "doclang" is specified in `additional_formats` parameter
 
 ### `entity_{key}` (Dynamic Columns)
-**Type:** String
-**Description:** Individual entity columns (when `expand_extracted_data` is enabled)
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
+**Type:** String  
+**Description:** Individual entity columns (when `expand_extracted_data` is enabled)  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
 **Note:** When `expand_extracted_data=true`, each entity key becomes a separate column with format `entity_{key}`. For example, if entities contain `{"name": "John", "age": "30"}`, two columns are created: `entity_name` and `entity_age`. These columns are dynamically generated at runtime based on the actual entity keys found in the data.
 
 ## Configuration Examples

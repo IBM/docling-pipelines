@@ -12,10 +12,10 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 ## Configuration Parameters
 
 #### 1. `provider_config` (JSON/Dictionary)
-**Type:** JSON Object
-**Required:** No
-**Default:** `{}`
-**Description:** Provider-specific configuration dictionary containing authentication, connection details, and model_id.
+**Type:** JSON Object  
+**Required:** No  
+**Default:** `{}`  
+**Description:** Provider-specific configuration dictionary containing authentication, connection details, and model_id.  
 
 **Provider-Specific Requirements:**
 
@@ -61,7 +61,7 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 **Type:** Boolean  
 **Required:** Yes  
 **Default:** `false`  
-**Description:** Enable or disable PII redaction in document content.
+**Description:** Enable or disable PII redaction in document content.  
 
 **Valid Values:** `true`, `false`
 
@@ -69,15 +69,15 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 **Type:** Boolean  
 **Required:** Yes  
 **Default:** `false`  
-**Description:** Enable or disable HAP (Hate, Abuse, Profanity) redaction in document content.
+**Description:** Enable or disable HAP (Hate, Abuse, Profanity) redaction in document content.  
 
 **Valid Values:** `true`, `false`
 
 #### 4. `provider` (String)
-**Type:** String
-**Required:** No
-**Default:** `"litellm"`
-**Description:** Detection provider to use for PII/HAP analysis.
+**Type:** String  
+**Required:** No  
+**Default:** `"litellm"`  
+**Description:** Detection provider to use for PII/HAP analysis.  
 
 **Valid Values:** `"watsonx"`, `"litellm"`
 
@@ -90,8 +90,8 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 #### 6. `expected_redactions` (List)
 **Type:** List of Strings  
 **Required:** No  
-**Default:** `["pii", "hap"]`
-**Description:** List of detection types to perform and potentially redact.
+**Default:** `["pii", "hap"]`  
+**Description:** List of detection types to perform and potentially redact.  
 
 **Valid Values:** `["PII", "HAP"]` or any subset  
 **Examples:**
@@ -102,10 +102,10 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 ```
 
 #### 7. `pii_list` (List)
-**Type:** List of Strings
-**Required:** No
-**Default:** `["BankAccountNumber", "CreditCardNumber", "EmailAddress", "IPAddress", "PhoneNumber", "SocialSecurityNumber"]`
-**Description:** Specific PII types to detect and redact.
+**Type:** List of Strings  
+**Required:** No  
+**Default:** `["BankAccountNumber", "CreditCardNumber", "EmailAddress", "IPAddress", "PhoneNumber", "SocialSecurityNumber"]`  
+**Description:** Specific PII types to detect and redact.  
 
 **Valid Values:**
 - `"BankAccountNumber"` - Bank account numbers
@@ -125,7 +125,7 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 **Type:** String  
 **Required:** No  
 **Default:** `"*"`  
-**Description:** Character used to mask/redact PII content.
+**Description:** Character used to mask/redact PII content.  
 
 **Examples:**
 ```json
@@ -138,7 +138,7 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 **Type:** String  
 **Required:** No  
 **Default:** `"*"`  
-**Description:** Character used to mask/redact HAP content.
+**Description:** Character used to mask/redact HAP content.  
 
 **Examples:**
 ```json
@@ -151,7 +151,7 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 **Required:** No  
 **Default:** `0.5`  
 **Range:** `0.0` to `1.0`  
-**Description:** Confidence threshold for PII detection. Detections below this threshold are ignored.
+**Description:** Confidence threshold for PII detection. Detections below this threshold are ignored.  
 
 **Examples:**
 ```json
@@ -163,9 +163,9 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 #### 11. `hap_threshold` (Float)
 **Type:** Float  
 **Required:** No  
-**Default:** `0.8`
+**Default:** `0.8`  
 **Range:** `0.0` to `1.0`  
-**Description:** Confidence threshold for HAP detection. Detections below this threshold are ignored.
+**Description:** Confidence threshold for HAP detection. Detections below this threshold are ignored.  
 
 **Examples:**
 ```json
@@ -174,10 +174,10 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 ```
 
 #### 12. `display_pii` (Boolean)
-**Type:** Boolean
-**Required:** No
-**Default:** `false`
-**Description:** Include actual PII values in output columns for debugging/analysis purposes.
+**Type:** Boolean  
+**Required:** No  
+**Default:** `false`  
+**Description:** Include actual PII values in output columns for debugging/analysis purposes.  
 
 **Valid Values:** `true`, `false`
 
@@ -194,39 +194,39 @@ The operator adds the following feature columns to the output table:
 #### 1. `pii_bank_account` (Integer)
 **Description:** Count of bank account numbers detected in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 #### 2. `pii_credit_card` (Integer)
 **Description:** Count of credit card numbers detected in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 #### 3. `pii_email_address` (Integer)
 **Description:** Count of email addresses detected in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 #### 4. `pii_ip_address` (Integer)
 **Description:** Count of IP addresses detected in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 #### 5. `pii_phone_number` (Integer)
 **Description:** Count of phone numbers detected in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 #### 6. `pii_ssn_details` (Integer)
 **Description:** Count of Social Security Numbers detected in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 ### HAP Detection Columns
 
 #### 7. `hap` (Integer)
 **Description:** Count of HAP (Hate, Abuse, Profanity) instances detected in the document  
 **Available for Filter:** Yes  
-**Type:** Integer
+**Type:** Integer  
 
 ### Optional Display Columns (when `display_pii: true`)
 

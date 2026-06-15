@@ -222,7 +222,7 @@ curl -X POST "http://localhost:8080/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "username": "john.doe",
-    "password": "your_password"
+    "password": "<YOUR_PASSWORD>"
   }'
 ```
 
@@ -264,7 +264,7 @@ import requests
 # Authenticate
 auth_response = requests.post(
     "http://localhost:8080/auth/login",
-    json={"username": "john.doe", "password": "secret"}
+    json={"username": "john.doe", "password": "<YOUR_PASSWORD>"}
 )
 token = auth_response.json()["access_token"]
 
@@ -455,10 +455,9 @@ Planned features for future releases:
 
 ## Related Documentation
 
-- [Implementation Plan](ACL_DOCUMENT_RETRIEVAL_IMPLEMENTATION_PLAN.md)
-- [API Reference](OPERATOR_REFERENCE.md)
-- [Architecture](../ARCHITECTURE.md)
-- [Authentication Guide](../README_OAUTH2.md)
+- [API Reference](../reference/OPERATORS.md)
+- [Architecture](../../ARCHITECTURE.md)
+- [OAuth2 Authentication Guide](OAUTH2_AUTHENTICATION.md)
 
 ## Support
 

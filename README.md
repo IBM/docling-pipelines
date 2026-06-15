@@ -99,7 +99,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 ### Flow Authoring
 
-- **[Flow Authoring Format Guide](docs/FLOW_AUTHORING_FORMAT.md)** - Create DataSift flows with a simplified format:
+- **[Flow Authoring Format Guide](docs/guides/FLOW_AUTHORING_FORMAT.md)** - Create DataSift flows with a simplified format:
   - Define operators and dependencies declaratively
   - Automatic dependency resolution
   - Usage with CLI, Python API, and HTTP API
@@ -108,11 +108,11 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### Architecture & Design
 
 - **[Architecture Documentation](ARCHITECTURE.md)** - System design and architectural decisions
-- **[Job Stats Metadata Aggregation Guide](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Batch metadata aggregation rules and maintainer update requirements
+- **[Job Stats Metadata Aggregation Guide](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Batch metadata aggregation rules and maintainer update requirements
 
 ### API & Reference
 
-- **[Operator Reference](docs/OPERATOR_REFERENCE.md)** - Complete API documentation for operators and core components
+- **[Operator Reference](docs/reference/OPERATORS.md)** - Complete API documentation for operators and core components
 - **[LDAP Server Setup](examples/LDAP/README.md)** - Set up LDAP server for authentication
 - **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Common issues and solutions
 
@@ -395,7 +395,7 @@ datasift-orchestrator --help
 
 - [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
 - [Example Flows](examples/) - Sample flow configurations
-- [Operator Reference](docs/OPERATOR_REFERENCE.md) - Operator parameters and configuration options
+- [Operator Reference](docs/reference/OPERATORS.md) - Operator parameters and configuration options
 
 #### Executing Flows
 
@@ -488,7 +488,7 @@ operators = DatasiftFlowManager.list_operators()
 - [DatasiftFlowManager Examples](examples/datasift_flow_manager/) - Complete usage guide with code samples
 - [Quick Start Example](examples/datasift_flow_manager/01_execute_from_file.py) - Basic flow execution
 - [CLI Orchestrator](#cli-orchestrator) - Alternative command-line interface
-- [Operator Reference](docs/OPERATOR_REFERENCE.md) - Complete API documentation
+- [Operator Reference](docs/reference/OPERATORS.md) - Complete API documentation
 
 ---
 
@@ -924,7 +924,7 @@ app.include_router(example.router)
 
 - [FastAPI Server](#fastapi-server-todo) - Running the API server
 - [Environment Variables](#environment-variables) - Configuration options
-- [Operator Reference](docs/OPERATOR_REFERENCE.md) - Operator API documentation
+- [Operator Reference](docs/reference/OPERATORS.md) - Operator API documentation
 
 ---
 

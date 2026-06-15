@@ -11,9 +11,9 @@ The Branching Operator enables conditional workflow branching based on specified
 ## Configuration Parameters
 
 ### 1. `branch_criteria` (List)
-**Type:** List of Branch Objects
-**Required:** Yes
-**Description:** A list of branch configurations. Each branch includes a set of filter conditions, a logical operator (AND/OR) to combine them, and features to drop from the resulting table.
+**Type:** List of Branch Objects  
+**Required:** Yes  
+**Description:** A list of branch configurations. Each branch includes a set of filter conditions, a logical operator (AND/OR) to combine them, and features to drop from the resulting table.  
 
 **Branch Object Structure:**
 - `link_id` (String, Required): Unique identifier for the branch
