@@ -119,7 +119,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Default:** `[]` (empty array - markdown only)
 **Description:** Additional output formats to generate beyond the mandatory markdown format. Each format creates a separate column in the output table.
 
-**Valid Values:** `"html"`, `"json"`, `"text"`, `"doctags"`
+**Valid Values:** `"html"`, `"json"`, `"text"`, `"doctags"`, `"doclang"`
 
 **Examples:**
 ```json
@@ -133,7 +133,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ```json
 "text_extraction": {
   "provider_config": {
-    "additional_formats": ["html", "json", "text", "doctags"]
+    "additional_formats": ["html", "json", "text", "doctags", "doclang"]
   }
 }
 ```
@@ -141,7 +141,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Important Notes:**
 - Markdown format is ALWAYS generated in the `content` column regardless of this parameter (column name can be customized via `doc_column` parameter)
 - This parameter specifies which formats to generate **in addition to** markdown
-- Each additional format creates a corresponding column: `content_html`, `content_json`, `content_text`, `content_doctags`
+- Each additional format creates a corresponding column: `content_html`, `content_json`, `content_text`, `content_doctags`, `content_doclang`
 - **Additional formats are only generated for documents processed through Docling** (docling_library or docling_serve modes). Plain text files (.txt, .md) are read directly and will not generate these additional format columns.
 - Only request formats you actually need to minimize memory usage and storage
 
@@ -508,20 +508,6 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 **Available for Filter:** Yes
 **Available for Vector DB:** Yes
 
-### `tables` (String)
-**Type:** String
-**Description:** Extracted tables from document 
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
-**Note:** Added as serialized JSON when tables are extracted from documents
-
-### `images` (String)
-**Type:** String
-**Description:** Extracted images from document 
-**Available for Filter:** Yes
-**Available for Vector DB:** Yes
-**Note:** Added as serialized JSON when images are extracted from documents
-
 ### `content_html` (String)
 **Type:** String
 **Description:** HTML format of extracted content (when `additional_formats` includes "html")
@@ -549,6 +535,13 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 **Available for Filter:** Yes
 **Available for Vector DB:** Yes
 **Note:** Only present when "doctags" is specified in `additional_formats` parameter
+
+### `content_doclang` (String)
+**Type:** String
+**Description:** DocLang format of extracted content (when `additional_formats` includes "doclang")
+**Available for Filter:** Yes
+**Available for Vector DB:** Yes
+**Note:** Only present when "doclang" is specified in `additional_formats` parameter
 
 ### `entity_{key}` (Dynamic Columns)
 **Type:** String
@@ -659,7 +652,7 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
     "text_extraction": {
       "provider": "docling_library",
       "provider_config": {
-        "additional_formats": ["html", "json", "text"],
+        "additional_formats": ["html", "json", "text", "doclang"],
       }
     },
     "entity_extraction": {
@@ -668,7 +661,7 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
   }
 }
 ```
-**Output columns**: `content` (markdown), `content_html`, `content_json`, `content_text`, `tables`, `images`
+**Output columns**: `content` (markdown), `content_html`, `content_json`, `content_text`, `content_doclang`, `tables`, `images`
 
 ### Example 6: LiteLLM Entity Extraction with OpenAI
 ```json

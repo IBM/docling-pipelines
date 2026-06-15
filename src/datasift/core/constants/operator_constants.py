@@ -105,6 +105,7 @@ class OperatorConstants:
         CONTENT_JSON: Final[str] = "content_json"
         CONTENT_TEXT: Final[str] = "content_text"
         CONTENT_DOCTAGS: Final[str] = "content_doctags"
+        CONTENT_DOCLANG: Final[str] = "content_doclang"
 
         # Embeddings and Vector Columns
         DENSE_EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "vector_embeddings"
@@ -516,6 +517,7 @@ class OperatorConstants:
         OUTPUT_FORMAT_JSON: Final[str] = "json"
         OUTPUT_FORMAT_TEXT: Final[str] = "text"
         OUTPUT_FORMAT_DOCTAGS: Final[str] = "doctags"
+        OUTPUT_FORMAT_DOCLANG: Final[str] = "doclang"
 
         # Valid output formats list (markdown is always generated, so not in this list)
         VALID_OUTPUT_FORMATS: Final[list[str]] = [
@@ -523,6 +525,7 @@ class OperatorConstants:
             OUTPUT_FORMAT_JSON,
             OUTPUT_FORMAT_TEXT,
             OUTPUT_FORMAT_DOCTAGS,
+            OUTPUT_FORMAT_DOCLANG,
         ]
 
         # File Extensions

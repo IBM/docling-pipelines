@@ -90,7 +90,7 @@ class DoclingServeClient:
             "include_images": True,
             "images_scale": 2.0,
             "image_export_mode": "embedded",
-            "to_formats": ["json", "md", "text"],
+            "to_formats": ["json", "md", "text", "doclang"],
         }
 
         if options:

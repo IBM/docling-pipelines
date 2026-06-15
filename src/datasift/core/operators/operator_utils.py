@@ -1075,7 +1075,7 @@ class OperatorUtils:
                              If provided, should contain 'format_options' key with format-specific settings.
                              Example: {'format_options': {InputFormat.PDF: PdfFormatOption(...)}}
             additional_formats: Optional list of additional formats to generate beyond mandatory markdown.
-                               Options: 'html', 'json', 'text', 'doctags'.
+                               Options: 'html', 'json', 'text', 'doctags', 'doclang'.
                                Each format creates a separate column in the output.
                                Note: Markdown is ALWAYS generated and should NOT be included in this list.
 
@@ -1087,6 +1087,7 @@ class OperatorUtils:
                 - content_json: JSON format (if 'json' in additional_formats)
                 - content_text: Plain text format (if 'text' in additional_formats)
                 - content_doctags: DocTags format (if 'doctags' in additional_formats)
+                - content_doclang: DocLang format (if 'doclang' in additional_formats)
                 - metadata: Extraction metadata (char_count, page_count, formats)
                 - error: Error message if extraction failed
         """
@@ -1179,6 +1180,10 @@ class OperatorUtils:
                         content_dict[OperatorConstants.Columns.CONTENT_DOCTAGS] = result.document.export_to_doctags()
                         formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS)
                         logger.info(f"Generated doctags format for {file_path}")
+                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG:
+                        content_dict[OperatorConstants.Columns.CONTENT_DOCLANG] = result.document.export_to_doclang()
+                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG)
+                        logger.info(f"Generated doclang format for {file_path}")
                     else:
                         logger.warning(f"Unknown format '{fmt}' requested for {file_path}, skipping")
                         formats_failed.append(fmt)

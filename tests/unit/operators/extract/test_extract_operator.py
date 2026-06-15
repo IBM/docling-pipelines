@@ -237,6 +237,7 @@ def test_extract_operator_default_format(sample_pdf_files):
 
     # Check content
     markdown_content = result_table["doc_content"][0].as_py()
+
     assert markdown_content is not None, "Markdown content should not be None"
     assert len(markdown_content) > 0, "Markdown content should not be empty"
 

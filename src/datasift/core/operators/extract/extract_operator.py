@@ -171,6 +171,7 @@ class ExtractOperator(AbstractOperator):
                     - provider_config: Provider-specific configuration
                     - doc_column: Column name for extracted content
                     - additional_formats: List of additional output formats
+                      Options: 'html', 'json', 'text', 'doctags', 'doclang'
                 - entity_extraction: Optional nested object containing:
                     - provider: Entity provider ("litellm", "watsonx", "docling")
                     - provider_config: Provider-specific configuration (model_id, api_base, etc.)
@@ -826,6 +827,14 @@ class ExtractOperator(AbstractOperator):
             OperatorConstants.Columns.CONTENT_DOCTAGS: {
                 OperatorConstants.Misc.NAME: "DocTags Content",
                 OperatorConstants.Config.DESCRIPTION: "DocTags format of extracted content (optional, if 'doctags' in additional_formats)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [],
+            },
+            OperatorConstants.Columns.CONTENT_DOCLANG: {
+                OperatorConstants.Misc.NAME: "DocLang Content",
+                OperatorConstants.Config.DESCRIPTION: "DocLang format of extracted content (optional, if 'doclang' in additional_formats)",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,

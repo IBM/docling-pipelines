@@ -539,7 +539,7 @@ This simplified design removes the port/adapter overhead while maintaining clean
 | `text_extraction`                                         | object |       No | `{}`                      | Text extraction configuration (see below)                                                          |
 | `text_extraction.provider`                                | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
 | `text_extraction.doc_column`                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
-| `text_extraction.additional_formats`                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`                       |
+| `text_extraction.additional_formats`                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`, `doclang`            |
 | `text_extraction.provider_config.vlm_pipeline`            | object |       No | `null`                    | VLM (Vision-Language Model) pipeline configuration (docling_library mode). When present, VLM processing is enabled. |
 | `text_extraction.provider_config.vlm_pipeline.preset`     | string |       No | `fast`                    | VLM preset name: `fast`, `accurate`, or custom preset                                              |
 | `text_extraction.provider_config.vlm_pipeline.engine`     | string |       No | `ollama`                  | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.                                        |
@@ -583,6 +583,7 @@ This simplified design removes the port/adapter overhead while maintaining clean
 - `content_json` - JSON structured format (if `additional_formats` includes "json")
 - `content_text` - Plain text format (if `additional_formats` includes "text")
 - `content_doctags` - Docling's native DocTags format (if `additional_formats` includes "doctags")
+- `content_doclang` - DocLang format (if `additional_formats` includes "doclang")
 - `entities` (or configured `output_column`) - Extracted entities as JSON string (if entity extraction enabled)
 - `doc_id_hash` - Document hash identifier
 - `pages_processed` - Estimated number of pages for the extracted document text, calculated using 3000 characters = 1 page
@@ -740,7 +741,7 @@ The operator provides the following metadata after execution:
     "text_extraction": {
       "provider": "docling_library",
       "provider_config": {
-        "additional_formats": ["html", "json", "text"],
+        "additional_formats": ["html", "json", "text", "doclang"],
       }
     },
     "entity_extraction": {

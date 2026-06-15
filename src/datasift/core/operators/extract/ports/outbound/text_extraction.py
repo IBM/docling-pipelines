@@ -64,6 +64,7 @@ class TextExtractionPort(ABC):
         OperatorConstants.Extraction.OUTPUT_FORMAT_JSON: OperatorConstants.Columns.CONTENT_JSON,
         OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT: OperatorConstants.Columns.CONTENT_TEXT,
         OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS: OperatorConstants.Columns.CONTENT_DOCTAGS,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG: OperatorConstants.Columns.CONTENT_DOCLANG,
     }
 
     def __init__(self, *, config: dict[str, Any]) -> None:
@@ -75,6 +76,7 @@ class TextExtractionPort(ABC):
                 - use_processes: Use processes vs threads (default: False)
                 - doc_column: Column name for extracted content (default: "doc_content")
                 - additional_formats: List of additional output formats (default: [])
+                  Options: 'html', 'json', 'text', 'doctags', 'doclang'
                 - ingest_source: Ingest source configuration for on-demand binary fetching (optional)
                 - job_run_id: Job run identifier for progress tracking (optional)
                 - node_id: Node identifier for progress tracking (optional)
