@@ -374,20 +374,22 @@ The Chunker Operator provides intelligent text chunking with support for three s
   "operator": "chunker",
   "config": {
     "chunk_type": "hybrid",
+    "provider": "docling_library",
     "chunk_size": 512,
     "chunk_overlap": 50,
     "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": {
       "provider": "litellm",
       "provider_config": {
-        "model_id": "openai/granite4",
+        "model_id": "llama3.2",
         "api_base": "http://localhost:11434/v1",
-        "api_key": "<ollama>"
+        "api_key": "<YOUR-KEY>"
       },
       "summary_sentences": 2,
       "summary_max_words": 30
     },
-    "retain_original_content": false
+    "retain_original_content": false, 
+    "doc_column": "content"
   }
 }
 ```

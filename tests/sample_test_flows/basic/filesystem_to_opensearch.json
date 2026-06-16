@@ -68,16 +68,17 @@
       }
     },
     {
-      "name": "chunk",
+      "name": "semantic_chunking",
       "type": "chunker",
       "depends_on": [
         "sql_filter"
       ],
       "config": {
-        "chunk_type": "hybrid",
+        "chunk_type": "semantic",
+        "semantic_embeddings_model": "nomic-embed-text",
+        "breakpoint_threshold_type": "percentile",
+        "breakpoint_threshold_amount": 95,
         "doc_column": "content",
-        "chunk_size": 512,
-        "chunk_overlap": 128,
         "retain_original_content": false
       }
     },
@@ -85,10 +86,10 @@
       "name": "embeddings",
       "type": "embeddings",
       "depends_on": [
-        "chunk"
+        "semantic_chunking"
       ],
       "config": {
-"provider": "litellm",
+        "provider": "litellm",
         "model_id": "openai/granite4",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
@@ -97,8 +98,7 @@
           "api_base": "http://localhost:11434/v1",
           "api_key": "${OLLAMA_API_KEY}",
           "model_id": "openai/granite4"
-        },
-        "provider": "litellm"
+        }
       }
     },
     {

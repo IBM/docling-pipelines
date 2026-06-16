@@ -64,7 +64,12 @@ class ChunkerValidator:
 
                 # chunk_overlap must be less than chunk_size
                 # Only check this if chunk_overlap is non-negative to avoid confusing error messages
-                if chunk_overlap >= 0 and chunk_size is not None and isinstance(chunk_size, int) and chunk_overlap >= chunk_size:
+                if (
+                    chunk_overlap >= 0
+                    and chunk_size is not None
+                    and isinstance(chunk_size, int)
+                    and chunk_overlap >= chunk_size
+                ):
                     errors.append("Invalid input: chunk_overlap must be less than chunk_size.")
 
         # Validate chunk_type (common to all chunking strategies)
@@ -127,15 +132,13 @@ class ChunkerValidator:
         if should_validate_field_fn(field_value=chunk_overlap):
             if chunk_overlap is not None and isinstance(chunk_overlap, int):
                 if chunk_overlap > CHUNK_OVERLAP_MAX_SIZE:
-                    errors.append(
-                        f"Invalid input: chunk_overlap must not exceed {CHUNK_OVERLAP_MAX_SIZE}."
-                    )
+                    errors.append(f"Invalid input: chunk_overlap must not exceed {CHUNK_OVERLAP_MAX_SIZE}.")
 
     @staticmethod
     def validate_semantic_chunker(
         breakpoint_threshold_type: str,
         breakpoint_threshold_amount: float | None,
-        semantic_embeddings_model: str,
+        semantic_embeddings_model: str | None,
         should_validate_field_fn,
         errors: list[Any],
     ) -> None:

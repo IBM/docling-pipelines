@@ -63,16 +63,20 @@
       "config": {
         "chunk_type": "hybrid",
         "doc_column": "content",
+        "provider": "docling_library",
         "chunk_size": 512,
-        "chunk_overlap": 128,
+        "chunk_overlap": 50,
         "retain_original_content": false,
+        "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
         "summarization": {
           "provider": "litellm",
           "provider_config": {
-            "model_id": "openai/llama3.2",
+            "model_id": "llama3.2",
             "api_base": "http://localhost:11434/v1",
             "api_key": "<value>"
-          }
+          },
+          "summary_sentences": 2,
+          "summary_max_words": 30
         }
       }
     }

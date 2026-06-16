@@ -308,6 +308,7 @@ class TestChunkerValidation(unittest.TestCase):
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Invalid chunk type should produce errors")
+
     def test_validate_chunk_size_string_type(self):
         """Test validation rejects chunk_size with string type"""
         config = {
@@ -325,7 +326,7 @@ class TestChunkerValidation(unittest.TestCase):
         error_messages = [str(e) for e in errors]
         self.assertTrue(
             any("Invalid type for chunk_size" in msg for msg in error_messages),
-            f"Expected type error for chunk_size, got: {error_messages}"
+            f"Expected type error for chunk_size, got: {error_messages}",
         )
 
     def test_validate_chunk_overlap_string_type(self):
@@ -346,7 +347,7 @@ class TestChunkerValidation(unittest.TestCase):
         error_messages = [str(e) for e in errors]
         self.assertTrue(
             any("Invalid type for chunk_overlap" in msg for msg in error_messages),
-            f"Expected type error for chunk_overlap, got: {error_messages}"
+            f"Expected type error for chunk_overlap, got: {error_messages}",
         )
 
     def test_validate_retain_original_content_string_type(self):
@@ -368,8 +369,9 @@ class TestChunkerValidation(unittest.TestCase):
         error_messages = [str(e) for e in errors]
         self.assertTrue(
             any("Invalid type for retain_original_content" in msg for msg in error_messages),
-            f"Expected type error for retain_original_content, got: {error_messages}"
+            f"Expected type error for retain_original_content, got: {error_messages}",
         )
+
     def test_validate_multiple_errors_collected(self):
         """Test that multiple validation errors are collected without early return"""
         config = {
@@ -390,7 +392,6 @@ class TestChunkerValidation(unittest.TestCase):
         error_messages = " ".join(str(e) for e in errors)
         self.assertIn("chunk_overlap", error_messages.lower(), "Should have chunk_overlap error")
         self.assertIn("chunk_type", error_messages.lower(), "Should have chunk_type error")
-
 
     def test_validate_semantic_percentile_threshold_invalid(self):
         """Test validation rejects invalid percentile threshold"""
@@ -1528,3 +1529,42 @@ class TestChunkerSummarization(unittest.TestCase):
         # Service should be created successfully
         self.assertIsNotNone(service)
         mock_adapter.chat.assert_not_called()
+
+    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_chunking_missing_embeddings_model(self, mock_ollama_client_class):
+        """Test that semantic chunking provides clear error when semantic_embeddings_model is missing"""
+        # Create test data
+        content = ["Test content for semantic chunking."]
+        data = {
+            OperatorConstants.Columns.ID: ["doc1"],
+            OperatorConstants.Columns.NAME: ["Document 1"],
+            "content": content,
+        }
+        input_table = pa.table(data)
+
+        # Create operator with semantic chunking but WITHOUT semantic_embeddings_model
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+            # Note: semantic_embeddings_model is intentionally missing
+        }
+
+        operator = ChunkerOperator(config)
+
+        # Transform should handle the error gracefully and record it in metadata
+        _, metadata = operator.transform(input_table)
+
+        # Verify the error was recorded in failed documents
+        self.assertIn("failed_docs", metadata)
+        failed_docs = metadata["failed_docs"]
+        self.assertEqual(len(failed_docs), 1)
+
+        # Verify the error message is clear and mentions semantic_embeddings_model
+        error_reason = failed_docs[0]["reason"]
+        self.assertIn("semantic_embeddings_model", error_reason.lower())
+        self.assertIn("required", error_reason.lower())
+        self.assertIn("semantic chunking", error_reason.lower())
+
+        # Verify that OllamaClient was never instantiated (error caught before that)
+        mock_ollama_client_class.assert_not_called()

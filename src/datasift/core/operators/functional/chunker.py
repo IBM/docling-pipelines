@@ -871,16 +871,24 @@ class ChunkerOperator(AbstractOperator):
             List of Document objects, each containing a semantically coherent chunk
 
         Raises:
-            DatasiftException: If OllamaClient initialization or embedding generation fails
+            DatasiftException: If semantic_embeddings_model is not configured, or if
+                OllamaClient initialization or embedding generation fails
 
         Note:
             Uses configuration parameters:
-            - self.semantic_embeddings_model: Ollama model for embeddings
+            - self.semantic_embeddings_model: Ollama model for embeddings (required)
             - self.breakpoint_threshold_type: Method for detecting boundaries
             - self.breakpoint_threshold_amount: Threshold value for the method
             This method is called internally by _split_text() and should not be called directly.
         """
         from langchain_experimental.text_splitter import SemanticChunker
+
+        # Validate that semantic_embeddings_model is configured for semantic chunking
+        if not self.semantic_embeddings_model:
+            raise DatasiftException(
+                "The 'semantic_embeddings_model' parameter is required for semantic chunking but was not provided. "
+                "Please add 'semantic_embeddings_model' to your chunker configuration with a valid Ollama model name."
+            )
 
         # Get OllamaClient instance (reuses existing pattern from EmbeddingsOperator)
         ollama_client = self._get_ollama_client()
