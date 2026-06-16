@@ -326,12 +326,14 @@ This command:
 ```bash
 # From project root
 source .venv/bin/activate
+pre-commit install
 ```
 
 **Windows:**
 
 ```bash
 .venv\Scripts\activate
+pre-commit install
 ```
 
 ### Verify Installation

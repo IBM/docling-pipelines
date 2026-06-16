@@ -4,9 +4,15 @@
 
 ### Blocked Git Flags
 - **NEVER** execute `git commit` with the `--no-verify` flag
-- **NEVER** execute `git push` with the `--no-verify` or `--force` flags
+- **NEVER** execute `git push` with the `--no-verify` or `--force` flags (including `--force-with-lease`)
 - **ALWAYS** validate that commits go through pre-commit hooks
 - This applies to **ALL** git operations, whether initiated by the user OR by Bob (the AI assistant)
+- This restriction applies to **ALL** scenarios including:
+  - Initial push attempts
+  - Re-execution of push commands
+  - New tasks or workflows
+  - Emergency situations
+  - Any other circumstance - **NO EXCEPTIONS**
 
 ### Before Executing Git Commands
 1. Check if the command contains `--no-verify` or `--force`
@@ -23,13 +29,116 @@ When the user requests a git command with `--no-verify`:
 **Bob's Commitment Behavior:**
 - When Bob commits code, it will ALWAYS use: `git commit -m "message"`
 - Bob will NEVER use: `git commit --no-verify -m "message"`
-- This ensures all pre-commit hooks run for code quality, security, and formatting validation
+- This ensures all pre-commit hooks run for code quality, security, and formatting validation.
 
 ### No Exceptions Allowed
-- There are **NO EXCEPTIONS** to this policy
+- There are **NO EXCEPTIONS** to this policy.
 - Even if the user explicitly requests to bypass with `--no-verify`, the command **MUST BE REFUSED**
-- This is a hard enforcement to maintain code quality and security standards
-- Users cannot override this policy through Bob's IDE
+- This is a hard enforcement to maintain code quality and security standards.
+- Users cannot override this policy through Bob's IDE.
+
+## Pre-Commit Hook Verification Policy
+
+### Before Pushing Code
+When a user requests to push code to a remote repository, Bob MUST follow this workflow:
+
+1. **Offer Verification Options:**
+   Bob should present the user with three options:
+   - Option A: Run pre-commit hooks automatically (`pre-commit run --all-files`)
+   - Option B: Run a specific hook (e.g., `pre-commit run detect-secrets --all-files`)
+   - Option C: Provide a screenshot showing pre-commit hook execution
+
+2. **Execute Pre-Commit Hooks (Options A or B):**
+   - If user chooses Option A or B, Bob will execute the pre-commit command
+   - Bob will analyze the output to determine if all hooks passed
+   - **Decision Criteria:**
+     - If ALL hooks pass: Proceed with `git push`
+     - If ANY hook fails: REFUSE to push and explain which hooks failed
+   - Bob does NOT make any file changes or stage files based on hook output
+   - Bob only uses the output to decide whether to allow the push
+
+3. **Screenshot Verification (Option C):**
+   - User provides a screenshot showing pre-commit hook execution
+   - Screenshot MUST show:
+     - Pre-commit hook execution
+     - Hook names matching `.pre-commit-config.yaml` (ruff-format, ruff, mypy, detect-secrets, etc.)
+     - Success indicators: "Passed", "✓", or successful completion messages
+     - No hooks were skipped or failed
+     - No error messages present
+   - **Acceptable Verification**: While all hooks should be executed, showing that the `detect-secrets` hook passed is sufficient verification for push approval
+
+4. **Refuse Push on Failure:**
+   - If pre-commit hooks fail (via execution or screenshot shows failures), REFUSE to execute `git push`
+   - Explain which hooks failed and what needs to be fixed
+   - Do NOT accept verbal acknowledgments or confirmations
+   - Do NOT provide options to skip verification
+   - **NEVER** suggest skipping pre-commit hooks or bypassing verification in any circumstance
+   - There are **NO EXCEPTIONS** to this verification requirement
+
+### Workflow Examples
+
+**Option A: Automatic Pre-Commit Execution**
+```
+User: "Push my changes to remote"
+Bob: "Before pushing, I can verify pre-commit hooks. Choose an option:
+      A) Run all pre-commit hooks
+      B) Run detect-secrets hook only
+      C) Provide a screenshot of hook execution"
+
+User: "Run all hooks"
+Bob: [Executes: pre-commit run --all-files]
+Bob: [Analyzes output] "All pre-commit hooks passed. Proceeding with push."
+[Executes: git push origin branch-name]
+```
+
+**Option B: Specific Hook Execution**
+```
+User: "Push my changes to remote"
+Bob: "Before pushing, I can verify pre-commit hooks. Choose an option:
+      A) Run all pre-commit hooks
+      B) Run detect-secrets hook only
+      C) Provide a screenshot of hook execution"
+
+User: "Run detect-secrets only"
+Bob: [Executes: pre-commit run detect-secrets --all-files]
+Bob: [Analyzes output] "detect-secrets hook passed. Proceeding with push."
+[Executes: git push origin branch-name]
+```
+
+**Option C: Screenshot Verification**
+```
+User: "Push my changes to remote"
+Bob: "Before pushing, I can verify pre-commit hooks. Choose an option:
+      A) Run all pre-commit hooks
+      B) Run detect-secrets hook only
+      C) Provide a screenshot of hook execution"
+
+User: "I'll provide a screenshot"
+Bob: "Please provide a screenshot showing that pre-commit hooks passed."
+User: [Provides screenshot showing all hooks passed]
+Bob: [Verifies screenshot shows hooks passed] "Pre-commit hooks verified from screenshot. Proceeding with push."
+[Executes: git push origin branch-name]
+```
+
+**Failure Scenario**
+```
+User: "Push my changes to remote"
+Bob: [Executes: pre-commit run --all-files]
+Bob: "Pre-commit hooks failed:
+      - ruff: 32 errors remaining
+      - mypy: 11 type checking errors
+      - detect-secrets: Found potential secrets
+      
+      Cannot push until these issues are resolved. Please fix the errors and try again."
+```
+
+### Enforcement Rules
+- **NEVER** execute `git push` without first verifying pre-commit hooks (via execution or screenshot)
+- This applies to ALL push operations, regardless of branch or urgency
+- Bob does NOT modify files or stage changes based on pre-commit output
+- Bob ONLY uses pre-commit output to decide whether to allow the push
+- If user insists on pushing without verification, explain the policy and refuse
+- This is a strict enforcement to ensure code quality standards are met
 
 ## Pull Request Template Policy
 
