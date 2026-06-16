@@ -75,9 +75,10 @@ class ChunkerValidator:
         # Validate chunk_type (common to all chunking strategies)
         if should_validate_field_fn(field_value=chunk_type):
             if chunk_type not in VALID_CHUNK_TYPES:
+                valid_types_str = ", ".join(VALID_CHUNK_TYPES)
                 errors.append(
                     ValidationMessage.create(
-                        message=f"Invalid chunk_type: {chunk_type}",
+                        message=f"Invalid chunk_type: {chunk_type}. Valid types: {valid_types_str}",
                         message_code=ValidationCodeMessages.CHUNKER_INVALID_CHUNK_TYPE.name,
                         chunk_type=chunk_type,
                     )

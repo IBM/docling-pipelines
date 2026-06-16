@@ -460,9 +460,33 @@ Examples:
     logger.info("Flow name: %s", flow_def.get("name", "Unnamed flow"))
     logger.info("Number of operators: %d", len(flow_def.get("dag", [])))
 
-    run_command_line_executor(flow_def=flow_def)
+    try:
+        run_command_line_executor(flow_def=flow_def)
+        logger.info("Execution completed")
+    except Exception as e:
+        from datasift.exceptions.datasift_exceptions import DatasiftException, FlowValidationException
+        from datasift.utils.infrastructure.error_formatter import (
+            format_datasift_exception,
+            format_generic_exception,
+            format_validation_exception,
+        )
 
-    logger.info("Execution completed")
+        # Format DatasiftException types with user-friendly display
+        if isinstance(e, DatasiftException):
+            flow_name = flow_def.get("name")
+            # Special handling for validation exceptions to include flow name
+            if isinstance(e, FlowValidationException) and flow_name:
+                formatted_error = format_validation_exception(exception=e, flow_name=flow_name)
+            else:
+                formatted_error = format_datasift_exception(exception=e)
+            logger.error(formatted_error)
+        else:
+            # For non-Datasift exceptions, format with card-based display
+            formatted_error = format_generic_exception(exception=e)
+            logger.error(formatted_error)
+            # Log full stack trace at debug level
+            logger.debug("Full stack trace:", exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":  # pragma: no cover
