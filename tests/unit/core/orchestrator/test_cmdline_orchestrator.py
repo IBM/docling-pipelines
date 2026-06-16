@@ -21,6 +21,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         Test orchestrating a basic pipeline with two operators
         """
         flow_def = {
+            "name": "test-basic-flow",
             "dag": [
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9500",
@@ -41,7 +42,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                     "input_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"}],
                     "output_edges": [],
                 },
-            ]
+            ],
         }
 
         run_command_line_executor(flow_def=flow_def)
@@ -112,6 +113,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
 
         # Create a simple flow definition
         flow_def = {
+            "name": "test-flow-execution-failure",
             "dag": [
                 {
                     "id": "test-id",
@@ -121,7 +123,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                     "input_edges": [],
                     "output_edges": [],
                 }
-            ]
+            ],
         }
 
         # Test that the exception is propagated

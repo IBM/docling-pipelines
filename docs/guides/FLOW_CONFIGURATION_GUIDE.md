@@ -79,6 +79,53 @@ The `global_config` object supports the following options:
 }
 ```
 
+### Flow Identification: flow_name and job_id
+
+The `flow_name` field in your flow definition serves different purposes depending on how you execute the flow:
+
+#### CLI Execution (`datasift-orchestrator`)
+
+When using the `datasift-orchestrator` CLI, the `flow_name` is automatically used to generate a unique `job_id` for tracking flow executions and incremental processing.
+
+**Automatic job_id Generation:**
+- job_id is automatically generated from flow_name as a deterministic 36-character UUID (UUID v5)
+- Format: Standard UUID (e.g., `a1b2c3d4-e5f6-5789-a012-b3c4d5e6f7a8`)
+- The UUID is deterministic, so the same flow_name always produces the same job_id
+- Compatible with all storage backends (filesystem, DuckDB, PostgreSQL)
+- Generation process:
+  1. Sanitize flow_name (lowercase, replace spaces/special chars with hyphens)
+  2. Generate 8-character hash from original flow_name
+  3. Create intermediate string: `{sanitized}_{hash}`
+  4. Generate UUID v5 from intermediate string
+- Example: flow_name "My Document Pipeline" → job_id "f8e3a1b2-c4d5-5678-9abc-def012345678"
+
+**Important Considerations:**
+
+> ⚠️ **flow_name Uniqueness**: Use a unique flow_name for each logically different pipeline. Reusing the same flow_name across different pipelines will generate the same job_id, causing incremental metadata conflicts where documents processed in one pipeline may be incorrectly marked as processed in another.
+
+> ⚠️ **Incremental Processing Impact**: Since incremental ingestion metadata is associated with the job_id (derived from flow_name), changing a flow's flow_name will generate a new job_id, causing previously processed files to be reprocessed.
+
+#### Python API (`DatasiftFlowManager`)
+
+When using the Python API, you must provide a unique `job_id` parameter for each flow execution:
+
+```python
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+# You must provide a unique job_id
+manager = DatasiftFlowManager(
+    flow_file="my_flow.json",
+    job_id="my-unique-job-id-12345"  # Required for proper tracking
+)
+result = manager.execute()
+```
+
+If no `job_id` is provided, a random UUID will be generated, which means incremental processing will not work correctly across executions.
+
+#### REST API
+
+When creating flows via the REST API, a `flow_id` is automatically generated and used as the `job_id` for execution tracking.
+
 ---
 
 ## Operator Configuration

@@ -1,6 +1,8 @@
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 import uuid
 from typing import Any
@@ -9,6 +11,74 @@ from datasift.utils.infrastructure.flow_execution_reporter import FlowExecutionR
 from datasift.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
 
 logger = get_logger()
+
+
+def sanitize_flow_name_for_job_id(*, flow_name: str) -> str:
+    """
+    Sanitize flow_name to create a valid job_id.
+    Converts to lowercase and replaces special characters/spaces with hyphens.
+    Preserves Unicode word characters (letters from any language, digits, underscores).
+
+    Args:
+        flow_name: The flow name to sanitize
+
+    Returns:
+        Sanitized flow name suitable for use as job_id
+
+    Raises:
+        ValueError: If flow_name is empty or contains only whitespace
+    """
+    if not flow_name or not flow_name.strip():
+        raise ValueError("flow_name cannot be empty")
+
+    # Convert to lowercase and replace non-word chars (preserves Unicode letters/digits) with hyphens
+    sanitized = re.sub(r"[^\w]+", "-", flow_name.lower(), flags=re.UNICODE)
+    # Remove leading/trailing hyphens
+    sanitized = sanitized.strip("-")
+
+    return sanitized
+
+
+def generate_job_id_from_flow_name(*, flow_name: str) -> str:
+    """
+    Generate a deterministic job_id from flow_name using UUID v5.
+
+    Process:
+    1. Sanitize flow_name (lowercase, replace special chars with hyphens)
+    2. Generate 8-char hash from original flow_name
+    3. Create intermediate string: {sanitized}_{hash}
+    4. Generate UUID v5 from intermediate string
+
+    This ensures:
+    - Deterministic: Same flow_name always generates same job_id
+    - Compatible: 36-character UUID format works with PostgreSQL job_stats_store
+    - Standard: Same format as UUID v4 (8-4-4-4-12 with hyphens)
+    - Unique: Different flow_names generate different job_ids
+
+    Format: Standard UUID (8-4-4-4-12 format, 36 chars total)
+    Example: "a1b2c3d4-e5f6-5789-a012-b3c4d5e6f7a8"
+
+    Args:
+        flow_name: The flow name from the flow definition
+
+    Returns:
+        Generated job_id as UUID v5 string (36 characters)
+    """
+    # Sanitize flow_name for consistency
+    sanitized = sanitize_flow_name_for_job_id(flow_name=flow_name)
+
+    # Generate deterministic hash (first 8 chars of SHA256)
+    hash_value = hashlib.sha256(flow_name.encode("utf-8")).hexdigest()[:8]
+
+    # Create intermediate string: {sanitized}_{hash}
+    intermediate = f"{sanitized}_{hash_value}"
+
+    # Generate deterministic UUID v5 from intermediate string
+    # Using DNS namespace ensures global uniqueness
+    job_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, intermediate))
+
+    logger.info("Generated job_id '%s' from flow_name '%s' (intermediate: '%s')", job_id, flow_name, intermediate)
+    return job_id
 
 
 def run_command_line_executor(flow_def: dict) -> None:
@@ -24,7 +94,11 @@ def run_command_line_executor(flow_def: dict) -> None:
     logger.info(">>> Creating the flow executor")
     executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info(">>> Setting up execution parameters")
-    job_id = "b639fbec-de29-487f-9798-45e2f44a9b4d"
+    # Generate job_id from flow name (required field in compiled flow)
+    flow_name = flow_def.get("name")
+    if not flow_name:
+        raise ValueError("Flow definition must include a 'name' field (compiled from 'flow_name' in authoring format)")
+    job_id = generate_job_id_from_flow_name(flow_name=flow_name)
     job_run_id = str(uuid.uuid4())
 
     params: dict[str, Any] = {

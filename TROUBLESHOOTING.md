@@ -1188,6 +1188,94 @@ datasift-orchestrator --flow-file my_flow.json
 ```
 
 ---
+#### Issue: Documents Being Skipped (Already Ingested) - CLI Execution
+
+**Applies To:** `datasift-orchestrator` CLI execution only
+
+**Symptoms:**
+
+```
+Documents are being skipped during ingestion with "already ingested" messages, even though they should be processed
+```
+
+**Cause:**
+
+When using `datasift-orchestrator`, multiple flows with the same `flow_name` will generate the same `job_id`, causing incremental metadata conflicts. Documents processed in one pipeline may be incorrectly marked as processed in another pipeline with the same flow_name.
+
+**Diagnosis:**
+
+```bash
+# Check if multiple flows use the same flow_name
+grep -r "flow_name" sample_flows/*.json
+
+# Example: Both flows below would generate the same job_id (UUID v5)
+# Flow 1: flow_name "my-pipeline" → job_id "5f543fcf-ccf4-5537-a2a5-e6bdca4f6060"
+# Flow 2: flow_name "my-pipeline" → job_id "5f543fcf-ccf4-5537-a2a5-e6bdca4f6060" (conflict!)
+```
+
+**Solution:**
+
+1. **Use unique flow_name for each logically different pipeline:**
+
+**Before (Problematic):**
+```json
+// flow1.json
+{
+  "flow_name": "document-pipeline",
+  "description": "PDF processing pipeline",
+  "flow": [...]
+}
+
+// flow2.json  
+{
+  "flow_name": "document-pipeline",
+  "description": "Word document processing pipeline",
+  "flow": [...]
+}
+```
+
+**After (Fixed):**
+```json
+// flow1.json
+{
+  "flow_name": "pdf-document-pipeline",
+  "description": "PDF processing pipeline",
+  "flow": [...]
+}
+
+// flow2.json
+{
+  "flow_name": "word-document-pipeline",
+  "description": "Word document processing pipeline",
+  "flow": [...]
+}
+```
+
+2. **Force re-ingestion if you need to reprocess documents:**
+
+```json
+{
+  "flow_name": "my-pipeline",
+  "global_config": {
+    "force_ingest": true
+  },
+  "flow": [...]
+}
+```
+
+**Prevention:**
+
+- Use descriptive, unique flow_name values for each logically different pipeline
+- Document your flow_name conventions in your project
+- The job_id is automatically generated from flow_name as a deterministic UUID v5 (36-character format)
+
+**Note:** This issue does not apply when using `DatasiftFlowManager` programmatically with custom job_id parameters.
+
+**Related Documentation:**
+- See [`docs/guides/FLOW_CONFIGURATION_GUIDE.md`](docs/guides/FLOW_CONFIGURATION_GUIDE.md#flow-identification-flow_name-and-job_id) section "Flow Identification: flow_name and job_id"
+
+---
+
 
 ### Import/Path Errors
 
