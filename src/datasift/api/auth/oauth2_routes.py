@@ -100,7 +100,7 @@ async def oauth2_callback(
     """
     try:
         if state not in _state_store:
-            logger.warning(f"Invalid state parameter received: {state}")
+            logger.warning("Invalid OAuth2 state parameter received")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid state parameter",

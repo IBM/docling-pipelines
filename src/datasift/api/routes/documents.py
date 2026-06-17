@@ -123,9 +123,8 @@ async def get_document(
             # Return 404 for both "not found" and "not authorized"
             # This prevents information leakage about document existence
             logger.warning(
-                "Document not found or user not authorized: doc_id=%s, user=%s",
+                "Document not found or user not authorized: doc_id=%s",
                 document_id,
-                current_user.username,
             )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
