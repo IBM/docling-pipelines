@@ -98,11 +98,11 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Args:
             preset: VLM preset name
             config: Configuration containing:
-                - vlm_api_key: IBM Cloud API key (required)
+                - api_key: IBM Cloud API key (required)
                 - container_id: Watsonx container ID (required)
-                - model_id: Watsonx model ID (required)
-                - api_base_url: API base URL (optional)
                 - container_kind: Container type, defaults to "project" (optional)
+                - model_id: Watsonx model ID (required)
+                - api_base: API base URL (optional)
                 - max_new_tokens: Maximum tokens to generate (optional)
 
         Returns:
@@ -118,28 +118,27 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
         self.validate_config(config=config)
 
         # Get IAM token
-        vlm_api_key = config.get(OperatorConstants.Config.VLM_API_KEY)
-        if not vlm_api_key:
-            raise ValueError(f"{OperatorConstants.Config.VLM_API_KEY} is required for watsonx.ai")
+        api_key = config.get(OperatorConstants.Config.API_KEY)
+        if not api_key:
+            raise ValueError(f"'{OperatorConstants.Config.API_KEY}' is required for watsonx.ai")
 
-        access_token = self._get_iam_access_token(api_key=vlm_api_key)
+        access_token = self._get_iam_access_token(api_key=api_key)
         logger.info("Successfully obtained IAM access token for watsonx.ai")
 
         # Prepare headers
         headers = {"Authorization": f"Bearer {access_token}"}
 
         # Prepare parameters
-        container_kind = config.get(
-            OperatorConstants.Config.VLM_WATSONX_CONTAINER_KIND, OperatorConstants.ContainerKinds.PROJECT
-        )
-        container_id = config.get(OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID)
-        vlm_model_name = config.get(OperatorConstants.Config.VLM_MODEL_NAME)
+        container_kind = config.get(OperatorConstants.Config.CONTAINER_KIND, OperatorConstants.ContainerKinds.PROJECT)
+        container_id = config.get(OperatorConstants.Config.CONTAINER_ID)
+
+        vlm_model_name = config.get(OperatorConstants.Config.MODEL_ID)
         max_new_tokens = config.get("max_new_tokens", 2048)
 
         if not container_id:
-            raise ValueError(f"{OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID} is required for watsonx.ai")
+            raise ValueError(f"'{OperatorConstants.Config.CONTAINER_ID}' is required for watsonx.ai")
         if not vlm_model_name:
-            raise ValueError(f"{OperatorConstants.Config.VLM_MODEL_NAME} is required for watsonx.ai")
+            raise ValueError(f"'{OperatorConstants.Config.MODEL_ID}' is required for watsonx.ai")
 
         params = {
             f"{container_kind}_id": container_id,
@@ -150,13 +149,15 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
             },
         }
 
-        # Get API base URL
         api_base_url = config.get(
-            OperatorConstants.Config.VLM_API_BASE_URL,
+            OperatorConstants.Config.API_BASE,
             "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29",
         )
 
         logger.info(f"Using watsonx.ai model: {vlm_model_name} with {container_kind}_id: {container_id}")
+
+        # Get timeout from config, default to 90 seconds
+        timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         # Create engine options
         engine_options = ApiVlmEngineOptions(
@@ -164,7 +165,7 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
             url=api_base_url,
             headers=headers,
             params=params,
-            timeout=90,
+            timeout=timeout,
         )
 
         # Create VLM options from preset
@@ -186,25 +187,22 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Raises:
             ValueError: If required configuration is missing
         """
-        required = [
-            OperatorConstants.Config.VLM_API_KEY,
-            OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID,
-            OperatorConstants.Config.VLM_MODEL_NAME,
-        ]
-        missing = [k for k in required if k not in config or not config[k]]
+        # Check for API key
+        if not config.get(OperatorConstants.Config.API_KEY):
+            raise ValueError(f"'{OperatorConstants.Config.API_KEY}' is required for watsonx.ai")
 
-        if missing:
-            raise ValueError(
-                f"Watsonx configuration missing required fields: {missing}. "
-                f"Required: {OperatorConstants.Config.VLM_API_KEY} (IBM Cloud API key), "
-                f"{OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID} (UUID), "
-                f"{OperatorConstants.Config.VLM_MODEL_NAME} (model name)"
-            )
+        # Check for container ID
+        if not config.get(OperatorConstants.Config.CONTAINER_ID):
+            raise ValueError(f"'{OperatorConstants.Config.CONTAINER_ID}' is required for watsonx.ai")
 
-        # Validate api_base_url if provided
-        api_base_url = config.get(OperatorConstants.Config.VLM_API_BASE_URL)
-        if api_base_url and not api_base_url.startswith("https://"):
-            raise ValueError(f"{OperatorConstants.Config.VLM_API_BASE_URL} must use HTTPS for watsonx.ai")
+        # Check for model ID
+        if not config.get(OperatorConstants.Config.MODEL_ID):
+            raise ValueError(f"'{OperatorConstants.Config.MODEL_ID}' is required for watsonx.ai")
+
+        # Validate api_base if provided
+        api_base = config.get(OperatorConstants.Config.API_BASE)
+        if api_base and not api_base.startswith("https://"):
+            raise ValueError(f"'{OperatorConstants.Config.API_BASE}' must use HTTPS for watsonx.ai")
 
     @staticmethod
     def _get_iam_access_token(*, api_key: str) -> str:
@@ -257,9 +255,9 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Args:
             preset: VLM preset name
             config: Configuration containing:
-                - vlm_api_key: OpenAI API key (required)
-                - model: Model name (optional, defaults to gpt-4-vision-preview)
-                - api_base_url: API base URL (optional)
+                - api_key: OpenAI API key (required)
+                - model_id: Model name (required)
+                - api_base: API base URL (optional)
 
         Returns:
             VlmPipelineOptions configured for OpenAI
@@ -269,26 +267,28 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         self.validate_config(config=config)
 
-        vlm_api_key = config.get(OperatorConstants.Config.VLM_API_KEY)
-        vlm_model_name = config.get(OperatorConstants.Config.VLM_MODEL_NAME)
-        if not vlm_api_key:
-            raise ValueError(f"{OperatorConstants.Config.VLM_API_KEY} is required for OpenAI")
-        if not vlm_model_name:
-            raise ValueError(f"{OperatorConstants.Config.VLM_MODEL_NAME} is required for OpenAI")
+        api_key = config.get(OperatorConstants.Config.API_KEY)
+        vlm_model_name = config.get(OperatorConstants.Config.MODEL_ID)
 
-        headers = {"Authorization": f"Bearer {vlm_api_key}"}
+        if not api_key:
+            raise ValueError(f"'{OperatorConstants.Config.API_KEY}' is required for OpenAI")
+        if not vlm_model_name:
+            raise ValueError(f"'{OperatorConstants.Config.MODEL_ID}' is required for OpenAI")
+
+        headers = {"Authorization": f"Bearer {api_key}"}
         params = {OperatorConstants.Config.MODEL_NAME: vlm_model_name}
 
-        api_base_url = config.get(
-            OperatorConstants.Config.VLM_API_BASE_URL, "https://api.openai.com/v1/chat/completions"
-        )
+        api_base_url = config.get(OperatorConstants.Config.API_BASE, "https://api.openai.com/v1/chat/completions")
+
+        # Get timeout from config, default to 90 seconds
+        timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         engine_options = ApiVlmEngineOptions(
             runtime_type=VlmEngineType.API_OPENAI,
             url=api_base_url,
             headers=headers,
             params=params,
-            timeout=90,
+            timeout=timeout,
         )
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
@@ -300,10 +300,10 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
     def validate_config(self, *, config: dict[str, Any]) -> None:
         """Validate OpenAI configuration."""
-        if not config.get(OperatorConstants.Config.VLM_API_KEY):
-            raise ValueError(f"{OperatorConstants.Config.VLM_API_KEY} is required for OpenAI")
-        if not config.get(OperatorConstants.Config.VLM_MODEL_NAME):
-            raise ValueError(f"{OperatorConstants.Config.VLM_MODEL_NAME} is required for OpenAI")
+        if not config.get(OperatorConstants.Config.API_KEY):
+            raise ValueError(f"'{OperatorConstants.Config.API_KEY}' is required for OpenAI")
+        if not config.get(OperatorConstants.Config.MODEL_ID):
+            raise ValueError(f"'{OperatorConstants.Config.MODEL_ID}' is required for OpenAI")
 
 
 class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
@@ -316,8 +316,8 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Args:
             preset: VLM preset name
             config: Configuration containing:
-                - api_base_url: Ollama API URL (optional, defaults to {OLLAMA_HOST}/v1/chat/completions from env)
-                - vlm_model_name: Ollama model name (optional, overrides preset default)
+                - api_base: Ollama API URL (optional, defaults to {OLLAMA_HOST}/v1/chat/completions from env)
+                - model_id: Ollama model name (optional, overrides preset default)
 
         Returns:
             VlmPipelineOptions configured for Ollama
@@ -328,11 +328,10 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
         self.validate_config(config=config)
 
         api_base_url = config.get(
-            OperatorConstants.Config.VLM_API_BASE_URL, f"{ServiceConstants.DEFAULT_OLLAMA_HOST}/v1/chat/completions"
+            OperatorConstants.Config.API_BASE, f"{ServiceConstants.DEFAULT_OLLAMA_HOST}/v1/chat/completions"
         )
 
-        # Get model name from config if provided (to override preset default)
-        vlm_model_name = config.get(OperatorConstants.Config.VLM_MODEL_NAME)
+        vlm_model_name = config.get(OperatorConstants.Config.MODEL_ID)
 
         # Build params with model name if provided
         params = {}
@@ -341,11 +340,14 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
             params["model"] = vlm_model_name
             logger.info(f"Using Ollama model: {vlm_model_name}")
 
+        # Get timeout from config, default to 90 seconds
+        timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
+
         engine_options = ApiVlmEngineOptions(
             runtime_type=VlmEngineType.API_OLLAMA,
             url=api_base_url,
             params=params if params else {},
-            timeout=90,
+            timeout=timeout,
         )
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
@@ -382,14 +384,15 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         self.validate_config(config=config)
 
-        api_base_url = config.get(
-            OperatorConstants.Config.VLM_API_BASE_URL, "http://localhost:1234/v1/chat/completions"
-        )
+        api_base_url = config.get(OperatorConstants.Config.API_BASE, "http://localhost:1234/v1/chat/completions")
+
+        # Get timeout from config, default to 90 seconds
+        timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         engine_options = ApiVlmEngineOptions(
             runtime_type=VlmEngineType.API_LMSTUDIO,
             url=api_base_url,
-            timeout=90,
+            timeout=timeout,
         )
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
@@ -419,7 +422,7 @@ class GenericApiPipelineOptionsProvider(VlmPipelineOptionsProvider):
                 - api_base_url: API URL (required)
                 - headers: Custom headers dict (optional)
                 - params: Custom params dict (optional)
-                - vlm_api_key: API key for Bearer token auth (optional)
+                - api_key: API key for Bearer token auth (optional)
 
         Returns:
             VlmPipelineOptions configured for generic API
@@ -432,10 +435,10 @@ class GenericApiPipelineOptionsProvider(VlmPipelineOptionsProvider):
         # Start with custom headers if provided
         headers = config.get("headers", {}).copy() if config.get("headers") else {}
 
-        # Add Bearer token if vlm_api_key provided and Authorization not already set
-        vlm_api_key = config.get(OperatorConstants.Config.VLM_API_KEY)
-        if vlm_api_key and "Authorization" not in headers:
-            headers["Authorization"] = f"Bearer {vlm_api_key}"
+        # Add Bearer token if api_key provided and Authorization not already set
+        api_key = config.get(OperatorConstants.Config.API_KEY)
+        if api_key and "Authorization" not in headers:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         # Get custom params
         params = (
@@ -444,16 +447,19 @@ class GenericApiPipelineOptionsProvider(VlmPipelineOptionsProvider):
             else {}
         )
 
-        api_base_url = config.get(OperatorConstants.Config.VLM_API_BASE_URL)
+        api_base_url = config.get(OperatorConstants.Config.API_BASE)
         if not api_base_url:
-            raise ValueError(f"{OperatorConstants.Config.VLM_API_BASE_URL} is required for generic API")
+            raise ValueError(f"{OperatorConstants.Config.API_BASE} is required for generic API")
+
+        # Get timeout from config, default to 90 seconds
+        timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         engine_options = ApiVlmEngineOptions(
             runtime_type=VlmEngineType.API,
             url=api_base_url,
             headers=headers if headers else {},
             params=params if params else {},
-            timeout=90,
+            timeout=timeout,
         )
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
@@ -467,8 +473,8 @@ class GenericApiPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
     def validate_config(self, *, config: dict[str, Any]) -> None:
         """Validate generic API configuration."""
-        if not config.get(OperatorConstants.Config.VLM_API_BASE_URL):
-            raise ValueError(f"{OperatorConstants.Config.VLM_API_BASE_URL} is required for generic API")
+        if not config.get(OperatorConstants.Config.API_BASE):
+            raise ValueError(f"{OperatorConstants.Config.API_BASE} is required for generic API")
 
 
 class TransformersPipelineOptionsProvider(VlmPipelineOptionsProvider):
@@ -480,7 +486,8 @@ class TransformersPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         Args:
             preset: VLM preset name
-            config: Configuration (minimal requirements for local inference)
+            config: Configuration containing:
+                - model_id: Model identifier (optional, overrides preset default)
 
         Returns:
             VlmPipelineOptions configured for Transformers
@@ -490,10 +497,15 @@ class TransformersPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         self.validate_config(config=config)
 
+        vlm_model_name = config.get(OperatorConstants.Config.MODEL_ID)
+
         engine_options = TransformersVlmEngineOptions()
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
 
-        logger.info("Using Transformers engine for local inference")
+        if vlm_model_name:
+            logger.info(f"Using Transformers engine for local inference with model: {vlm_model_name}")
+        else:
+            logger.info("Using Transformers engine for local inference")
 
         return VlmPipelineOptions(vlm_options=vlm_options)
 

@@ -717,7 +717,8 @@ class ExtractOperator(AbstractOperator):
             if self.entity_adapter is not None:
                 logger.info("Starting entity extraction on extracted text")
                 # Reset metadata for entity extraction to track independently
-                entity_base_metadata = self.create_base_metadata(total_docs_count=table.num_rows)
+                # Note: result_tables[0] already has failed docs removed by text extraction
+                entity_base_metadata = self.create_base_metadata(total_docs_count=result_tables[0].num_rows)
                 result_tables, entity_metadata = self.entity_adapter.transform(
                     table=result_tables[0], metadata=entity_base_metadata
                 )

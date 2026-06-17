@@ -251,6 +251,9 @@ The Extract Operator is a unified extraction operator that provides text and ent
 - `preset` (String): VLM preset name (`fast`, `accurate`, or custom)
 - `engine` (String): VLM engine (`ollama`, `transformers`, `mlx`, `openai`, etc.)
 - `engine_options` (Object): Engine-specific configuration
+  - `api_base` (String, Optional): API base URL for API-based engines
+  - `model_id` (String, Optional): Model identifier
+  - `request_timeout` (Integer, Optional): Request timeout in seconds (default: 90)
 
 **Examples:**
 ```json
@@ -262,7 +265,8 @@ The Extract Operator is a unified extraction operator that provides text and ent
       "engine": "ollama",
       "engine_options": {
         "api_base": "http://localhost:11434",
-        "model_id": "llama3.2-vision"
+        "model_id": "llama3.2-vision",
+        "request_timeout": 300
       }
     }
   }

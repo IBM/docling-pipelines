@@ -77,10 +77,10 @@ class TestWatsonxPipelineOptionsProvider:
         """Test validation with valid config."""
         provider = WatsonxPipelineOptionsProvider()
         config = {
-            "vlm_api_key": "test_key",  # pragma: allowlist secret
-            "vlm_watsonx_container_id": "12345678-1234-1234-1234-123456789abc",
-            "vlm_model_name": "test_model",
-            "vlm_api_base_url": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
+            "api_key": "test_key",  # pragma: allowlist secret
+            "container_id": "12345678-1234-1234-1234-123456789abc",
+            "model_id": "test_model",
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
         }
         # Should not raise
         provider.validate_config(config=config)
@@ -91,9 +91,9 @@ class TestWatsonxPipelineOptionsProvider:
         config = {
             "container_id": "12345678-1234-1234-1234-123456789abc",
             "model_id": "test_model",
-            "api_base_url": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
         }
-        with pytest.raises(ValueError, match="missing required fields"):
+        with pytest.raises(ValueError, match="'api_key' is required"):
             provider.validate_config(config=config)
 
     def test_validate_config_missing_container_id(self):
@@ -101,20 +101,20 @@ class TestWatsonxPipelineOptionsProvider:
         provider = WatsonxPipelineOptionsProvider()
         config = {
             "api_key": "test_key",  # pragma: allowlist secret
-            "vlm_model_name": "test_model",
-            "vlm_api_base_url": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
+            "model_id": "test_model",
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
         }
-        with pytest.raises(ValueError, match="missing required fields"):
+        with pytest.raises(ValueError, match="'container_id' is required"):
             provider.validate_config(config=config)
 
     def test_create_pipeline_options(self, mocker):
         """Test creating pipeline options."""
         provider = WatsonxPipelineOptionsProvider()
         config = {
-            "vlm_api_key": "test_key",  # pragma: allowlist secret
-            "vlm_watsonx_container_id": "12345678-1234-1234-1234-123456789abc",
-            "vlm_model_name": "test_model",
-            "vlm_api_base_url": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
+            "api_key": "test_key",  # pragma: allowlist secret
+            "container_id": "12345678-1234-1234-1234-123456789abc",
+            "model_id": "test_model",
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
         }
 
         # Mock RestClient.call_rest_json to return fake IAM token
@@ -136,9 +136,9 @@ class TestOpenAIPipelineOptionsProvider:
         """Test validation with valid config."""
         provider = OpenAIPipelineOptionsProvider()
         config = {
-            "vlm_api_key": "test_key",  # pragma: allowlist secret
-            "vlm_model_name": "gpt-4-vision-preview",
-            "api_base_url": "https://api.openai.com/v1",
+            "api_key": "test_key",  # pragma: allowlist secret
+            "model_id": "gpt-4-vision-preview",
+            "api_base": "https://api.openai.com/v1",
         }
         # Should not raise
         provider.validate_config(config=config)
@@ -147,29 +147,29 @@ class TestOpenAIPipelineOptionsProvider:
         """Test validation with missing api_key."""
         provider = OpenAIPipelineOptionsProvider()
         config = {
-            "model_name": "gpt-4-vision-preview",
-            "api_base_url": "https://api.openai.com/v1",
+            "model_id": "gpt-4-vision-preview",
+            "api_base": "https://api.openai.com/v1",
         }
-        with pytest.raises(ValueError, match="api_key is required"):
+        with pytest.raises(ValueError, match="'api_key' is required"):
             provider.validate_config(config=config)
 
     def test_validate_config_missing_model_name(self):
         """Test validation with missing model_name."""
         provider = OpenAIPipelineOptionsProvider()
         config = {
-            "vlm_api_key": "test_key",  # pragma: allowlist secret
-            "api_base_url": "https://api.openai.com/v1",
+            "api_key": "test_key",  # pragma: allowlist secret
+            "api_base": "https://api.openai.com/v1",
         }
-        with pytest.raises(ValueError, match="model_name is required"):
+        with pytest.raises(ValueError, match="'model_id' is required"):
             provider.validate_config(config=config)
 
     def test_create_pipeline_options(self):
         """Test creating pipeline options."""
         provider = OpenAIPipelineOptionsProvider()
         config = {
-            "vlm_api_key": "test_key",  # pragma: allowlist secret
-            "vlm_model_name": "gpt-4-vision-preview",
-            "api_base_url": "https://api.openai.com/v1",
+            "api_key": "test_key",  # pragma: allowlist secret
+            "model_id": "gpt-4-vision-preview",
+            "api_base": "https://api.openai.com/v1",
         }
 
         options = provider.create_pipeline_options(preset="granite_docling", config=config)
@@ -240,7 +240,7 @@ class TestGenericApiPipelineOptionsProvider:
     def test_validate_config_valid(self):
         """Test validation with valid config."""
         provider = GenericApiPipelineOptionsProvider()
-        config = {"vlm_api_base_url": "https://api.example.com"}
+        config = {"api_base": "https://api.example.com"}
         # Should not raise
         provider.validate_config(config=config)
 
@@ -249,7 +249,7 @@ class TestGenericApiPipelineOptionsProvider:
         provider = GenericApiPipelineOptionsProvider()
         config = {
             "api_key": "test_key",  # pragma: allowlist secret
-            "vlm_api_base_url": "https://api.example.com",
+            "api_base": "https://api.example.com",
         }
 
         options = provider.create_pipeline_options(preset="granite_docling", config=config)
@@ -261,7 +261,7 @@ class TestGenericApiPipelineOptionsProvider:
         """Test creating pipeline options with custom headers."""
         provider = GenericApiPipelineOptionsProvider()
         config = {
-            "vlm_api_base_url": "https://api.example.com",
+            "api_base": "https://api.example.com",
             "headers": {"X-Custom-Header": "custom_value"},
         }
 

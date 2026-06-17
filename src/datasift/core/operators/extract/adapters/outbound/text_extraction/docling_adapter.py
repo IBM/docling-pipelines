@@ -235,9 +235,9 @@ class DoclingAdapter(TextExtractionPort):
                     pipeline_options=asr_options,
                 )
 
-                # Only set converter_config if we have format options
-                if format_options:
-                    converter_config = {OperatorConstants.Config.FORMAT_OPTIONS: format_options}
+            # Only set converter_config if we have format options
+            if format_options:
+                converter_config = {OperatorConstants.Config.FORMAT_OPTIONS: format_options}
 
             # Use common extraction method with output_formats
             result = OperatorUtils.extract_content(
