@@ -830,6 +830,69 @@ show_summary() {
 }
 
 ################################################################################
+# Git Intercept Setup
+################################################################################
+
+setup_git_intercept() {
+    print_header "Setting Up Git Intercept"
+
+    local git_intercept='
+# DataSift Git Intercept
+git() {
+    # Block --no-verify on commit
+    if [ "$1" = "commit" ]; then
+        for arg in "$@"; do
+            if [ "$arg" = "--no-verify" ] || [ "$arg" = "-n" ]; then
+                echo "Error: The --no-verify (-n) option has been disabled on this system."
+                return 1
+            fi
+        done
+    fi
+
+    # Require confirmation before any push
+    if [ "$1" = "push" ]; then
+        echo ""
+        echo "Have you verified that the pre-commit checks are passing with no failures?"
+        echo "Also, if you plan to raise a PR, remember to include the pre-commit hook output in your GitHub PR description."
+        echo ""
+        printf "If yes, then proceed with the push? (Y/N): "
+        read -r answer
+        case "$answer" in
+            [Yy]) ;;
+            *)
+                echo "Push aborted."
+                return 1
+                ;;
+        esac
+    fi
+
+    # Pass everything to the real git binary
+    command git "$@"
+}
+# End DataSift Git Intercept'
+
+    local shell_config=""
+    if [ -f "$HOME/.zshrc" ]; then
+        shell_config="$HOME/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+        shell_config="$HOME/.bashrc"
+    else
+        log_error "No .zshrc or .bashrc found. Cannot install git intercept."
+        return 1
+    fi
+
+    # Avoid duplicate entries
+    if grep -q "DataSift Git Intercept" "$shell_config"; then
+        log "Git intercept already present in $shell_config — skipping"
+        return 0
+    fi
+
+    echo "$git_intercept" >> "$shell_config"
+    log "Git intercept added to $shell_config"
+    log_info "Run 'source $shell_config' or open a new terminal for it to take effect."
+}
+
+################################################################################
 # Main Execution
 ################################################################################
 
@@ -848,6 +911,9 @@ main() {
     else
         log "Running in DEFAULT mode (use --interactive for prompts)"
     fi
+
+    # Setting up git intercept command capability in .zshrc or .bashrc.
+    setup_git_intercept
     
     # Run setup steps
     check_python || exit 1

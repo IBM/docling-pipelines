@@ -96,6 +96,10 @@ EOF
 # Set PYTHONPATH (from project root)
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
+# Activate the shell configuration file. 
+source ~/.zshrc # if ~/.zshrc exists.
+source ~./bashrc # if ~/.bashrc exists.
+
 # Activate virtual environment (from project root)
 source .venv/bin/activate
 ```
