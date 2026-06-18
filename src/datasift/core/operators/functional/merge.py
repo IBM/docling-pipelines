@@ -41,6 +41,7 @@ class MergeOperator(AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.MERGE
     category: OperatorCategory = OperatorCategory.Functional
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

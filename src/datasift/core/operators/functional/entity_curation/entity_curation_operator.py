@@ -60,6 +60,7 @@ class EntityCurationOperator(AbstractOperator):
 
     short_name: str = "entity_curation"
     category: OperatorCategory = OperatorCategory.Functional
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """
