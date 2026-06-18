@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from queue import Queue
-from typing import ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
@@ -18,7 +18,7 @@ from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.core.orchestration.abstract_operator_executor import AbstractOperatorExecutor
 from datasift.core.orchestration.batch_manager import BatchManager
 from datasift.core.orchestration.flow_execution_event_handler import FlowExecutionEventHandler
-from datasift.core.orchestration.prefect.prefect_engine import AbstractFlowEngine, ExecuteStepResults, PrefectEngine
+from datasift.core.orchestration.ports.flow_engine import ExecuteStepResults, FlowEnginePort
 from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 from datasift.utils.core.datetime import get_current_timestamp
 from datasift.utils.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
@@ -76,10 +76,10 @@ class AbstractOrchestrator(ABC):
             execution_reporter=execution_reporter,
         )
         self.batch_manager = BatchManager()
-        self.flow_engine: AbstractFlowEngine | None = None
-        self.common_log_arguments = None
+        self.flow_engine: FlowEnginePort | None = None
+        self.common_log_arguments: dict[Any, str] | None = None
 
-    def initialize(self, *, job_id, job_run_id):
+    def initialize(self, *, job_id: str, job_run_id: str):
         """
         Initialize orchestrator for a specific job run.
 
@@ -104,14 +104,31 @@ class AbstractOrchestrator(ABC):
             job_id=job_id, job_run_id=job_run_id, common_log_arguments=self.common_log_arguments
         )
 
-        # Create Prefect engine for this job run
-        self.flow_engine = PrefectEngine(
-            orchestrator=self,
-            batch_manager=self.batch_manager,
+        # Create flow engine via factory method (dependency injection)
+        self.flow_engine = self._create_flow_engine(
             job_id=job_id,
             job_run_id=job_run_id,
             job_log_path=self.flow_execution_event_handler.job_log_path,
         )
+
+    @abstractmethod
+    def _create_flow_engine(self, *, job_id: str, job_run_id: str, job_log_path: str) -> FlowEnginePort:
+        """
+        Factory method for creating the flow engine.
+
+        Subclasses must implement this to provide their specific flow engine implementation.
+        This enables dependency injection and allows different orchestrators to use
+        different execution engines (Prefect, Airflow, pure Python, etc.).
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+            job_log_path: Path for job logs
+
+        Returns:
+            FlowEnginePort: The flow engine implementation
+        """
+        pass
 
     def execute(self, *, flow_def: dict, params: dict):
         """

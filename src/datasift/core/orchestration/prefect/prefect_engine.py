@@ -1,13 +1,12 @@
 """
-Prefect Flow Executor - Handles all Prefect-specific execution logic.
+Prefect Flow Engine - Prefect-specific implementation of FlowEnginePort.
 
-This class encapsulates Prefect flow building, task creation, and execution management,
-separating these concerns from the main orchestrator logic.
+This adapter implements flow execution using Prefect's task orchestration,
+following hexagonal architecture principles by implementing the FlowEnginePort interface.
 """
 
 import copy
 import threading
-from abc import ABC, abstractmethod
 from typing import Any, Callable, ParamSpec, Protocol, TypeVar
 
 # CRITICAL: Set Prefect env vars BEFORE importing Prefect modules
@@ -27,6 +26,7 @@ from datasift.core.incremental_metadata import IncrementalUpdateService  # noqa:
 from datasift.core.incremental_metadata.adapters.config import create_incremental_metadata_store  # noqa: E402
 from datasift.core.models.session_info import get_session_info  # noqa: E402
 from datasift.core.orchestration.futured_list import FuturedList  # noqa: E402
+from datasift.core.orchestration.ports.flow_engine import ExecuteStepResults, FlowEnginePort  # noqa: E402
 from datasift.core.orchestration.prefect.ports.batch_execution_port import (  # noqa: E402
     BatchExecutionPort,
 )
@@ -47,15 +47,6 @@ P = ParamSpec("P")
 
 class SupportsSubmit(Protocol):
     def submit(self, *args: Any, **kwargs: Any) -> PrefectFuture: ...
-
-
-class ExecuteStepResults:
-    """Results from executing a single step/operator."""
-
-    def __init__(self, data_accesses: list, tables: list, internal_metadata):
-        self.data_accesses = data_accesses
-        self.tables = tables
-        self.internal_metadata = internal_metadata
 
 
 class BatchFuture:
@@ -91,58 +82,19 @@ class BatchFuture:
         return ", ".join(state_parts)
 
 
-class AbstractFlowEngine(ABC):
-    def __init__(self, *, orchestrator, batch_manager, job_id, job_run_id, job_log_path):
-        """
-        Initialize the Prefect flow executor.
-
-        Args:
-            orchestrator: Reference to the parent AbstractOrchestrator instance
-        """
-        self.orchestrator = orchestrator
-        self.batch_manager = batch_manager
-        self.logger = get_logger()
-        self.job_id = job_id
-        self.job_run_id = job_run_id
-        self.job_log_path = job_log_path
-        self.common_log_arguments = {
-            DatasiftConstants.JOB_ID: self.job_id,
-            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
-        }
-
-    @abstractmethod
-    def execute_batch_flow(self, *, op_flow, batches, global_config):
-        pass
-
-    @abstractmethod
-    def execute_non_execute_flow(self, *, flow_name=None, task, dag):
-        pass
-
-    @abstractmethod
-    def execute_operator_flow(self, *, op_flow, data_access, global_config):
-        """
-        Execute operator flow - used by batch workers.
-
-        Args:
-            op_flow: List of operator definitions
-            data_access: DataAccess object containing batch data
-            global_config: Global configuration dictionary
-        """
-        pass
-
-
-class PrefectEngine(AbstractFlowEngine):
+class PrefectEngine(FlowEnginePort):
     """
-    Handles Prefect-specific flow execution logic.
+    Prefect-specific implementation of FlowEnginePort.
 
-    This class is responsible for:
+    This adapter implements flow execution using Prefect's task orchestration.
+    It is responsible for:
     - Building Prefect flows with appropriate configuration
     - Creating and managing Prefect tasks
     - Executing flows with proper task orchestration
     - Managing batch execution with parallelism control
     """
 
-    def __init__(self, *, orchestrator, batch_manager, job_id, job_run_id, job_log_path):
+    def __init__(self, *, orchestrator, batch_manager, job_id: str, job_run_id: str, job_log_path: str):
         super().__init__(
             orchestrator=orchestrator,
             batch_manager=batch_manager,
@@ -150,6 +102,11 @@ class PrefectEngine(AbstractFlowEngine):
             job_run_id=job_run_id,
             job_log_path=job_log_path,
         )
+        self.logger = get_logger()
+        self.common_log_arguments = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
 
     def execute_batch_flow(self, *, op_flow, batches, global_config):
         """

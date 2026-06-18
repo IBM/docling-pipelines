@@ -2,6 +2,7 @@ from datasift.core.constants import OrchestratorType
 from datasift.core.job_management.domain.ports import JobRunManager, JobStatsService
 from datasift.core.orchestration.abstract_operator_executor import AbstractOperatorExecutor
 from datasift.core.orchestration.abstract_orchestrator import AbstractOrchestrator
+from datasift.core.orchestration.ports.flow_engine import FlowEnginePort
 from datasift.core.orchestration.python.python_operator_executor import PythonOperatorExecutor
 
 
@@ -41,6 +42,32 @@ class PythonOrchestrator(AbstractOrchestrator):
             job_stats_service=job_stats_service,
             enable_custom_operators=self.enable_custom_operators,
             custom_operator_packages=self.custom_operator_packages,
+        )
+
+    def _create_flow_engine(self, *, job_id: str, job_run_id: str, job_log_path: str) -> FlowEnginePort:
+        """
+        Create Prefect-based flow engine for Python orchestrator.
+
+        This factory method implements the abstract method from AbstractOrchestrator,
+        providing a Prefect-based execution engine. The import is done locally to
+        avoid tight coupling at the module level.
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+            job_log_path: Path for job logs
+
+        Returns:
+            FlowEnginePort: Prefect engine implementation
+        """
+        from datasift.core.orchestration.prefect.prefect_engine import PrefectEngine
+
+        return PrefectEngine(
+            orchestrator=self,
+            batch_manager=self.batch_manager,
+            job_id=job_id,
+            job_run_id=job_run_id,
+            job_log_path=job_log_path,
         )
 
     def visualize(self):
