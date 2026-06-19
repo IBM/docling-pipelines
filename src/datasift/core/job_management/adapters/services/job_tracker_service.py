@@ -21,7 +21,8 @@ from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.job_management.application.services import NodeStatsAggregator
 from datasift.core.job_management.domain.models import JobStats, NodeMetadataItem, NodeStats
 from datasift.core.job_management.domain.ports import JobStatsService, JobStatsStore
-from datasift.exceptions.datasift_exceptions import JobRunInvalidStateException
+from datasift.exceptions.datasift_exceptions import DatasiftException, JobRunInvalidStateException
+from datasift.exceptions.error_codes import ErrorCode
 from datasift.utils.infrastructure.logging import get_logger
 
 logger: Logger = get_logger()
@@ -1238,6 +1239,107 @@ class JobTrackerService(JobStatsService):
 
         # Delegate to mapper for enterprise-compatible model construction
         return JobStatsMapper.to_status_response(job_stats=job_stats, include_logs=include_logs)
+
+    def get_flow_definition(self, *, job_run_id: str) -> dict[str, Any] | None:
+        """
+        Retrieve the flow definition snapshot for a specific job run.
+
+        This method abstracts the storage backend and returns the flow definition
+        that was persisted at job run creation time. The implementation uses the
+        job_stats_store to locate and read the flow definition file.
+
+        Args:
+            job_run_id: Job run identifier
+
+        Returns:
+            Flow definition dictionary if found, None otherwise
+
+        Raises:
+            DatasiftException: If job_run_id not found or flow definition cannot be read
+        """
+        from pathlib import Path
+
+        from datasift.core.constants.constants import DatasiftConstants
+        from datasift.utils.infrastructure.filesystem import get_data_path
+
+        # Get job stats to retrieve job_id
+        job_stats = self.get_job_run_stats(job_run_id=job_run_id)
+
+        if not job_stats:
+            raise DatasiftException(
+                message=f"Job run not found: {job_run_id}",
+                status_code=404,
+                error_code=ErrorCode.JOB_RUN_NOT_FOUND,
+            )
+
+        job_id = job_stats.job_id
+
+        # Construct path to flow definition file
+        flow_dir = get_data_path(sub_dir=f"/{job_id}/{job_run_id}")
+        flow_file_path = Path(flow_dir) / DatasiftConstants.FLOW_DEFINITION_FILE
+
+        # Check if file exists
+        if not flow_file_path.exists():
+            logger.warning(f"Flow definition file not found: {flow_file_path}")
+            return None
+
+        # Read and return flow definition
+        try:
+            with open(flow_file_path, encoding="utf-8") as f:
+                flow_definition = json.load(f)
+            logger.info(f"Successfully retrieved flow definition for job_run_id={job_run_id}, job_id={job_id}")
+            return flow_definition
+        except DatasiftException:
+            # Re-raise DatasiftException as-is
+            raise
+        except Exception as e:
+            logger.error(f"Failed to read flow definition file {flow_file_path}: {e}", exc_info=True)
+            raise DatasiftException(
+                message=f"Failed to read flow definition for job_run_id={job_run_id}",
+                status_code=500,
+                error_code=ErrorCode.STORAGE_ERROR,
+            ) from e
+
+    def save_flow_definition(self, *, job_id: str, job_run_id: str, flow_definition: dict[str, Any]) -> None:
+        """
+        Save flow definition JSON to filesystem for audit and reproducibility.
+
+        This method stores the flow definition that was used for a specific job run,
+        enabling retrieval via get_flow_definition for debugging and audit purposes.
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+            flow_definition: Flow definition dictionary to save
+
+        Raises:
+            DatasiftException: If flow definition cannot be saved
+        """
+        from pathlib import Path
+
+        from datasift.core.constants.constants import DatasiftConstants
+        from datasift.utils.infrastructure.filesystem import get_data_path
+
+        try:
+            # Create directory path: /{job_id}/{job_run_id}/
+            flow_dir = get_data_path(sub_dir=f"/{job_id}/{job_run_id}")
+            flow_file_path = Path(flow_dir) / DatasiftConstants.FLOW_DEFINITION_FILE
+
+            # Write flow definition to JSON file
+            with open(flow_file_path, "w", encoding="utf-8") as f:
+                json.dump(flow_definition, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"Saved flow definition to: {flow_file_path}")
+        except DatasiftException:
+            # Re-raise DatasiftException as-is
+            raise
+        except Exception as e:
+            logger.error(f"Failed to save flow definition for job_run_id={job_run_id}: {e}", exc_info=True)
+            raise DatasiftException(
+                message=f"Failed to save flow definition for job_run_id={job_run_id}",
+                status_code=500,
+                error_code=ErrorCode.STORAGE_ERROR,
+            ) from e
 
     @staticmethod
     def _calculate_node_sequence(*, node_stats: dict) -> list[str]:

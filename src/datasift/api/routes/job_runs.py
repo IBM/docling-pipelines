@@ -7,6 +7,7 @@ create, list, get status, cancel, and delete job runs.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request, status
+from fastapi.responses import JSONResponse
 
 from datasift.api.dependencies import get_job_management_service, get_job_stats_service
 from datasift.api.dto.error_dto import ErrorResponse
@@ -506,3 +507,79 @@ async def delete_job_run(
 
     logger.info(f"Successfully deleted job run: {job_run_id}")
     return None
+
+
+@job_runs_router.get(
+    "/{job_run_id}/flow_definition",
+    response_class=JSONResponse,
+    operation_id="get_flow_definition_snapshot",
+    summary="Get flow definition snapshot for a job run",
+    responses={
+        200: {
+            "description": "Flow definition retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "name": "Sample Flow",
+                        "description": "Flow description",
+                        "dag": [{"id": "node1", "operator": "ingest", "config": {}}],
+                    }
+                }
+            },
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Flow definition not found",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "errors": [{"code": "not_found", "message": "Flow definition not found for job run"}],
+                        "trace": "12345678-1234-4234-9234-123456789012",
+                        "status_code": 404,
+                    }
+                }
+            },
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "errors": [{"code": "internal_error", "message": "Failed to retrieve flow definition"}],
+                        "trace": "12345678-1234-4234-9234-123456789012",
+                        "status_code": 500,
+                    }
+                }
+            },
+        },
+    },
+)
+async def get_flow_definition_snapshot(
+    job_run_id: JobRunIdPath,
+    stats_service: JobStatsServiceDep,
+) -> JSONResponse:
+    """
+    Retrieve the flow definition snapshot for a specific job run.
+
+    This endpoint returns the exact flow definition (in compiled DAG format) that was
+    used for the specified job run execution. The flow definition is stored at the
+    time of job run creation for audit and reproducibility purposes.
+
+    Args:
+        job_run_id: Job run identifier
+        stats_service: Job statistics service (injected)
+
+    Returns:
+        JSONResponse: Flow definition JSON
+
+    Raises:
+        DatasiftException: If flow definition not found (404) or retrieval fails (500)
+    """
+    logger.debug(f"Retrieving flow definition for job_run_id={job_run_id}")
+
+    # Service raises JobRunNotFoundException if not found
+    flow_definition = stats_service.get_flow_definition(job_run_id=job_run_id)
+
+    logger.info(f"Successfully retrieved flow definition for job_run_id={job_run_id}")
+    return JSONResponse(content=flow_definition)

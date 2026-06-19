@@ -549,3 +549,41 @@ class JobStatsService(ABC):
             JobRunStatusResponse DTO ready for API response
         """
         pass
+
+    @abstractmethod
+    def get_flow_definition(self, *, job_run_id: str) -> dict[str, Any] | None:
+        """
+        Retrieve the flow definition snapshot for a specific job run.
+
+        This method abstracts the storage backend (local filesystem, S3, COS, etc.)
+        and returns the flow definition that was persisted at job run creation time.
+
+        Args:
+            job_run_id: Job run identifier
+
+        Returns:
+            Flow definition dictionary if found, None otherwise
+
+        Raises:
+            JobRunNotFoundException: If job_run_id not found in stats service
+            JobStatsStoreReadException: If flow definition file cannot be read
+        """
+        pass
+
+    @abstractmethod
+    def save_flow_definition(self, *, job_id: str, job_run_id: str, flow_definition: dict[str, Any]) -> None:
+        """
+        Save flow definition JSON to filesystem for audit and reproducibility.
+
+        This method stores the flow definition that was used for a specific job run,
+        enabling retrieval via get_flow_definition for debugging and audit purposes.
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+            flow_definition: Flow definition dictionary to save
+
+        Raises:
+            DatasiftException: If flow definition cannot be saved
+        """
+        pass

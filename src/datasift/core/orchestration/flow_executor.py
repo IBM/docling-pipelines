@@ -102,6 +102,19 @@ class FlowExecutor:
                 raise exc
 
         FlowExecutor.print_diagnostic_info(self)
+
+        # Save flow definition to filesystem for audit and reproducibility
+        if job_id and job_run_id:
+            job_stats_service = self.__orchestrator.job_stats_service
+            if job_stats_service:
+                try:
+                    job_stats_service.save_flow_definition(
+                        job_id=job_id, job_run_id=job_run_id, flow_definition=self.flow_def
+                    )
+                except Exception as e:
+                    # Log error but don't fail the flow execution
+                    logger.error(f"Failed to save flow definition for job_run_id={job_run_id}: {e}", exc_info=True)
+
         try:
             data_access = self.__orchestrator.execute(flow_def=self.flow_def, params=params)
         except Exception as exc:

@@ -337,6 +337,63 @@ class TestFlowExecutor:
 
         mock_gc.get_stats.assert_called_once()
 
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.FlowValidator")
+    def test_execute_saves_flow_definition(self, mock_validator, mock_session):
+        """Test that execute() calls job_stats_service.save_flow_definition when job_id and job_run_id are provided."""
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id=None, job_id=None)
+
+        mock_validator_instance = Mock()
+        mock_validator.return_value = mock_validator_instance
+
+        mock_job_stats_service = Mock()
+        # Mock cancel_job_run_if_cancelling to return False so execution continues
+        mock_job_stats_service.cancel_job_run_if_cancelling.return_value = False
+
+        mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = mock_job_stats_service
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
+        mock_orchestrator.execute.return_value = Mock()
+        mock_orchestrator.initialize = Mock()
+
+        flow_def = {"name": "Test Flow", "dag": [{"id": "node1"}]}
+        executor = FlowExecutor(flow_def=flow_def)
+
+        job_id = "test_job_789"
+        job_run_id = "test_run_012"
+        params = {DatasiftConstants.JOB_ID: job_id, DatasiftConstants.JOB_RUN_ID: job_run_id}
+
+        executor.execute(orchestrator=mock_orchestrator, params=params)
+
+        # Verify job_stats_service.save_flow_definition was called
+        mock_job_stats_service.save_flow_definition.assert_called_once_with(
+            job_id=job_id, job_run_id=job_run_id, flow_definition=flow_def
+        )
+
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.FlowValidator")
+    def test_execute_skips_save_when_no_job_ids(self, mock_validator, mock_session):
+        """Test that execute() skips saving when job_id or job_run_id is missing."""
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id=None, job_id=None)
+
+        mock_validator_instance = Mock()
+        mock_validator.return_value = mock_validator_instance
+
+        mock_job_stats_service = Mock()
+        mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = mock_job_stats_service
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
+        mock_orchestrator.execute.return_value = Mock()
+
+        flow_def = {"name": "Test", "dag": []}
+        executor = FlowExecutor(flow_def=flow_def)
+
+        # Execute without job_id and job_run_id
+        executor.execute(orchestrator=mock_orchestrator, params={})
+
+        # Verify save_flow_definition was not called
+        mock_job_stats_service.save_flow_definition.assert_not_called()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

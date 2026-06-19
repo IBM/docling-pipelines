@@ -163,6 +163,7 @@ class DatasiftConstants:
     FLOW_EXECUTION_EVENT_HANDLER = "flow_execution_event_handler"
     JOB_LOG_PATH = "job_log_path"
     FLOW_EXECUTE_LOG = "flow_execute.log"
+    FLOW_DEFINITION_FILE = "flow_definition.json"
     START_TIME = "start_time"
     END_TIME = "end_time"
     DURATION = "duration"
