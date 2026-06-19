@@ -92,7 +92,7 @@ python examples/connectors/test_s3_adapter.py
 | `max_file_size_mb` | int | No | None | Maximum file size in MB to process. None means no limit |
 | `skip_hidden_files` | bool | No | True | Whether to skip hidden files and directories (starting with '.') |
 | `skip_empty_files` | bool | No | True | Whether to skip files with zero size |
-| `max_concurrent_downloads` | int | No | 5 | Maximum number of concurrent S3 downloads (1-20) |
+| `max_concurrent_downloads` | int | No | 20 | Maximum number of concurrent S3 downloads (1-20) |
 | `download_timeout_seconds` | int | No | 300 | Timeout for downloading a single file in seconds (minimum 30) |
 
 ### Configuration Examples

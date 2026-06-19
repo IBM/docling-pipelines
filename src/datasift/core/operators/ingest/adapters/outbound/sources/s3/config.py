@@ -59,9 +59,9 @@ class S3SourceConfig(BaseModel):
     skip_empty_files: bool = Field(True, description="Whether to skip files with zero size")
 
     # Performance configuration
-    max_concurrent_downloads: int = Field(5, description="Maximum number of concurrent S3 downloads", ge=1, le=20)
+    max_concurrent_downloads: int = Field(100, description="Maximum number of concurrent S3 downloads", ge=1, le=100)
 
-    download_timeout_seconds: int = Field(300, description="Timeout for downloading a single file in seconds", ge=30)
+    download_timeout_seconds: int = Field(120, description="Timeout for downloading a single file in seconds", ge=30)
 
     max_files: int | None = Field(
         None, description="Maximum number of files to fetch. None means no limit. Helps optimize performance."
@@ -139,7 +139,7 @@ class S3SourceConfig(BaseModel):
                 "max_file_size_mb": 100,
                 "skip_hidden_files": True,
                 "skip_empty_files": True,
-                "max_concurrent_downloads": 5,
+                "max_concurrent_downloads": 20,
                 "download_timeout_seconds": 300,
             }
         }

@@ -333,13 +333,8 @@ class TestS3SourceAdapter:
         ]
         mock_paginator.paginate.return_value = mock_pages
 
-        # Mock head_object responses (for content type, no binary download)
-        def mock_head_object(**kwargs):
-            return {
-                "ContentType": "application/pdf" if kwargs["Key"].endswith(".pdf") else "text/plain",
-            }
-
-        mock_client.head_object.side_effect = mock_head_object
+        # Note: head_object no longer called - content type determined from file extension
+        # This is an optimization to reduce API calls
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
             with patch.object(adapter, "_get_aws_account_id", return_value=None):
@@ -495,8 +490,8 @@ class TestExpectedBucketOwnerPropagation:
         assert "ExpectedBucketOwner" not in call_kwargs
 
     @pytest.mark.asyncio
-    async def test_fetch_documents_head_object_passes_expected_bucket_owner(self, adapter, config):
-        """head_object receives ExpectedBucketOwner when account ID is resolved."""
+    async def test_fetch_documents_uses_mimetypes_for_content_type(self, adapter, config):
+        """Content type is determined from file extension using mimetypes (no head_object call)."""
         mock_client = Mock()
         mock_paginator = Mock()
         mock_client.get_paginator.return_value = mock_paginator
@@ -513,15 +508,17 @@ class TestExpectedBucketOwnerPropagation:
                 ]
             }
         ]
-        mock_client.head_object.return_value = {"ContentType": "application/pdf"}
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
             with patch.object(adapter, "_get_aws_account_id", return_value="123456789012"):
-                await collect_async(adapter.fetch_documents(config))
+                documents = await collect_async(adapter.fetch_documents(config))
 
-        mock_client.head_object.assert_called_once_with(
-            Bucket="test-bucket", Key="docs/file.pdf", ExpectedBucketOwner="123456789012"
-        )
+        # Verify head_object was NOT called (optimization)
+        mock_client.head_object.assert_not_called()
+
+        # Verify content type was determined from extension
+        assert len(documents) == 1
+        assert documents[0].mimetype == "application/pdf"
 
     @pytest.mark.asyncio
     async def test_fetch_binary_content_passes_expected_bucket_owner(self, adapter):

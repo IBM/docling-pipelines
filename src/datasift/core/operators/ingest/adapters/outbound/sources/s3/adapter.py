@@ -1,6 +1,8 @@
 """S3 source adapter using boto3."""
 
+import asyncio
 import fnmatch
+import mimetypes
 import os
 from datetime import datetime
 from typing import Any, AsyncGenerator
@@ -32,14 +34,17 @@ class S3SourceAdapter(DocumentSourcePort):
     - File filtering by extension and patterns
     - Hidden file exclusion
     - Size-based filtering
+    - Parallel downloads with bounded concurrency
 
     Features:
     - Lazy loading: Documents contain metadata only, no binary content
     - Binary content loaded on-demand by downstream operators
     - Efficient pagination for large buckets
+    - Parallel processing with configurable concurrency (default: 20)
     - Metadata preservation (modified time, size, content type)
     - Error handling with detailed logging
     - Support for custom S3 endpoints
+    - Cached AWS account ID for security verification
 
     Authentication:
     - AWS access key and secret key
@@ -52,13 +57,16 @@ class S3SourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from Amazon S3 or S3-compatible storage"
     SOURCE_VERSION = "1.0.0"
 
-    async def fetch_documents(self, config: S3SourceConfig) -> AsyncGenerator[Document, None]:
-        """
-        Fetch documents from S3 bucket using streaming pagination.
+    def __init__(self):
+        """Initialize adapter with cached AWS account ID."""
+        self._cached_account_id: str | None = None
 
-        This method streams documents as they're listed from S3, without loading
-        all object metadata into memory first. The operator's batch-fetch logic
-        will handle the max_files limit during processing.
+    async def fetch_documents(self, config: S3SourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
+        """
+        Fetch documents from S3 bucket with batched parallel downloads.
+
+        This method processes S3 objects in batches with bounded concurrency,
+        streaming results as they complete. Memory-efficient for large buckets.
 
         Args:
             config: Validated S3 configuration
@@ -75,24 +83,66 @@ class S3SourceAdapter(DocumentSourcePort):
             # Create S3 client
             s3_client = self._create_s3_client(config)
 
-            logger.info(f"Streaming S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
+            # Cache AWS account ID once for all operations
+            self._cached_account_id = self._get_aws_account_id(config)
 
-            # Stream objects using async generator
+            logger.info(f"Streaming S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}' ")
+
+            # Process in batches to avoid loading all objects into memory
+            batch_size = config.max_concurrent_downloads * 5  # Process 5x concurrency at a time
+            semaphore = asyncio.Semaphore(config.max_concurrent_downloads)
+
+            async def download_with_semaphore(s3_obj: dict[str, Any]) -> Document | None:
+                """Download S3 object with semaphore-bounded concurrency."""
+                async with semaphore:
+                    try:
+                        return await self._download_s3_object(s3_client, config, s3_obj)
+                    except Exception as e:
+                        logger.error(f"Failed to download S3 object {s3_obj['Key']}: {e}", exc_info=True)
+                        return None
+
             fetched_count = 0
-            async for s3_obj in self._stream_s3_objects(s3_client, config):
-                try:
-                    document = await self._download_s3_object(s3_client, config, s3_obj)
+            total_listed = 0
+            batch = []
+
+            # Stream objects and process in batches
+            for s3_obj in self._list_s3_objects_sync(s3_client, config):
+                batch.append(s3_obj)
+                total_listed += 1
+
+                # Process batch when it reaches batch_size
+                if len(batch) >= batch_size:
+                    logger.info(f"Processing batch of {len(batch)} objects (total listed: {total_listed})")
+
+                    # Create tasks for this batch
+                    tasks = [download_with_semaphore(obj) for obj in batch]
+
+                    # Gather results in order to maintain deterministic ordering
+                    documents = await asyncio.gather(*tasks)
+                    for document in documents:
+                        if document:
+                            fetched_count += 1
+                            yield document
+
+                    # Clear batch for next iteration
+                    batch.clear()
+
+            # Process remaining objects in final batch
+            if batch:
+                logger.info(f"Processing final batch of {len(batch)} objects (total listed: {total_listed})")
+                tasks = [download_with_semaphore(obj) for obj in batch]
+
+                # Gather results in order to maintain deterministic ordering
+                documents = await asyncio.gather(*tasks)
+                for document in documents:
                     if document:
                         fetched_count += 1
-                        logger.info(
-                            f"Ingesting file #{fetched_count}: s3://{config.bucket}/{s3_obj['Key']} ({s3_obj.get('Size', 0)} bytes)"
-                        )
                         yield document
-                except Exception as e:
-                    logger.error(f"Failed to download S3 object {s3_obj['Key']}: {e}", exc_info=True)
-                    continue
 
-            logger.info(f"Completed streaming from S3 bucket '{config.bucket}', fetched {fetched_count} documents")
+            logger.info(
+                f"Completed streaming from S3 bucket '{config.bucket}': "
+                f"listed {total_listed} objects, fetched {fetched_count} documents"
+            )
 
         except (ClientError, BotoCoreError) as e:
             logger.error(f"S3 error while fetching documents: {e}", exc_info=True)
@@ -209,7 +259,7 @@ class S3SourceAdapter(DocumentSourcePort):
             "max_file_size_mb": connection_params.get("max_file_size_mb"),
             "skip_hidden_files": connection_params.get("skip_hidden_files", True),
             "skip_empty_files": connection_params.get("skip_empty_files", True),
-            "max_concurrent_downloads": connection_params.get("max_concurrent_downloads", 5),
+            "max_concurrent_downloads": connection_params.get("max_concurrent_downloads", 20),
             "download_timeout_seconds": connection_params.get("download_timeout_seconds", 300),
             "max_files": max_files,
         }
@@ -317,22 +367,21 @@ class S3SourceAdapter(DocumentSourcePort):
             )
             return None
 
-    async def _stream_s3_objects(self, s3_client: Any, config: S3SourceConfig) -> AsyncGenerator[dict[str, Any], None]:
+    def _list_s3_objects_sync(self, s3_client: Any, config: S3SourceConfig):
         """
-        Stream S3 objects as they're listed, without loading all into memory.
+        List S3 objects synchronously with pagination and filtering.
 
         This method yields S3 object metadata one at a time as pages are received
-        from S3, enabling true streaming behavior. The max_files limit is NOT
-        applied here - it's handled by the operator's batch-fetch logic.
+        from S3, enabling true streaming behavior without loading all into memory.
 
         Args:
             s3_client: boto3 S3 client
             config: S3 configuration
 
         Yields:
-            S3 object metadata dictionaries
+            S3 object metadata dictionaries (filtered)
         """
-        logger.info(f"Streaming S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
+        logger.info(f"Listing S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
 
         paginator = s3_client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=config.bucket, Prefix=config.prefix)
@@ -451,18 +500,8 @@ class S3SourceAdapter(DocumentSourcePort):
 
             size = s3_obj.get("Size", 0)
 
-            # Resolve bucket owner for security verification (AWS S3 only)
-            account_id = self._get_aws_account_id(config)
-
-            # Get content type from metadata (no download)
-            try:
-                head_kwargs: dict[str, Any] = {"Bucket": config.bucket, "Key": key}
-                if account_id:
-                    head_kwargs["ExpectedBucketOwner"] = account_id
-                head_response = s3_client.head_object(**head_kwargs)
-                content_type = head_response.get("ContentType", "application/octet-stream")
-            except Exception:
-                content_type = "application/octet-stream"
+            # Determine content type from file extension (avoid expensive head_object call)
+            content_type = mimetypes.guess_type(key)[0] or "application/octet-stream"
 
             # Build S3 URI
             s3_uri = f"s3://{config.bucket}/{key}"
