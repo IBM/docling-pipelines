@@ -305,6 +305,26 @@ curl -X PUT "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/documen
 curl -X GET "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" | jq
 ```
 
+### Workflow 2: Organize Documents by Tags
+
+```bash
+# Create libraries for different categories
+curl -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Legal Documents", "tags": ["legal", "contracts"]}'
+
+curl -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "HR Documents", "tags": ["hr", "personnel"]}'
+
+curl -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Financial Reports", "tags": ["finance", "reports"]}'
+
+# Search by tag
+curl -X GET "http://localhost:8000/api/v1/document-libraries/search?tags=finance" | jq
+```
+
 ### Workflow 3: Update Library Metadata
 
 ```bash
@@ -312,12 +332,13 @@ curl -X GET "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" | jq
 LIBRARY_ID="550e8400-e29b-41d4-a716-446655440000"
 curl -X GET "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" | jq
 
+
 # Update description and add tags
-curl -X PATCH "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" \
+curl -X PUT "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" \
   -H "Content-Type: application/json" \
   -d '{
     "description": "Updated description with more details",
-    "tags": ["finance", "q1_2024", "reports", "audited", "approved"]
+    "tags": ["finance", "q1-2024", "reports", "audited", "approved"]
   }' | jq
 ```
 

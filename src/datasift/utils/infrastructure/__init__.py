@@ -1,4 +1,4 @@
-"""Infrastructure utilities for logging, configuration, performance, retry, caching, filesystem, and concurrency."""
+"""Infrastructure utilities for logging, configuration, performance, retry, caching, filesystem, concurrency, and telemetry."""
 
 from .caching import LRUCache
 from .concurrency import (
@@ -15,11 +15,13 @@ from .performance import (
     log_elapsed_time,
 )
 from .retry import retry_with_exponential_backoff, should_retry_on_result
+from .telemetry_service import TelemetryConfig, get_telemetry_service
 
 __all__ = [
     "DEFAULT_DATA_ROOT_FOLDER",
     # Caching
     "LRUCache",
+    "TelemetryConfig",
     "delete_folders",
     # Filesystem
     "get_data_path",
@@ -29,6 +31,8 @@ __all__ = [
     "get_opensearch_config",
     "get_process_memory_mb",
     "get_pyarrow_table_size_mb",
+    # Telemetry
+    "get_telemetry_service",
     # Performance
     "log_elapsed_time",
     # Concurrency

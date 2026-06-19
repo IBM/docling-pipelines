@@ -12,6 +12,7 @@ from datasift.core.constants.constants import (
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.models.session_info import get_session_info
 from datasift.core.operators.operator_utils import OperatorUtils
+from datasift.utils.infrastructure import get_telemetry_service
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -46,6 +47,93 @@ class AbstractOperator(AbstractTableTransform):
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
+        # Initialize telemetry service for operator tracing
+        self._telemetry = get_telemetry_service()
+
+    def _create_operator_span(self, *, operation_name: str | None = None):
+        """Create a telemetry span for operator execution.
+
+        This method creates an OTEL span with operator metadata as attributes.
+        Operators can use this to wrap their transform() method for automatic tracing.
+
+        Args:
+            operation_name: Optional custom operation name. Defaults to operator short_name.
+
+        Returns:
+            Span object if telemetry is enabled, None otherwise.
+
+        Example:
+            def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+                span = self._create_operator_span()
+                try:
+                    # Operator logic here
+                    result = ...
+                    return result
+                except Exception as e:
+                    self._telemetry.record_exception(e, span=span)
+                    raise
+                finally:
+                    self._telemetry.end_span(span)
+        """
+        if not hasattr(self, "_telemetry"):
+            return None
+
+        operation = operation_name or self.short_name
+
+        return self._telemetry.start_span(
+            name=f"operator.{operation}",
+            attributes={
+                "operator.name": self.name,
+                "operator.id": self.id,
+                "operator.short_name": self.short_name,
+                "operator.category": str(self.category),
+                "job.id": self.job_id,
+                "job_run.id": self.job_run_id,
+            },
+        )
+
+    def _record_operator_metrics(self, *, span, metadata: dict[str, Any] | None = None):
+        """Record operator execution metrics in the current span.
+
+        Args:
+            span: The span to record metrics in
+            metadata: Optional metadata dict containing execution metrics
+        """
+        if not hasattr(self, "_telemetry") or span is None:
+            return
+
+        if metadata:
+            # Record document processing metrics
+            if Metrics.External.PROCESSED_DOCS in metadata:
+                self._telemetry.set_span_attribute(
+                    "operator.processed_docs",
+                    metadata[Metrics.External.PROCESSED_DOCS],
+                    span=span,
+                )
+            if Metrics.External.FAILED_DOCS_COUNT in metadata:
+                self._telemetry.set_span_attribute(
+                    "operator.failed_docs",
+                    metadata[Metrics.External.FAILED_DOCS_COUNT],
+                    span=span,
+                )
+            if Metrics.External.SKIPPED_DOCS_COUNT in metadata:
+                self._telemetry.set_span_attribute(
+                    "operator.skipped_docs",
+                    metadata[Metrics.External.SKIPPED_DOCS_COUNT],
+                    span=span,
+                )
+            if Metrics.External.TOTAL_DOCS in metadata:
+                self._telemetry.set_span_attribute(
+                    "operator.total_docs",
+                    metadata[Metrics.External.TOTAL_DOCS],
+                    span=span,
+                )
+            if Metrics.External.NODE_STATUS in metadata:
+                self._telemetry.set_span_attribute(
+                    "operator.status",
+                    metadata[Metrics.External.NODE_STATUS],
+                    span=span,
+                )
 
     @staticmethod
     def is_available():

@@ -104,6 +104,13 @@ dev = [
     "ruff==0.15.5",
 ]
 
+telemetry = [
+    "opentelemetry-api==1.41.1",
+    "opentelemetry-sdk==1.41.1",
+    "opentelemetry-exporter-otlp-proto-grpc==1.41.1",
+    "opentelemetry-instrumentation-fastapi==0.62b1",
+]
+
 vlm_asr = [
     "docling[vlm,asr]",
 ]
