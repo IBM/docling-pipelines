@@ -248,10 +248,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Description:** Provider-specific VLM pipeline configuration for enhanced extraction (docling_library mode only). When provided, enables Vision-Language Model processing.  
 
 **Sub-parameters:**
-- `preset` (String): VLM preset name (`fast`, `accurate`, or custom)
-- `engine` (String): VLM engine (`ollama`, `transformers`, `mlx`, `openai`, etc.)
+- `preset` (String): VLM preset name. Valid presets include: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`, `nanonets_ocr2`, `gemma_12b`, `gemma_27b`, `dolphin`, `glm_ocr`, `lightonocr`, `falcon_ocr`
+- `engine` (String): VLM engine type. Valid engines: `api_ollama`, `api_openai`, `api_watsonx`, `api_lmstudio`, `api` (generic), `transformers` (local), `mlx` (macOS)
 - `engine_options` (Object): Engine-specific configuration
-  - `api_base` (String, Optional): API base URL for API-based engines
+  - `api_base` (String, Optional): API base URL for API-based engines (e.g., `http://localhost:11434` for Ollama)
   - `model_id` (String, Optional): Model identifier
   - `request_timeout` (Integer, Optional): Request timeout in seconds (default: 90)
 
@@ -261,11 +261,11 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "provider": "docling_library",
   "provider_config": {
     "vlm_pipeline": {
-      "preset": "fast",
-      "engine": "ollama",
+      "preset": "granite_docling",
+      "engine": "api_ollama",
       "engine_options": {
         "api_base": "http://localhost:11434",
-        "model_id": "llama3.2-vision",
+        "model_id": "ibm/granite-docling:258m",
         "request_timeout": 300
       }
     }
@@ -279,7 +279,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "provider": "docling_library",
   "provider_config": {
     "vlm_pipeline": {
-      "preset": "accurate",
+      "preset": "granite_docling",
       "engine": "transformers",
       "engine_options": {
         "model_id": "microsoft/Florence-2-large"
@@ -295,11 +295,11 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "provider": "docling_library",
   "provider_config": {
     "vlm_pipeline": {
-      "preset": "fast",
-      "engine": "openai",
+      "preset": "qwen",
+      "engine": "api_openai",
       "engine_options": {
         "api_key": "sk-...", # pragma: allowlist secret
-        "api_base": "https://api.openai.com/v1",
+        "api_base": "https://api.openai.com",
         "model_id": "gpt-4-vision-preview"
       }
     }
@@ -609,11 +609,11 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
       "provider": "docling_library",
       "provider_config": {
         "vlm_pipeline": {
-          "preset": "fast",
-          "engine": "ollama",
+          "preset": "granite_docling",
+          "engine": "api_ollama",
           "engine_options": {
             "api_base": "http://localhost:11434",
-            "model_id": "llama3.2-vision"
+            "model_id": "ibm/granite-docling:258m"
           }
         }
       }

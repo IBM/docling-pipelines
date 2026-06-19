@@ -541,8 +541,8 @@ This simplified design removes the port/adapter overhead while maintaining clean
 | `text_extraction.doc_column`                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
 | `text_extraction.additional_formats`                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`, `doclang`            |
 | `text_extraction.provider_config.vlm_pipeline`            | object |       No | `null`                    | VLM (Vision-Language Model) pipeline configuration (docling_library mode). When present, VLM processing is enabled. |
-| `text_extraction.provider_config.vlm_pipeline.preset`     | string |       No | `fast`                    | VLM preset name: `fast`, `accurate`, or custom preset                                              |
-| `text_extraction.provider_config.vlm_pipeline.engine`     | string |       No | `ollama`                  | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.                                        |
+| `text_extraction.provider_config.vlm_pipeline.preset`     | string |       No | `granite_docling`         | VLM preset name. Valid presets: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`, `nanonets_ocr2`, `gemma_12b`, `gemma_27b`, `dolphin`, `glm_ocr`, `lightonocr`, `falcon_ocr` |
+| `text_extraction.provider_config.vlm_pipeline.engine`     | string |       No | `api_ollama`              | VLM engine type. Valid engines: `api_ollama`, `api_openai`, `api_watsonx`, `api_lmstudio`, `api` (generic), `transformers` (local), `mlx` (macOS) |
 | `text_extraction.provider_config.vlm_pipeline.engine_options` | object |       No | `{}`                      | Engine-specific options (api_base, model_id, etc.)                                                 |
 | `text_extraction.provider_config.asr_pipeline`            | object |       No | `null`                    | ASR (Automatic Speech Recognition) pipeline configuration (docling_library mode). When present, ASR processing is enabled. |
 | `text_extraction.provider_config.asr_pipeline.model_id` | string |       No | `whisper_turbo`           | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
@@ -635,11 +635,11 @@ The operator provides the following metadata after execution:
       "provider": "docling_library",
       "provider_config": {
         "vlm_pipeline": {
-          "preset": "fast",
-          "engine": "ollama",
+          "preset": "granite_docling",
+          "engine": "api_ollama",
           "engine_options": {
             "api_base": "http://localhost:11434",
-            "model_id": "llama3.2-vision"
+            "model_id": "ibm/granite-docling:258m"
           }
         }
       }

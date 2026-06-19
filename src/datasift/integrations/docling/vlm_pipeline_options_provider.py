@@ -59,6 +59,30 @@ class VlmPipelineOptionsProvider(ABC):
         pass
 
     @staticmethod
+    def _normalize_openai_compatible_url(*, api_base: str | None, default_url: str) -> str:
+        """
+        Normalize OpenAI-compatible API base URL by appending /v1/chat/completions if needed.
+
+        This method ensures consistent URL handling across all OpenAI-compatible APIs
+        (Ollama, OpenAI, LM Studio). Users can provide just the base URL, and this
+        method will append the required path if not already present.
+
+        Args:
+            api_base: User-provided API base URL (e.g., "http://localhost:11434")
+            default_url: Default URL to use if api_base is None
+
+        Returns:
+            Normalized URL with /v1/chat/completions path
+        """
+        if api_base:
+            # Normalize URL: append /v1/chat/completions if not already present
+            api_base = api_base.rstrip("/")
+            if not api_base.endswith("/v1/chat/completions"):
+                return f"{api_base}/v1/chat/completions"
+            return api_base
+        return default_url
+
+    @staticmethod
     def _ensure_markdown_format(*, vlm_options: Any, preset: str) -> None:
         """
         Ensure MARKDOWN format for API-based VLM engines.
@@ -257,7 +281,8 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
             config: Configuration containing:
                 - api_key: OpenAI API key (required)
                 - model_id: Model name (required)
-                - api_base: API base URL (optional)
+                - api_base: OpenAI base URL (optional, defaults to https://api.openai.com)
+                          Automatically appends /v1/chat/completions if not present
 
         Returns:
             VlmPipelineOptions configured for OpenAI
@@ -278,7 +303,11 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
         headers = {"Authorization": f"Bearer {api_key}"}
         params = {OperatorConstants.Config.MODEL_NAME: vlm_model_name}
 
-        api_base_url = config.get(OperatorConstants.Config.API_BASE, "https://api.openai.com/v1/chat/completions")
+        # Normalize API base URL
+        api_base_url = self._normalize_openai_compatible_url(
+            api_base=config.get(OperatorConstants.Config.API_BASE),
+            default_url="https://api.openai.com/v1/chat/completions",
+        )
 
         # Get timeout from config, default to 90 seconds
         timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
@@ -295,6 +324,8 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         # Ensure MARKDOWN format for API engines
         self._ensure_markdown_format(vlm_options=vlm_options, preset=preset)
+
+        logger.info(f"Using OpenAI engine with API base URL: {api_base_url}")
 
         return VlmPipelineOptions(vlm_options=vlm_options, enable_remote_services=True)
 
@@ -316,7 +347,8 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Args:
             preset: VLM preset name
             config: Configuration containing:
-                - api_base: Ollama API URL (optional, defaults to {OLLAMA_HOST}/v1/chat/completions from env)
+                - api_base: Ollama base URL (optional, defaults to {OLLAMA_HOST} from env)
+                          Automatically appends /v1/chat/completions if not present
                 - model_id: Ollama model name (optional, overrides preset default)
 
         Returns:
@@ -327,8 +359,10 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         self.validate_config(config=config)
 
-        api_base_url = config.get(
-            OperatorConstants.Config.API_BASE, f"{ServiceConstants.DEFAULT_OLLAMA_HOST}/v1/chat/completions"
+        # Normalize API base URL
+        api_base_url = self._normalize_openai_compatible_url(
+            api_base=config.get(OperatorConstants.Config.API_BASE),
+            default_url=f"{ServiceConstants.DEFAULT_OLLAMA_HOST}/v1/chat/completions",
         )
 
         vlm_model_name = config.get(OperatorConstants.Config.MODEL_ID)
@@ -374,7 +408,8 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Args:
             preset: VLM preset name
             config: Configuration containing:
-                - api_base_url: LM Studio API URL (optional, defaults to http://localhost:1234/v1/chat/completions)
+                - api_base: LM Studio base URL (optional, defaults to http://localhost:1234)
+                          Automatically appends /v1/chat/completions if not present
 
         Returns:
             VlmPipelineOptions configured for LM Studio
@@ -384,7 +419,11 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         self.validate_config(config=config)
 
-        api_base_url = config.get(OperatorConstants.Config.API_BASE, "http://localhost:1234/v1/chat/completions")
+        # Normalize API base URL
+        api_base_url = self._normalize_openai_compatible_url(
+            api_base=config.get(OperatorConstants.Config.API_BASE),
+            default_url="http://localhost:1234/v1/chat/completions",
+        )
 
         # Get timeout from config, default to 90 seconds
         timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
@@ -397,7 +436,7 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
 
-        # Ensure MARKDOWN format for API engines (same as Watsonx)
+        # Ensure MARKDOWN format for API engines
         self._ensure_markdown_format(vlm_options=vlm_options, preset=preset)
 
         logger.info(f"Using LM Studio engine with API base URL: {api_base_url}")

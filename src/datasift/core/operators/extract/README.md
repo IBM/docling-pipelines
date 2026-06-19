@@ -81,7 +81,7 @@ Enable VLM pipeline for enhanced extraction with vision-language models:
     "doc_column": "content",
     "provider_config": {
       "vlm_pipeline": {
-        "preset": "fast",
+        "preset": "granite_docling",
         "engine": "transformers",
         "engine_options": {}
       }
@@ -96,9 +96,11 @@ Enable VLM pipeline for enhanced extraction with vision-language models:
 **Supported VLM Engines:**
 - `transformers`: Local inference using Transformers library
 - `mlx`: Local inference optimized for macOS (Apple Silicon)
-- `ollama`: Ollama API
-- `openai`: OpenAI API
-- `watsonx`: IBM watsonx.ai API
+- `api_ollama`: Ollama API
+- `api_openai`: OpenAI API
+- `api_watsonx`: IBM watsonx.ai API
+- `api_lmstudio`: LM Studio API
+- `api`: Generic API endpoint
 
 **VLM Pipeline Configuration Examples:**
 
@@ -109,11 +111,11 @@ Ollama:
     "provider": "docling_library",
     "provider_config": {
       "vlm_pipeline": {
-        "preset": "fast",
-        "engine": "ollama",
+        "preset": "granite_docling",
+        "engine": "api_ollama",
         "engine_options": {
           "api_base": "http://localhost:11434",
-          "model_id": "llama3.2-vision"
+          "model_id": "ibm/granite-docling:258m"
         }
       }
     }
@@ -128,8 +130,8 @@ OpenAI:
     "provider": "docling_library",
     "provider_config": {
       "vlm_pipeline": {
-        "preset": "accurate",
-        "engine": "openai",
+        "preset": "qwen",
+        "engine": "api_openai",
         "engine_options": {
           "api_base": "https://api.openai.com/v1",
           "model_id": "gpt-4-vision-preview",
@@ -550,8 +552,8 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | Parameter             | Type    | Default             | Description                                                         |
 |-----------------------|---------|---------------------|---------------------------------------------------------------------|
 | `text_extraction.provider_config.vlm_pipeline`        | object  | `null`              | VLM (Vision-Language Model) pipeline configuration object. Provide empty dict `{}` to enable with defaults, or omit to disable. |
-| `text_extraction.provider_config.vlm_pipeline.preset` | string  | `"fast"`            | VLM preset: `fast`, `accurate`, or custom                           |
-| `text_extraction.provider_config.vlm_pipeline.engine` | string  | `"ollama"`          | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.         |
+| `text_extraction.provider_config.vlm_pipeline.preset` | string  | `"granite_docling"` | VLM preset name. Valid presets: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`, `nanonets_ocr2`, `gemma_12b`, `gemma_27b`, `dolphin`, `glm_ocr`, `lightonocr`, `falcon_ocr` |
+| `text_extraction.provider_config.vlm_pipeline.engine` | string  | `"api_ollama"`      | VLM engine type. Valid engines: `api_ollama`, `api_openai`, `api_watsonx`, `api_lmstudio`, `api` (generic), `transformers` (local), `mlx` (macOS) |
 | `text_extraction.provider_config.vlm_pipeline.engine_options` | object | `{}`        | Engine-specific options (api_base, model_id, etc.)                  |
 | `text_extraction.provider_config.asr_pipeline`        | object  | `null`              | ASR (Automatic Speech Recognition) pipeline configuration object. Provide empty dict `{}` to enable with defaults, or omit to disable. |
 | `text_extraction.provider_config.asr_pipeline.model_id` | string | `"whisper_turbo"` | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
@@ -597,7 +599,7 @@ For API models (Ollama, vLLM, OpenAI-compatible):
 ```json
 {
   "model_type": "api",
-  "model_name": "llama3.2-vision",
+  "model_name": "ibm/granite-docling:258m",
   "api_url": "http://localhost:11434/v1/chat/completions",
   "api_key": "optional-api-key",  # pragma: allowlist secret
   "temperature": 0.0,
@@ -727,7 +729,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
       "doc_column": "content",
       "provider_config": {
         "vlm_pipeline": {
-          "preset": "fast",
+          "preset": "granite_docling",
           "engine": "transformers",
           "engine_options": {}
         }
@@ -805,7 +807,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
       "doc_column": "content",
       "provider_config": {
         "vlm_pipeline": {
-          "preset": "fast",
+          "preset": "granite_docling",
           "engine": "transformers",
           "engine_options": {}
         }

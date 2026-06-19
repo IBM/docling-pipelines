@@ -32,7 +32,7 @@ Prerequisites:
     # VLM extraction (Ollama)
     brew install ollama
     ollama serve
-    ollama pull llama3.2-vision
+    ollama pull ibm/granite-docling:258m
 
     # Entity extraction (Ollama)
     ollama serve
@@ -164,7 +164,7 @@ def get_vlm_config(
     Engine-specific defaults and requirements:
         - transformers: Local inference, GPU recommended, no API config needed
         - mlx: macOS Apple Silicon optimized, no API config needed
-        - ollama: api_base_url defaults to http://localhost:11434, model defaults to llama3.2-vision
+        - ollama: api_base_url defaults to http://localhost:11434, model defaults to ibm/granite-docling:258m
         - watsonx: Requires api_key, container_id, model
         - openai: Requires api_key, model defaults to gpt-4-vision-preview
         - lmstudio: api_base_url defaults to http://localhost:1234/v1/chat/completions
@@ -209,7 +209,7 @@ def get_vlm_config(
     elif engine == "ollama":
         # Ollama API
         base_url = api_base_url or "http://localhost:11434"
-        model_name = model or "llama3.2-vision"
+        model_name = model or "ibm/granite-docling:258m"
         config[OperatorConstants.Config.TEXT_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG][
             OperatorConstants.Config.VLM_PIPELINE
         ][OperatorConstants.Config.ENGINE_OPTIONS] = {
@@ -238,7 +238,7 @@ def get_vlm_config(
         if not api_key:
             raise ValueError("OpenAI engine requires api_key parameter")
         model_name = model or "gpt-4-vision-preview"
-        base_url = api_base_url or "https://api.openai.com/v1/chat/completions"
+        base_url = api_base_url or "https://api.openai.com"
         config[OperatorConstants.Config.TEXT_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG][
             OperatorConstants.Config.VLM_PIPELINE
         ][OperatorConstants.Config.ENGINE_OPTIONS] = {
@@ -604,7 +604,7 @@ def main() -> int:
                 elif args.vlm_engine == "ollama":
                     print("\nText Extraction: VLM with Ollama API engine")
                     print("Note: Ensure Ollama is running: ollama serve")
-                    print("      And vision model is available: ollama pull llama3.2-vision")
+                    print("      And vision model is available: ollama pull ibm/granite-docling:258m")
                 elif args.vlm_engine == "lmstudio":
                     print("\nText Extraction: VLM with LM Studio API engine")
                     print("Note: Ensure LM Studio is running with a vision model loaded")

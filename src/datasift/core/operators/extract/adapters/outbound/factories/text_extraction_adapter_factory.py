@@ -45,11 +45,11 @@ class TextExtractionAdapterFactory:
             "doc_column": "document",
             "provider_config": {
                 "vlm_pipeline": {
-                    "preset": "fast",
-                    "engine": "ollama",
+                    "preset": "granite_docling",
+                    "engine": "api_ollama",
                     "engine_options": {
                         "api_base": "http://localhost:11434",
-                        "model_id": "llama3.2-vision"
+                        "model_id": "ibm/granite-docling:258m"
                     }
                 }
             }

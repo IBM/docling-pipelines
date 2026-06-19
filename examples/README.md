@@ -138,6 +138,15 @@ Comprehensive examples of document extraction with independent text and entity e
 - **OpenAI**: Cloud-based API - **requires credentials in `.env`**
 - **Generic API**: Custom endpoints - **requires credentials in `.env`**
 
+> **Note:** When using VLM engines in flow JSON configurations, use these engine values:
+> - Transformers → `"engine": "transformers"`
+> - MLX → `"engine": "mlx"`
+> - Ollama → `"engine": "api_ollama"`
+> - LM Studio → `"engine": "api_lmstudio"`
+> - Watsonx AI → `"engine": "api_watsonx"`
+> - OpenAI → `"engine": "api_openai"`
+> - Generic API → `"engine": "api"`
+
 **Prerequisites:**
 
 ```bash
@@ -150,7 +159,7 @@ pip install docling[vlm]
 # For Ollama VLM or entity extraction
 brew install ollama
 ollama serve
-ollama pull llama3.2-vision  # For VLM text extraction
+ollama pull ibm/granite-docling:258m  # For VLM text extraction
 ollama pull llama3.2          # For entity extraction
 
 # For Docling Serve
