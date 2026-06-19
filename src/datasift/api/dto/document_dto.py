@@ -110,10 +110,7 @@ class DocumentSearchResponse(BaseModel):
         """
         hits = response.get("hits", {})
         total = hits.get("total", {}).get("value", 0)
-        documents = [
-            DocumentResponse.from_opensearch_hit(hit=hit)
-            for hit in hits.get("hits", [])
-        ]
+        documents = [DocumentResponse.from_opensearch_hit(hit=hit) for hit in hits.get("hits", [])]
 
         return cls(
             documents=documents,

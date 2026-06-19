@@ -5,4 +5,3 @@ from datasift.core.assets.document_libraries.factories.document_library_reposito
 )
 
 __all__ = ["DocumentLibraryRepositoryFactory"]
-

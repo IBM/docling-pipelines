@@ -287,4 +287,3 @@ class ErrorResponse(BaseModel):
                 },
             ]
         }
-

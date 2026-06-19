@@ -84,9 +84,7 @@ class ACLQueryBuilder:
             OpenSearch query dict with ACL filter and search criteria
         """
         # Start with ACL filter as a must clause
-        must_clauses: list[dict[str, Any]] = [
-            {"term": {"allowed_users": username}}
-        ]
+        must_clauses: list[dict[str, Any]] = [{"term": {"allowed_users": username}}]
 
         # Add full-text search if provided
         if query_text:
@@ -183,9 +181,7 @@ class ACLQueryBuilder:
         Returns:
             True if user has access, False otherwise
         """
-        if not ACLQueryBuilder.validate_allowed_users(
-            allowed_users=allowed_users
-        ):
+        if not ACLQueryBuilder.validate_allowed_users(allowed_users=allowed_users):
             return False
 
         # Type narrowing: at this point allowed_users is guaranteed to be list[str]

@@ -248,8 +248,6 @@ class MicrosoftGraphLoader(BaseLoader):
         return list(self.lazy_load())
 
 
-
-
 # Configuration keys
 PROVIDER_KEY: str = "provider"
 CONNECTION_PARAMS_KEY: str = "connection_params"
@@ -637,6 +635,7 @@ class IngestSourceOperator(AbstractOperator):
             asyncio.get_running_loop()
             # Event loop already running - run in separate thread
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, process_async_generator())
                 future.result()
@@ -650,7 +649,6 @@ class IngestSourceOperator(AbstractOperator):
         )
 
         return doc_data
-
 
     def _build_adapter_config(self, provider: str):
         """

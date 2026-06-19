@@ -343,4 +343,3 @@ class IncrementalUpdateService:
 
         ids_to_delete = list(input_doc_ids - output_doc_ids)
         return ids_to_delete
-

@@ -37,8 +37,8 @@ name_field = Field(
     json_schema_extra={
         "pattern": NAME_PATTERN,  # For OpenAPI docs only
         "pattern_description": "Must start with a letter and contain only letters, digits, spaces, and underscores. Special characters like @#$%-!& are not allowed.",
-        "examples": ["My Library", "Test_Library_123", "Document Collection 2024"]
-    }
+        "examples": ["My Library", "Test_Library_123", "Document Collection 2024"],
+    },
 )
 
 description_field = Field(
@@ -47,7 +47,7 @@ description_field = Field(
     description="Description of the document library",
     min_length=0,
     max_length=2000,
-    pattern=ANY_TEXT_PATTERN
+    pattern=ANY_TEXT_PATTERN,
 )
 
 purpose_field = Field(
@@ -56,7 +56,7 @@ purpose_field = Field(
     description="Additional information about the document library",
     min_length=0,
     max_length=1024,
-    pattern=ANY_TEXT_PATTERN
+    pattern=ANY_TEXT_PATTERN,
 )
 
 original_size_field = Field(
@@ -65,7 +65,7 @@ original_size_field = Field(
     description="The input size of all document sets related to the document library",
     ge=0,
     le=9007199254740991,
-    json_schema_extra={"format": "int64"}
+    json_schema_extra={"format": "int64"},
 )
 
 final_size_field = Field(
@@ -74,14 +74,10 @@ final_size_field = Field(
     description="The processed size of all document sets related to the document library",
     ge=0,
     le=9007199254740991,
-    json_schema_extra={"format": "int64"}
+    json_schema_extra={"format": "int64"},
 )
 
-tags_field: list[str] = Field(
-    default_factory=list,
-    title="Tags",
-    description="Tags assigned to the document library"
-)
+tags_field: list[str] = Field(default_factory=list, title="Tags", description="Tags assigned to the document library")
 
 # ============================================================================
 # EXAMPLE PAYLOADS
@@ -117,10 +113,7 @@ document_library_example = {
     "href": "https://cloud.ibm.com/data_quality/v3/projects/c19cde3a-5940-4c7a-ad0f-ee18f5f29c00/rules?limit=10",
 }
 
-document_example = {
-    "size": 1073741824,
-    "count": 10
-}
+document_example = {"size": 1073741824, "count": 10}
 
 document_set_for_library_example = {
     "id": "8100c691-05d5-11f0-8ca4-c3576acbd7ce",
@@ -134,9 +127,7 @@ document_set_for_library_example = {
     "is_derivative_available": True,
 }
 
-document_sets_retrieved_example = {
-    "document_sets": [document_set_for_library_example]
-}
+document_sets_retrieved_example = {"document_sets": [document_set_for_library_example]}
 
 document_library_with_document_sets_example = {
     **document_library_example,
@@ -157,13 +148,14 @@ class Document(BaseModel):
     Used within DocumentSetForDocumentLibrary to provide aggregate
     document statistics.
     """
+
     size: int | None = Field(
         default=None,
         title="Size",
         description="Total size of documents in bytes",
         ge=0,
         le=9007199254740991,
-        json_schema_extra={"format": "int64"}
+        json_schema_extra={"format": "int64"},
     )
     count: int | None = Field(
         default=None,
@@ -171,13 +163,13 @@ class Document(BaseModel):
         description="Total number of documents",
         ge=0,
         le=2147483647,
-        json_schema_extra={"format": "int32"}
+        json_schema_extra={"format": "int32"},
     )
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": document_example,  # type: ignore[dict-item]
-            "description": "Document size and count metadata"
+            "description": "Document size and count metadata",
         }
     )
 
@@ -216,7 +208,7 @@ class DocumentLibraryPrototype(BaseModel):
     final_size: int | None = final_size_field
     tags: list[str] | None = tags_field
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_name_pattern(cls, v: str) -> str:
         """Validate name matches required pattern with user-friendly error message."""
@@ -257,7 +249,7 @@ class DocumentLibraryPatch(BaseModel):
     final_size: int | None = final_size_field
     tags: list[str] | None = tags_field
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_name_pattern(cls, v: str | None) -> str | None:
         """Validate name matches required pattern with user-friendly error message."""
@@ -321,11 +313,7 @@ class DocumentLibrary(BaseModel):
         pattern=NONEMPTY_PATTERN,
     )
     href: str | None = Field(
-        default=None,
-        title="Href",
-        description="The target of the hyperlink",
-        min_length=5,
-        max_length=8000
+        default=None, title="Href", description="The target of the hyperlink", min_length=5, max_length=8000
     )
 
     model_config = ConfigDict(
@@ -465,4 +453,3 @@ class DocumentLibraryWithDocumentSets(DocumentLibrary):
             "description": "Document library including the list of related document set IDs",
         }
     )
-

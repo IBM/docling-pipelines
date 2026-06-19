@@ -171,7 +171,9 @@ def get_datasift_operators(*, orchestrator: str | None = None) -> frozenset:
     # Collect operators from all registered providers
     for idx, provider_func in enumerate(_EXTERNAL_OPERATOR_PROVIDERS):
         try:
-            logger.debug(f"Calling external provider {idx + 1}/{len(_EXTERNAL_OPERATOR_PROVIDERS)}: {provider_func.__name__}")
+            logger.debug(
+                f"Calling external provider {idx + 1}/{len(_EXTERNAL_OPERATOR_PROVIDERS)}: {provider_func.__name__}"
+            )
             external_ops = provider_func(orchestrator=orchestrator)
 
             if isinstance(external_ops, frozenset):

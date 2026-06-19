@@ -610,7 +610,9 @@ def datetime_field(description: str, example: str, **kwargs):
 # Document Library Name Validation (stricter than generic NAME_* constants)
 DOCUMENT_LIBRARY_NAME_MIN_LENGTH = 3  # Minimum 3 characters for library names
 DOCUMENT_LIBRARY_NAME_MAX_LENGTH = 128  # Maximum 128 characters (not 256)
-DOCUMENT_LIBRARY_NAME_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_ ]*$"  # Must start with letter, alphanumeric with spaces/underscores only
+DOCUMENT_LIBRARY_NAME_PATTERN = (
+    r"^[a-zA-Z][a-zA-Z0-9_ ]*$"  # Must start with letter, alphanumeric with spaces/underscores only
+)
 
 # Document Library Field Descriptions
 DOCUMENT_LIBRARY_ID_DESC = "Unique identifier for the document library (UUID format)"

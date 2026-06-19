@@ -13,8 +13,16 @@ logger = get_logger()
 class SummarizationUtil:
     """Utility class for generating summaries for chunked content."""
 
-    def __init__(self, client: Any, max_length: int, words_per_token: float, overlap_ratio: float,
-                 task_instruction: str, summary_sentences: int, output_format: str):
+    def __init__(
+        self,
+        client: Any,
+        max_length: int,
+        words_per_token: float,
+        overlap_ratio: float,
+        task_instruction: str,
+        summary_sentences: int,
+        output_format: str,
+    ):
         """
         Initialize the summarization utility.
 

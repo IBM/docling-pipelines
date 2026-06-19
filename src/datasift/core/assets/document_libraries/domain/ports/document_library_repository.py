@@ -282,15 +282,14 @@ class DocumentLibraryRepository(ABC):
     def validate_config(cls, *, config: dict[str, Any]) -> list[str]:
         """Validate repository configuration.
 
-        This class method validates configuration before instantiation,
-        allowing early detection of configuration errors.
+            This class method validates configuration before instantiation,
+            allowing early detection of configuration errors.
 
-    Args:
-        config: Configuration dictionary to validate
+        Args:
+            config: Configuration dictionary to validate
 
-    Returns:
-        List of validation error messages, empty if configuration is valid
-    """
+        Returns:
+            List of validation error messages, empty if configuration is valid
+        """
+
     pass
-
-

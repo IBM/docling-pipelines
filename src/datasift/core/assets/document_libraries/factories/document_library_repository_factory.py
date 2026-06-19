@@ -180,5 +180,3 @@ class DocumentLibraryRepositoryFactory:
             )
 
         return cls._adapter_metadata[adapter_name].copy()
-
-

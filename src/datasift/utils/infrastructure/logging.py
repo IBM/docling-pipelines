@@ -81,12 +81,12 @@ class ColoredFormatter(logging.Formatter):
             True if colors should be used, False otherwise
         """
         # Check FORCE_COLOR environment variable
-        force_color = os.getenv('FORCE_COLOR', '').lower()
-        if force_color in ('1', 'true', 'yes'):
+        force_color = os.getenv("FORCE_COLOR", "").lower()
+        if force_color in ("1", "true", "yes"):
             return True
 
         # Check NO_COLOR environment variable (standard: https://no-color.org/)
-        if os.getenv('NO_COLOR', ''):
+        if os.getenv("NO_COLOR", ""):
             return False
 
         # Check if stdout is a TTY (terminal)

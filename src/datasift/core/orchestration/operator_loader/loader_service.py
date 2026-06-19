@@ -102,9 +102,7 @@ class CustomOperatorLoader:
                     source = OperatorSourceFactory.create("package", package_name=path)
                     sources.append(source)
                 except ImportError:
-                    logger.warning(
-                        f"Skipping path '{path}': not a valid filesystem path, S3 URI, or installed package"
-                    )
+                    logger.warning(f"Skipping path '{path}': not a valid filesystem path, S3 URI, or installed package")
 
         return cls(sources)
 

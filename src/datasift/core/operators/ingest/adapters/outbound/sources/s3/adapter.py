@@ -75,9 +75,7 @@ class S3SourceAdapter(DocumentSourcePort):
             # Create S3 client
             s3_client = self._create_s3_client(config)
 
-            logger.info(
-                f"Streaming S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'"
-            )
+            logger.info(f"Streaming S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
 
             # Stream objects using async generator
             fetched_count = 0
@@ -365,7 +363,6 @@ class S3SourceAdapter(DocumentSourcePort):
             f"Completed listing S3 bucket '{config.bucket}': "
             f"listed {total_listed} objects, yielded {total_yielded} after filtering"
         )
-
 
     def _should_skip_object(self, obj: dict[str, Any], config: S3SourceConfig) -> bool:
         """

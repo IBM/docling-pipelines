@@ -82,10 +82,7 @@ class DocumentLibraryMapper:
         )
 
     @staticmethod
-    def domain_to_response_with_document_sets(
-        *,
-        domain: DocumentLibrary
-    ) -> DocumentLibraryWithDocumentSets:
+    def domain_to_response_with_document_sets(*, domain: DocumentLibrary) -> DocumentLibraryWithDocumentSets:
         """Convert DocumentLibrary domain model to DocumentLibraryWithDocumentSets DTO.
 
         Args:

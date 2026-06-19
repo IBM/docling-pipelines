@@ -67,7 +67,7 @@ class FastTextModelManager:
         if self._initialized:
             return
 
-        self._initialized = True
+        self._initialized: bool = True
         self._model = None
         self._ref_count = 0
         self._model_lock = threading.Lock()

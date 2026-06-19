@@ -97,8 +97,7 @@ class OrchestratorFactory:
 
         if orchestrator_name not in cls._orchestrators:
             raise KeyError(
-                f"Orchestrator '{orchestrator_name}' is not registered. "
-                f"Available: {list(cls._orchestrators.keys())}"
+                f"Orchestrator '{orchestrator_name}' is not registered. Available: {list(cls._orchestrators.keys())}"
             )
 
         orchestrator_class = cls._orchestrators[orchestrator_name]

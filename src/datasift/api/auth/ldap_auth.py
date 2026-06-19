@@ -71,9 +71,7 @@ class LDAPAuthenticator:
             # ------------------------------------------------------------------
             if self.config.ldap_use_active_directory:
                 if not self.config.ldap_ad_domain:
-                    raise Exception(
-                        "ldap_ad_domain must be configured when using Active Directory"
-                    )
+                    raise Exception("ldap_ad_domain must be configured when using Active Directory")
 
                 bind_dn = f"{username}@{self.config.ldap_ad_domain}"
 
@@ -108,17 +106,9 @@ class LDAPAuthenticator:
                 if result:
                     _, attrs = result[0]
 
-                    email = (
-                        attrs.get("mail", [b""])[0].decode("utf-8")
-                        if "mail" in attrs
-                        else ""
-                    )
+                    email = attrs.get("mail", [b""])[0].decode("utf-8") if "mail" in attrs else ""
 
-                    full_name = (
-                        attrs.get("cn", [b""])[0].decode("utf-8")
-                        if "cn" in attrs
-                        else ""
-                    )
+                    full_name = attrs.get("cn", [b""])[0].decode("utf-8") if "cn" in attrs else ""
 
                 logger.info(f"Successfully authenticated user: {username}")
 
@@ -153,17 +143,9 @@ class LDAPAuthenticator:
 
             user_dn, attrs = result[0]
 
-            email = (
-                attrs.get("mail", [b""])[0].decode("utf-8")
-                if "mail" in attrs
-                else ""
-            )
+            email = attrs.get("mail", [b""])[0].decode("utf-8") if "mail" in attrs else ""
 
-            full_name = (
-                attrs.get("cn", [b""])[0].decode("utf-8")
-                if "cn" in attrs
-                else ""
-            )
+            full_name = attrs.get("cn", [b""])[0].decode("utf-8") if "cn" in attrs else ""
 
             # Reconnect as the user to verify credentials
             ldap_client.unbind_s()
@@ -194,26 +176,16 @@ class LDAPAuthenticator:
             )
 
         except ldap.SERVER_DOWN:
-            logger.error(
-                f"LDAP server is down: {self.config.ldap_server}"
-            )
+            logger.error(f"LDAP server is down: {self.config.ldap_server}")
             raise Exception("LDAP server is unavailable") from None
 
         except ldap.INVALID_DN_SYNTAX as e:
-            logger.error(
-                f"LDAP DN syntax error for user {username}: {e!s}"
-            )
-            raise Exception(
-                "LDAP configuration error: invalid bind DN format"
-            ) from e
+            logger.error(f"LDAP DN syntax error for user {username}: {e!s}")
+            raise Exception("LDAP configuration error: invalid bind DN format") from e
 
         except Exception as e:
-            logger.error(
-                f"LDAP authentication error for user {username}: {e!s}"
-            )
-            raise Exception(
-                f"LDAP authentication error: {e!s}"
-            ) from e
+            logger.error(f"LDAP authentication error for user {username}: {e!s}")
+            raise Exception(f"LDAP authentication error: {e!s}") from e
 
         finally:
             if ldap_client:

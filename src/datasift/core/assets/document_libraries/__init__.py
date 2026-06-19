@@ -8,4 +8,3 @@ Package Structure:
     adapters/: Infrastructure implementations (repositories, storage)
     application/: Business logic and service layer
 """
-

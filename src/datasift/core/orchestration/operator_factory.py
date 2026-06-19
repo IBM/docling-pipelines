@@ -149,9 +149,9 @@ class OperatorFactory:
         for operator_class in all_operators:
             try:
                 # Check if operator is available in current environment
-                if hasattr(operator_class, 'is_available') and callable(operator_class.is_available):
+                if hasattr(operator_class, "is_available") and callable(operator_class.is_available):
                     if not operator_class.is_available():
-                        short_name = getattr(operator_class, 'short_name', operator_class.__name__)
+                        short_name = getattr(operator_class, "short_name", operator_class.__name__)
                         logger.debug(f"Operator '{short_name}' is not available in current environment, skipping")
                         continue
 
@@ -165,7 +165,9 @@ class OperatorFactory:
             except Exception as e:
                 logger.error(f"Error processing operator {operator_class.__name__}: {e}", exc_info=True)
 
-        logger.info(f"Loaded {len(self.operators)} operators from frozenset (datasift + external, after priority resolution)")
+        logger.info(
+            f"Loaded {len(self.operators)} operators from frozenset (datasift + external, after priority resolution)"
+        )
 
     def _load_custom_operators_from_packages(self, *, clear_cache: bool = False) -> dict[str, type[AbstractOperator]]:
         """Load custom operators from all sources (packages, filesystem, S3) with priority resolution.
@@ -236,7 +238,7 @@ class OperatorFactory:
             - May update operators_dict if operator is added or overrides existing
             - Logs info/warning messages about resolution decisions
         """
-        if not hasattr(new_operator, 'short_name'):
+        if not hasattr(new_operator, "short_name"):
             logger.warning(f"{log_prefix} {new_operator.__name__} missing 'short_name' attribute, skipping")
             return False
 

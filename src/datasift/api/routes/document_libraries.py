@@ -216,7 +216,7 @@ def get_document_library_repository() -> DocumentLibraryRepository:
 
 
 def get_document_library_service(
-    repository: DocumentLibraryRepository = Depends(get_document_library_repository)  # noqa: B008
+    repository: DocumentLibraryRepository = Depends(get_document_library_repository),  # noqa: B008
 ) -> DocumentLibraryService:
     """Dependency provider for document library service.
 
@@ -709,7 +709,9 @@ def add_document_sets(
     request: Request,
     service: DocumentLibraryServiceDep,
     library_id: Annotated[str, Depends(get_library_id)],
-    document_sets_ids: Annotated[str, Query(description="Comma-separated document set IDs", min_length=1, max_length=500)],
+    document_sets_ids: Annotated[
+        str, Query(description="Comma-separated document set IDs", min_length=1, max_length=500)
+    ],
 ) -> Response:
     """Add multiple document sets to a library.
 
@@ -789,7 +791,9 @@ def remove_document_sets(
     request: Request,
     service: DocumentLibraryServiceDep,
     library_id: Annotated[str, Depends(get_library_id)],
-    document_sets_ids: Annotated[str, Query(description="Comma-separated document set IDs", min_length=1, max_length=500)],
+    document_sets_ids: Annotated[
+        str, Query(description="Comma-separated document set IDs", min_length=1, max_length=500)
+    ],
 ) -> Response:
     """Remove multiple document sets from a library.
 
@@ -897,10 +901,9 @@ def list_document_sets(
             "description": doc_set.description,
             "container_id": doc_set.metadata.get("container_id") if doc_set.metadata else None,
             "container_type": doc_set.metadata.get("container_type") if doc_set.metadata else None,
-            "documents": {
-                "count": doc_set.total_documents,
-                "size_bytes": doc_set.total_size_bytes
-            } if doc_set.total_documents > 0 else None,
+            "documents": {"count": doc_set.total_documents, "size_bytes": doc_set.total_size_bytes}
+            if doc_set.total_documents > 0
+            else None,
             "tags": doc_set.metadata.get("tags", []) if doc_set.metadata else [],
             "propagate_source_acls": doc_set.metadata.get("propagate_source_acls") if doc_set.metadata else None,
             "is_derivative_available": doc_set.metadata.get("is_derivative_available") if doc_set.metadata else None,
@@ -910,10 +913,7 @@ def list_document_sets(
         document_sets_metadata.append(doc_set_dict)
 
     # Convert to DocumentSetsRetrieved DTO using full metadata
-    response = DocumentLibraryMapper.create_document_sets_retrieved_response(
-        document_sets=document_sets_metadata
-    )
+    response = DocumentLibraryMapper.create_document_sets_retrieved_response(document_sets=document_sets_metadata)
 
     logger.info(msg=f"Found {len(document_set_ids)} document sets in library: {library_id}")
     return response
-

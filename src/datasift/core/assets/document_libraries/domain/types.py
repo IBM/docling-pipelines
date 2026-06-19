@@ -37,4 +37,3 @@ class RepositoryConfig(TypedDict, total=False):
     timeout: int
     pool_size: int
     additional_params: dict[str, Any]
-

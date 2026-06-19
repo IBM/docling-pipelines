@@ -223,8 +223,7 @@ class IncrementalMetadataFactory:
             # Fail fast on invalid backend
             supported = [e.value for e in IncrementalStorageBackend]
             raise ValueError(
-                f"Invalid storage backend '{storage_str}' for incremental metadata. "
-                f"Supported backends: {supported}"
+                f"Invalid storage backend '{storage_str}' for incremental metadata. Supported backends: {supported}"
             ) from None
 
         # Merge configuration with precedence: service-specific > global_storage > defaults
@@ -276,8 +275,7 @@ class IncrementalMetadataFactory:
             # Fail fast on invalid backend
             supported = [e.value for e in IncrementalStorageBackend]
             raise ValueError(
-                f"Invalid storage backend '{storage_raw}' for incremental metadata. "
-                f"Supported backends: {supported}"
+                f"Invalid storage backend '{storage_raw}' for incremental metadata. Supported backends: {supported}"
             ) from None
 
         logger.info(f"Creating incremental metadata factory from environment: storage={storage_backend}")

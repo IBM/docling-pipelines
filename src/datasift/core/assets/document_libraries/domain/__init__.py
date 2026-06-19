@@ -3,4 +3,3 @@
 Contains pure Python domain models and port interfaces.
 No framework dependencies (no Pydantic, no database code).
 """
-

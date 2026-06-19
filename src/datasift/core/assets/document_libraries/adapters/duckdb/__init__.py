@@ -5,4 +5,3 @@ from datasift.core.assets.document_libraries.adapters.duckdb.metadata_repository
 )
 
 __all__ = ["DuckDBDocumentLibraryMetadataRepository"]
-

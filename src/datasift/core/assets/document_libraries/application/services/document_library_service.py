@@ -133,7 +133,9 @@ class DocumentLibraryService:
             # Repository will check for duplicate names
             created_library = self.repository.create(library=library)
 
-            logger.info(msg=f"Successfully created library {created_library.library_id} with name {created_library.name}")
+            logger.info(
+                msg=f"Successfully created library {created_library.library_id} with name {created_library.name}"
+            )
             return created_library
 
         except DatasiftException:
@@ -529,8 +531,7 @@ class DocumentLibraryService:
             )
         except Exception:
             logger.error(
-                msg=f"Failed to bulk insert document sets to library {library_id}. "
-                f"Count: {len(document_set_ids)}",
+                msg=f"Failed to bulk insert document sets to library {library_id}. Count: {len(document_set_ids)}",
                 exc_info=True,
             )
             raise
@@ -597,8 +598,7 @@ class DocumentLibraryService:
             )
         except Exception:
             logger.error(
-                msg=f"Failed to bulk delete document sets from library {library_id}. "
-                f"Count: {len(document_set_ids)}",
+                msg=f"Failed to bulk delete document sets from library {library_id}. Count: {len(document_set_ids)}",
                 exc_info=True,
             )
             raise
@@ -645,4 +645,3 @@ class DocumentLibraryService:
         count = self.repository.count_all()
         logger.info(msg=f"Total libraries count: {count}")
         return count
-

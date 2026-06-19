@@ -398,8 +398,7 @@ class JobManagementFactory:
             # Fail fast on invalid backend
             supported = [e.value for e in StorageBackend]
             raise ValueError(
-                f"Invalid storage backend '{storage_str}' for job management. "
-                f"Supported backends: {supported}"
+                f"Invalid storage backend '{storage_str}' for job management. Supported backends: {supported}"
             ) from None
 
         framework_str = framework_config.get(

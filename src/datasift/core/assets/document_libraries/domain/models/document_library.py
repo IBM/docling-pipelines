@@ -325,4 +325,3 @@ class DocumentLibrary:
             Number of document sets
         """
         return len(self.document_set_ids)
-

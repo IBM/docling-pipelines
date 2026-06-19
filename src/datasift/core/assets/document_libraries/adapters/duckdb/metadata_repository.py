@@ -567,10 +567,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 conn.execute(query, tuple(params))
             duration = time.time() - start_time
 
-            logger.info(
-                f"Bulk added {len(document_set_ids)} document sets to library {library_id} "
-                f"in {duration:.3f}s"
-            )
+            logger.info(f"Bulk added {len(document_set_ids)} document sets to library {library_id} in {duration:.3f}s")
 
         except DatasiftException:
             raise
@@ -636,8 +633,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             duration = time.time() - start_time
 
             logger.info(
-                f"Bulk removed {len(document_set_ids)} document sets from library {library_id} "
-                f"in {duration:.3f}s"
+                f"Bulk removed {len(document_set_ids)} document sets from library {library_id} in {duration:.3f}s"
             )
 
         except DatasiftException:
@@ -769,4 +765,3 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             href=data.get("href"),
             document_set_ids=document_set_ids,
         )
-

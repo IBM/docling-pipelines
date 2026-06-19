@@ -219,7 +219,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                     )
 
         if is_last_step:
-            log_extra = {**self.common_log_arguments, "node_id": node_id, "node_name": node_name}
+            log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
             logger.info(f" Branch execution completed at node name: {node_name}", extra=log_extra)
 
     def after_node_skipped(
@@ -308,7 +308,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
         logger.error(e, stack_info=True, exc_info=True, extra=self.common_log_arguments)
 
-        log_extra = {**self.common_log_arguments, "node_id": node_id, "node_name": node_name}
+        log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
         logger.error(
             f">>> Node {node_name} failed and caused aborting the branch execution: {e} transaction_ID: {get_session_info().transaction_id}",
             extra=log_extra,

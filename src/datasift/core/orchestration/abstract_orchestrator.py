@@ -65,7 +65,7 @@ class AbstractOrchestrator(ABC):
         self.context_id: str | None = None
         self.jobs_client = None
         self.logger = get_logger()
-        self.message = ""
+        self.message: str | None = ""
         self.flow_id = None
         self.deleted_rows_list: Queue[pa.Table] = Queue()
         self.job_stats_service = job_stats_service
@@ -668,7 +668,8 @@ class AbstractOrchestrator(ABC):
         )
 
         # Build and execute batch flow (works for both single and multiple batches)
-        self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
+        if self.flow_engine:
+            self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
 
         clean_up_prefect_home()
         self._finalize_dag_flow(op_flow=op_flow)

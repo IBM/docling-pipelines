@@ -10,4 +10,3 @@ from .services import IncrementalUpdateService
 __all__ = [
     "IncrementalUpdateService",
 ]
-

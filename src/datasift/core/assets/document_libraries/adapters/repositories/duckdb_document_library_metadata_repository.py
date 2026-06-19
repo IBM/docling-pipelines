@@ -54,10 +54,10 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             # Check if library with same name already exists
             if self.exists_by_name(name=library.name):
                 raise DatasiftException(
-                f"Library with name '{library.name}' already exists",
-                status_code=409,
-                error_code=ErrorCode.DOCUMENT_LIBRARY_ALREADY_EXISTS,
-            )
+                    f"Library with name '{library.name}' already exists",
+                    status_code=409,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_ALREADY_EXISTS,
+                )
 
             # Insert library metadata
             query = f"""
@@ -186,10 +186,10 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             # Check if library exists
             if not self.exists(library_id=library.library_id):
                 raise DatasiftException(
-                f"Library {library.library_id} not found",
-                status_code=404,
-                error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
-            )
+                    f"Library {library.library_id} not found",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+                )
 
             # Update library metadata
             query = f"""
@@ -443,19 +443,19 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             # Check if library exists
             if not self.exists(library_id=library_id):
                 raise DatasiftException(
-                f"Library {library_id} not found",
-                status_code=404,
-                error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
-            )
+                    f"Library {library_id} not found",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+                )
 
             # Check if document set is in library
             doc_sets = self.get_document_sets_for_library(library_id=library_id)
             if document_set_id not in doc_sets:
                 raise DatasiftException(
-                f"Document set {document_set_id} not found in library {library_id}",
-                status_code=404,
-                error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
-            )
+                    f"Document set {document_set_id} not found in library {library_id}",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
+                )
 
             # Delete from junction table
             query = f"""
@@ -500,10 +500,10 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             # Check if library exists
             if not self.exists(library_id=library_id):
                 raise DatasiftException(
-                f"Library {library_id} not found",
-                status_code=404,
-                error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
-            )
+                    f"Library {library_id} not found",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+                )
 
             query = f"""
                 SELECT document_set_id
@@ -584,8 +584,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             duration = time.time() - start_time
 
             logger.info(
-                msg=f"Bulk added {len(document_set_ids)} document sets to library {library_id} "
-                f"in {duration:.3f}s"
+                msg=f"Bulk added {len(document_set_ids)} document sets to library {library_id} in {duration:.3f}s"
             )
 
         except DatasiftException:
@@ -652,8 +651,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             duration = time.time() - start_time
 
             logger.info(
-                msg=f"Bulk removed {len(document_set_ids)} document sets from library {library_id} "
-                f"in {duration:.3f}s"
+                msg=f"Bulk removed {len(document_set_ids)} document sets from library {library_id} in {duration:.3f}s"
             )
 
         except DatasiftException:
@@ -716,5 +714,3 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             href=row[8],
             document_set_ids=document_set_ids,
         )
-
-

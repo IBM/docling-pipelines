@@ -24,7 +24,6 @@ logger = get_logger()
 
 
 class PythonOperatorExecutor(AbstractOperatorExecutor):
-
     def __init__(
         self,
         *,
@@ -150,7 +149,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
 
 # used for unit testing only
 def main():  # pragma: no cover
-    op_def = {
+    op_def: dict[str, Any] = {
         "name": "regex",
         "operator": "regex_annotator",
         "config": {

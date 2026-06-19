@@ -61,8 +61,7 @@ class PackageAdapter(OperatorSourcePort):
             importlib.metadata.version(package_name)
         except importlib.metadata.PackageNotFoundError as exc:
             raise ImportError(
-                f"Package '{package_name}' is not installed. "
-                f"Install it with: pip install {package_name}"
+                f"Package '{package_name}' is not installed. Install it with: pip install {package_name}"
             ) from exc
 
         # Verify package can be imported
@@ -84,8 +83,7 @@ class PackageAdapter(OperatorSourcePort):
             ) from exc
 
         logger.info(
-            f"Initialized package adapter for package: {package_name}, "
-            f"operator module: {self.full_module_path}"
+            f"Initialized package adapter for package: {package_name}, operator module: {self.full_module_path}"
         )
 
     def clear_cache(self):
@@ -160,9 +158,7 @@ class PackageAdapter(OperatorSourcePort):
                         and issubclass(operator_class, AbstractOperator)
                         and operator_class is not AbstractOperator
                     ):
-                        logger.warning(
-                            f"Entry point '{entry_point.name}' does not reference a valid operator class"
-                        )
+                        logger.warning(f"Entry point '{entry_point.name}' does not reference a valid operator class")
                         continue
 
                     if hasattr(operator_class, OperatorConstants.Misc.SHORT_NAME):
@@ -313,8 +309,7 @@ class PackageAdapter(OperatorSourcePort):
         for part in parts:
             if not part:
                 raise ValueError(
-                    f"Invalid package_name: {package_name}. "
-                    "Package name cannot have empty parts (consecutive dots)"
+                    f"Invalid package_name: {package_name}. Package name cannot have empty parts (consecutive dots)"
                 )
             # Allow alphanumeric, underscore, and hyphen; must start with letter or underscore
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$", part):
