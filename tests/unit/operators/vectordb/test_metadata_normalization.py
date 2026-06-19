@@ -120,9 +120,7 @@ class TestMetadataColumnNormalization:
             ("page.html", "text/html"),
             ("readme.md", "text/markdown"),
             ("data.csv", "text/csv"),
-            ("old.doc", "application/msword"),
             ("new.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-            ("old.xls", "application/vnd.ms-excel"),
             ("new.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         ]
 

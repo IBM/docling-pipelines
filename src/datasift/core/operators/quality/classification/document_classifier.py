@@ -420,7 +420,7 @@ class DocumentClassifierOperator(AbstractOperator):
             doc_name = table[OperatorConstants.Columns.NAME][idx].as_py()
             file_ext = pathlib.Path(doc_name).suffix.lower()
 
-            if file_ext not in OperatorConstants.Extraction.CLASSIFICATION_FILE_EXTENSIONS:
+            if file_ext not in OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS:
                 doc_id = (
                     table[OperatorConstants.Columns.ID][idx].as_py()
                     if OperatorConstants.Columns.ID in table.column_names
@@ -488,7 +488,7 @@ class DocumentClassifierOperator(AbstractOperator):
             doc_tasks = OperatorUtils.prepare_document_content_fetch(
                 table=table,
                 global_config=self.global_config,
-                supported_extensions=set(OperatorConstants.Extraction.CLASSIFICATION_FILE_EXTENSIONS),
+                supported_extensions=set(OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS),
             )
 
             logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")

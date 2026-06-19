@@ -26,6 +26,59 @@ The Extract Operator is a unified extraction operator that provides text and ent
 - **docling**: Template-based entity extraction using Docling templates
 - **none**: No entity extraction (default)
 
+## Supported File Extensions
+
+The ExtractOperator validates file extensions before processing to ensure compatibility with the selected extraction mode. Files with unsupported extensions are automatically skipped and logged.
+
+### Text Extraction Modes
+
+#### Docling Library (`docling_library`)
+**Base Document Formats:**
+- PDF: `.pdf`
+- Office Documents: `.docx`, `.pptx`, `.xlsx`
+- Images: `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`
+- HTML: `.html`, `.htm`
+- Markdown: `.md`
+- AsciiDoc: `.asciidoc`, `.adoc`
+- Plain Text: `.txt`
+
+**Audio/Video Formats (requires ASR dependencies):**
+- Audio: `.wav`, `.mp3`, `.m4a`, `.aac`, `.ogg`, `.flac`
+- Video: `.mp4`, `.avi`, `.mov`
+
+**Note:** Audio and video formats require ASR (Automatic Speech Recognition) dependencies to be installed. If ASR dependencies are not available, these formats will be skipped. Additionally, M4A, AAC, OGG, FLAC, and all video formats require `ffmpeg` to be installed on the system.
+
+#### Docling Serve (`docling_serve`)
+**Supported Formats:**
+- PDF: `.pdf`
+- Office Documents: `.docx`, `.pptx`, `.xlsx`
+- Images: `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`
+- HTML: `.html`, `.htm`
+- Markdown: `.md`
+- AsciiDoc: `.asciidoc`, `.adoc`
+- Plain Text: `.txt`
+
+**Note:** Docling Serve does NOT support audio or video formats. Only the Docling Library mode supports audio/video processing via ASR.
+
+### Entity Extraction Mode
+
+#### Docling Entity Extraction (`docling`)
+**Supported Formats:**
+- PDF: `.pdf`
+- Office Documents: `.docx`, `.pptx`
+- HTML: `.html`
+- Images: `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`, `.gif`, `.jfif`
+
+**Note:** Docling entity extraction uses template-based extraction and supports a subset of formats compared to text extraction modes. Not supported: Excel (`.xlsx`), plain text (`.txt`), Markdown (`.md`), and WebP (`.webp`) files.
+
+### Extension Validation Behavior
+
+- **Automatic Skipping**: Files with unsupported extensions are automatically skipped during processing
+- **Metadata Tracking**: Skipped files are recorded in the `skipped_docs` metadata with reason "unsupported_extension"
+- **No Errors**: Unsupported files do not cause pipeline failures - they are silently skipped with logging
+- **Mode-Specific**: Extension validation is performed based on the configured text extraction mode
+- **ASR Detection**: For Docling Library mode, audio/video support is automatically detected based on ASR dependency availability
+
 ## Configuration Parameters
 
 ### Core Parameters

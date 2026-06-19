@@ -648,13 +648,14 @@ def test_document_classifier_all_files_skipped():
 def test_document_classifier_supported_extensions_only():
     """Test that document classifier accepts all supported file extensions."""
 
-    # Create sample documents with all supported extensions
+    # Create sample documents with supported extensions from CLASSIFICATION_FILE_EXTENSIONS
     sample_docs = [
         {"id": "doc1", "name": "file.pdf", "content": "PDF content"},
         {"id": "doc2", "name": "file.docx", "content": "DOCX content"},
         {"id": "doc3", "name": "file.pptx", "content": "PPTX content"},
-        {"id": "doc4", "name": "file.doc", "content": "DOC content"},
-        {"id": "doc5", "name": "file.ppt", "content": "PPT content"},
+        {"id": "doc4", "name": "file.xlsx", "content": "XLSX content"},
+        {"id": "doc5", "name": "file.html", "content": "HTML content"},
+        {"id": "doc6", "name": "file.png", "content": "PNG content"},
     ]
 
     # Create PyArrow table
@@ -699,11 +700,11 @@ def test_document_classifier_supported_extensions_only():
 
         # Verify no files were rejected
         assert metadata["failed_docs_count"] == 0, "No files should be rejected"
-        assert metadata["processed_docs"] == 5, "All 5 files should be processed"
+        assert metadata["processed_docs"] == 6, "All 6 files should be processed"
 
         # Verify output table contains all files
         output_table = output_tables[0]
-        assert output_table.num_rows == 5, "All files should remain in output"
+        assert output_table.num_rows == 6, "All files should remain in output"
 
 
 @pytest.mark.unit

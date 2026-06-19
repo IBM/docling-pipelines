@@ -5,7 +5,8 @@ The [`IngestSourceOperator`](../../../src/datasift/core/operators/ingest/ingest_
 
 ## Features
 - **Multi-Provider Support**: Single operator for multiple data sources
-- **Automatic File Filtering**: Skips directories, hidden files, and empty objects by extension
+- **Automatic File Filtering**: Skips directories, hidden files, and empty objects by extension using [`OperatorConstants.FileExtensions.BASE_EXTENSIONS`](../../../src/datasift/core/constants/operator_constants.py)
+- **Extension Validation**: Validates file extensions against supported formats, defaulting to all supported extensions if not specified
 - **Incremental Updates**: Skip previously processed documents (configurable)
 - **Metadata Tracking**: Comprehensive tracking of processed, failed, and skipped documents
 - **PyArrow Output**: Returns structured data in PyArrow table format
@@ -326,9 +327,27 @@ for i in range(result_table.num_rows):
 ## File Filtering
 
 ### Extension-Based Filtering
-The operator supports include/exclude filtering by file extension:
+The operator validates and filters files by extension using centralized constants from [`OperatorConstants.FileExtensions`](../../../src/datasift/core/constants/operator_constants.py):
+
+**Supported Extensions:**
+- **Documents**: PDF, DOCX, PPTX, XLSX
+- **Text**: Markdown, Plain Text, HTML
+- **Images**: PNG, JPEG, JPG, TIFF, TIF, BMP, WebP, GIF, JFIF
+- **Audio** (with ASR): WAV, MP3, M4A, AAC, OGG, FLAC
+- **Video** (with ASR): MP4, AVI, MOV
+
+**Filter Parameters:**
 - **include_filter**: Comma-separated list of extensions to include (e.g., "pdf,txt,docx")
+  - If not specified, defaults to all supported extensions
+  - Must be a subset of supported extensions (validation enforced)
 - **exclude_filter**: Comma-separated list of extensions to exclude (e.g., "tmp,log")
+  - Must be a subset of supported extensions (validation enforced)
+
+**Validation Behavior:**
+- Extensions are validated at operator initialization
+- Unsupported extensions in `include_filter` or `exclude_filter` raise `ValueError`
+- Error messages list the unsupported extensions and all supported extensions
+- This ensures only valid file types are processed downstream
 
 ### S3 Filtering
 The operator automatically filters out:
@@ -597,9 +616,12 @@ Initialize the operator with configuration.
   - `job_id` (str, optional): Job identifier for tracking
   - `job_run_id` (str, optional): Job run identifier
   - `max_files` (int, optional): Maximum number of files to process (default: 100)
-  - `include_filter` (str, optional): Comma-separated file extensions to include
-  - `exclude_filter` (str, optional): Comma-separated file extensions to exclude
+  - `include_filter` (str, optional): Comma-separated file extensions to include (defaults to all supported extensions if not specified; must be subset of supported extensions)
+  - `exclude_filter` (str, optional): Comma-separated file extensions to exclude (must be subset of supported extensions)
   - `force_ingest` (bool, optional): Force re-ingestion of previously processed documents (default: False)
+
+**Raises:**
+- `ValueError`: If `include_filter` or `exclude_filter` contain unsupported file extensions
 
 #### `transform(input_table: pa.Table) -> tuple[list[pa.Table], dict]`
 Execute document ingestion.

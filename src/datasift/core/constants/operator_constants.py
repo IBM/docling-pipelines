@@ -493,6 +493,110 @@ class OperatorConstants:
         TYPE_VECTOR: Final[str] = "vector"
         TYPE_VECTOR_SPARSE: Final[str] = "vector_sparse"
 
+    class FileExtensions:
+        """File extension constants."""
+
+        # Document formats
+        EXT_PDF: Final[str] = ".pdf"
+        EXT_DOCX: Final[str] = ".docx"
+        EXT_PPTX: Final[str] = ".pptx"
+        EXT_XLSX: Final[str] = ".xlsx"
+
+        # Text formats
+        EXT_MD: Final[str] = ".md"
+        EXT_TXT: Final[str] = ".txt"
+        EXT_HTML: Final[str] = ".html"
+
+        # Image formats
+        EXT_PNG: Final[str] = ".png"
+        EXT_JPEG: Final[str] = ".jpeg"
+        EXT_JPG: Final[str] = ".jpg"
+        EXT_TIFF: Final[str] = ".tiff"
+        EXT_TIF: Final[str] = ".tif"
+        EXT_BMP: Final[str] = ".bmp"
+        EXT_WEBP: Final[str] = ".webp"
+        EXT_GIF: Final[str] = ".gif"
+        EXT_JFIF: Final[str] = ".jfif"
+
+        # Audio formats (require ASR)
+        EXT_WAV: Final[str] = ".wav"
+        EXT_MP3: Final[str] = ".mp3"
+        EXT_M4A: Final[str] = ".m4a"
+        EXT_AAC: Final[str] = ".aac"
+        EXT_OGG: Final[str] = ".ogg"
+        EXT_FLAC: Final[str] = ".flac"
+
+        # Video formats (require ASR)
+        EXT_MP4: Final[str] = ".mp4"
+        EXT_AVI: Final[str] = ".avi"
+        EXT_MOV: Final[str] = ".mov"
+
+        BASE_EXTENSIONS: Final[list[str]] = [
+            EXT_PDF,
+            EXT_DOCX,
+            EXT_PPTX,
+            EXT_XLSX,
+            EXT_MD,
+            EXT_TXT,
+            EXT_HTML,
+            EXT_PNG,
+            EXT_JPEG,
+            EXT_JPG,
+            EXT_TIFF,
+            EXT_TIF,
+            EXT_BMP,
+            EXT_WEBP,
+            EXT_GIF,
+            EXT_JFIF,
+        ]
+
+        AUDIO_VIDEO_EXTENSIONS: Final[list[str]] = [
+            EXT_WAV,
+            EXT_MP3,
+            EXT_M4A,
+            EXT_AAC,
+            EXT_OGG,
+            EXT_FLAC,
+            EXT_MP4,
+            EXT_AVI,
+            EXT_MOV,
+        ]
+
+        DOCLING_LIBRARY_BASE_EXTENSIONS: Final[list[str]] = [*BASE_EXTENSIONS]
+
+        DOCLING_LIBRARY_AUDIO_VIDEO_EXTENSIONS: Final[list[str]] = [*AUDIO_VIDEO_EXTENSIONS]
+
+        DOCLING_SERVE_EXTENSIONS: Final[list[str]] = [*BASE_EXTENSIONS]
+
+        DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY: Final[list[str]] = [
+            EXT_PDF,  # .pdf  → InputFormat.PDF
+            EXT_PNG,  # .png  → InputFormat.IMAGE
+            EXT_JPEG,  # .jpeg → InputFormat.IMAGE
+            EXT_JPG,  # .jpg  → InputFormat.IMAGE
+            EXT_TIFF,  # .tiff → InputFormat.IMAGE
+            EXT_TIF,  # .tif  → InputFormat.IMAGE
+            EXT_BMP,  # .bmp  → InputFormat.IMAGE
+            EXT_GIF,  # .gif  → InputFormat.IMAGE
+            EXT_JFIF,  # .jfif → InputFormat.IMAGE
+        ]
+
+        CLASSIFICATION_FILE_EXTENSIONS: Final[list[str]] = [
+            EXT_PDF,
+            EXT_DOCX,
+            EXT_PPTX,
+            EXT_XLSX,
+            EXT_HTML,
+            EXT_PNG,
+            EXT_JPEG,
+            EXT_JPG,
+            EXT_TIFF,
+            EXT_TIF,
+            EXT_BMP,
+            EXT_WEBP,
+            EXT_GIF,
+            EXT_JFIF,
+        ]
+
     class Extraction:
         """Document extraction constants."""
 
@@ -527,13 +631,6 @@ class OperatorConstants:
             OUTPUT_FORMAT_DOCTAGS,
             OUTPUT_FORMAT_DOCLANG,
         ]
-
-        # File Extensions
-        TEXT_EXTENSION: Final[str] = ".txt"
-        EXTRACTION_REQUIRED_FILE_EXTENSIONS: Final[list[str]] = [".pdf", ".docx", ".pptx", ".doc", ".ppt"]
-        ACCEPTED_FILE_EXTENSIONS: Final[list[str]] = [*EXTRACTION_REQUIRED_FILE_EXTENSIONS, ".md", ".txt"]
-        INGEST_FILE_EXTENSIONS: Final[list[str]] = [*ACCEPTED_FILE_EXTENSIONS, ".json"]
-        CLASSIFICATION_FILE_EXTENSIONS: Final[list[str]] = EXTRACTION_REQUIRED_FILE_EXTENSIONS
 
         # Default Filenames
         DEFAULT_FALLBACK_FILENAME: Final[str] = "document.pdf"

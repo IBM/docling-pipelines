@@ -3,7 +3,7 @@ import hashlib
 import importlib
 import itertools
 import json
-from typing import Any, ClassVar, Iterator, cast
+from typing import Any, Iterator, cast
 
 import pyarrow as pa
 
@@ -44,26 +44,6 @@ class MicrosoftGraphLoader(BaseLoader):
     This bypasses LangChain's O365-based loaders which require delegated (user) auth
     and call /me/drives/ endpoints that are incompatible with app-only tokens.
     """
-
-    # Supported text-extractable file extensions
-    TEXT_EXTENSIONS: ClassVar[set[str]] = {
-        ".pdf",
-        ".docx",
-        ".doc",
-        ".ppt",
-        ".bmp",
-        ".gif",
-        ".jfif",
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".tiff",
-        ".tif",
-        ".html",
-        ".xlsx",
-        ".md",
-        ".txt",
-    }
 
     def __init__(
         self,
@@ -342,8 +322,23 @@ class IngestSourceOperator(AbstractOperator):
         self.connection_params: dict[str, Any] = config.get(CONNECTION_PARAMS_KEY, {})
         self.credentials: dict[str, Any] = config.get(CREDENTIALS_KEY, {})
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
+
+        # Get supported extensions
+        from datasift.core.operators.operator_utils import get_supported_file_extensions
+
+        supported_extensions_str = get_supported_file_extensions()
+        self.supported_extensions: list[str] = [
+            f".{ext}" if not ext.startswith(".") else ext for ext in supported_extensions_str.split(",")
+        ]
+
+        # Parse and validate included/excluded extensions
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
+
+        # Default to supported extensions if no include filter specified
+        if self.included_extensions is None:
+            self.included_extensions = self.supported_extensions
+
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
         self.doc_id_hash: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
@@ -354,6 +349,34 @@ class IngestSourceOperator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
         self.previously_processed_docs_dict: dict[str, Any] | None = None
+
+        # Validate extensions
+        self._validate_extensions()
+
+    def _validate_extensions(self) -> None:
+        """
+        Validate that included and excluded extensions are subsets of supported extensions.
+
+        Raises:
+            ValueError: If unsupported extensions are specified
+        """
+        # Validate included_extensions are subset of supported extensions
+        if self.included_extensions:
+            unsupported = set(self.included_extensions) - set(self.supported_extensions)
+            if unsupported:
+                raise ValueError(
+                    f"Unsupported file extensions in include_filter: {', '.join(sorted(unsupported))}. "
+                    f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
+                )
+
+        # Validate excluded_extensions are subset of supported extensions
+        if self.excluded_extensions:
+            unsupported = set(self.excluded_extensions) - set(self.supported_extensions)
+            if unsupported:
+                raise ValueError(
+                    f"Unsupported file extensions in exclude_filter: {', '.join(sorted(unsupported))}. "
+                    f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
+                )
 
     def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """

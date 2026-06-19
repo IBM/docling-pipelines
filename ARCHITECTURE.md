@@ -3990,6 +3990,56 @@ datasift/
 - **Error Messages**: Centralized error message management
 
 #### Document Classes (`common/document_classes/`)
+#### Constants (`core/constants/`)
+
+**File Extension Constants** ([`operator_constants.py`](src/datasift/core/constants/operator_constants.py))
+
+The `FileExtensions` class provides centralized file format constants used across all operators for consistent file type handling:
+
+**Document Formats:**
+- PDF: `.pdf`
+- Microsoft Word: `.docx`
+- Microsoft PowerPoint: `.pptx`
+- Microsoft Excel: `.xlsx`
+
+**Text Formats:**
+- Markdown: `.md`
+- Plain Text: `.txt`
+- HTML: `.html`
+
+**Image Formats:**
+- PNG: `.png`
+- JPEG: `.jpeg`, `.jpg`
+- TIFF: `.tiff`, `.tif`
+- BMP: `.bmp`
+- WebP: `.webp`
+- GIF: `.gif`
+- JFIF: `.jfif`
+
+**Audio Formats** (require ASR):
+- WAV: `.wav`
+- MP3: `.mp3`
+- M4A: `.m4a`
+- AAC: `.aac`
+- OGG: `.ogg`
+- FLAC: `.flac`
+
+**Video Formats** (require ASR):
+- MP4: `.mp4`
+- AVI: `.avi`
+- MOV: `.mov`
+
+**Grouped Constants:**
+- `BASE_EXTENSIONS`: Core supported formats (documents, text, images)
+- `AUDIO_VIDEO_EXTENSIONS`: ASR-dependent formats (audio and video)
+- `CLASSIFICATION_FILE_EXTENSIONS`: Document classification formats (BASE_EXTENSIONS excluding .txt and .md)
+
+**Usage in Operators:**
+- [`ExtractOperator`](src/datasift/core/operators/extract/extract_operator.py): Uses `FileExtensions.EXT_TXT` for text file handling
+- [`IngestSourceOperator`](src/datasift/core/operators/ingest/ingest_source.py): Uses `FileExtensions.BASE_EXTENSIONS` for file filtering
+- [`DocumentClassifier`](src/datasift/core/operators/quality/classification/document_classifier.py): Uses `FileExtensions.CLASSIFICATION_FILE_EXTENSIONS` for validation
+- [`OperatorUtils`](src/datasift/core/operators/operator_utils.py): Uses centralized constants in `get_supported_file_extensions()`
+
 
 ### 5. Storage Layer (`src/datasift/storage/`)
 

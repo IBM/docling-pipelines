@@ -368,7 +368,9 @@ class DoclingEntityAdapter(EntityExtractionPort):
             List of task dictionaries with binary content
         """
         doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
-            table=table, global_config=self.global_config
+            table=table,
+            global_config=self.global_config,
+            supported_extensions=set(OperatorConstants.FileExtensions.DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY),
         )
 
         for doc_task in doc_tasks:
@@ -446,7 +448,9 @@ class DoclingEntityExtractionService(EntityExtractionService):
             List of task dictionaries with binary content
         """
         doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
-            table=table, global_config=self.global_config
+            table=table,
+            global_config=self.global_config,
+            supported_extensions=set(OperatorConstants.FileExtensions.DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY),
         )
 
         for doc_task in doc_tasks:

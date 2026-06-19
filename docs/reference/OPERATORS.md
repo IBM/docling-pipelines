@@ -110,6 +110,32 @@ This reference is organized around four entry points:
 - For classification-specific architecture details, see [`docs/operators/document_classifier.md`](docs/operators/document_classifier.md), which documents the simplified service-based architecture used by [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26).
 
 ---
+### File Extension Constants
+
+Datasift uses centralized file extension constants defined in [`OperatorConstants.FileExtensions`](../src/datasift/core/constants/operator_constants.py) for consistent file type handling across all operators.
+
+**Supported File Formats:**
+
+- **Documents**: PDF (`.pdf`), Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`)
+- **Text**: Markdown (`.md`), Plain Text (`.txt`), HTML (`.html`)
+- **Images**: PNG, JPEG, TIFF, BMP, WebP, GIF, JFIF
+- **Audio** (requires ASR): WAV, MP3, M4A, AAC, OGG, FLAC
+- **Video** (requires ASR): MP4, AVI, MOV
+
+**Grouped Constants:**
+
+- `BASE_EXTENSIONS`: Core supported formats (documents, text, images)
+- `AUDIO_VIDEO_EXTENSIONS`: ASR-dependent formats
+- `CLASSIFICATION_FILE_EXTENSIONS`: Document classification formats (BASE_EXTENSIONS excluding .txt and .md)
+
+**Operator Usage:**
+
+- [`ExtractOperator`](#extractoperator): Uses `FileExtensions.EXT_TXT` for text file handling
+- [`IngestSourceOperator`](#ingestsourceoperator): Uses `FileExtensions.BASE_EXTENSIONS` for file filtering
+- [`DocumentClassifierOperator`](#documentclassifieroperator): Uses `FileExtensions.CLASSIFICATION_FILE_EXTENSIONS` for validation
+
+---
+
 
 ## Operator API Reference
 
@@ -212,8 +238,8 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 | Parameter             | Type        | Required | Default              | Description                                                                             |
 | --------------------- | ----------- | -------: | -------------------- | --------------------------------------------------------------------------------------- |
 | `paths`               | string/list |      Yes | `../test-data/input` | Path(s) to file(s) or folder(s) to ingest. Can be a single path string or list of paths |
-| `include_filter`      | string      |       No | -                    | Comma-separated extensions to include                                                   |
-| `exclude_filter`      | string      |       No | -                    | Comma-separated extensions to exclude                                                   |
+| `include_filter`      | string      |       No | All supported        | Comma-separated extensions to include. Defaults to all supported extensions. Must be subset of supported extensions (validated) |
+| `exclude_filter`      | string      |       No | -                    | Comma-separated extensions to exclude. Must be subset of supported extensions (validated) |
 | `max_files`           | int         |       No | `100`                | Maximum number of files to ingest                                                       |
 | `max_file_size`       | int         |       No | `100`                | Maximum file size in MB                                                                 |
 | `force_ingest`        | bool        |       No | `false`              | Reprocess already-seen documents                                                        |
@@ -234,9 +260,16 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Exceptions**
 
-- `ValueError`
+- `ValueError`: Raised for invalid configuration or unsupported file extensions in `include_filter`/`exclude_filter`
 - file system errors
 - incremental update utility failures
+
+**Extension Validation**
+
+The operator validates file extensions against supported formats from [`OperatorConstants.FileExtensions`](../src/datasift/core/constants/operator_constants.py):
+- If `include_filter` is not specified, defaults to all supported extensions
+- Both `include_filter` and `exclude_filter` must contain only supported extensions
+- Unsupported extensions raise `ValueError` with details about which extensions are invalid
 
 **Example**
 
@@ -262,13 +295,13 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Class:** `core.operators.ingest.ingest_source.IngestSourceOperator`
 
-| Parameter         | Type   | Required | Default | Description                     |
-| ----------------- | ------ | -------: | ------- | ------------------------------- |
-| `source_type`     | string |      Yes | -       | Adapter type                    |
-| `include_filter`  | string |       No | -       | Extension include list          |
-| `exclude_filter`  | string |       No | -       | Extension exclude list          |
-| `force_ingest`    | bool   |       No | `false` | Reprocess prior docs            |
-| `provider_config` | object |      Yes | -       | Provider-specific configuration |
+| Parameter         | Type   | Required | Default              | Description                     |
+| ----------------- | ------ | -------: | -------------------- | ------------------------------- |
+| `source_type`     | string |      Yes | -                    | Adapter type                    |
+| `include_filter`  | string |       No | All supported        | Extension include list. Defaults to all supported extensions. Must be subset of supported extensions (validated) |
+| `exclude_filter`  | string |       No | -                    | Extension exclude list. Must be subset of supported extensions (validated) |
+| `force_ingest`    | bool   |       No | `false`              | Reprocess prior docs            |
+| `provider_config` | object |      Yes | -                    | Provider-specific configuration |
 
 **Input Schema**
 
@@ -288,9 +321,17 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Exceptions**
 
-- `ImportError`
-- `ValueError`
+- `ImportError`: Missing provider-specific dependencies
+- `ValueError`: Invalid configuration or unsupported file extensions in `include_filter`/`exclude_filter`
 - authentication and network failures
+
+**Extension Validation**
+
+The operator validates file extensions against supported formats from [`OperatorConstants.FileExtensions`](../src/datasift/core/constants/operator_constants.py):
+- If `include_filter` is not specified, defaults to all supported extensions
+- Both `include_filter` and `exclude_filter` must contain only supported extensions
+- Unsupported extensions raise `ValueError` with details about which extensions are invalid
+- See [IngestSourceOperator documentation](operators/ingest/ingest_source.md) for complete list of supported extensions
 
 **Example**
 
@@ -400,7 +441,7 @@ Supported LiteLLM providers:
 
 - PyArrow Table with document content (text column or binary content for extraction)
 - Optional `content` column (if not present, will be fetched from binary content)
-- **File Extension Validation**: Only documents with supported file extensions are processed: `.pdf`, `.docx`, `.pptx`, `.doc`, `.ppt`
+- **File Extension Validation**: Only documents with supported file extensions are processed: `.pdf`, `.docx`, `.pptx`
   - Unsupported file types are **skipped** (not classified) but remain in the output table with `None` classification values
 
 **Output Schema**
@@ -918,8 +959,12 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
 - **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured
 - **Extension Detection**: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)
+- **Extension Validation**: Files with unsupported extensions are automatically skipped and logged. Supported extensions vary by mode:
+  - `docling_library`: PDF, DOCX, PPTX, XLSX, images, HTML, Markdown, AsciiDoc, TXT, and audio/video (with ASR)
+  - `docling_serve`: Same as docling_library except NO audio/video support
+  - `docling` entity extraction: PDF, DOCX, PPTX, HTML, images (excludes XLSX, TXT, MD, WEBP)
 - Audio/Video Support: Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats
-- See [ExtractOperator README](src/datasift/core/operators/extract/README.md) for complete documentation
+- See [ExtractOperator Configuration Guide](docs/operators/extract/extract_operator_config.md) for complete documentation including detailed extension support
 
 ---
 

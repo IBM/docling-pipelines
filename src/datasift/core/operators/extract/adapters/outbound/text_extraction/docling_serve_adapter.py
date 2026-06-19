@@ -127,7 +127,7 @@ class DoclingServeAdapter(TextExtractionPort):
                 file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
 
             # Handle .txt specially (Docling cannot process them)
-            if file_suffix in [OperatorConstants.Extraction.TEXT_EXTENSION]:
+            if file_suffix in [OperatorConstants.FileExtensions.EXT_TXT]:
                 return OperatorUtils.extract_text_file(file_path, binary_content)
 
             # Extract filename from path to preserve extension for remote processing

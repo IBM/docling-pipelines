@@ -101,6 +101,7 @@ Example Usage:
 
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
@@ -564,6 +565,70 @@ class ExtractOperator(AbstractOperator):
 
         return result_tables
 
+    def _get_supported_extensions(self) -> set[str]:
+        """Get supported file extensions based on extraction mode and available dependencies.
+
+        Returns:
+            Set of supported file extensions (e.g., {'.pdf', '.docx', '.txt'})
+        """
+        from datasift.core.operators.operator_utils import is_asr_available
+
+        if self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY:
+            extensions = set(OperatorConstants.FileExtensions.DOCLING_LIBRARY_BASE_EXTENSIONS)
+            # Add audio/video if ASR is available
+            if is_asr_available():
+                extensions.update(OperatorConstants.FileExtensions.DOCLING_LIBRARY_AUDIO_VIDEO_EXTENSIONS)
+            return extensions
+
+        elif self.text_extraction_mode == TextExtractionMode.DOCLING_SERVE:
+            return set(OperatorConstants.FileExtensions.DOCLING_SERVE_EXTENSIONS)
+
+        # Default: return base extensions
+        return set(OperatorConstants.FileExtensions.DOCLING_LIBRARY_BASE_EXTENSIONS)
+
+    def _validate_extensions(self, table: pa.Table, metadata: dict[str, Any]) -> set[int]:
+        """Validate file extensions for documents before extraction.
+
+        Similar to DocumentClassifierOperator::_validate_extensions_for_existing_content,
+        this validates extensions upfront to skip unsupported files early.
+
+        Args:
+            table: Input PyArrow table with document metadata
+            metadata: Metadata dictionary to record skipped documents
+
+        Returns:
+            Set of row indices that were skipped due to unsupported extensions
+        """
+        skipped_indices: set[int] = set()
+
+        if OperatorConstants.Columns.NAME not in table.column_names:
+            return skipped_indices
+
+        supported_extensions = self._get_supported_extensions()
+
+        for idx in range(table.num_rows):
+            doc_name = table[OperatorConstants.Columns.NAME][idx].as_py()
+            file_ext = Path(doc_name).suffix.lower()
+
+            if file_ext not in supported_extensions:
+                doc_id = (
+                    table[OperatorConstants.Columns.ID][idx].as_py()
+                    if OperatorConstants.Columns.ID in table.column_names
+                    else f"doc_{idx}"
+                )
+                error_msg = f"Unsupported file extension for {self.text_extraction_mode.value}: {file_ext}"
+                logger.info(f"Skipping document {doc_name}: {error_msg}")
+
+                self.record_skipped_document(
+                    metadata=metadata,
+                    doc_id=str(doc_id),
+                    doc_name=doc_name,
+                    reason=error_msg,
+                )
+                skipped_indices.add(idx)
+
+        return skipped_indices
+
     def transform(
         self, table: pa.Table, file_name: str | None = None, metadata: dict[str, Any] | None = None
     ) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -613,6 +678,20 @@ class ExtractOperator(AbstractOperator):
             metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS] = {}
             metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = 0
             return [table], metadata
+
+        skipped_indices = self._validate_extensions(table, metadata)
+
+        if skipped_indices:
+            # Filter out skipped documents
+            valid_indices = [i for i in range(table.num_rows) if i not in skipped_indices]
+            if not valid_indices:
+                logger.warning("All documents skipped due to unsupported extensions")
+                metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS] = {}
+                metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = 0
+                return [table], metadata
+
+            table = table.take(valid_indices)
+            logger.info(f"Filtered table: {len(valid_indices)} valid documents, {len(skipped_indices)} skipped")
 
         # Check for pre-fetched content from document_classifier (hybrid approach)
         content_reused = False

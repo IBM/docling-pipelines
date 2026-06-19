@@ -210,13 +210,13 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             # Map extensions to mime types where possible
             mime_conditions = []
             for ext in config.file_extensions:
-                if ext == ".pdf":
+                if ext == OperatorConstants.FileExtensions.EXT_PDF:
                     mime_conditions.append("mimeType = 'application/pdf'")
-                elif ext in [".doc", ".docx"]:
+                elif ext == OperatorConstants.FileExtensions.EXT_DOCX:
                     mime_conditions.append("mimeType contains 'document'")
-                elif ext in [".xls", ".xlsx"]:
+                elif ext == OperatorConstants.FileExtensions.EXT_XLSX:
                     mime_conditions.append("mimeType contains 'spreadsheet'")
-                elif ext in [".ppt", ".pptx"]:
+                elif ext == OperatorConstants.FileExtensions.EXT_PPTX:
                     mime_conditions.append("mimeType contains 'presentation'")
 
             if mime_conditions:

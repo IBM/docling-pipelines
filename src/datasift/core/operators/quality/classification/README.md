@@ -16,7 +16,7 @@ The Document Classification operator classifies documents into predefined types 
 - **Flexible Document Types**: Support for both simple lists and detailed descriptions
 - **Parallel Processing**: Efficient batch processing with configurable workers
 - **Shared Infrastructure**: Leverages common LLM adapter factory for consistency
-- **File Extension Validation**: Automatically filters documents to supported formats (PDF, DOCX, PPTX, DOC, PPT)
+- **File Extension Validation**: Automatically filters documents to supported formats (PDF, DOCX, PPTX)
 
 ### Operator Category
 
@@ -293,10 +293,10 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 
 ### Supported File Extensions
 
-The operator validates file extensions and only processes documents with the following formats:
+The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../src/datasift/core/constants/operator_constants.py) and only processes documents with the following formats:
 - **PDF**: `.pdf`
-- **Microsoft Word**: `.docx`, `.doc`
-- **Microsoft PowerPoint**: `.pptx`, `.ppt`
+- **Microsoft Word**: `.docx`
+- **Microsoft PowerPoint**: `.pptx`
 
 **Unsupported formats** are automatically **skipped** (not classified) but remain in the output table with `None` classification values. These documents are tracked as skipped documents in the operator metadata.
 

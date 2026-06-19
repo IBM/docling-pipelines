@@ -36,8 +36,8 @@ class OneDriveSourceAdapter(DocumentSourcePort):
     - Automatic text extraction from common file types:
       - Text files (.txt, .md, .csv, .json, etc.)
       - PDF files (.pdf)
-      - Word documents (.docx, .doc)
-      - Excel spreadsheets (.xlsx, .xls)
+      - Word documents (.docx)
+      - Excel spreadsheets (.xlsx)
     - File extension filtering
     - Metadata preservation
 

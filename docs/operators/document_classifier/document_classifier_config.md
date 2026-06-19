@@ -10,10 +10,25 @@ The Document Classifier operator uses LLM-based classification to identify docum
 
 ### Supported File Extensions
 
-The operator validates file extensions and only processes documents with the following formats:
+The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../src/datasift/core/constants/operator_constants.py) and processes documents with the following formats:
+
+**Document Formats:**
 - **PDF**: `.pdf`
-- **Microsoft Word**: `.docx`, `.doc`
-- **Microsoft PowerPoint**: `.pptx`, `.ppt`
+- **Microsoft Word**: `.docx`
+- **Microsoft PowerPoint**: `.pptx`
+- **Microsoft Excel**: `.xlsx`
+
+**Text Formats:**
+- **HTML**: `.html`
+
+**Image Formats:**
+- **PNG**: `.png`
+- **JPEG**: `.jpeg`, `.jpg`
+- **TIFF**: `.tiff`, `.tif`
+- **BMP**: `.bmp`
+- **WebP**: `.webp`
+- **GIF**: `.gif`
+- **JFIF**: `.jfif`
 
 **Unsupported formats** are automatically **skipped** (not classified) but remain in the output table with `None` classification values. These documents are tracked as skipped documents in the operator metadata with the reason "Unsupported file extension".
 

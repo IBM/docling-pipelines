@@ -97,16 +97,14 @@ def get_supported_file_extensions() -> str:
     Returns:
         Comma-separated string of file extensions (e.g., "pdf,docx,mp3,wav")
     """
+
     # Base extensions always supported
-    base_extensions = ["pdf", "docx", "pptx", "txt", "md", "png", "jpeg", "jpg", "tiff", "tif", "bmp", "webp"]
+    supported_extensions: list[str] = OperatorConstants.FileExtensions.BASE_EXTENSIONS
 
     # Add audio/video extensions only if ASR is available
-    # Audio: WAV, MP3, M4A, AAC, OGG, FLAC
-    # Video: MP4, AVI, MOV
     if is_asr_available():
-        audio_video_extensions = ["wav", "mp3", "m4a", "aac", "ogg", "flac", "mp4", "avi", "mov"]
-        base_extensions.extend(audio_video_extensions)
-    return ",".join(base_extensions)
+        supported_extensions.extend(OperatorConstants.FileExtensions.AUDIO_VIDEO_EXTENSIONS)
+    return ",".join(supported_extensions)
 
 
 def resolve_env_var(value):
@@ -1112,7 +1110,7 @@ class OperatorUtils:
                 file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
 
             # Handle .txt files specially (Docling cannot process them)
-            if file_suffix in [OperatorConstants.Extraction.TEXT_EXTENSION]:
+            if file_suffix in [OperatorConstants.FileExtensions.EXT_TXT]:
                 return OperatorUtils.extract_text_file(file_path, binary_content)
 
             # Initialize converter with optional configuration

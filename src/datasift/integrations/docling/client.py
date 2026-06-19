@@ -186,11 +186,8 @@ class DoclingServeClient:
                 ".txt": "text/plain",
                 ".pdf": "application/pdf",
                 ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                ".doc": "application/msword",
                 ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ".xls": "application/vnd.ms-excel",
                 ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                ".ppt": "application/vnd.ms-powerpoint",
             }
             mime_type = mime_map.get(ext, "application/octet-stream")
 

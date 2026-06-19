@@ -176,9 +176,7 @@ class OpenSearchBatchProcessor:
                     "html": "text/html",
                     "md": "text/markdown",
                     "csv": "text/csv",
-                    "doc": "application/msword",
                     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    "xls": "application/vnd.ms-excel",
                     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 }
                 return mime_map.get(extension)
