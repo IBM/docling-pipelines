@@ -53,11 +53,11 @@ dill==0.3.8 ; sys_platform == 'darwin'
 dill==0.4.1 ; sys_platform != 'darwin'
 distro==1.9.0
 docker==7.1.0
-docling==2.100.0
+docling==2.104.0
 docling-core==2.81.0
 docling-ibm-models==3.13.2
 docling-parse==6.2.0
-docling-slim==2.100.0
+docling-slim==2.104.0
 docstring-parser==0.18.0
 duckdb==1.3.2
 ecdsa==0.19.2
