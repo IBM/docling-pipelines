@@ -496,52 +496,50 @@ class FlowValidator:
             enable_custom_operators=self.orchestrator.enable_custom_operators,
         )
 
-        if self._evaluate_node_validation_skip(
+        # Skip validation if operator should not be validated
+        if not self._evaluate_node_validation_skip(
             operator=operator_name,
             operator_factory=operator_factory,
             global_config=global_config,
         ):
-            return node_result
+            try:
+                operator_class = operator_factory.operators.get(operator_name)
 
-        try:
-            operator_class = operator_factory.operators.get(operator_name)
+                if operator_class is not None:
+                    config = global_config | op_def.get(OperatorConstants.Config.CONFIG, {})
+                    operator = operator_class(config=config)
+                    operator.name = op_def.get(OperatorConstants.Columns.NAME)
+                    operator.id = op_def.get(OperatorConstants.Columns.ID)
 
-            if operator_class is None:
+                    errors: list[Any] = []
+                    warnings: list[Any] = []
+                    operator.validate(errors=errors, warnings=warnings, available_features=input_features)
+
+                    self.create_validation_alerts(op_def=op_def, messages=errors, alerts=validate_results.errors)
+                    self.create_validation_alerts(op_def=op_def, messages=warnings, alerts=validate_results.warnings)
+                else:
+                    add_validation_alert(
+                        message=ValidationMessage(
+                            message=f"Operator '{operator_name}' is not available. Please check operator name and registration.",
+                            message_code="OPERATOR_NOT_AVAILABLE",
+                        ),
+                        op_def=op_def,
+                        alerts=validate_results.errors,
+                    )
+            except FlowValidationException as exc:
+                if exc.errors:
+                    validate_results.errors.extend(exc.errors)
+                if exc.warnings:
+                    validate_results.warnings.extend(exc.warnings)
+            except Exception as exc:
                 add_validation_alert(
                     message=ValidationMessage(
-                        message=f"Operator '{operator_name}' is not available. Please check operator name and registration.",
-                        message_code="OPERATOR_NOT_AVAILABLE",
+                        message=f"Validation failed for operator '{operator_name}': {exc!s}",
+                        message_code="OPERATOR_VALIDATION_FAILED",
                     ),
                     op_def=op_def,
                     alerts=validate_results.errors,
                 )
-                return node_result
-
-            config = global_config | op_def.get(OperatorConstants.Config.CONFIG, {})
-            operator = operator_class(config=config)
-            operator.name = op_def.get(OperatorConstants.Columns.NAME)
-            operator.id = op_def.get(OperatorConstants.Columns.ID)
-
-            errors: list[Any] = []
-            warnings: list[Any] = []
-            operator.validate(errors=errors, warnings=warnings, available_features=input_features)
-
-            self.create_validation_alerts(op_def=op_def, messages=errors, alerts=validate_results.errors)
-            self.create_validation_alerts(op_def=op_def, messages=warnings, alerts=validate_results.warnings)
-        except FlowValidationException as exc:
-            if exc.errors:
-                validate_results.errors.extend(exc.errors)
-            if exc.warnings:
-                validate_results.warnings.extend(exc.warnings)
-        except Exception as exc:
-            add_validation_alert(
-                message=ValidationMessage(
-                    message=f"Validation failed for operator '{operator_name}': {exc!s}",
-                    message_code="OPERATOR_VALIDATION_FAILED",
-                ),
-                op_def=op_def,
-                alerts=validate_results.errors,
-            )
 
         return node_result
 
