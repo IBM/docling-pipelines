@@ -1,6 +1,5 @@
 """Tests for IncrementalUpdateService."""
 
-
 import pyarrow as pa
 import pytest
 

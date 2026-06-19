@@ -45,9 +45,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         warnings = []
         available_features = ["entities", "document_type", "id", "name"]
 
-        operator.validate(
-            errors=errors, warnings=warnings, available_features=available_features
-        )
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
         self.assertEqual(len(errors), 0)
         self.assertEqual(len(warnings), 0)
@@ -59,9 +57,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         warnings = []
         available_features = ["document_type", "id", "name"]  # Missing entities
 
-        operator.validate(
-            errors=errors, warnings=warnings, available_features=available_features
-        )
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
         self.assertGreater(len(errors), 0)
         self.assertTrue(any("entities" in str(e).lower() for e in errors))
@@ -73,9 +69,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         warnings = []
         available_features = ["entities", "id", "name"]  # Missing document_type
 
-        operator.validate(
-            errors=errors, warnings=warnings, available_features=available_features
-        )
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
         self.assertGreater(len(errors), 0)
         self.assertTrue(any("document_type" in str(e).lower() for e in errors))
@@ -90,9 +84,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         self.assertEqual(metadata["short_name"], "entity_curation")
         self.assertIn("category", metadata)
 
-    @patch(
-        "datasift.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor"
-    )
+    @patch("datasift.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor")
     def test_transform_with_schema(self, mock_schema_processor_class):
         """Test transform with schema-based processing"""
         # Mock schema processor
@@ -108,16 +100,12 @@ class TestEntityCurationOperator(unittest.TestCase):
                 "id": ["doc1"],
                 "name": ["invoice.pdf"],
                 "document_type": ["invoice"],
-                "entities": [
-                    {"invoice_number": "INV-001", "total_amount": "$1,234.56"}
-                ],
+                "entities": [{"invoice_number": "INV-001", "total_amount": "$1,234.56"}],
             }
         )
 
         operator = EntityCurationOperator(config=self.config)
-        result_tables, _metadata = operator.transform(
-            table=input_table, file_name="test_flow.json"
-        )
+        result_tables, _metadata = operator.transform(table=input_table, file_name="test_flow.json")
 
         self.assertEqual(len(result_tables), 1)
         result_table = result_tables[0]
@@ -132,9 +120,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         transformed_data = json.loads(transformed_json)
         self.assertIsInstance(transformed_data, dict)
 
-    @patch(
-        "datasift.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor"
-    )
+    @patch("datasift.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor")
     def test_transform_without_schema(self, mock_schema_processor_class):
         """Test transform without schema (returns empty dict)"""
         # Mock schema processor - returns empty dict for unknown types
@@ -153,9 +139,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         )
 
         operator = EntityCurationOperator(config=self.config)
-        result_tables, _metadata = operator.transform(
-            table=input_table, file_name="test_flow.json"
-        )
+        result_tables, _metadata = operator.transform(table=input_table, file_name="test_flow.json")
 
         self.assertEqual(len(result_tables), 1)
         result_table = result_tables[0]
@@ -183,9 +167,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         )
 
         operator = EntityCurationOperator(config=self.config)
-        result_tables, _metadata = operator.transform(
-            table=input_table, file_name="test_flow.json"
-        )
+        result_tables, _metadata = operator.transform(table=input_table, file_name="test_flow.json")
 
         self.assertEqual(len(result_tables), 1)
         result_table = result_tables[0]

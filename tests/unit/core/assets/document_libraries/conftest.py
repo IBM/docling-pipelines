@@ -113,4 +113,3 @@ def invalid_library_data() -> dict[str, Any]:
         "total_documents": -1,  # Negative - invalid
         "total_size_bytes": -1,  # Negative - invalid
     }
-

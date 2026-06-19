@@ -105,7 +105,7 @@ class TestRedactionOperator:
         ids = pa.array([1])
         input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
 
-        table_list, metadata = operator.transform(input_table)
+        table_list, _metadata = operator.transform(input_table)
 
         output_table = table_list[0]
         redacted_content = output_table["content"].to_pylist()

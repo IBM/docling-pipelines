@@ -371,7 +371,7 @@ class TestListJobRuns:
     def test_list_job_runs_no_filter(self, *, store):
         """List all job runs."""
         # Store 3 jobs
-        for i in range(3):
+        for _i in range(3):
             job_stats = JobStats(
                 job_id=str(uuid.uuid4()),
                 job_run_id=str(uuid.uuid4()),
@@ -385,7 +385,7 @@ class TestListJobRuns:
     def test_list_job_runs_filter_by_status(self, *, store):
         """Filter job runs by status."""
         # Store jobs with different statuses
-        for i, status in enumerate([ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]):
+        for _i, status in enumerate([ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]):
             job_stats = JobStats(job_id=str(uuid.uuid4()), job_run_id=str(uuid.uuid4()), status=status)
             store.store_job_stats(job_stats)
 

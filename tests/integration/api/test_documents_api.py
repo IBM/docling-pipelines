@@ -223,9 +223,7 @@ class TestSearchDocuments:
     def test_search_documents_with_sort(self, authenticated_client):
         """Test search with sorting."""
         client, _mock_user, _service, mock_client = authenticated_client
-        mock_client.search.return_value = {
-            "hits": {"total": {"value": 0}, "hits": []}
-        }
+        mock_client.search.return_value = {"hits": {"total": {"value": 0}, "hits": []}}
 
         response = client.post(
             "/api/v1/documents/search",
@@ -273,9 +271,7 @@ class TestSearchDocuments:
     def test_search_documents_no_results(self, authenticated_client):
         """Test search with no matching documents."""
         client, _mock_user, _service, mock_client = authenticated_client
-        mock_client.search.return_value = {
-            "hits": {"total": {"value": 0}, "hits": []}
-        }
+        mock_client.search.return_value = {"hits": {"total": {"value": 0}, "hits": []}}
 
         response = client.post(
             "/api/v1/documents/search",

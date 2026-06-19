@@ -235,5 +235,3 @@ class TestDocumentLibraryServiceDocumentSets:
         # Assert
         assert result == expected_sets
         mock_repository.get_document_sets_for_library.assert_called_once_with(library_id="test-id")
-
-

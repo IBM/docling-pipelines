@@ -1,6 +1,5 @@
 """Tests for IncrementalMetadataRecord domain model."""
 
-
 from datasift.core.incremental_metadata.domain.models import IncrementalMetadataRecord
 
 
@@ -111,4 +110,3 @@ class TestIncrementalMetadataRecord:
         assert restored.modified_time == original.modified_time
         assert restored.job_run_id == original.job_run_id
         assert restored.deleted == original.deleted
-

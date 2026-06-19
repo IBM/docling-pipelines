@@ -256,7 +256,7 @@ def test_empty_table_returns_empty_table():
         }
     )
     operator = make_operator()
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result = result_tables[0]
 
     assert result.num_rows == 0
@@ -514,7 +514,7 @@ def test_sleep_with_none_value():
     table = make_table(num_rows=1)
 
     # Should not raise an exception
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     assert len(result_tables) == 1
 
 
@@ -577,7 +577,7 @@ def test_accepts_pyarrow_table():
     table = pa.table({"id": ["1"], "content": ["test"]})
     operator = make_operator()
 
-    result_tables, metadata = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
 
     assert isinstance(result_tables[0], pa.Table)
 

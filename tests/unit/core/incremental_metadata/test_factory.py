@@ -1,6 +1,5 @@
 """Tests for IncrementalMetadataFactory."""
 
-
 import pytest
 import yaml
 
@@ -30,7 +29,8 @@ class TestIncrementalMetadataFactory:
     def test_create_store_with_lock_timeout(self, *, tmp_path):
         """Test creating store with custom lock timeout."""
         factory = IncrementalMetadataFactory(
-            storage_backend=IncrementalStorageBackend.FILESYSTEM, config={"base_dir": str(tmp_path), "lock_timeout": 10.0}
+            storage_backend=IncrementalStorageBackend.FILESYSTEM,
+            config={"base_dir": str(tmp_path), "lock_timeout": 10.0},
         )
 
         store = factory.create_incremental_metadata_store()
@@ -68,9 +68,7 @@ class TestIncrementalMetadataFactory:
     def test_from_config_file_with_global_storage(self, *, tmp_path):
         """Test factory uses global_storage as fallback."""
         config_path = tmp_path / "config.yaml"
-        config_data = {
-            "global_storage": {"type": "filesystem", "config": {"base_dir": str(tmp_path / "global")}}
-        }
+        config_data = {"global_storage": {"type": "filesystem", "config": {"base_dir": str(tmp_path / "global")}}}
 
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
@@ -200,4 +198,3 @@ class TestIncrementalMetadataFactory:
 
         with pytest.raises(ValueError, match="Unknown storage backend"):
             factory.create_incremental_metadata_store()
-

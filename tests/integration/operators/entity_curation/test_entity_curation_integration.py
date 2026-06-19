@@ -57,9 +57,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         )
 
         # Transform
-        result_tables, _metadata = self.operator.transform(
-            table=input_table, file_name="test_invoice_flow.json"
-        )
+        result_tables, _metadata = self.operator.transform(table=input_table, file_name="test_invoice_flow.json")
 
         # Verify results
         self.assertEqual(len(result_tables), 1)
@@ -118,9 +116,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         )
 
         # Transform
-        result_tables, _metadata = self.operator.transform(
-            table=input_table, file_name="test_po_flow.json"
-        )
+        result_tables, _metadata = self.operator.transform(table=input_table, file_name="test_po_flow.json")
 
         # Verify results
         self.assertEqual(len(result_tables), 1)
@@ -151,9 +147,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         )
 
         # Transform (should return empty dict for unknown type)
-        result_tables, _metadata = self.operator.transform(
-            table=input_table, file_name="test_custom_flow.json"
-        )
+        result_tables, _metadata = self.operator.transform(table=input_table, file_name="test_custom_flow.json")
 
         # Verify results
         self.assertEqual(len(result_tables), 1)
@@ -186,9 +180,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         )
 
         # Transform
-        result_tables, _metadata = self.operator.transform(
-            table=input_table, file_name="test_batch_flow.json"
-        )
+        result_tables, _metadata = self.operator.transform(table=input_table, file_name="test_batch_flow.json")
 
         # Verify results
         self.assertEqual(len(result_tables), 1)
@@ -208,9 +200,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         )
 
         # Transform
-        result_tables, _metadata = self.operator.transform(
-            table=input_table, file_name="test_empty_flow.json"
-        )
+        result_tables, _metadata = self.operator.transform(table=input_table, file_name="test_empty_flow.json")
 
         # Verify results - should handle gracefully
         self.assertEqual(len(result_tables), 1)
@@ -239,9 +229,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         )
 
         # Transform
-        result_tables, metadata = self.operator.transform(
-            table=input_table, file_name="test_transform_flow.json"
-        )
+        result_tables, metadata = self.operator.transform(table=input_table, file_name="test_transform_flow.json")
 
         # Verify results
         self.assertEqual(len(result_tables), 1)
@@ -265,9 +253,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         )
 
         # Transform
-        result_tables, _metadata = self.operator.transform(
-            table=input_table, file_name="test_json_flow.json"
-        )
+        result_tables, _metadata = self.operator.transform(table=input_table, file_name="test_json_flow.json")
 
         # Verify results
         self.assertEqual(len(result_tables), 1)
@@ -299,9 +285,7 @@ class TestEntityCurationIntegration(unittest.TestCase):
         warnings = []
         available_features = input_table.column_names
 
-        self.operator.validate(
-            errors=errors, warnings=warnings, available_features=available_features
-        )
+        self.operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
         # Should have no errors
         self.assertEqual(len(errors), 0)

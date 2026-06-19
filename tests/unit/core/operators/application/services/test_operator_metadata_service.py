@@ -74,9 +74,9 @@ class TestOperatorMetadataServiceGetAll:
         assert len(result) > 0
 
         # Check that internal features are not included
-        for operator_name, metadata in result.items():
+        for _operator_name, metadata in result.items():
             features = metadata.get("features", {})
-            for feature_name, feature_data in features.items():
+            for _feature_name, feature_data in features.items():
                 # Internal features should not be present
                 tags = feature_data.get("tags", [])
                 assert "internal" not in tags or feature_data.get("available_for_filter", False)

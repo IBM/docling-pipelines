@@ -349,4 +349,3 @@ class TestValidationConsistencyWithDocumentSet:
         with pytest.raises(DatasiftException) as exc_info:
             DocumentLibrary.create(name="Test@Library")
         assert "can only contain letters, digits, spaces, and underscores" in str(exc_info.value)
-

@@ -170,7 +170,9 @@ def test_row_merge_with_three_tables():
     }
     operator = MergeOperator(config)
 
-    result_tables, _ = operator.transform(table=pa.table({}), tables={"branch1": table1, "branch2": table2, "branch3": table3})
+    result_tables, _ = operator.transform(
+        table=pa.table({}), tables={"branch1": table1, "branch2": table2, "branch3": table3}
+    )
     result = result_tables[0]
 
     assert result.num_rows == 6  # 2 + 2 + 2
@@ -508,14 +510,18 @@ def test_get_metadata_contains_required_keys():
 
 def test_column_merge_with_list_columns():
     """Column merge handles list columns correctly by remapping without suffix."""
-    table1 = pa.table({
-        "id": ["1", "2"],
-        "tags": [[1, 2], [3, 4]],
-    })
-    table2 = pa.table({
-        "id": ["1", "2"],
-        "categories": [["a", "b"], ["c", "d"]],
-    })
+    table1 = pa.table(
+        {
+            "id": ["1", "2"],
+            "tags": [[1, 2], [3, 4]],
+        }
+    )
+    table2 = pa.table(
+        {
+            "id": ["1", "2"],
+            "categories": [["a", "b"], ["c", "d"]],
+        }
+    )
 
     config = {
         "merge_type": "columns",
@@ -535,14 +541,18 @@ def test_column_merge_with_list_columns():
 
 def test_column_merge_with_struct_columns():
     """Column merge handles struct columns correctly by remapping without suffix."""
-    table1 = pa.table({
-        "id": ["1", "2"],
-        "metadata": [{"key": "value1"}, {"key": "value2"}],
-    })
-    table2 = pa.table({
-        "id": ["1", "2"],
-        "info": [{"data": "info1"}, {"data": "info2"}],
-    })
+    table1 = pa.table(
+        {
+            "id": ["1", "2"],
+            "metadata": [{"key": "value1"}, {"key": "value2"}],
+        }
+    )
+    table2 = pa.table(
+        {
+            "id": ["1", "2"],
+            "info": [{"data": "info1"}, {"data": "info2"}],
+        }
+    )
 
     config = {
         "merge_type": "columns",
@@ -562,4 +572,3 @@ def test_column_merge_with_struct_columns():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

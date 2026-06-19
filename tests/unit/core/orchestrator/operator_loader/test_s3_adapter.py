@@ -26,12 +26,8 @@ class TestS3AdapterResolveAwsAccountId:
                 mock_sts.get_caller_identity.side_effect = RuntimeError("no credentials")
 
             # Stub out _download_operators so __init__ doesn't hit real S3
-            with patch(
-                "datasift.core.orchestration.operator_loader.adapters.s3_adapter.S3Adapter._download_operators"
-            ):
-                with patch(
-                    "datasift.core.orchestration.operator_loader.adapters.s3_adapter.FilesystemAdapter"
-                ):
+            with patch("datasift.core.orchestration.operator_loader.adapters.s3_adapter.S3Adapter._download_operators"):
+                with patch("datasift.core.orchestration.operator_loader.adapters.s3_adapter.FilesystemAdapter"):
                     from datasift.core.orchestration.operator_loader.adapters.s3_adapter import S3Adapter
 
                     adapter = S3Adapter.__new__(S3Adapter)

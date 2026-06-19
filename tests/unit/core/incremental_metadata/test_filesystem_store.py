@@ -1,6 +1,5 @@
 """Tests for Filesystem-based incremental metadata store."""
 
-
 import pyarrow.parquet as pq
 import pytest
 
@@ -273,4 +272,3 @@ class TestFilesystemIncrementalMetadataStore:
         assert len(deleted_ids) == 7
         assert store.get_processed_docs(job_id="job-1") == {"doc-0": 0, "doc-1": 1000, "doc-2": 2000}
         assert len(store.get_soft_deleted_doc_ids(job_id="job-1")) == 7
-

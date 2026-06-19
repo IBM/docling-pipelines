@@ -89,7 +89,7 @@ class TestCreateAccessToken:
             algorithms=[jwt_config.jwt_algorithm],
         )
 
-        exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        _exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
         expected_min = before_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
         expected_max = after_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
 

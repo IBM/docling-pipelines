@@ -20,9 +20,7 @@ class TestPackageAdapter:
 
     def test_init_with_valid_package(self) -> None:
         """Test initialization with a valid installed package."""
-        with patch("importlib.metadata.version") as mock_version, patch(
-            "importlib.import_module"
-        ) as mock_import:
+        with patch("importlib.metadata.version") as mock_version, patch("importlib.import_module") as mock_import:
             mock_version.return_value = "1.0.0"
             mock_import.return_value = Mock()
 
@@ -43,9 +41,7 @@ class TestPackageAdapter:
 
     def test_init_with_invalid_operator_module(self) -> None:
         """Test initialization fails when operator module doesn't exist."""
-        with patch("importlib.metadata.version") as mock_version, patch(
-            "importlib.import_module"
-        ) as mock_import:
+        with patch("importlib.metadata.version") as mock_version, patch("importlib.import_module") as mock_import:
             mock_version.return_value = "1.0.0"
             # First call succeeds (package), second call fails (operator module)
             mock_import.side_effect = [Mock(), ImportError("No module named 'test_package.operators'")]
@@ -71,9 +67,11 @@ class TestPackageAdapter:
 
     def test_list_operators_via_module_inspection(self) -> None:
         """Test discovering operators via module inspection."""
-        with patch("importlib.metadata.version"), patch("importlib.import_module") as mock_import, patch(
-            "importlib.metadata.entry_points"
-        ) as mock_entry_points:
+        with (
+            patch("importlib.metadata.version"),
+            patch("importlib.import_module") as mock_import,
+            patch("importlib.metadata.entry_points") as mock_entry_points,
+        ):
             # No entry points
             mock_entry_points.return_value = []
 
@@ -91,9 +89,11 @@ class TestPackageAdapter:
             mock_operator_class.category = "Functional"
 
             # Make it pass isinstance and issubclass checks
-            with patch("inspect.getmembers") as mock_getmembers, patch(
-                "inspect.isclass"
-            ) as mock_isclass, patch("builtins.issubclass") as mock_issubclass:
+            with (
+                patch("inspect.getmembers") as mock_getmembers,
+                patch("inspect.isclass") as mock_isclass,
+                patch("builtins.issubclass") as mock_issubclass,
+            ):
                 mock_getmembers.return_value = [("TestOperator", mock_operator_class)]
                 mock_isclass.return_value = True
                 mock_issubclass.return_value = True
@@ -334,7 +334,7 @@ class TestPackageAdapter:
             "package|pipe",
             "package<script>",
             "123package",  # Cannot start with number
-            "-package",    # Cannot start with hyphen
+            "-package",  # Cannot start with hyphen
         ]
 
         for name in invalid_names:

@@ -132,7 +132,7 @@ class TestAzureADOAuth2Provider:
     def test_generate_authorization_url(self, azure_config):
         """Test authorization URL generation."""
         provider = AzureADOAuth2Provider(azure_config)
-        auth_url, state = provider.generate_authorization_url()
+        auth_url, _state = provider.generate_authorization_url()
 
         assert "login.microsoftonline.com" in auth_url
         assert "test-tenant" in auth_url

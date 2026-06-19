@@ -113,6 +113,7 @@ class TestJWTTokenVerification:
             "exp": datetime.now(UTC) - timedelta(minutes=1),
         }
         from jose import jwt
+
         expired_token = jwt.encode(token_data, jwt_config.jwt_secret_key, algorithm=jwt_config.jwt_algorithm)
 
         payload = verify_token(token=expired_token, config=jwt_config)
@@ -123,6 +124,7 @@ class TestJWTTokenVerification:
         """Test that verify_token returns None for tokens missing username."""
         token_data = {"email": "test@example.com"}  # Missing username
         from jose import jwt
+
         token = jwt.encode(token_data, jwt_config.jwt_secret_key, algorithm=jwt_config.jwt_algorithm)
 
         payload = verify_token(token=token, config=jwt_config)
@@ -202,10 +204,7 @@ class TestProtectedEndpoints:
             full_name="Test User",
         )
 
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {valid_token}"}
-        )
+        response = client.get("/protected", headers={"Authorization": f"Bearer {valid_token}"})
 
         app.dependency_overrides.clear()
 
@@ -229,10 +228,7 @@ class TestProtectedEndpoints:
         """Test accessing protected endpoint with invalid token returns 401."""
         client = TestClient(app)
 
-        response = client.get(
-            "/protected",
-            headers={"Authorization": "Bearer invalid.token.here"}
-        )
+        response = client.get("/protected", headers={"Authorization": "Bearer invalid.token.here"})
 
         assert response.status_code == 401
 

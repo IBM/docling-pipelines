@@ -26,6 +26,7 @@ from datasift.core.orchestration.operator_factory import OperatorFactory
 # Mock operator classes for testing
 class MockOSSOperator(AbstractOperator):
     """Mock OSS operator (priority 2)"""
+
     short_name = "mock_op"
     owner = DatasiftConstants.OWNER_DATASIFT
 
@@ -39,6 +40,7 @@ class MockOSSOperator(AbstractOperator):
 
 class MockCustomOperator(AbstractOperator):
     """Mock custom operator (priority 1)"""
+
     short_name = "mock_op"
     owner = DatasiftConstants.OWNER_CUSTOM
 
@@ -52,6 +54,7 @@ class MockCustomOperator(AbstractOperator):
 
 class MockEnterpriseOperator(AbstractOperator):
     """Mock enterprise operator (priority 0)"""
+
     short_name = "mock_op"
     owner = DatasiftConstants.OWNER_ENTERPRISE
 
@@ -65,6 +68,7 @@ class MockEnterpriseOperator(AbstractOperator):
 
 class MockUnavailableOperator(AbstractOperator):
     """Mock operator that is not available"""
+
     short_name = "unavailable_op"
     owner = DatasiftConstants.OWNER_DATASIFT
 
@@ -89,6 +93,7 @@ class TestOperatorProviderRegistration:
 
     def test_register_single_provider(self):
         """Test registering a single provider."""
+
         def my_provider(orchestrator=None):
             return frozenset()
 
@@ -97,6 +102,7 @@ class TestOperatorProviderRegistration:
 
     def test_register_multiple_providers(self):
         """Test registering multiple providers."""
+
         def provider1(orchestrator=None):
             return frozenset()
 
@@ -114,6 +120,7 @@ class TestOperatorProviderRegistration:
 
     def test_clear_providers(self):
         """Test clearing all providers."""
+
         def my_provider(orchestrator=None):
             return frozenset()
 
@@ -272,6 +279,7 @@ class TestApplyPriorityResolution:
 
     def test_operator_without_short_name(self):
         """Test handling operator without short_name attribute."""
+
         class BadOperator(AbstractOperator):
             # Missing short_name attribute
             owner = DatasiftConstants.OWNER_DATASIFT
@@ -284,8 +292,8 @@ class TestApplyPriorityResolution:
                 return table, {}
 
         # Remove short_name if it exists from parent
-        if hasattr(BadOperator, 'short_name'):
-            delattr(BadOperator, 'short_name')
+        if hasattr(BadOperator, "short_name"):
+            delattr(BadOperator, "short_name")
 
         operators_dict: dict[str, type[AbstractOperator]] = {}
 
@@ -306,7 +314,7 @@ class TestOperatorAvailability:
     def test_unavailable_operator_skipped_in_factory(self):
         """Test that unavailable operators are skipped during loading."""
         # Mock get_datasift_operators to return unavailable operator
-        with patch('datasift.core.operators.operator_registry.get_datasift_operators') as mock_get_ops:
+        with patch("datasift.core.operators.operator_registry.get_datasift_operators") as mock_get_ops:
             mock_get_ops.return_value = frozenset([MockUnavailableOperator])
 
             factory = OperatorFactory(orchestrator="python", enable_custom_operators=False)
@@ -328,6 +336,7 @@ class TestExternalProviderIntegration:
 
     def test_external_provider_operators_included(self):
         """Test that operators from external providers are included."""
+
         class ExternalOperator(AbstractOperator):
             short_name = "external_op"
             owner = DatasiftConstants.OWNER_CUSTOM
@@ -366,6 +375,7 @@ class TestExternalProviderIntegration:
 
     def test_invalid_provider_return_type_handled(self):
         """Test that invalid provider return types are handled gracefully."""
+
         def bad_provider(orchestrator=None):
             return []  # Should return frozenset
 
@@ -377,6 +387,7 @@ class TestExternalProviderIntegration:
 
     def test_provider_exception_handled(self):
         """Test that provider exceptions are handled gracefully."""
+
         def failing_provider(orchestrator=None):
             raise RuntimeError("Provider failed")
 
@@ -400,6 +411,7 @@ class TestPriorityMapConfiguration:
 
     def test_unknown_owner_gets_lowest_priority(self):
         """Test that unknown owner gets lowest priority (infinity)."""
+
         class UnknownOwnerOperator(AbstractOperator):
             short_name = "unknown_op"
             owner = "unknown_owner"

@@ -1,6 +1,5 @@
 """Unit tests for ACL query builder."""
 
-
 from datasift.api.services.acl_query_builder import ACLQueryBuilder
 
 
@@ -148,9 +147,7 @@ class TestACLQueryBuilder:
         """Test validation of valid allowed_users field."""
         allowed_users = ["john.doe", "jane.smith"]
 
-        result = ACLQueryBuilder.validate_allowed_users(
-            allowed_users=allowed_users
-        )
+        result = ACLQueryBuilder.validate_allowed_users(allowed_users=allowed_users)
 
         assert result is True
 

@@ -1,6 +1,5 @@
 """Unit tests for DocumentLibrary domain model validation."""
 
-
 import pytest
 
 from datasift.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
@@ -223,4 +222,3 @@ class TestDocumentLibraryDocumentSetManagement:
 
         # Assert
         assert count == 3
-
