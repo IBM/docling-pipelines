@@ -8,6 +8,7 @@ from typing import Any
 import pyarrow as pa
 
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.operator_utils import resolve_env_var
 from datasift.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
 from datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import OpenSearchBatchProcessor
 from datasift.core.operators.vectordb.adapters.outbound.opensearch.client import OpenSearchClient
@@ -81,8 +82,8 @@ class OpenSearchAdapter(VectorStorePort):
         # Extract connection parameters from adapter_config (from provider_config)
         host = adapter_config.get(OperatorConstants.VectorDB.HOST, "localhost")
         port = adapter_config.get(OperatorConstants.VectorDB.PORT, 9200)
-        username = adapter_config.get(OperatorConstants.VectorDB.USERNAME)
-        password = adapter_config.get(OperatorConstants.VectorDB.PASSWORD)
+        username = resolve_env_var(adapter_config.get(OperatorConstants.VectorDB.USERNAME))
+        password = resolve_env_var(adapter_config.get(OperatorConstants.VectorDB.PASSWORD))
         use_ssl = adapter_config.get(OperatorConstants.VectorDB.USE_SSL, True)
         verify_certs = adapter_config.get(OperatorConstants.VectorDB.VERIFY_CERTS, True)
         batch_size = adapter_config.get(OperatorConstants.Config.BATCH_SIZE, 100)
