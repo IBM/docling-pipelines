@@ -1,8 +1,10 @@
-"""Factory for creating vector store adapters with decorator-based registration.
+"""Factory for creating vector store adapters with lazy loading support.
 
-This factory enables automatic registration of vector store adapters through decorators.
+This factory enables automatic registration of vector store adapters through decorators
+and supports lazy loading to avoid importing optional dependencies until needed.
 """
 
+import importlib
 from typing import Any, ClassVar
 
 from datasift.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
@@ -14,27 +16,37 @@ logger = get_logger(__name__)
 
 
 class VectorStoreFactory:
-    """Factory for creating vector store adapters.
+    """Factory for creating vector store adapters with lazy loading.
 
     This factory maintains a registry of available vector store adapters and
-    provides methods to create instances based on adapter names.
+    provides methods to create instances based on adapter names. Adapters are
+    loaded lazily to avoid importing optional dependencies (like pymilvus) until
+    they are actually needed.
 
     Usage:
-        # Register an adapter
+        # Register an adapter (eager)
         @register_vector_store
         class OpenSearchAdapter(VectorStorePort):
             ADAPTER_NAME = "opensearch"
             ...
 
-        # Create an adapter instance
+        # Register an adapter (lazy)
+        VectorStoreFactory.register_lazy(
+            "milvus",
+            "datasift.core.operators.vectordb.adapters.outbound.milvus.adapter",
+            "MilvusAdapter"
+        )
+
+        # Create an adapter instance (triggers lazy load if needed)
         adapter = VectorStoreFactory.create("opensearch", config=config)
     """
 
     _adapters: ClassVar[dict[str, type[VectorStorePort]]] = {}
+    _lazy_adapters: ClassVar[dict[str, tuple[str, str]]] = {}
 
     @classmethod
     def register(cls, adapter_class: type[VectorStorePort]) -> type[VectorStorePort]:
-        """Register a vector store adapter class.
+        """Register a vector store adapter class (eager loading).
 
         Args:
             adapter_class: The adapter class to register
@@ -58,13 +70,96 @@ class VectorStoreFactory:
             logger.warning(f"Adapter '{adapter_name}' is already registered. Overwriting.")
 
         cls._adapters[adapter_name] = adapter_class
+        # Remove from lazy registry if it was there
+        cls._lazy_adapters.pop(adapter_name, None)
         logger.debug(f"Registered vector store adapter: {adapter_name}")
 
         return adapter_class
 
     @classmethod
+    def register_lazy(cls, adapter_name: str, module_path: str, class_name: str) -> None:
+        """Register a vector store adapter for lazy loading.
+
+        The adapter will only be imported when first accessed via create().
+        This avoids importing optional dependencies until they are actually needed.
+
+        Args:
+            adapter_name: Name to register the adapter under (e.g., "milvus")
+            module_path: Full module path (e.g., "datasift.core.operators.vectordb.adapters.outbound.milvus.adapter")
+            class_name: Name of the adapter class (e.g., "MilvusAdapter")
+
+        Example:
+            VectorStoreFactory.register_lazy(
+                "milvus",
+                "datasift.core.operators.vectordb.adapters.outbound.milvus.adapter",
+                "MilvusAdapter"
+            )
+        """
+        if adapter_name in cls._adapters:
+            logger.warning(f"Adapter '{adapter_name}' is already eagerly registered. Skipping lazy registration.")
+            return
+
+        cls._lazy_adapters[adapter_name] = (module_path, class_name)
+        logger.debug(f"Registered lazy vector store adapter: {adapter_name}")
+
+    @classmethod
+    def _load_lazy_adapter(cls, adapter_name: str) -> type[VectorStorePort]:
+        """Load a lazy adapter by importing its module.
+
+        Args:
+            adapter_name: Name of the adapter to load
+
+        Returns:
+            The loaded adapter class
+
+        Raises:
+            DatasiftException: If the adapter cannot be loaded
+        """
+        if adapter_name not in cls._lazy_adapters:
+            raise DatasiftException(
+                message=f"Lazy adapter '{adapter_name}' not found in registry",
+                status_code=500,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        module_path, class_name = cls._lazy_adapters[adapter_name]
+
+        try:
+            logger.debug(f"Lazy loading adapter '{adapter_name}' from {module_path}.{class_name}")
+            module = importlib.import_module(module_path)
+            adapter_class = getattr(module, class_name)
+
+            # Move to eager registry after successful load
+            cls._adapters[adapter_name] = adapter_class
+            del cls._lazy_adapters[adapter_name]
+
+            logger.info(f"Successfully loaded lazy adapter: {adapter_name}")
+            return adapter_class
+
+        except ImportError as e:
+            # Don't remove from lazy registry on failure - user might install dependency later
+            raise DatasiftException(
+                message=(
+                    f"Failed to import adapter '{adapter_name}' from {module_path}.{class_name}. "
+                    f"This may be due to missing optional dependencies. Error: {e!s}"
+                ),
+                status_code=500,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            ) from e
+        except AttributeError as e:
+            # Don't remove from lazy registry on failure
+            raise DatasiftException(
+                message=f"Class '{class_name}' not found in module {module_path}: {e!s}",
+                status_code=500,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            ) from e
+
+    @classmethod
     def create(cls, adapter_name: str, **config: Any) -> VectorStorePort:
         """Create a vector store adapter instance.
+
+        This method supports both eager and lazy loaded adapters. If the adapter
+        is registered for lazy loading, it will be imported on first use.
 
         Args:
             adapter_name: Name of the adapter to create
@@ -74,17 +169,27 @@ class VectorStoreFactory:
             Initialized adapter instance
 
         Raises:
-            DatasiftException: If adapter_name is not registered
+            DatasiftException: If adapter_name is not registered or cannot be loaded
         """
-        if adapter_name not in cls._adapters:
-            available = ", ".join(cls._adapters.keys()) if cls._adapters else "none"
+        # Check if adapter is already loaded
+        if adapter_name in cls._adapters:
+            adapter_class = cls._adapters[adapter_name]
+        # Check if adapter is registered for lazy loading
+        elif adapter_name in cls._lazy_adapters:
+            adapter_class = cls._load_lazy_adapter(adapter_name)
+        else:
+            # Adapter not found in either registry
+            available_eager = list(cls._adapters.keys())
+            available_lazy = list(cls._lazy_adapters.keys())
+            all_available = sorted(set(available_eager + available_lazy))
+            available_str = ", ".join(all_available) if all_available else "none"
+
             raise DatasiftException(
-                message=f"Unknown vector store adapter: '{adapter_name}'. Available adapters: {available}",
+                message=f"Unknown vector store adapter: '{adapter_name}'. Available adapters: {available_str}",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
-        adapter_class = cls._adapters[adapter_name]
         logger.debug(f"Creating vector store adapter: {adapter_name}")
 
         try:
@@ -98,16 +203,20 @@ class VectorStoreFactory:
 
     @classmethod
     def list_adapters(cls) -> list[str]:
-        """List all registered adapter names.
+        """List all registered adapter names (both eager and lazy).
 
         Returns:
             List of registered adapter names
         """
-        return list(cls._adapters.keys())
+        eager_adapters = list(cls._adapters.keys())
+        lazy_adapters = list(cls._lazy_adapters.keys())
+        return sorted(set(eager_adapters + lazy_adapters))
 
     @classmethod
-    def get_adapter_info(cls, adapter_name: str) -> dict[str, str]:
+    def get_adapter_info(cls, adapter_name: str) -> dict[str, Any]:
         """Get information about a registered adapter.
+
+        For lazy adapters, this will trigger loading to get full information.
 
         Args:
             adapter_name: Name of the adapter
@@ -118,19 +227,33 @@ class VectorStoreFactory:
         Raises:
             DatasiftException: If adapter_name is not registered
         """
-        if adapter_name not in cls._adapters:
-            raise DatasiftException(
-                message=f"Unknown vector store adapter: '{adapter_name}'",
-                status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
-            )
+        # Check eager registry first
+        if adapter_name in cls._adapters:
+            adapter_class = cls._adapters[adapter_name]
+            return {
+                "name": adapter_class.ADAPTER_NAME,
+                "display_name": adapter_class.ADAPTER_DISPLAY_NAME,
+                "class": adapter_class.__name__,
+                "loaded": True,
+            }
 
-        adapter_class = cls._adapters[adapter_name]
-        return {
-            "name": adapter_class.ADAPTER_NAME,
-            "display_name": adapter_class.ADAPTER_DISPLAY_NAME,
-            "class": adapter_class.__name__,
-        }
+        # Check lazy registry
+        if adapter_name in cls._lazy_adapters:
+            module_path, class_name = cls._lazy_adapters[adapter_name]
+            return {
+                "name": adapter_name,
+                "display_name": adapter_name.title(),
+                "class": class_name,
+                "module": module_path,
+                "loaded": False,
+            }
+
+        # Not found
+        raise DatasiftException(
+            message=f"Unknown vector store adapter: '{adapter_name}'",
+            status_code=400,
+            error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+        )
 
 
 def register_vector_store(adapter_class: type[VectorStorePort]) -> type[VectorStorePort]:

@@ -6,8 +6,6 @@ from typing import Any
 
 import pyarrow as pa
 
-# Import adapters to trigger registration
-import datasift.core.operators.vectordb.adapters.outbound  # noqa: F401
 from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -23,6 +21,21 @@ from datasift.utils.core.memmap_file_utils import (
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
+
+# Register adapters lazily to avoid importing optional dependencies
+# OpenSearch adapter (always available - no optional dependencies)
+try:
+    from datasift.core.operators.vectordb.adapters.outbound.opensearch.adapter import OpenSearchAdapter  # noqa: F401
+
+    logger.debug("OpenSearch adapter registered (eager)")
+except ImportError as e:
+    logger.warning(f"Failed to register OpenSearch adapter: {e}")
+
+# Milvus adapter (lazy - requires pymilvus)
+VectorStoreFactory.register_lazy(
+    "milvus", "datasift.core.operators.vectordb.adapters.outbound.milvus.adapter", "MilvusAdapter"
+)
+logger.debug("Milvus adapter registered (lazy)")
 
 # Constants
 ENGINE_KEY: str = "engine"

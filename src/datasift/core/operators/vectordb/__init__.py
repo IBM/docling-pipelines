@@ -6,8 +6,11 @@ pattern with ports and adapters for clean separation of concerns.
 Architecture:
 - Domain: Core business models (IndexRequest, IndexResult, QueryRequest, etc.)
 - Ports: Interface definitions (VectorStorePort)
-- Adapters: Concrete implementations (OpenSearchAdapter)
+- Adapters: Concrete implementations (OpenSearchAdapter, MilvusAdapter)
 - Application: Operator that orchestrates the workflow (VectorDBOperator)
+
+Adapters are registered lazily to avoid importing optional dependencies
+until they are actually needed.
 """
 
 from .adapters.outbound.factories.vector_store_factory import VectorStoreFactory, register_vector_store
