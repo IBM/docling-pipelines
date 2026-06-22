@@ -58,6 +58,17 @@ class S3SourceConfig(BaseModel):
 
     skip_empty_files: bool = Field(True, description="Whether to skip files with zero size")
 
+    # Security configuration
+    verify_expected_bucket_owner: bool = Field(
+        False,
+        description=(
+            "Whether to verify the S3 bucket owner matches the caller's AWS account. "
+            "When True, an error is raised if the bucket owner does not match (AWS S3 only). "
+            "When False (default), owner verification is skipped silently. "
+            "Has no effect for S3-compatible storage (endpoint_url set)."
+        ),
+    )
+
     # Performance configuration
     max_concurrent_downloads: int = Field(100, description="Maximum number of concurrent S3 downloads", ge=1, le=100)
 

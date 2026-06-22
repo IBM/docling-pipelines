@@ -358,7 +358,7 @@ class TestS3SourceAdapter:
 
 
 class TestResolveAwsAccountId:
-    """Tests for _resolve_aws_account_id and _get_aws_account_id."""
+    """Tests for _get_aws_account_id gated by verify_expected_bucket_owner."""
 
     @pytest.fixture
     def adapter(self):
@@ -366,6 +366,18 @@ class TestResolveAwsAccountId:
 
     @pytest.fixture
     def aws_config(self):
+        """AWS S3 config with owner verification enabled."""
+        return S3SourceConfig(
+            access_key="AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+            secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+            bucket="test-bucket",
+            region="us-east-1",
+            verify_expected_bucket_owner=True,
+        )
+
+    @pytest.fixture
+    def aws_config_no_verify(self):
+        """AWS S3 config with owner verification disabled (default)."""
         return S3SourceConfig(
             access_key="AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
             secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
@@ -381,14 +393,25 @@ class TestResolveAwsAccountId:
             secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
             bucket="test-bucket",
             endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
+            verify_expected_bucket_owner=True,
         )
 
-    def test_returns_account_id_for_aws(self, adapter, aws_config):
-        """STS GetCallerIdentity is called and account ID is returned for real AWS."""
+    def test_returns_account_id_when_verify_disabled_and_sts_succeeds(self, adapter, aws_config_no_verify):
+        """STS is still called when verify is False; account ID returned on success."""
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
 
-        with patch("boto3.client", return_value=mock_sts) as mock_boto:
+        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
+            account_id = adapter._get_aws_account_id(aws_config_no_verify)
+
+        assert account_id == "123456789012"
+
+    def test_returns_account_id_for_aws_when_verify_enabled(self, adapter, aws_config):
+        """STS GetCallerIdentity is called and account ID is returned when verify is True."""
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
+
+        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts) as mock_boto:
             account_id = adapter._get_aws_account_id(aws_config)
 
         assert account_id == "123456789012"
@@ -401,27 +424,43 @@ class TestResolveAwsAccountId:
 
     def test_skips_sts_for_s3_compatible_storage(self, adapter, cos_config):
         """No STS call is made when endpoint_url is set (S3-compatible storage)."""
-        with patch("boto3.client") as mock_boto:
+        with patch("datasift.integrations.aws.s3_utils.boto3.client") as mock_boto:
             account_id = adapter._get_aws_account_id(cos_config)
 
         assert account_id is None
         mock_boto.assert_not_called()
 
-    def test_returns_none_on_sts_client_error(self, adapter, aws_config):
-        """Gracefully returns None when STS returns a ClientError."""
+    def test_raises_on_sts_client_error_when_verify_enabled(self, adapter, aws_config):
+        """Raises RuntimeError when STS returns a ClientError and verify_expected_bucket_owner is True."""
         mock_sts = Mock()
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
         mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
 
-        with patch("boto3.client", return_value=mock_sts):
-            account_id = adapter._get_aws_account_id(aws_config)
+        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
+            with pytest.raises(RuntimeError, match="STS GetCallerIdentity failed"):
+                adapter._get_aws_account_id(aws_config)
+
+    def test_raises_on_unexpected_exception_when_verify_enabled(self, adapter, aws_config):
+        """Raises RuntimeError on any unexpected error when verify_expected_bucket_owner is True."""
+        with patch("datasift.integrations.aws.s3_utils.boto3.client", side_effect=RuntimeError("network error")):
+            with pytest.raises(RuntimeError, match="Unable to resolve AWS account ID"):
+                adapter._get_aws_account_id(aws_config)
+
+    def test_returns_none_on_sts_client_error_when_verify_disabled(self, adapter, aws_config_no_verify):
+        """Gracefully returns None when STS returns a ClientError and verify is False."""
+        mock_sts = Mock()
+        error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
+        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
+
+        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
+            account_id = adapter._get_aws_account_id(aws_config_no_verify)
 
         assert account_id is None
 
-    def test_returns_none_on_unexpected_exception(self, adapter, aws_config):
-        """Gracefully returns None on any unexpected error."""
-        with patch("boto3.client", side_effect=RuntimeError("network error")):
-            account_id = adapter._get_aws_account_id(aws_config)
+    def test_returns_none_on_unexpected_exception_when_verify_disabled(self, adapter, aws_config_no_verify):
+        """Gracefully returns None on any unexpected error when verify is False."""
+        with patch("datasift.integrations.aws.s3_utils.boto3.client", side_effect=RuntimeError("network error")):
+            account_id = adapter._get_aws_account_id(aws_config_no_verify)
 
         assert account_id is None
 
@@ -431,11 +470,12 @@ class TestResolveAwsAccountId:
             access_key="AKIAIOSFODNN7EXAMPLE",
             secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
             bucket="test-bucket",
+            verify_expected_bucket_owner=True,
         )
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {"Account": "999888777666"}
 
-        with patch("boto3.client", return_value=mock_sts) as mock_boto:
+        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts) as mock_boto:
             account_id = adapter._get_aws_account_id(config)
 
         assert account_id == "999888777666"
@@ -530,7 +570,10 @@ class TestExpectedBucketOwnerPropagation:
         credentials = {"access_key": "AKIAIOSFODNN7EXAMPLE", "secret_key": "secret"}  # pragma: allowlist secret
 
         with patch("boto3.client", return_value=mock_client):
-            with patch.object(adapter, "_resolve_aws_account_id", return_value="123456789012"):
+            with patch(
+                "datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                return_value="123456789012",
+            ):
                 result = adapter.fetch_binary_content(
                     source_id="s3://test-bucket/docs/file.pdf",
                     connection_params=connection_params,
@@ -555,7 +598,10 @@ class TestExpectedBucketOwnerPropagation:
         credentials = {"access_key": "AKIAIOSFODNN7EXAMPLE", "secret_key": "secret"}  # pragma: allowlist secret
 
         with patch("boto3.client", return_value=mock_client):
-            with patch.object(adapter, "_resolve_aws_account_id", return_value=None):
+            with patch(
+                "datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                return_value=None,
+            ):
                 result = adapter.fetch_binary_content(
                     source_id="s3://test-bucket/docs/file.pdf",
                     connection_params=connection_params,

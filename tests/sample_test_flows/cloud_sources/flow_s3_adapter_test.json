@@ -25,7 +25,8 @@
           "recursive": true,
           "skip_hidden_files": true,
           "skip_empty_files": true,
-          "max_file_size_mb": 100
+          "max_file_size_mb": 100,
+          "verify_expected_bucket_owner": true
         },
         "include_filter": "pdf,docx,txt",
         "max_files": 10,

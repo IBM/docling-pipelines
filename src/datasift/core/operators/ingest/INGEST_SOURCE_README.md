@@ -64,6 +64,7 @@ node_config = {
 - `max_file_size_mb` (optional): Maximum file size in MB to process
 - `skip_hidden_files` (optional): Whether to skip hidden files (default: True)
 - `skip_empty_files` (optional): Whether to skip files with zero size (default: True)
+- `verify_expected_bucket_owner` (optional): When `True`, verifies that the S3 bucket is owned by the caller's AWS account via STS `GetCallerIdentity`. If the bucket owner does not match, AWS rejects the request. Default `False`. Has no effect for S3-compatible storage (IBM COS, MinIO).
 
 ### 2. Microsoft SharePoint
 Ingest documents from SharePoint document libraries.

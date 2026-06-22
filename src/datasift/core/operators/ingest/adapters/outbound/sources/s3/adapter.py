@@ -17,6 +17,7 @@ from datasift.core.operators.ingest.adapters.outbound.sources.s3.config import S
 from datasift.core.operators.ingest.domain.models import Document
 from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 from datasift.core.operators.operator_utils import resolve_env_var
+from datasift.integrations.aws.s3_utils import resolve_aws_account_id
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -106,7 +107,7 @@ class S3SourceAdapter(DocumentSourcePort):
             batch = []
 
             # Stream objects and process in batches
-            for s3_obj in self._list_s3_objects_sync(s3_client, config):
+            async for s3_obj in self._stream_s3_objects(s3_client, config):
                 batch.append(s3_obj)
                 total_listed += 1
 
@@ -262,6 +263,7 @@ class S3SourceAdapter(DocumentSourcePort):
             "max_concurrent_downloads": connection_params.get("max_concurrent_downloads", 20),
             "download_timeout_seconds": connection_params.get("download_timeout_seconds", 300),
             "max_files": max_files,
+            "verify_expected_bucket_owner": connection_params.get("verify_expected_bucket_owner", False),
         }
 
         return S3SourceConfig(**config_dict)
@@ -295,79 +297,33 @@ class S3SourceAdapter(DocumentSourcePort):
         """
         Retrieve the AWS account ID for the configured credentials via STS GetCallerIdentity.
 
-        This is used to populate ExpectedBucketOwner on S3 API calls, preventing
-        confused-deputy / bucket-hijacking attacks (SonarQube security finding).
+        Always attempts to resolve the account ID so ExpectedBucketOwner can be injected
+        into S3 API calls when possible.
 
-        Only attempted for real AWS S3 (i.e. no custom endpoint_url). Returns None
-        gracefully for S3-compatible storage, invalid credentials, or insufficient
-        STS permissions so callers can skip the parameter rather than fail hard.
+        When verify_expected_bucket_owner is True, any failure raises an error — the
+        bucket owner check must be enforced. When False, failures are logged and silently
+        ignored so S3 operations still proceed.
 
         Args:
             config: S3 configuration
 
         Returns:
-            AWS account ID string (e.g. "123456789012"), or None if unavailable
+            AWS account ID string (e.g. "123456789012"), or None if unavailable and
+            verify_expected_bucket_owner is False (or endpoint_url is set).
+
+        Raises:
+            RuntimeError: If verify_expected_bucket_owner is True and the account ID
+                cannot be resolved via STS.
         """
-        return self._resolve_aws_account_id(
+        return resolve_aws_account_id(
             access_key=config.access_key,
             secret_key=config.secret_key,
             region=config.region,
             endpoint_url=config.endpoint_url,
+            strict=config.verify_expected_bucket_owner,
         )
 
-    def _resolve_aws_account_id(
-        self,
-        *,
-        access_key: str,
-        secret_key: str,
-        region: str | None,
-        endpoint_url: str | None,
-    ) -> str | None:
-        """
-        Resolve AWS account ID from credentials via STS GetCallerIdentity.
-
-        Skipped automatically for S3-compatible storage (endpoint_url present).
-        Degrades gracefully to None on any failure so S3 operations still proceed.
-
-        Args:
-            access_key: AWS access key ID
-            secret_key: AWS secret access key
-            region: Optional AWS region
-            endpoint_url: Custom S3 endpoint (non-None means S3-compatible, skip STS)
-
-        Returns:
-            AWS account ID string (e.g. "123456789012"), or None if unavailable
-        """
-        if endpoint_url:
-            # S3-compatible storage (IBM COS, MinIO, etc.) - STS not applicable
-            return None
-
-        try:
-            sts_kwargs: dict[str, Any] = {
-                "aws_access_key_id": access_key,
-                "aws_secret_access_key": secret_key,
-            }
-            if region:
-                sts_kwargs["region_name"] = region
-
-            sts_client = boto3.client("sts", **sts_kwargs)
-            identity = sts_client.get_caller_identity()
-            account_id: str = identity["Account"]
-            logger.debug("Resolved AWS account ID for ExpectedBucketOwner: %s", account_id)
-            return account_id
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "Unknown")
-            logger.warning(
-                "STS GetCallerIdentity failed (%s); S3 calls will proceed without ExpectedBucketOwner", error_code
-            )
-            return None
-        except Exception as e:
-            logger.warning(
-                "Unable to resolve AWS account ID via STS; S3 calls will proceed without ExpectedBucketOwner: %s", e
-            )
-            return None
-
-    def _list_s3_objects_sync(self, s3_client: Any, config: S3SourceConfig):
+    async def _stream_s3_objects(self, s3_client: Any, config: S3SourceConfig) -> AsyncGenerator[dict[str, Any], None]:
         """
         List S3 objects synchronously with pagination and filtering.
 
@@ -612,7 +568,7 @@ class S3SourceAdapter(DocumentSourcePort):
             s3_client = boto3.client("s3", **client_kwargs)
 
             # Resolve bucket owner for security verification (AWS S3 only)
-            account_id = self._resolve_aws_account_id(
+            account_id = resolve_aws_account_id(
                 access_key=access_key,
                 secret_key=secret_key,
                 region=region,

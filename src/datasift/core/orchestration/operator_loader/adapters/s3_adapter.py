@@ -20,6 +20,7 @@ from datasift.core.orchestration.operator_loader.ports.operator_source import (
     OperatorSourcePort,
     ValidationResult,
 )
+from datasift.integrations.aws.s3_utils import resolve_aws_account_id
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -76,7 +77,7 @@ class S3Adapter(OperatorSourcePort):
         self.s3_client = boto3.client("s3")
 
         # Resolve AWS account ID for ExpectedBucketOwner security parameter
-        self._aws_account_id = self._resolve_aws_account_id()
+        self._aws_account_id = resolve_aws_account_id()
 
         # Download operators to cache
         self._download_operators()
@@ -105,31 +106,6 @@ class S3Adapter(OperatorSourcePort):
         self.prefix = parsed.path.lstrip("/")
 
         logger.debug(f"Parsed S3 URI - bucket: {self.bucket}, prefix: {self.prefix}")
-
-    def _resolve_aws_account_id(self) -> str | None:
-        """Retrieve the AWS account ID via STS GetCallerIdentity.
-
-        Used to populate ExpectedBucketOwner on S3 API calls, preventing
-        confused-deputy / bucket-hijacking attacks (SonarQube security finding).
-
-        Uses the same default credential chain as the S3 client. Degrades
-        gracefully to None so operator loading is never blocked by missing
-        STS permissions.
-
-        Returns:
-            AWS account ID string (e.g. "123456789012"), or None if unavailable
-        """
-        try:
-            sts_client = boto3.client("sts")
-            identity = sts_client.get_caller_identity()
-            account_id: str = identity["Account"]
-            logger.debug("Resolved AWS account ID for ExpectedBucketOwner: %s", account_id)
-            return account_id
-        except Exception as e:
-            logger.warning(
-                "Unable to resolve AWS account ID via STS; S3 calls will proceed without ExpectedBucketOwner: %s", e
-            )
-            return None
 
     def _download_operators(self) -> None:
         """Download operator files from S3 to local cache.
