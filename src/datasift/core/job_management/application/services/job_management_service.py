@@ -5,6 +5,7 @@ This service provides API-level operations for managing job runs,
 coordinating between JobStatsService and JobRunManager.
 """
 
+import json
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -23,6 +24,7 @@ from datasift.core.models.session_info import SessionInfo, get_session_info, set
 from datasift.exceptions.datasift_exceptions import (
     FlowInvalidDataException,
     FlowNotFoundException,
+    FlowValidationException,
 )
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -315,13 +317,49 @@ class JobManagementService:
             }
             flow_executor.execute(orchestrator=orchestrator, params=params)
             logger.info(f"Completed async flow execution for job_run_id={job_run_id}")
+        except FlowValidationException as validation_exc:
+            # Log detailed errors, warnings, and traceback (delegated to exception)
+            validation_exc.log_details(job_run_id=job_run_id)
+
+            # Format error message with structured details
+            error_message = self._format_validation_error_message(validation_exc)
+
+            try:
+                # Update job run status with formatted error message
+                logger.debug(f"Updating job run status to Failed with validation details: job_run_id={job_run_id}")
+                try:
+                    self.job_run_manager.update_job_run_status(
+                        job_run_id=job_run_id,
+                        status=ExecutionStatus.FAILED.value,
+                        job_run_stats={DatasiftConstants.MESSAGE: error_message},
+                    )
+                except Exception as update_error:
+                    logger.warning(
+                        f"Failed to update job run status to FAILED (non-critical): {update_error}. "
+                        f"Error message was: {error_message}"
+                    )
+
+                self.job_stats_service.end_job(
+                    job_run_id=job_run_id,
+                    status=ExecutionStatus.FAILED.value,
+                    job_run_stats={DatasiftConstants.MESSAGE: error_message},
+                )
+            except Exception as end_exc:
+                logger.error(
+                    f"Failed to finalize validation error for job_run_id={job_run_id}: {end_exc}",
+                    exc_info=True,
+                )
         except Exception as exc:
+            # Handle all other exceptions (extraction failures, runtime errors, etc.)
             tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
             full_traceback = "".join(tb_lines)
 
             # Logging traceback as prefect consumes stacktrace
-
             logger.error(f"Async flow execution failed for job_run_id={job_run_id}: {full_traceback}", exc_info=True)
+
+            # Build error message with more context
+            error_message = self._build_detailed_error_message(exc)
+
             try:
                 # Update status to Failed
                 logger.info(f"Updating job run status to Failed: job_run_id={job_run_id}")
@@ -329,7 +367,7 @@ class JobManagementService:
                     self.job_run_manager.update_job_run_status(
                         job_run_id=job_run_id,
                         status=ExecutionStatus.FAILED.value,
-                        job_run_stats={DatasiftConstants.MESSAGE: str(exc)},
+                        job_run_stats={DatasiftConstants.MESSAGE: error_message},
                     )
                 except Exception as update_error:
                     logger.warning(f"Failed to update job run status to FAILED (non-critical): {update_error}")
@@ -337,13 +375,123 @@ class JobManagementService:
                 self.job_stats_service.end_job(
                     job_run_id=job_run_id,
                     status=ExecutionStatus.FAILED.value,
-                    job_run_stats={DatasiftConstants.MESSAGE: str(exc)},
+                    job_run_stats={DatasiftConstants.MESSAGE: error_message},
                 )
             except Exception as end_exc:
                 logger.error(
                     f"Failed to finalize error job_run_id={job_run_id}: {end_exc}",
                     exc_info=True,
                 )
+
+    def _serialize_validation_alerts(self, alerts: list[Any]) -> list[dict[str, Any]]:
+        """
+        Serialize ValidationAlert objects to user-friendly dictionaries for API response.
+        Only includes fields that are actionable for end users: node_name, operator, message.
+
+        Args:
+            alerts: List of ValidationAlert objects or dictionaries
+
+        Returns:
+            List of user-friendly dictionaries with validation alert details
+        """
+        serialized = []
+        for alert in alerts:
+            try:
+                alert_dict: dict[str, Any] | None = None
+
+                # Handle ValidationAlert objects with to_dict method
+                if hasattr(alert, "to_dict") and callable(alert.to_dict):
+                    alert_dict = alert.to_dict()  # type: ignore[assignment]
+                # Handle dict-like objects (ValidationAlert inherits from dict)
+                elif isinstance(alert, dict):
+                    alert_dict = dict(alert)
+                # Handle ValidationMessage objects
+                elif hasattr(alert, "model_dump"):
+                    alert_dict = alert.model_dump(exclude_none=True)  # type: ignore[assignment]
+                else:
+                    # Fallback: convert to string representation
+                    logger.warning(f"Unknown validation alert type: {type(alert)}, converting to string")
+                    serialized.append({"message": str(alert)})
+                    continue
+
+                # Filter to user-friendly fields only (node_name, operator, message)
+                user_friendly: dict[str, Any] = {}
+                if alert_dict and "node_name" in alert_dict:
+                    user_friendly["node_name"] = alert_dict["node_name"]
+                if alert_dict and "operator" in alert_dict:
+                    user_friendly["operator"] = alert_dict["operator"]
+                if alert_dict and "message" in alert_dict:
+                    user_friendly["message"] = alert_dict["message"]
+
+                # Ensure we always have at least a message
+                if not user_friendly.get("message"):
+                    user_friendly["message"] = str(alert)
+
+                serialized.append(user_friendly)
+
+            except Exception as e:
+                logger.error(f"Failed to serialize validation alert: {e}", exc_info=True)
+                # Include error info but don't fail the entire serialization
+                serialized.append({"message": str(alert), "serialization_error": str(e)})
+
+        return serialized
+
+    def _format_validation_error_message(self, exc: FlowValidationException) -> str:
+        """
+        Format validation exception into detailed error message .
+        Matches enterprise implementation for consistency.
+
+        Args:
+            exc: FlowValidationException with errors and warnings
+
+        Returns:
+            Formatted error message with JSON-structured details
+        """
+        # Serialize errors and warnings
+        error_dicts = self._serialize_validation_alerts(exc.errors) if exc.errors else []
+        warning_dicts = self._serialize_validation_alerts(exc.warnings) if exc.warnings else []
+
+        # Build structured error details
+        error_details = {"errors": error_dicts, "warnings": warning_dicts}
+
+        # Format: "Flow validation error: <summary>\n<JSON details>"
+        return f"Flow validation error: {exc!s}\n{json.dumps(error_details, indent=2)}"
+
+    def _build_detailed_error_message(self, exc: Exception) -> str:
+        """
+        Build a detailed error message from an exception, extracting useful context.
+
+        Args:
+            exc: The exception to build a message from
+
+        Returns:
+            Detailed error message string
+        """
+        error_message = str(exc)
+
+        # Add exception type for clarity
+        exc_type = type(exc).__name__
+        if exc_type not in error_message:
+            error_message = f"{exc_type}: {error_message}"
+
+        # Extract additional context from specific exception types
+        # Use hasattr with getattr to safely access errors attribute
+        if hasattr(exc, "errors"):
+            try:
+                errors = getattr(exc, "errors", None)
+                if errors and isinstance(errors, list):
+                    error_details = []
+                    for error in errors[:5]:  # Limit to first 5 errors
+                        if isinstance(error, dict):
+                            loc = " -> ".join(str(location) for location in error.get("loc", []))
+                            msg = error.get("msg", "")
+                            error_details.append(f"{loc}: {msg}")
+                    if error_details:
+                        error_message += f". Details: {'; '.join(error_details)}"
+            except Exception as e:
+                logger.debug(f"Could not extract error details: {e}")
+
+        return error_message
 
     def shutdown(self) -> None:
         """

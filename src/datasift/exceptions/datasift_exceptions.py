@@ -97,6 +97,42 @@ class FlowValidationException(DatasiftException):
         self.errors = errors
         self.warnings = warnings
 
+    def log_details(self, *, job_run_id: str | None = None) -> None:
+        """
+        Log detailed errors, warnings, and full traceback for debugging.
+        Encapsulates all validation logging logic within the exception for better modularity.
+
+        Args:
+            job_run_id: Optional job run ID for context in log messages
+        """
+        # Lazy import to avoid circular dependency
+        import json
+        import traceback
+
+        from datasift.utils.infrastructure.logging import get_logger
+
+        logger = get_logger()
+
+        # Log full traceback for Prefect framework compatibility
+        # Prefect consumes standard exception stacktraces, so we explicitly format and log them
+        tb_lines = traceback.format_exception(type(self), self, self.__traceback__)
+        full_traceback = "".join(tb_lines)
+        context = f" for job_run_id={job_run_id}" if job_run_id else ""
+        logger.error(
+            f"Flow validation failed{context}: {full_traceback}",
+            exc_info=True,
+        )
+
+        # Log detailed errors and warnings
+        if self.errors:
+            logger.error(
+                f"Validation errors: {json.dumps([vars(e) if hasattr(e, '__dict__') else e for e in self.errors])}"
+            )
+        if self.warnings:
+            logger.warning(
+                f"Validation warnings: {json.dumps([vars(w) if hasattr(w, '__dict__') else w for w in self.warnings])}"
+            )
+
 
 class PrefectFlowFailed(DatasiftException):
     # thrown when a prefect flow execution failed for a task
