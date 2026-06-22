@@ -109,6 +109,7 @@ class LanguageDetect(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: LanguageDetect.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: LanguageDetect.is_available(),
             OperatorConstants.Misc.LABEL: "Language Annotator",
+            OperatorConstants.Config.DESCRIPTION: "Detect the language of each document and annotate with language name and confidence score.",
             OperatorConstants.Config.ATTRIBUTES: {
                 LANGUAGE_PROVIDER_KEY: {
                     OperatorConstants.Misc.NAME: "Language Detection Provider",

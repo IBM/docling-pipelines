@@ -126,6 +126,7 @@ class BranchingOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: BranchingOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: BranchingOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Branching Operator",
+            OperatorConstants.Config.DESCRIPTION: "Split pipeline data into multiple branches based on filter conditions.",
             OperatorConstants.Config.ATTRIBUTES: {
                 "branch_criteria": {
                     OperatorConstants.Misc.NAME: "Branches",

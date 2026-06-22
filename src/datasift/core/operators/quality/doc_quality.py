@@ -55,6 +55,7 @@ class DocQuality(DocQualityTransform, AbstractOperator):
             OperatorConstants.Misc.CATEGORY: DocQuality.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocQuality.is_available(),
             OperatorConstants.Misc.LABEL: "Document Quality",
+            OperatorConstants.Config.DESCRIPTION: "Compute text quality metrics for each document (word counts, ratios, lorem ipsum, bad words, etc.).",
             OperatorConstants.Config.FEATURES: {
                 "docq_total_words": {
                     OperatorConstants.Misc.NAME: "Total Words",
@@ -70,7 +71,7 @@ class DocQuality(DocQualityTransform, AbstractOperator):
                 },
                 "docq_symbol_to_word_ratio": {
                     OperatorConstants.Misc.NAME: "Symbol to Word Ratio",
-                    OperatorConstants.Config.DESCRIPTION: "The ratio of symbol-to-word ratio (Reference for symbols like emojis:",
+                    OperatorConstants.Config.DESCRIPTION: "The ratio of symbol characters (e.g. emojis, punctuation marks) to the total word count in the text.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },

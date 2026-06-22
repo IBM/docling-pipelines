@@ -948,7 +948,10 @@ class ExtractOperator(AbstractOperator):
         }
 
         return {
+            OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: ExtractOperator.category.value,
+            OperatorConstants.Misc.LABEL: "Document Extractor",
+            OperatorConstants.Config.DESCRIPTION: "Extract text and entities from documents (PDF, DOCX, PPTX, images, audio, etc.) using Docling.",
             OperatorConstants.Config.FEATURES: metadata_features,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ExtractOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {

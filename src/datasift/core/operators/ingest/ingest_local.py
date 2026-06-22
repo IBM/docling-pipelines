@@ -461,7 +461,10 @@ class IngestLocalOperator(AbstractOperator):
         Returns operator metadata for the metadata-only ingest mode.
         """
         return {
+            OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: IngestLocalOperator.category.value,
+            OperatorConstants.Misc.LABEL: "Local File Ingest",
+            OperatorConstants.Config.DESCRIPTION: "Ingest documents from local file system paths into the pipeline.",
             OperatorConstants.Config.FEATURES: {
                 "path": {
                     OperatorConstants.Columns.NAME: "File Path",

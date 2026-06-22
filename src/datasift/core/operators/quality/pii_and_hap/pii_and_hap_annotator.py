@@ -265,6 +265,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: PIIAndHAPAnnotator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: PIIAndHAPAnnotator.is_available(),
             OperatorConstants.Misc.LABEL: "PII and HAP Annotator",
+            OperatorConstants.Config.DESCRIPTION: "Detect and optionally redact Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content in documents.",
             OperatorConstants.Config.FEATURES: {
                 "pii_bank_account": {
                     OperatorConstants.Misc.NAME: "Bank Account Count",

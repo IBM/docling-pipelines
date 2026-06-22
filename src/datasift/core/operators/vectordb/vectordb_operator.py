@@ -55,7 +55,7 @@ class VectorDBOperator(AbstractOperator):
     Generic vector database operator using hexagonal architecture.
 
     This operator works with any vector database through the VectorStorePort interface.
-    It delegates to provider-specific adapters (OpenSearch, Pinecone, Weaviate, etc.)
+    It delegates to provider-specific adapters (OpenSearch, Milvus).
     without being tightly coupled to any specific implementation.
 
     Supported Vector Databases:
@@ -530,7 +530,7 @@ class VectorDBOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: VectorDBOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: VectorDBOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Vector Database",
-            OperatorConstants.Config.DESCRIPTION: "Store documents and embeddings in vector databases for similarity search. Supports multiple providers (OpenSearch, Pinecone, Weaviate, etc.) through adapters.",
+            OperatorConstants.Config.DESCRIPTION: "Store documents and embeddings in vector databases for similarity search. Supports OpenSearch and Milvus through adapters.",
             OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                     OperatorConstants.Misc.NAME: "Document ID",
@@ -568,7 +568,7 @@ class VectorDBOperator(AbstractOperator):
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Config.PROVIDER: {
                     OperatorConstants.Misc.NAME: "Vector Database Provider",
-                    OperatorConstants.Config.DESCRIPTION: "Type of vector database provider (opensearch, pinecone, weaviate, etc.)",
+                    OperatorConstants.Config.DESCRIPTION: "Type of vector database provider. Supported values: opensearch, milvus.",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,

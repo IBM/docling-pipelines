@@ -406,6 +406,7 @@ class SQLFilterOperator(AbstractOperator):
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: SQLFilterOperator.is_available(),
             OperatorConstants.Misc.CATEGORY: SQLFilterOperator.category.value,
             OperatorConstants.Misc.LABEL: "Annotation Filter",
+            OperatorConstants.Config.DESCRIPTION: "Filter or drop rows from the pipeline using SQL-style WHERE clause conditions.",
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Filtering.FILTER_CRITERIA_LIST: {
                     OperatorConstants.Misc.NAME: "Filter Criteria (List)",

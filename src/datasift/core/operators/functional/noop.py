@@ -44,6 +44,7 @@ class NOOPOperator(AbstractOperator):
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: NOOPOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: NOOPOperator.is_available(),
+            OperatorConstants.Misc.LABEL: "No-op",
             OperatorConstants.Config.DESCRIPTION: "Pass-through operator for testing and debugging",
         }
 

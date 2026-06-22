@@ -304,6 +304,7 @@ class ChunkerOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: ChunkerOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ChunkerOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Chunking",
+            OperatorConstants.Config.DESCRIPTION: "Split document content into smaller chunks using simple, semantic, or Docling-based chunking strategies.",
             OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.CHUNK_SEQUENCE_NUMBER: {
                     OperatorConstants.Misc.NAME: "Chunk Sequence number",

@@ -900,7 +900,10 @@ class IngestSourceOperator(AbstractOperator):
         }
 
         return {
+            OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: IngestSourceOperator.category.value,
+            OperatorConstants.Misc.LABEL: "Remote Source Ingest",
+            OperatorConstants.Config.DESCRIPTION: "Ingest documents from remote storage sources (S3, IBM COS, SharePoint, OneDrive, Google Drive).",
             OperatorConstants.Config.FEATURES: metadata_features,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestSourceOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {

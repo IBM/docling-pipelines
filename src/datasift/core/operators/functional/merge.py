@@ -70,6 +70,7 @@ class MergeOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: MergeOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: MergeOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Merge Operator",
+            OperatorConstants.Config.DESCRIPTION: "Merge multiple input tables by combining rows or columns.",
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Merge.MERGE_TYPE: {
                     OperatorConstants.Misc.NAME: "Merge Type",

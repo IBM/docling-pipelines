@@ -63,6 +63,7 @@ class DocIdHashOperator(AbstractOperator):
         return {
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False,
             OperatorConstants.Misc.CATEGORY: DocIdHashOperator.category.value,
+            OperatorConstants.Misc.LABEL: "Document ID Hash",
             OperatorConstants.Config.DESCRIPTION: "Generates document hash IDs by hashing content",
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Columns.DOC_COLUMN: {

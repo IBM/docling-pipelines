@@ -72,6 +72,7 @@ class RedactionOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: RedactionOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: RedactionOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Redaction",
+            OperatorConstants.Config.DESCRIPTION: "Redact text matching a regex pattern from document content and report the number of redactions made.",
             OperatorConstants.Config.FEATURES: {
                 STATS_COLUMN_NAME_DEFAULT: {
                     OperatorConstants.Misc.NAME: "Redaction Count",

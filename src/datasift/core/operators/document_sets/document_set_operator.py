@@ -115,6 +115,7 @@ class DocumentSetOperator(AbstractOperator):
         return {
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: (DocumentSetOperator.is_available()),
             OperatorConstants.Misc.CATEGORY: DocumentSetOperator.category.value,
+            OperatorConstants.Misc.LABEL: "Document Set",
             OperatorConstants.Config.DESCRIPTION: (
                 "Stores PyArrow table data in a document set with metadata tracking"
             ),

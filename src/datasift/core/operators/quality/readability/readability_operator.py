@@ -69,6 +69,7 @@ class ReadabilityOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: ReadabilityOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ReadabilityOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Readability Operator",
+            OperatorConstants.Config.DESCRIPTION: "Compute readability scores for document content (Flesch-Kincaid, Gunning Fog, SMOG, and more).",
             OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.FLESCH_READING_EASE: {
                     OperatorConstants.Misc.NAME: "Flesch Reading Ease",
@@ -165,8 +166,9 @@ class ReadabilityOperator(AbstractOperator):
     def get_static_required_features() -> list[str]:
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
-    def get_required_features(self) -> list[str]:
-        return [self.contents_column_name]
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def _calculate_scores_for_text(self, *, text: str) -> dict[str, float]:
         """Calculate readability scores for a single text"""
