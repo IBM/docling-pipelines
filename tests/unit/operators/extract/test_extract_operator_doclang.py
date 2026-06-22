@@ -26,7 +26,7 @@ def _validate_doclang_structure(doclang_xml: str) -> None:
         AssertionError: If validation fails
     """
     # 1. XML Structure
-    assert doclang_xml.startswith("<doclang>"), "DocLang should start with <doclang> tag"
+    assert doclang_xml.startswith("<doclang"), "DocLang should start with <doclang> tag"
     assert "</doclang>" in doclang_xml, "DocLang should contain closing </doclang> tag"
     assert len(doclang_xml) > 1000, f"DocLang content should be substantial (>1000 chars), got {len(doclang_xml)}"
 
@@ -180,8 +180,8 @@ def test_extract_operator_doclang_structure_validation():
     # Get doclang content
     doclang_content = result_table["content_doclang"][0].as_py()
 
-    # Verify XML structure (Docling 2.100.0 format - no version attribute)
-    assert doclang_content.startswith("<doclang>"), "Should start with <doclang> tag"
+    # Verify XML structure (doclang tag may include version attribute e.g. <doclang version="0.6">)
+    assert doclang_content.startswith("<doclang"), "Should start with <doclang> tag"
     assert "</doclang>" in doclang_content, "Should have closing tag"
 
     # Verify contains document elements
