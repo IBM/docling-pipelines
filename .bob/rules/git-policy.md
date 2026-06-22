@@ -44,8 +44,8 @@ When a user requests to push code to a remote repository, Bob MUST follow this w
 
 1. **Offer Verification Options:**
    Bob should present the user with three options:
-   - Option A: Run pre-commit hooks automatically (`pre-commit run --all-files`)
-   - Option B: Run a specific hook (e.g., `pre-commit run detect-secrets --all-files`)
+   - Option A: Run pre-commit hooks automatically (`pre-commit run`)
+   - Option B: Run a specific hook (e.g., `pre-commit run detect-secrets`)
    - Option C: Provide a screenshot showing pre-commit hook execution
 
 2. **Execute Pre-Commit Hooks (Options A or B):**
@@ -86,7 +86,7 @@ Bob: "Before pushing, I can verify pre-commit hooks. Choose an option:
       C) Provide a screenshot of hook execution"
 
 User: "Run all hooks"
-Bob: [Executes: pre-commit run --all-files]
+Bob: [Executes: pre-commit run]
 Bob: [Analyzes output] "All pre-commit hooks passed. Proceeding with push."
 [Executes: git push origin branch-name]
 ```
@@ -100,7 +100,7 @@ Bob: "Before pushing, I can verify pre-commit hooks. Choose an option:
       C) Provide a screenshot of hook execution"
 
 User: "Run detect-secrets only"
-Bob: [Executes: pre-commit run detect-secrets --all-files]
+Bob: [Executes: pre-commit run detect-secrets]
 Bob: [Analyzes output] "detect-secrets hook passed. Proceeding with push."
 [Executes: git push origin branch-name]
 ```
@@ -123,7 +123,7 @@ Bob: [Verifies screenshot shows hooks passed] "Pre-commit hooks verified from sc
 **Failure Scenario**
 ```
 User: "Push my changes to remote"
-Bob: [Executes: pre-commit run --all-files]
+Bob: [Executes: pre-commit run]
 Bob: "Pre-commit hooks failed:
       - ruff: 32 errors remaining
       - mypy: 11 type checking errors
