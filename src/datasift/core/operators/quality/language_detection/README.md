@@ -11,7 +11,8 @@ The Language Detection Operator identifies the language of document content and 
 Default provider (fasttext):
 ```json
 {
-  "operator": "lang_detect",
+  "name": "detect_language",
+  "type": "lang_detect",
   "config": {
     "doc_column": "content",
     "filter_unknown_language": false
@@ -22,7 +23,8 @@ Default provider (fasttext):
 With langdetect provider:
 ```json
 {
-  "operator": "lang_detect",
+  "name": "detect_language",
+  "type": "lang_detect",
   "config": {
     "doc_column": "content",
     "language_provider": "langdetect",
@@ -35,46 +37,52 @@ With langdetect provider:
 
 ```json
 {
-  "flow": {
-    "name": "Language Detection Pipeline",
-    "flow_id": "lang-detect-example",
-    "description": "Example flow with language detection",
+  "flow_name": "Language Detection Pipeline",
+  "description": "Example flow with language detection",
+  "global_config": {
+    "doc_column": "content",
     "storage": "in-memory",
-    "execute_type": "local",
-    "dag": [
-      {
-        "id": "ingest",
-        "name": "ingest_documents",
-        "operator": "ingest_local",
-        "config": {
-          "paths": "data/documents"
-        }
-      },
-      {
-        "id": "extract",
-        "name": "extract_content",
-        "operator": "extract_operator",
-        "config": {}
-      },
-      {
-        "id": "language",
-        "name": "detect_language",
-        "operator": "lang_detect",
-        "config": {
-          "doc_column": "content",
-          "filter_unknown_language": false
-        }
-      },
-      {
-        "id": "chunk",
-        "name": "chunk_documents",
-        "operator": "chunker",
-        "config": {
-          "chunk_size": 512
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "data/documents"
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "none"
         }
       }
-    ]
-  }
+    },
+    {
+      "name": "detect_language",
+      "type": "lang_detect",
+      "depends_on": ["extract"],
+      "config": {
+        "language_provider": "fasttext",
+        "filter_unknown_language": false
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": ["detect_language"],
+      "config": {
+        "chunk_size": 512
+      }
+    }
+  ]
 }
 ```
 
@@ -260,7 +268,8 @@ The adapter will be automatically available through the factory pattern:
 
 ```json
 {
-  "operator": "lang_detect",
+  "name": "detect_language",
+  "type": "lang_detect",
   "config": {
     "language_provider": "mylang"
   }

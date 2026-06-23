@@ -169,7 +169,7 @@ The operator computes exactly 30 text quality metrics as defined in `DEFAULT_TEX
       },
       {
         "name": "detect_language",
-        "type": "language_detection",
+        "type": "lang_detect",
         "depends_on": ["extract_documents"],
         "config": {
           "language_provider": "fasttext"

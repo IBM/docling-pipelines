@@ -215,7 +215,7 @@ Merge optional enrichments, keeping all documents:
     },
     {
       "name": "detect_language",
-      "type": "language_detection",
+      "type": "lang_detect",
       "depends_on": ["ingest_documents"],
       "config": {}
     },

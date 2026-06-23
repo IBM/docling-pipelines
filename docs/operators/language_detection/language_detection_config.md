@@ -10,7 +10,19 @@ The Language Detection operator automatically detects the language of document c
 
 ## Configuration Parameters
 
-#### 1. `language_provider` (String)
+#### 1. `doc_column` (String)
+**Type:** String  
+**Required:** No  
+**Default:** `"content"`  
+**Description:** Name of the input column containing document content to analyze for language detection.  
+
+**Examples:**
+```json
+"doc_column": "content"
+"doc_column": "text"
+```
+
+#### 2. `language_provider` (String)
 **Type:** String  
 **Required:** No  
 **Default:** `"fasttext"`  
@@ -26,7 +38,7 @@ The Language Detection operator automatically detects the language of document c
 "language_provider": "langdetect"
 ```
 
-#### 2. `filter_unknown_language` (Boolean)
+#### 3. `filter_unknown_language` (Boolean)
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
@@ -74,9 +86,10 @@ The Language Detection operator automatically detects the language of document c
 ### Example 1: Basic FastText Configuration
 ```json
 {
-  "operator": "lang_detect",
+  "name": "detect_language",
+  "type": "lang_detect",
   "config": {
-    "language_provider": "fasttext",
+    "language_provider": "fasttext"
   }
 }
 ```
@@ -84,21 +97,35 @@ The Language Detection operator automatically detects the language of document c
 ### Example 2: Langdetect with Filtering
 ```json
 {
-  "operator": "lang_detect",
+  "name": "detect_language",
+  "type": "lang_detect",
   "config": {
     "language_provider": "langdetect",
-    "filter_unknown_language": true,
+    "filter_unknown_language": true
   }
 }
 ```
 
-### Example 3: FastText with Unknown Language Handling
+### Example 3: Custom Input Column
 ```json
 {
-  "operator": "lang_detect",
+  "name": "detect_language",
+  "type": "lang_detect",
+  "config": {
+    "doc_column": "custom_text",
+    "language_provider": "fasttext"
+  }
+}
+```
+
+### Example 4: FastText with Unknown Language Handling
+```json
+{
+  "name": "detect_language",
+  "type": "lang_detect",
   "config": {
     "language_provider": "fasttext",
-    "filter_unknown_language": false,
+    "filter_unknown_language": false
   }
 }
 ```
@@ -113,7 +140,7 @@ The Language Detection operator automatically detects the language of document c
     "description": "Pipeline: ingest → extract → language detection",
     "global_config": {
       "doc_column": "content",
-      "disable_validation": true,
+      "disable_validation": false,
       "storage": "in-memory",
       "execute_type": "local",
       "force_ingest": true
@@ -143,7 +170,7 @@ The Language Detection operator automatically detects the language of document c
       },
       {
         "name": "detect_language",
-        "type": "language_detection",
+        "type": "lang_detect",
         "depends_on": ["extract"],
         "config": {
           "language_provider": "fasttext",

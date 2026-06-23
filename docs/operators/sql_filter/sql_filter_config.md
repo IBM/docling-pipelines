@@ -229,7 +229,7 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
     },
     {
       "name": "detect_language",
-      "type": "language_detection",
+      "type": "lang_detect",
       "depends_on": ["extract_documents"],
       "config": {
         "language_provider": "fasttext"

@@ -35,8 +35,7 @@
       "name": "detect_language",
       "type": "lang_detect",
       "config": {
-        "doc_column": "content",
-        "lang_column": "lang_name"
+        "doc_column": "content"
       },
       "depends_on": [
         "extract"
