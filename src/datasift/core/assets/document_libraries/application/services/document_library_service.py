@@ -5,7 +5,7 @@ Orchestrates business logic between domain models and repository layer.
 """
 
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from datasift.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
 from datasift.core.assets.document_libraries.domain.ports.document_library_repository import (
@@ -13,6 +13,11 @@ from datasift.core.assets.document_libraries.domain.ports.document_library_repos
 )
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
+
+if TYPE_CHECKING:
+    from datasift.core.assets.document_sets.application.services.document_set_service import (
+        DocumentSetService,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +47,20 @@ class DocumentLibraryService:
         "document_set_ids",
     }
 
-    def __init__(self, *, repository: DocumentLibraryRepository):
+    def __init__(
+        self,
+        *,
+        repository: DocumentLibraryRepository,
+        document_set_service: "DocumentSetService | None" = None,
+    ):
         """Initialize the service with a document library repository.
 
         Args:
             repository: Repository implementation for persistence
+            document_set_service: Optional document set service for relationship validation
         """
         self.repository = repository
+        self.document_set_service = document_set_service
         logger.debug(msg=f"DocumentLibraryService initialized with repository: {type(repository).__name__}")
 
     def _validate_library_id(self, *, library_id: str) -> str:
@@ -415,6 +427,15 @@ class DocumentLibraryService:
         """
         self._validate_library_id(library_id=library_id)
 
+        # Validate document set exists (lightweight check)
+        if self.document_set_service is not None:
+            if not self.document_set_service.document_set_exists(document_set_id=document_set_id):
+                raise DatasiftException(
+                    f"Document set '{document_set_id}' does not exist",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
+                )
+
         # Get library and update domain model
         library = self.get_library(library_id=library_id)
         library.add_document_set(document_set_id=document_set_id)
@@ -500,6 +521,16 @@ class DocumentLibraryService:
 
         # Get library to verify it exists
         library = self.get_library(library_id=library_id)
+
+        # Validate document sets exist (lightweight check)
+        if self.document_set_service is not None:
+            for document_set_id in document_set_ids:
+                if not self.document_set_service.document_set_exists(document_set_id=document_set_id):
+                    raise DatasiftException(
+                        f"Document set '{document_set_id}' does not exist",
+                        status_code=404,
+                        error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
+                    )
 
         # Validate all document sets can be added (domain logic)
         succeeded = []

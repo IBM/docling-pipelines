@@ -272,6 +272,26 @@ class DocumentSetService:
         logger.info("Successfully retrieved document set %s", document_set_id)
         return document_set
 
+    def document_set_exists(self, *, document_set_id: str) -> bool:
+        """Check if a document set exists without loading full data.
+
+        This is a lightweight existence check that avoids loading the full
+        document set object, making it more efficient for validation purposes.
+
+        Args:
+            document_set_id: Unique identifier to check
+
+        Returns:
+            True if document set exists, False otherwise
+
+        Example:
+            >>> if service.document_set_exists(document_set_id="abc-123"):
+            ...     print("Document set exists")
+        """
+        if not document_set_id or not document_set_id.strip():
+            return False
+        return self._metadata_repository.exists(document_set_id=document_set_id)
+
     def get_document_set_by_name(self, *, name: str) -> DocumentSet:
         """Retrieve a document set by name.
 

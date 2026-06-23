@@ -215,28 +215,11 @@ def get_document_library_repository() -> DocumentLibraryRepository:
     return DocumentLibraryRepositoryFactory.create(adapter_name="duckdb", config=config)  # type: ignore[arg-type]
 
 
-def get_document_library_service(
-    repository: DocumentLibraryRepository = Depends(get_document_library_repository),  # noqa: B008
-) -> DocumentLibraryService:
-    """Dependency provider for document library service.
-
-    Args:
-        repository: Injected repository instance
-
-    Returns:
-        DocumentLibraryService: Service instance with injected repository
-    """
-    return DocumentLibraryService(repository=repository)
-
-
 def get_document_set_service():
     """Create a document set service with factory-created components.
 
     Reuses the same pattern as document_sets.py for consistency.
     """
-    from datasift.core.assets.document_sets.application.services.document_set_service import (
-        DocumentSetService,
-    )
     from datasift.core.assets.document_sets.domain.types import (
         DataStoreConfig,
         RepositoryConfig,
@@ -267,6 +250,25 @@ def get_document_set_service():
     return DocumentSetService(
         metadata_repository=metadata_repository,  # type: ignore[arg-type]
         data_store=data_store,  # type: ignore[arg-type]
+    )
+
+
+def get_document_library_service(
+    document_set_service: DocumentSetService = Depends(get_document_set_service),  # noqa: B008
+    repository: DocumentLibraryRepository = Depends(get_document_library_repository),  # noqa: B008
+) -> DocumentLibraryService:
+    """Dependency provider for document library service.
+
+    Args:
+        repository: Injected repository instance
+        document_set_service: Injected document set service for relationship validation
+
+    Returns:
+        DocumentLibraryService: Service instance with injected dependencies
+    """
+    return DocumentLibraryService(
+        repository=repository,
+        document_set_service=document_set_service,
     )
 
 

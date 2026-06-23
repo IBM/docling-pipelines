@@ -35,6 +35,23 @@ def service(mock_repository):
     return DocumentLibraryService(repository=mock_repository)
 
 
+@pytest.fixture
+def mock_document_set_service():
+    """Create a properly configured mock document set service."""
+    service = Mock()
+    service.get_document_set.return_value = Mock(id="set-1")
+    return service
+
+
+@pytest.fixture
+def service_with_document_set_validation(mock_repository, mock_document_set_service):
+    """Create service with mock repository and document set validation."""
+    return DocumentLibraryService(
+        repository=mock_repository,
+        document_set_service=mock_document_set_service,
+    )
+
+
 class TestDocumentLibraryServiceCreate:
     """Tests for creating libraries via service."""
 
@@ -188,6 +205,48 @@ class TestDocumentLibraryServiceDocumentSets:
             library_id=sample_library_domain.library_id,
             document_set_ids=document_set_ids,
         )
+
+    def test_add_document_sets_bulk_validates_document_set_existence(
+        self,
+        service_with_document_set_validation,
+        mock_repository,
+        mock_document_set_service,
+        sample_library_domain,
+    ):
+        """Test bulk add validates each document set exists before insert."""
+        mock_repository.get_by_id.return_value = sample_library_domain
+        mock_document_set_service.document_set_exists.return_value = True
+        document_set_ids = ["set-1", "set-2", "set-3"]
+
+        service_with_document_set_validation.add_document_sets_bulk(
+            library_id=sample_library_domain.library_id,
+            document_set_ids=document_set_ids,
+        )
+
+        assert mock_document_set_service.document_set_exists.call_count == 3
+        mock_repository.add_document_sets_bulk.assert_called_once_with(
+            library_id=sample_library_domain.library_id,
+            document_set_ids=document_set_ids,
+        )
+
+    def test_add_document_sets_bulk_raises_when_document_set_missing(
+        self,
+        service_with_document_set_validation,
+        mock_repository,
+        mock_document_set_service,
+        sample_library_domain,
+    ):
+        """Test bulk add fails before insert when a document set does not exist."""
+        mock_repository.get_by_id.return_value = sample_library_domain
+        mock_document_set_service.document_set_exists.side_effect = [True, False]
+
+        with pytest.raises(DatasiftException):
+            service_with_document_set_validation.add_document_sets_bulk(
+                library_id=sample_library_domain.library_id,
+                document_set_ids=["set-1", "missing-set"],
+            )
+
+        mock_repository.add_document_sets_bulk.assert_not_called()
 
     def test_remove_document_set_success(self, service, mock_repository, sample_library_with_id):
         """Test successfully removing document set from library."""

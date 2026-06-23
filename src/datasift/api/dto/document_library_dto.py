@@ -41,6 +41,19 @@ name_field = Field(
     },
 )
 
+patch_name_field = Field(
+    default=None,
+    title="Document Library Name",
+    description="Name of the document library (3-128 characters, must start with a letter, can contain letters, digits, spaces, and underscores only. Example: 'My Library Name' or 'Test_Library_123')",
+    min_length=3,
+    max_length=128,
+    json_schema_extra={
+        "pattern": NAME_PATTERN,  # For OpenAPI docs only
+        "pattern_description": "Must start with a letter and contain only letters, digits, spaces, and underscores. Special characters like @#$%-!& are not allowed.",
+        "examples": ["My Library", "Test_Library_123", "Document Collection 2024"],
+    },
+)
+
 description_field = Field(
     default=None,
     title="Document Library Description",
@@ -242,7 +255,7 @@ class DocumentLibraryPatch(BaseModel):
         tags: Optional new tags list
     """
 
-    name: str | None = name_field
+    name: str | None = patch_name_field
     description: str | None = description_field
     purpose: str | None = purpose_field
     original_size: int | None = original_size_field
