@@ -94,7 +94,7 @@ class DocumentClassifierOperator(AbstractOperator):
             "provider_config": {
                 "api_base": "https://api.watsonx.example.com",
                 "container_kind": "project",
-                "request_timeout": 120
+                "timeout": 120
             },
             "model_id": "ibm/granite-3-8b-instruct",
             "document_types": {...}
@@ -119,13 +119,13 @@ class DocumentClassifierOperator(AbstractOperator):
                     For watsonx:
                         - api_base: API endpoint URL
                         - container_kind: Container type ("project" or "space", default: "project")
-                        - request_timeout: Request timeout in seconds (default: 120)
+                        - timeout: Request timeout in seconds (default: 120)
                         Note: api_key and container_id MUST be set via environment variables:
                               WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config for security)
                     For litellm (default examples, configured for Ollama-compatible endpoints):
                         - api_base: API endpoint URL (example: "http://localhost:11434/v1")
                         - api_key: API key for authentication (example: "ollama")
-                        - request_timeout: Request timeout in seconds (default: 120)
+                        - timeout: Request timeout in seconds (default: 120)
                 - model_id: Model identifier in <provider>/<model_id> format (default: "openai/granite3.1-dense:8b")
                 - document_types: List of document types or dict with descriptions
                 - confidence_threshold: Minimum confidence for classification (default: 7.0)

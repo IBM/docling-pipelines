@@ -884,7 +884,7 @@ datasift-orchestrator --list-operators --verbose
 
 **Available operator categories:**
 - **Ingest**: IngestLocalOperator, IngestSourceOperator
-- **Extract**: ExtractOperator (with multiple extraction modes)
+- **Extract**: ExtractOperator (with multiple extraction providers)
 - **Quality**: DocumentClassifier, LanguageDetect, Redaction, Dedup
 - **Functional**: Chunker, Embeddings, Branching, Merge, NOOP
 - **VectorDB**: VectorDBOperator (OpenSearch, Milvus)

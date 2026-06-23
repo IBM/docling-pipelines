@@ -48,7 +48,7 @@ def cleanup_after_test():
 @pytest.mark.integration
 @pytest.mark.unit
 def test_extract_operator_docling_library_mode(sample_pdf_files):
-    """Test the ExtractOperator with docling_library text extraction mode."""
+    """Test the ExtractOperator with docling_library text extraction provider."""
     import pyarrow as pa
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
@@ -245,7 +245,7 @@ def test_extract_operator_default_format(sample_pdf_files):
 @pytest.mark.unit
 @pytest.mark.skip(reason="Requires docling-serve service running")
 def test_extract_operator_docling_serve_mode(sample_pdf_files):
-    """Test the ExtractOperator with docling_serve text extraction mode."""
+    """Test the ExtractOperator with docling_serve text extraction provider."""
     import pyarrow as pa
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
@@ -489,7 +489,7 @@ def test_extract_operator_docling_serve_with_entity_extraction():
 
         operator = ExtractOperator(config=config)
 
-        # Verify both modes are configured
+        # Verify both providers are configured
         assert operator.text_extraction_mode.value == "docling_serve"
         assert operator.entity_extraction_mode.value == "litellm"
         assert operator.entity_adapter is not None
@@ -497,7 +497,7 @@ def test_extract_operator_docling_serve_with_entity_extraction():
 
 @pytest.mark.unit
 def test_extract_operator_invalid_text_mode():
-    """Test ExtractOperator with invalid text extraction mode."""
+    """Test ExtractOperator with invalid text extraction provider."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
@@ -515,7 +515,7 @@ def test_extract_operator_invalid_text_mode():
 
 @pytest.mark.unit
 def test_extract_operator_invalid_entity_mode():
-    """Test ExtractOperator with invalid entity extraction mode."""
+    """Test ExtractOperator with invalid entity extraction provider."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
@@ -536,7 +536,7 @@ def test_extract_operator_invalid_entity_mode():
 
 @pytest.mark.unit
 def test_extract_operator_docling_library_vlm_mode_config():
-    """Test ExtractOperator with docling_library VLM text extraction mode configuration."""
+    """Test ExtractOperator with docling_library VLM text extraction provider configuration."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
@@ -555,7 +555,7 @@ def test_extract_operator_docling_library_vlm_mode_config():
 
     operator = ExtractOperator(config=config)
 
-    # Verify docling_library with VLM mode is configured
+    # Verify docling_library with VLM provider is configured
     assert operator.text_extraction_mode.value == "docling_library"
     assert operator.entity_extraction_mode.value == "none"
 
@@ -880,7 +880,7 @@ def test_extract_operator_docling_serve_all_parameters():
 
 @pytest.mark.unit
 def test_extract_operator_mode_combinations():
-    """Test various valid mode combinations."""
+    """Test various valid provider combinations."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
@@ -897,7 +897,7 @@ def test_extract_operator_mode_combinations():
         )
         mock_litellm_class.return_value = mock_litellm_instance
 
-        # Test all valid text mode + entity mode combinations
+        # Test all valid text provider + entity provider combinations
         text_modes = ["docling_library", "docling_serve"]
         entity_modes = ["none", "litellm", "docling"]
 
@@ -909,7 +909,7 @@ def test_extract_operator_mode_combinations():
                     },
                 }
 
-                # Add mode-specific required parameters
+                # Add provider-specific required parameters
                 if text_mode == "docling_serve":
                     config["text_extraction"]["provider_config"] = {
                         "base_url": "http://localhost:5001",
@@ -990,7 +990,7 @@ def _build_pdf_input_table(*, sample_pdf_files, max_files: int = 1):
 
 @pytest.mark.unit
 def test_extract_operator_litellm_entity_mode():
-    """Test ExtractOperator with LiteLLM entity extraction mode."""
+    """Test ExtractOperator with LiteLLM entity extraction provider."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
@@ -1015,7 +1015,7 @@ def test_extract_operator_litellm_entity_mode():
 
         operator = ExtractOperator(config=config)
 
-    # Verify LiteLLM entity mode is configured
+    # Verify LiteLLM entity provider is configured
     assert operator.entity_extraction_mode.value == "litellm"
     assert operator.entity_adapter is not None
 
@@ -1254,7 +1254,7 @@ def test_extract_operator_docling_entity_mode():
 
     operator = ExtractOperator(config=config)
 
-    # Verify Docling entity mode is configured
+    # Verify Docling entity provider is configured
     assert operator.entity_extraction_mode.value == "docling"
     assert operator.entity_adapter is not None
 
@@ -1280,7 +1280,7 @@ def test_extract_operator_invalid_text_extraction_provider_error():
 
 @pytest.mark.unit
 def test_extract_operator_invalid_entity_extraction_mode_error():
-    """Test ExtractOperator with completely invalid entity extraction mode."""
+    """Test ExtractOperator with completely invalid entity extraction provider."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
@@ -1465,7 +1465,7 @@ def test_extract_operator_use_processes_flag():
 
 @pytest.mark.unit
 def test_extract_operator_all_text_modes():
-    """Test ExtractOperator initialization with all text extraction modes."""
+    """Test ExtractOperator initialization with all text extraction providers."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     text_modes = ["docling_library", "docling_serve"]
@@ -1477,7 +1477,7 @@ def test_extract_operator_all_text_modes():
             },
         }
 
-        # Add mode-specific required parameters
+        # Add provider-specific required parameters
         if mode == "docling_serve":
             config["text_extraction"]["provider_config"] = {
                 "base_url": "http://localhost:5001",
@@ -1490,7 +1490,7 @@ def test_extract_operator_all_text_modes():
 
 @pytest.mark.unit
 def test_extract_operator_all_entity_modes():
-    """Test ExtractOperator initialization with all entity extraction modes."""
+    """Test ExtractOperator initialization with all entity extraction providers."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator

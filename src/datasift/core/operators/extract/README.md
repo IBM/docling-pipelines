@@ -24,7 +24,7 @@ This architecture enables:
 - **Multiple Entity Extraction Strategies**: LiteLLM (including Ollama via openai/ prefix), Docling template-based, and WatsonX
 - **Estimated Page Count Calculation**: Automatically calculates estimated page counts for extracted text
 - **Parallel Processing**: Automatic worker optimization based on CPU count
-- **Flexible Configuration**: Mode-specific parameters with sensible defaults
+- **Flexible Configuration**: Provider-specific parameters with sensible defaults
 - **Consistent Error Handling**: Unified error handling and metadata across all modes
 
 ## Operator Configuration
@@ -47,9 +47,9 @@ This architecture enables:
 }
 ```
 
-## Text Extraction Modes
+## Text Extraction Providers
 
-### 1. Docling Library Mode (Default)
+### 1. Docling Library Provider (Default)
 
 Standard document extraction using the Docling library locally. Supports optional VLM (Vision-Language Model) pipeline for enhanced extraction and ASR (Automatic Speech Recognition) pipeline for audio/video processing.
 
@@ -133,7 +133,7 @@ OpenAI:
         "preset": "qwen",
         "engine": "api_openai",
         "engine_options": {
-          "api_base": "https://api.openai.com/v1",
+          "api_base": "https://api.openai.com",
           "model_id": "gpt-4-vision-preview",
           "api_key": "<your-api-key>"
         }
@@ -175,11 +175,11 @@ Enable ASR pipeline for audio and video file transcription:
 - Quick prototyping and testing
 
 **Sample Flows:**
-- Basic: [`tests/sample_test_flows/extract/flow_extract_basic.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic.json)
-- VLM: [`tests/sample_test_flows/extract/flow_extract_vlm.json`](../../../../tests/sample_test_flows/extract/flow_extract_vlm.json)
+- Basic: [`tests/sample_test_flows/extract/flow_extract_basic_none.json`](../../../../../tests/sample_test_flows/extract/flow_extract_basic_none.json)
+- Complete: [`tests/sample_test_flows/extract/flow_extract_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete.json)
 - Audio/Video: [`tests/sample_test_flows/audio_video/flow_audio_video_extraction.json`](../../../../../tests/sample_test_flows/audio_video/flow_audio_video_extraction.json)
 
-### 2. Docling Serve Mode
+### 2. Docling Serve Provider
 
 REST API-based extraction using the Docling-Serve service for scalable, production-ready document processing.
 
@@ -258,13 +258,13 @@ docker-compose -f docker-compose.docling-serve.yml up -d
 - Multi-language document processing
 - Distributed processing architectures
 
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_docling_serve.json`](../../../../tests/sample_test_flows/extract/flow_extract_docling_serve.json)
+**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_complete_docling_serve.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete_docling_serve.json)
 
-## Entity Extraction Modes
+## Entity Extraction Providers
 
-Entity extraction can be combined with any text extraction mode to extract structured data from the extracted text.
+Entity extraction can be combined with any text extraction provider to extract structured data from the extracted text.
 
-### 1. None Mode (Default)
+### 1. None Provider (Default)
 
 No entity extraction is performed. Only text extraction is executed.
 
@@ -280,7 +280,7 @@ No entity extraction is performed. Only text extraction is executed.
 }
 ```
 
-### 2. Docling Mode (VLM-Based)
+### 2. Docling Provider (VLM-Based)
 
 Vision-Language Model (VLM) based entity extraction using Docling's VLM pipeline for structured data extraction from documents.
 
@@ -292,26 +292,17 @@ Vision-Language Model (VLM) based entity extraction using Docling's VLM pipeline
   },
   "entity_extraction": {
     "provider": "docling",
-    "provider_config": {
-      "custom_schema": {
-        "type": "object",
-        "properties": {
-          "invoice_number": { "type": "string" },
-          "invoice_date": { "type": "string" },
-          "total_amount": { "type": "number" },
-          "line_items": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "description": { "type": "string" },
-                "quantity": { "type": "number" },
-                "unit_price": { "type": "number" }
-              }
-            }
-          }
+    "custom_schema": {
+      "invoice_number": "string",
+      "invoice_date": "string",
+      "total_amount": "number",
+      "line_items": [
+        {
+          "description": "string",
+          "quantity": "number",
+          "unit_price": "number"
         }
-      }
+      ]
     }
   }
 }
@@ -341,11 +332,11 @@ Users can configure custom inline VLM models for entity extraction using the `vl
           "load_in_8bit": true,
           "torch_dtype": "bfloat16"
         }
-      },
-      "custom_schema": {
-        "invoice_number": "string",
-        "total_amount": "float"
       }
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "number"
     }
   }
 }
@@ -369,11 +360,9 @@ Users can configure custom inline VLM models for entity extraction using the `vl
 - Custom model integration for specialized domains
 - Template-driven workflows with VLM enhancement
 
-**Sample Flows:**
-- Basic: [`tests/sample_test_flows/extract/flow_extract_template.json`](../../../../tests/sample_test_flows/extract/flow_extract_template.json)
-- Custom Model: [`tests/sample_test_flows/extract/flow_extract_docling_custom_model.json`](../../../../tests/sample_test_flows/extract/flow_extract_docling_custom_model.json)
+**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_docling_custom_model.json`](../../../../../tests/sample_test_flows/extract/flow_extract_docling_custom_model.json)
 
-### 3. LiteLLM Mode
+### 3. LiteLLM Provider
 
 Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (OpenAI, Anthropic, Cohere, Ollama, etc.).
 
@@ -390,11 +379,11 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
       "api_key": "your-api-key",  # pragma: allowlist secret
       "api_base": "https://api.openai.com/v1",
       "temperature": 0.0,
-      "max_tokens": 2000,
-      "custom_schema": {
-        "invoice_number": "string",
-        "total_amount": "float"
-      }
+      "max_tokens": 2000
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "number"
     }
   }
 }
@@ -413,11 +402,11 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
       "api_base": "http://localhost:11434/v1",
       "api_key": "<ollama_key>",
       "temperature": 0.0,
-      "max_tokens": 4096,
-      "custom_schema": {
-        "invoice_number": "string",
-        "total_amount": "float"
-      }
+      "max_tokens": 4096
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "number"
     }
   }
 }
@@ -429,20 +418,24 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
 
 ```json
 {
-  "text_extraction_mode": "docling_library",
-  "entity_extraction_mode": "litellm",
-  "entity_model_name": "openai/granite4:latest",
-  "entity_temperature": 0.0,
-  "entity_max_tokens": 5000,
-  "entity_provider_config": {
-    "api_base": "https://your-vllm-route/v1",
-    "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
-    "stream": true,
-    "timeout": 1800
+  "text_extraction": {
+    "provider": "docling_library"
   },
-  "custom_schema": {
-    "invoice_number": "string",
-    "total_amount": "float"
+  "entity_extraction": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4:latest",
+      "api_base": "https://your-vllm-route/v1",
+      "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
+      "temperature": 0.0,
+      "max_tokens": 5000,
+      "stream": true,
+      "timeout": 1800
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "number"
+    }
   }
 }
 ```
@@ -484,9 +477,11 @@ During high-concurrency scalability testing with remote vLLM clusters, connectio
 - Schema-based and schema-free entity extraction
 - Local LLM processing via Ollama
 
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_basic_litellm.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic_litellm.json)
+**Sample Flows:**
+- With Schema: [`tests/sample_test_flows/extract/flow_extract_litellm_with_schema.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_with_schema.json)
+- Schema Free: [`tests/sample_test_flows/extract/flow_extract_litellm_schema_free.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_schema_free.json)
 
-### 4. WatsonX Mode
+### 4. WatsonX Provider
 
 IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 
@@ -505,11 +500,11 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
       "api_base": "https://us-south.ml.cloud.ibm.com",
       "container_kind": "project",
       "temperature": 0.0,
-      "max_tokens": 2000,
-      "custom_schema": {
-        "invoice_number": "string",
-        "total_amount": "float"
-      }
+      "max_tokens": 2000
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "number"
     }
   }
 }
@@ -527,7 +522,7 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 - Schema-based entity extraction with IBM Granite models
 - Integration with existing IBM Cloud infrastructure
 
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_basic_watsonx.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic_watsonx.json)
+**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_watsonx_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_watsonx_complete.json)
 
 ## Configuration Parameters
 
@@ -539,12 +534,12 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `text_extraction.doc_column` | string | `"doc_content"` | Column name for storing extracted content |
 | `text_extraction.provider_config.additional_formats` | array | `[]` | Additional output formats (e.g., `["html", "markdown"]`) |
 | `max_workers` | integer | auto | Maximum number of parallel workers (auto-detected based on CPU) |
-| `text_extraction.provider_config.use_processes` | boolean | `false` | Use ProcessPoolExecutor instead of ThreadPoolExecutor |
+| `use_processes` | boolean | `false` | Use ProcessPoolExecutor instead of ThreadPoolExecutor (top-level parameter) |
 | `entity_extraction.provider` | string | `"none"` | Entity extraction strategy: `"litellm"` (includes Ollama via openai/ prefix), `"docling"`, `"watsonx"`, or `"none"` |
-| `entity_extraction.provider_config.expand_extracted_data` | boolean | `false` | Expand entity data JSON into individual columns (entity extraction only) |
-| `entity_extraction.provider_config.custom_schema` | object | `{}` | Schema dictionary for structured extraction |
+| `entity_extraction.custom_schema` | object | `{}` | Schema dictionary for structured extraction (top-level entity_extraction parameter) |
+| `entity_extraction.expand_extracted_data` | boolean | `false` | Expand entity data JSON into individual columns (entity extraction only) |
 
-### Docling Library Mode Parameters
+### Docling Library Provider Parameters
 
 | Parameter             | Type    | Default             | Description                                                         |
 |-----------------------|---------|---------------------|---------------------------------------------------------------------|
@@ -555,7 +550,7 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `text_extraction.provider_config.asr_pipeline`        | object  | `null`              | ASR (Automatic Speech Recognition) pipeline configuration object. Provide empty dict `{}` to enable with defaults, or omit to disable. |
 | `text_extraction.provider_config.asr_pipeline.model_id` | string | `"whisper_turbo"` | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
 
-### Docling Serve Mode Parameters
+### Docling Serve Provider Parameters
 
 | Parameter              | Type     | Default                   | Description                                                   |
 |------------------------|----------|---------------------------|---------------------------------------------------------------|
@@ -702,12 +697,12 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
         "api_base": "http://localhost:11434/v1",
         "api_key": "<ollama_key>",
         "temperature": 0.0,
-        "max_tokens": 4096,
-        "custom_schema": {
-          "invoice_number": "string",
-          "vendor_name": "string",
-          "total_amount": "float"
-        }
+        "max_tokens": 4096
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "vendor_name": "string",
+        "total_amount": "number"
       }
     }
   }
@@ -777,15 +772,21 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
     },
     "entity_extraction": {
       "provider": "docling",
-      "provider_config": {
-        "custom_schema": {
-          "type": "object",
-          "properties": {
-            "invoice_number": { "type": "string" },
-            "invoice_date": { "type": "string" },
-            "total_amount": { "type": "number" }
+      "custom_schema": {
+        "invoice_number": "string",
+        "invoice_date": "string",
+        "vendor_name": "string",
+        "vendor_address": "string",
+        "total_amount": "number",
+        "currency": "string",
+        "line_items": [
+          {
+            "description": "string",
+            "quantity": "number",
+            "unit_price": "number",
+            "total": "number"
           }
-        }
+        ]
       }
     }
   }
@@ -964,47 +965,47 @@ curl http://localhost:5001/health
 
 ## Best Practices
 
-### When to Use Each Text Extraction Mode
+### When to Use Each Text Extraction Provider
 
-**Use Docling Library Mode (Basic) When:**
+**Use Docling Library Provider (Basic) When:**
 - Processing simple documents locally
 - No OCR required
 - Quick prototyping
 - Minimal setup needed
 
-**Use Docling Library Mode (VLM Pipeline) When:**
+**Use Docling Library Provider (VLM Pipeline) When:**
 - Complex document layouts
 - High accuracy requirements
 - Local processing preferred
 - GPU available for inference
 
-**Use Docling Serve Mode When:**
+**Use Docling Serve Provider When:**
 - Production deployment
 - OCR required for scanned documents
 - Multi-language support needed
 - Horizontal scaling required
 - Processing high document volumes
 
-### When to Use Each Entity Extraction Mode
+### When to Use Each Entity Extraction Provider
 
-**Use None Mode When:**
+**Use None Provider When:**
 - Only text extraction is needed
 - Entity extraction will be done in a separate step
 
-**Use LiteLLM Mode When:**
+**Use LiteLLM Provider When:**
 - Multi-provider LLM support needed
 - Cloud-based or local (Ollama) LLM processing
 - Cost optimization by switching between providers
 - Flexible entity extraction without predefined templates
 - Schema-based or schema-free extraction needed
 
-**Use Docling Mode When:**
+**Use Docling Provider When:**
 - Extracting structured data from standardized forms
 - Processing documents with known schema
 - Fast, deterministic extraction required
 - Template-driven workflows
 
-**Use WatsonX Mode When:**
+**Use WatsonX Provider When:**
 - Enterprise LLM deployments with IBM WatsonX.ai
 - Regulated industries requiring private cloud LLM
 - Integration with existing IBM Cloud infrastructure
@@ -1022,8 +1023,8 @@ curl http://localhost:5001/health
    - Consider chunking very large documents before extraction
 
 3. **Parallel Processing:**
-   - Use `use_processes=true` for CPU-intensive tasks
-   - Use `use_processes=false` (default) for I/O-bound tasks
+   - Set top-level `use_processes: true` for CPU-intensive tasks
+   - Use `use_processes: false` (default) for I/O-bound tasks
 
 ## Execution Metadata
 
@@ -1036,14 +1037,16 @@ These metrics are available through the operator's metadata and can be used for 
 
 ## Sample Flows
 
-Complete sample flows are available in [`tests/sample_test_flows/extract/`](../../../../tests/sample_test_flows/extract/):
+Complete sample flows are available in [`tests/sample_test_flows/extract/`](../../../../../tests/sample_test_flows/extract/) and [`tests/sample_test_flows/audio_video/`](../../../../../tests/sample_test_flows/audio_video/):
 
-- [`flow_extract_basic.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic.json) - Basic text extraction
-- [`flow_extract_vlm.json`](../../../../tests/sample_test_flows/extract/flow_extract_vlm.json) - VLM text extraction
-- [`flow_extract_docling_serve.json`](../../../../tests/sample_test_flows/extract/flow_extract_docling_serve.json) - Docling Serve text extraction
-- [`flow_extract_text_and_entities_ollama.json`](../../../../tests/sample_test_flows/extract/flow_extract_text_and_entities_ollama.json) - Text + Ollama entity extraction
-- [`flow_extract_template.json`](../../../../tests/sample_test_flows/extract/flow_extract_template.json) - Template-based entity extraction
-- [`flow_extract_vlm_and_entities_ollama.json`](../../../../tests/sample_test_flows/extract/flow_extract_vlm_and_entities_ollama.json) - VLM + Ollama entity extraction
+- [`flow_extract_basic_none.json`](../../../../../tests/sample_test_flows/extract/flow_extract_basic_none.json) - Basic text extraction without entity extraction
+- [`flow_extract_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete.json) - Complete extraction with VLM and entity extraction
+- [`flow_extract_complete_docling_serve.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete_docling_serve.json) - Docling Serve text extraction
+- [`flow_extract_litellm_with_schema.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_with_schema.json) - LiteLLM entity extraction with custom schema
+- [`flow_extract_litellm_schema_free.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_schema_free.json) - LiteLLM entity extraction without schema
+- [`flow_extract_watsonx_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_watsonx_complete.json) - WatsonX entity extraction
+- [`flow_extract_docling_custom_model.json`](../../../../../tests/sample_test_flows/extract/flow_extract_docling_custom_model.json) - Docling with custom VLM model
+- [`flow_audio_video_extraction.json`](../../../../../tests/sample_test_flows/audio_video/flow_audio_video_extraction.json) - Audio and video extraction sample flow
 
 ## Troubleshooting
 
@@ -1052,12 +1055,12 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 **Issue: "Failed to initialize text extraction adapter"**
 - Verify the `text_extraction.provider` value is valid: `"docling_library"` or `"docling_serve"`
 - For VLM pipeline (when `vlm_pipeline` is configured), ensure required model files are available
-- For Docling Serve mode, verify the service is running and accessible
+- For Docling Serve provider, verify the service is running and accessible
 
 **Issue: "Failed to initialize entity extraction adapter"**
 - Verify the `entity_extraction.provider` value is valid: `"litellm"`, `"docling"`, `"watsonx"`, or `"none"`
-- For LiteLLM mode with Ollama, ensure Ollama server is running and the model is pulled, and use `openai/` model prefix
-- For WatsonX mode, ensure environment variables `WATSONX_API_KEY` and `WATSONX_CONTAINER_ID` are set
+- For LiteLLM provider with Ollama, ensure Ollama server is running and the model is pulled, and use `openai/` model prefix
+- For WatsonX provider, ensure environment variables `WATSONX_API_KEY` and `WATSONX_CONTAINER_ID` are set
 - Check that required parameters (model_name, etc.) are provided
 
 **Issue: "Ollama connection refused"**
@@ -1115,11 +1118,11 @@ ExtractOperator (Orchestrator)
 ┌─────────────────────────────────────────────────────────────┐
 │ Adapter Layer (Implementations)                              │
 │  Text Extraction:                                            │
-│   - DoclingAdapter (docling_library mode, optional VLM/ASR)  │
-│   - DoclingServeAdapter (docling_serve mode)                 │
+│   - DoclingAdapter (docling_library provider, optional VLM/ASR)  │
+│   - DoclingServeAdapter (docling_serve provider)                 │
 │  Entity Extraction:                                          │
-│   - LLMEntityAdapter (litellm and watsonx modes - unified)   │
-│   - DoclingEntityAdapter (docling mode)                      │
+│   - LLMEntityAdapter (litellm and watsonx providers - unified)   │
+│   - DoclingEntityAdapter (docling provider)                      │
 └─────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -1145,7 +1148,7 @@ ExtractOperator (Orchestrator)
 ### Execution Flow
 
 1. **Initialization:**
-   - Parse extraction modes from configuration
+   - Parse extraction providers from configuration
    - Create text extraction adapter via `TextExtractionAdapterFactory`
    - Create entity extraction adapter via `EntityExtractionAdapterFactory` (if enabled)
    - Initialize `EntityExtractionService` with the entity adapter
@@ -1171,4 +1174,4 @@ ExtractOperator (Orchestrator)
 
 - [Docling Documentation](https://github.com/DS4SD/docling)
 - [Ollama Documentation](https://ollama.com/docs)
-- [Sample Flows](../../../../tests/sample_test_flows/extract/)
+- [Sample Flows](../../../../../tests/sample_test_flows/extract/)

@@ -5,8 +5,8 @@ This directory contains integration tests for the unified `ExtractOperator` that
 ## Overview
 
 The ExtractOperator supports two types of extraction:
-- **Text Extraction**: Converting documents to markdown (docling_library or docling_serve modes)
-- **Entity Extraction**: Extracting structured data from text (ollama, docling, or litellm modes)
+- **Text Extraction**: Converting documents to markdown (docling_library or docling_serve providers)
+- **Entity Extraction**: Extracting structured data from text (litellm, watsonx, or docling providers)
 
 These integration tests verify the operator works with real extraction scenarios, including actual document processing and parallel execution.
 
@@ -20,13 +20,13 @@ The operator follows hexagonal architecture (ports and adapters pattern) with cl
 - **Adapter Layer**: Concrete implementations for different extraction strategies
   - Text: `DoclingAdapter` (docling_library), `DoclingServeAdapter` (docling_serve)
   - Entity: `LLMEntityAdapter` (unified for litellm/watsonx), `DoclingEntityAdapter` (docling)
-- **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` create adapters based on mode
+- **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` create adapters based on providers
 - **Operator**: Thin wrapper handling configuration and delegation
 
 **Key Benefits:**
 - Easy addition of new extraction strategies by implementing ports
 - Clear separation between business logic, interfaces, and implementations
-- Unified LLM support: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter`
+- Unified LLM support: Both `litellm` and `watsonx` providers use the same `LLMEntityAdapter`
 
 ## Test Coverage
 
@@ -51,11 +51,11 @@ The integration test suite (`test_extract_operator_integration.py`) covers:
 
 ### For Text Extraction Tests
 
-**Docling Library Mode (Default):**
+**Docling Library Provider (Default):**
 - No external dependencies required
 - Docling library installed via project dependencies
 
-**Docling Serve Mode:**
+**Docling Serve Provider:**
 - Docling Serve running on `http://localhost:5001`
 
 ```bash
@@ -68,12 +68,13 @@ curl http://localhost:5001/health
 
 ### For Entity Extraction Tests
 
-**LiteLLM Mode (including Ollama):**
+**LiteLLM Provider (including Ollama):**
 - For Ollama via LiteLLM: Ollama server running on `http://localhost:11434`
 - For other providers: API keys configured in `entity_extraction.provider_config`
+- **Note:** Ollama is accessed through LiteLLM using the `openai/` prefix (e.g., `openai/llama3.2`)
 
 ```bash
-# For Ollama setup
+# For Ollama setup (accessed via LiteLLM)
 # Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
@@ -84,11 +85,11 @@ ollama pull llama3.2
 curl http://localhost:11434/api/tags
 ```
 
-**Docling Mode:**
+**Docling Provider:**
 - No external dependencies required
 - Uses Docling's template-based extraction
 
-**WatsonX Mode:**
+**WatsonX Provider:**
 - WatsonX API credentials configured
 - Environment variables: `WATSONX_API_KEY`, `WATSONX_CONTAINER_ID`
 
@@ -165,9 +166,9 @@ Many tests are skipped by default because they require external dependencies:
 
 To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.skip` decorator.
 
-## Extraction Modes
+## Extraction Providers
 
-### Text Extraction Modes
+### Text Extraction Providers
 
 **1. Docling Library (Default)**
 ```json
@@ -226,7 +227,7 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 }
 ```
 
-### Entity Extraction Modes
+### Entity Extraction Providers
 
 **1. None (Default)**
 ```json
@@ -303,7 +304,7 @@ Most integration tests are skipped by default. To run them:
    # For Docling Serve tests
    docker run -p 5001:5001 ds4sd/docling-serve:latest
    
-   # For Ollama tests
+   # For Ollama tests (accessed via LiteLLM)
    ollama serve
    ollama pull llama3.2
    ```
@@ -324,7 +325,7 @@ lsof -i :5001
 docker restart <container-id>
 ```
 
-**Ollama Connection Issues:**
+**Ollama Connection Issues (accessed via LiteLLM):**
 ```bash
 # Verify Ollama is running
 curl http://localhost:11434/api/tags
@@ -368,7 +369,7 @@ Actual times depend on:
 
 ## Related Documentation
 
-- [ExtractOperator README](../../../../README.md) - Complete operator documentation
+- [ExtractOperator README](../../../../src/datasift/core/operators/extract/README.md) - Complete operator documentation
 - [ExtractOperator Source](../../../../src/datasift/core/operators/extract/extract_operator.py) - Operator implementation
 - [Sample Flows](../../sample_test_flows/extract/) - Example flow configurations
 - [Docling Documentation](https://github.com/DS4SD/docling) - Docling library docs

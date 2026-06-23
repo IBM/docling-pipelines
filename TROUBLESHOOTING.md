@@ -543,7 +543,7 @@ TimeoutError: Request to WatsonX timed out after 120 seconds
     "provider_config": {
       "api_key": "${WATSONX_API_KEY}",
       "container_id": "${WATSONX_CONTAINER_ID}",
-      "request_timeout": 300
+      "timeout": 300
     }
   }
 }

@@ -33,7 +33,7 @@
           "api_key": "${WATSONX_API_KEY}",
           "container_kind": "project",
           "container_id": "${WATSONX_CONTAINER_ID}",
-          "request_timeout": 120
+          "timeout": 120
         },
         "document_types": {
           "invoice": "Business invoice with line items and totals",

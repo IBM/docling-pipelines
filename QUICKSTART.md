@@ -197,7 +197,7 @@ Your document went through this pipeline:
 **Each operator did:**
 
 1. **IngestLocalFolder**: Read `hello.txt` from disk
-2. **ExtractOperator**: Extracted structured content using docling_library mode
+2. **ExtractOperator**: Extracted structured content using docling_library provider
 3. **Chunker**: Split into simple chunks (~512 chars each)
 4. **EmbeddingsOperator**: Generated vector embeddings using Ollama
 5. **VectorDBOperator**: Stored in OpenSearch for similarity search

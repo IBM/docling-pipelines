@@ -154,16 +154,16 @@ Reads files from a local directory:
 
 The `extract_operator` handles both text extraction and entity extraction.
 
-**Supported text extraction modes:**
+**Supported text extraction providers:**
 
 - `docling_library`
 - `docling_serve`
 
-**Supported entity extraction modes:**
+**Supported entity extraction providers:**
 
-- `ollama`
 - `docling`
 - `litellm`
+- `watsonx`
 - `none`
 
 #### Basic Text Extraction (DEFAULT)
@@ -189,7 +189,7 @@ The `extract_operator` handles both text extraction and entity extraction.
 
 For structured data extraction with predefined schemas, use `entity_extraction.provider: "docling"`
 
-**Important:** When using any entity extraction mode (not `none`), you must provide either:
+**Important:** When using any entity extraction provider (not `none`), you must provide either:
 - A `custom_schema` in the operator configuration (as shown below), OR
 - A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
 

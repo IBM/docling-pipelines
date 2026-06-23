@@ -4,13 +4,13 @@ Extract Operator
 
 A unified extraction operator that uses hexagonal architecture to support multiple
 extraction strategies through a single interface. This operator delegates extraction
-logic to specialized adapters based on the configured extraction modes.
+logic to specialized adapters based on the configured extraction providers.
 
-Supported Text Extraction Modes:
+Supported Text Extraction Providers:
     - docling_library: Local Docling extraction with tables, images, and optional VLM support
     - docling_serve: Remote extraction via Docling Serve API
 
-Supported Entity Extraction Modes:
+Supported Entity Extraction Providers:
     - litellm: Multi-provider LLM extraction using LiteLLM (supports Ollama via OpenAI-compatible API)
     - watsonx: LLM-based entity extraction using IBM watsonx
     - docling: Template-based entity extraction using Docling templates
@@ -21,7 +21,7 @@ Architecture:
     - Operator (this file): Thin wrapper that handles configuration and delegation
     - Port (TextExtractionPort): Defines the extraction interface
     - Adapters: Implement specific extraction strategies
-    - Factory: Creates appropriate adapter based on mode
+    - Factory: Creates appropriate adapter based on provider
 
 Example Usage:
     # Standard text extraction only
@@ -162,7 +162,7 @@ class ExtractOperator(AbstractOperator):
     def __init__(self, *, config: dict[str, Any]):
         """Initialize the unified extract operator.
 
-        Parses the extraction mode, builds adapter-specific configuration,
+        Parses the extraction provider, builds adapter-specific configuration,
         and creates the appropriate adapter using the factory.
 
         Args:
@@ -170,9 +170,9 @@ class ExtractOperator(AbstractOperator):
                 - text_extraction: Nested object containing:
                     - provider: Text provider ("docling_library", "docling_serve")
                     - provider_config: Provider-specific configuration
+                        - additional_formats: List of additional output formats
+                          Options: 'html', 'json', 'text', 'doctags', 'doclang'
                     - doc_column: Column name for extracted content
-                    - additional_formats: List of additional output formats
-                      Options: 'html', 'json', 'text', 'doctags', 'doclang'
                 - entity_extraction: Optional nested object containing:
                     - provider: Entity provider ("litellm", "watsonx", "docling")
                     - provider_config: Provider-specific configuration (model_id, api_base, etc.)
@@ -195,7 +195,7 @@ class ExtractOperator(AbstractOperator):
                 f"Missing required '{OperatorConstants.Config.TEXT_EXTRACTION}' configuration object"
             )
 
-        # Parse text extraction mode
+        # Parse text extraction provider
         text_mode_str = self.text_extraction_config.get(
             OperatorConstants.Config.PROVIDER,
             OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
@@ -301,7 +301,7 @@ class ExtractOperator(AbstractOperator):
                 )
                 if self.entity_adapter:
                     logger.info(
-                        "Created %s adapter for entity extraction mode: %s",
+                        "Created %s adapter for entity extraction provider: %s",
                         self.entity_adapter.ADAPTER_DISPLAY_NAME,
                         self.entity_extraction_mode.value,
                     )
@@ -566,7 +566,7 @@ class ExtractOperator(AbstractOperator):
         return result_tables
 
     def _get_supported_extensions(self) -> set[str]:
-        """Get supported file extensions based on extraction mode and available dependencies.
+        """Get supported file extensions based on extraction provider and available dependencies.
 
         Returns:
             Set of supported file extensions (e.g., {'.pdf', '.docx', '.txt'})
@@ -644,7 +644,7 @@ class ExtractOperator(AbstractOperator):
 
         Content Reuse:
         If document_classifier pre-fetched content and stored it in '_temp_content_for_extract',
-        this operator will reuse it for docling_library text extraction mode, skipping re-extraction.
+        this operator will reuse it for docling_library text extraction provider, skipping re-extraction.
 
         Args:
             table: PyArrow table with document information containing columns:
@@ -697,7 +697,7 @@ class ExtractOperator(AbstractOperator):
         content_reused = False
 
         if DatasiftConstants.TEMP_CONTENT_COLUMN in table.column_names:
-            # Reuse prefetched content only when using docling_library mode with no provider_config
+            # Reuse prefetched content only when using docling_library provider with no provider_config
             provider_config = self.text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
             can_reuse_prefetched_content = (
                 self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY and not provider_config
@@ -980,7 +980,7 @@ class ExtractOperator(AbstractOperator):
                             OperatorConstants.Config.PROPERTIES: {
                                 OperatorConstants.Config.VLM_PIPELINE: {
                                     OperatorConstants.Misc.NAME: "VLM Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Vision-Language Model pipeline configuration for enhanced extraction (docling_library mode only). Provide empty dict {} to enable with defaults, or omit to disable.",
+                                    OperatorConstants.Config.DESCRIPTION: "Vision-Language Model pipeline configuration for enhanced extraction (docling_library provider only). Provide empty dict {} to enable with defaults, or omit to disable.",
                                     OperatorConstants.Config.REQUIRED: False,
                                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                                     OperatorConstants.Config.PROPERTIES: {
@@ -1009,7 +1009,7 @@ class ExtractOperator(AbstractOperator):
                                 },
                                 OperatorConstants.Config.ASR_PIPELINE: {
                                     OperatorConstants.Misc.NAME: "ASR Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Automatic Speech Recognition pipeline configuration for audio/video extraction (docling_library mode only). Provide empty dict {} to enable with defaults, or omit to disable.",
+                                    OperatorConstants.Config.DESCRIPTION: "Automatic Speech Recognition pipeline configuration for audio/video extraction (docling_library provider only). Provide empty dict {} to enable with defaults, or omit to disable.",
                                     OperatorConstants.Config.REQUIRED: False,
                                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                                     OperatorConstants.Config.PROPERTIES: {

@@ -97,9 +97,9 @@ This document centralizes the public APIs that are visible to pipeline authors, 
 
 This reference is organized around four entry points:
 
-- **Operators**: flow node implementations under [`src/datasift/core/operators`](src/datasift/core/operators)
-- **Programmatic execution**: [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:24)
-- **CLI execution**: [`datasift-orchestrator`](src/datasift/cli/datasift_cli.py:147)
+- **Operators**: flow node implementations under [`src/datasift/core/operators`](../../src/datasift/core/operators)
+- **Programmatic execution**: [`DatasiftFlowManager`](../../src/datasift/lib/datasift_flow_manager.py#L24)
+- **CLI execution**: [`datasift-orchestrator`](../../src/datasift/cli/datasift_cli.py#L147)
 - **Flow JSON definitions**: DAG configuration consumed by the orchestrator
 
 ### How to use this reference
@@ -107,7 +107,7 @@ This reference is organized around four entry points:
 - Use the operator sections when authoring flow JSON.
 - Use the flow manager section when embedding datasift in Python code.
 - Use the CLI section when running or validating flows from the shell.
-- For classification-specific architecture details, see [`docs/operators/document_classifier.md`](docs/operators/document_classifier.md), which documents the simplified service-based architecture used by [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26).
+- For classification-specific architecture details, see [`docs/operators/document_classifier.md`](../operators/document_classifier.md), which documents the simplified service-based architecture used by [`DocumentClassifierOperator`](../../src/datasift/core/operators/quality/document_classifier.py#L26).
 
 ---
 ### File Extension Constants
@@ -141,14 +141,14 @@ Datasift uses centralized file extension constants defined in [`OperatorConstant
 
 ### Common Operator Contract
 
-All operators ultimately inherit from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:28).
+All operators ultimately inherit from [`AbstractOperator`](../../src/datasift/core/operators/abstract_operator.py#L28).
 
 **Shared behavior**
 
 - Operators receive a `config` dictionary during initialization.
-- Operators expose metadata through the static method [`get_metadata()`](src/datasift/core/operators/abstract_operator.py:59), which can be called on the class without instantiation (e.g., `OperatorClass.get_metadata()`).
-- Input column requirements are expressed with [`get_required_features()`](src/datasift/core/operators/abstract_operator.py:55).
-- Validation hooks are implemented via [`validate()`](src/datasift/core/operators/abstract_operator.py:51).
+- Operators expose metadata through the static method [`get_metadata()`](../../src/datasift/core/operators/abstract_operator.py#L59), which can be called on the class without instantiation (e.g., `OperatorClass.get_metadata()`).
+- Input column requirements are expressed with [`get_required_features()`](../../src/datasift/core/operators/abstract_operator.py#L55).
+- Validation hooks are implemented via [`validate()`](../../src/datasift/core/operators/abstract_operator.py#L51).
 - Runtime work is usually performed by `transform()` or `runner()` methods depending on the operator.
 
 **Common input shape**
@@ -211,7 +211,7 @@ owner: str = "custom"  # MUST be explicitly set as shown above
 
 - Custom operators with `owner="custom"` receive **priority 1** (highest)
 - Datasift operators with `owner="datasift"` receive **priority 2**
-- Operators without an explicit `owner` attribute inherit `owner=None` from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:32), which are treated as custom operators
+- Operators without an explicit `owner` attribute inherit `owner=None` from [`AbstractOperator`](../../src/datasift/core/operators/abstract_operator.py#L32), which are treated as custom operators
 - During operator loading, the factory validates that custom operators (not in DATASIFT_OPERATORS frozenset) have `owner="custom"` and **rejects** those with `owner="datasift"`
 - **All built-in datasift operators must explicitly set** `owner = DatasiftConstants.OWNER_DATASIFT`
 - The `owner` attribute is included in operator metadata and can be queried via `OperatorMetadata.get_operator_metadata()`
@@ -223,7 +223,7 @@ If both a datasift operator and custom operator have `short_name="chunker"`:
 - Custom operator with `owner="custom"` → **Selected** (priority 1, highest)
 - Datasift operator with `owner="datasift"` → Overridden (priority 2)
 
-See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) for implementation details.
+See [`OperatorFactory`](../../src/datasift/core/orchestration/operator_factory.py#L97) for implementation details.
 
 ### Ingest Operators
 
@@ -406,7 +406,7 @@ The operator validates file extensions against supported formats from [`Operator
   "provider_config": {
     "model_id": "openai/gpt-4o-mini",
     "api_key": "${OPENAI_API_KEY}",
-    "request_timeout": 120
+    "timeout": 120
   }
 }
 ```
@@ -432,7 +432,7 @@ Supported LiteLLM providers:
     "api_key": "${WATSONX_API_KEY}",
     "container_kind": "project",
     "container_id": "${WATSONX_CONTAINER_ID}",
-    "request_timeout": 120
+    "timeout": 120
   }
 }
 ```
@@ -560,8 +560,8 @@ This simplified design removes the port/adapter overhead while maintaining clean
 
 **Related Documentation**
 
-- [Classification Operator Guide](docs/operators/document_classifier.md)
-- [Extract Operator](docs/operators/extract_operator.md)
+- [Classification Operator Guide](../operators/document_classifier/document_classifier_config.md)
+- [Extract Operator](../operators/extract/extract_operator_config.md)
 
 ---
 
@@ -575,41 +575,44 @@ This simplified design removes the port/adapter overhead while maintaining clean
 
 **Class:** `core.operators.extract.extract_operator.ExtractOperator`
 
-| Parameter                                                 | Type   | Required | Default                   | Description                                                                                        |
-|-----------------------------------------------------------|--------|---------:|---------------------------|----------------------------------------------------------------------------------------------------|
-| `text_extraction`                                         | object |       No | `{}`                      | Text extraction configuration (see below)                                                          |
-| `text_extraction.provider`                                | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
-| `text_extraction.doc_column`                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
-| `text_extraction.additional_formats`                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`, `doclang`            |
-| `text_extraction.provider_config.vlm_pipeline`            | object |       No | `null`                    | VLM (Vision-Language Model) pipeline configuration (docling_library mode). When present, VLM processing is enabled. |
-| `text_extraction.provider_config.vlm_pipeline.preset`     | string |       No | `granite_docling`         | VLM preset name. Valid presets: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`, `nanonets_ocr2`, `gemma_12b`, `gemma_27b`, `dolphin`, `glm_ocr`, `lightonocr`, `falcon_ocr` |
-| `text_extraction.provider_config.vlm_pipeline.engine`     | string |       No | `api_ollama`              | VLM engine type. Valid engines: `api_ollama`, `api_openai`, `api_watsonx`, `api_lmstudio`, `api` (generic), `transformers` (local), `mlx` (macOS) |
-| `text_extraction.provider_config.vlm_pipeline.engine_options` | object |       No | `{}`                      | Engine-specific options (api_base, model_id, etc.)                                                 |
-| `text_extraction.provider_config.asr_pipeline`            | object |       No | `null`                    | ASR (Automatic Speech Recognition) pipeline configuration (docling_library mode). When present, ASR processing is enabled. |
-| `text_extraction.provider_config.asr_pipeline.model_id` | string |       No | `whisper_turbo`           | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
-| `text_extraction.provider_config`                         | object |       No | `{}`                      | Provider-specific configuration (docling_serve mode)                                               |
-| `text_extraction.provider_config.base_url`                | string |       No | `http://localhost:5001`   | Docling Serve API endpoint (docling_serve mode)                                                    |
-| `text_extraction.provider_config.api_key`                 | string |       No | `null`                    | Optional API key for authentication (docling_serve mode)                                           |
-| `text_extraction.provider_config.timeout`                 | int    |       No | `300`                     | Request timeout in seconds (docling_serve mode)                                                    |
-| `text_extraction.provider_config.do_ocr`                  | bool   |       No | `true`                    | Enable OCR processing (docling_serve mode)                                                         |
-| `text_extraction.provider_config.ocr_engine`              | string |       No | `easyocr`                 | OCR engine: `easyocr` or `tesseract` (docling_serve mode)                                          |
-| `text_extraction.provider_config.pdf_backend`             | string |       No | `dlparse_v2`              | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2` (docling_serve mode)                          |
-| `entity_extraction`                                       | object |       No | `{}`                      | Entity extraction configuration (see below)                                                        |
-| `entity_extraction.provider`                              | string |       No | `none`                    | Entity extraction mode: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction mode (not `none`), either `custom_schema` must be provided OR a `document_type` column must be present from an upstream classification operator. |
-| `entity_extraction.output_column`                         | string |       No | `entities`                | Column name for storing extracted entities                                                         |
-| `entity_extraction.expand_extracted_data`                 | bool   |       No | `false`                   | Expand entity JSON into individual columns                                                         |
-| `entity_extraction.custom_schema`                         | object |       No | `{}`                      | Schema dictionary for structured extraction. **Required** when using entity extraction modes (`litellm`, `watsonx`, `docling`) unless a `document_type` column is present. |
-| `entity_extraction.provider_config`                       | object |       No | `{}`                      | Provider-specific configuration including `model_id` (see below)                                   |
-| `entity_extraction.provider_config.model_id`              | string | Conditional | varies by provider    | LLM model identifier (required for litellm/watsonx modes). **Must include provider prefix when using LiteLLM** (e.g., `openai/gpt-4`, `openai/llama3.2` for Ollama, `anthropic/claude-3-opus`) |
-| `entity_extraction.provider_config.temperature`           | float  |       No | `0.0`                     | Sampling temperature                                                                               |
-| `entity_extraction.provider_config.max_tokens`            | int    |       No | `2000`                    | Maximum response tokens                                                                            |
-| `entity_extraction.provider_config.api_key`               | string | Conditional | -                     | Provider API key (required for most providers)                                                     |
-| `entity_extraction.provider_config.api_base`              | string |       No | -                         | API endpoint URL (e.g., `http://localhost:11434/v1` for Ollama)                                    |
-| `entity_extraction.provider_config.container_id`          | string | Conditional | -                     | WatsonX container ID (required for watsonx mode)                                                   |
-| `entity_extraction.provider_config.container_kind`        | string |       No | `project`                 | WatsonX container kind (watsonx mode)                                                              |
-| `entity_extraction.provider_config.vlm_pipeline`          | object |       No | `{}`                      | Custom VLM model configuration for Docling entity extraction (docling mode only)                   |
-| `max_workers`                                             | int    |       No | auto                      | Maximum parallel workers (auto-detected based on CPU)                                              |
-| `use_processes`                                           | bool   |       No | `false`                   | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                      |
+| Parameter                                                     | Type   |    Required | Default                 | Supported Providers             | Description                                                                                        |
+|---------------------------------------------------------------|--------|------------:|-------------------------|---------------------------------|----------------------------------------------------------------------------------------------------|
+| `text_extraction`                                             | object |          No | `{}`                    | All                             | Text extraction configuration (see below)                                                          |
+| `text_extraction.provider`                                    | string |          No | `docling_library`       | All                             | Text extraction provider: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
+| `text_extraction.doc_column`                                  | string |          No | `content`               | All                             | Column name for storing extracted text content                                                     |
+| `text_extraction.provider_config.additional_formats`          | array  |          No | `[]`                    | All                             | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`, `doclang`            |
+| `text_extraction.provider_config.vlm_pipeline`                | object |          No | `null`                  | `docling_library`               | VLM (Vision-Language Model) pipeline configuration. When present, VLM processing is enabled. |
+| `text_extraction.provider_config.vlm_pipeline.preset`         | string |          No | `granite_docling`       | `docling_library`               | VLM preset name. Valid presets: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`, `nanonets_ocr2`, `gemma_12b`, `gemma_27b`, `dolphin`, `glm_ocr`, `lightonocr`, `falcon_ocr` |
+| `text_extraction.provider_config.vlm_pipeline.engine`         | string |          No | `api_ollama`            | `docling_library`               | VLM engine type. Valid engines: `api_ollama`, `api_openai`, `api_watsonx`, `api_lmstudio`, `api` (generic), `transformers` (local), `mlx` (macOS) |
+| `text_extraction.provider_config.vlm_pipeline.engine_options` | object |          No | `{}`                    | `docling_library`               | Engine-specific options (api_base, model_id, etc.)                                                 |
+| `text_extraction.provider_config.asr_pipeline`                | object |          No | `null`                  | `docling_library`               | ASR (Automatic Speech Recognition) pipeline configuration. When present, ASR processing is enabled. |
+| `text_extraction.provider_config.asr_pipeline.model_id`       | string |          No | `whisper_turbo`         | `docling_library`               | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
+| `text_extraction.provider_config`                             | object |          No | `{}`                    | All                             | Provider-specific configuration                                               |
+| `text_extraction.provider_config.base_url`                    | string |          No | `http://localhost:5001` | `docling_serve`                 | Docling Serve API endpoint                                                    |
+| `text_extraction.provider_config.api_key`                     | string |          No | `null`                  | `docling_serve`                 | Optional API key for authentication                                           |
+| `text_extraction.provider_config.timeout`                     | int    |          No | `300`                   | `docling_serve`                 | Request timeout in seconds                                                    |
+| `text_extraction.provider_config.do_ocr`                      | bool   |          No | `true`                  | `docling_serve`                 | Enable OCR processing                                                         |
+| `text_extraction.provider_config.ocr_engine`                  | string |          No | `easyocr`               | `docling_serve`                 | OCR engine: `easyocr` or `tesseract`                                          |
+| `text_extraction.provider_config.pdf_backend`                 | string |          No | `dlparse_v2`            | `docling_serve`                 | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                          |
+| `entity_extraction`                                           | object |          No | `{}`                    | All                             | Entity extraction configuration (see below)                                                        |
+| `entity_extraction.provider`                                  | string |          No | `none`                  | All                             | Entity extraction provider: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction provider (not `none`), either `custom_schema` must be provided OR a `document_type` column must be present from an upstream classification operator. |
+| `entity_extraction.output_column`                             | string |          No | `entities`              | All                             | Column name for storing extracted entities                                                         |
+| `entity_extraction.max_doc_chars`                             | int    |          No | `8000`                  | All                             | Maximum document characters to process for entity extraction                                       |
+| `entity_extraction.expand_extracted_data`                     | bool   |          No | `false`                 | All                             | Expand entity JSON into individual columns                                                         |
+| `entity_extraction.custom_schema`                             | object |          No | `{}`                    | `litellm`, `watsonx`, `docling` | Schema dictionary for structured extraction. **Required** when using entity extraction providers unless a `document_type` column is present. |
+| `entity_extraction.provider_config`                           | object |          No | `{}`                    | `litellm`, `watsonx`, `docling` | Provider-specific configuration including `model_id` (see below)                                   |
+| `entity_extraction.provider_config.model_id`                  | string | Conditional | varies by provider      | `litellm`, `watsonx`            | LLM model identifier (required for litellm/watsonx providers). **Must include provider prefix when using LiteLLM** (e.g., `openai/gpt-4`, `openai/llama3.2` for Ollama, `anthropic/claude-3-opus`) |
+| `entity_extraction.provider_config.temperature`               | float  |          No | `0.0`                   | `litellm`, `watsonx`            | Sampling temperature                                                                               |
+| `entity_extraction.provider_config.max_tokens`                | int    |          No | `2000`                  | `litellm`, `watsonx`            | Maximum response tokens                                                                            |
+| `entity_extraction.provider_config.api_key`                   | string | Conditional | -                       | `litellm`, `watsonx`            | Provider API key (required for most providers)                                                     |
+| `entity_extraction.provider_config.api_base`                  | string |          No | -                       | `litellm`, `watsonx`            | API endpoint URL (e.g., `http://localhost:11434/v1` for Ollama)                                    |
+| `entity_extraction.provider_config.container_id`              | string | Conditional | -                       | `watsonx`                       | WatsonX container ID (required for watsonx provider)                                                   |
+| `entity_extraction.provider_config.container_kind`            | string |          No | `project`               | `watsonx`                       | WatsonX container kind                                                              |
+| `entity_extraction.provider_config.stream`                    | bool   |          No | `false`                 | `litellm`                       | Enable HTTP chunked transfer encoding for streaming responses. Recommended for remote vLLM clusters processing large documents to prevent connection drops. |
+| `entity_extraction.provider_config.timeout`                   | int    |          No | `600`                   | `litellm`, `watsonx`            | HTTP client read timeout in seconds. Set to 1800 (30 minutes) for large documents requiring extended generation time. |
+| `entity_extraction.provider_config.vlm_pipeline`              | object |          No | `{}`                    | `docling`                       | Custom VLM model configuration for Docling entity extraction                   |
+| `max_workers`                                                 | int    |          No | auto                    | All                             | Maximum parallel workers (auto-detected based on CPU)                                              |
+| `use_processes`                                               | bool   |          No | `false`                 | All                             | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                      |
 
 **Input Schema**
 
@@ -627,7 +630,7 @@ This simplified design removes the port/adapter overhead while maintaining clean
 - `content_doclang` - DocLang format (if `additional_formats` includes "doclang")
 - `entities` (or configured `output_column`) - Extracted entities as JSON string (if entity extraction enabled)
 - `doc_id_hash` - Document hash identifier
-- `pages_processed` - Estimated number of pages for the extracted document text, calculated using 3000 characters = 1 page
+- `pages_processed` - Number of pages in the document. Obtained from Docling extraction metadata when available; otherwise estimated using 3000 characters = 1 page
 - Individual entity columns (if `expand_extracted_data=true`)
 
 **Execution Metadata**
@@ -639,7 +642,7 @@ The operator provides the following metadata after execution:
 
 **Exceptions**
 
-- [`FlowExecutionFailedException`](src/datasift/exceptions/datasift_exceptions.py)
+- [`FlowExecutionFailedException`](../../src/datasift/exceptions/datasift_exceptions.py)
 - `ValueError` for invalid configuration
 - Provider-specific exceptions (Ollama, LiteLLM, Docling)
 
@@ -928,43 +931,43 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 - **Adapter Layer**: Concrete implementations for different extraction strategies
   - Text: `DoclingAdapter` (docling_library), `DoclingServeAdapter` (docling_serve)
   - Entity: `LLMEntityAdapter` (unified for litellm/watsonx), `DoclingEntityAdapter` (docling)
-- **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` create adapters based on mode
+- **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` create adapters based on provider
 
 **Key Benefits:**
 - Easy addition of new extraction strategies by implementing ports
 - Clear separation between business logic, interfaces, and implementations
-- Independent text and entity extraction mode selection
-- Unified LLM support: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter`
+- Independent text and entity extraction provider selection
+- Unified LLM support: Both `litellm` and `watsonx` providers use the same `LLMEntityAdapter`
 - Parallel processing with auto-optimized worker counts
 
 **Integration Requirements**
 
-- **Ollama** (for litellm entity mode with Ollama): Server at `http://localhost:11434`, model pulled (e.g., `ollama pull llama3.2`). Access via litellm mode with `openai/` model prefix
-- **Docling Serve** (for docling_serve text mode): Service at configured URL (default `http://localhost:5001`)
-- **LiteLLM** (for litellm entity mode): API keys for chosen provider (OpenAI, Anthropic, etc.)
-- **WatsonX** (for watsonx entity mode): Environment variables `WATSONX_API_KEY`, `WATSONX_CONTAINER_ID`, optional `WATSONX_API_BASE_URL`, `WATSONX_CONTAINER_KIND`
+- **Ollama** (for litellm entity provider with Ollama): Server at `http://localhost:11434`, model pulled (e.g., `ollama pull llama3.2`). Access via litellm provider with `openai/` model prefix
+- **Docling Serve** (for docling_serve text provider): Service at configured URL (default `http://localhost:5001`)
+- **LiteLLM** (for litellm entity provider): API keys for chosen provider (OpenAI, Anthropic, etc.)
+- **WatsonX** (for watsonx entity provider): Environment variables `WATSONX_API_KEY`, `WATSONX_CONTAINER_ID`, optional `WATSONX_API_BASE_URL`, `WATSONX_CONTAINER_KIND`
 - **ffmpeg** (for audio/video processing): Required for M4A, AAC, OGG, FLAC audio formats and all video formats (MP4, AVI, MOV). Not required for WAV/MP3. Install: `brew install ffmpeg` (macOS) or `sudo apt install ffmpeg` (Linux)
 
 **Usage Notes**
 
-- Dual-mode operation: text and entity extraction in single operator
-- Text modes: `docling_library` (local, optional VLM/ASR) or `docling_serve` (remote API with OCR)
-- Entity modes: `litellm` (100+ providers including Ollama via openai/ prefix), `watsonx` (IBM WatsonX.ai), `docling` (template-based), `none` (default)
-- **Entity Extraction Validation**: When using any entity extraction mode (not `none`), you must provide either:
+- Dual-provider operation: text and entity extraction in single operator
+- Text providers: `docling_library` (local, optional VLM/ASR) or `docling_serve` (remote API with OCR)
+- Entity providers: `litellm` (100+ providers including Ollama via openai/ prefix), `watsonx` (IBM WatsonX.ai), `docling` (template-based), `none` (default)
+- **Entity Extraction Validation**: When using any entity extraction provider (not `none`), you must provide either:
   - A `custom_schema` in the operator configuration, OR
   - A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
   - If neither is provided, a `ConfigurationError` will be thrown with message: "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"
 - **VLM Pipeline**: Configure via nested `text_extraction.provider_config.vlm_pipeline` object with `preset`, `engine`, and `engine_options` for enhanced extraction of complex documents
 - **ASR Pipeline**: Configure via nested `text_extraction.provider_config.asr_pipeline` object with `model_id` for audio/video transcription
-- Docling Serve mode supports OCR for scanned documents and multi-language processing
-- **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured
+- Docling Serve provider supports OCR for scanned documents and multi-language processing
+- **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` provider is configured
 - **Extension Detection**: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)
-- **Extension Validation**: Files with unsupported extensions are automatically skipped and logged. Supported extensions vary by mode:
+- **Extension Validation**: Files with unsupported extensions are automatically skipped and logged. Supported extensions vary by provider:
   - `docling_library`: PDF, DOCX, PPTX, XLSX, images, HTML, Markdown, AsciiDoc, TXT, and audio/video (with ASR)
   - `docling_serve`: Same as docling_library except NO audio/video support
   - `docling` entity extraction: PDF, DOCX, PPTX, HTML, images (excludes XLSX, TXT, MD, WEBP)
 - Audio/Video Support: Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats
-- See [ExtractOperator Configuration Guide](docs/operators/extract/extract_operator_config.md) for complete documentation including detailed extension support
+- See [ExtractOperator Configuration Guide](../operators/extract/extract_operator_config.md) for complete documentation including detailed extension support
 
 ---
 
@@ -1068,7 +1071,7 @@ The flat configuration structure is still supported:
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
+- [`DatasiftException`](../../src/datasift/exceptions/datasift_exceptions.py)
 - validation messages
 - Ollama errors for semantic chunking
 - LLM provider errors for summarization (handled gracefully)
@@ -1183,7 +1186,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Exceptions**
 
-- [`ValidationError`](src/datasift/exceptions/datasift_exceptions.py) - Missing required columns
+- [`ValidationError`](../../src/datasift/exceptions/datasift_exceptions.py) - Missing required columns
 - Transformation errors are logged but don't stop processing (graceful degradation)
 
 **Example**
@@ -1205,7 +1208,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 - Should be placed after `ExtractOperator` in the pipeline when entity extraction is enabled
 - Requires document class schemas for transformation (returns empty dict for unknown document types)
 - Output is always in JSON format with nested structure matching schema's target tables
-- See [Entity Curation README](src/datasift/core/operators/functional/entity_curation/README.md) for detailed documentation
+- See [Entity Curation README](../../src/datasift/core/operators/functional/entity_curation/README.md) for detailed documentation
 
 ---
 
@@ -1270,7 +1273,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
+- [`DatasiftException`](../../src/datasift/exceptions/datasift_exceptions.py)
 - provider authentication/network failures
 
 **Example 1: LiteLLM with Ollama (local)**
@@ -1975,7 +1978,7 @@ The VectorDBOperator automatically normalizes and aggregates metadata columns:
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
+- [`DatasiftException`](../../src/datasift/exceptions/datasift_exceptions.py)
 
 **Example Configuration**
 
@@ -2098,9 +2101,9 @@ Common upstream fields from the sample flow:
 
 **Exceptions**
 
-- [`FlowValidationException`](src/datasift/exceptions/datasift_exceptions.py): Invalid operator configuration
-- [`FlowExecutionFailedException`](src/datasift/exceptions/datasift_exceptions.py): Storage execution failed
-- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py): Adapter, validation, or persistence error
+- [`FlowValidationException`](../../src/datasift/exceptions/datasift_exceptions.py): Invalid operator configuration
+- [`FlowExecutionFailedException`](../../src/datasift/exceptions/datasift_exceptions.py): Storage execution failed
+- [`DatasiftException`](../../src/datasift/exceptions/datasift_exceptions.py): Adapter, validation, or persistence error
 
 **Sample Flow Configuration**
 
@@ -2228,7 +2231,7 @@ For new backends, implement the document set ports, register adapters with the f
 
 ## DatasiftFlowManager API
 
-**Class:** [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:24)
+**Class:** [`DatasiftFlowManager`](../../src/datasift/lib/datasift_flow_manager.py#L24)
 
 ### Constructor
 - `DatasiftFlowManager(flow_file=None, flow_def=None, job_id=None, job_run_id=None, flow_id=None, enable_custom_operators=None)`
@@ -2237,7 +2240,7 @@ Exactly one of `flow_file` or `flow_def` must be provided.
 
 ### `validate()`
 
-Defined at [`validate()`](src/datasift/lib/datasift_flow_manager.py:165).
+Defined at [`validate()`](../../src/datasift/lib/datasift_flow_manager.py#L165).
 
 Returns:
 
@@ -2251,27 +2254,27 @@ Returns:
 
 ### `execute()`
 
-Defined at [`execute()`](src/datasift/lib/datasift_flow_manager.py:213).
+Defined at [`execute()`](../../src/datasift/lib/datasift_flow_manager.py#L213).
 
 Returns the result of flow execution from the executor.
 
 ### `get_execution_metadata()`
 
-Defined at [`get_execution_metadata()`](src/datasift/lib/datasift_flow_manager.py:245).
+Defined at [`get_execution_metadata()`](../../src/datasift/lib/datasift_flow_manager.py#L245).
 
 Returns job and flow metadata.
 
 ### `get_execution_logs()`
 
-Defined at [`get_execution_logs()`](src/datasift/lib/datasift_flow_manager.py:272).
+Defined at [`get_execution_logs()`](../../src/datasift/lib/datasift_flow_manager.py#L272).
 
 Returns `list[str]`.
 
 ### `list_operators(verbose=False)`
 
-Defined at [`list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).
+Defined at [`list_operators()`](../../src/datasift/lib/datasift_flow_manager.py#L308).
 
-Returns a formatted operator listing via [`datasift.utils.operators.display.list_operators()`](src/datasift/utils/operators/display.py).
+Returns a formatted operator listing via [`datasift.utils.operators.display.list_operators()`](../../src/datasift/utils/operators/display.py).
 
 **Display Modes:**
 
@@ -2285,14 +2288,14 @@ Operators are sorted by category: Ingest, Extract, Quality, Functional, VectorDB
 
 The current class does **not** expose `execute_flow()` or `validate_flow()` methods. Use:
 
-- [`execute()`](src/datasift/lib/datasift_flow_manager.py:213)
-- [`validate()`](src/datasift/lib/datasift_flow_manager.py:165)
+- [`execute()`](../../src/datasift/lib/datasift_flow_manager.py#L213)
+- [`validate()`](../../src/datasift/lib/datasift_flow_manager.py#L165)
 
 ---
 
 ## CLI API Reference
 
-**Entry point:** [`main()`](src/datasift/cli/datasift_cli.py:147)
+**Entry point:** [`main()`](../../src/datasift/cli/datasift_cli.py#L147)
 
 ### Command forms
 
@@ -2339,7 +2342,7 @@ Datasift uses a simplified authoring format for creating flows. See [`sample_flo
   }
 }
 ```
-[`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:140) also accepts root-level flow definitions without a wrapping `flow` key.
+[`DatasiftFlowManager`](../../src/datasift/lib/datasift_flow_manager.py#L140) also accepts root-level flow definitions without a wrapping `flow` key.
 
 ### Flow fields
 
@@ -2387,7 +2390,7 @@ The system automatically generates the execution DAG from these dependencies.
 
 ### Validation rules
 
-Validation is performed by [`FlowValidator`](src/datasift/lib/datasift_flow_manager.py:20) and CLI validation helpers.
+Validation is performed by [`FlowValidator`](../../src/datasift/lib/datasift_flow_manager.py#L20) and CLI validation helpers.
 
 Practical rules from the reviewed code:
 
@@ -2401,7 +2404,7 @@ Practical rules from the reviewed code:
 
 ## Exception Reference
 
-All custom exception types reviewed here come from [`datasift_exceptions.py`](src/datasift/exceptions/datasift_exceptions.py).
+All custom exception types reviewed here come from [`datasift_exceptions.py`](../../src/datasift/exceptions/datasift_exceptions.py).
 
 ### `DatasiftException`
 
@@ -2487,7 +2490,7 @@ JSON encoder for validation alerts.
 
 ### PyArrow handler utilities
 
-Defined in [`pyarrow_handler.py`](src/datasift/utils/data/pyarrow_handler.py)
+Defined in [`pyarrow_handler.py`](../../src/datasift/utils/data/pyarrow_handler.py)
 
 #### `BaseParquetTableHandler`
 
@@ -2506,51 +2509,51 @@ Concrete local-file implementation.
 
 #### `get_parquet_table_handler()`
 
-Defined at [`get_parquet_table_handler()`](src/datasift/utils/data/pyarrow_handler.py) in datasift utilities
+Defined at [`get_parquet_table_handler()`](../../src/datasift/utils/data/pyarrow_handler.py) in datasift utilities
 
 Returns the default parquet handler implementation.
 
 ### Schema utilities
 
-Defined in [`schema_utils.py`](src/datasift/utils/data/schema_utils.py)
+Defined in [`schema_utils.py`](../../src/datasift/utils/data/schema_utils.py)
 
 #### `align_table_schema(table, all_cols)`
 
-Defined at [`align_table_schema()`](src/datasift/utils/data/schema_utils.py) in schema utilities
+Defined at [`align_table_schema()`](../../src/datasift/utils/data/schema_utils.py) in schema utilities
 
 Adds missing columns with null values and aligns ordering.
 
 #### `_combine_tables(tables, table_type)`
 
-Defined at [`_combine_tables()`](src/datasift/utils/data/schema_utils.py) in schema utilities
+Defined at [`_combine_tables()`](../../src/datasift/utils/data/schema_utils.py) in schema utilities
 
 Safely concatenates tables and warns on duplicate IDs.
 
 #### `_total_rows(tables)`
 
-Defined at [`_total_rows()`](src/datasift/utils/data/schema_utils.py) in schema utilities
+Defined at [`_total_rows()`](../../src/datasift/utils/data/schema_utils.py) in schema utilities
 
 Computes total row counts across a table, list, dict, or `None`.
 
 ### Document class utilities
 
-Defined in [`document_class_utils.py`](src/datasift/utils/document_class_utils.py)
+Defined in [`document_class_utils.py`](../../src/datasift/utils/document_class_utils.py)
 
 #### `DocumentClassUtils.normalize_filename(name)`
 
-Defined at [`normalize_filename()`](src/datasift/utils/document_class_utils.py) in document class utilities
+Defined at [`normalize_filename()`](../../src/datasift/utils/document_class_utils.py) in document class utilities
 
 Normalizes human labels into stable filenames.
 
 #### `DocumentClassUtils.load_document_class(doc_class_path)`
 
-Defined at [`load_document_class()`](src/datasift/utils/document_class_utils.py) in document class utilities
+Defined at [`load_document_class()`](../../src/datasift/utils/document_class_utils.py) in document class utilities
 
 Loads a document class JSON definition.
 
 #### `DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)`
 
-Defined at [`generate_docling_template()`](src/datasift/utils/document_class_utils.py) in document class utilities
+Defined at [`generate_docling_template()`](../../src/datasift/utils/document_class_utils.py) in document class utilities
 
 Builds a Docling extraction template from a document class schema.
 
@@ -2561,13 +2564,13 @@ Builds a Docling extraction template from a document class schema.
 
 ### Operator display utility
 
-Defined in [`display.py`](src/datasift/utils/operators/display.py)
+Defined in [`display.py`](../../src/datasift/utils/operators/display.py)
 
 #### `list_operators(verbose=False)`
 
-Defined at [`list_operators()`](src/datasift/utils/operators/display.py)
+Defined at [`list_operators()`](../../src/datasift/utils/operators/display.py)
 
-Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](src/datasift/lib/datasift_flow_manager.py).
+Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](../../src/datasift/lib/datasift_flow_manager.py).
 
 **Parameters:**
 

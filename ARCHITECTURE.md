@@ -1538,7 +1538,7 @@ graph TB
 1. **Entity Extraction**: Uses Watsonx.ai for LLM-based entity extraction in `ExtractOperator`
 2. **Document Classification**: Uses Watsonx.ai for category classification in `DocumentClassifier`
 3. **Authentication**: IBM Cloud IAM token flow using `WATSONX_API_KEY`
-4. **Configuration**: `provider_config` carries non-sensitive settings such as `api_base`, `container_kind`, and `request_timeout`
+4. **Configuration**: `provider_config` carries non-sensitive settings such as `api_base`, `container_kind`, and `timeout`
 5. **Container Targeting**: Requests are scoped to a project or deployment space via `WATSONX_CONTAINER_ID`
 6. **Error Handling**: Client-managed retries, timeout control, and provider error normalization
 
@@ -1566,7 +1566,7 @@ graph TB
         "model_id": "ibm/granite-13b-chat-v2",
         "api_base": "https://us-south.ml.cloud.ibm.com",
         "container_kind": "project",
-        "request_timeout": 60
+        "timeout": 60
       },
       "custom_schema": {
       "invoice_number": "string",
@@ -2331,10 +2331,10 @@ graph TB
     end
 
     subgraph "Adapter Layer (Implementations)"
-        DA[DoclingAdapter<br/>docling_library mode]
-        DSA[DoclingServeAdapter<br/>docling_serve mode]
-        LEA[LLMEntityAdapter<br/>litellm/watsonx modes]
-        DEA[DoclingEntityAdapter<br/>docling mode]
+        DA[DoclingAdapter<br/>docling_library provider]
+        DSA[DoclingServeAdapter<br/>docling_serve provider]
+        LEA[LLMEntityAdapter<br/>litellm/watsonx providers]
+        DEA[DoclingEntityAdapter<br/>docling provider]
     end
 
     subgraph "Factory Layer"
@@ -2370,7 +2370,7 @@ graph TB
 
 1. **Domain Layer**:
    - `EntityExtractionService`: Core business logic for entity extraction (prompt building, schema validation, response parsing)
-   - Domain models define extraction modes, requests, and results
+   - Domain models define extraction providers, requests, and results
 
 2. **Port Layer** (Interfaces):
    - `TextExtractionPort`: Interface for text extraction strategies
@@ -2385,18 +2385,18 @@ graph TB
      - `DoclingEntityAdapter`: Template-based extraction using Docling
 
 4. **Factory Layer**:
-   - `TextExtractionAdapterFactory`: Creates text extraction adapters based on mode
-   - `EntityExtractionAdapterFactory`: Creates entity extraction adapters based on mode
+   - `TextExtractionAdapterFactory`: Creates text extraction adapters based on provider
+   - `EntityExtractionAdapterFactory`: Creates entity extraction adapters based on provider
 
 **Key Benefits:**
 
 - **Separation of Concerns**: Clear boundaries between business logic, interfaces, and implementations
 - **Extensibility**: Easy to add new extraction strategies by implementing ports
 - **Testability**: Each layer can be tested independently with mocks
-- **Flexibility**: Text and entity extraction modes can be combined independently
+- **Flexibility**: Text and entity extraction providers can be combined independently
 - **Unified LLM Support**: Both LiteLLM and WatsonX use the same adapter for consistent behavior
 
-**Extraction Modes:**
+**Extraction Providers:**
 
 **Text Extraction:**
 - `docling_library`: Local extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition)
@@ -2595,7 +2595,7 @@ graph LR
 - **Authentication**: IAM token-based authentication using `WATSONX_API_KEY`
 - **Container Targeting**: Set `WATSONX_CONTAINER_ID` to a project ID or space ID
 - **Optional Overrides**: Use `WATSONX_API_BASE_URL` and `WATSONX_CONTAINER_KIND` when the default region or container type is not appropriate
-- **Non-Sensitive Settings**: Keep runtime options such as `api_base`, `container_kind`, and `request_timeout` in `provider_config`
+- **Non-Sensitive Settings**: Keep runtime options such as `api_base`, `container_kind`, and `timeout` in `provider_config`
 
 ### 9. External Service Pattern
 

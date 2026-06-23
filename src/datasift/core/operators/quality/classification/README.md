@@ -1,7 +1,3 @@
----
-title: Document Classification Operator
----
-
 # Document Classification Operator
 
 ## Overview
@@ -64,22 +60,22 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 
 ### Component Responsibilities
 
-#### 1. **Operator Layer** ([`document_classifier.py`](../../src/datasift/core/operators/quality/classification/document_classifier.py))
+#### 1. **Operator Layer** ([`document_classifier.py`](document_classifier.py))
 - Handles PyArrow table processing and orchestration
 - Manages parallel document classification
 - Integrates with job tracking and progress reporting
 
-#### 2. **Service Layer** ([`classification_service.py`](../../src/datasift/core/operators/quality/classification/classification_service.py))
+#### 2. **Service Layer** ([`classification_service.py`](classification_service.py))
 - Contains business logic for document classification
 - Validates configuration parameters
 - Manages LLM adapter lifecycle
 
-#### 3. **Domain Layer** ([`domain/models.py`](../../src/datasift/core/operators/quality/classification/domain/models.py))
+#### 3. **Domain Layer** ([`domain/models.py`](domain/models.py))
 - Pure domain models: `ClassificationRequest`, `ClassificationResponse`
 - Provider-agnostic prompt building logic
 - No infrastructure dependencies
 
-#### 4. **Infrastructure Layer** (Shared `LLMAdapterFactory`)
+#### 4. **Infrastructure Layer** (Shared [`LLMAdapterFactory`](../../../adapters/llm_adapter_factory.py))
 - Creates provider-specific LLM adapters (LiteLLM, Watsonx)
 - Manages adapter configuration and initialization
 - Provides unified `LLMInferencePort` interface
@@ -201,7 +197,7 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
   "provider_config": {
     "model_id": "openai/gpt-4o-mini",
     "api_key": "${OPENAI_API_KEY}",
-    "request_timeout": 120
+    "timeout": 120
   }
 }
 ```
@@ -241,7 +237,7 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
     "api_key": "${WATSONX_API_KEY}",
     "container_kind": "project",
     "container_id": "${WATSONX_PROJECT_ID}",
-    "request_timeout": 120
+    "timeout": 120
   }
 }
 ```
@@ -595,9 +591,9 @@ curl http://localhost:11434/api/tags
 
 Sample test flows are available in `tests/sample_test_flows/classification/`:
 
-- `flow_classify_ollama.json`: Ollama provider example
-- `flow_classify_litellm_ollama_openai_compat.json`: LiteLLM with OpenAI-compatible endpoint example
-- `flow_classify_watsonx.json`: Watsonx provider example
+- [`flow_classify_ollama.json`](../../../../../../tests/sample_test_flows/classification/flow_classify_ollama.json): Ollama provider example
+- [`flow_classify_litellm_ollama_openai_compat.json`](../../../../../../tests/sample_test_flows/classification/flow_classify_litellm_ollama_openai_compat.json): LiteLLM with OpenAI-compatible endpoint example
+- [`flow_classify_watsonx.json`](../../../../../../tests/sample_test_flows/classification/flow_classify_watsonx.json): Watsonx provider example
 
 ---
 
@@ -694,10 +690,10 @@ class ModelInfo:
 
 ## Related Documentation
 
-- [Extract Operator](./extract_operator.md) - Document content extraction
-- [Embeddings Operator](./embeddings.md) - Vector embeddings generation
-- [Architecture Guide](../../ARCHITECTURE.md) - System architecture overview
-- [Operator Reference](../../reference/OPERATORS.md) - Complete operator API reference
+- [Extract Operator](../../../../../../docs/operators/extract/extract_operator_config.md) - Document content extraction
+- [Embeddings Operator](../../../../../../docs/operators/embeddings/embeddings_config.md) - Vector embeddings generation
+- [Architecture Guide](../../../../../../ARCHITECTURE.md) - System architecture overview
+- [Operator Reference](../../../../../../docs/reference/OPERATORS.md) - Complete operator API reference
 
 ---
 

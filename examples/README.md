@@ -21,7 +21,11 @@ Some examples require API credentials (e.g., VLM engines like Watsonx, OpenAI). 
    WATSONX_API_KEY=your_api_key_here
    WATSONX_CONTAINER_KIND=project  # optional: project, space, or catalog
    WATSONX_CONTAINER_ID=your_project_or_space_id_here
-   WATSONX_MODEL=meta-llama/llama-3-2-90b-vision-instruct
+   WATSONX_MODEL=your_model_id_here  # required - specify your model
+
+   # For Watsonx AI (Entity extraction)
+   WATSONX_ENTITY_MODEL=your_model_id_here  # required - specify your model
+   WATSONX_API_BASE=https://us-south.ml.cloud.ibm.com  # optional, has default
 
    # For OpenAI
    OPENAI_API_KEY=your_api_key_here
@@ -85,7 +89,7 @@ See [`extract_operator_example.py`](extract_operator_example.py) and [`../src/da
 python examples/extract_operator_example.py
 ```
 
-#### ExtractOperator with Docling Serve mode
+#### ExtractOperator with Docling Serve provider
 
 Demonstrates document extraction using the Docling-Serve REST API. Provides scalable document processing with support for OCR, table extraction, and multiple PDF backends.
 
@@ -113,20 +117,21 @@ python examples/extract_operator_example.py
 
 #### [`extract_operator_example.py`](extract_operator_example.py)
 
-Comprehensive examples of document extraction with independent text and entity extraction modes. Demonstrates the ExtractOperator's flexible architecture where text extraction and entity extraction are independent dimensions that can be combined in multiple ways.
+Comprehensive examples of document extraction with independent text and entity extraction providers. Demonstrates the ExtractOperator's flexible architecture where text extraction and entity extraction are independent dimensions that can be combined in multiple ways.
 
-**Text Extraction Modes:**
+**Text Extraction Providers:**
 
-- **Basic**: Docling Library mode - standard extraction (fast)
+- **Basic**: Docling Library provider - standard extraction (fast)
 - **VLM**: Docling Library with VLM pipeline - vision-enhanced extraction with 7 engine options
+- **ASR**: Docling Library with ASR pipeline - audio/video transcription with Whisper models
 - **Serve**: Docling Serve API - remote extraction for scalable production workloads
 
-**Entity Extraction Modes:**
+**Entity Extraction Providers:**
 
 - **None**: Text extraction only (default)
-- **Ollama**: LLM-based entity extraction using local Ollama models
+- **LiteLLM**: Multi-provider LLM entity extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.)
+- **WatsonX**: IBM WatsonX AI LLM-based entity extraction
 - **Docling**: Template-based entity extraction with JSON schemas
-- **LiteLLM**: Multi-provider LLM entity extraction (OpenAI, Anthropic, Cohere, etc.)
 
 **Supported VLM Engines:**
 
@@ -156,7 +161,13 @@ pip install docling
 # For VLM text extraction (Transformers/MLX)
 pip install docling[vlm]
 
-# For Ollama VLM or entity extraction
+# For ASR audio/video transcription
+pip install docling[asr]
+# For M4A, AAC, OGG, FLAC, and video formats, also install ffmpeg:
+brew install ffmpeg  # macOS
+# apt-get install ffmpeg  # Linux
+
+# For LiteLLM with Ollama (VLM or entity extraction)
 brew install ollama
 ollama serve
 ollama pull ibm/granite-docling:258m  # For VLM text extraction
@@ -183,23 +194,32 @@ PYTHONPATH=. python ../../../examples/extract_operator_example.py
 # VLM text extraction with Ollama
 PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --vlm-engine ollama
 
+# ASR audio/video transcription
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode asr --asr-model whisper_turbo
+
+# ASR with Apple Silicon optimization
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode asr --asr-model whisper_small_mlx
+
 # Docling Serve text extraction
 PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode serve
 
-# Basic text + Ollama entity extraction (no schema - free-form)
-PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode ollama
+# Basic text + LiteLLM entity extraction with Ollama (no schema - free-form)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode litellm
 
-# Basic text + Ollama entity extraction with custom schema
-PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode ollama --schema '{"invoice_number": "string", "total_amount": "float"}'
+# Basic text + LiteLLM entity extraction with Ollama and custom schema
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode litellm --schema '{"invoice_number": "string", "total_amount": "float"}'
+
+# Basic text + WatsonX entity extraction with custom schema
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode watsonx --schema '{"invoice_number": "string", "total_amount": "float"}'
 
 # Basic text + Docling template entity extraction (schema required)
 PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode docling --schema '{"type": "object", "properties": {"invoice_number": {"type": "string"}}}'
 
-# VLM text + Ollama entity extraction with schema
-PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --entity-mode ollama --schema '{"vendor": "string", "amount": "float"}'
+# VLM text + LiteLLM entity extraction with schema
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --entity-mode litellm --schema '{"vendor": "string", "amount": "float"}'
 
-# Docling Serve + Ollama entity extraction (no schema)
-PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode serve --entity-mode ollama
+# Docling Serve + LiteLLM entity extraction (no schema)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode serve --entity-mode litellm
 
 # Custom PDF
 PYTHONPATH=. python ../../../examples/extract_operator_example.py --pdf path/to/document.pdf
@@ -218,8 +238,9 @@ PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vl
 
 - **Independent modes**: Text and entity extraction can be combined flexibly
 - **VLM text extraction**: Enhanced table extraction, complex layouts, visual elements
+- **ASR transcription**: Audio and video file transcription with Whisper models
 - **Entity extraction**: Structured data extraction with custom schemas
-- **Multiple providers**: Support for local (Ollama) and cloud (LiteLLM) LLMs
+- **Multiple providers**: Support for local (LiteLLM with Ollama), cloud (LiteLLM, WatsonX) LLMs
 - **Template-based extraction**: Fast, deterministic extraction with Docling templates
 
 ### Functional Operators

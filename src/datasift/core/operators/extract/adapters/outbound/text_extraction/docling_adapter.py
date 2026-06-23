@@ -1,6 +1,6 @@
 """Docling library text extraction adapter.
 
-This adapter implements the unified docling_library mode for document extraction.
+This adapter implements the unified docling_library provider for document extraction.
 It handles both standard Docling extraction and VLM (Vision Language Model) extraction
 when use_vlm_pipeline is enabled. The adapter uses Docling's DocumentExtractor for
 extraction and supports template-based structured extraction.
@@ -30,7 +30,7 @@ if not _ASR_AVAILABLE:
 class DoclingAdapter(TextExtractionPort):
     """Adapter for unified Docling library document extraction.
 
-    This adapter implements the docling_library mode, which handles both standard
+    This adapter implements the docling_library provider, which handles both standard
     Docling extraction and VLM (Vision Language Model) extraction. When use_vlm_pipeline
     is enabled, it uses Docling's VLM pipeline for enhanced extraction.
 

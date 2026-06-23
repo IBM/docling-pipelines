@@ -1,7 +1,7 @@
 """Factory for creating text extraction adapters.
 
 This factory creates appropriate text extraction adapter instances based on the
-extraction mode and configuration. It supports multiple extraction strategies:
+extraction provider and configuration. It supports multiple extraction strategies:
 - DOCLING_LIBRARY: Local Docling extraction with optional VLM support
 - DOCLING_SERVE: Remote extraction via Docling Serve API
 """
@@ -22,10 +22,10 @@ logger: logging.Logger = get_logger()
 class TextExtractionAdapterFactory:
     """Factory for creating text extraction adapters.
 
-    This factory creates appropriate adapter instances based on extraction mode
+    This factory creates appropriate adapter instances based on extraction provider
     and validates configuration requirements for each adapter type.
 
-    Supported Modes:
+    Supported Providers:
         - TextExtractionMode.DOCLING_LIBRARY: Local Docling extraction with optional VLM
         - TextExtractionMode.DOCLING_SERVE: Remote Docling Serve API extraction
 
@@ -81,22 +81,22 @@ class TextExtractionAdapterFactory:
         """Build adapter-specific configuration from nested text_extraction config.
 
         This method extracts and transforms the nested text_extraction configuration into
-        adapter-specific configuration, handling mode-specific requirements.
+        adapter-specific configuration, handling provider-specific requirements.
 
         Args:
-            mode: Text extraction mode (DOCLING_LIBRARY, DOCLING_SERVE)
+            mode: Text extraction provider (DOCLING_LIBRARY, DOCLING_SERVE)
             text_extraction_config: Nested text_extraction configuration dictionary
 
         Returns:
             Adapter-specific configuration dictionary
 
         Raises:
-            ValueError: If mode is unsupported or configuration is invalid
+            ValueError: If provider is unsupported or configuration is invalid
         """
         # Extract provider_config from nested structure
         provider_config = text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
-        # Common configuration for all text modes
+        # Common configuration for all text providers
         adapter_config: dict[str, Any] = {
             OperatorConstants.Config.DOC_COLUMN: text_extraction_config.get(
                 OperatorConstants.Config.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
@@ -185,7 +185,7 @@ class TextExtractionAdapterFactory:
 
         else:
             raise ValueError(
-                f"Unsupported extraction mode: {mode}. Supported modes: {[m.value for m in TextExtractionMode]}"
+                f"Unsupported extraction provider: {mode}. Supported providers: {[m.value for m in TextExtractionMode]}"
             )
 
         return adapter_config
@@ -199,10 +199,10 @@ class TextExtractionAdapterFactory:
         max_workers: int = 4,
         use_processes: bool = False,
     ) -> TextExtractionPort:
-        """Create appropriate text extraction adapter based on mode.
+        """Create appropriate text extraction adapter based on provider.
 
         Args:
-            mode: Extraction mode (DOCLING_LIBRARY, DOCLING_SERVE)
+            mode: Extraction provider (DOCLING_LIBRARY, DOCLING_SERVE)
             text_extraction_config: Nested text_extraction configuration dictionary
             global_config: Global operator configuration (for job tracking, etc.)
             max_workers: Number of parallel workers (default: 4)
@@ -212,7 +212,7 @@ class TextExtractionAdapterFactory:
             Configured TextExtractionPort adapter instance
 
         Raises:
-            ValueError: If mode is unsupported or config is invalid
+            ValueError: If provider is unsupported or config is invalid
         """
         # Build adapter-specific configuration from nested text_extraction config
         adapter_config = TextExtractionAdapterFactory.build_adapter_config(
@@ -238,7 +238,7 @@ class TextExtractionAdapterFactory:
                 )
             else:
                 TextExtractionAdapterFactory._validate_docling_config(adapter_config)
-                logger.info("Creating DoclingAdapter for mode: %s with %s workers", mode.value, max_workers)
+                logger.info("Creating DoclingAdapter for provider: %s with %s workers", mode.value, max_workers)
 
             return DoclingAdapter(config=full_config)
 
@@ -254,7 +254,7 @@ class TextExtractionAdapterFactory:
 
         else:
             raise ValueError(
-                f"Unsupported extraction mode: {mode}. Supported modes: {[m.value for m in TextExtractionMode]}"
+                f"Unsupported extraction provider: {mode}. Supported providers: {[m.value for m in TextExtractionMode]}"
             )
 
     @staticmethod
@@ -376,9 +376,9 @@ class TextExtractionAdapterFactory:
 
     @staticmethod
     def get_supported_modes() -> list[str]:
-        """Get list of supported extraction modes.
+        """Get list of supported extraction providers.
 
         Returns:
-            List of supported extraction mode values
+            List of supported extraction provider values
         """
         return [mode.value for mode in TextExtractionMode]

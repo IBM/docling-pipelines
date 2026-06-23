@@ -4,7 +4,7 @@ Example: ExtractOperator - Document Extraction
 
 Demonstrates the ExtractOperator with multiple extraction modes.
 
-Text Extraction Modes:
+Text Extraction Providers:
 1. Basic (docling_library) - Standard local Docling extraction
 2. VLM (docling_library + VLM) - Vision-Language Model enhanced extraction
    - Transformers (local inference, GPU recommended)
@@ -14,12 +14,15 @@ Text Extraction Modes:
    - OpenAI API
    - LM Studio (local API server)
    - Generic API (custom endpoints)
-3. Docling Serve - Remote extraction via Docling Serve API
+3. ASR (docling_library + ASR) - Audio/Video transcription with Automatic Speech Recognition
+   - Whisper models (tiny, base, small, medium, large, turbo)
+   - MLX variants for Apple Silicon optimization
+4. Docling Serve - Remote extraction via Docling Serve API
 
-Entity Extraction Modes:
-1. Ollama - LLM-based entity extraction using local Ollama models
-2. Docling - Template-based entity extraction using Docling's structured extraction
-3. LiteLLM - Multi-provider LLM entity extraction (OpenAI, Anthropic, Cohere, etc.)
+Entity Extraction Providers:
+1. LiteLLM - Multi-provider LLM entity extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.)
+2. WatsonX - IBM WatsonX AI LLM-based entity extraction
+3. Docling - Template-based entity extraction using Docling's structured extraction
 4. None - No entity extraction (text extraction only)
 
 Prerequisites:
@@ -29,23 +32,32 @@ Prerequisites:
     # VLM extraction (Transformers/MLX)
     pip install docling[vlm]
 
+    # ASR extraction (Audio/Video transcription)
+    pip install docling[asr]
+    # For M4A, AAC, OGG, FLAC, and video formats, also install ffmpeg:
+    brew install ffmpeg  # macOS
+    # apt-get install ffmpeg  # Linux
+
     # VLM extraction (Ollama)
     brew install ollama
     ollama serve
     ollama pull ibm/granite-docling:258m
 
-    # Entity extraction (Ollama)
+    # Entity extraction (LiteLLM with Ollama)
     ollama serve
     ollama pull llama3.2
+
+    # Entity extraction (WatsonX)
+    # Set environment variables: WATSONX_API_KEY, WATSONX_CONTAINER_ID
 
     # Docling Serve
     docker run -p 5001:5001 ds4sd/docling-serve:latest
 
 Usage:
-    python extract_operator_example.py [--text-mode MODE] [--entity-mode MODE] [--vlm-engine ENGINE] [--pdf PATH] [--schema JSON]
+    python extract_operator_example.py [--text-mode MODE] [--entity-mode MODE] [--vlm-engine ENGINE] [--asr-model MODEL] [--pdf PATH] [--schema JSON]
 
 Examples:
-    # Basic text extraction only (default: text-mode=basic, entity-mode=none)
+    # Basic text extraction only (default: text-mode=docling_library, entity-mode=none)
     python extract_operator_example.py
 
     # VLM text extraction with Transformers
@@ -54,23 +66,32 @@ Examples:
     # VLM text extraction with Ollama
     python extract_operator_example.py --text-mode vlm --vlm-engine ollama
 
+    # ASR audio/video transcription
+    python extract_operator_example.py --text-mode asr --asr-model whisper_turbo
+
+    # ASR with Apple Silicon optimization
+    python extract_operator_example.py --text-mode asr --asr-model whisper_small_mlx
+
     # Docling Serve text extraction
     python extract_operator_example.py --text-mode serve
 
-    # Basic text + Ollama entity extraction (no schema - free-form extraction)
-    python extract_operator_example.py --entity-mode ollama
+    # Basic text + LiteLLM entity extraction with Ollama (no schema - free-form extraction)
+    python extract_operator_example.py --entity-mode litellm
 
-    # Basic text + Ollama entity extraction with custom schema
-    python extract_operator_example.py --entity-mode ollama --schema '{"invoice_number": "string", "total_amount": "float"}'
+    # Basic text + LiteLLM entity extraction with Ollama and custom schema
+    python extract_operator_example.py --entity-mode litellm --schema '{"invoice_number": "string", "total_amount": "float"}'
+
+    # Basic text + WatsonX entity extraction with custom schema
+    python extract_operator_example.py --entity-mode watsonx --schema '{"invoice_number": "string", "total_amount": "float"}'
 
     # Basic text + Template-based entity extraction (schema required for docling mode)
     python extract_operator_example.py --entity-mode docling --schema '{"type": "object", "properties": {"invoice_number": {"type": "string"}}}'
 
-    # VLM text + Ollama entity extraction (with schema)
-    python extract_operator_example.py --text-mode vlm --entity-mode ollama --schema '{"vendor": "string", "amount": "float"}'
+    # VLM text + LiteLLM entity extraction (with schema)
+    python extract_operator_example.py --text-mode vlm --entity-mode litellm --schema '{"vendor": "string", "amount": "float"}'
 
-    # Docling Serve + Ollama entity extraction (no schema)
-    python extract_operator_example.py --text-mode serve --entity-mode ollama
+    # Docling Serve + LiteLLM entity extraction (no schema)
+    python extract_operator_example.py --text-mode serve --entity-mode litellm
 
     # Process your own PDF file
     python extract_operator_example.py --pdf /path/to/your/document.pdf
@@ -134,6 +155,41 @@ def get_docling_serve_config(*, base_url: str = "http://localhost:5001") -> dict
         OperatorConstants.Config.ENTITY_EXTRACTION: {
             OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
         },
+    }
+
+
+def get_asr_config(*, model_id: str = "whisper_turbo") -> dict[str, Any]:
+    """
+    Get configuration for ASR (Automatic Speech Recognition) audio/video transcription.
+
+    Best for: Transcribing audio and video files to text
+    Requirements: pip install docling[asr], ffmpeg (for some formats)
+
+    Args:
+        model_id: Whisper model variant
+            - whisper_tiny: Fastest, least accurate
+            - whisper_base: Balanced speed and accuracy
+            - whisper_small: Good accuracy, moderate speed
+            - whisper_medium: Better accuracy, slower
+            - whisper_large: Best accuracy, slowest
+            - whisper_turbo: Optimized for speed (recommended)
+            - Variants with _mlx suffix (e.g., whisper_small_mlx): Apple Silicon optimized
+            - Variants with _native suffix (e.g., whisper_tiny_native): Native implementation
+    """
+    return {
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.Config.ASR_PIPELINE: {
+                    OperatorConstants.Config.MODEL_ID: model_id,
+                }
+            },
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+        },
+        OperatorConstants.Config.MAX_WORKERS: 2,  # ASR is resource-intensive
     }
 
 
@@ -279,19 +335,19 @@ def get_vlm_config(
     return config
 
 
-def get_ollama_entity_config(
+def get_litellm_ollama_entity_config(
     *,
     text_mode: str = OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
-    model: str = "llama3.2",
+    model: str,
     temperature: float = 0.0,
     max_tokens: int = 4096,
     max_doc_chars: int = 8000,
     custom_schema: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """
-    Get configuration for Ollama entity extraction.
+    Get configuration for LiteLLM entity extraction using Ollama backend.
 
-    Best for: Flexible entity extraction, complex document understanding
+    Best for: Flexible entity extraction, complex document understanding with local models
     Requirements: Ollama server running, model pulled
 
     Setup:
@@ -299,8 +355,8 @@ def get_ollama_entity_config(
         ollama pull llama3.2
 
     Args:
-        text_mode: Text extraction mode to use
-        model: Ollama model name
+        text_mode: Text extraction provider to use
+        model: Model identifier with openai/ prefix for Ollama (e.g., "openai/llama3.2"). Required.
         temperature: Sampling temperature (0.0 = deterministic)
         max_tokens: Maximum response tokens
         max_doc_chars: Maximum document characters to send to LLM
@@ -331,6 +387,75 @@ def get_ollama_entity_config(
     return config
 
 
+def get_watsonx_entity_config(
+    *,
+    text_mode: str = OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+    model: str,
+    api_key: str | None = None,
+    api_base: str | None = None,
+    container_id: str | None = None,
+    container_kind: str = "project",
+    temperature: float = 0.0,
+    max_tokens: int = 2000,
+    custom_schema: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """
+    Get configuration for WatsonX entity extraction.
+
+    Best for: Enterprise-grade entity extraction with IBM WatsonX AI
+    Requirements: IBM Cloud API key, WatsonX project/space ID
+
+    Setup:
+        Set environment variables:
+        - WATSONX_API_KEY: IBM Cloud API key
+        - WATSONX_CONTAINER_ID: Project or space ID
+        - WATSONX_API_BASE: API endpoint (optional, has default)
+
+    Args:
+        text_mode: Text extraction provider to use
+        model: WatsonX model identifier (e.g., "ibm/granite-13b-chat-v2")
+        api_key: IBM Cloud API key
+        api_base: WatsonX API endpoint URL
+        container_id: Project or space ID (UUID)
+        container_kind: Container type ("project" or "space")
+        temperature: Sampling temperature (0.0 = deterministic)
+        max_tokens: Maximum response tokens
+        custom_schema: Optional schema dictionary for structured extraction
+    """
+    if not all([api_key, container_id]):
+        raise ValueError("WatsonX entity extraction requires api_key and container_id")
+
+    provider_config = {
+        OperatorConstants.Config.MODEL_ID: model,
+        OperatorConstants.Config.API_KEY: api_key,
+        OperatorConstants.LLM.TEMPERATURE: temperature,
+        OperatorConstants.LLM.MAX_TOKENS: max_tokens,
+        OperatorConstants.Config.CONTAINER_ID: container_id,
+        OperatorConstants.Config.CONTAINER_KIND: container_kind,
+    }
+
+    if api_base:
+        provider_config[OperatorConstants.LLM.API_BASE] = api_base
+
+    config = {
+        OperatorConstants.Config.TEXT_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: text_mode,
+            OperatorConstants.Config.DOC_COLUMN: "doc_content",
+        },
+        OperatorConstants.Config.ENTITY_EXTRACTION: {
+            OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX,
+            OperatorConstants.Config.PROVIDER_CONFIG: provider_config,
+        },
+        OperatorConstants.Config.MAX_WORKERS: 4,  # API-based can handle more
+    }
+
+    if custom_schema:
+        entity_config = cast(dict[str, Any], config[OperatorConstants.Config.ENTITY_EXTRACTION])
+        entity_config[OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
+
+    return config
+
+
 def get_docling_entity_config(
     *,
     text_mode: str = OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
@@ -344,7 +469,7 @@ def get_docling_entity_config(
     Requirements: None (uses Docling's built-in extraction)
 
     Args:
-        text_mode: Text extraction mode to use
+        text_mode: Text extraction provider to use
         custom_schema: JSON schema for structured extraction
         expand_data: Expand entity data into individual columns
     """
@@ -370,7 +495,7 @@ def get_docling_entity_config(
 def get_litellm_entity_config(
     *,
     text_mode: str = OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
-    model: str = "gpt-3.5-turbo",
+    model: str,
     temperature: float = 0.0,
     max_tokens: int = 2000,
     api_key: str | None = None,
@@ -387,7 +512,7 @@ def get_litellm_entity_config(
 
     Args:
         text_mode: Text extraction mode to use
-        model: LLM model identifier (e.g., "gpt-3.5-turbo", "claude-3-sonnet")
+        model: LLM model identifier (e.g., "gpt-3.5-turbo", "claude-3-sonnet"). Required.
         temperature: Sampling temperature
         max_tokens: Maximum response tokens
         api_key: API key for the provider
@@ -437,15 +562,15 @@ def main() -> int:
         "--text-mode",
         type=str,
         default="basic",
-        choices=["basic", "vlm", "serve"],
-        help="Text extraction mode: basic (docling_library), vlm (docling_library+VLM), serve (docling_serve)",
+        choices=["basic", "vlm", "asr", "serve"],
+        help="Text extraction provider: basic (docling_library), vlm (docling_library+VLM), asr (docling_library+ASR), serve (docling_serve)",
     )
     parser.add_argument(
         "--entity-mode",
         type=str,
         default="none",
-        choices=["none", "ollama", "docling", "litellm"],
-        help="Entity extraction mode: none, ollama, docling, litellm (default: none)",
+        choices=["none", "litellm", "watsonx", "docling"],
+        help="Entity extraction provider: none, litellm (includes Ollama via openai/ prefix), watsonx, docling (default: none)",
     )
     parser.add_argument(
         "--vlm-engine",
@@ -461,6 +586,23 @@ def main() -> int:
             "generic",
         ],
         help="VLM engine when text-mode=vlm (default: transformers)",
+    )
+    parser.add_argument(
+        "--asr-model",
+        type=str,
+        default="whisper_turbo",
+        choices=[
+            "whisper_tiny",
+            "whisper_base",
+            "whisper_small",
+            "whisper_medium",
+            "whisper_large",
+            "whisper_turbo",
+            "whisper_tiny_mlx",
+            "whisper_small_mlx",
+            "whisper_medium_mlx",
+        ],
+        help="ASR model when text-mode=asr (default: whisper_turbo)",
     )
     parser.add_argument(
         "--pdf",
@@ -487,11 +629,13 @@ def main() -> int:
     print("EXTRACT OPERATOR")
     print("=" * 80)
     print(f"PDF: {args.pdf}")
-    print(f"Text Extraction Mode: {args.text_mode}")
+    print(f"Text Extraction Provider: {args.text_mode}")
     if args.text_mode == "vlm":
         print(f"  VLM Engine: {args.vlm_engine}")
         print(f"  VLM Preset: {args.preset}")
-    print(f"Entity Extraction Mode: {args.entity_mode}")
+    elif args.text_mode == "asr":
+        print(f"  ASR Model: {args.asr_model}")
+    print(f"Entity Extraction Provider: {args.entity_mode}")
     if args.entity_mode != "none" and args.schema:
         print(f"  Custom Schema: {args.schema}")
     print("=" * 80)
@@ -500,7 +644,14 @@ def main() -> int:
     config: dict[str, Any] = {}
 
     # Configure text extraction
-    if args.text_mode == "serve":
+    if args.text_mode == "asr":
+        config = get_asr_config(model_id=args.asr_model)
+        print("\nText Extraction: ASR (Automatic Speech Recognition)")
+        print(f"Model: {args.asr_model}")
+        print("Note: Processes audio and video files to extract transcribed text")
+        if "_mlx" in args.asr_model:
+            print("      Using Apple Silicon optimized model")
+    elif args.text_mode == "serve":
         config = get_docling_serve_config()
         print("\nText Extraction: Docling Serve (remote API)")
         print("Note: Ensure Docling Serve is running on http://localhost:5001")
@@ -618,7 +769,7 @@ def main() -> int:
         print("Fast processing with standard table and image extraction")
 
     # Configure entity extraction
-    if args.entity_mode == "ollama":
+    if args.entity_mode == "litellm":
         custom_schema = None
         if args.schema:
             import json
@@ -634,7 +785,7 @@ def main() -> int:
             OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM
         )
         config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG] = {
-            OperatorConstants.Config.MODEL_ID: "llama3.2",
+            OperatorConstants.Config.MODEL_ID: "openai/llama3.2",
             OperatorConstants.LLM.TEMPERATURE: 0.0,
             OperatorConstants.LLM.MAX_TOKENS: 4096,
             OperatorConstants.LLM.API_BASE: "http://localhost:11434/v1",
@@ -645,16 +796,71 @@ def main() -> int:
         if custom_schema:
             config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
 
-        print("\nEntity Extraction: Ollama LLM-based extraction")
+        print("\nEntity Extraction: LiteLLM with Ollama backend")
         print("Note: Ensure Ollama is running: ollama serve")
         print("      And model is available: ollama pull llama3.2")
         if custom_schema:
             print(f"      Using custom schema: {list(custom_schema.keys())}")
 
+    elif args.entity_mode == "watsonx":
+        custom_schema = None
+        if args.schema:
+            import json
+
+            try:
+                custom_schema = json.loads(args.schema)
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON schema: {e}")
+                return 1
+
+        # Load from environment variables
+        api_key = os.getenv("WATSONX_API_KEY")
+        container_id = os.getenv("WATSONX_CONTAINER_ID")
+        container_kind = os.getenv("WATSONX_CONTAINER_KIND", "project")
+        model = os.getenv("WATSONX_ENTITY_MODEL", "ibm/granite-13b-chat-v2")
+        api_base = os.getenv("WATSONX_API_BASE")
+
+        if not all([api_key, container_id]):
+            print("\n❌ WatsonX entity extraction requires credentials in .env file:")
+            print("   WATSONX_API_KEY=your_ibm_cloud_api_key")
+            print("   WATSONX_CONTAINER_ID=your_project_or_space_id")
+            print("   WATSONX_ENTITY_MODEL=ibm/granite-13b-chat-v2  # optional, has default")
+            print("   WATSONX_CONTAINER_KIND=project  # optional: project or space (default: project)")
+            print("   WATSONX_API_BASE=https://...  # optional, has default")
+            print("\nSee .env.example for template")
+            return 1
+
+        # Update config with WatsonX entity extraction
+        provider_config = {
+            OperatorConstants.Config.MODEL_ID: model,
+            OperatorConstants.Config.API_KEY: api_key,
+            OperatorConstants.LLM.TEMPERATURE: 0.0,
+            OperatorConstants.LLM.MAX_TOKENS: 2000,
+            OperatorConstants.Config.CONTAINER_ID: container_id,
+            OperatorConstants.Config.CONTAINER_KIND: container_kind,
+        }
+        if api_base:
+            provider_config[OperatorConstants.LLM.API_BASE] = api_base
+
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.PROVIDER] = (
+            OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX
+        )
+        config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.PROVIDER_CONFIG] = provider_config
+        config[OperatorConstants.Config.MAX_WORKERS] = 4  # API-based can handle more
+
+        if custom_schema:
+            config[OperatorConstants.Config.ENTITY_EXTRACTION][OperatorConstants.Config.CUSTOM_SCHEMA] = custom_schema
+
+        print("\nEntity Extraction: IBM WatsonX AI")
+        print(f"Model: {model}")
+        print(f"Container: {container_kind} ({container_id[:8]}...)")  # type: ignore[index]
+        if custom_schema:
+            print(f"Using custom schema: {list(custom_schema.keys())}")
+
     elif args.entity_mode == "docling":
-        # Docling mode requires a schema
+        # Docling provider requires a schema
         if not args.schema:
-            logger.error("Docling entity extraction mode requires --schema parameter")
+            logger.error("Docling entity extraction provider requires --schema parameter")
             print("\nExample:")
             print('  --schema \'{"type": "object", "properties": {"invoice_number": {"type": "string"}}}\'')
             return 1
@@ -709,21 +915,11 @@ def main() -> int:
         if custom_schema:
             print(f"      Using JSON schema with properties: {list(custom_schema.get('properties', {}).keys())}")
 
-    elif args.entity_mode == "litellm":
-        print("\nLiteLLM entity extraction requires API configuration")
-        print("\nExample configuration:")
-        print("  config = get_litellm_entity_config(")
-        print("      model='gpt-3.5-turbo',  # or 'claude-3-sonnet', 'command-r', etc.")
-        print("      api_key='YOUR_API_KEY',")  # pragma: allowlist secret
-        print("      custom_schema={'field': 'type', ...}")
-        print("  )")
-        print("\nSupported providers: OpenAI, Anthropic, Cohere, Google, Azure, AWS Bedrock")
-        return 0
     elif args.entity_mode == "none":
         # Entity extraction already set to "none" in base configs
         print("\nEntity Extraction: None (text extraction only)")
     else:
-        logger.error(f"Unknown entity mode: {args.entity_mode}")
+        logger.error(f"Unknown entity provider: {args.entity_mode}")
         return 1
 
     # Initialize operator
@@ -755,14 +951,15 @@ def main() -> int:
     text_label = {
         "basic": "basic Docling",
         "vlm": f"VLM ({args.vlm_engine})",
+        "asr": f"ASR ({args.asr_model})",
         "serve": "Docling Serve",
     }.get(args.text_mode, "unknown")
 
     entity_label = {
         "none": "no entity extraction",
-        "ollama": "Ollama entity extraction",
+        "litellm": "LiteLLM entity extraction (Ollama)",
+        "watsonx": "WatsonX entity extraction",
         "docling": "Docling template entity extraction",
-        "litellm": "LiteLLM entity extraction",
     }.get(args.entity_mode, "unknown")
 
     print(f"\nExtracting content with {text_label} + {entity_label}...")

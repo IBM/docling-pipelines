@@ -13,14 +13,14 @@ from datasift.core.constants.operator_constants import OperatorConstants
 
 
 class TextExtractionMode(StrEnum):
-    """Text extraction modes."""
+    """Text extraction providers."""
 
     DOCLING_LIBRARY = OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY
     DOCLING_SERVE = OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE
 
 
 class EntityExtractionMode(StrEnum):
-    """Entity extraction modes."""
+    """Entity extraction providers."""
 
     DOCLING = OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING
     LITELLM = OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM

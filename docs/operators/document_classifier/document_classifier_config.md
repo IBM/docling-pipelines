@@ -60,7 +60,6 @@ The operator validates file extensions using [`OperatorConstants.FileExtensions.
 - `model_id` (String, Required): Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"`, `"openai/gpt-4o-mini"`)
 - `api_key` (String, Required for most providers): API key for authentication
 - `api_base` (String, Optional): Custom API endpoint (e.g., for Ollama OpenAI-compatible endpoint)
-- `request_timeout` (Integer, Optional): Request timeout in seconds (default: 120)
 - `stream` (Boolean, Optional): Enable HTTP chunked transfer encoding to keep connections alive during long-running requests (default: false). Recommended for remote vLLM clusters processing large documents.
 - `timeout` (Integer, Optional): HTTP client read timeout in seconds (default: 60). Set to 1800 (30 minutes) for large documents requiring extended generation time.
 
@@ -70,7 +69,7 @@ The operator validates file extensions using [`OperatorConstants.FileExtensions.
 - `api_key` (String, Required): API key for authentication
 - `container_kind` (String, Required): Container type (`"project"` or `"space"` or `"catalog"`)
 - `container_id` (String, Required): Container ID (UUID format)
-- `request_timeout` (Integer, Optional): Request timeout in seconds (default: 120)
+- `timeout` (Integer, Optional): Request timeout in seconds (default: 120)
 
 **Examples:**
 
@@ -79,7 +78,7 @@ LiteLLM with OpenAI:
 "provider_config": {
   "model_id": "openai/gpt-4o-mini",
   "api_key": "${OPENAI_API_KEY}",
-  "request_timeout": 120
+  "timeout": 120
 }
 ```
 
@@ -89,7 +88,7 @@ LiteLLM with Ollama (OpenAI-compatible endpoint):
   "model_id": "openai/granite3.1-dense:8b",
   "api_key": "<ollama>",  # pragma: allowlist secret
   "api_base": "http://localhost:11434/v1",
-  "request_timeout": 120
+  "timeout": 120
 }
 ```
 
@@ -99,8 +98,7 @@ LiteLLM with Remote vLLM (with streaming and extended timeout for large document
   "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
   "api_base": "https://your-vllm-route/v1",
   "stream": true,
-  "timeout": 1800,
-  "request_timeout": 1800
+  "timeout": 1800
 }
 ```
 
@@ -115,7 +113,7 @@ watsonx:
   "api_key": "your-watsonx-api-key", # pragma: allowlist secret
   "container_kind": "project",
   "container_id": "12345678-1234-1234-1234-123456789abc",
-  "request_timeout": 120
+  "timeout": 120
 }
 ```
 
@@ -349,7 +347,7 @@ If not specified, the operator loads 30+ predefined document types from `common/
       "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
       "container_kind": "project",
       "container_id": "${WATSONX_PROJECT_ID}",
-      "request_timeout": 120
+      "timeout": 120
     },
     "document_types": {
       "invoice": "Commercial invoice requesting payment",
@@ -379,4 +377,4 @@ If not specified, the operator loads 30+ predefined document types from `common/
 
 ## Complete flow example
 
-tests/sample_test_flows/classification/flow_document_classifier.json
+[tests/sample_test_flows/classification/flow_document_classifier.json](../../../tests/sample_test_flows/classification/flow_document_classifier.json)

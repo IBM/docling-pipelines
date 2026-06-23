@@ -31,7 +31,7 @@
           "model_id": "openai/granite4:latest",
           "api_base": "http://localhost:11434/v1",
           "api_key": "${OLLAMA_API_KEY}",
-          "request_timeout": 120
+          "timeout": 120
         },
         "document_types": {
           "invoice": "Business invoice with line items and totals",
@@ -78,7 +78,7 @@
             "api_key": "${WATSONX_API_KEY}",
             "container_kind": "project",
             "container_id": "${WATSONX_CONTAINER_ID}",
-            "request_timeout": 120
+            "timeout": 120
           },
           "output_column": "entities",
           "expand_extracted_data": false,
