@@ -332,6 +332,59 @@ class MilvusIndexManager:
             logger.error(f"Error checking collection existence: {e}")
             return False
 
+    def validate_existing_collection(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate existing Milvus collection schema against runtime vector dimensions."""
+        try:
+            collection_description: dict[str, Any] = self.client.describe_collection(
+                collection_name=self.collection_name
+            )  # type: ignore[assignment]
+            fields = collection_description.get("fields", [])
+
+            existing_dimensions: dict[str, Any] = {}
+            for field in fields:
+                field_name = field.get("name")
+                if not field_name:
+                    continue
+
+                field_params = field.get("params", {})
+                if "dim" in field_params:
+                    existing_dimensions[field_name] = field_params.get("dim")
+
+            mismatches: list[str] = []
+            for vector_column, runtime_dimension in dimension_mapping.items():
+                mapped_field_name = self.feature_mappings.get(vector_column, vector_column)
+                existing_dimension = existing_dimensions.get(mapped_field_name)
+
+                if existing_dimension is None:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') is missing from existing collection schema"
+                    )
+                    continue
+
+                if existing_dimension != runtime_dimension:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') has existing dimension "
+                        f"{existing_dimension} but current run produced {runtime_dimension}"
+                    )
+
+            if mismatches:
+                raise DatasiftException(
+                    message=(
+                        f"Vector dimension mismatch for existing Milvus collection '{self.collection_name}': "
+                        + "; ".join(mismatches)
+                    ),
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_EXECUTION_FAILED,
+                )
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                message=f"MilvusDB Error: Failed to validate collection '{self.collection_name}': {e}",
+                status_code=500,
+                error_code=ErrorCode.OPERATOR_EXECUTION_FAILED,
+            ) from e
+
     def _create_bm25_function(self) -> Any:
         """
         Create BM25 function for sparse vector generation.

@@ -225,20 +225,21 @@ class VectorDBOperator(AbstractOperator):
 
             logger.info(f"Auto-detected dimensions: {dimension_mapping}", extra=self.common_log_arguments)
 
-        # Create index if needed
+        # Create index if needed, or validate existing schema before insert
         if self.create_index:
             try:
                 if self.adapter.index_exists():
                     logger.info(
-                        f"Index '{self.index_name}' already exists, skipping creation",
+                        f"Index '{self.index_name}' already exists, validating existing schema before insert",
                         extra=self.common_log_arguments,
                     )
+                    self.adapter.validate_existing_schema(dimension_mapping=dimension_mapping)
                 else:
                     self.adapter.create_index(dimension_mapping=dimension_mapping)
             except Exception as e:
-                logger.error(f"Failed to create index: {e!s}", extra=self.common_log_arguments)
+                logger.error(f"Failed to create or validate index: {e!s}", extra=self.common_log_arguments)
                 raise DatasiftException(
-                    message=f"Failed to create index: {e!s}",
+                    message=f"Failed to create or validate index: {e!s}",
                     error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
                 ) from e
 

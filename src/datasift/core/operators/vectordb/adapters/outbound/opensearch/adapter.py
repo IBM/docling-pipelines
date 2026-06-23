@@ -206,6 +206,10 @@ class OpenSearchAdapter(VectorStorePort):
         """Refresh the index to make recent changes visible."""
         self.index_manager.refresh_index()
 
+    def validate_existing_schema(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate existing OpenSearch index schema against runtime vector dimensions."""
+        self.index_manager.validate_existing_index(dimension_mapping=dimension_mapping)
+
     def index_exists(self) -> bool:
         """Check if the OpenSearch index exists.
 

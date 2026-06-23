@@ -104,6 +104,18 @@ class VectorStorePort(ABC):
         pass
 
     @abstractmethod
+    def validate_existing_schema(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate an existing vector store schema against runtime vector dimensions.
+
+        Args:
+            dimension_mapping: Dictionary mapping vector column names to their runtime dimensions
+
+        Raises:
+            Exception: If the existing schema is incompatible with the current run
+        """
+        pass
+
+    @abstractmethod
     def index_exists(self) -> bool:
         """Check if the vector database index already exists.
 

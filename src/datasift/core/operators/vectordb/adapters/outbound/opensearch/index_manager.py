@@ -952,7 +952,7 @@ class OpenSearchIndexManager:
         """
         if self.client.indices.exists(index=self.index_name):
             logger.info(f"Index {self.index_name} already exists")
-            self.validate_existing_index()
+            self.validate_existing_index(dimension_mapping=dimension_mapping)
             return
 
         try:
@@ -981,7 +981,7 @@ class OpenSearchIndexManager:
 
             if is_already_exists:
                 logger.info(f"Index '{self.index_name}' was created by another worker, validating and proceeding.")
-                self.validate_existing_index()
+                self.validate_existing_index(dimension_mapping=dimension_mapping)
                 return
 
             # 2. Diagnostic logging for genuine failures
@@ -998,17 +998,18 @@ class OpenSearchIndexManager:
                 error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
             ) from exc
 
-    def validate_existing_index(self) -> None:
-        """Validate that existing index configuration matches requested settings."""
+    def validate_existing_index(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate that existing index configuration matches requested settings and vector dimensions."""
         try:
             mappings: dict[str, Any] = self.client.indices.get_mapping(index=self.index_name)
             index_mappings: dict[str, Any] = mappings.get(self.index_name, {}).get(
                 OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {}
             )
             meta: dict[str, Any] = index_mappings.get(OperatorConstants.VectorDB.SCHEMA_KEY_META, {})
+            properties: dict[str, Any] = index_mappings.get(OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {})
 
-            existing_engine: str | None = meta.get("engine")
-            existing_algorithm: str | None = meta.get("algorithm")
+            existing_engine: str | None = meta.get(OperatorConstants.VectorDB.ENGINE)
+            existing_algorithm: str | None = meta.get(OperatorConstants.VectorDB.ALGORITHM)
 
             if existing_engine and existing_engine != self.engine:
                 logger.warning(f"Engine mismatch: index has '{existing_engine}', config specifies '{self.engine}'")
@@ -1017,6 +1018,43 @@ class OpenSearchIndexManager:
                 logger.warning(
                     f"Algorithm mismatch: index has '{existing_algorithm}', config specifies '{self.algorithm}'"
                 )
+
+            mismatches: list[str] = []
+            for vector_column, runtime_dimension in dimension_mapping.items():
+                mapped_field_name = self.feature_mappings.get(vector_column, vector_column)
+                field_mapping = properties.get(mapped_field_name)
+
+                if not field_mapping:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') is missing from existing index mapping"
+                    )
+                    continue
+
+                if field_mapping.get("type") != OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') is not a "
+                        f"{OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR} field"
+                    )
+                    continue
+
+                existing_dimension = field_mapping.get("dimension")
+                if existing_dimension != runtime_dimension:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') has existing dimension "
+                        f"{existing_dimension} but current run produced {runtime_dimension}"
+                    )
+
+            if mismatches:
+                raise DatasiftException(
+                    message=(
+                        f"Vector dimension mismatch for existing OpenSearch index '{self.index_name}': "
+                        + "; ".join(mismatches)
+                    ),
+                    status_code=400,
+                    error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
+                )
+        except DatasiftException:
+            raise
         except Exception as e:
             logger.warning(f"Could not validate existing index: {e}")
 

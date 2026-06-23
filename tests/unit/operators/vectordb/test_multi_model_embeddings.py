@@ -130,6 +130,7 @@ class TestMultiModelEmbeddings:
         mock_adapter.index_exists = Mock(return_value=False)  # Index doesn't exist, so create_index will be called
         mock_adapter.detect_all_vector_dimensions = Mock(return_value={"embeddings": 4, "embeddings_alt": 6})
         mock_adapter.create_index = Mock()
+        mock_adapter.validate_existing_schema = Mock()
         mock_adapter.insert_documents = Mock(return_value=(3, 0, []))
 
         with patch(
@@ -154,6 +155,7 @@ class TestMultiModelEmbeddings:
         mock_adapter.index_exists = Mock(return_value=True)  # Skip index creation
         mock_adapter.detect_all_vector_dimensions = Mock(return_value={"embeddings": 4, "embeddings_alt": 6})
         mock_adapter.create_index = Mock()
+        mock_adapter.validate_existing_schema = Mock()
         inserted_docs = []
 
         def capture_docs(documents):
@@ -169,6 +171,11 @@ class TestMultiModelEmbeddings:
         ):
             operator = VectorDBOperator(multi_model_config)
             operator.transform(dual_embeddings_table)
+
+            mock_adapter.create_index.assert_not_called()
+            mock_adapter.validate_existing_schema.assert_called_once_with(
+                dimension_mapping={"embeddings": 4, "embeddings_alt": 6}
+            )
 
             # Verify documents have both embedding columns
             assert len(inserted_docs) == 3

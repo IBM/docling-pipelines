@@ -231,6 +231,37 @@ class TestCollectionValidation:
         exists = manager.collection_exists()
         assert exists is False
 
+    def test_validate_existing_collection_matching_dimension(self, mock_client):
+        """Test validation passes when existing collection dimensions match."""
+        mock_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "vector_embeddings", "params": {"dim": 384}},
+            ]
+        }
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="existing_collection",
+            feature_mappings={"embeddings": "vector_embeddings"},
+        )
+
+        manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
+
+    def test_validate_existing_collection_dimension_mismatch(self, mock_client):
+        """Test validation fails when existing collection dimensions differ."""
+        mock_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "vector_embeddings", "params": {"dim": 768}},
+            ]
+        }
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="existing_collection",
+            feature_mappings={"embeddings": "vector_embeddings"},
+        )
+
+        with pytest.raises(DatasiftException, match="existing dimension 768 but current run produced 384"):
+            manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
+
 
 class TestVectorDimensionDetection:
     """Test vector dimension detection from PyArrow table"""

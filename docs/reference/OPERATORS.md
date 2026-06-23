@@ -1694,9 +1694,11 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   - Example: Store both 384-dim and 768-dim embeddings in same document (e.g., `embeddings` and `embeddings_alt`)
   - Use with BranchingOperator + multiple EmbeddingsOperators + MergeOperator for multi-model pipelines
   - See `sample_flows/branching_dual_embeddings_flow.json` for complete example
+  - On reruns against an existing index, vector field dimensions are validated before insert and the run fails fast on mismatches
 - **Milvus**: Single-model support (uses `embeddings` column only)
   - Dimension auto-detected from `embeddings` column data
   - Additional vector columns in the table are stored as metadata but not indexed as vectors
+  - On reruns against an existing collection, the indexed embedding dimension is validated before insert and the run fails fast on mismatches
   - Multi-model support planned for future update
   - For multi-model scenarios with Milvus, use separate collections per embedding model
 

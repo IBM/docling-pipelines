@@ -3,7 +3,7 @@
 Unit tests for VectorDB operator with OpenSearch adapter
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pyarrow as pa
@@ -116,6 +116,16 @@ class TestBatchProcessing:
         """Test basic transform operation"""
         mock_client = MagicMock()
         mock_client.indices.exists.return_value = True
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "_meta": {"engine": "faiss", "algorithm": "hnsw"},
+                    "properties": {
+                        "vector_embeddings": {"type": "knn_vector", "dimension": 384},
+                    },
+                }
+            }
+        }
         mock_client.info.return_value = {"version": {"number": "2.11.0"}}
         mock_opensearch.return_value = mock_client
         mock_bulk.return_value = (3, [])
@@ -158,6 +168,28 @@ class TestBatchProcessing:
         assert metadata["total_docs_count"] == 0
         assert metadata["processed_docs"] == 0
 
+    def test_transform_validates_existing_schema_before_insert(self, basic_config, sample_table):
+        """Test existing vector store schema is validated before insert on reruns."""
+        mock_adapter = Mock()
+        mock_adapter.index_exists.return_value = True
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 384}
+        mock_adapter.validate_existing_schema = Mock()
+        mock_adapter.create_index = Mock()
+        mock_adapter.index_documents.return_value = (3, [])
+
+        with patch(
+            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            operator = VectorDBOperator(basic_config)
+            _result_tables, metadata = operator.transform(sample_table)
+
+        mock_adapter.create_index.assert_not_called()
+        mock_adapter.validate_existing_schema.assert_called_once_with(dimension_mapping={"embeddings": 384})
+        mock_adapter.index_documents.assert_called_once()
+        assert metadata["processed_docs"] == 3
+        assert metadata["failed_docs_count"] == 0
+
 
 class TestChunkedEmbeddings:
     """Test chunked embeddings produce correct OpenSearch documents"""
@@ -194,6 +226,16 @@ class TestChunkedEmbeddings:
 
         mock_client = MagicMock()
         mock_client.indices.exists.return_value = True
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "_meta": {"engine": "faiss", "algorithm": "hnsw"},
+                    "properties": {
+                        "vector_embeddings": {"type": "knn_vector", "dimension": 384},
+                    },
+                }
+            }
+        }
         mock_client.info.return_value = {"version": {"number": "2.11.0"}}
         mock_opensearch.return_value = mock_client
         mock_bulk.return_value = (6, [])

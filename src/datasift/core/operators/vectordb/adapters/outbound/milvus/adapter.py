@@ -231,6 +231,10 @@ class MilvusAdapter(VectorStorePort):
         except Exception as e:
             logger.warning(f"Error during collection refresh: {e}")
 
+    def validate_existing_schema(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate existing Milvus collection schema against runtime vector dimensions."""
+        self.index_manager.validate_existing_collection(dimension_mapping=dimension_mapping)
+
     def index_exists(self) -> bool:
         """Check if the Milvus collection already exists.
 

@@ -592,7 +592,13 @@ class TestIndexValidation:
                     "_meta": {
                         "engine": "faiss",
                         "algorithm": "hnsw",
-                    }
+                    },
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 384,
+                        }
+                    },
                 }
             }
         }
@@ -604,8 +610,7 @@ class TestIndexValidation:
             algorithm="hnsw",
         )
 
-        # Should not raise any warnings
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
     def test_validate_existing_index_engine_mismatch(self, mock_client):
         """Test validation with engine mismatch"""
@@ -615,7 +620,13 @@ class TestIndexValidation:
                     "_meta": {
                         "engine": "lucene",
                         "algorithm": "hnsw",
-                    }
+                    },
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 384,
+                        }
+                    },
                 }
             }
         }
@@ -627,20 +638,58 @@ class TestIndexValidation:
             algorithm="hnsw",
         )
 
-        # Should log warning but not raise
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
+
+    def test_validate_existing_index_dimension_mismatch(self, mock_client):
+        """Test validation fails on dimension mismatch."""
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "_meta": {
+                        "engine": "faiss",
+                        "algorithm": "hnsw",
+                    },
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 768,
+                        }
+                    },
+                }
+            }
+        }
+
+        manager = OpenSearchIndexManager(
+            client=mock_client,
+            index_name="test_index",
+            engine="faiss",
+            algorithm="hnsw",
+        )
+
+        with pytest.raises(DatasiftException, match="existing dimension 768 but current run produced 384"):
+            manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
     def test_validate_existing_index_no_metadata(self, mock_client):
         """Test validation when index has no metadata"""
-        mock_client.indices.get_mapping.return_value = {"test_index": {"mappings": {}}}
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 384,
+                        }
+                    }
+                }
+            }
+        }
 
         manager = OpenSearchIndexManager(
             client=mock_client,
             index_name="test_index",
         )
 
-        # Should handle gracefully
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
     def test_validate_existing_index_error(self, mock_client):
         """Test validation handles errors gracefully"""
@@ -651,8 +700,7 @@ class TestIndexValidation:
             index_name="test_index",
         )
 
-        # Should not raise exception
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
 
 class TestIndexOperations:
