@@ -57,15 +57,19 @@ export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 source .venv/bin/activate
 ```
 
-### 3. Import Statement
+### 3. Verify Python Import
 
-```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+Test that the DatasiftFlowManager can be imported:
+
+```bash
+python -c "from datasift.lib.datasift_flow_manager import DatasiftFlowManager; print('Import successful')"
 ```
+
+**Note:** This command may take a few seconds to complete as Python loads dependencies. If successful, you'll see: `Import successful`
 
 ### 4. Verify Prerequisites
 
-Ensure Ollama and OpenSearch are running (see [User Guide: Pipeline Setup](../USER_GUIDE_PIPELINE_SETUP.md)).
+Ensure Ollama and OpenSearch are running (see [User Guide: Pipeline Setup](../../USER_GUIDE_PIPELINE_SETUP.md)).
 
 ---
 

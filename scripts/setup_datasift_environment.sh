@@ -40,7 +40,7 @@ INTERACTIVE_MODE=false
 SKIP_OLLAMA=false
 SKIP_OPENSEARCH=false
 SKIP_PYTHON=false
-DEFAULT_MODELS="granite4,llama2,nomic-embed-text"
+DEFAULT_MODELS="granite4,llama3.2,nomic-embed-text"
 OLLAMA_MODELS=""
 
 ################################################################################
@@ -153,7 +153,7 @@ Usage: $0 [OPTIONS]
 Options:
     --interactive              Enable interactive mode (prompts for choices)
     --models MODEL1,MODEL2     Specify Ollama models to download (comma-separated)
-                              Default: granite4,llama2,nomic-embed-text
+                              Default: granite4,llama3.2,nomic-embed-text
     --skip-ollama              Skip Ollama setup
     --skip-opensearch          Skip OpenSearch setup
     --skip-python              Skip Python environment setup
@@ -391,7 +391,7 @@ download_ollama_models() {
     elif [ "$INTERACTIVE_MODE" = true ]; then
         echo "Available models:"
         echo "  1. granite4 (recommended, ~2.5GB)"
-        echo "  2. llama2 (~3.8GB)"
+        echo "  2. llama3.2 (~2GB)"
         echo "  3. nomic-embed-text (optimized for embeddings, ~274MB)"
         echo ""
         read -p "Enter model numbers to download (comma-separated, e.g., 1,3) or 'all': " choice
@@ -406,7 +406,7 @@ download_ollama_models() {
                 for i in "${CHOICES[@]}"; do
                     case "$i" in
                         1) models="${models:+$models,}granite4";;
-                        2) models="${models:+$models,}llama2";;
+                        2) models="${models:+$models,}llama3.2";;
                         3) models="${models:+$models,}nomic-embed-text";;
                     esac
                 done

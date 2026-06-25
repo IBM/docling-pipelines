@@ -204,6 +204,8 @@ export OPENAI_API_KEY=sk-proj-...
 - HuggingFace API (with `huggingface/` prefix)
 - And 90+ more...
 
+For detailed provider-specific configuration examples and advanced usage, see the [LiteLLM Embeddings Documentation](https://docs.litellm.ai/docs/embedding/supported_embedding).
+
 **Pros**:
 
 - ✅ Unified interface for all providers
@@ -363,6 +365,68 @@ All adapters include automatic retry logic:
 - **Retries**: 3 attempts
 - **Backoff**: Exponential (1s, 2s, 4s)
 - **Errors**: Network, rate limiting, temporary failures
+
+## Security Best Practices
+
+### API Key Management
+
+**✅ Recommended: Environment Variables**
+
+```bash
+export OPENAI_API_KEY=your-key-here
+export COHERE_API_KEY=your-key-here
+export WATSONX_API_KEY=your-key-here
+export HUGGINGFACE_API_KEY=your-key-here
+```
+
+**⚠️ Not Recommended: Configuration Files**
+
+```json
+{
+  "config": {
+    "provider": "litellm",
+    "model_id": "openai/text-embedding-3-small",
+    "provider_config": {
+      "api_key": "sk-proj-..." // pragma: allowlist secret
+    }
+  }
+}
+```
+
+### Why Environment Variables?
+
+1. **Not Version Controlled**: Environment variables aren't committed to Git
+2. **Per-Environment**: Different keys for dev/staging/prod
+3. **Standard Practice**: Industry-standard approach
+4. **Audit Trail**: Easier to track and rotate keys
+
+### When Configuration-Based Keys Are Acceptable
+
+- **Local development/testing only**
+- **Temporary test keys**
+- **Keys that will be immediately rotated**
+- **Never in production**
+
+### Provider-Specific Environment Variables
+
+| Provider     | Environment Variable             |
+| ------------ | -------------------------------- |
+| OpenAI       | `OPENAI_API_KEY`                 |
+| Azure OpenAI | `AZURE_API_KEY`                  |
+| Cohere       | `COHERE_API_KEY`                 |
+| Anthropic    | `ANTHROPIC_API_KEY`              |
+| Vertex AI    | `GOOGLE_APPLICATION_CREDENTIALS` |
+| Bedrock      | `AWS_ACCESS_KEY_ID`              |
+| watsonx      | `WATSONX_API_KEY`                |
+| Hugging Face | `HUGGINGFACE_API_KEY`            |
+
+### Security Checklist
+
+1. **Never commit API keys**: Use environment variables or secret management
+2. **Rotate keys regularly**: Change API keys periodically
+3. **Use least privilege**: Grant minimum required permissions
+4. **Monitor usage**: Track API calls for anomalies
+5. **Secure storage**: Store keys in secure vaults (AWS Secrets Manager, Azure Key Vault, etc.)
 
 ## Testing
 

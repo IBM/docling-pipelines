@@ -296,14 +296,14 @@ ffmpeg -version
 **1. Clone the repository:**
 
 ```bash
-git clone https://github.ibm.com/wdp-gov/datasift-opensource.git
-cd datasift-opensource
+git clone https://github.ibm.com/wdp-gov/docling-pipelines.git
+cd docling-pipelines
 ```
 
 > **Note:** If you already have the repository cloned, simply navigate to it:
 >
 > ```bash
-> cd datasift-opensource
+> cd docling-pipelines
 > ```
 
 **2. Create virtual environment and install dependencies:**
@@ -334,6 +334,16 @@ pre-commit install
 ```bash
 .venv\Scripts\activate
 pre-commit install
+```
+
+**4. Configure environment variables:**
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# The default values work for local development
+# Edit .env if you need to customize settings
 ```
 
 ### Verify Installation

@@ -1,47 +1,43 @@
 {
-  "name": "Custom Operator Test Flow",
-  "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "flow_name": "Custom Operator Test Flow",
   "description": "Test flow to demonstrate custom operator loading and execution with extraction",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
-    "force_ingest": true
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
   },
-  "dag": [
+  "flow": [
     {
-      "id": "11111111-2222-3333-4444-555555555555",
       "name": "ingest",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "paths": "./tests/fixtures/customer_support_docs"
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "22222222-3333-4444-5555-666666666666"}]
+      }
     },
     {
-      "id": "22222222-3333-4444-5555-666666666666",
       "name": "extract",
-      "operator": "extract_operator",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
       "config": {
         "text_extraction": {
           "doc_column": "content",
           "provider": "docling_library"
         }
-      },
-      "input_edges": [{"node_id_ref": "11111111-2222-3333-4444-555555555555"}],
-      "output_edges": [{"node_id_ref": "66666666-7777-8888-9999-000000000000"}]
+      }
     },
     {
-      "id": "66666666-7777-8888-9999-000000000000",
       "name": "uppercase_transform",
-      "operator": "uppercase",
+      "type": "uppercase",
+      "depends_on": [
+        "extract"
+      ],
       "config": {
         "doc_column": "content"
-      },
-      "input_edges": [{"node_id_ref": "22222222-3333-4444-5555-666666666666"}],
-      "output_edges": []
+      }
     }
   ]
 }

@@ -32,23 +32,35 @@ Run the automated setup script to install everything:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/datasift.git
-cd datasift
+git clone https://github.ibm.com/wdp-gov/docling-pipelines.git
+cd docling-pipelines
 
 # Make setup script executable
 chmod +x scripts/setup_datasift_environment.sh
 
-# Run automated setup (installs everything)
-./scripts/setup_datasift_environment.sh
+# Run automated setup (installs only required model for quick start)
+./scripts/setup_datasift_environment.sh --models nomic-embed-text
 ```
 
 **What this installs:**
 - ✅ uv package manager
-- ✅ Ollama server + models (granite4, llama3.2, nomic-embed-text)
+- ✅ Ollama server + nomic-embed-text model (~274MB)
 - ✅ OpenSearch + Dashboards (for vector storage)
 - ✅ Python virtual environment + dependencies
 
-**Setup takes 2-3 minutes** depending on your internet connection (downloading ~3GB of models).
+**Setup takes 5-10 minutes** depending on your internet connection.
+
+### Configure Environment
+
+Copy the example environment file and configure it:
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# The default values work for local development
+# Edit .env if you need to customize settings
+```
 
 ### Setup Verification
 
@@ -71,24 +83,17 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 
 Now let's run a complete document processing pipeline!
 
-### Step 1: Prepare Sample Documents
+### Step 1: Verify Sample Documents
 
-Create a test directory with a sample document:
+The repository includes sample text files ready to process:
 
 ```bash
-# Create sample documents directory
-mkdir -p sample_documents
-
-# Create a simple test document
-cat > sample_documents/hello.txt << 'EOF'
-Welcome to DataSift!
-
-DataSift is a modular data processing framework for building flexible pipelines.
-It supports document extraction, chunking, embeddings, and vector storage.
-
-This is your first document being processed through the pipeline.
-EOF
+# View existing sample documents
+ls -la sample_documents/
+# Output: hello.txt, 1kb_file.txt
 ```
+
+**Note:** The sample flow processes these .txt files. You can add your own PDF, TXT, or DOCX files to this directory if desired.
 
 ### Step 2: Activate Environment
 
@@ -148,11 +153,11 @@ DataSift provides clean, formatted console output showing pipeline progress in r
  Operator Summary:
  Operator                       Status               Duration     Docs
  ------------------------------------------------------------------------------
- ingest                         COMPLETED            0.50s        1/1
- extract                        COMPLETED            3.20s        1/1
- chunk                          COMPLETED            1.10s        1/1
- embeddings                     COMPLETED            8.50s        1/1
- vectordb                       COMPLETED            2.00s        1/1
+ ingest_local_folder            Completed            < 1s         2/2
+ extract_with_docling           Completed            < 1s         2/2
+ simple_chunker                 Completed            1.00s        2/2
+ ollama_embeddings              Completed            1.00s        2/2
+ opensearch_vector_store        Completed            1.00s        2/2
 ================================================================================
 ```
 
@@ -232,9 +237,6 @@ datasift-orchestrator --list-operators
 
 # Detailed view with full operator parameters
 datasift-orchestrator --list-operators --verbose
-
-# Get help on a specific operator
-datasift-orchestrator --operator-help ingest_local
 ```
 
 ### Create Your Own Pipeline

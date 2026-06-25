@@ -1483,12 +1483,18 @@ graph TB
 
 ```json
 {
-  "operator": "extract_entities_ollama",
+  "type": "extract_operator",
+  "name": "extract_entities_ollama",
   "config": {
-    "ollama_url": "http://localhost:11434",
-    "model_name": "llama3.2",
-    "temperature": 0.7,
-    "max_tokens": 2000
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "temperature": 0.7,
+        "max_tokens": 2000
+      }
+    }
   }
 }
 ```
@@ -1634,7 +1640,8 @@ graph TB
 
 ```json
 {
-  "operator": "vectordb",
+  "type": "vectordb",
+  "name": "opensearch_vector_store",
   "config": {
     "provider": "opensearch",
     "index_name": "documents",
@@ -1642,6 +1649,7 @@ graph TB
       "host": "localhost",
       "port": 9200,
       "engine": "nmslib",
+      "algorithm": "hnsw",
       "space_type": "cosinesimil"
     }
   }
@@ -2115,7 +2123,8 @@ graph TB
 **Example Configuration (Dense Vectors):**
 ```json
 {
-  "operator": "vectordb",
+  "type": "vectordb",
+  "name": "milvus_dense_store",
   "config": {
     "provider": "milvus",
     "index_name": "my_collection",
@@ -2149,8 +2158,8 @@ graph TB
 **Example Configuration (Sparse Vectors):**
 ```json
 {
-  "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
-  "operator": "vectordb",
+  "type": "vectordb",
+  "name": "milvus_sparse_store",
   "config": {
     "provider": "milvus",
     "index_name": "documents_sparse",
@@ -2412,7 +2421,8 @@ graph TB
 
 ```json
 {
-  "operator": "extract_operator",
+  "type": "extract_operator",
+  "name": "extract_with_docling",
   "config": {
     "text_extraction": {
       "provider": "docling_library",
@@ -2700,13 +2710,14 @@ graph TB
 
 ```json
 {
-  "operator": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "type": "pii_and_hap",
+  "name": "pii_hap_watsonx",
   "config": {
     "provider": "watsonx",
     "provider_config": {
       "model_id": "ibm/granite-13b-chat-v2",
       "api_key": "your-ibm-cloud-api-key",  # pragma: allowlist secret
-      "api_base": "https://us-south.ml.cloud.ibm.com",
+      "url": "https://us-south.ml.cloud.ibm.com",
       "container_id": "your-project-id",
       "container_kind": "project",
       "timeout": 300
@@ -2719,7 +2730,8 @@ graph TB
 
 ```json
 {
-  "operator": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "type": "pii_and_hap",
+  "name": "pii_hap_litellm",
   "config": {
     "provider": "litellm",
     "provider_config": {
@@ -2906,7 +2918,8 @@ graph TB
 
 ```json
 {
-  "operator": "IngestSourceOperator",
+  "type": "ingest_source",
+  "name": "ingest_s3",
   "config": {
     "provider": "s3",
     "connection_params": {
@@ -2928,7 +2941,8 @@ graph TB
 
 ```json
 {
-  "operator": "IngestSourceOperator",
+  "type": "ingest_source",
+  "name": "ingest_ibm_cos",
   "config": {
     "provider": "ibm_cos",
     "connection_params": {
@@ -2949,7 +2963,8 @@ graph TB
 
 ```json
 {
-  "operator": "IngestSourceOperator",
+  "type": "ingest_source",
+  "name": "ingest_sharepoint",
   "config": {
     "provider": "sharepoint",
     "connection_params": {
@@ -2972,7 +2987,8 @@ graph TB
 
 ```json
 {
-  "operator": "IngestSourceOperator",
+  "type": "ingest_source",
+  "name": "ingest_onedrive",
   "config": {
     "provider": "onedrive",
     "connection_params": {
@@ -2994,7 +3010,8 @@ graph TB
 
 ```json
 {
-  "operator": "IngestSourceOperator",
+  "type": "ingest_source",
+  "name": "ingest_google_drive",
   "config": {
     "provider": "google_drive",
     "connection_params": {
@@ -3012,7 +3029,8 @@ graph TB
 **Web Pages:**
 ```json
 {
-  "operator": "IngestSourceOperator",
+  "type": "ingest_source",
+  "name": "ingest_web",
   "config": {
     "provider": "web",
     "connection_params": {

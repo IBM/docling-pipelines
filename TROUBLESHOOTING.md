@@ -691,12 +691,15 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/indices?v"
 
 ```json
 {
-  "operator": "vectordb",
+  "type": "vectordb",
+  "name": "opensearch_store",
   "config": {
     "provider": "opensearch",
     "index_name": "my-index",  // Must be lowercase, no spaces
     "vector_dimension": 768,  // Must match embedding model dimension
     "provider_config": {
+        "host": "localhost",
+        "port": 9200,
         "engine": "nmslib",  // Valid: nmslib, faiss, lucene
         "algorithm": "hnsw",
         "space_type": "l2"
@@ -836,8 +839,8 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 4. **Check configuration in flow:**
    ```json
    {
-     "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
-     "operator": "vectordb",
+     "type": "vectordb",
+     "name": "milvus_store",
      "config": {
        "provider": "milvus",
        "index_name": "my_collection",
@@ -875,8 +878,8 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 3. **Verify dimension matches embeddings:**
    ```json
    {
-     "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
-     "operator": "vectordb",
+     "type": "vectordb",
+     "name": "milvus_collection",
      "config": {
        "provider": "milvus",
        "index_name": "my_collection",
@@ -915,17 +918,20 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 3. **Match embedding model:**
    ```json
    {
-     "id": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
-     "operator": "embeddings",
+     "type": "embeddings",
+     "name": "generate_embeddings",
      "config": {
        "provider": "litellm",
-       "model_id": "openai/nomic-embed-text",
+       "provider_config": {
+         "model_id": "openai/nomic-embed-text",
+         "api_base": "http://localhost:11434/v1"
+       },
        "embeddings_column": "embeddings"
      }
    },
    {
-     "id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
-     "operator": "vectordb",
+     "type": "vectordb",
+     "name": "store_in_milvus",
      "config": {
        "provider": "milvus",
        "index_name": "my_collection",
@@ -953,8 +959,8 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 1. **Use compatible index and metric combinations:**
    ```json
    {
-     "id": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
-     "operator": "vectordb",
+     "type": "vectordb",
+     "name": "milvus_hnsw",
      "config": {
        "provider": "milvus",
        "index_name": "my_collection",
@@ -969,8 +975,8 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 2. **Adjust index parameters:**
    ```json
    {
-     "id": "f6a7b8c9-d0e1-2f3a-4b5c-6d7e8f9a0b1c",
-     "operator": "vectordb",
+     "type": "vectordb",
+     "name": "milvus_tuned",
      "config": {
        "provider": "milvus",
        "index_name": "my_collection",
@@ -1065,10 +1071,10 @@ Message code: INGEST_OPERATOR_MISPLACED
 
 ```json
 {
-  "dag": [
+  "flow": [
     {
-      "id": "ingest_1",
-      "operator": "ingest_local",
+      "type": "ingest_local",
+      "name": "ingest_1",
       "config": {
         "paths": "sample_documents"
       }
@@ -1419,7 +1425,8 @@ Message code: CHUNKER_INVALID_CHUNK_TYPE
 
 ```json
 {
-  "operator": "chunker",
+  "type": "chunker",
+  "name": "semantic_chunker",
   "config": {
     "chunk_type": "semantic", // Must be: simple, semantic, or hybrid
     "chunk_size": 512,
@@ -1623,7 +1630,8 @@ Message code: DROPPING_MANDATORY_FEATURES
 
 ```json
 {
-  "operator": "sql_filter",
+  "type": "sql_filter",
+  "name": "filter_documents",
   "config": {
     "filter_criteria": "SELECT * FROM table WHERE length > 100"
     // Don't use: SELECT column1, column2 (missing id, content)
@@ -1646,14 +1654,33 @@ Message code: EXTRACT_OPERATOR_MISSING
 
 ```json
 {
-  "dag": [
-    {"id": "ingest_1", "operator": "ingest_local"},
-    {"id": "extract_1", "operator": "extract_operator"},  // Add this
-    {"id": "chunk_1", "operator": "chunker"}
-  ],
-  "edges": [
-    {"source": "ingest_1", "target": "extract_1"},
-    {"source": "extract_1", "target": "chunk_1"}
+  "flow": [
+    {
+      "type": "ingest_local",
+      "name": "ingest_1",
+      "config": {
+        "paths": "./sample_documents"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_1",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library"
+        }
+      },
+      "depends_on": ["ingest_1"]
+    },
+    {
+      "type": "chunker",
+      "name": "chunk_1",
+      "config": {
+        "chunk_type": "simple",
+        "chunk_size": 512
+      },
+      "depends_on": ["extract_1"]
+    }
   ]
 }
 
@@ -2325,10 +2352,15 @@ uv sync --extra dev
 
 ```json
 {
-  "operator": "extract_operator",
+  "type": "extract_operator",
+  "name": "extract_with_timeout",
   "config": {
-    "text_extraction": {"provider": "docling_library"},
-    "entity_extraction": {"provider": "none"},
+    "text_extraction": {
+      "provider": "docling_library"
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
     "timeout": 300  // Increase from default 60 seconds
   }
 }

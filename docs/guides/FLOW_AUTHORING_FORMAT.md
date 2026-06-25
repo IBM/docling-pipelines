@@ -615,7 +615,7 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
 
 ## See Also
 
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)
-- [Quick Start Guide](../QUICKSTART.md)
-- [Operator Reference](operators/README.md)
-- [Sample Flows](../sample_flows/)
+- [Complete Pipeline Setup Guide](../../USER_GUIDE_PIPELINE_SETUP.md)
+- [Quick Start Guide](../../QUICKSTART.md)
+- [Operator Reference](../reference/OPERATORS.md)
+- [Sample Flows](../../sample_flows/)

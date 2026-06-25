@@ -41,8 +41,8 @@ oc whoami
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.ibm.com/wdp-gov/datasift-opensource.git
-cd datasift-opensource
+git clone https://github.ibm.com/wdp-gov/docling-pipelines.git
+cd docling-pipelines
 ```
 
 ### 2. Configure Git Credentials for Private Repositories
