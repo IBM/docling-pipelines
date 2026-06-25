@@ -112,10 +112,10 @@ Run any flow normally - telemetry will be automatically enabled:
 
 ```bash
 # CLI
-datasift-orchestrator --flow-file sample_flows/simple_ingest_and_extract_flow.json
+docling-pipelines --flow-file sample_flows/simple_ingest_and_extract_flow.json
 
 # API
-uvicorn datasift.api.main:app --reload
+uvicorn docpipe.api.main:app --reload
 ```
 
 ### 4. View Traces
@@ -380,7 +380,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 3. **Check logs for initialization:**
    ```bash
    # Look for: "Telemetry initialized successfully"
-   datasift-orchestrator --flow-file flow.json 2>&1 | grep -i telemetry
+   docling-pipelines --flow-file flow.json 2>&1 | grep -i telemetry
    ```
 
 ### Performance Issues
@@ -408,7 +408,7 @@ uv pip install -e ".[telemetry]"
 ### 1. Check Telemetry Status
 
 ```python
-from datasift.utils.infrastructure import get_telemetry_service
+from docpipe.utils.infrastructure import get_telemetry_service
 
 telemetry = get_telemetry_service()
 print(f"Telemetry enabled: {telemetry.is_enabled}")
@@ -418,7 +418,7 @@ print(f"Telemetry enabled: {telemetry.is_enabled}")
 
 ```bash
 # Run a simple flow
-datasift-orchestrator --flow-file sample_flows/hello_flow.json
+docling-pipelines --flow-file sample_flows/hello_flow.json
 
 # Check Jaeger UI for traces
 open http://localhost:16686

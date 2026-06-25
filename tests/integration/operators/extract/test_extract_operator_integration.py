@@ -14,7 +14,7 @@ from pathlib import Path
 import pyarrow as pa
 import pytest
 
-from datasift.core.operators.extract.extract_operator import ExtractOperator
+from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
 
 @pytest.mark.integration
@@ -187,7 +187,7 @@ class TestExtractOperatorIntegration:
         from unittest.mock import MagicMock, patch
 
         with patch(
-            "datasift.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
+            "docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
         ) as mock_create:
             # Setup mock adapter
             mock_adapter = MagicMock()
@@ -233,7 +233,7 @@ class TestExtractOperatorIntegration:
         from unittest.mock import MagicMock, patch
 
         with patch(
-            "datasift.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
+            "docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
         ) as mock_create:
             # Setup mock adapter that handles errors gracefully
             mock_adapter = MagicMock()
@@ -270,7 +270,7 @@ class TestExtractOperatorIntegration:
         from unittest.mock import MagicMock, patch
 
         with patch(
-            "datasift.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
+            "docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
         ) as mock_create:
             mock_adapter = MagicMock()
             mock_result_table = pa.table(
@@ -397,10 +397,10 @@ class TestExtractOperatorRealWorld:
 
         with (
             patch(
-                "datasift.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
+                "docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter"
             ) as mock_text_create,
             patch(
-                "datasift.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory.EntityExtractionAdapterFactory.create_adapter"
+                "docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory.EntityExtractionAdapterFactory.create_adapter"
             ) as mock_entity_create,
         ):
             # Setup mock text extraction adapter

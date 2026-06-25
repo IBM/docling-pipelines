@@ -1,8 +1,8 @@
 import pyarrow as pa
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.quality.redaction import RedactionOperator
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.quality.redaction import RedactionOperator
 
 
 class TestRedactionOperator:

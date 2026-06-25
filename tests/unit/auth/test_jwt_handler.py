@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from jose import jwt
 
-from datasift.api.auth.jwt_handler import (
+from docpipe.api.auth.jwt_handler import (
     JWTConfig,
     create_access_token,
     verify_token,

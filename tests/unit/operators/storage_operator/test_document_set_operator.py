@@ -12,11 +12,11 @@ Tests cover:
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus, Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.abstract_operator import OperatorCategory
-from datasift.core.operators.document_sets.document_set_operator import DocumentSetOperator
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.core.constants.constants import ExecutionStatus, Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.abstract_operator import OperatorCategory
+from docpipe.core.operators.document_sets.document_set_operator import DocumentSetOperator
+from docpipe.exceptions.docpipe_exceptions import (
     FlowValidationException,
 )
 

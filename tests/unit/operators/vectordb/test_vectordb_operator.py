@@ -9,10 +9,10 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.vectordb import VectorDBOperator
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.utils.infrastructure.config import get_opensearch_config
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.utils.infrastructure.config import get_opensearch_config
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ class TestVectorDBOperatorInitialization:
 
     def test_basic_initialization(self, basic_config):
         """Test basic operator initialization"""
-        with patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
             operator = VectorDBOperator(basic_config)
             assert operator.index_name == "test_index"
             assert operator.provider == "opensearch"
@@ -103,15 +103,15 @@ class TestVectorDBOperatorInitialization:
         config = basic_config.copy()
         config["provider"] = "invalid_db"
 
-        with pytest.raises(DatasiftException, match="Failed to initialize vector database adapter"):
+        with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
             VectorDBOperator(config)
 
 
 class TestBatchProcessing:
     """Test batch processing functionality through public interface"""
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk")
     def test_transform_basic(self, mock_bulk, mock_opensearch, basic_config, sample_table):
         """Test basic transform operation"""
         mock_client = MagicMock()
@@ -139,7 +139,7 @@ class TestBatchProcessing:
         assert metadata["processed_docs"] == 3
         assert metadata["failed_docs_count"] == 0
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_transform_missing_doc_id_column(self, mock_opensearch, basic_config):
         """Test transform with missing doc_id column"""
         mock_client = MagicMock()
@@ -153,7 +153,7 @@ class TestBatchProcessing:
 
         assert metadata["node_status"] == "Failed"
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_transform_empty_table(self, mock_opensearch, basic_config):
         """Test transform with empty table"""
         mock_client = MagicMock()
@@ -178,7 +178,7 @@ class TestBatchProcessing:
         mock_adapter.index_documents.return_value = (3, [])
 
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(basic_config)
@@ -194,8 +194,8 @@ class TestBatchProcessing:
 class TestChunkedEmbeddings:
     """Test chunked embeddings produce correct OpenSearch documents"""
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk")
     def test_chunks_store_chunk_specific_text(self, mock_bulk, mock_opensearch, basic_config):
         """Verify OpenSearch documents contain chunk-specific text, not full document content"""
         # Real scenario: 2 documents with 3 chunks each = 6 total chunks
@@ -267,7 +267,7 @@ class TestChunkedEmbeddings:
 class TestQueryCapabilities:
     """Test query and delete capabilities through public interface"""
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_query_by_doc_names(self, mock_opensearch, basic_config):
         """Test querying documents by names"""
         mock_client = MagicMock()
@@ -289,8 +289,8 @@ class TestQueryCapabilities:
         assert docs[0]["name"] == "doc1"
         assert docs[1]["name"] == "doc2"
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk")
     def test_delete_documents_by_ids(self, mock_bulk, mock_opensearch, basic_config):
         """Test deleting documents by IDs"""
         mock_client = MagicMock()
@@ -304,7 +304,7 @@ class TestQueryCapabilities:
         assert success == 2
         assert failed == 0
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_get_document_count(self, mock_opensearch, basic_config):
         """Test getting document count"""
         mock_client = MagicMock()
@@ -335,7 +335,7 @@ class TestMetadata:
             "algorithm": "hnsw",
         }
 
-        with patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
             operator = VectorDBOperator(config)
             metadata = operator.get_metadata()
 

@@ -4,8 +4,8 @@ Unit tests for MetadataAggregator - nested metadata handling.
 Tests the enterprise-compatible nested node_metadata aggregation.
 """
 
-from datasift.core.job_management.application.aggregation.aggregator import MetadataAggregator
-from datasift.core.job_management.application.aggregation.strategies import AggregationStrategy
+from docpipe.core.job_management.application.aggregation.aggregator import MetadataAggregator
+from docpipe.core.job_management.application.aggregation.strategies import AggregationStrategy
 
 
 class TestNestedMetadataAggregation:

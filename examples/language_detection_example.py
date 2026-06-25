@@ -15,8 +15,8 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.quality.language_detection.lang_id import LanguageDetect
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.quality.language_detection.lang_id import LanguageDetect
 
 
 def run_with_provider(provider: str, content: pa.Array, names: pa.Array, doc_ids: pa.Array) -> None:

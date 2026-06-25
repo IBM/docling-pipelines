@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from uuid import UUID
 
-from datasift.core.constants.operator_constants import OperatorConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
 
 
 class TestOpenSearchFlow(unittest.TestCase):
@@ -224,7 +224,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         config = self.opensearch_node["config"]
 
         # Verify index name
-        self.assertEqual(config[OperatorConstants.VectorDB.INDEX_NAME], "datasift_test_index")
+        self.assertEqual(config[OperatorConstants.VectorDB.INDEX_NAME], "docpipe_test_index")
 
         # Verify connection details
         self.assertEqual(config[OperatorConstants.VectorDB.OPENSEARCH_HOST], "localhost")

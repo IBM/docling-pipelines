@@ -46,11 +46,11 @@ build/
 *.parquet.lock
 *.pkl
 docs/arch
-src/datasift_opensource/backend/data/
+src/docpipe_app/backend/data/
 
 # Downloaded models
-src/datasift_opensource/backend/models/
-src/datasift_opensource/models/
+src/docpipe_app/backend/models/
+src/docpipe_app/models/
 src/models/
 
 # Bob AI Assistant

@@ -9,10 +9,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.constants import LLMConstants
-from datasift.core.operators.quality.classification.classification_service import ClassificationService
-from datasift.core.operators.quality.classification.domain.models import ClassificationRequest
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.constants.constants import LLMConstants
+from docpipe.core.operators.quality.classification.classification_service import ClassificationService
+from docpipe.core.operators.quality.classification.domain.models import ClassificationRequest
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 @pytest.mark.unit
@@ -53,7 +53,7 @@ class TestClassificationService:
 
     def test_init_missing_model_id(self):
         """Test initialization fails without model_id."""
-        with pytest.raises(DatasiftException, match="model_id is required"):
+        with pytest.raises(DocpipeException, match="model_id is required"):
             ClassificationService(
                 model_id=None,
                 provider_name="litellm",
@@ -61,7 +61,7 @@ class TestClassificationService:
 
     def test_init_unsupported_provider(self):
         """Test initialization fails with unsupported provider."""
-        with pytest.raises(DatasiftException, match=r"Unsupported provider.*ollama"):
+        with pytest.raises(DocpipeException, match=r"Unsupported provider.*ollama"):
             ClassificationService(
                 model_id="test-model",
                 provider_name="ollama",
@@ -69,13 +69,13 @@ class TestClassificationService:
 
     def test_init_invalid_provider(self):
         """Test initialization fails with invalid provider."""
-        with pytest.raises(DatasiftException, match="Unsupported provider"):
+        with pytest.raises(DocpipeException, match="Unsupported provider"):
             ClassificationService(
                 model_id="test-model",
                 provider_name="invalid_provider",
             )
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_classify_document_success_litellm(self, mock_create_adapter):
         """Test successful document classification with litellm."""
         # Setup mock LLM adapter
@@ -120,7 +120,7 @@ class TestClassificationService:
         assert response.reasoning == "Contains invoice details"
         assert response.error is None
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_classify_document_success_watsonx(self, mock_create_adapter, monkeypatch):
         """Test successful document classification with watsonx."""
         # Set required environment variables
@@ -168,7 +168,7 @@ class TestClassificationService:
         assert response.confidence == 8
         assert response.error is None
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_classify_document_invalid_json(self, mock_create_adapter):
         """Test handling of invalid JSON response."""
         # Setup mock to return invalid JSON
@@ -205,7 +205,7 @@ class TestClassificationService:
         assert response.error is not None
         assert "Invalid JSON response" in response.error
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_classify_document_missing_fields(self, mock_create_adapter):
         """Test handling of response with missing required fields."""
         # Setup mock to return JSON without required fields
@@ -240,7 +240,7 @@ class TestClassificationService:
         assert response.document_type == "unknown"
         assert response.error is not None
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_classify_document_embedded_json(self, mock_create_adapter):
         """Test extraction of JSON from text response."""
         # Setup mock to return JSON embedded in text
@@ -329,7 +329,7 @@ class TestClassificationService:
         )
         service.cleanup()  # Should not raise
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_adapter_validation_called_on_init(self, mock_create_adapter):
         """Test that adapter validation is called during service initialization."""
         # Setup mock adapter with validate method
@@ -357,9 +357,9 @@ class TestClassificationService:
         mock_llm_adapter.validate.assert_called_once()
         assert service.model_id == "openai/llama3"
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_adapter_validation_failure_raises_error(self, mock_create_adapter):
-        """Test that adapter validation failure raises DatasiftException."""
+        """Test that adapter validation failure raises DocpipeException."""
         # Setup mock adapter with failing validation
         mock_llm_adapter = Mock()
         mock_llm_adapter.validate.return_value = {
@@ -372,7 +372,7 @@ class TestClassificationService:
         mock_create_adapter.return_value = mock_llm_adapter
 
         # Attempt to create service should raise exception
-        with pytest.raises(DatasiftException, match="Adapter validation failed"):
+        with pytest.raises(DocpipeException, match="Adapter validation failed"):
             ClassificationService(
                 model_id="openai/llama3",
                 provider_name="litellm",
@@ -381,7 +381,7 @@ class TestClassificationService:
                 },
             )
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
     def test_adapter_validation_with_warnings(self, mock_create_adapter):
         """Test that adapter validation with warnings still succeeds."""
         # Setup mock adapter with warnings

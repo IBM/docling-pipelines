@@ -20,9 +20,9 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.operators.extract.extract_operator import ExtractOperator
-from datasift.core.operators.functional.chunker import ChunkerOperator, ChunkType
-from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.extract.extract_operator import ExtractOperator
+from docpipe.core.operators.functional.chunker import ChunkerOperator, ChunkType
+from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
 
 
 def main_semantic(runtime: str = "python") -> None:  # pragma: no cover

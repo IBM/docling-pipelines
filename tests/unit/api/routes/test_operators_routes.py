@@ -37,12 +37,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from datasift.api.routes.operators import get_operator_metadata_service, operators_router
-from datasift.core.operators.application.services.operator_metadata_service import (
+from docpipe.api.routes.operators import get_operator_metadata_service, operators_router
+from docpipe.core.operators.application.services.operator_metadata_service import (
     OperatorMetadataService,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.exceptions.error_codes import ErrorCode
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.error_codes import ErrorCode
 
 
 @pytest.fixture
@@ -55,19 +55,19 @@ def app():
     from fastapi.exceptions import RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
-    from datasift.api.middleware.error_handler import (
-        datasift_exception_handler,
+    from docpipe.api.middleware.error_handler import (
+        docpipe_exception_handler,
         generic_exception_handler,
         http_exception_handler,
         validation_exception_handler,
     )
-    from datasift.exceptions.datasift_exceptions import DatasiftException
+    from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
     app = FastAPI()
     app.include_router(operators_router)
 
     # Register exception handlers in same order as main.py
-    app.add_exception_handler(DatasiftException, datasift_exception_handler)
+    app.add_exception_handler(DocpipeException, docpipe_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
@@ -207,7 +207,7 @@ class TestGetOperatorMetadataEndpoint:
     def test_get_operator_metadata_handles_service_exception(self, client, override_service):
         """Test that service exceptions are handled properly."""
         # Arrange
-        override_service.get_all_operator_metadata.side_effect = DatasiftException(
+        override_service.get_all_operator_metadata.side_effect = DocpipeException(
             message="Failed to retrieve operator metadata",
             status_code=500,
             error_code=ErrorCode.OPERATOR_METADATA_FAILED,
@@ -224,10 +224,10 @@ class TestGetOperatorMetadataEndpoint:
         assert data["errors"][0]["code"] == ErrorCode.OPERATOR_METADATA_FAILED
 
     def test_get_operator_metadata_handles_generic_exception(self, client, override_service):
-        """Test that generic exceptions are wrapped in DatasiftException by service."""
+        """Test that generic exceptions are wrapped in DocpipeException by service."""
         # Arrange
-        # Service wraps all exceptions in DatasiftException
-        override_service.get_all_operator_metadata.side_effect = DatasiftException(
+        # Service wraps all exceptions in DocpipeException
+        override_service.get_all_operator_metadata.side_effect = DocpipeException(
             message="Failed to retrieve operator metadata",
             status_code=500,
             error_code=ErrorCode.OPERATOR_METADATA_FAILED,
@@ -318,7 +318,7 @@ class TestGetOperatorMetadataEndpoint:
         override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
-        with patch("datasift.api.routes.operators.logger") as mock_logger:
+        with patch("docpipe.api.routes.operators.logger") as mock_logger:
             response = client.get("/operators/metadata")
 
             # Assert

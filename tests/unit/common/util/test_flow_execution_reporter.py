@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.job_management.domain.models.job_stats import JobStats
-from datasift.core.job_management.domain.models.node_stats import NodeStats
-from datasift.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.job_management.domain.models.job_stats import JobStats
+from docpipe.core.job_management.domain.models.node_stats import NodeStats
+from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
 
 
 @pytest.fixture
@@ -75,7 +75,7 @@ class TestInitialization:
 class TestFlowHeader:
     """Tests for flow header printing."""
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_flow_header_sets_start_time(self, mock_logger, reporter):
         """Test flow header sets start time."""
         reporter.print_flow_header(flow_name="Test Flow", operator_count=5)
@@ -83,7 +83,7 @@ class TestFlowHeader:
         assert reporter._flow_start_time is not None
         assert isinstance(reporter._flow_start_time, datetime)
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_flow_header_logs_info(self, mock_logger, reporter):
         """Test flow header logs flow information."""
         reporter.print_flow_header(flow_name="Test Flow", operator_count=5)
@@ -96,7 +96,7 @@ class TestFlowHeader:
 class TestOperatorMessages:
     """Tests for operator start and summary messages."""
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_operator_start(self, mock_logger, reporter):
         """Test operator start message includes step name and type."""
         reporter.print_operator_start(step_name="step1", operator_type="extract_operator")
@@ -106,7 +106,7 @@ class TestOperatorMessages:
         assert "step1" in call_args
         assert "extract_operator" in call_args
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_operator_summary_updates_table_state(
         self, mock_logger, reporter, sample_node_stats, sample_pyarrow_table
     ):
@@ -238,7 +238,7 @@ class TestColumnGrouping:
 class TestColumnListPrinting:
     """Tests for _print_column_list helper method."""
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_column_list_few_columns(self, mock_logger, reporter):
         """Test printing few columns uses simple comma-separated format."""
         columns = ["id", "name", "content"]
@@ -248,7 +248,7 @@ class TestColumnListPrinting:
         call_args = mock_logger.info.call_args[0][0]
         assert "id, name, content" in call_args
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_column_list_many_columns(self, mock_logger, reporter):
         """Test printing many columns uses wrapped format."""
         columns = [f"col_{i}" for i in range(15)]
@@ -256,7 +256,7 @@ class TestColumnListPrinting:
 
         assert mock_logger.info.call_count > 1
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_column_list_very_many_columns(self, mock_logger, reporter):
         """Test printing very many columns uses grouped format."""
         columns = [f"ml_feature_{i}" for i in range(25)]
@@ -264,7 +264,7 @@ class TestColumnListPrinting:
 
         assert mock_logger.info.call_count > 1
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_column_list_custom_indent(self, mock_logger, reporter):
         """Test custom indent is used."""
         columns = ["id", "name"]
@@ -363,7 +363,7 @@ class TestDocumentLookup:
 class TestFlowSummary:
     """Tests for flow summary printing."""
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_flow_summary_basic(self, mock_logger, reporter, sample_job_stats):
         """Test flow summary prints basic information."""
         dag_nodes = [
@@ -374,7 +374,7 @@ class TestFlowSummary:
 
         assert mock_logger.info.call_count > 0
 
-    @patch("datasift.utils.infrastructure.flow_execution_reporter.logger")
+    @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_operator_summary_table_respects_dag_order(self, mock_logger, reporter):
         """Test operator summary table respects DAG execution order."""
         node_stats = {

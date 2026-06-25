@@ -1,6 +1,6 @@
-# Guide: Creating a New Connector for DataSift
+# Guide: Creating a New Connector for Docpipe
 
-This guide shows you how to add a new data source connector to DataSift using the hexagonal architecture adapter pattern.
+This guide shows you how to add a new data source connector to Docpipe using the hexagonal architecture adapter pattern.
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -13,7 +13,7 @@ This guide shows you how to add a new data source connector to DataSift using th
 
 ## Overview
 
-DataSift uses a **hexagonal architecture** with adapters for data sources. Each connector consists of:
+Docpipe uses a **hexagonal architecture** with adapters for data sources. Each connector consists of:
 - **Configuration Model** (Pydantic): Type-safe configuration with validation
 - **Adapter Class**: Implements the `DocumentSourcePort` interface with required methods:
   - `fetch_documents()`: Async generator yielding `Document` objects
@@ -27,7 +27,7 @@ DataSift uses a **hexagonal architecture** with adapters for data sources. Each 
 
 Create your connector in this location:
 ```
-src/datasift/core/operators/ingest/adapters/outbound/sources/
+src/docpipe/core/operators/ingest/adapters/outbound/sources/
 └── your_connector/
     ├── __init__.py          # Export adapter and config
     ├── adapter.py           # Main adapter implementation
@@ -222,9 +222,9 @@ from typing import AsyncGenerator
 import aiohttp
 import json
 
-from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
-from datasift.core.operators.ingest.domain.models import Document
-from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
+from docpipe.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from docpipe.core.operators.ingest.domain.models import Document
+from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from .config import YourConnectorConfig
 
 @register_source_adapter
@@ -505,9 +505,9 @@ from typing import AsyncGenerator, List
 import aiohttp
 import json
 
-from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
-from datasift.core.operators.ingest.domain.models import Document
-from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
+from docpipe.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from docpipe.core.operators.ingest.domain.models import Document
+from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from .config import DropboxConfig
 
 @register_source_adapter
@@ -619,8 +619,8 @@ class DropboxSourceAdapter(DocumentSourcePort[DropboxConfig]):
 import pytest
 from unittest.mock import AsyncMock, patch, Mock
 
-from datasift.core.operators.ingest.adapters.outbound.sources.your_connector.adapter import YourConnectorSourceAdapter
-from datasift.core.operators.ingest.adapters.outbound.sources.your_connector.config import YourConnectorConfig
+from docpipe.core.operators.ingest.adapters.outbound.sources.your_connector.adapter import YourConnectorSourceAdapter
+from docpipe.core.operators.ingest.adapters.outbound.sources.your_connector.config import YourConnectorConfig
 
 @pytest.mark.asyncio
 async def test_your_connector_fetch_documents():
@@ -682,7 +682,7 @@ def test_config_validation():
 @pytest.mark.asyncio
 async def test_your_connector_integration():
     """Integration test with IngestSourceOperator."""
-    from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+    from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
     
     config = {
         "provider": "your_connector",
@@ -702,7 +702,7 @@ async def test_your_connector_integration():
     
     # Mock the adapter
     with patch(
-        "datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.create"
+        "docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.create"
     ) as mock_create:
         mock_adapter = Mock()
         
@@ -734,27 +734,27 @@ async def test_your_connector_integration():
 Study these existing connectors for best practices:
 
 ### 1. **SharePoint Adapter** (Microsoft Graph API)
-- Location: `src/datasift/core/operators/ingest/adapters/outbound/sources/sharepoint/`
+- Location: `src/docpipe/core/operators/ingest/adapters/outbound/sources/sharepoint/`
 - Features: OAuth authentication, recursive folder traversal, binary content handling
 - Good for: Enterprise connectors with OAuth
 
 ### 2. **OneDrive Adapter** (Microsoft Graph API)
-- Location: `src/datasift/core/operators/ingest/adapters/outbound/sources/onedrive/`
+- Location: `src/docpipe/core/operators/ingest/adapters/outbound/sources/onedrive/`
 - Features: Similar to SharePoint, personal cloud storage
 - Good for: Personal cloud storage connectors
 
 ### 3. **Google Drive Adapter**
-- Location: `src/datasift/core/operators/ingest/adapters/outbound/sources/google_drive/`
+- Location: `src/docpipe/core/operators/ingest/adapters/outbound/sources/google_drive/`
 - Features: Google OAuth, Drive API integration
 - Good for: Google Workspace connectors
 
 ### 4. **Filesystem Adapter**
-- Location: `src/datasift/core/operators/ingest/adapters/outbound/sources/filesystem/`
+- Location: `src/docpipe/core/operators/ingest/adapters/outbound/sources/filesystem/`
 - Features: Local file system access, simple implementation
 - Good for: Local file sources, testing
 
 ### 5. **Amazon S3 Adapter**
-- Location: `src/datasift/core/operators/ingest/adapters/outbound/sources/s3/`
+- Location: `src/docpipe/core/operators/ingest/adapters/outbound/sources/s3/`
 - Features: S3 bucket ingestion, cloud object storage patterns, credential-based access
 - Good for: Object storage connectors and pagination/listing patterns
 
@@ -762,14 +762,14 @@ Study these existing connectors for best practices:
 
 ### 1. Execute Flow
 ```bash
-source src/datasift_opensource/backend/.venv/bin/activate
+source src/docpipe_app/backend/.venv/bin/activate
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
-datasift-orchestrator --flow-file tests/flow_your_connector.json
+docling-pipelines --flow-file tests/flow_your_connector.json
 ```
 
 ### 2. Run Tests
 ```bash
-source src/datasift_opensource/backend/.venv/bin/activate
+source src/docpipe_app/backend/.venv/bin/activate
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv run pytest tests/unit/operators/ingest/test_your_connector.py -v
 ```

@@ -1,0 +1,65 @@
+{
+  "flow_name": "Sample DocpipeFlowManager Flow",
+  "description": "Complete working example: Ingest -> Extract -> Chunk -> Embeddings",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./test_data",
+        "include_filter": "txt,md"
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": [
+        "extract"
+      ],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "doc_column": "content"
+      }
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "depends_on": [
+        "chunk"
+      ],
+      "config": {
+        "provider": "litellm",
+        "embeddings_column": "embeddings",
+        "doc_column": "content",
+        "provider_config": {
+          "model_id": "ollama/nomic-embed-text",
+          "api_base": "http://localhost:11434",
+          "api_key": "<ollama>"
+        }
+      }
+    }
+  ]
+}

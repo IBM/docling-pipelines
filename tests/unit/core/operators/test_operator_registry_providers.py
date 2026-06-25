@@ -12,15 +12,15 @@ from unittest.mock import patch
 
 import pytest
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.operators.abstract_operator import AbstractOperator
-from datasift.core.operators.operator_registry import (
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator
+from docpipe.core.operators.operator_registry import (
     clear_operator_providers,
-    get_datasift_operators,
+    get_docpipe_operators,
     get_registered_provider_count,
     register_operator_provider,
 )
-from datasift.core.orchestration.operator_factory import OperatorFactory
+from docpipe.core.orchestration.operator_factory import OperatorFactory
 
 
 # Mock operator classes for testing
@@ -28,7 +28,7 @@ class MockOSSOperator(AbstractOperator):
     """Mock OSS operator (priority 2)"""
 
     short_name = "mock_op"
-    owner = DatasiftConstants.OWNER_DATASIFT
+    owner = DocpipeConstants.OWNER_DOCPIPE
 
     @staticmethod
     def is_available():
@@ -42,7 +42,7 @@ class MockCustomOperator(AbstractOperator):
     """Mock custom operator (priority 1)"""
 
     short_name = "mock_op"
-    owner = DatasiftConstants.OWNER_CUSTOM
+    owner = DocpipeConstants.OWNER_CUSTOM
 
     @staticmethod
     def is_available():
@@ -56,7 +56,7 @@ class MockEnterpriseOperator(AbstractOperator):
     """Mock enterprise operator (priority 0)"""
 
     short_name = "mock_op"
-    owner = DatasiftConstants.OWNER_ENTERPRISE
+    owner = DocpipeConstants.OWNER_ENTERPRISE
 
     @staticmethod
     def is_available():
@@ -70,7 +70,7 @@ class MockUnavailableOperator(AbstractOperator):
     """Mock operator that is not available"""
 
     short_name = "unavailable_op"
-    owner = DatasiftConstants.OWNER_DATASIFT
+    owner = DocpipeConstants.OWNER_DOCPIPE
 
     @staticmethod
     def is_available():
@@ -139,7 +139,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockOSSOperator,
             existing_operator=None,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is True
@@ -151,7 +151,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockEnterpriseOperator,
             existing_operator=MockCustomOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is True
@@ -163,7 +163,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockEnterpriseOperator,
             existing_operator=MockOSSOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is True
@@ -175,7 +175,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockCustomOperator,
             existing_operator=MockOSSOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is True
@@ -187,7 +187,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockCustomOperator,
             existing_operator=MockEnterpriseOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is False
@@ -199,7 +199,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockOSSOperator,
             existing_operator=MockCustomOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is False
@@ -211,7 +211,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockOSSOperator,
             existing_operator=MockEnterpriseOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is False
@@ -223,7 +223,7 @@ class TestPriorityResolution:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockOSSOperator,
             existing_operator=MockOSSOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is True
@@ -241,7 +241,7 @@ class TestApplyPriorityResolution:
         result = OperatorFactory.apply_priority_resolution(
             new_operator=MockOSSOperator,
             operators_dict=operators_dict,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
             log_prefix="Test operator",
         )
 
@@ -256,7 +256,7 @@ class TestApplyPriorityResolution:
         result = OperatorFactory.apply_priority_resolution(
             new_operator=MockEnterpriseOperator,
             operators_dict=operators_dict,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
             log_prefix="Test operator",
         )
 
@@ -270,7 +270,7 @@ class TestApplyPriorityResolution:
         result = OperatorFactory.apply_priority_resolution(
             new_operator=MockOSSOperator,
             operators_dict=operators_dict,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
             log_prefix="Test operator",
         )
 
@@ -282,7 +282,7 @@ class TestApplyPriorityResolution:
 
         class BadOperator(AbstractOperator):
             # Missing short_name attribute
-            owner = DatasiftConstants.OWNER_DATASIFT
+            owner = DocpipeConstants.OWNER_DOCPIPE
 
             @staticmethod
             def is_available():
@@ -300,7 +300,7 @@ class TestApplyPriorityResolution:
         result = OperatorFactory.apply_priority_resolution(
             new_operator=BadOperator,
             operators_dict=operators_dict,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
             log_prefix="Test operator",
         )
 
@@ -313,8 +313,8 @@ class TestOperatorAvailability:
 
     def test_unavailable_operator_skipped_in_factory(self):
         """Test that unavailable operators are skipped during loading."""
-        # Mock get_datasift_operators to return unavailable operator
-        with patch("datasift.core.operators.operator_registry.get_datasift_operators") as mock_get_ops:
+        # Mock get_docpipe_operators to return unavailable operator
+        with patch("docpipe.core.operators.operator_registry.get_docpipe_operators") as mock_get_ops:
             mock_get_ops.return_value = frozenset([MockUnavailableOperator])
 
             factory = OperatorFactory(orchestrator="python", enable_custom_operators=False)
@@ -339,7 +339,7 @@ class TestExternalProviderIntegration:
 
         class ExternalOperator(AbstractOperator):
             short_name = "external_op"
-            owner = DatasiftConstants.OWNER_CUSTOM
+            owner = DocpipeConstants.OWNER_CUSTOM
 
             @staticmethod
             def is_available():
@@ -353,7 +353,7 @@ class TestExternalProviderIntegration:
 
         register_operator_provider(external_provider)
 
-        operators = get_datasift_operators()
+        operators = get_docpipe_operators()
 
         # Check that external operator is in the returned set
         operator_classes = {op.__name__ for op in operators}
@@ -369,7 +369,7 @@ class TestExternalProviderIntegration:
             return frozenset()
 
         register_operator_provider(external_provider)
-        get_datasift_operators(orchestrator="python")
+        get_docpipe_operators(orchestrator="python")
 
         assert received_orchestrator == "python"
 
@@ -382,7 +382,7 @@ class TestExternalProviderIntegration:
         register_operator_provider(bad_provider)
 
         # Should not raise, just log warning
-        operators = get_datasift_operators()
+        operators = get_docpipe_operators()
         assert isinstance(operators, frozenset)
 
     def test_provider_exception_handled(self):
@@ -394,7 +394,7 @@ class TestExternalProviderIntegration:
         register_operator_provider(failing_provider)
 
         # Should not raise, just log error
-        operators = get_datasift_operators()
+        operators = get_docpipe_operators()
         assert isinstance(operators, frozenset)
 
 
@@ -403,11 +403,11 @@ class TestPriorityMapConfiguration:
 
     def test_priority_map_values(self):
         """Test that priority map has correct values."""
-        priority_map = DatasiftConstants.OPERATOR_PRIORITY_MAP
+        priority_map = DocpipeConstants.OPERATOR_PRIORITY_MAP
 
-        assert priority_map[DatasiftConstants.OWNER_ENTERPRISE] == 0
-        assert priority_map[DatasiftConstants.OWNER_CUSTOM] == 1
-        assert priority_map[DatasiftConstants.OWNER_DATASIFT] == 2
+        assert priority_map[DocpipeConstants.OWNER_ENTERPRISE] == 0
+        assert priority_map[DocpipeConstants.OWNER_CUSTOM] == 1
+        assert priority_map[DocpipeConstants.OWNER_DOCPIPE] == 2
 
     def test_unknown_owner_gets_lowest_priority(self):
         """Test that unknown owner gets lowest priority (infinity)."""
@@ -426,7 +426,7 @@ class TestPriorityMapConfiguration:
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=UnknownOwnerOperator,
             existing_operator=MockOSSOperator,
-            default_owner=DatasiftConstants.OWNER_DATASIFT,
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is False

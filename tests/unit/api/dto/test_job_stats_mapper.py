@@ -9,10 +9,10 @@ Covers:
 - to_status_response(): node_metadata array order matches node_sequence
 """
 
-from datasift.api.dto.mappers.job_stats_mapper import JobStatsMapper
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.core.job_management.domain.models.job_stats import JobStats
-from datasift.core.job_management.domain.models.node_stats import NodeStats
+from docpipe.api.dto.mappers.job_stats_mapper import JobStatsMapper
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.job_management.domain.models.job_stats import JobStats
+from docpipe.core.job_management.domain.models.node_stats import NodeStats
 
 JOB_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 JOB_RUN_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"

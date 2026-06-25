@@ -1,6 +1,6 @@
-# DataSift Python API Guide
+# Docpipe Python API Guide
 
-This guide explains how to use DataSift programmatically through the Python API for integration with custom applications, Jupyter notebooks, and automated workflows.
+This guide explains how to use Docpipe programmatically through the Python API for integration with custom applications, Jupyter notebooks, and automated workflows.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ This guide explains how to use DataSift programmatically through the Python API 
 
 ## Introduction
 
-The [`DatasiftFlowManager`](../../src/datasift/lib/datasift_flow_manager.py) class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.
+The [`DocpipeFlowManager`](../../src/docpipe/lib/docpipe_flow_manager.py) class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.
 
 ### When to Use the Programmatic API
 
@@ -43,7 +43,7 @@ Before using the programmatic API, ensure your environment is properly configure
 
 ### 1. Set PYTHONPATH
 
-The `PYTHONPATH` must include the datasift directory as the source root:
+The `PYTHONPATH` must include the docpipe directory as the source root:
 
 ```bash
 # From repository root
@@ -57,19 +57,15 @@ export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 source .venv/bin/activate
 ```
 
-### 3. Verify Python Import
+### 3. Import Statement
 
-Test that the DatasiftFlowManager can be imported:
-
-```bash
-python -c "from datasift.lib.datasift_flow_manager import DatasiftFlowManager; print('Import successful')"
+```python
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 ```
-
-**Note:** This command may take a few seconds to complete as Python loads dependencies. If successful, you'll see: `Import successful`
 
 ### 4. Verify Prerequisites
 
-Ensure Ollama and OpenSearch are running (see [User Guide: Pipeline Setup](../../USER_GUIDE_PIPELINE_SETUP.md)).
+Ensure Ollama and OpenSearch are running (see [User Guide: Pipeline Setup](../USER_GUIDE_PIPELINE_SETUP.md)).
 
 ---
 
@@ -81,7 +77,7 @@ The simplest way to use the programmatic API is to execute an existing flow JSON
 
 ```python
 from pathlib import Path
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 def execute_flow():
     """Execute a flow file with basic error handling."""
@@ -89,7 +85,7 @@ def execute_flow():
 
     try:
         # Initialize the manager with a flow file
-        manager = DatasiftFlowManager(
+        manager = DocpipeFlowManager(
             flow_file=str(flow_file)
         )
 
@@ -124,7 +120,7 @@ For dynamic flow generation, define flows as Python dictionaries instead of JSON
 ### Example: Inline Flow Definition
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 def build_flow_definition(input_folder: str, index_name: str) -> dict:
     """Build a complete flow definition as a Python dictionary."""
@@ -219,7 +215,7 @@ def execute_inline_flow():
     )
 
     try:
-        manager = DatasiftFlowManager(
+        manager = DocpipeFlowManager(
             flow_def=flow_def
         )
 
@@ -245,38 +241,38 @@ if __name__ == "__main__":
 
 The programmatic API integrates seamlessly with Jupyter notebooks for interactive pipeline development.
 
-#### Prerequisites: Installing DataSift in Your Notebook Environment
+#### Prerequisites: Installing Docpipe in Your Notebook Environment
 
-Before using `DatasiftFlowManager` in Jupyter notebooks, you must install the DataSift package as a wheel (WHL) file in your notebook environment.
+Before using `DocpipeFlowManager` in Jupyter notebooks, you must install the Docpipe package as a wheel (WHL) file in your notebook environment.
 
 **Step 1: Build the WHL Package**
 
 From the project root directory, use `uv` to build the wheel package:
 
 ```bash
-# From project root (datasift-opensource/)
+# From project root (docling-pipelines/)
 uv build --wheel
 ```
 
 This command will:
 - Create a `dist/` directory in your project root
 - Generate two files:
-  - `datasift-<version>.tar.gz` (source distribution)
-  - `datasift-<version>-py3-none-any.whl` (wheel package)
+  - `docpipe-<version>.tar.gz` (source distribution)
+  - `docpipe-<version>-py3-none-any.whl` (wheel package)
 
 **Example output:**
 ```
-Building datasift
+Building docpipe
   - Building sdist
-  - Built datasift-0.1.0.tar.gz
+  - Built docpipe-0.1.0.tar.gz
   - Building wheel
-  - Built datasift-0.1.0-py3-none-any.whl
+  - Built docpipe-0.1.0-py3-none-any.whl
 ```
 
 **Step 2: Install the WHL Package in Your Notebook Environment**
 
 ```bash
-uv pip install dist/datasift-<version>-py3-none-any.whl
+uv pip install dist/docpipe-<version>-py3-none-any.whl
 ```
 
 **Step 3: Install Jupyter (if not already installed)**
@@ -294,7 +290,7 @@ From the project root directory:
 
 ```bash
 # Start Jupyter Notebook
-jupyter notebook examples/datasift_flow_manager/sample_jupyter_notebook.ipynb
+jupyter notebook examples/docpipe_flow_manager/sample_jupyter_notebook.ipynb
 ```
 
 This will:
@@ -319,11 +315,11 @@ Always validate flows before execution to catch configuration errors early.
 ### Example: Validation Pattern
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 def validate_and_execute(flow_file: str):
     """Validate flow before execution."""
-    manager = DatasiftFlowManager(
+    manager = DocpipeFlowManager(
         flow_file=flow_file
     )
 
@@ -374,7 +370,7 @@ The programmatic API provides advanced features for production use cases.
 ```python
 import uuid
 
-manager = DatasiftFlowManager(
+manager = DocpipeFlowManager(
     flow_file="my_flow.json",
     job_id=str(uuid.uuid4()),
     job_run_id=str(uuid.uuid4()),
@@ -423,11 +419,11 @@ print(f"Warnings: {len(warning_logs)}")
 ```python
 # Get operator summary (table with Owner, Attributes, Features columns)
 # Sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage
-operators_summary = DatasiftFlowManager.list_operators()
+operators_summary = DocpipeFlowManager.list_operators()
 print(operators_summary)
 
 # Get detailed operator information (full parameters and descriptions)
-operators_detailed = DatasiftFlowManager.list_operators(verbose=True)
+operators_detailed = DocpipeFlowManager.list_operators(verbose=True)
 print(operators_detailed)
 ```
 
@@ -447,12 +443,12 @@ Implement robust error handling for production deployments.
 
 ```python
 import traceback
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 def execute_with_error_handling(flow_file: str):
     """Execute flow with comprehensive error handling."""
     try:
-        manager = DatasiftFlowManager(
+        manager = DocpipeFlowManager(
             flow_file=flow_file
         )
 
@@ -510,22 +506,22 @@ import os
 
 # Development: Detailed debugging information
 os.environ["DS_LOG_LEVEL"] = "DEBUG"
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 
 # Production: Standard information logging
 os.environ["DS_LOG_LEVEL"] = "INFO"
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 
 # Quiet: Only warnings and errors
 os.environ["DS_LOG_LEVEL"] = "WARNING"
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 
 # Critical only: Only critical errors
 os.environ["DS_LOG_LEVEL"] = "ERROR"
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 ```
 
-**Note:** The `log_level` parameter has been removed from `DatasiftFlowManager`. Use the `DS_LOG_LEVEL` environment variable instead for consistent logging across all components.
+**Note:** The `log_level` parameter has been removed from `DocpipeFlowManager`. Use the `DS_LOG_LEVEL` environment variable instead for consistent logging across all components.
 
 ### Debugging Failed Executions
 
@@ -586,4 +582,4 @@ for i, line in enumerate(logs):
 - **[Flow Configuration Guide](FLOW_CONFIGURATION_GUIDE.md)** - Creating and configuring flows
 - **[Advanced Configuration](ADVANCED_CONFIGURATION.md)** - Production deployment and scaling
 - **[Operator Reference](../reference/OPERATORS.md)** - Complete operator specifications
-- **[Examples Directory](../../examples/datasift_flow_manager/)** - Code examples and patterns
+- **[Examples Directory](../../examples/docpipe_flow_manager/)** - Code examples and patterns

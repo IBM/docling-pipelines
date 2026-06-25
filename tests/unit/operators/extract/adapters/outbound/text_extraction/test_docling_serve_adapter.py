@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.core.constants import OperatorConstants
-from datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter import DoclingServeAdapter
+from docpipe.core.constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter import DoclingServeAdapter
 
 
 class TestDoclingServeAdapter:
@@ -69,7 +69,7 @@ class TestDoclingServeAdapter:
         assert DoclingServeAdapter.ADAPTER_DISPLAY_NAME == "Docling Serve Extractor"
 
     @patch(
-        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.extract_text_file"
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.extract_text_file"
     )
     def test_extract_single_document_txt_file_routes_to_local_extraction(self, mock_extract_text_file, adapter):
         """Test that .txt files are routed to local extraction method."""
@@ -89,7 +89,7 @@ class TestDoclingServeAdapter:
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "This is plain text content"
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_md_file_uses_docling_serve(self, mock_client_class, adapter):
         """Test that .md files are processed through Docling Serve."""
         # Setup
@@ -121,7 +121,7 @@ class TestDoclingServeAdapter:
         assert call_kwargs["filename"] == "document.md"
         assert result[OperatorConstants.Extraction.SUCCESS] is True
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_filename_extraction_from_path(self, mock_client_class, adapter):
         """Test that filename is correctly extracted from file path."""
         # Setup
@@ -142,7 +142,7 @@ class TestDoclingServeAdapter:
         call_kwargs = mock_client_instance.process_document.call_args.kwargs
         assert call_kwargs["filename"] == "my_document.pdf"
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_filename_passing_to_client(self, mock_client_class, adapter):
         """Test that filename is passed to docling_serve_client."""
         # Setup
@@ -165,7 +165,7 @@ class TestDoclingServeAdapter:
         assert call_kwargs["filename"] == "report.docx"
         assert call_kwargs["binary_content"] == binary_content
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_binary_content_with_filename_preservation(self, mock_client_class, adapter):
         """Test that filename is preserved when processing binary content."""
         # Setup
@@ -186,7 +186,7 @@ class TestDoclingServeAdapter:
         call_kwargs = mock_client_instance.process_document.call_args.kwargs
         assert call_kwargs["filename"] == "presentation.pptx"
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_success_with_metadata(self, mock_client_class, adapter):
         """Test successful extraction with metadata including page_count from json_content."""
         # Setup
@@ -226,7 +226,7 @@ class TestDoclingServeAdapter:
         assert result[OperatorConstants.Metadata.METADATA]["processing_time"] == 2.5
         assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 10
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_error_handling(self, mock_client_class, adapter):
         """Test error handling during extraction."""
         # Setup
@@ -247,10 +247,10 @@ class TestDoclingServeAdapter:
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] is None
 
     @patch(
-        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.detect_extension_from_bytes"
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.detect_extension_from_bytes"
     )
     @patch(
-        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.extract_text_file"
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.extract_text_file"
     )
     def test_extract_single_document_no_extension_detection(
         self, mock_extract_text_file, mock_detect_extension, adapter
@@ -273,7 +273,7 @@ class TestDoclingServeAdapter:
         mock_extract_text_file.assert_called_once()
         assert result[OperatorConstants.Extraction.SUCCESS] is True
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_pdf_file(self, mock_client_class, adapter):
         """Test PDF file processing through Docling Serve."""
         # Setup
@@ -295,7 +295,7 @@ class TestDoclingServeAdapter:
         call_kwargs = mock_client_instance.process_document.call_args.kwargs
         assert call_kwargs["filename"] == "document.pdf"
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_docx_file(self, mock_client_class, adapter):
         """Test DOCX file processing through Docling Serve."""
         # Setup
@@ -317,7 +317,7 @@ class TestDoclingServeAdapter:
         call_kwargs = mock_client_instance.process_document.call_args.kwargs
         assert call_kwargs["filename"] == "document.docx"
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_html_file(self, mock_client_class, adapter):
         """Test HTML file processing through Docling Serve."""
         # Setup
@@ -339,7 +339,7 @@ class TestDoclingServeAdapter:
         call_kwargs = mock_client_instance.process_document.call_args.kwargs
         assert call_kwargs["filename"] == "page.html"
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_processing_options_passed(self, mock_client_class, adapter):
         """Test that processing options are passed to client."""
         # Setup
@@ -380,7 +380,7 @@ class TestDoclingServeAdapter:
         assert adapter.processing_options["table_mode"] == "accurate"
         assert adapter.processing_options["image_export_mode"] == "embedded"
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_page_count_from_json_content(self, mock_client_class, adapter):
         """Test page_count extraction from json_content.pages."""
         # Setup
@@ -411,7 +411,7 @@ class TestDoclingServeAdapter:
         assert OperatorConstants.Metadata.METADATA in result
         assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 3
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_page_count_empty_pages(self, mock_client_class, adapter):
         """Test page_count when json_content.pages is empty."""
         # Setup
@@ -436,7 +436,7 @@ class TestDoclingServeAdapter:
         assert OperatorConstants.Metadata.METADATA in result
         assert OperatorConstants.Metadata.PAGE_COUNT not in result[OperatorConstants.Metadata.METADATA]
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_page_count_missing_json_content(self, mock_client_class, adapter):
         """Test page_count when json_content is missing."""
         # Setup
@@ -458,7 +458,7 @@ class TestDoclingServeAdapter:
         assert OperatorConstants.Metadata.METADATA in result
         assert OperatorConstants.Metadata.PAGE_COUNT not in result[OperatorConstants.Metadata.METADATA]
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_page_count_missing_pages_key(self, mock_client_class, adapter):
         """Test page_count when pages key is missing from json_content."""
         # Setup
@@ -483,7 +483,7 @@ class TestDoclingServeAdapter:
         assert OperatorConstants.Metadata.METADATA in result
         assert OperatorConstants.Metadata.PAGE_COUNT not in result[OperatorConstants.Metadata.METADATA]
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_page_count_single_page(self, mock_client_class, adapter):
         """Test page_count extraction for single page document."""
         # Setup
@@ -507,7 +507,7 @@ class TestDoclingServeAdapter:
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 1
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_page_count_large_document(self, mock_client_class, adapter):
         """Test page_count extraction for large multi-page document."""
         # Setup
@@ -534,7 +534,7 @@ class TestDoclingServeAdapter:
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 50
 
-    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_verify_ssl_parameter(self, mock_client_class, adapter):
         """Test that verify_ssl parameter is passed to DoclingServeClient."""
         # Setup

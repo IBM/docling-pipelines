@@ -4,14 +4,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.abstract_operator import OperatorCategory
-from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.abstract_operator import OperatorCategory
+from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+from docpipe.exceptions.docpipe_exceptions import (
     FlowValidationException,
 )
-from datasift.exceptions.error_messages import ValidationCodeMessages
+from docpipe.exceptions.error_messages import ValidationCodeMessages
 
 
 class TestValidateStepResults:
@@ -52,7 +52,7 @@ class TestFlowValidator:
 
         flow_def = {
             OperatorConstants.Config.GLOBAL_CONFIG: {OperatorConstants.Config.DISABLE_VALIDATION: True},
-            DatasiftConstants.DAG: [],
+            DocpipeConstants.DAG: [],
         }
 
         # Should return without raising exception
@@ -72,7 +72,7 @@ class TestFlowValidator:
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("datasift.core.orchestration.flow_validator.clean_up_prefect_home")
+    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
     def test_validate_dag_empty_dag(self, mock_cleanup):
         """Test validation with empty DAG."""
         mock_orchestrator = Mock()
@@ -80,14 +80,14 @@ class TestFlowValidator:
 
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
-        flow_def = {DatasiftConstants.DAG: []}
+        flow_def = {DocpipeConstants.DAG: []}
 
         with pytest.raises(FlowValidationException) as exc_info:
             validator.validate_dag(flow_def=flow_def, global_config={})
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("datasift.core.orchestration.flow_validator.clean_up_prefect_home")
+    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
     def test_validate_dag_unnamed_operators(self, mock_cleanup):
         """Test validation with unnamed operators."""
         mock_orchestrator = Mock()
@@ -100,7 +100,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         flow_def = {
-            DatasiftConstants.DAG: [
+            DocpipeConstants.DAG: [
                 {
                     "id": "node1",
                     OperatorConstants.Misc.OPERATOR: "test_operator",
@@ -115,7 +115,7 @@ class TestFlowValidator:
         # Should have warnings about unnamed operators
         assert len(exc_info.value.warnings) > 0 or len(exc_info.value.errors) > 0
 
-    @patch("datasift.core.orchestration.flow_validator.clean_up_prefect_home")
+    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
     def test_validate_dag_duplicate_names(self, mock_cleanup):
         """Test validation with duplicate operator names."""
         mock_orchestrator = Mock()
@@ -128,7 +128,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         flow_def = {
-            DatasiftConstants.DAG: [
+            DocpipeConstants.DAG: [
                 {
                     "id": "node1",
                     OperatorConstants.Columns.NAME: "duplicate_name",
@@ -194,9 +194,9 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         dag = [
-            {"id": "node1", DatasiftConstants.OUTPUT_EDGES: [{"node_id_ref": "node2"}]},
-            {"id": "node2", DatasiftConstants.OUTPUT_EDGES: [{"node_id_ref": "node3"}]},
-            {"id": "node3", DatasiftConstants.OUTPUT_EDGES: []},
+            {"id": "node1", DocpipeConstants.OUTPUT_EDGES: [{"node_id_ref": "node2"}]},
+            {"id": "node2", DocpipeConstants.OUTPUT_EDGES: [{"node_id_ref": "node3"}]},
+            {"id": "node3", DocpipeConstants.OUTPUT_EDGES: []},
         ]
 
         result = validator._build_graph(dag)
@@ -265,8 +265,8 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         dag = [
-            {"id": "node1", DatasiftConstants.OUTPUT_EDGES: [{"node_id_ref": "node2"}]},
-            {"id": "node2", DatasiftConstants.OUTPUT_EDGES: []},
+            {"id": "node1", DocpipeConstants.OUTPUT_EDGES: [{"node_id_ref": "node2"}]},
+            {"id": "node2", DocpipeConstants.OUTPUT_EDGES: []},
         ]
 
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
@@ -284,8 +284,8 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         dag = [
-            {"id": "node1", DatasiftConstants.OUTPUT_EDGES: []},
-            {"id": "node2", DatasiftConstants.OUTPUT_EDGES: []},
+            {"id": "node1", DocpipeConstants.OUTPUT_EDGES: []},
+            {"id": "node2", DocpipeConstants.OUTPUT_EDGES: []},
         ]
 
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
@@ -353,7 +353,7 @@ class TestFlowValidator:
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
 
-            from datasift.exceptions.error_messages import ValidationMessage
+            from docpipe.exceptions.error_messages import ValidationMessage
 
             validator.validate_operator_category(
                 op_def=op_def,
@@ -435,7 +435,7 @@ class TestFlowValidator:
         messages = [Mock(), Mock()]
         alerts = []
 
-        with patch("datasift.core.orchestration.flow_validator.add_validation_alert") as mock_add:
+        with patch("docpipe.core.orchestration.flow_validator.add_validation_alert") as mock_add:
             validator.create_validation_alerts(op_def=op_def, messages=messages, alerts=alerts)
 
             assert mock_add.call_count == 2
@@ -450,7 +450,7 @@ class TestFlowValidator:
         mock_factory = Mock()
         mock_factory.operators = {"known_op": Mock()}
 
-        global_config = {DatasiftConstants.SKIP_CUSTOM_OP_VALIDATION: True}
+        global_config = {DocpipeConstants.SKIP_CUSTOM_OP_VALIDATION: True}
 
         result = validator._evaluate_node_validation_skip(
             operator="unknown_op",
@@ -470,7 +470,7 @@ class TestFlowValidator:
         mock_factory = Mock()
         mock_factory.operators = {"known_op": Mock()}
 
-        global_config = {DatasiftConstants.SKIP_CUSTOM_OP_VALIDATION: True}
+        global_config = {DocpipeConstants.SKIP_CUSTOM_OP_VALIDATION: True}
 
         result = validator._evaluate_node_validation_skip(
             operator="known_op",
@@ -487,7 +487,7 @@ class TestFlowValidatorIntegration:
     @pytest.fixture
     def orchestrator(self):
         """Create orchestrator instance for testing."""
-        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
         orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")

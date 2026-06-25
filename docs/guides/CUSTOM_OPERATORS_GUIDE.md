@@ -38,7 +38,7 @@
 
 ## Overview
 
-This guide covers creating, registering, and using custom operators in datasift. Custom operators extend datasift's functionality by allowing you to add your own data processing logic to pipelines.
+This guide covers creating, registering, and using custom operators in docpipe. Custom operators extend docpipe's functionality by allowing you to add your own data processing logic to pipelines.
 
 **Custom operators can be provided in three ways:**
 
@@ -63,12 +63,12 @@ This guide covers creating, registering, and using custom operators in datasift.
 
 Before creating custom operators, ensure you have:
 
-- ✅ **datasift installed**: `pip install datasift-opensource`
+- ✅ **docpipe installed**: `pip install docling-pipelines`
 - ✅ **Basic Python knowledge**: Classes, inheritance, type hints
 - ✅ **PyArrow familiarity**: Understanding of PyArrow tables (basic level)
-- ✅ **datasift experience**: Successfully run at least one datasift flow
+- ✅ **docpipe experience**: Successfully run at least one docpipe flow
 
-**New to datasift?** Complete the [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md) first to understand the basics of flows and operators.
+**New to docpipe?** Complete the [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md) first to understand the basics of flows and operators.
 
 ---
 
@@ -81,9 +81,9 @@ Let's create a simple operator that adds a greeting column to your data.
 Create a file named `hello_operator.py`:
 
 ```python
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift.core.constants.constants import DatasiftConstants, AttributeDataTypes
-from datasift.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants, AttributeDataTypes
+from docpipe.core.constants.operator_constants import OperatorConstants
 import pyarrow as pa
 from typing import Any
 
@@ -93,7 +93,7 @@ class HelloOperator(AbstractOperator):
     # Required class attributes
     short_name: str = "hello"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
     
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """Add a greeting column to the table."""
@@ -143,7 +143,7 @@ mkdir -p ~/my_custom_operators
 mv hello_operator.py ~/my_custom_operators/
 
 # Register the directory
-export DATASIFT_CUSTOM_OPERATORS="$HOME/my_custom_operators"
+export DOCPIPE_CUSTOM_OPERATORS="$HOME/my_custom_operators"
 ```
 
 ### Step 3: Use in a Flow
@@ -179,7 +179,7 @@ Create a flow JSON file (`hello_flow.json`):
 Run the flow:
 
 ```bash
-datasift-orchestrator --flow-file hello_flow.json
+docling-pipelines --flow-file hello_flow.json
 ```
 
 ### Step 4: Verify Registration
@@ -188,10 +188,10 @@ Check that your operator is registered:
 
 ```bash
 # List all operators (look for owner="custom")
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 
 # Detailed view with parameters
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
 ```
 
 You should see output like:
@@ -215,11 +215,11 @@ Every custom operator needs these imports:
 
 ```python
 # Core operator classes
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # Constants for metadata and configuration
-from datasift.core.constants.constants import DatasiftConstants, AttributeDataTypes
-from datasift.core.constants.operator_constants import OperatorConstants
+from docpipe.core.constants.constants import DocpipeConstants, AttributeDataTypes
+from docpipe.core.constants.operator_constants import OperatorConstants
 
 # Data handling
 import pyarrow as pa
@@ -257,7 +257,7 @@ class MyCustomOperator(AbstractOperator):
     category: OperatorCategory = OperatorCategory.Functional
     
     # Identifies as custom operator (always use this constant)
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 ```
 
 **Important:** The `short_name` must be unique. If it conflicts with a built-in operator, your custom operator will override it (first discovered wins).
@@ -431,28 +431,28 @@ Choose based on your use case:
 
 ### Method 1: Environment Variable (Recommended)
 
-Set the `DATASIFT_CUSTOM_OPERATORS` environment variable to point to your operators directory:
+Set the `DOCPIPE_CUSTOM_OPERATORS` environment variable to point to your operators directory:
 
 ```bash
 # Single directory
-export DATASIFT_CUSTOM_OPERATORS="/path/to/custom_operators"
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/custom_operators"
 
 # Multiple directories (colon-separated on Unix, semicolon on Windows)
-export DATASIFT_CUSTOM_OPERATORS="/path/to/operators1:/path/to/operators2"
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators1:/path/to/operators2"
 
 # Run your flow
-datasift-orchestrator --flow-file flow.json
+docling-pipelines --flow-file flow.json
 ```
 
 **Make it permanent** (add to `~/.bashrc` or `~/.zshrc`):
 ```bash
-echo 'export DATASIFT_CUSTOM_OPERATORS="$HOME/my_custom_operators"' >> ~/.bashrc
+echo 'export DOCPIPE_CUSTOM_OPERATORS="$HOME/my_custom_operators"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
 **Verify immediately:**
 ```bash
-datasift-orchestrator --list-operators | grep "custom"
+docling-pipelines --list-operators | grep "custom"
 ```
 
 ### Method 2: Programmatic API
@@ -460,10 +460,10 @@ datasift-orchestrator --list-operators | grep "custom"
 Register operators programmatically in your Python code:
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # Create flow manager
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 
 # Register custom operators (using filesystem paths)
 manager.register_custom_operators(package_names=["/path/to/custom_operators"])
@@ -481,21 +481,21 @@ After registering, verify your operators are loaded:
 **Using CLI:**
 ```bash
 # List all operators (custom operators show owner="custom")
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 
 # Detailed view with parameters
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
 ```
 
 **Using Python:**
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # List all operators
-print(DatasiftFlowManager.list_operators())
+print(DocpipeFlowManager.list_operators())
 
 # Detailed view
-print(DatasiftFlowManager.list_operators(verbose=True))
+print(DocpipeFlowManager.list_operators(verbose=True))
 ```
 
 **What to look for:**
@@ -538,8 +538,8 @@ Reference custom operators by their `short_name` in flow JSON files:
 
 **Run the flow:**
 ```bash
-export DATASIFT_CUSTOM_OPERATORS="/path/to/custom_operators"
-datasift-orchestrator --flow-file flow.json
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/custom_operators"
+docling-pipelines --flow-file flow.json
 ```
 
 ---
@@ -825,14 +825,14 @@ my_custom_operators/
 [project]
 name = "my-custom-operators"
 version = "0.1.0"
-description = "Custom operators for Datasift"
+description = "Custom operators for Docpipe"
 requires-python = ">=3.12"
 dependencies = [
-    "datasift>=0.1.0",
+    "docpipe>=0.1.0",
 ]
 
 # Register operators via entry points
-[project.entry-points."datasift.operators"]
+[project.entry-points."docpipe.operators"]
 my_operator = "my_custom_operators.operators.my_operator:MyOperator"
 another_operator = "my_custom_operators.operators.another:AnotherOperator"
 
@@ -845,7 +845,7 @@ packages = ["my_custom_operators"]
 ```
 
 **Key Points:**
-- Entry points under `"datasift.operators"` group enable automatic discovery
+- Entry points under `"docpipe.operators"` group enable automatic discovery
 - Format: `operator_name = "package.module:ClassName"`
 - Entry points are optional; operators can also be discovered by module inspection
 
@@ -857,13 +857,13 @@ Place your operators in the `operators/` subdirectory:
 # my_custom_operators/operators/my_operator.py
 from typing import Any
 import pyarrow as pa
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift.core.constants.constants import DatasiftConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants
 
 class MyOperator(AbstractOperator):
     short_name: str = "my_operator"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
     
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
@@ -908,10 +908,10 @@ Once installed, operators are automatically discovered:
 pip install my-custom-operators
 
 # Operators are automatically available
-datasift-orchestrator --list-operators | grep "my_operator"
+docling-pipelines --list-operators | grep "my_operator"
 
 # Use in flows without any registration
-datasift-orchestrator --flow-file flow.json
+docling-pipelines --flow-file flow.json
 ```
 
 **Method 2: Explicit Registration in Flow**
@@ -937,9 +937,9 @@ You can also explicitly register packages in flow configuration:
 **Method 3: Programmatic Registration**
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 manager.register_custom_operators(paths=["my_custom_operators"])
 result = manager.execute()
 ```
@@ -987,12 +987,12 @@ This section documents key learnings and gotchas discovered during package adapt
 
 **Issue**: PackageAdapter not discovering operators even though entry points are configured correctly.
 
-**Root Cause**: The `PackageAdapter` class must be imported in `src/datasift/core/orchestration/operator_loader/adapters/__init__.py` for the `@register_operator_source` decorator to work.
+**Root Cause**: The `PackageAdapter` class must be imported in `src/docpipe/core/orchestration/operator_loader/adapters/__init__.py` for the `@register_operator_source` decorator to work.
 
 **Solution**: Ensure the adapter is imported in the adapters module:
 
 ```python
-# src/datasift/core/orchestration/operator_loader/adapters/__init__.py
+# src/docpipe/core/orchestration/operator_loader/adapters/__init__.py
 from .package_adapter import PackageAdapter  # Required for registration
 from .filesystem_adapter import FilesystemAdapter
 ```
@@ -1001,9 +1001,9 @@ Without this import, the decorator won't execute during module initialization, a
 
 #### 2. Operator Metadata Requirements
 
-**Issue**: Custom operators not appearing in `datasift-orchestrator --list-operators` output, or appearing without proper identification.
+**Issue**: Custom operators not appearing in `docling-pipelines --list-operators` output, or appearing without proper identification.
 
-**Root Cause**: Custom operators must include the `"owner"` field in their metadata to distinguish them from built-in datasift operators.
+**Root Cause**: Custom operators must include the `"owner"` field in their metadata to distinguish them from built-in docpipe operators.
 
 **Solution**: Always include the `owner` field in your operator's `get_metadata()` method:
 
@@ -1026,19 +1026,19 @@ The operator listing uses this field to categorize operators by owner in the out
 
 **Issue**: Entry points configured but operators not discovered by PackageAdapter.
 
-**Root Cause**: The entry points must use the exact group name `"datasift.operators"` in `pyproject.toml`.
+**Root Cause**: The entry points must use the exact group name `"docpipe.operators"` in `pyproject.toml`.
 
 **Solution**: Use the correct group name in your package configuration:
 
 ```toml
-[project.entry-points."datasift.operators"]
+[project.entry-points."docpipe.operators"]
 uppercase_operator = "my_custom_operators.operators.uppercase_operator:UppercaseOperator"
 reverse_operator = "my_custom_operators.operators.reverse_operator:ReverseOperator"
 ```
 
 **Incorrect examples that won't work:**
-- `[project.entry-points."datasift.operator"]` (missing 's')
-- `[project.entry-points."datasift_operators"]` (underscore instead of dot)
+- `[project.entry-points."docpipe.operator"]` (missing 's')
+- `[project.entry-points."docpipe_operators"]` (underscore instead of dot)
 - `[project.entry-points."custom.operators"]` (wrong prefix)
 
 #### 4. Package Name Filtering
@@ -1050,7 +1050,7 @@ reverse_operator = "my_custom_operators.operators.reverse_operator:ReverseOperat
 **Example**:
 ```toml
 # Package name: my_custom_operators
-[project.entry-points."datasift.operators"]
+[project.entry-points."docpipe.operators"]
 # ✅ Correct - value starts with package name
 uppercase_operator = "my_custom_operators.operators.uppercase_operator:UppercaseOperator"
 
@@ -1061,7 +1061,7 @@ uppercase_operator = "operators.uppercase_operator:UppercaseOperator"
 **Solution**: Ensure entry point values use the full module path starting with your package name:
 
 ```python
-# When registering with DatasiftFlowManager
+# When registering with DocpipeFlowManager
 manager.register_custom_operators(packages=["my_custom_operators"])
 
 # Entry point value must start with "my_custom_operators"
@@ -1078,11 +1078,11 @@ manager.register_custom_operators(packages=["my_custom_operators"])
 ```python
 # ❌ Old syntax (Python < 3.12)
 from importlib.metadata import entry_points
-eps = entry_points()["datasift.operators"]
+eps = entry_points()["docpipe.operators"]
 
 # ✅ New syntax (Python 3.12+)
 from importlib.metadata import entry_points
-eps = entry_points(group="datasift.operators")
+eps = entry_points(group="docpipe.operators")
 ```
 
 The PackageAdapter implementation uses the new syntax for compatibility.
@@ -1109,7 +1109,7 @@ pip install -e /path/to/package
 pip install my-custom-operators
 
 # Check if operators are discoverable
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 ```
 
 #### 7. Operator Discovery Debugging
@@ -1121,7 +1121,7 @@ datasift-orchestrator --list-operators
 1. **Verify entry points are registered**:
    ```python
    from importlib.metadata import entry_points
-   eps = entry_points(group="datasift.operators")
+   eps = entry_points(group="docpipe.operators")
    for ep in eps:
        print(f"{ep.name}: {ep.value}")
    ```
@@ -1135,7 +1135,7 @@ datasift-orchestrator --list-operators
 
 3. **Test operator loading directly**:
    ```python
-   from datasift.core.orchestration.operator_factory import OperatorFactory
+   from docpipe.core.orchestration.operator_factory import OperatorFactory
    factory = OperatorFactory()
    factory.register_custom_operators(packages=["my_custom_operators"])
    
@@ -1145,14 +1145,14 @@ datasift-orchestrator --list-operators
 
 4. **Enable debug logging**:
    ```bash
-   DS_LOG_LEVEL=DEBUG datasift-orchestrator --list-operators
+   DS_LOG_LEVEL=DEBUG docling-pipelines --list-operators
    ```
 
 #### Best Practices Summary
 
 1. **Always import adapters** in `__init__.py` for decorator registration
 2. **Include owner field** in all custom operator metadata
-3. **Use exact group name** `"datasift.operators"` in entry points
+3. **Use exact group name** `"docpipe.operators"` in entry points
 4. **Match package names** between entry point values and registration calls
 5. **Use Python 3.12+ syntax** for entry points API
 6. **Test operator discovery** before publishing packages
@@ -1187,7 +1187,7 @@ pip install my-custom-operators>=1.0.0,<2.0.0
 #### Best Practices for Packages
 
 1. **Clear Documentation**: Include comprehensive README with usage examples
-2. **Version Dependencies**: Specify compatible datasift versions in dependencies
+2. **Version Dependencies**: Specify compatible docpipe versions in dependencies
 3. **Entry Points**: Register operators via entry points for better discovery
 4. **Testing**: Include tests in your package
 5. **Changelog**: Maintain a CHANGELOG.md for version history
@@ -1208,14 +1208,14 @@ pip show -f my-custom-operators
 **Operators not discovered:**
 ```bash
 # Verify entry points are registered
-python -c "import importlib.metadata; print(list(importlib.metadata.entry_points(group='datasift.operators')))"
+python -c "import importlib.metadata; print(list(importlib.metadata.entry_points(group='docpipe.operators')))"
 
 # Check operator module can be imported
 python -c "from my_custom_operators.operators import MyOperator; print(MyOperator.short_name)"
 ```
 
 **Import errors:**
-- Ensure datasift is installed in the same environment
+- Ensure docpipe is installed in the same environment
 - Check that all dependencies are listed in `pyproject.toml`
 - Verify Python version compatibility
 
@@ -1237,7 +1237,7 @@ S3 support is an **optional advanced feature** for enterprise deployments that n
 # Using uv
 uv pip install boto3
 
-# Or install datasift with AWS extras
+# Or install docpipe with AWS extras
 uv sync --extra aws
 ```
 
@@ -1265,28 +1265,28 @@ aws_secret_access_key = your-secret-key
 s3://bucket-name/path/to/operators/
 ```
 
-Operators are downloaded to `~/.datasift/custom_operators_cache/` and loaded from cache.
+Operators are downloaded to `~/.docpipe/custom_operators_cache/` and loaded from cache.
 
 #### Usage Examples
 
 **Environment variable:**
 ```bash
-export DATASIFT_CUSTOM_OPERATORS="s3://my-company-operators/production/"
-datasift-orchestrator --flow-file flow.json
+export DOCPIPE_CUSTOM_OPERATORS="s3://my-company-operators/production/"
+docling-pipelines --flow-file flow.json
 ```
 
 **Programmatic:**
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 manager.register_custom_operators(package_names=["s3://my-company-operators/production/"])
 result = manager.execute()
 ```
 
 **Mixed sources** (filesystem + S3):
 ```bash
-export DATASIFT_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
+export DOCPIPE_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
 ```
 
 ---
@@ -1314,14 +1314,14 @@ export DATASIFT_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
 ## Troubleshooting
 
 **Operator not found:**
-- ✅ Verify `DATASIFT_CUSTOM_OPERATORS` is set correctly
+- ✅ Verify `DOCPIPE_CUSTOM_OPERATORS` is set correctly
 - ✅ Check that the directory path exists and contains `.py` files
 - ✅ Ensure the operator class inherits from `AbstractOperator`
 - ✅ Verify `short_name` matches what you're using in the flow
 
 **Import errors:**
 - ✅ Ensure all dependencies are installed in the same environment
-- ✅ Check that datasift is installed: `pip show datasift-opensource`
+- ✅ Check that docpipe is installed: `pip show docling-pipelines`
 - ✅ Verify Python version compatibility (Python 3.12+ recommended)
 
 **S3 access denied:**
@@ -1339,7 +1339,7 @@ export DATASIFT_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
 - ✅ Review error messages for specific issues
 
 **Operator not appearing in list:**
-- ✅ Run `datasift-orchestrator --list-operators` to verify registration
+- ✅ Run `docling-pipelines --list-operators` to verify registration
 - ✅ Check for Python syntax errors in your operator file
 - ✅ Ensure class attributes (`short_name`, `category`, `owner`) are defined
 
@@ -1347,7 +1347,7 @@ export DATASIFT_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
 
 ## Complete Reference Example
 
-A complete working example is available in the datasift repository at:
+A complete working example is available in the docpipe repository at:
 - **File**: `examples/custom_operators/example_custom_operator.py`
 - **Purpose**: Demonstrates adding a custom field to documents
 - **Features**: Shows all required methods with proper implementation
@@ -1355,20 +1355,20 @@ A complete working example is available in the datasift repository at:
 **To use the example:**
 
 ```bash
-# Clone the datasift repository
-git clone https://github.com/your-org/datasift-opensource.git
+# Clone the docpipe repository
+git clone https://github.com/your-org/docling-pipelines.git
 
 # Navigate to examples
-cd datasift-opensource/examples/custom_operators
+cd docling-pipelines/examples/custom_operators
 
 # Register and use
-export DATASIFT_CUSTOM_OPERATORS="$(pwd)"
-datasift-orchestrator --list-operators | grep example
+export DOCPIPE_CUSTOM_OPERATORS="$(pwd)"
+docling-pipelines --list-operators | grep example
 ```
 
 For more details on the base class implementation and loading mechanism, refer to:
-- `src/datasift/core/operators/abstract_operator.py` - Base operator class
-- `src/datasift/core/operators/operator_registry.py` - Operator registration system
-- Built-in operators in `src/datasift/core/operators/` - Real-world examples
+- `src/docpipe/core/operators/abstract_operator.py` - Base operator class
+- `src/docpipe/core/operators/operator_registry.py` - Operator registration system
+- Built-in operators in `src/docpipe/core/operators/` - Real-world examples
 
 ---

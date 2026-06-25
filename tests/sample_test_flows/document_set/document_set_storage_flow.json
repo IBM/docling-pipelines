@@ -45,7 +45,7 @@
         "metadata": {
           "pipeline_version": "1.0",
           "extraction_method": "docling",
-          "created_by": "datasift_pipeline",
+          "created_by": "docpipe_pipeline",
           "purpose": "demonstration_flow"
         }
       },

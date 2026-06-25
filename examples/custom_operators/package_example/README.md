@@ -1,6 +1,6 @@
 # My Custom Operators Package
 
-Example package demonstrating how to distribute custom Datasift operators as a pip-installable package.
+Example package demonstrating how to distribute custom Docpipe operators as a pip-installable package.
 
 ## Installation
 
@@ -17,7 +17,7 @@ uv pip install .
 After installation, verify the operators are registered:
 
 ```bash
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
 ```
 
 You should see `uppercase_text` and `reverse_text` in the operator list.
@@ -26,11 +26,11 @@ You should see `uppercase_text` and `reverse_text` in the operator list.
 
 ### Method 1: Environment Variable (Recommended)
 
-Set the `DATASIFT_CUSTOM_OPERATORS` environment variable to enable auto-discovery:
+Set the `DOCPIPE_CUSTOM_OPERATORS` environment variable to enable auto-discovery:
 
 ```bash
-export DATASIFT_CUSTOM_OPERATORS="my_custom_operators"
-datasift-orchestrator --flow-file sample_flows/custom_operators_demo_flow.json
+export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
+docling-pipelines --flow-file sample_flows/custom_operators_demo_flow.json
 ```
 
 ### Method 2: Flow Configuration
@@ -55,10 +55,10 @@ Alternatively, specify the package in your flow configuration:
 Using the Python API:
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # Operators will be auto-discovered from the installed package
-manager = DatasiftFlowManager(flow_file="flow.json")
+manager = DocpipeFlowManager(flow_file="flow.json")
 result = manager.execute()
 ```
 
@@ -67,9 +67,9 @@ result = manager.execute()
 A complete demo flow is available at `sample_flows/custom_operators_demo_flow.json` that demonstrates both operators in action:
 
 ```bash
-# Run the demo (requires DATASIFT_CUSTOM_OPERATORS environment variable)
-export DATASIFT_CUSTOM_OPERATORS="my_custom_operators"
-datasift-orchestrator --flow-file sample_flows/custom_operators_demo_flow.json
+# Run the demo (requires DOCPIPE_CUSTOM_OPERATORS environment variable)
+export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
+docling-pipelines --flow-file sample_flows/custom_operators_demo_flow.json
 ```
 
 The demo flow:
@@ -99,6 +99,6 @@ my_custom_operators/
 This package registers operators via entry points in `pyproject.toml`:
 
 ```toml
-[project.entry-points."datasift.operators"]
+[project.entry-points."docpipe.operators"]
 uppercase_text = "my_custom_operators.operators.uppercase_operator:UppercaseOperator"
 reverse_text = "my_custom_operators.operators.reverse_operator:ReverseOperator"

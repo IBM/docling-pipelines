@@ -1,6 +1,6 @@
 """Unit tests for IngestSourceOperator validation functionality."""
 
-from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 
 class TestIngestSourceOperatorValidation:

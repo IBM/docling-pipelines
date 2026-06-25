@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus, Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.acl.acl_operator import ACLOperator
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.core.constants.constants import ExecutionStatus, Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.acl.acl_operator import ACLOperator
+from docpipe.exceptions.docpipe_exceptions import (
     FlowExecutionFailedException,
 )
 
@@ -54,11 +54,11 @@ class TestACLOperatorValidation:
 
     def test_validate_valid_config(self, sample_acl_config):
         """Test validation with valid configuration."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_factory.return_value = Mock()
 
             with patch(
-                "datasift.core.operators.acl.acl_operator.ACLAdapterFactory.is_provider_registered"
+                "docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.is_provider_registered"
             ) as mock_registered:
                 mock_registered.return_value = True
 
@@ -101,7 +101,7 @@ class TestACLOperatorValidation:
         config = sample_acl_config.copy()
         config["provider_config"] = "not_a_dict"
 
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_factory.return_value = Mock()
 
             operator = ACLOperator(config)
@@ -118,7 +118,7 @@ class TestACLOperatorValidation:
         config = sample_acl_config.copy()
         config["fail_on_error"] = "not_a_bool"
 
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_factory.return_value = Mock()
 
             operator = ACLOperator(config)
@@ -136,7 +136,7 @@ class TestACLOperatorMetadata:
 
     def test_get_metadata_structure(self, sample_acl_config):
         """Test get_metadata returns correct structure."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_factory.return_value = Mock()
 
             operator = ACLOperator(sample_acl_config)
@@ -150,7 +150,7 @@ class TestACLOperatorMetadata:
 
     def test_get_metadata_features(self, sample_acl_config):
         """Test metadata includes correct features."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_factory.return_value = Mock()
 
             operator = ACLOperator(sample_acl_config)
@@ -164,7 +164,7 @@ class TestACLOperatorMetadata:
 
     def test_get_metadata_attributes(self, sample_acl_config):
         """Test metadata includes correct attributes."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_factory.return_value = Mock()
 
             operator = ACLOperator(sample_acl_config)
@@ -183,7 +183,7 @@ class TestACLOperatorTransform:
         self, sample_acl_config, sample_acl_table_single_doc, mock_acl_response_success
     ):
         """Test transform with a single document successfully."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(return_value=[mock_acl_response_success])
             mock_factory.return_value = mock_adapter
@@ -211,7 +211,7 @@ class TestACLOperatorTransform:
 
     def test_transform_multiple_documents_success(self, sample_acl_config, sample_acl_table, mock_acl_response_success):
         """Test transform with multiple documents successfully."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             # Return 3 responses for 3 documents
             mock_adapter.extract_acls_batch = AsyncMock(
@@ -235,7 +235,7 @@ class TestACLOperatorTransform:
 
     def test_transform_empty_table(self, sample_acl_config, sample_acl_table_empty):
         """Test transform with an empty table."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_factory.return_value = Mock()
 
             operator = ACLOperator(sample_acl_config)
@@ -252,7 +252,7 @@ class TestACLOperatorTransform:
         self, sample_acl_config, sample_acl_table_single_doc, mock_acl_response_failure
     ):
         """Test transform with fail_on_error=true raises exception on failure."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acl = AsyncMock(return_value=mock_acl_response_failure)
             mock_factory.return_value = mock_adapter
@@ -271,7 +271,7 @@ class TestACLOperatorTransform:
         config = sample_acl_config.copy()
         config["fail_on_error"] = False
 
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             # Return batch with mixed success/failure
             mock_adapter.extract_acls_batch = AsyncMock(
@@ -294,7 +294,7 @@ class TestACLOperatorTransform:
         self, sample_acl_config, sample_acl_table_missing_source_id, mock_acl_response_success
     ):
         """Test transform with missing source_id and fail_on_error=true."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acl = AsyncMock(return_value=mock_acl_response_success)
             mock_factory.return_value = mock_adapter
@@ -313,7 +313,7 @@ class TestACLOperatorTransform:
         config = sample_acl_config.copy()
         config["fail_on_error"] = False
 
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(return_value=[mock_acl_response_success])
             mock_factory.return_value = mock_adapter
@@ -332,7 +332,7 @@ class TestACLOperatorTransform:
         self, sample_acl_config, sample_acl_table_single_doc, mock_acl_response_with_warnings
     ):
         """Test transform with ACL extraction warnings."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(return_value=[mock_acl_response_with_warnings])
             mock_factory.return_value = mock_adapter
@@ -349,7 +349,7 @@ class TestACLOperatorTransform:
 
     def test_transform_preserves_existing_columns(self, sample_acl_config, sample_acl_table, mock_acl_response_success):
         """Test that transform preserves existing columns."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(
                 return_value=[mock_acl_response_success, mock_acl_response_success, mock_acl_response_success]
@@ -371,7 +371,7 @@ class TestACLOperatorTransform:
 
     def test_transform_adapter_exception_fail_on_error_true(self, sample_acl_config, sample_acl_table_single_doc):
         """Test transform when adapter raises exception with fail_on_error=true."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acl = AsyncMock(side_effect=Exception("API error"))
             mock_factory.return_value = mock_adapter
@@ -388,7 +388,7 @@ class TestACLOperatorTransform:
         config = sample_acl_config.copy()
         config["fail_on_error"] = False
 
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acl = AsyncMock(side_effect=Exception("API error"))
             mock_factory.return_value = mock_adapter
@@ -411,7 +411,7 @@ class TestACLOperatorMetadataTracking:
         self, sample_acl_config, sample_acl_table, mock_acl_response_success
     ):
         """Test metadata includes processed_docs count."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(
                 return_value=[mock_acl_response_success, mock_acl_response_success, mock_acl_response_success]
@@ -431,7 +431,7 @@ class TestACLOperatorMetadataTracking:
         config = sample_acl_config.copy()
         config["fail_on_error"] = False
 
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(
                 return_value=[mock_acl_response_success, mock_acl_response_failure, mock_acl_response_success]
@@ -448,7 +448,7 @@ class TestACLOperatorMetadataTracking:
         self, sample_acl_config, sample_acl_table_single_doc, mock_acl_response_success
     ):
         """Test metadata includes node_status."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(return_value=[mock_acl_response_success])
             mock_factory.return_value = mock_adapter
@@ -466,7 +466,7 @@ class TestACLOperatorMetadataTracking:
         config = sample_acl_config.copy()
         config["fail_on_error"] = False
 
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acl = AsyncMock(return_value=mock_acl_response_failure)
             mock_factory.return_value = mock_adapter
@@ -478,7 +478,7 @@ class TestACLOperatorMetadataTracking:
 
     def test_metadata_completeness(self, sample_acl_config, sample_acl_table_single_doc, mock_acl_response_success):
         """Test that all required metadata fields are present."""
-        with patch("datasift.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
+        with patch("docpipe.core.operators.acl.acl_operator.ACLAdapterFactory.create_adapter") as mock_factory:
             mock_adapter = Mock()
             mock_adapter.extract_acls_batch = AsyncMock(return_value=[mock_acl_response_success])
             mock_factory.return_value = mock_adapter

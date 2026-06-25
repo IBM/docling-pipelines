@@ -3,9 +3,9 @@
 import pyarrow.parquet as pq
 import pytest
 
-from datasift.core.incremental_metadata.adapters.stores.filesystem import FilesystemIncrementalMetadataStore
-from datasift.core.incremental_metadata.domain.models import IncrementalMetadataRecord
-from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
+from docpipe.core.incremental_metadata.adapters.stores.filesystem import FilesystemIncrementalMetadataStore
+from docpipe.core.incremental_metadata.domain.models import IncrementalMetadataRecord
+from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 
 @pytest.fixture

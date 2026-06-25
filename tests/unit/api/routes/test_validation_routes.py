@@ -6,8 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from datasift.api.routes.validation import get_validation_service, validation_router
-from datasift.core.assets.flows.application.services.validation_service import ValidationService
+from docpipe.api.routes.validation import get_validation_service, validation_router
+from docpipe.core.assets.flows.application.services.validation_service import ValidationService
 
 
 @pytest.fixture
@@ -20,19 +20,19 @@ def app():
     from fastapi.exceptions import RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
-    from datasift.api.middleware.error_handler import (
-        datasift_exception_handler,
+    from docpipe.api.middleware.error_handler import (
+        docpipe_exception_handler,
         generic_exception_handler,
         http_exception_handler,
         validation_exception_handler,
     )
-    from datasift.exceptions.datasift_exceptions import DatasiftException
+    from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
     app = FastAPI()
     app.include_router(validation_router)
 
     # Register exception handlers in same order as main.py
-    app.add_exception_handler(DatasiftException, datasift_exception_handler)
+    app.add_exception_handler(DocpipeException, docpipe_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
@@ -94,7 +94,7 @@ class TestValidateFlowEndpoint:
             "errors": [
                 {
                     "code": "OPERATOR_NOT_FOUND",
-                    "message": "Operator not found: datasift.operators.NonExistentOperator",
+                    "message": "Operator not found: docpipe.operators.NonExistentOperator",
                     "node_id": "550e8400-e29b-41d4-a716-446655440001",
                 }
             ],

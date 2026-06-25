@@ -1,6 +1,6 @@
-# DataSift Pipeline User Guide: Complete Setup and Execution
+# Docpipe Pipeline User Guide: Complete Setup and Execution
 
-This comprehensive guide walks you through setting up and executing a complete DataSift pipeline from document ingestion to vector storage in OpenSearch.
+This comprehensive guide walks you through setting up and executing a complete Docpipe pipeline from document ingestion to vector storage in OpenSearch.
 
 ## Table of Contents
 
@@ -20,21 +20,21 @@ This comprehensive guide walks you through setting up and executing a complete D
 
 > **⚠️ CRITICAL: Working Directory Requirements**
 >
-> All `datasift-orchestrator` commands **MUST** be run from the **project root directory** (`datasift-opensource/`).
+> All `docling-pipelines` commands **MUST** be run from the **project root directory** (`docling-pipelines/`).
 >
 > **Correct:**
 >
 > ```bash
-> # From project root (datasift-opensource/)
-> datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+> # From project root (docling-pipelines/)
+> docling-pipelines --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 > ```
 >
 > **Incorrect:**
 >
 > ```bash
-> # From datasift directory - WILL FAIL with ModuleNotFoundError
-> cd src/datasift
-> datasift-orchestrator --flow-file ...  # ERROR: No module named 'datasift'
+> # From docpipe directory - WILL FAIL with ModuleNotFoundError
+> cd src/docpipe
+> docling-pipelines --flow-file ...  # ERROR: No module named 'docpipe'
 > ```
 >
 > **Why:** The PYTHONPATH must point to `src` as the source root. Running from subdirectories breaks Python imports.
@@ -61,10 +61,10 @@ Before proceeding, ensure you have:
 
 **Quick setup:** Use the automated script from [QUICKSTART.md](QUICKSTART.md):
 ```bash
-./scripts/setup_datasift_environment.sh
+./scripts/setup_docpipe_environment.sh
 
 # Combine options
-./scripts/setup_datasift_environment.sh --interactive --models granite4
+./scripts/setup_docpipe_environment.sh --interactive --models granite4
 ```
 
 #### Available Options
@@ -105,8 +105,8 @@ Before proceeding, ensure you have:
 
 The script creates two files:
 
-- `.datasift_setup_config` - Configuration settings
-- `datasift_setup.log` - Detailed setup log
+- `.docpipe_setup_config` - Configuration settings
+- `docpipe_setup.log` - Detailed setup log
 
 **Next steps:**
 
@@ -116,7 +116,7 @@ The script creates two files:
    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
    ```
 
-   > **Warning:** This must be run from the project root directory (`datasift-opensource`), not from subdirectories. The PYTHONPATH must point to `src` as the source root for Python imports to work correctly.
+   > **Warning:** This must be run from the project root directory (`docling-pipelines`), not from subdirectories. The PYTHONPATH must point to `src` as the source root for Python imports to work correctly.
 
 2. Activate the virtual environment:
 
@@ -128,12 +128,12 @@ The script creates two files:
 3. Verify installation:
 
    ```bash
-   datasift-orchestrator --help
+   docling-pipelines --help
    ```
 
 4. Run your first flow:
    ```bash
-   datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+   docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
    ```
 
 #### Troubleshooting the Setup Script
@@ -156,7 +156,7 @@ The script creates two files:
 
 **Permission denied errors:**
 
-- Make script executable: `chmod +x scripts/setup_datasift_environment.sh`
+- Make script executable: `chmod +x scripts/setup_docpipe_environment.sh`
 - Some operations may require sudo (script will prompt)
 
 **Want to start fresh?**
@@ -167,10 +167,10 @@ podman-compose -f docker/docker-compose.opensearch.yml down
 pkill -f "ollama serve"
 
 # Remove configuration
-rm .datasift_setup_config datasift_setup.log
+rm .docpipe_setup_config docpipe_setup.log
 
 # Run setup again
-./scripts/setup_datasift_environment.sh
+./scripts/setup_docpipe_environment.sh
 ```
 
 ---
@@ -181,9 +181,9 @@ If you prefer manual control or the automated script doesn't work for your envir
 
 ---
 
-### What is DataSift?
+### What is Docpipe?
 
-DataSift is a modular, operator-based data processing framework designed for building flexible data pipelines. It enables you to:
+Docpipe is a modular, operator-based data processing framework designed for building flexible data pipelines. It enables you to:
 
 - Ingest documents from various sources
 - Extract structured content using AI-powered tools
@@ -209,7 +209,7 @@ This guide demonstrates the complete **Ingest → Extract → Chunk → Embeddin
 
 Before starting, you'll need:
 
-- **Python 3.12** - Required for DataSift
+- **Python 3.12** - Required for Docpipe
 - **uv package manager** - Fast Python package management
 - **Ollama** - Local LLM server for embeddings
 - **Podman or Docker** - For running OpenSearch
@@ -222,7 +222,7 @@ Before starting, you'll need:
 
 ### Python 3.12 Requirement
 
-DataSift requires Python 3.12. Check your version:
+Docpipe requires Python 3.12. Check your version:
 
 ```bash
 python --version
@@ -246,7 +246,7 @@ sudo apt install python3.12 python3.12-venv
 
 ### Installing uv Package Manager
 
-uv is a fast Python package manager that DataSift uses for dependency management.
+uv is a fast Python package manager that Docpipe uses for dependency management.
 
 **Install uv:**
 
@@ -349,11 +349,11 @@ cp .env.example .env
 ### Verify Installation
 
 ```bash
-# Check DataSift CLI is available
-datasift-orchestrator --help
+# Check Docpipe CLI is available
+docling-pipelines --help
 
 # List available operators
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 ```
 
 ---
@@ -608,18 +608,18 @@ The repository includes a complete, ready-to-run pipeline in `sample_flows/compl
 
 **To test your setup:**
 
-> **⚠️ Important:** Commands must be run from the **project root directory** (`datasift-opensource/`), not from subdirectories.
+> **⚠️ Important:** Commands must be run from the **project root directory** (`docling-pipelines/`), not from subdirectories.
 
 1. Ensure you have sample documents in `./sample_documents/` directory (create it if needed)
 2. Run the sample flow:
    ```bash
    # From project root
-   datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+   docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
    ```
 
 ### Understanding Pipeline Output
 
-DataSift provides clean, formatted console output showing pipeline progress in real-time.
+Docpipe provides clean, formatted console output showing pipeline progress in real-time.
 
 **Example output:**
 
@@ -677,19 +677,19 @@ Control log output using the `DS_LOG_LEVEL` environment variable:
 ```bash
 # Debug: Detailed information
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 
 # Info: Standard output (default)
 export DS_LOG_LEVEL=INFO
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 
 # Warning: Only warnings and errors
 export DS_LOG_LEVEL=WARNING
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 
 # Error: Only errors
 export DS_LOG_LEVEL=ERROR
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 ### Creating a Custom Flow
@@ -711,7 +711,7 @@ This comprehensive guide covers:
 
 ### Setting PYTHONPATH
 
-**Critical:** Set PYTHONPATH before running any DataSift commands:
+**Critical:** Set PYTHONPATH before running any Docpipe commands:
 
 ```bash
 # From project root
@@ -731,23 +731,23 @@ source .venv/bin/activate
 
 ```bash
 # From project root
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 **Common CLI options:**
 
 ```bash
 # List available operators
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 
 # List operators with detailed information
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
 
 # Validate flow without executing
-datasift-orchestrator --flow-file my_flow.json --validate
+docling-pipelines --flow-file my_flow.json --validate
 
 # Run with debug logging
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file my_flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
 ```
 
 ### Understanding the Output
@@ -828,7 +828,7 @@ GET sample-documents-index/_search
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Verify you're in project root
-pwd  # Should end with /datasift-opensource
+pwd  # Should end with /docling-pipelines
 ```
 
 **Issue: Ollama connection refused**
@@ -861,7 +861,7 @@ podman-compose -f docker/docker-compose.opensearch.yml restart
 
 ```bash
 # Validate flow to see specific errors
-datasift-orchestrator --flow-file my_flow.json --validate
+docling-pipelines --flow-file my_flow.json --validate
 
 # Check flow syntax and operator configurations
 # See Flow Configuration Guide for correct format
@@ -873,7 +873,7 @@ Enable debug logging for detailed troubleshooting:
 
 ```bash
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 For comprehensive troubleshooting, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
@@ -886,10 +886,10 @@ For comprehensive troubleshooting, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md
 
 ```bash
 # List all available operators
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 
 # Get detailed operator information
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
 ```
 
 **Available operator categories:**
@@ -906,7 +906,7 @@ See **[Operator Reference](docs/reference/OPERATORS.md)** for complete specifica
 
 1. **Copy the sample flow**: `cp sample_flows/complete_pipeline_flow.json my_flow.json`
 2. **Edit the configuration**: Change paths, chunk sizes, models, etc.
-3. **Run your custom flow**: `datasift-orchestrator --flow-file my_flow.json`
+3. **Run your custom flow**: `docling-pipelines --flow-file my_flow.json`
 
 **For detailed flow configuration**, see **[Flow Configuration Guide](docs/guides/FLOW_CONFIGURATION_GUIDE.md)**.
 
@@ -920,12 +920,12 @@ For production deployments and performance optimization, see **[Advanced Configu
 
 ### Programmatic Usage
 
-Use DataSift as a Python library in your applications:
+Use Docpipe as a Python library in your applications:
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
-manager = DatasiftFlowManager(flow_file="my_flow.json")
+manager = DocpipeFlowManager(flow_file="my_flow.json")
 result = manager.execute()
 ```
 

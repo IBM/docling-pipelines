@@ -1,6 +1,6 @@
 # Examples
 
-This directory contains example scripts demonstrating various operators in the datasift project.
+This directory contains example scripts demonstrating various operators in the docpipe project.
 
 ## Environment Variables for Credentials
 
@@ -83,7 +83,7 @@ python examples/ingest_source_example.py
 Demonstrates document content extraction using Docling (supports PDFs, DOCX, etc.).
 Supports both basic markdown extraction and template-based structured extraction.
 
-See [`extract_operator_example.py`](extract_operator_example.py) and [`../src/datasift/core/operators/extract/README.md`](../src/datasift/core/operators/extract/README.md) for details.
+See [`extract_operator_example.py`](extract_operator_example.py) and [`../src/docpipe/core/operators/extract/README.md`](../src/docpipe/core/operators/extract/README.md) for details.
 
 ```bash
 python examples/extract_operator_example.py
@@ -184,7 +184,7 @@ docker run -p 5001:5001 ds4sd/docling-serve:latest
 
 ```bash
 # Activate venv and set PYTHONPATH
-cd src/datasift_opensource/backend
+cd src/docpipe_app/backend
 source .venv/bin/activate
 PYTHONPATH=. python ../../../examples/extract_operator_example.py [OPTIONS]
 
@@ -422,7 +422,7 @@ python examples/embeddings_pipeline_example.py --pdf tests/fixtures/invoices/
 ### Basic Operator Usage
 
 ```python
-from datasift.core.operators.some_operator import SomeOperator
+from docpipe.core.operators.some_operator import SomeOperator
 
 # 1. Configure the operator
 config = {

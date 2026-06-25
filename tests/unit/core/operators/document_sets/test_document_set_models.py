@@ -12,12 +12,12 @@ from datetime import datetime
 
 import pytest
 
-from datasift.core.assets.document_sets.domain.models.data_card import DataCard
-from datasift.core.assets.document_sets.domain.models.document_set import DocumentSet
-from datasift.core.assets.document_sets.domain.models.storage_reference import (
+from docpipe.core.assets.document_sets.domain.models.data_card import DataCard
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.core.assets.document_sets.domain.models.storage_reference import (
     StorageReference,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestDocumentSetCreation:
@@ -99,7 +99,7 @@ class TestDocumentSetValidation:
         """Test validation fails with empty name."""
         doc_set = DocumentSet(name="", database_path="/data/test.db", table_name="test_table")
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "name cannot be empty" in str(exc_info.value)
 
@@ -107,7 +107,7 @@ class TestDocumentSetValidation:
         """Test validation fails when name starts with number."""
         doc_set = DocumentSet(name="123 Documents", database_path="/data/test.db", table_name="test_table")
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "must start with an alphabetic character" in str(exc_info.value)
 
@@ -119,7 +119,7 @@ class TestDocumentSetValidation:
             table_name="test_table",
         )
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "can only contain letters, digits, spaces, and underscores" in str(exc_info.value)
 
@@ -128,7 +128,7 @@ class TestDocumentSetValidation:
         long_name = "A" * 129  # Max is 128
         doc_set = DocumentSet(name=long_name, database_path="/data/test.db", table_name="test_table")
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "cannot exceed 128 characters" in str(exc_info.value)
 
@@ -142,7 +142,7 @@ class TestDocumentSetValidation:
             table_name="test_table",
         )
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "description cannot exceed 2000 characters" in str(exc_info.value)
 
@@ -150,7 +150,7 @@ class TestDocumentSetValidation:
         """Test validation fails with empty database path."""
         doc_set = DocumentSet(name="Test Documents", database_path="", table_name="test_table")
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "Database path cannot be empty" in str(exc_info.value)
 
@@ -158,7 +158,7 @@ class TestDocumentSetValidation:
         """Test validation fails with empty table name."""
         doc_set = DocumentSet(name="Test Documents", database_path="/data/test.db", table_name="")
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "Table name cannot be empty" in str(exc_info.value)
 
@@ -171,7 +171,7 @@ class TestDocumentSetValidation:
             total_documents=-1,
         )
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "Total documents cannot be negative" in str(exc_info.value)
 
@@ -184,7 +184,7 @@ class TestDocumentSetValidation:
             total_size_bytes=-1,
         )
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "Total size bytes cannot be negative" in str(exc_info.value)
 
@@ -197,7 +197,7 @@ class TestDocumentSetValidation:
             total_pages=-1,
         )
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "Total pages cannot be negative" in str(exc_info.value)
 

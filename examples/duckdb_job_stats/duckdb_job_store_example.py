@@ -6,7 +6,7 @@ This example demonstrates:
 2. Querying the stored job statistics from DuckDB
 
 Prerequisites:
-- Uncomment the DuckDB configuration in datasift-config.yaml:
+- Uncomment the DuckDB configuration in docling-pipelines-config.yaml:
 
   job_management:
     store:
@@ -18,16 +18,16 @@ Prerequisites:
 - DuckDB installed (included in project dependencies)
 
 Setup (from repository root):
-    cd src/datasift_opensource/backend
+    cd src/docpipe_app/backend
     python3.12 -m venv .venv
     source .venv/bin/activate
     uv sync --extra dev
     cd ../../..
-    export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+    export PYTHONPATH="$(pwd)/src/docpipe_app/backend:${PYTHONPATH}"
 
 Run:
-    source src/datasift_opensource/backend/.venv/bin/activate
-    export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+    source src/docpipe_app/backend/.venv/bin/activate
+    export PYTHONPATH="$(pwd)/src/docpipe_app/backend:${PYTHONPATH}"
     python examples/duckdb_job_stats/run_example.py
 """
 
@@ -42,7 +42,7 @@ sys.path.insert(0, str(project_root / "src"))
 
 import duckdb
 
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 
 def create_test_data():
@@ -54,10 +54,10 @@ def create_test_data():
     sample_file = test_dir / "sample_document.txt"
     sample_content = """# Sample Document for DuckDB Job Stats Example
 
-This is a test document to demonstrate DuckDB job stats storage in datasift.
+This is a test document to demonstrate DuckDB job stats storage in docpipe.
 
 ## Introduction
-The datasift-opensource project is a modular, operator-based data processing framework
+The docling-pipelines project is a modular, operator-based data processing framework
 designed for building flexible data pipelines.
 
 ## Key Features
@@ -87,7 +87,7 @@ def cleanup_test_data(test_dir):
 def print_configuration_info():
     """Print configuration information."""
     print("\n[Step 1] Configuration")
-    print("  DuckDB storage is configured via datasift-config.yaml")
+    print("  DuckDB storage is configured via docling-pipelines-config.yaml")
     print("  Make sure you have uncommented the DuckDB configuration:")
     print()
     print("  job_management:")
@@ -100,13 +100,13 @@ def print_configuration_info():
 
 def execute_flow():
     """Execute the flow and return job_run_id."""
-    print("\n[Step 3] Creating DatasiftFlowManager...")
-    print("  Configuration is automatically loaded from datasift-config.yaml")
-    flow_manager = DatasiftFlowManager(flow_file="examples/datasift_flow_manager/sample_flow.json")
+    print("\n[Step 3] Creating DocpipeFlowManager...")
+    print("  Configuration is automatically loaded from docling-pipelines-config.yaml")
+    flow_manager = DocpipeFlowManager(flow_file="examples/docpipe_flow_manager/sample_flow.json")
     print("  ✓ Flow manager created")
 
     print("\n[Step 4] Executing flow...")
-    flow_file = Path(__file__).resolve().parents[1] / "datasift_flow_manager" / "sample_flow.json"
+    flow_file = Path(__file__).resolve().parents[1] / "docpipe_flow_manager" / "sample_flow.json"
 
     if not flow_file.exists():
         print("  ✗ Flow file not found: " + str(flow_file))
@@ -264,7 +264,7 @@ def main():
 
     print("\n[Step 5] Querying job statistics from DuckDB...")
 
-    # Default database path from datasift-config.yaml
+    # Default database path from docling-pipelines-config.yaml
     db_path = "./data/duckdb/job_stats.duckdb"
 
     try:

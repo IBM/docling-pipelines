@@ -1,6 +1,6 @@
-# DataSift Tests
+# Docpipe Tests
 
-This directory contains all tests for the DataSift operators and pipelines.
+This directory contains all tests for the Docpipe operators and pipelines.
 
 ## Test Structure
 
@@ -134,7 +134,7 @@ To add new fixtures:
 
 ```python
 import pytest
-from datasift.core.operators.your_operator import YourOperator
+from docpipe.core.operators.your_operator import YourOperator
 
 class TestYourOperator:
     @pytest.fixture
@@ -156,8 +156,8 @@ class TestYourOperator:
 
 ```python
 import pytest
-from datasift.core.operators.operator1 import Operator1
-from datasift.core.operators.operator2 import Operator2
+from docpipe.core.operators.operator1 import Operator1
+from docpipe.core.operators.operator2 import Operator2
 
 class TestOperatorPipeline:
     @pytest.fixture
@@ -222,5 +222,5 @@ For test failures:
 ## Additional Resources
 
 - [pytest documentation](https://docs.pytest.org/)
-- [DataSift Architecture](../ARCHITECTURE.md)
-- [Operator Documentation](../src/datasift/core/operators/)
+- [Docpipe Architecture](../ARCHITECTURE.md)
+- [Operator Documentation](../src/docpipe/core/operators/)

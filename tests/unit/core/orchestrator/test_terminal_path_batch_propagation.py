@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.constants import DatasiftConstants
+from docpipe.core.constants.constants import DocpipeConstants
 
 
 class TestTerminalPathBatchPropagation:
@@ -26,11 +26,11 @@ class TestTerminalPathBatchPropagation:
         service.write_job_logs = Mock()
         return service
 
-    @patch("datasift.core.orchestration.flow_execution_event_handler.logger")
+    @patch("docpipe.core.orchestration.flow_execution_event_handler.logger")
     def test_after_node_failure_with_batch_context(self, mock_logger, mock_job_stats_service):
         """Test that after_node_failure calls fail_node_execution with batch context."""
         # Import here to avoid circular import at module level
-        from datasift.core.orchestration.flow_execution_event_handler import (
+        from docpipe.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -48,9 +48,9 @@ class TestTerminalPathBatchPropagation:
         node_name = "TestNode"
         exception = ValueError("Test error")
         global_config = {
-            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
-            DatasiftConstants.BATCH_ID: "batch-uuid-123",
-            DatasiftConstants.BATCH_NUM: 5,
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.BATCH_ID: "batch-uuid-123",
+            DocpipeConstants.BATCH_NUM: 5,
         }
 
         # Act
@@ -71,10 +71,10 @@ class TestTerminalPathBatchPropagation:
             batch_num=5,
         )
 
-    @patch("datasift.core.orchestration.flow_execution_event_handler.logger")
+    @patch("docpipe.core.orchestration.flow_execution_event_handler.logger")
     def test_after_node_failure_without_batch_context(self, mock_logger, mock_job_stats_service):
         """Test that after_node_failure works without batch context (non-batch mode)."""
-        from datasift.core.orchestration.flow_execution_event_handler import (
+        from docpipe.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -92,7 +92,7 @@ class TestTerminalPathBatchPropagation:
         node_name = "TestNode"
         exception = ValueError("Test error")
         global_config = {
-            DatasiftConstants.ENABLE_MICRO_BATCHING: False,
+            DocpipeConstants.ENABLE_MICRO_BATCHING: False,
         }
 
         # Act
@@ -115,7 +115,7 @@ class TestTerminalPathBatchPropagation:
 
     def test_after_node_skipped_with_batch_context(self, mock_job_stats_service):
         """Test that after_node_skipped calls skip_node_execution with batch context."""
-        from datasift.core.orchestration.flow_execution_event_handler import (
+        from docpipe.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -133,9 +133,9 @@ class TestTerminalPathBatchPropagation:
         operator_type = "TestOperator"
         column_names = ["col1", "col2"]
         global_config = {
-            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
-            DatasiftConstants.BATCH_ID: "batch-uuid-456",
-            DatasiftConstants.BATCH_NUM: 3,
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.BATCH_ID: "batch-uuid-456",
+            DocpipeConstants.BATCH_NUM: 3,
         }
 
         # Act
@@ -162,7 +162,7 @@ class TestTerminalPathBatchPropagation:
 
     def test_after_node_skipped_without_batch_context(self, mock_job_stats_service):
         """Test that after_node_skipped works without batch context (non-batch mode)."""
-        from datasift.core.orchestration.flow_execution_event_handler import (
+        from docpipe.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -205,7 +205,7 @@ class TestTerminalPathBatchPropagation:
 
     def test_after_node_skipped_with_custom_reason(self, mock_job_stats_service):
         """Test that after_node_skipped accepts custom reason for upstream failure scenarios."""
-        from datasift.core.orchestration.flow_execution_event_handler import (
+        from docpipe.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -224,9 +224,9 @@ class TestTerminalPathBatchPropagation:
         column_names = []
         custom_reason = "Skipped - no data received from previous step"
         global_config = {
-            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
-            DatasiftConstants.BATCH_ID: "batch-uuid-789",
-            DatasiftConstants.BATCH_NUM: 1,
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.BATCH_ID: "batch-uuid-789",
+            DocpipeConstants.BATCH_NUM: 1,
         }
 
         # Act

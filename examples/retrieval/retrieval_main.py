@@ -275,13 +275,12 @@ class CompleteQuerySystem:
 
         # Stream answer
         try:
-            for chunk in self.result_combiner.combine_and_answer_streaming(
+            yield from self.result_combiner.combine_and_answer_streaming(
                 user_question=user_question,
                 sql_results=sql_results,
                 hybrid_results=hybrid_results,
                 sql_query=generated_sql,
-            ):
-                yield chunk
+            )
         except Exception as e:
             yield f"\n[Answer Generation Error: {e!s}]"
 
@@ -309,7 +308,7 @@ class CompleteQuerySystem:
             List of search results
         """
         # Hybrid search combines multiple search strategies
-        # NOTE: datasift feature_mappings renames "content" -> "text" at index time,
+        # NOTE: docpipe feature_mappings renames "content" -> "text" at index time,
         # so the actual field name in OpenSearch is "text" (confirmed via _mapping API).
         # Index only contains: pk, text, vector_embeddings
         search_body = {

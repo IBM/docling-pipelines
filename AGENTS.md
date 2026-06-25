@@ -4,7 +4,7 @@
 The orchestrator mode is a strategic workflow coordinator designed to handle complex, multi-faceted tasks by intelligently breaking them down into manageable subtasks and delegating them to specialized modes. It acts as a high-level project manager, ensuring efficient task execution through proper mode selection and coordination.
 
 ## Repository Context
-The datasift project is a modular, operator-based data processing framework designed for building flexible data pipelines. Key architectural characteristics:
+The docpipe project is a modular, operator-based data processing framework designed for building flexible data pipelines. Key architectural characteristics:
 
 - **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
@@ -26,44 +26,44 @@ For new user setup and complete pipeline execution instructions, refer to [`USER
 
 ## User Entry Points
 
-Datasift provides multiple interfaces for interacting with the framework:
+Docpipe provides multiple interfaces for interacting with the framework:
 
 ### 1. CLI Entry Point
-Primary interface using the `datasift-orchestrator` command:
+Primary interface using the `docling-pipelines` command:
 
 ```bash
 # Flow execution
-datasift-orchestrator --flow-file <path-to-flow.json>
+docling-pipelines --flow-file <path-to-flow.json>
 
 # Flow validation
-datasift-orchestrator --flow-file flow.json --validate
+docling-pipelines --flow-file flow.json --validate
 
 # List operators
-datasift-orchestrator --list-operators [--verbose]
+docling-pipelines --list-operators [--verbose]
 
 # Log level control (via environment variable)
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file flow.json
 ```
 
 ### 2. Python Library
-Programmatic access via `DatasiftFlowManager`:
+Programmatic access via `DocpipeFlowManager`:
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # Execute from file
-manager = DatasiftFlowManager(flow_file="path/to/flow.json")
+manager = DocpipeFlowManager(flow_file="path/to/flow.json")
 result = manager.execute()
 
 # Execute from dict
-manager = DatasiftFlowManager(flow_def=flow_dict)
+manager = DocpipeFlowManager(flow_def=flow_dict)
 result = manager.execute()
 
 # Validate flow
 validation_result = manager.validate()
 
 # List operators
-DatasiftFlowManager.list_operators(verbose=True)
+DocpipeFlowManager.list_operators(verbose=True)
 ```
 
 ### 3. REST API Service
@@ -71,7 +71,7 @@ FastAPI server for web service integration (development status):
 
 ```bash
 # Start server
-uvicorn datasift.api.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
 
 # Interactive docs at http://localhost:8000/docs
 ```
@@ -95,7 +95,7 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 
 ## Available Operators
 
-Datasift provides 20+ operators across 5 categories:
+Docpipe provides 20+ operators across 5 categories:
 - **Extract**: Document text and entity extraction (ExtractOperator with multiple modes)
 - **Ingest**: Data source ingestion (IngestLocalOperator, IngestSourceOperator)
 - **Functional**: Data transformation (Chunker, EmbeddingsOperator, BranchingOperator, NoopOperator, etc.)
@@ -129,7 +129,7 @@ For detailed flow examples, see [`sample_flows/`](sample_flows/) and [docs/USER_
   - **Code mode**: For file editing, code changes, and direct implementation
     - Creating or modifying flow JSON files
     - Implementing new operators or modifying existing ones in `core/operators/`
-    - Running test cases and executing datasift-orchestrator commands
+    - Running test cases and executing docling-pipelines commands
     - File system operations and code refactoring
     - Working with operator categories: Extract, Ingest, Functional, Quality, VectorDB
     - Ensure adherence to project coding standards (keyword-only arguments, file path requirements)
@@ -158,7 +158,7 @@ When users report integration issues, delegate troubleshooting to Code mode or r
 
 ### Delegation Knowledge
 When coordinating flow-related tasks, delegate to Code mode for:
-- **Flow execution**: `datasift-orchestrator --flow-file <path>`
+- **Flow execution**: `docling-pipelines --flow-file <path>`
 - **Flow validation**: Validate flows before execution
 - **Test execution**: Run pytest with proper environment setup
 - **Flow structure**: JSON files with nodes (operators) and edges (data flow)
@@ -172,9 +172,9 @@ For detailed execution instructions, see [docs/USER_GUIDE_PIPELINE_SETUP.md](doc
 - Focuses on coordination rather than hands-on implementation
 - Adds overhead for simple, single-mode tasks
 
-### Datasift-Specific Limitations
+### Docpipe-Specific Limitations
 - **Cannot directly create or modify flow JSON files**: Must delegate to Code mode for flow configuration changes
-- **Cannot execute datasift-orchestrator commands**: Must delegate to Code mode to run flows or test cases
+- **Cannot execute docling-pipelines commands**: Must delegate to Code mode to run flows or test cases
 - **Cannot read operator source code**: Must delegate to Ask mode or Code mode to analyze operator implementations
 - **Cannot verify integration status**: Cannot check if Ollama or OpenSearch services are running (must delegate to Code mode)
 - **Cannot validate flow configurations**: Cannot parse or validate JSON flow files without delegating to Code mode

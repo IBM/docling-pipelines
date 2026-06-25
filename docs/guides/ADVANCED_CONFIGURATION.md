@@ -1,4 +1,4 @@
-# DataSift Advanced Configuration Guide
+# Docpipe Advanced Configuration Guide
 
 This guide covers advanced configuration topics for production deployments, distributed execution, and performance optimization.
 
@@ -12,7 +12,7 @@ This guide covers advanced configuration topics for production deployments, dist
 
 ## Job Stats Storage Configuration
 
-DataSift supports pluggable job stats storage for job runs, node execution state, and micro-batch progress tracking.
+Docpipe supports pluggable job stats storage for job runs, node execution state, and micro-batch progress tracking.
 
 ### Available Backends
 
@@ -23,7 +23,7 @@ DataSift supports pluggable job stats storage for job runs, node execution state
 
 ### Backend Selection
 
-Job-management components are wired through [`JobManagementFactory`](../../src/datasift/core/job_management/adapters/config/job_management_factory.py). Backend selection is controlled by environment variables and defaults.
+Job-management components are wired through [`JobManagementFactory`](../../src/docpipe/core/job_management/adapters/config/job_management_factory.py). Backend selection is controlled by environment variables and defaults.
 
 The main user-facing configuration is controlled via environment variables:
 
@@ -40,27 +40,27 @@ job_management:
 
 This allows users to configure:
 
-- the job framework type via `DATASIFT_FRAMEWORK_TYPE` environment variable
-- the job stats store backend via `DATASIFT_STORAGE_BACKEND` environment variable
+- the job framework type via `DOCPIPE_FRAMEWORK_TYPE` environment variable
+- the job stats store backend via `DOCPIPE_STORAGE_BACKEND` environment variable
 - the job stats store runtime config via backend-specific environment variables
 - the flow repository via `LOCAL_FLOWS_DIR` environment variable
 
 Common overrides include:
 
-- `DATASIFT_CONFIG_PATH`
-- `DATASIFT_STORAGE_BACKEND`
-- `DATASIFT_FRAMEWORK_TYPE`
-- `DATASIFT_JOB_STATS_BASE_DIR`
-- `DATASIFT_POSTGRES_HOST`
-- `DATASIFT_POSTGRES_PORT`
-- `DATASIFT_POSTGRES_DB`
-- `DATASIFT_POSTGRES_USER`
-- `DATASIFT_POSTGRES_PASSWORD`
+- `DOCPIPE_CONFIG_PATH`
+- `DOCPIPE_STORAGE_BACKEND`
+- `DOCPIPE_FRAMEWORK_TYPE`
+- `DOCPIPE_JOB_STATS_BASE_DIR`
+- `DOCPIPE_POSTGRES_HOST`
+- `DOCPIPE_POSTGRES_PORT`
+- `DOCPIPE_POSTGRES_DB`
+- `DOCPIPE_POSTGRES_USER`
+- `DOCPIPE_POSTGRES_PASSWORD`
 
 Effective precedence for job-management runtime selection is:
 
 1. explicit environment variables
-2. built-in defaults in [`JobManagementFactory`](../../src/datasift/core/job_management/adapters/config/job_management_factory.py)
+2. built-in defaults in [`JobManagementFactory`](../../src/docpipe/core/job_management/adapters/config/job_management_factory.py)
 
 ### Filesystem Storage Guidance
 
@@ -114,13 +114,13 @@ Use PostgreSQL when:
 
 ### Metadata Aggregation Maintenance
 
-Node stats are aggregated on the read path, not in the storage adapter. When operators add new metadata fields, maintainers must review [`DEFAULT_STRATEGIES`](../../src/datasift/core/job_management/application/aggregation/strategies.py) and update it if the field should not use the default `LAST` aggregation behavior.
+Node stats are aggregated on the read path, not in the storage adapter. When operators add new metadata fields, maintainers must review [`DEFAULT_STRATEGIES`](../../src/docpipe/core/job_management/application/aggregation/strategies.py) and update it if the field should not use the default `LAST` aggregation behavior.
 
 See [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](../internals/NODE_METADATA_AGGREGATION_STRATEGY.md) for the maintainer workflow.
 
 ### Distributed Execution and Work Pool Environment Inheritance
 
-For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](../../src/datasift/core/orchestration/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](../../src/datasift/core/orchestration/prefect/adapters/work_pool_adapter.py).
+For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](../../src/docpipe/core/orchestration/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](../../src/docpipe/core/orchestration/prefect/adapters/work_pool_adapter.py).
 
 Important behavior:
 
@@ -138,11 +138,11 @@ For full distributed execution examples and work-pool-specific configuration, se
 
 ## Incremental Metadata Configuration
 
-DataSift supports incremental processing to avoid reprocessing unchanged input data. Incremental metadata stores processing state such as file identity and modification information so ingest operators can determine whether an item is new, changed, or already processed.
+Docpipe supports incremental processing to avoid reprocessing unchanged input data. Incremental metadata stores processing state such as file identity and modification information so ingest operators can determine whether an item is new, changed, or already processed.
 
 ### Configuration
 
-Use the `incremental_metadata` section in `datasift-config.yaml`:
+Use the `incremental_metadata` section in `docling-pipelines-config.yaml`:
 
 ```yaml
 incremental_metadata:
@@ -209,8 +209,8 @@ incremental_metadata:
   postgres:
     host: "${POSTGRES_HOST:-localhost}"
     port: 5432
-    database: "${POSTGRES_DB:-datasift}"
-    user: "${POSTGRES_USER:-datasift_user}"
+    database: "${POSTGRES_DB:-docpipe}"
+    user: "${POSTGRES_USER:-docpipe_user}"
     password: "${POSTGRES_PASSWORD}"
     schema: "incremental_metadata"
 ```
@@ -223,7 +223,7 @@ Use PostgreSQL when:
 
 ### Environment Variables for Sensitive Data
 
-Use environment variable substitution in `datasift-config.yaml` for credentials and deployment-specific values.
+Use environment variable substitution in `docling-pipelines-config.yaml` for credentials and deployment-specific values.
 
 ```yaml
 incremental_metadata:
@@ -235,8 +235,8 @@ incremental_metadata:
   postgres:
     host: "${INCR_META_DB_HOST:-localhost}"
     port: "${INCR_META_DB_PORT:-5432}"
-    database: "${INCR_META_DB_NAME:-datasift}"
-    user: "${INCR_META_DB_USER:-datasift_user}"
+    database: "${INCR_META_DB_NAME:-docpipe}"
+    user: "${INCR_META_DB_USER:-docpipe_user}"
     password: "${INCR_META_DB_PASSWORD}"
     schema: "${INCR_META_DB_SCHEMA:-incremental_metadata}"
 ```
@@ -247,17 +247,17 @@ Guidance:
 - use `${VAR_NAME:-default}` for optional values with safe defaults
 - do not commit real credentials into version control
 
-See [`datasift-config.yaml.example`](../../datasift-config.yaml.example) for complete backend examples and environment variable patterns.
+See [`docling-pipelines-config.yaml.example`](../../docling-pipelines-config.yaml.example) for complete backend examples and environment variable patterns.
 
 ---
 
 ## Execution Models
 
-DataSift uses Prefect as its orchestration engine and supports two Prefect execution modes:
+Docpipe uses Prefect as its orchestration engine and supports two Prefect execution modes:
 
 ### Ephemeral Mode (Default)
 
-By default, DataSift runs Prefect in **ephemeral mode** with a temporary in-memory server. This mode is ideal for:
+By default, Docpipe runs Prefect in **ephemeral mode** with a temporary in-memory server. This mode is ideal for:
 
 - Development and testing
 - Small to medium workloads (< 1000 documents)
@@ -275,12 +275,12 @@ By default, DataSift runs Prefect in **ephemeral mode** with a temporary in-memo
 
 ```bash
 # Simply run your flow - Prefect ephemeral mode is automatic
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 ### Distributed Execution with Prefect Work Pools (Optional)
 
-For production workloads and large-scale processing, DataSift supports **Prefect's distributed execution** using work pools and workers.
+For production workloads and large-scale processing, Docpipe supports **Prefect's distributed execution** using work pools and workers.
 
 **When to use:**
 

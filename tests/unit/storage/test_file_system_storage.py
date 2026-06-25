@@ -2,9 +2,9 @@
 
 import pytest
 
-from datasift.storage.exceptions import StorageValidationError
-from datasift.storage.factory import StorageFactory
-from datasift.storage.file_system.key_value_storage import FileSystemStorage
+from docpipe.storage.exceptions import StorageValidationError
+from docpipe.storage.factory import StorageFactory
+from docpipe.storage.file_system.key_value_storage import FileSystemStorage
 
 
 class TestFileSystemStorageBasicOperations:

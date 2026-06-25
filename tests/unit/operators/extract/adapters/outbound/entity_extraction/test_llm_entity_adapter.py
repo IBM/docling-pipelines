@@ -5,17 +5,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_adapter import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_adapter import (
     LLMEntityAdapter,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 @pytest.fixture
 def mock_llm_adapter():
     """Create a mock LLM adapter from factory."""
-    with patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter") as mock_factory:
+    with patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter") as mock_factory:
         mock_instance = MagicMock()
         mock_factory.return_value = mock_instance
         yield mock_instance
@@ -342,7 +342,7 @@ class TestLLMEntityAdapterMultiProvider:
     def test_watsonx_provider_initialization(self, mock_llm_adapter, watsonx_config):
         """Test that watsonx provider is initialized correctly."""
         with patch(
-            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+            "docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             mock_factory.return_value = mock_llm_adapter
             _ = LLMEntityAdapter(config=watsonx_config)
@@ -357,7 +357,7 @@ class TestLLMEntityAdapterMultiProvider:
     def test_litellm_provider_initialization(self, mock_llm_adapter, litellm_config):
         """Test that litellm provider is initialized correctly."""
         with patch(
-            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+            "docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             mock_factory.return_value = mock_llm_adapter
             _ = LLMEntityAdapter(config=litellm_config)
@@ -376,7 +376,7 @@ class TestLLMEntityAdapterValidation:
     def test_adapter_validation_called_on_init(self, litellm_config):
         """Test that validate() is called during adapter initialization."""
         with patch(
-            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+            "docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             # Setup mock adapter with validate method
             mock_adapter = MagicMock()
@@ -396,9 +396,9 @@ class TestLLMEntityAdapterValidation:
             assert adapter.model_name == "openai/granite4:latest"
 
     def test_adapter_validation_failure_raises_error(self, litellm_config):
-        """Test that validation failures raise DatasiftException."""
+        """Test that validation failures raise DocpipeException."""
         with patch(
-            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+            "docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             # Setup mock adapter with failing validation
             mock_adapter = MagicMock()
@@ -409,14 +409,14 @@ class TestLLMEntityAdapterValidation:
             }
             mock_factory.return_value = mock_adapter
 
-            # Attempt to create adapter should raise DatasiftException
-            with pytest.raises(DatasiftException, match="API key is required"):
+            # Attempt to create adapter should raise DocpipeException
+            with pytest.raises(DocpipeException, match="API key is required"):
                 LLMEntityAdapter(config=litellm_config)
 
     def test_adapter_validation_with_warnings(self, litellm_config):
         """Test that warnings don't block adapter initialization."""
         with patch(
-            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+            "docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             # Setup mock adapter with warnings
             mock_adapter = MagicMock()

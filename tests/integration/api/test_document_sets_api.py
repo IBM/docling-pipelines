@@ -9,7 +9,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from datasift.api.main import app
+from docpipe.api.main import app
 
 
 @pytest.fixture(scope="module")

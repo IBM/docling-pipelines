@@ -6,7 +6,7 @@ Tests ClassificationRequest, ClassificationResponse, and build_classification_pr
 
 import pytest
 
-from datasift.core.operators.quality.classification.domain.models import (
+from docpipe.core.operators.quality.classification.domain.models import (
     ClassificationRequest,
     ClassificationResponse,
     build_classification_prompt,

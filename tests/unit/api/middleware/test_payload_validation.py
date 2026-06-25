@@ -12,7 +12,7 @@ import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from datasift.api.middleware.payload_validation import (
+from docpipe.api.middleware.payload_validation import (
     MAX_PAYLOAD_SIZE,
     validate_payload_size,
 )

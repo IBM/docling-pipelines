@@ -1,5 +1,0 @@
-"""Domain models for language detection."""
-
-from datasift.core.operators.quality.language_detection.domain.models import LanguageDetectionResult
-
-__all__ = ["LanguageDetectionResult"]

@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
     DoclingEntityAdapter,
 )
 

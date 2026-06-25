@@ -7,7 +7,7 @@ for the FastTextModelManager singleton.
 
 import pytest
 
-from datasift.utils.infrastructure.fasttext_model_manager import FastTextModelManager
+from docpipe.utils.infrastructure.fasttext_model_manager import FastTextModelManager
 
 
 @pytest.fixture(autouse=True)

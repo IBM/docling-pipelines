@@ -5,11 +5,11 @@ from datetime import UTC
 import pytest
 from pydantic import ValidationError
 
-from datasift.api.dto.authoring_flow_dto import (
+from docpipe.api.dto.authoring_flow_dto import (
     AuthoringFlowCreateRequest,
     AuthoringOperatorDTO,
 )
-from datasift.api.dto.flow_dto import (
+from docpipe.api.dto.flow_dto import (
     ElyraFlowCreateRequest,
     ElyraFlowUpdateRequest,
     FlowResponse,

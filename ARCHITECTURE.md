@@ -1,8 +1,8 @@
 ---
-title: Datasift Architecture
+title: Docpipe Architecture
 ---
 
-# Datasift Architecture
+# Docpipe Architecture
 
 ## Table of Contents
 
@@ -20,11 +20,11 @@ title: Datasift Architecture
 
 ---
 
-This document describes the architecture and organization of the datasiftrepository.
+This document describes the architecture and organization of the docpiperepository.
 
 ## Overview
 
-Datasift-open is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities. It uses a mixed architecture approach comprising of dynamic plugin discovery across operators, hexagonal architecture in subsystems that need interchangeable external services.
+Docpipe-open is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities. It uses a mixed architecture approach comprising of dynamic plugin discovery across operators, hexagonal architecture in subsystems that need interchangeable external services.
 
 ### Key Capabilities
 
@@ -36,9 +36,9 @@ Datasift-open is a modular, operator-based data processing framework designed fo
 
 ### Architectural Patterns
 
-Datasift-opensource intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
+Docpipe-opensource intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
 
-- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes. Quality operators such as the PII/HAP stack use runtime-native ports-and-adapters packages under [`src/datasift/core/operators/quality`](src/datasift/core/operators/quality).
+- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes. Quality operators such as the PII/HAP stack use runtime-native ports-and-adapters packages under [`src/docpipe/core/operators/quality`](src/docpipe/core/operators/quality).
 - **Factory Pattern**: `OrchestratorFactory` and `OperatorFactory` provide centralized instantiation logic for orchestrators and operators
 - **Strategy Pattern**: Different operator implementations can be swapped based on configuration without changing the orchestration logic
 - **Observer Pattern**: Event handling system (`AbstractFlowExecutionEventHandler`, `FlowExecutionEventHandler`) enables monitoring and logging of flow execution
@@ -207,21 +207,21 @@ graph TB
 
 ## Job Management and Execution Tracking
 
-datasift-opensource includes a dedicated job management subsystem under [`core/job_management`](src/datasift/core/job_management) that separates orchestration concerns, persistent job statistics, and read-side aggregation.
+docling-pipelines includes a dedicated job management subsystem under [`core/job_management`](src/docpipe/core/job_management) that separates orchestration concerns, persistent job statistics, and read-side aggregation.
 
 ### Hexagonal Architecture for Job Stats
 
 The job stats implementation follows a ports-and-adapters design:
 
 - **Domain ports**
-  - [`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py) defines the orchestration-facing contract for starting jobs, updating node execution state, listing runs, and cancellation/deletion workflows.
-  - [`JobStatsStore`](src/datasift/core/job_management/domain/ports/job_stats_store.py) defines persistence operations for job-level and node-level statistics.
+  - [`JobStatsService`](src/docpipe/core/job_management/domain/ports/job_stats_service.py) defines the orchestration-facing contract for starting jobs, updating node execution state, listing runs, and cancellation/deletion workflows.
+  - [`JobStatsStore`](src/docpipe/core/job_management/domain/ports/job_stats_store.py) defines persistence operations for job-level and node-level statistics.
 - **Application services**
-  - [`NodeStatsAggregator`](src/datasift/core/job_management/application/services/node_stats_aggregator.py) performs read-side aggregation of raw node stats records.
-  - [`JobManagementService`](src/datasift/core/job_management/application/services/job_management_service.py) coordinates APIs, job execution, and framework integration.
+  - [`NodeStatsAggregator`](src/docpipe/core/job_management/application/services/node_stats_aggregator.py) performs read-side aggregation of raw node stats records.
+  - [`JobManagementService`](src/docpipe/core/job_management/application/services/job_management_service.py) coordinates APIs, job execution, and framework integration.
 - **Adapters**
-  - [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py).
-  - Storage adapters include JSON, in-memory, DuckDB, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py).
+  - [`JobTrackerService`](src/docpipe/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/docpipe/core/job_management/domain/ports/job_stats_service.py).
+  - Storage adapters include JSON, in-memory, DuckDB, and PostgreSQL implementations created by [`JobManagementFactory`](src/docpipe/core/job_management/adapters/config/job_management_factory.py).
 
 The active job stats path uses the new `core/job_management` module.
 
@@ -229,17 +229,17 @@ The active job stats path uses the new `core/job_management` module.
 
 A key architectural rule is that persistence adapters only store and retrieve raw records.
 
-- [`JobStatsStore`](src/datasift/core/job_management/domain/ports/job_stats_store.py) implementations must persist job stats and raw node stats.
+- [`JobStatsStore`](src/docpipe/core/job_management/domain/ports/job_stats_store.py) implementations must persist job stats and raw node stats.
 - Store adapters must **not** perform node aggregation.
-- [`NodeStatsAggregator`](src/datasift/core/job_management/application/services/node_stats_aggregator.py) is the only layer responsible for combining batch-level node stats into an aggregated node view.
+- [`NodeStatsAggregator`](src/docpipe/core/job_management/application/services/node_stats_aggregator.py) is the only layer responsible for combining batch-level node stats into an aggregated node view.
 
 This separation keeps write paths simple and makes aggregation behavior explicit, testable, and replaceable.
 
 ### Micro-Batching Model
 
-For micro-batch execution, datasift stores node statistics at batch granularity.
+For micro-batch execution, docpipe stores node statistics at batch granularity.
 
-- Every batch execution can produce a separate [`NodeStatsDto`](src/datasift/api/dto/node_stats_dto.py) record.
+- Every batch execution can produce a separate [`NodeStatsDto`](src/docpipe/api/dto/node_stats_dto.py) record.
 - Batch records are keyed by `job_run_id`, `node_id`, and `batch_id`.
 - Read APIs can return:
   - an aggregated per-node view
@@ -259,17 +259,17 @@ The Prefect orchestration layer must keep the outer flow alive until submitted b
 
 Relevant implementation points:
 
-- [`PrefectEngine`](src/datasift/core/orchestration/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
-- [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) updates terminal job state separately from node-state persistence.
+- [`PrefectEngine`](src/docpipe/core/orchestration/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
+- [`JobTrackerService`](src/docpipe/core/job_management/adapters/services/job_tracker_service.py) updates terminal job state separately from node-state persistence.
 - The job-management layer is responsible for persisting terminal states such as completed, failed, canceled, and aborted.
 
 ### Metadata Aggregation Contract
 
-Operators often emit custom metadata that is later aggregated across batches. Aggregation behavior is defined centrally in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
+Operators often emit custom metadata that is later aggregated across batches. Aggregation behavior is defined centrally in [`strategies.py`](src/docpipe/core/job_management/application/aggregation/strategies.py).
 
 Maintainer rule:
 
-- if a new operator adds metadata fields that need anything other than the default `LAST` behavior, update [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py)
+- if a new operator adds metadata fields that need anything other than the default `LAST` behavior, update [`DEFAULT_STRATEGIES`](src/docpipe/core/job_management/application/aggregation/strategies.py)
 - add or update tests covering the new aggregation behavior
 - document the field in [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md)
 
@@ -279,11 +279,11 @@ See [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE
 
 ### 1. Operator Pattern
 
-Operators are the fundamental building blocks of datasift. Each operator is a self-contained unit that performs a specific data processing task.
+Operators are the fundamental building blocks of docpipe. Each operator is a self-contained unit that performs a specific data processing task.
 
 **Key Characteristics:**
 
-- Inherits from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py)
+- Inherits from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py)
 - Implements the Template Method pattern
 - Receives PyArrow tables as input
 - Returns PyArrow tables as output
@@ -336,28 +336,28 @@ graph LR
 All operators must properly identify themselves using the `owner` attribute to ensure correct priority resolution in the operator factory.
 
 **Owner Attribute:**
-- **Datasift operators**: `owner = DatasiftConstants.OWNER_DATASIFT` (must be explicitly set for all built-in operators)
+- **Docpipe operators**: `owner = DocpipeConstants.OWNER_DOCPIPE` (must be explicitly set for all built-in operators)
 - **Custom operators**: `owner = "custom"` (must be explicitly set)
-- **Default**: `owner = None` (inherited from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:32), treated as custom)
+- **Default**: `owner = None` (inherited from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py:32), treated as custom)
 
 **Priority Resolution:**
 
 When multiple operators share the same `short_name`, the operator factory uses priority-based resolution:
 - **Priority 1**: Custom operators (`owner="custom"` or `owner=None`)
-- **Priority 2**: Datasift operators (`owner="datasift"`)
+- **Priority 2**: Docpipe operators (`owner="docpipe"`)
 
-**Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override datasift operators with the same `short_name`.
+**Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override docpipe operators with the same `short_name`.
 
-**Example - Built-in Datasift Operator:**
+**Example - Built-in Docpipe Operator:**
 
 ```python
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift.core.constants.constants import DatasiftConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants
 
-class MyDatasiftOperator(AbstractOperator):
+class MyDocpipeOperator(AbstractOperator):
     short_name: str = "my_operator"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str = DatasiftConstants.OWNER_DATASIFT  # REQUIRED for built-in operators
+    owner: str = DocpipeConstants.OWNER_DOCPIPE  # REQUIRED for built-in operators
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         super().__init__(config=config)
@@ -367,7 +367,7 @@ class MyDatasiftOperator(AbstractOperator):
 **Example - Custom Operator:**
 
 ```python
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class MyCustomOperator(AbstractOperator):
     short_name: str = "my_operator"
@@ -389,42 +389,42 @@ Custom operators can be loaded from three sources:
 
 **Environment Variable Configuration:**
 
-The `DATASIFT_CUSTOM_OPERATORS` environment variable must be a comma-separated string of package paths. Non-string values will be logged as warnings and ignored to prevent operator factory failures.:
+The `DOCPIPE_CUSTOM_OPERATORS` environment variable must be a comma-separated string of package paths. Non-string values will be logged as warnings and ignored to prevent operator factory failures.:
 
 ```bash
 # Filesystem path
-export DATASIFT_CUSTOM_OPERATORS="/path/to/operators"
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators"
 
 # Python package name (must be installed via pip)
-export DATASIFT_CUSTOM_OPERATORS="my_custom_operators"
+export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
 
 # S3 URI
-export DATASIFT_CUSTOM_OPERATORS="s3://bucket/operators"
+export DOCPIPE_CUSTOM_OPERATORS="s3://bucket/operators"
 
 # Multiple sources
-export DATASIFT_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
+export DOCPIPE_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
 
 # Invalid (non-string values are ignored with warning)
-export DATASIFT_CUSTOM_OPERATORS=123  # Will be ignored
+export DOCPIPE_CUSTOM_OPERATORS=123  # Will be ignored
 ```
 
-See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:35) for implementation details.
+See [`OperatorFactory`](src/docpipe/core/orchestration/operator_factory.py:35) for implementation details.
 
 **Package Adapter:**
 
-The [`PackageAdapter`](src/datasift/core/orchestration/operator_loader/adapters/package_adapter.py) enables loading operators from pip-installed Python packages using standard Python packaging:
+The [`PackageAdapter`](src/docpipe/core/orchestration/operator_loader/adapters/package_adapter.py) enables loading operators from pip-installed Python packages using standard Python packaging:
 
-- **Entry Point Discovery**: Operators registered via `pyproject.toml` entry points under `datasift.operators` group
+- **Entry Point Discovery**: Operators registered via `pyproject.toml` entry points under `docpipe.operators` group
 - **Module Inspection**: Automatic discovery of operators in the package's operator module
 - **Standard Packaging**: Uses `importlib.metadata` for package discovery
 
-See [`CustomOperatorLoader`](src/datasift/core/orchestration/operator_loader/loader_service.py) for implementation details and [CUSTOM_OPERATORS_GUIDE.md](docs/guides/CUSTOM_OPERATORS_GUIDE.md) for complete usage documentation.
+See [`CustomOperatorLoader`](src/docpipe/core/orchestration/operator_loader/loader_service.py) for implementation details and [CUSTOM_OPERATORS_GUIDE.md](docs/guides/CUSTOM_OPERATORS_GUIDE.md) for complete usage documentation.
 
 ````
 
 ### 2. Operator Metadata Architecture
 
-The [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) class is the **primary API** for accessing metadata from all operators in the system. It provides a unified interface for discovering operators, querying their capabilities, and understanding their requirements.
+The [`OperatorMetadata`](src/docpipe/core/operators/operator_metadata.py) class is the **primary API** for accessing metadata from all operators in the system. It provides a unified interface for discovering operators, querying their capabilities, and understanding their requirements.
 
 **Primary API Pattern:**
 
@@ -455,19 +455,19 @@ print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
 
 **Key Capabilities:**
 
-1. **Operator Discovery**: Automatically discovers all registered operators via [`OperatorFactoryProvider`](src/datasift/core/orchestration/operator_factory.py)
+1. **Operator Discovery**: Automatically discovers all registered operators via [`OperatorFactoryProvider`](src/docpipe/core/orchestration/operator_factory.py)
 2. **Metadata Aggregation**: Collects metadata from all operators in a single call
 3. **Feature Filtering**: Filters internal features (like `doc_id_hash`) from public API
 4. **Caching**: Caches metadata after first retrieval for performance
 5. **Utility Methods**: Provides convenience methods for common queries
 
-**Usage in Datasift:**
+**Usage in Docpipe:**
 
 The `OperatorMetadata` class is used throughout the system:
 
-- **CLI**: [`list_operators`](src/datasift/utils/operators/display.py) command uses it to display available operators
-- **Flow Validation**: [`FlowValidator`](src/datasift/core/orchestration/flow_validator.py) uses it to validate operator connections
-- **Flow Manager**: [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py) uses it for programmatic access
+- **CLI**: [`list_operators`](src/docpipe/utils/operators/display.py) command uses it to display available operators
+- **Flow Validation**: [`FlowValidator`](src/docpipe/core/orchestration/flow_validator.py) uses it to validate operator connections
+- **Flow Manager**: [`DocpipeFlowManager`](src/docpipe/lib/docpipe_flow_manager.py) uses it for programmatic access
 - **UI/API**: Future UI components will use it to build flow editors
 
 **Common Use Cases:**
@@ -595,7 +595,7 @@ A **Flow** is a JSON-defined configuration that specifies a pipeline of operator
 
 **Flow Authoring Format vs Runtime DAG:**
 
-DataSift uses two distinct representations:
+Docpipe uses two distinct representations:
 
 1. **Authoring Format** (User-facing): Simplified JSON structure for defining flows
    - Uses `flow` array with operator definitions
@@ -808,7 +808,7 @@ class WorkPoolConfig:
 @dataclass
 class BatchStorageConfig:
     type: str = "local"  # Only "local" supported
-    base_path: str = "/tmp/datasift/batches"
+    base_path: str = "/tmp/docpipe/batches"
 ```
 
 **Configuration Examples:**
@@ -820,7 +820,7 @@ class BatchStorageConfig:
   "work_pool": {
     "enabled": true,
     "type": "process",
-    "name": "datasift-process-pool",
+    "name": "docpipe-process-pool",
     "max_workers": 4
   }
 }
@@ -833,8 +833,8 @@ class BatchStorageConfig:
   "work_pool": {
     "enabled": true,
     "type": "docker",
-    "name": "datasift-docker-pool",
-    "image": "datasift:latest",
+    "name": "docpipe-docker-pool",
+    "image": "docpipe:latest",
     "batch_storage": {
       "type": "local",
       "base_path": "/app/data/batches"
@@ -852,7 +852,7 @@ Before using distributed execution, create the corresponding Prefect work pool:
 # No setup required
 
 # Docker pool
-prefect work-pool create datasift-docker-pool --type docker
+prefect work-pool create docpipe-docker-pool --type docker
 ```
 
 **Worker Deployment:**
@@ -861,16 +861,16 @@ Start workers to process tasks from the work pool:
 
 ```bash
 # Docker worker
-prefect worker start --pool datasift-docker-pool
+prefect worker start --pool docpipe-docker-pool
 ```
 
 - Tracks deleted rows and metadata
 
 #### PythonOrchestrator
 
-- Concrete implementation of [`AbstractOrchestrator`](src/datasift/core/orchestration/abstract_orchestrator.py)
+- Concrete implementation of [`AbstractOrchestrator`](src/docpipe/core/orchestration/abstract_orchestrator.py)
 - Used by both CLI and Python API
-- Instantiated via [`OrchestratorFactory`](src/datasift/core/orchestration/orchestrator_factory.py)
+- Instantiated via [`OrchestratorFactory`](src/docpipe/core/orchestration/orchestrator_factory.py)
 - Manages operator execution through Prefect
 
 #### FlowExecutor
@@ -949,9 +949,9 @@ classDiagram
 Operators distinguish between class-level capabilities and instance-level configuration:
 
 - **Static Methods** (`@staticmethod`):
-  - [`get_metadata()`](src/datasift/core/operators/abstract_operator.py:61): Returns operator-level metadata (category, features, description)
-  - [`get_required_features()`](src/datasift/core/operators/abstract_operator.py:56): Returns required input features
-  - [`is_available()`](src/datasift/core/operators/abstract_operator.py:47): Checks if operator dependencies are available
+  - [`get_metadata()`](src/docpipe/core/operators/abstract_operator.py:61): Returns operator-level metadata (category, features, description)
+  - [`get_required_features()`](src/docpipe/core/operators/abstract_operator.py:56): Returns required input features
+  - [`is_available()`](src/docpipe/core/operators/abstract_operator.py:47): Checks if operator dependencies are available
   - Accessed via `OperatorClass.method_name()` without instantiation
   - Represent operator capabilities independent of any specific configuration
 
@@ -962,7 +962,7 @@ Operators distinguish between class-level capabilities and instance-level config
 
 **Rationale for Static Methods:**
 
-Both [`get_metadata()`](src/datasift/core/operators/abstract_operator.py:61) and [`get_required_features()`](src/datasift/core/operators/abstract_operator.py:56) are static because:
+Both [`get_metadata()`](src/docpipe/core/operators/abstract_operator.py:61) and [`get_required_features()`](src/docpipe/core/operators/abstract_operator.py:56) are static because:
 
 1. They represent operator-level information, not instance-specific configuration
 2. Enable metadata discovery without instantiation overhead
@@ -1009,7 +1009,7 @@ Configuration flows through multiple layers:
 ```mermaid
 graph TD
     JSON[Flow JSON] --> FE[FlowExecutor]
-    YAML[datasift-config.yaml] --> ORCH[Orchestrator]
+    YAML[docling-pipelines-config.yaml] --> ORCH[Orchestrator]
     FE --> PARAMS[Runtime Parameters]
     PARAMS --> ORCH
     ORCH --> OP_CONFIG[Operator Config]
@@ -1027,15 +1027,15 @@ graph TD
 **Configuration Hierarchy:**
 
 1. Flow JSON for flow topology and operator parameters
-2. `datasift-config.yaml` for centralized system configuration
+2. `docling-pipelines-config.yaml` for centralized system configuration
 3. Environment variables for deployment-specific overrides
 4. Default values for unspecified settings
 
-Flow JSON remains the source for DAG structure and operator-specific behavior, while shared runtime infrastructure such as job management, asset repositories, and incremental metadata is configured centrally through `datasift-config.yaml`.
+Flow JSON remains the source for DAG structure and operator-specific behavior, while shared runtime infrastructure such as job management, asset repositories, and incremental metadata is configured centrally through `docling-pipelines-config.yaml`.
 
 #### Incremental Metadata Configuration
 
-Incremental metadata configuration is YAML-first and uses `datasift-config.yaml` as the single source of truth. Flow-level `incremental_metadata` settings are no longer part of the supported configuration model.
+Incremental metadata configuration is YAML-first and uses `docling-pipelines-config.yaml` as the single source of truth. Flow-level `incremental_metadata` settings are no longer part of the supported configuration model.
 
 The centralized configuration shape is:
 
@@ -1055,15 +1055,15 @@ Supported storage backends:
 - **Filesystem** - file-backed storage using Parquet format for development and single-host execution
 - **PostgreSQL** - centralized durable storage for concurrent and distributed execution
 
-Environment variable substitution is supported inside `datasift-config.yaml`, allowing secrets such as database passwords to be supplied at deployment time rather than committed to source control.
+Environment variable substitution is supported inside `docling-pipelines-config.yaml`, allowing secrets such as database passwords to be supplied at deployment time rather than committed to source control.
 
 #### Incremental Metadata Hexagonal Architecture
 
-Incremental metadata is implemented as a hexagonal subsystem under [`src/datasift/core/incremental_metadata/`](src/datasift/core/incremental_metadata/):
+Incremental metadata is implemented as a hexagonal subsystem under [`src/docpipe/core/incremental_metadata/`](src/docpipe/core/incremental_metadata/):
 
 - `domain/models/incremental_record.py` defines the domain record model
 - `domain/ports/incremental_metadata_store.py` defines the storage port
-- `adapters/config/` resolves backend configuration from `datasift-config.yaml`
+- `adapters/config/` resolves backend configuration from `docling-pipelines-config.yaml`
 - `adapters/stores/filesystem/` contains the Filesystem storage adapter (using Parquet format)
 - `adapters/stores/postgres/` contains the PostgreSQL storage adapter
 
@@ -1073,7 +1073,7 @@ This structure separates domain contracts from infrastructure concerns and allow
 
 ## Distributed Execution Architecture
 
-Datasift-opensource supports multiple execution modes through a hexagonal architecture pattern that decouples the orchestration logic from the execution strategy. This enables seamless switching between local development and distributed production deployments.
+Docpipe-opensource supports multiple execution modes through a hexagonal architecture pattern that decouples the orchestration logic from the execution strategy. This enables seamless switching between local development and distributed production deployments.
 
 ### Execution Modes
 
@@ -1222,7 +1222,7 @@ Execution mode is configured via the `work_pool` section in flow JSON:
     "enabled": true,
     "type": "docker",
     "name": "my-docker-pool",
-    "image": "datasift:latest",
+    "image": "docpipe:latest",
     "batch_storage": {
       "type": "local",
       "base_path": "/shared/batches"
@@ -1301,7 +1301,7 @@ operator_instance = operator_class(config)
 
 **Metadata Access Pattern:**
 
-- Operator metadata is accessed at the class level via static method [`OperatorClass.get_metadata()`](src/datasift/core/operators/abstract_operator.py:59)
+- Operator metadata is accessed at the class level via static method [`OperatorClass.get_metadata()`](src/docpipe/core/operators/abstract_operator.py:59)
 - No instantiation required for metadata discovery
 - Enables efficient operator registry and capability queries
 
@@ -1462,7 +1462,7 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph "Datasift Operators"
+    subgraph "Docpipe Operators"
         EXT[ExtractOperator]
         EMB[EmbeddingsOperator]
     end
@@ -1526,7 +1526,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Datasift Operators"
+    subgraph "Docpipe Operators"
         EXT[ExtractOperator]
         DC[DocumentClassifier]
     end
@@ -1615,7 +1615,7 @@ If neither is provided, a `ConfigurationError` will be thrown.
 
 ```mermaid
 graph TB
-    subgraph "Datasift Layer"
+    subgraph "Docpipe Layer"
         VDB[VectorDBOperator]
     end
 
@@ -1691,7 +1691,7 @@ The OpenSearch adapter supports a flexible schema template system that enables r
 
 **Key Features**:
 
-1. **JSON-Based Templates**: Schema templates are stored as JSON files in `src/datasift/core/operators/vectordb/schemas/`
+1. **JSON-Based Templates**: Schema templates are stored as JSON files in `src/docpipe/core/operators/vectordb/schemas/`
 2. **Placeholder Replacement**: Dynamic values are injected at runtime using placeholder strings
 3. **Graceful Fallback**: If template is not found or invalid, falls back to dynamic schema generation
 4. **Validation**: Comprehensive schema validation with detailed error messages
@@ -1768,7 +1768,7 @@ Templates support two formats:
 
 ```json
 {
-  "operator_type": "datasift.core.operators.vectordb.vectordb_operator.VectorDBOperator",
+  "operator_type": "docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator",
   "operator_params": {
     "provider": "opensearch",
     "index_name": "document_chunks",
@@ -2090,7 +2090,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Datasift Layer"
+    subgraph "Docpipe Layer"
         VDB[VectorDBOperator]
     end
     
@@ -2468,7 +2468,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Datasift Layer"
+    subgraph "Docpipe Layer"
         EXT[ExtractOperator]
     end
 
@@ -2678,7 +2678,7 @@ The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII
 
 ```mermaid
 graph TB
-    subgraph "Datasift Layer"
+    subgraph "Docpipe Layer"
         PIIHAP[PIIAndHAPAnnotator]
     end
 
@@ -2836,7 +2836,7 @@ The IngestSource operator provides a unified interface for ingesting documents f
 
 ```mermaid
 graph TB
-    subgraph "Datasift Layer"
+    subgraph "Docpipe Layer"
         ISO[IngestSourceOperator]
     end
 
@@ -3180,14 +3180,14 @@ The Chunker operator's summarization feature follows a service layer architectur
 
 #### Components
 
-**1. ChunkerOperator** (`src/datasift/core/operators/functional/chunker.py`)
+**1. ChunkerOperator** (`src/docpipe/core/operators/functional/chunker.py`)
 - **Responsibility**: Orchestrates chunking workflow
 - **Summarization Integration**:
   - Lazy initialization of `SummarizationService` during `transform()`
   - Delegates all summarization logic to service
   - Handles configuration and provider setup
 
-**2. SummarizationService** (`src/datasift/core/operators/functional/summarization_service.py`)
+**2. SummarizationService** (`src/docpipe/core/operators/functional/summarization_service.py`)
 - **Responsibility**: Encapsulates summarization business logic
 - **Key Methods**:
   - `generate_summaries_for_chunks()`: Main entry point
@@ -3199,7 +3199,7 @@ The Chunker operator's summarization feature follows a service layer architectur
   - `_split_into_sentences()`: NLTK-based sentence tokenization
 - **Configuration**: Accepts `max_input_tokens`, `overlap_ratio`, `summary_sentences`, `summary_max_words`
 
-**3. LLMInferencePort** (`src/datasift/core/ports/llm_inference_port.py`)
+**3. LLMInferencePort** (`src/docpipe/core/ports/llm_inference_port.py`)
 - **Responsibility**: Abstract interface for LLM providers
 - **Method**: `generate(prompt: str, **kwargs) -> str`
 - **Implementations**:
@@ -3265,7 +3265,7 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 
 #### Components
 
-**1. Domain Layer** (`src/datasift/core/assets/document_sets/domain/`)
+**1. Domain Layer** (`src/docpipe/core/assets/document_sets/domain/`)
 
 - **Models** (`models/`): Pure Python domain entities
   - `DocumentSet`: Core entity for document collections
@@ -3279,7 +3279,7 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
   - `DataStoreConfig`: Data store configuration
   - `HealthCheckResult`: Health check response structure
 
-**2. Application Layer** (`src/datasift/core/assets/document_sets/application/`)
+**2. Application Layer** (`src/docpipe/core/assets/document_sets/application/`)
 
 - **DocumentSetService** (`services/`): Business logic using port interfaces
 - Orchestrates metadata and data operations
@@ -3287,7 +3287,7 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 - Independent of concrete storage implementation
 - Injected with metadata repository and data store adapters
 
-**3. Adapter Layer** (`src/datasift/core/assets/document_sets/adapters/`)
+**3. Adapter Layer** (`src/docpipe/core/assets/document_sets/adapters/`)
 
 - **DuckDB Adapters** (`duckdb/`):
   - **DuckDBDocumentSetMetadataRepository**: Metadata persistence
@@ -3299,7 +3299,7 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 - Registered via `@MetadataRepositoryFactory.register()` and `@DataStoreFactory.register()` decorators
 - Supports health checks and configuration validation
 
-**4. Factory Layer** (`src/datasift/core/assets/document_sets/factories/`)
+**4. Factory Layer** (`src/docpipe/core/assets/document_sets/factories/`)
 
 - **MetadataRepositoryFactory**: Creates metadata repository adapters
   - Decorator-based registration system
@@ -3322,7 +3322,7 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
   },
   "nodes": [
     {
-      "operator_type": "datasift.core.operators.storage.document_set.DocumentSetOperator",
+      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
       "operator_params": {
         "document_set_name": "my_documents",
         "description": "Document collection",
@@ -3437,7 +3437,7 @@ class PostgreSQLDataStore(DocumentSetDataStore):
   },
   "nodes": [
     {
-      "operator_type": "datasift.core.operators.storage.document_set.DocumentSetOperator",
+      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
       "operator_params": {
         "document_set_name": "my_documents",
         "description": "Processed documents",
@@ -3476,7 +3476,7 @@ The `storage_type` in `global_config` determines the storage backend for metadat
 
 ## Deployment Patterns
 
-Datasift-opensource supports multiple deployment patterns to accommodate different operational requirements, from local development to enterprise-scale production deployments.
+Docpipe-opensource supports multiple deployment patterns to accommodate different operational requirements, from local development to enterprise-scale production deployments.
 
 ### 1. Local Development (ThreadPoolAdapter)
 
@@ -3530,7 +3530,7 @@ graph TB
 
 ```bash
 # No additional setup required
-datasift-orchestrator --flow-file my-flow.json
+docling-pipelines --flow-file my-flow.json
 ```
 
 ---
@@ -3586,7 +3586,7 @@ graph TB
   "work_pool": {
     "enabled": true,
     "type": "process",
-    "name": "datasift-process-pool",
+    "name": "docpipe-process-pool",
     "max_workers": 4
   }
 }
@@ -3604,7 +3604,7 @@ graph TB
 
 ```bash
 # Process pool is managed automatically
-datasift-orchestrator --flow-file my-flow.json
+docling-pipelines --flow-file my-flow.json
 ```
 
 ---
@@ -3659,8 +3659,8 @@ graph TB
   "work_pool": {
     "enabled": true,
     "type": "docker",
-    "name": "datasift-docker-pool",
-    "image": "datasift:latest",
+    "name": "docpipe-docker-pool",
+    "image": "docpipe:latest",
     "batch_storage": {
       "type": "local",
       "base_path": "/app/data/batches"
@@ -3682,13 +3682,13 @@ graph TB
 1. **Build Docker Image:**
 
 ```bash
-docker build -t datasift:latest -f docker/Dockerfile .
+docker build -t docpipe:latest -f docker/Dockerfile .
 ```
 
 2. **Create Work Pool:**
 
 ```bash
-prefect work-pool create datasift-docker-pool --type docker
+prefect work-pool create docpipe-docker-pool --type docker
 ```
 
 3. **Start Workers:**
@@ -3699,15 +3699,15 @@ docker-compose -f docker/docker-compose.worker.yml up -d
 
 # Or manually
 docker run -d \
-  -v datasift-batches:/app/data/batches \
-  datasift:latest \
-  prefect worker start --pool datasift-docker-pool
+  -v docpipe-batches:/app/data/batches \
+  docpipe:latest \
+  prefect worker start --pool docpipe-docker-pool
 ```
 
 4. **Execute Flow:**
 
 ```bash
-datasift-orchestrator --flow-file my-flow.json
+docling-pipelines --flow-file my-flow.json
 ```
 
 **Docker Compose Example:**
@@ -3716,17 +3716,17 @@ datasift-orchestrator --flow-file my-flow.json
 version: "3.8"
 services:
   worker:
-    image: datasift:latest
-    command: prefect worker start --pool datasift-docker-pool
+    image: docpipe:latest
+    command: prefect worker start --pool docpipe-docker-pool
     volumes:
-      - datasift-batches:/app/data/batches
+      - docpipe-batches:/app/data/batches
     environment:
       - PREFECT_API_URL=http://prefect-server:4200/api
     deploy:
       replicas: 3
 
 volumes:
-  datasift-batches:
+  docpipe-batches:
 ```
 
 ---
@@ -3958,8 +3958,8 @@ Operator Input (PyArrow Table)
 ## Repository Structure
 
 ```
-datasift/
-├── src/datasift_opensource/          # Main source code
+docpipe/
+├── src/docpipe_app/          # Main source code
 │   ├── backend/                      # Backend components
 │   │   ├── app/                      # Backend API application
 │   │   │   ├── routes/               # API route handlers
@@ -4014,7 +4014,7 @@ datasift/
 
 ## Core Components
 
-### 1. Core Utilities (`src/datasift/utils/` and `src/datasift/core/`)
+### 1. Core Utilities (`src/docpipe/utils/` and `src/docpipe/core/`)
 
 #### Clients (`common/clients/`)
 
@@ -4033,7 +4033,7 @@ datasift/
 #### Document Classes (`common/document_classes/`)
 #### Constants (`core/constants/`)
 
-**File Extension Constants** ([`operator_constants.py`](src/datasift/core/constants/operator_constants.py))
+**File Extension Constants** ([`operator_constants.py`](src/docpipe/core/constants/operator_constants.py))
 
 The `FileExtensions` class provides centralized file format constants used across all operators for consistent file type handling:
 
@@ -4076,15 +4076,15 @@ The `FileExtensions` class provides centralized file format constants used acros
 - `CLASSIFICATION_FILE_EXTENSIONS`: Document classification formats (BASE_EXTENSIONS excluding .txt and .md)
 
 **Usage in Operators:**
-- [`ExtractOperator`](src/datasift/core/operators/extract/extract_operator.py): Uses `FileExtensions.EXT_TXT` for text file handling
-- [`IngestSourceOperator`](src/datasift/core/operators/ingest/ingest_source.py): Uses `FileExtensions.BASE_EXTENSIONS` for file filtering
-- [`DocumentClassifier`](src/datasift/core/operators/quality/classification/document_classifier.py): Uses `FileExtensions.CLASSIFICATION_FILE_EXTENSIONS` for validation
-- [`OperatorUtils`](src/datasift/core/operators/operator_utils.py): Uses centralized constants in `get_supported_file_extensions()`
+- [`ExtractOperator`](src/docpipe/core/operators/extract/extract_operator.py): Uses `FileExtensions.EXT_TXT` for text file handling
+- [`IngestSourceOperator`](src/docpipe/core/operators/ingest/ingest_source.py): Uses `FileExtensions.BASE_EXTENSIONS` for file filtering
+- [`DocumentClassifier`](src/docpipe/core/operators/quality/classification/document_classifier.py): Uses `FileExtensions.CLASSIFICATION_FILE_EXTENSIONS` for validation
+- [`OperatorUtils`](src/docpipe/core/operators/operator_utils.py): Uses centralized constants in `get_supported_file_extensions()`
 
 
-### 5. Storage Layer (`src/datasift/storage/`)
+### 5. Storage Layer (`src/docpipe/storage/`)
 
-The storage layer provides a clean, interface-based abstraction for data persistence in datasift. It follows a port-adapter pattern with two primary interfaces for different storage needs.
+The storage layer provides a clean, interface-based abstraction for data persistence in docpipe. It follows a port-adapter pattern with two primary interfaces for different storage needs.
 
 #### Storage Interfaces
 
@@ -4153,7 +4153,7 @@ The storage layer provides a clean, interface-based abstraction for data persist
 - **StorageValidationError**: Invalid parameters or data
 - **StorageConnectionError**: Database connection failures
 
-### 6. Assets Management (`src/datasift/core/assets/`)
+### 6. Assets Management (`src/docpipe/core/assets/`)
 
 The assets management layer provides hexagonal architecture implementations for managing data assets like flows and document sets. It follows clean architecture principles with clear separation between domain, application, and adapter layers.
 
@@ -4230,7 +4230,7 @@ Hexagonal architecture implementation for document set management:
 
 ##### IAM Token Manager
 
-**Location**: `src/datasift/utils/infrastructure/iam_token_manager.py`
+**Location**: `src/docpipe/utils/infrastructure/iam_token_manager.py`
 
 The IAM Token Manager handles IBM Cloud and MCSP (Multi-Cloud Service Platform) authentication for WatsonX integrations. It provides automatic token management with caching, refresh, and multi-environment support.
 
@@ -4263,7 +4263,7 @@ IAM Endpoints (IBM Cloud/MCSP)
 
 **Usage Example**:
 ```python
-from datasift.utils.infrastructure.iam_token_manager import IAMTokenManager
+from docpipe.utils.infrastructure.iam_token_manager import IAMTokenManager
 
 # Initialize with API key and WatsonX URL
 token_manager = IAMTokenManager(
@@ -4284,7 +4284,7 @@ token = token_manager.get_token()
 
 **See Also**: [TROUBLESHOOTING.md](TROUBLESHOOTING.md#iam-authentication-issues) for authentication troubleshooting
 
-### 2. Core Framework (`src/datasift/core/`)
+### 2. Core Framework (`src/docpipe/core/`)
 
 #### Orchestrator (`core/orchestrator/`)
 
@@ -4370,7 +4370,7 @@ The Assets Management module provides metadata management for document collectio
 - **Flexibility**: Can swap DuckDB for PostgreSQL/MongoDB without changing domain
 - **Maintainability**: Clear boundaries between layers
 
-### 3. Operators (`src/datasift/core/operators/`)
+### 3. Operators (`src/docpipe/core/operators/`)
 
 Operators are organized by category (defined in `OperatorCategory` enum). For complete operator API documentation including parameters, configuration options, and usage examples, see [Operator Reference](docs/reference/OPERATORS.md).
 
@@ -4388,9 +4388,9 @@ Operators are organized by category (defined in `OperatorCategory` enum). For co
 - Service layer pattern for complex business logic
 - Factory pattern for adapter creation
 
-### 4. CLI Application (`src/datasift/cli/`)
+### 4. CLI Application (`src/docpipe/cli/`)
 
-- **datasift_cli.py**: Command-line interface implementation
+- **docpipe_cli.py**: Command-line interface implementation
 - Uses `PythonOrchestrator` via `OrchestratorFactory`
 - Supports flow execution from JSON files
 
@@ -4434,7 +4434,7 @@ Supporting Components:
 
 **Note**: There is no separate `CommandLineOrchestrator` class. The CLI uses `PythonOrchestrator` through the factory pattern.
 
-### 5. REST API (`src/datasift/app/`)
+### 5. REST API (`src/docpipe/app/`)
 
 The FastAPI-based REST API provides programmatic access to flow and job management:
 

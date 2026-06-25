@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from datasift.core.operators.functional.entity_curation.schema_processor import SchemaProcessor
+from docpipe.core.operators.functional.entity_curation.schema_processor import SchemaProcessor
 
 
 class TestSchemaProcessor(unittest.TestCase):
@@ -12,7 +12,7 @@ class TestSchemaProcessor(unittest.TestCase):
         self.processor = SchemaProcessor()
 
     @patch("builtins.open", create=True)
-    @patch("datasift.core.operators.functional.entity_curation.schema_processor.Path")
+    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.Path")
     def test_load_schemas_success(self, mock_path, mock_open):
         """Test successful schema loading"""
         import json
@@ -127,7 +127,7 @@ class TestSchemaProcessor(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result, {})
 
-    @patch("datasift.core.operators.functional.entity_curation.schema_processor.TRANSFORMS")
+    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.TRANSFORMS")
     def test_apply_transformation_success(self, mock_transforms):
         """Test successful transformation application"""
         mock_transform_fn = MagicMock(return_value="transformed_value")

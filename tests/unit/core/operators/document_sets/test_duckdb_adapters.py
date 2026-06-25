@@ -3,16 +3,16 @@
 import pyarrow as pa
 import pytest
 
-from datasift.core.assets.document_sets.adapters.duckdb.data_store import (
+from docpipe.core.assets.document_sets.adapters.duckdb.data_store import (
     DuckDBDocumentSetDataStore,
 )
-from datasift.core.assets.document_sets.adapters.duckdb.metadata_repository import (
+from docpipe.core.assets.document_sets.adapters.duckdb.metadata_repository import (
     DuckDBDocumentSetMetadataRepository,
 )
-from datasift.core.assets.document_sets.domain.models.document_set import DocumentSet
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.exceptions.error_codes import ErrorCode
-from datasift.storage import StorageFactory
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.storage import StorageFactory
 
 
 @pytest.fixture
@@ -94,14 +94,14 @@ class TestDuckDBMetadataRepository:
 
     def test_get_nonexistent_raises_error(self, *, metadata_repository):
         """Test getting nonexistent document set raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.get_by_id(document_set_id="nonexistent")
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
 
     def test_get_by_name_nonexistent_raises_error(self, *, metadata_repository):
         """Test getting nonexistent document set by name raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.get_by_name(name="missing_name")
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
@@ -158,7 +158,7 @@ class TestDuckDBMetadataRepository:
         )
 
         # Should raise error when trying to update nonexistent document set
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.update(document_set=doc_set)
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
 
@@ -176,7 +176,7 @@ class TestDuckDBMetadataRepository:
         result = metadata_repository.delete(document_set_id="test-id-delete")
 
         assert result is True
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.get_by_id(document_set_id="test-id-delete")
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
 
@@ -212,7 +212,7 @@ class TestDuckDBMetadataRepository:
 
         metadata_repository.create(document_set=first)
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.create(document_set=second)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_ALREADY_EXISTS
@@ -236,14 +236,14 @@ class TestDuckDBMetadataRepository:
 
     def test_commit_without_active_transaction_raises_error(self, *, metadata_repository):
         """Test commit without active transaction raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.commit_transaction()
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TRANSACTION_FAILED
 
     def test_rollback_without_active_transaction_raises_error(self, *, metadata_repository):
         """Test rollback without active transaction raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.rollback_transaction()
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TRANSACTION_FAILED
@@ -272,7 +272,7 @@ class TestDuckDBDataStore:
 
         data_store.create_data_table(table_name="duplicate_table", schema=schema)
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             data_store.create_data_table(table_name="duplicate_table", schema=schema)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_ALREADY_EXISTS
@@ -312,7 +312,7 @@ class TestDuckDBDataStore:
         """Test upserting into nonexistent table raises error."""
         data = pa.table({"id": ["1"], "content": ["test1"]})
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             data_store.upsert_document_set_data(table_name="missing_table", data=data)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
@@ -324,7 +324,7 @@ class TestDuckDBDataStore:
 
         data = pa.table({"content": ["test1"]})
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             data_store.upsert_document_set_data(table_name="bad_upsert_table", data=data)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_SCHEMA_MISMATCH
@@ -343,7 +343,7 @@ class TestDuckDBDataStore:
 
     def test_get_row_count_nonexistent_table_raises_error(self, *, data_store):
         """Test getting row count for nonexistent table raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             data_store.get_row_count(table_name="missing_table")
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
@@ -396,7 +396,7 @@ class TestDuckDBDataStore:
 
     def test_get_document_set_data_nonexistent_table_raises_error(self, *, data_store):
         """Test retrieving data from nonexistent table raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             data_store.get_document_set_data(table_name="missing_table", limit=None)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
@@ -490,7 +490,7 @@ class TestDuckDBDataStore:
 
     def test_get_table_metrics_nonexistent_table_raises_error(self, *, data_store):
         """Test getting metrics for nonexistent table raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             data_store.get_table_metrics(table_name="missing_table")
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND

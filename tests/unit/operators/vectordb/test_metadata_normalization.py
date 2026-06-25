@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 from opensearchpy import OpenSearch
 
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import OpenSearchBatchProcessor
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import OpenSearchBatchProcessor
 
 
 class TestMetadataColumnNormalization:

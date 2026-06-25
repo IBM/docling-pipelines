@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.utils.infrastructure.logging import (
+from docpipe.utils.infrastructure.logging import (
     ConditionalFormatter,
     get_log_level,
     get_logger,
@@ -172,7 +172,7 @@ class TestConditionalFormatter:
     @pytest.fixture
     def mock_session_info(self):
         """Mock session info."""
-        with patch("datasift.core.models.session_info.get_session_info") as mock:
+        with patch("docpipe.core.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.transaction_id = "test-transaction-id"
             mock.return_value = session_info
@@ -308,7 +308,7 @@ class TestEdgeCases:
         """Test formatting record with empty message."""
         formatter = ConditionalFormatter()
 
-        with patch("datasift.core.models.session_info.get_session_info") as mock:
+        with patch("docpipe.core.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.transaction_id = "test-id"
             mock.return_value = session_info

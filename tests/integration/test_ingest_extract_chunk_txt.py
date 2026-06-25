@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.operators.extract.extract_operator import ExtractOperator
-from datasift.core.operators.functional.chunker import ChunkerOperator
-from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.operators.extract.extract_operator import ExtractOperator
+from docpipe.core.operators.functional.chunker import ChunkerOperator
+from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
 
 
 class TestIngestExtractChunkTxtIntegration:

@@ -6,7 +6,7 @@ Tests for PyArrow table schema operations.
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from datasift.utils.data.schema_utils import (
+from docpipe.utils.data.schema_utils import (
     _combine_tables,
     _total_rows,
     align_table_schema,

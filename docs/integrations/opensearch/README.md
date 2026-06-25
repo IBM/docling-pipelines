@@ -2,9 +2,9 @@
 
 > For setup and first-run instructions, start with [`USER_GUIDE_PIPELINE_SETUP.md`](../USER_GUIDE_PIPELINE_SETUP.md). It covers prerequisites, dependency installation, OpenSearch startup, pipeline creation, execution, verification, and troubleshooting.
 
-This directory is a technical reference index for OpenSearch-related documentation in datasift.
+This directory is a technical reference index for OpenSearch-related documentation in docpipe.
 
-The [`VectorDBOperator`](../../src/datasift/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter stores document embeddings in OpenSearch for vector similarity search within datasift pipelines.
+The [`VectorDBOperator`](../../src/docpipe/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter stores document embeddings in OpenSearch for vector similarity search within docpipe pipelines.
 
 ## Reference Index
 

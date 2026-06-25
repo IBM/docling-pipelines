@@ -178,8 +178,7 @@ Always prioritize accuracy and clarity in your responses."""
 
         # Stream answer from LLM
         try:
-            for chunk in self.llm_client.run(prompt, stream=True):
-                yield chunk
+            yield from self.llm_client.run(prompt, stream=True)
         except Exception as e:
             yield f"\n\n[Error: {e!s}]"
 

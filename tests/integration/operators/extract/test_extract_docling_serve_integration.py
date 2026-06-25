@@ -40,11 +40,11 @@ import pytest
 import requests
 
 # Add the backend directory to the Python path
-backend_dir = Path(__file__).parent.parent.parent.parent.parent / "src" / "datasift_opensource" / "backend"
+backend_dir = Path(__file__).parent.parent.parent.parent.parent / "src" / "docpipe_app" / "backend"
 sys.path.insert(0, str(backend_dir))
 
-from datasift.core.constants.operator_constants import OperatorConstants  # noqa: E402
-from datasift.core.operators.extract.extract_operator import ExtractOperator  # noqa: E402
+from docpipe.core.constants.operator_constants import OperatorConstants  # noqa: E402
+from docpipe.core.operators.extract.extract_operator import ExtractOperator  # noqa: E402
 
 
 def is_docling_serve_available(*, base_url: str = "http://0.0.0.0:5001") -> bool:

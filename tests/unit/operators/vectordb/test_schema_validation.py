@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestSchemaValidation:
@@ -68,7 +68,7 @@ class TestSchemaValidation:
 
         del valid_schema["schema_name"]
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "schema_name" in str(exc_info.value)
@@ -85,7 +85,7 @@ class TestSchemaValidation:
 
         del valid_schema["schema_version"]
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "schema_version" in str(exc_info.value)
@@ -102,7 +102,7 @@ class TestSchemaValidation:
 
         valid_schema["schema_version"] = 0
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "positive integer" in str(exc_info.value)
@@ -119,7 +119,7 @@ class TestSchemaValidation:
 
         del valid_schema["settings"]
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "settings" in str(exc_info.value)
@@ -136,7 +136,7 @@ class TestSchemaValidation:
 
         del valid_schema["mappings"]
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "mappings" in str(exc_info.value)
@@ -153,7 +153,7 @@ class TestSchemaValidation:
 
         del valid_schema["mappings"]["properties"]
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "properties" in str(exc_info.value)
@@ -171,7 +171,7 @@ class TestSchemaValidation:
         # Remove vector field
         del valid_schema["mappings"]["properties"]["embeddings"]
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "knn_vector" in str(exc_info.value)
@@ -188,7 +188,7 @@ class TestSchemaValidation:
 
         valid_schema["mappings"]["properties"]["embeddings"]["dimension"] = -1
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "dimension" in str(exc_info.value)
@@ -206,7 +206,7 @@ class TestSchemaValidation:
 
         valid_schema["mappings"]["properties"]["embeddings"]["method"]["engine"] = "invalid_engine"
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "invalid engine" in str(exc_info.value).lower()
@@ -223,7 +223,7 @@ class TestSchemaValidation:
 
         valid_schema["mappings"]["properties"]["embeddings"]["method"]["name"] = "invalid_algo"
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "invalid algorithm" in str(exc_info.value).lower()
@@ -242,7 +242,7 @@ class TestSchemaValidation:
         valid_schema["mappings"]["properties"]["embeddings"]["method"]["engine"] = "lucene"
         valid_schema["mappings"]["properties"]["embeddings"]["method"]["name"] = "ivf"
 
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager._validate_schema(schema=valid_schema)
 
         assert "not supported" in str(exc_info.value)

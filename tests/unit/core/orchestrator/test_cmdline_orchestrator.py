@@ -2,19 +2,19 @@ import os
 import tempfile
 import unittest
 
-from datasift.cli.datasift_cli import (
+from docpipe.cli.docpipe_cli import (
     load_flow_definition,
     run_command_line_executor,
 )
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.exceptions.datasift_exceptions import FlowValidationException
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
 
 class TestCommandLineOrchestrator(unittest.TestCase):
     def setUp(self):
         os.environ["test_mode"] = "True"
-        os.environ[DatasiftConstants.DATA_FOLDER] = "/tmp/data"
+        os.environ[DocpipeConstants.DATA_FOLDER] = "/tmp/data"
 
     def test_basic_flow(self):
         """
@@ -51,7 +51,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         Test loading a flow definition from a file
         """
-        from datasift.cli.datasift_cli import load_flow_definition
+        from docpipe.cli.docpipe_cli import load_flow_definition
 
         filepath = "./tests/sample_test_flows/basic/local_to_opensearch.json"
 

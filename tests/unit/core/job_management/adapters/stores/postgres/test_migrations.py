@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.core.job_management.adapters.stores.postgres.database import (
+from docpipe.core.job_management.adapters.stores.postgres.database import (
     run_migrations,
 )
-from datasift.exceptions.datasift_exceptions import DatabaseMigrationException
+from docpipe.exceptions.docpipe_exceptions import DatabaseMigrationException
 
 
 class TestMigrationSetup:
@@ -22,10 +22,10 @@ class TestMigrationSetup:
     def migrations_dir(self):
         """Get migrations directory path."""
         # Navigate from tests/unit/core/job_management/adapters/stores/postgres/test_migrations.py
-        # to src/datasift/core/job_management/adapters/stores/postgres/migrations
+        # to src/docpipe/core/job_management/adapters/stores/postgres/migrations
         test_file = Path(__file__)
         repo_root = test_file.parents[7]  # Get to repo root
-        backend_dir = repo_root / "src" / "datasift"
+        backend_dir = repo_root / "src" / "docpipe"
         return backend_dir / "core" / "job_management" / "adapters" / "stores" / "postgres" / "migrations"
 
     def test_migrations_directory_exists(self, *, migrations_dir):
@@ -83,7 +83,7 @@ class TestMigrationSetup:
         assert "from alembic import context" in content, "Missing alembic context import"
         assert "from sqlalchemy import" in content, "Missing sqlalchemy import"
         assert "from sqlmodel import SQLModel" in content, "Missing SQLModel import"
-        assert "from datasift.core.job_management.adapters.stores.postgres.models import" in content, (
+        assert "from docpipe.core.job_management.adapters.stores.postgres.models import" in content, (
             "Missing models import"
         )
 
@@ -112,7 +112,7 @@ class TestMigrationSetup:
         content = migration_files[0].read_text()
 
         # Check for partial unique index on (node_id, job_run_id, batch_id) where batch_id IS NOT NULL
-        assert "ix_datasift_node_stats_node_job_batch" in content, (
+        assert "ix_docpipe_node_stats_node_job_batch" in content, (
             "Missing partial unique index on (node_id, job_run_id, batch_id) where batch_id IS NOT NULL"
         )
         assert "batch_id IS NOT NULL" in content, (
@@ -120,13 +120,13 @@ class TestMigrationSetup:
         )
 
         # Check for partial unique index on (node_id, job_run_id) where batch_id IS NULL
-        assert "ix_datasift_node_stats_node_job_no_batch" in content, (
+        assert "ix_docpipe_node_stats_node_job_no_batch" in content, (
             "Missing partial unique index on (node_id, job_run_id) where batch_id IS NULL"
         )
         assert "batch_id IS NULL" in content, "Missing WHERE clause for batch_id IS NULL in partial unique index"
 
         # Check for non-unique index on job_run_id
-        assert "ix_datasift_node_stats_job_run_id" in content, "Missing non-unique index on job_run_id"
+        assert "ix_docpipe_node_stats_job_run_id" in content, "Missing non-unique index on job_run_id"
 
         # Verify index creation calls with proper parameters
         assert '"node_id", "job_run_id", "batch_id"' in content, "Missing columns for batch index"
@@ -147,14 +147,14 @@ class TestMigrationSetup:
         downgrade_content = content[downgrade_start:]
 
         # Check that all three indexes are dropped in downgrade
-        assert 'drop_index("ix_datasift_node_stats_job_run_id"' in downgrade_content, (
-            "Downgrade missing drop for ix_datasift_node_stats_job_run_id"
+        assert 'drop_index("ix_docpipe_node_stats_job_run_id"' in downgrade_content, (
+            "Downgrade missing drop for ix_docpipe_node_stats_job_run_id"
         )
-        assert 'drop_index("ix_datasift_node_stats_node_job_no_batch"' in downgrade_content, (
-            "Downgrade missing drop for ix_datasift_node_stats_node_job_no_batch"
+        assert 'drop_index("ix_docpipe_node_stats_node_job_no_batch"' in downgrade_content, (
+            "Downgrade missing drop for ix_docpipe_node_stats_node_job_no_batch"
         )
-        assert 'drop_index("ix_datasift_node_stats_node_job_batch"' in downgrade_content, (
-            "Downgrade missing drop for ix_datasift_node_stats_node_job_batch"
+        assert 'drop_index("ix_docpipe_node_stats_node_job_batch"' in downgrade_content, (
+            "Downgrade missing drop for ix_docpipe_node_stats_node_job_batch"
         )
 
     def test_migration_revision_format(self, *, migrations_dir):
@@ -185,7 +185,7 @@ class TestMigrationExecution:
 
     def test_run_migrations_missing_alembic_ini(self, *, mock_connection_string):
         """Test that run_migrations raises error when alembic.ini is missing."""
-        with patch("datasift.core.job_management.adapters.stores.postgres.database.ALEMBIC_INI_PATH") as mock_path:
+        with patch("docpipe.core.job_management.adapters.stores.postgres.database.ALEMBIC_INI_PATH") as mock_path:
             mock_path.exists.return_value = False
             mock_path.__str__.return_value = "/fake/path/alembic.ini"
 
@@ -195,8 +195,8 @@ class TestMigrationExecution:
             assert "Alembic configuration not found" in str(exc_info.value)
             assert exc_info.value.operation == "verify_config"
 
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.command")
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.AlembicConfig")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.command")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.AlembicConfig")
     def test_run_migrations_success(self, mock_alembic_config, mock_command, *, mock_connection_string):
         """Test successful migration execution."""
         # Setup mocks
@@ -211,8 +211,8 @@ class TestMigrationExecution:
         mock_cfg.set_main_option.assert_any_call("sqlalchemy.url", mock_connection_string)
         mock_command.upgrade.assert_called_once_with(mock_cfg, "head")
 
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.command")
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.AlembicConfig")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.command")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.AlembicConfig")
     def test_run_migrations_with_config(self, mock_alembic_config, mock_command, *, mock_connection_string):
         """Test migration execution with additional config."""
         mock_cfg = MagicMock()
@@ -224,8 +224,8 @@ class TestMigrationExecution:
         # Should still work with config dict
         mock_command.upgrade.assert_called_once_with(mock_cfg, "head")
 
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.command")
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.AlembicConfig")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.command")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.AlembicConfig")
     def test_run_migrations_alembic_failure(self, mock_alembic_config, mock_command, *, mock_connection_string):
         """Test migration execution when Alembic command fails."""
         mock_cfg = MagicMock()
@@ -238,8 +238,8 @@ class TestMigrationExecution:
         assert "Database migration failed" in str(exc_info.value)
         assert exc_info.value.operation == "upgrade"
 
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.command")
-    @patch("datasift.core.job_management.adapters.stores.postgres.database.AlembicConfig")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.command")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.database.AlembicConfig")
     def test_run_migrations_sets_script_location(self, mock_alembic_config, mock_command, *, mock_connection_string):
         """Test that run_migrations sets the script location correctly."""
         mock_cfg = MagicMock()

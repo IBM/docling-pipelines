@@ -1,6 +1,6 @@
-# DataSift Flow Configuration Guide
+# Docpipe Flow Configuration Guide
 
-This guide explains how to create and configure DataSift pipeline flows using JSON configuration files.
+This guide explains how to create and configure Docpipe pipeline flows using JSON configuration files.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ This guide explains how to create and configure DataSift pipeline flows using JS
 
 ## Flow Structure Overview
 
-DataSift pipelines are defined using JSON configuration files. Here's the basic structure:
+Docpipe pipelines are defined using JSON configuration files. Here's the basic structure:
 
 ```json
 {
@@ -83,9 +83,9 @@ The `global_config` object supports the following options:
 
 The `flow_name` field in your flow definition serves different purposes depending on how you execute the flow:
 
-#### CLI Execution (`datasift-orchestrator`)
+#### CLI Execution (`docling-pipelines`)
 
-When using the `datasift-orchestrator` CLI, the `flow_name` is automatically used to generate a unique `job_id` for tracking flow executions and incremental processing.
+When using the `docling-pipelines` CLI, the `flow_name` is automatically used to generate a unique `job_id` for tracking flow executions and incremental processing.
 
 **Automatic job_id Generation:**
 - job_id is automatically generated from flow_name as a deterministic 36-character UUID (UUID v5)
@@ -105,15 +105,15 @@ When using the `datasift-orchestrator` CLI, the `flow_name` is automatically use
 
 > ⚠️ **Incremental Processing Impact**: Since incremental ingestion metadata is associated with the job_id (derived from flow_name), changing a flow's flow_name will generate a new job_id, causing previously processed files to be reprocessed.
 
-#### Python API (`DatasiftFlowManager`)
+#### Python API (`DocpipeFlowManager`)
 
 When using the Python API, you must provide a unique `job_id` parameter for each flow execution:
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # You must provide a unique job_id
-manager = DatasiftFlowManager(
+manager = DocpipeFlowManager(
     flow_file="my_flow.json",
     job_id="my-unique-job-id-12345"  # Required for proper tracking
 )
@@ -403,7 +403,7 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 - **space_type**: Distance metric - l2, cosine, inner_product (default: l2)
 - **batch_size**: Documents per batch (default: 100)
 - **engine_parameters**: Optional engine-specific parameters (e.g., {"ef_construction": 512, "m": 16} for HNSW)
-- **schema_template_path**: Path to JSON schema template (relative to `src/datasift/core/operators/vectordb/`)
+- **schema_template_path**: Path to JSON schema template (relative to `src/docpipe/core/operators/vectordb/`)
   - Built-in templates: `schemas/default_schema.v1.json`, `schemas/template_with_content_analyzer.v1.json`
   - If not specified, schema is generated dynamically from `available_features`
 

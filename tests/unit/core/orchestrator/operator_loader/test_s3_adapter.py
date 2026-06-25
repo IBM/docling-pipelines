@@ -1,13 +1,57 @@
 """Unit tests for S3Adapter operator loader — ExpectedBucketOwner security."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+
+from botocore.exceptions import ClientError
+
+
+class TestS3AdapterResolveAwsAccountId:
+    """Tests for resolve_aws_account_id used by the operator-loader S3Adapter."""
+
+    def test_resolve_returns_account_id(self):
+        """STS GetCallerIdentity is called and account ID is returned."""
+        from docpipe.integrations.aws import s3_utils
+        from docpipe.integrations.aws.s3_utils import resolve_aws_account_id
+
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
+
+        with patch.object(s3_utils.boto3, "client", return_value=mock_sts) as mock_client:
+            result = resolve_aws_account_id()
+
+        assert result == "123456789012"
+        mock_client.assert_called_once_with("sts")
+
+    def test_resolve_returns_none_on_client_error(self):
+        """Gracefully returns None when STS returns a ClientError."""
+        from docpipe.integrations.aws import s3_utils
+        from docpipe.integrations.aws.s3_utils import resolve_aws_account_id
+
+        mock_sts = Mock()
+        error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
+        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
+
+        with patch.object(s3_utils.boto3, "client", return_value=mock_sts):
+            result = resolve_aws_account_id()
+
+        assert result is None
+
+    def test_resolve_returns_none_on_unexpected_error(self):
+        """Gracefully returns None on any unexpected exception."""
+        from docpipe.integrations.aws import s3_utils
+        from docpipe.integrations.aws.s3_utils import resolve_aws_account_id
+
+        with patch.object(s3_utils.boto3, "client", side_effect=RuntimeError("no credentials")):
+            result = resolve_aws_account_id()
+
+        assert result is None
 
 
 class TestS3AdapterExpectedBucketOwnerPropagation:
     """Tests that ExpectedBucketOwner is injected into S3 calls when account ID resolves."""
 
     def _make_adapter_with_account(self, account_id: str | None):
-        from datasift.core.orchestration.operator_loader.adapters.s3_adapter import S3Adapter
+        from docpipe.core.orchestration.operator_loader.adapters.s3_adapter import S3Adapter
 
         adapter = S3Adapter.__new__(S3Adapter)
         adapter.bucket = "test-bucket"

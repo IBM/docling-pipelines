@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pyarrow as pa
 import pytest
 
-from datasift.core.operators.acl.domain.models import ACLRequest, ACLResponse, RawPermission
+from docpipe.core.operators.acl.domain.models import ACLRequest, ACLResponse, RawPermission
 
 
 @pytest.fixture

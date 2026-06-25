@@ -2,13 +2,13 @@
 
 import pytest
 
-from datasift.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
-from datasift.core.assets.flows.domain.models.authoring_flow import (
+from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
+from docpipe.core.assets.flows.domain.models.authoring_flow import (
     AuthoringFlow,
     AuthoringOperator,
     FlowSource,
 )
-from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
+from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
 
 
 class TestAuthoringCompiler:

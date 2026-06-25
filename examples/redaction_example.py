@@ -14,7 +14,7 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.operators.quality.redaction import RedactionOperator
+from docpipe.core.operators.quality.redaction import RedactionOperator
 
 
 def main():  # pragma: no cover

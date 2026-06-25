@@ -4,12 +4,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
-from datasift.core.orchestration.feature_propagation.models import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
+from docpipe.core.orchestration.feature_propagation.models import (
     FeaturePropagationResult,
 )
-from datasift.exceptions.datasift_exceptions import FlowValidationException
+from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
 
 class TestFeaturePropagator:

@@ -12,11 +12,11 @@ import numpy as np
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "datasift"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "docpipe"))
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.vectordb import VectorDBOperator
-from datasift.utils.infrastructure.config import get_opensearch_config
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.utils.infrastructure.config import get_opensearch_config
 
 # Check if .env file exists
 env_file = Path(__file__).parent.parent / ".env"
@@ -56,7 +56,7 @@ def example_1_basic_indexing():
     # Override with example-specific settings
     config.update(
         {
-            "index_name": "datasift_example_basic",
+            "index_name": "docpipe_example_basic",
             "available_features": {
                 "doc_id_hash": {
                     "name": "Document ID",
@@ -132,7 +132,7 @@ def example_2_lucene_engine():
     # Override with example-specific settings
     config.update(
         {
-            "index_name": "datasift_example_lucene",
+            "index_name": "docpipe_example_lucene",
             "batch_size": 50,
             OperatorConstants.Config.PROVIDER_CONFIG: {
                 OperatorConstants.VectorDB.ENGINE: "lucene",
@@ -229,7 +229,7 @@ def example_4_batch_processing():
     # Override with example-specific settings
     config.update(
         {
-            "index_name": "datasift_example_batch",
+            "index_name": "docpipe_example_batch",
             "batch_size": 50,  # Smaller batch size for demonstration
             "available_features": {
                 "doc_id_hash": {
@@ -284,7 +284,7 @@ def example_5_error_handling():
     # Override with example-specific settings
     config.update(
         {
-            "index_name": "datasift_example_errors",
+            "index_name": "docpipe_example_errors",
             "available_features": {
                 "doc_id_hash": {
                     "available_for_vector_db": True,

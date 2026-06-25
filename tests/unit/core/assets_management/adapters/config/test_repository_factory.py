@@ -1,6 +1,6 @@
 """Tests for RepositoryFactory.
 This test module verifies the repository factory behavior with environment
-variables and datasift.yaml-backed configuration.
+variables and docpipe.yaml-backed configuration.
 """
 
 import os
@@ -10,16 +10,16 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from datasift.core.assets.flows.adapters.config.repository_factory import (
+from docpipe.core.assets.flows.adapters.config.repository_factory import (
     ENV_CONFIG_PATH_KEY,
     RepositoryFactory,
     RepositoryType,
 )
-from datasift.core.assets.flows.adapters.repositories.local.local_flow_repository import (
+from docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository import (
     LocalFlowRepository,
 )
-from datasift.core.assets.flows.domain.ports.flow_repository import FlowRepository
-from datasift.exceptions.datasift_exceptions import RepositoryConfigurationException
+from docpipe.core.assets.flows.domain.ports.flow_repository import FlowRepository
+from docpipe.exceptions.docpipe_exceptions import RepositoryConfigurationException
 
 
 class TestRepositoryFactory:
@@ -83,9 +83,9 @@ class TestRepositoryFactory:
         assert repository.flows_dir == custom_dir.resolve()
 
     def test_create_flow_repository_uses_yaml_base_dir_when_env_not_set(self, tmp_path, monkeypatch):
-        """Test that repository factory reads base_dir from datasift.yaml."""
+        """Test that repository factory reads base_dir from docpipe.yaml."""
         custom_dir = tmp_path / "yaml_flows"
-        config_path = tmp_path / "datasift.yaml"
+        config_path = tmp_path / "docpipe.yaml"
         config_path.write_text(
             yaml.safe_dump(
                 {
@@ -110,10 +110,10 @@ class TestRepositoryFactory:
         assert repository.flows_dir == custom_dir.resolve()
 
     def test_create_flow_repository_env_base_dir_overrides_yaml(self, tmp_path, monkeypatch):
-        """Test that LOCAL_FLOWS_DIR overrides datasift.yaml base_dir."""
+        """Test that LOCAL_FLOWS_DIR overrides docpipe.yaml base_dir."""
         yaml_dir = tmp_path / "yaml_flows"
         env_dir = tmp_path / "env_flows"
-        config_path = tmp_path / "datasift.yaml"
+        config_path = tmp_path / "docpipe.yaml"
         config_path.write_text(
             yaml.safe_dump(
                 {

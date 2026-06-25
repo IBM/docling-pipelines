@@ -18,22 +18,22 @@ The ACL Document Retrieval API provides secure, user-scoped access to documents 
 
 ### Components
 
-1. **OpenSearchService** (`src/datasift/api/services/opensearch_service.py`)
+1. **OpenSearchService** (`src/docpipe/api/services/opensearch_service.py`)
    - Manages OpenSearch client connections
    - Provides connection pooling and health checks
    - Configurable via environment variables
 
-2. **ACLQueryBuilder** (`src/datasift/api/services/acl_query_builder.py`)
+2. **ACLQueryBuilder** (`src/docpipe/api/services/acl_query_builder.py`)
    - Constructs OpenSearch queries with ACL filtering
    - Injects `allowed_users` filter into all queries
    - Validates ACL field presence and format
 
-3. **Document DTOs** (`src/datasift/api/dto/document_dto.py`)
+3. **Document DTOs** (`src/docpipe/api/dto/document_dto.py`)
    - `DocumentResponse`: Document retrieval response model
    - `DocumentSearchRequest`: Search request parameters
    - `DocumentSearchResponse`: Search results with pagination
 
-4. **API Routes** (`src/datasift/api/routes/documents.py`)
+4. **API Routes** (`src/docpipe/api/routes/documents.py`)
    - `GET /api/v1/documents/{document_id}`: Retrieve single document
    - `POST /api/v1/documents/search`: Search documents
 
@@ -372,8 +372,8 @@ pytest tests/integration/api/test_documents_api.py -v
 ```bash
 # Run with coverage
 pytest tests/unit/api/services/ tests/integration/api/test_documents_api.py \
-  --cov=src/datasift/api/services \
-  --cov=src/datasift/api/routes/documents \
+  --cov=src/docpipe/api/services \
+  --cov=src/docpipe/api/routes/documents \
   --cov-report=html
 ```
 

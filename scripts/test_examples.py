@@ -20,24 +20,23 @@ Usage:
     python scripts/test_examples.py --verbose
 
 Prerequisites:
-    - Virtual environment activated: source src/datasift_opensource/backend/.venv/bin/activate
-    - PYTHONPATH set: export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+    - Virtual environment activated: source src/docpipe_app/backend/.venv/bin/activate
+    - PYTHONPATH set: export PYTHONPATH="$(pwd)/src/docpipe_app/backend:${PYTHONPATH}"
     - Ollama running (for embedding examples): http://localhost:11434
     - OpenSearch running (for vector DB examples): http://localhost:9200
 """
 
 import argparse
-import json
 import subprocess
 import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
 
 class TestCategory(Enum):
     """Categories of example tests"""
+
     OPERATORS = "operators"
     CONNECTORS = "connectors"
     FLOW_MANAGER = "flow_manager"
@@ -47,6 +46,7 @@ class TestCategory(Enum):
 
 class TestStatus(Enum):
     """Test execution status"""
+
     PASSED = "✓ PASSED"
     FAILED = "✗ FAILED"
     SKIPPED = "⊘ SKIPPED"
@@ -56,24 +56,26 @@ class TestStatus(Enum):
 @dataclass
 class TestResult:
     """Result of a test execution"""
+
     name: str
     status: TestStatus
     duration: float
     output: str
-    error: Optional[str] = None
-    skip_reason: Optional[str] = None
+    error: str | None = None
+    skip_reason: str | None = None
 
 
 @dataclass
 class ExampleTest:
     """Definition of an example test"""
+
     name: str
     path: Path
     category: TestCategory
     requires_ollama: bool = False
     requires_opensearch: bool = False
-    requires_env: Optional[List[str]] = None
-    expected_outputs: Optional[List[str]] = None
+    requires_env: list[str] | None = None
+    expected_outputs: list[str] | None = None
     timeout: int = 60
 
 
@@ -85,9 +87,9 @@ class ExampleTester:
         self.dry_run = dry_run
         self.repo_root = Path(__file__).parent.parent
         self.examples_dir = self.repo_root / "examples"
-        self.results: List[TestResult] = []
+        self.results: list[TestResult] = []
 
-    def define_tests(self) -> List[ExampleTest]:
+    def define_tests(self) -> list[ExampleTest]:
         """Define all example tests with their requirements"""
         return [
             # Operator Examples
@@ -230,7 +232,7 @@ class ExampleTester:
             # Flow Manager Examples
             ExampleTest(
                 name="Flow Manager Complete",
-                path=self.examples_dir / "datasift_flow_manager" / "00_complete_example.py",
+                path=self.examples_dir / "docpipe_flow_manager" / "00_complete_example.py",
                 category=TestCategory.FLOW_MANAGER,
                 requires_ollama=True,
                 expected_outputs=["PipelineExecutor Complete Example", "Example completed successfully"],
@@ -238,7 +240,7 @@ class ExampleTester:
             ),
             ExampleTest(
                 name="Flow Manager Execute from File",
-                path=self.examples_dir / "datasift_flow_manager" / "01_execute_from_file.py",
+                path=self.examples_dir / "docpipe_flow_manager" / "01_execute_from_file.py",
                 category=TestCategory.FLOW_MANAGER,
                 requires_ollama=True,
                 expected_outputs=["Execute Flow from File", "Execution completed"],
@@ -246,7 +248,7 @@ class ExampleTester:
             ),
         ]
 
-    def check_prerequisites(self, *, test: ExampleTest) -> Tuple[bool, Optional[str]]:
+    def check_prerequisites(self, *, test: ExampleTest) -> tuple[bool, str | None]:
         """Check if test prerequisites are met"""
         # Check Ollama
         if test.requires_ollama:
@@ -277,6 +279,7 @@ class ExampleTester:
         # Check environment variables
         if test.requires_env:
             import os
+
             missing = [env for env in test.requires_env if not os.getenv(env)]
             if missing:
                 return False, f"Missing environment variables: {', '.join(missing)}"
@@ -328,10 +331,7 @@ class ExampleTester:
 
             # Check for expected outputs
             if test.expected_outputs:
-                missing_outputs = [
-                    exp for exp in test.expected_outputs
-                    if exp not in output
-                ]
+                missing_outputs = [exp for exp in test.expected_outputs if exp not in output]
                 if missing_outputs:
                     return TestResult(
                         name=test.name,
@@ -386,7 +386,7 @@ class ExampleTester:
             tests = [t for t in tests if t.category == category]
 
         print("\n" + "=" * 80)
-        print("DATASIFT EXAMPLES TEST SUITE")
+        print("DOCPIPE EXAMPLES TEST SUITE")
         print("=" * 80)
         print(f"Repository Root: {self.repo_root}")
         print(f"Examples Directory: {self.examples_dir}")
@@ -474,9 +474,7 @@ class ExampleTester:
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(
-        description="Test all example scripts in the examples/ directory"
-    )
+    parser = argparse.ArgumentParser(description="Test all example scripts in the examples/ directory")
     parser.add_argument(
         "--category",
         choices=[c.value for c in TestCategory],

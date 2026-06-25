@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from datasift.api.auth.oauth2_config import OAuth2Config
-from datasift.api.main import app
+from docpipe.api.auth.oauth2_config import OAuth2Config
+from docpipe.api.main import app
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ class TestOAuth2AuthorizeEndpoint:
 
     def test_authorize_redirect(self, client, mock_oauth2_config):
         """Test authorize endpoint redirects to provider."""
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
 
             response = client.get("/auth/oauth2/authorize?provider=google", follow_redirects=False)
@@ -49,7 +49,7 @@ class TestOAuth2AuthorizeEndpoint:
 
     def test_authorize_with_redirect_after(self, client, mock_oauth2_config):
         """Test authorize with redirect_after parameter."""
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
 
             response = client.get(
@@ -63,7 +63,7 @@ class TestOAuth2AuthorizeEndpoint:
         """Test authorize when OAuth2 is disabled."""
         disabled_config = OAuth2Config(oauth2_enabled=False)
 
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = disabled_config
 
             response = client.get("/auth/oauth2/authorize?provider=google")
@@ -79,7 +79,7 @@ class TestOAuth2AuthorizeEndpoint:
             oauth2_client_secret="",
         )
 
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = incomplete_config
 
             response = client.get("/auth/oauth2/authorize?provider=google")
@@ -95,8 +95,8 @@ class TestOAuth2CallbackEndpoint:
     async def test_callback_success(self, client, mock_oauth2_config):
         """Test successful OAuth2 callback."""
         with (
-            patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config,
-            patch("datasift.api.auth.oauth2_routes._state_store") as mock_state_store,
+            patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config,
+            patch("docpipe.api.auth.oauth2_routes._state_store") as mock_state_store,
         ):
             mock_get_config.return_value = mock_oauth2_config
             mock_state_store.__contains__ = MagicMock(return_value=True)
@@ -104,17 +104,15 @@ class TestOAuth2CallbackEndpoint:
 
             # Mock the provider's methods
             with (
-                patch(
-                    "datasift.api.auth.oauth2_provider.GoogleOAuth2Provider.exchange_code_for_token"
-                ) as mock_exchange,
-                patch("datasift.api.auth.oauth2_provider.GoogleOAuth2Provider.extract_user_from_token") as mock_extract,
+                patch("docpipe.api.auth.oauth2_provider.GoogleOAuth2Provider.exchange_code_for_token") as mock_exchange,
+                patch("docpipe.api.auth.oauth2_provider.GoogleOAuth2Provider.extract_user_from_token") as mock_extract,
             ):
                 mock_exchange.return_value = {
                     "access_token": "mock-access-token",
                     "id_token": "mock-id-token",
                 }
 
-                from datasift.api.auth.models import User
+                from docpipe.api.auth.models import User
 
                 mock_extract.return_value = User(
                     username="test@gmail.com",
@@ -130,8 +128,8 @@ class TestOAuth2CallbackEndpoint:
     def test_callback_invalid_state(self, client, mock_oauth2_config):
         """Test callback with invalid state parameter."""
         with (
-            patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config,
-            patch("datasift.api.auth.oauth2_routes._state_store") as mock_state_store,
+            patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config,
+            patch("docpipe.api.auth.oauth2_routes._state_store") as mock_state_store,
         ):
             mock_get_config.return_value = mock_oauth2_config
             mock_state_store.__contains__ = MagicMock(return_value=False)
@@ -143,7 +141,7 @@ class TestOAuth2CallbackEndpoint:
 
     def test_callback_missing_code(self, client, mock_oauth2_config):
         """Test callback without authorization code."""
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
 
             response = client.get("/auth/oauth2/callback?state=test-state&provider=google")
@@ -152,7 +150,7 @@ class TestOAuth2CallbackEndpoint:
 
     def test_callback_missing_state(self, client, mock_oauth2_config):
         """Test callback without state parameter."""
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
 
             response = client.get("/auth/oauth2/callback?code=test-code&provider=google")
@@ -165,7 +163,7 @@ class TestOAuth2ProvidersEndpoint:
 
     def test_list_providers_empty(self, client):
         """Test listing providers when none are configured."""
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = OAuth2Config(oauth2_enabled=False)
 
             response = client.get("/auth/oauth2/providers")
@@ -176,7 +174,7 @@ class TestOAuth2ProvidersEndpoint:
 
     def test_list_providers_with_google(self, client, mock_oauth2_config):
         """Test listing providers with Google configured."""
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
 
             response = client.get("/auth/oauth2/providers")
@@ -205,10 +203,10 @@ class TestOAuth2DiscoveryEndpoint:
             "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
         }
 
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
 
-            with patch("datasift.api.auth.oauth2_provider.GoogleOAuth2Provider.discover_endpoints") as mock_discover:
+            with patch("docpipe.api.auth.oauth2_provider.GoogleOAuth2Provider.discover_endpoints") as mock_discover:
                 mock_discover.return_value = mock_discovery
 
                 response = client.get("/auth/oauth2/discovery/google?provider=google")
@@ -220,7 +218,7 @@ class TestOAuth2DiscoveryEndpoint:
         """Test discovery when OAuth2 is disabled."""
         disabled_config = OAuth2Config(oauth2_enabled=False)
 
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = disabled_config
 
             response = client.get("/auth/oauth2/discovery/google?provider=google")
@@ -234,7 +232,7 @@ class TestOAuth2EndToEndFlow:
     @pytest.mark.asyncio
     async def test_complete_flow(self, client, mock_oauth2_config):
         """Test complete OAuth2 flow from authorize to token."""
-        with patch("datasift.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
+        with patch("docpipe.api.auth.oauth2_routes.get_oauth2_config") as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
 
             # Step 1: Initiate authorization
@@ -251,7 +249,7 @@ class TestOAuth2EndToEndFlow:
     def test_flow_with_protected_endpoint(self, client, mock_oauth2_config):
         """Test using OAuth2 token with protected endpoint."""
         # Create a valid JWT token
-        from datasift.api.auth.jwt_handler import (
+        from docpipe.api.auth.jwt_handler import (
             JWTConfig,
             create_access_token,
         )

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Schema templates provide a flexible, reusable way to define OpenSearch index configurations for DataSift pipelines. Instead of manually configuring index schemas for each flow, you can use pre-built templates or create custom ones that automatically adapt to your pipeline's requirements.
+Schema templates provide a flexible, reusable way to define OpenSearch index configurations for Docpipe pipelines. Instead of manually configuring index schemas for each flow, you can use pre-built templates or create custom ones that automatically adapt to your pipeline's requirements.
 
 ## Table of Contents
 
@@ -28,7 +28,7 @@ Schema templates are JSON files that define OpenSearch index configurations with
 - **Dynamic configuration** through placeholder replacement
 - **Validation** to catch errors before index creation
 
-Templates are stored in `src/datasift/core/operators/vectordb/schemas/` and referenced by path in the VectorDBOperator configuration.
+Templates are stored in `src/docpipe/core/operators/vectordb/schemas/` and referenced by path in the VectorDBOperator configuration.
 
 ## Benefits
 
@@ -76,7 +76,7 @@ Templates are stored in `src/datasift/core/operators/vectordb/schemas/` and refe
 - Object and nested types
 - KNN vector configuration
 
-**Location**: `src/datasift/core/operators/vectordb/schemas/default_schema.v1.json`
+**Location**: `src/docpipe/core/operators/vectordb/schemas/default_schema.v1.json`
 
 ### 2. template_with_content_analyzer.v1.json
 
@@ -97,7 +97,7 @@ Templates are stored in `src/datasift/core/operators/vectordb/schemas/` and refe
 
 **Key Feature**: Shows how `indexing_rules` maps fields (e.g., `content`) to custom field types (`content_text`) with specialized analyzers, eliminating the need for manual `feature_mappings` configuration.
 
-**Location**: `src/datasift/core/operators/vectordb/schemas/template_with_content_analyzer.v1.json`
+**Location**: `src/docpipe/core/operators/vectordb/schemas/template_with_content_analyzer.v1.json`
 
 ## Using Schema Templates
 
@@ -107,7 +107,7 @@ Add `schema_template_path` to your VectorDBOperator's `provider_config`:
 
 ```json
 {
-  "operator_type": "datasift.core.operators.vectordb.vectordb_operator.VectorDBOperator",
+  "operator_type": "docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator",
   "operator_params": {
     "provider": "opensearch",
     "index_name": "my_documents",
@@ -513,7 +513,7 @@ A schema template must include:
 ### Saving Custom Templates
 
 1. Create your template JSON file
-2. Save to `src/datasift/core/operators/vectordb/schemas/`
+2. Save to `src/docpipe/core/operators/vectordb/schemas/`
 3. Name with version: `my_schema.v1.json`
 4. Reference in flow configuration: `"schema_template_path": "schemas/my_schema.v1.json"`
 
@@ -770,8 +770,8 @@ These fields are automatically collected into a `metadata` object:
 
 **Solutions**:
 
-1. Verify file exists in `src/datasift/core/operators/vectordb/schemas/`
-2. Check path is relative to `src/datasift/core/operators/vectordb/`
+1. Verify file exists in `src/docpipe/core/operators/vectordb/schemas/`
+2. Check path is relative to `src/docpipe/core/operators/vectordb/`
 3. Ensure filename matches exactly (case-sensitive)
 
 ### Invalid Template Structure

@@ -17,10 +17,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.core.job_management.adapters.services.job_tracker_service import JobTrackerService
-from datasift.core.job_management.domain.models.job_stats import JobStats
-from datasift.core.job_management.domain.models.node_stats import NodeStats
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.job_management.adapters.services.job_tracker_service import JobTrackerService
+from docpipe.core.job_management.domain.models.job_stats import JobStats
+from docpipe.core.job_management.domain.models.node_stats import NodeStats
 
 # Test UUIDs (36 characters, hex format)
 JOB_ID = "12345678-1234-1234-1234-123456789012"
@@ -581,7 +581,7 @@ class TestEndJob:
         """End job raises JobRunNotFoundException if job not found."""
         mock_store.get_job_stats.return_value = None
 
-        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
+        from docpipe.exceptions.docpipe_exceptions import JobRunNotFoundException
 
         with pytest.raises(JobRunNotFoundException, match="Job run not found"):
             job_tracker_service.end_job(job_run_id=JOB_RUN_ID, status=ExecutionStatus.COMPLETED)
@@ -1110,7 +1110,7 @@ class TestSkipNodeExecution:
         """Verify fail_node_execution creates proper nested metadata structure."""
         import time
 
-        from datasift.core.constants.constants import Metrics
+        from docpipe.core.constants.constants import Metrics
 
         current_time = int(time.time())
         existing_node = NodeStats(
@@ -1146,7 +1146,7 @@ class TestSkipNodeExecution:
         """Verify skip_node_execution creates proper nested metadata structure."""
         import time
 
-        from datasift.core.constants.constants import Metrics
+        from docpipe.core.constants.constants import Metrics
 
         current_time = int(time.time())
         existing_node = NodeStats(
@@ -1392,7 +1392,7 @@ class TestRequestCancelJob:
     )
     def test_cancel_job_in_terminal_state_raises_exception(self, *, job_tracker_service, mock_store, terminal_status):
         """Test that canceling a job in terminal state raises JobRunInvalidStateException."""
-        from datasift.exceptions.datasift_exceptions import JobRunInvalidStateException
+        from docpipe.exceptions.docpipe_exceptions import JobRunInvalidStateException
 
         # Arrange
         job_run_id = "test-job-run-123"

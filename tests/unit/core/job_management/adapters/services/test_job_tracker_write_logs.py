@@ -17,10 +17,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.core.job_management.adapters.services.job_tracker_service import JobTrackerService
-from datasift.core.job_management.domain.models.job_stats import JobStats
-from datasift.core.job_management.domain.models.node_stats import NodeStats
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.job_management.adapters.services.job_tracker_service import JobTrackerService
+from docpipe.core.job_management.domain.models.job_stats import JobStats
+from docpipe.core.job_management.domain.models.node_stats import NodeStats
 
 JOB_ID = "job-111"
 JOB_RUN_ID = "run-222"

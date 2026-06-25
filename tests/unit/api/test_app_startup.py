@@ -7,7 +7,7 @@ including health checks, API documentation, and middleware.
 import pytest
 from fastapi.testclient import TestClient
 
-from datasift.api.main import app
+from docpipe.api.main import app
 
 
 @pytest.fixture(scope="module")
@@ -25,7 +25,7 @@ class TestApplicationStartup:
     def test_app_starts_without_errors(self, *, client: TestClient):
         """Test that the FastAPI application starts without errors."""
         assert client is not None
-        assert app.title == "DataSift Opensource API"
+        assert app.title == "Docpipe Opensource API"
         assert app.version == "0.1.0"
 
 
@@ -38,7 +38,7 @@ class TestCoreEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["message"] == "Welcome to DataSift Opensource API"
+        assert data["message"] == "Welcome to Docpipe Opensource API"
 
     def test_health_endpoint_returns_200(self, *, client: TestClient):
         """Test that /health endpoint returns 200 OK."""
@@ -62,7 +62,7 @@ class TestCoreEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["openapi"]
-        assert data["info"]["title"] == "DataSift Opensource API"
+        assert data["info"]["title"] == "Docpipe Opensource API"
 
     def test_operators_metadata_endpoint_returns_200(self, *, client: TestClient):
         """Test that /api/v1/operators/metadata endpoint returns 200 OK."""

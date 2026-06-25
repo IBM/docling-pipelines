@@ -75,7 +75,7 @@
       "type": "vectordb",
       "config": {
         "provider": "opensearch",
-        "index_name": "datasift_test_litellm",
+        "index_name": "docpipe_test_litellm",
         "vector_dimension": 1536,
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",

@@ -4,13 +4,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from datasift.core.operators.acl.adapters.outbound.factories.acl_adapter_factory import (
+from docpipe.core.operators.acl.adapters.outbound.factories.acl_adapter_factory import (
     _ACL_ADAPTER_REGISTRY,
     ACLAdapterFactory,
     register_acl_adapter,
 )
-from datasift.core.operators.acl.ports.outbound.acl_extraction import ACLExtractionPort
-from datasift.exceptions.datasift_exceptions import ConfigurationError
+from docpipe.core.operators.acl.ports.outbound.acl_extraction import ACLExtractionPort
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError
 
 
 class MockACLAdapter(ACLExtractionPort):
@@ -24,7 +24,7 @@ class MockACLAdapter(ACLExtractionPort):
 
     async def extract_acl(self, *, request):
         """Mock extract_acl implementation."""
-        from datasift.core.operators.acl.domain.models import ACLResponse
+        from docpipe.core.operators.acl.domain.models import ACLResponse
 
         return ACLResponse(
             resource_id=request.resource_id,

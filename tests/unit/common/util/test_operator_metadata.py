@@ -4,15 +4,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.operator_metadata import OperatorMetadata
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.operator_metadata import OperatorMetadata
 
 
 class TestOperatorMetadata:
     """Test OperatorMetadata class."""
 
-    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_init(self, mock_session, mock_factory_provider):
         """Test OperatorMetadata initialization."""
         mock_session.return_value = Mock()
@@ -22,8 +22,8 @@ class TestOperatorMetadata:
         assert metadata.operator_metadata == {}
         assert metadata.session_info is not None
 
-    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_operator_metadata_basic(self, mock_session, mock_factory_provider):
         """Test getting operator metadata."""
         mock_session.return_value = Mock()
@@ -55,8 +55,8 @@ class TestOperatorMetadata:
         assert "test_op" in result
         assert result["test_op"]["required_features"] == ["input_feature"]
 
-    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_operator_metadata_filters_internal_features(self, mock_session, mock_factory_provider):
         """Test that internal features are filtered out."""
         mock_session.return_value = Mock()
@@ -91,8 +91,8 @@ class TestOperatorMetadata:
         assert "public_feature" in features
         assert "internal_feature" not in features
 
-    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_operator_metadata_includes_internal_features(self, mock_session, mock_factory_provider):
         """Test that internal features are included when requested."""
         mock_session.return_value = Mock()
@@ -127,8 +127,8 @@ class TestOperatorMetadata:
         assert "public_feature" in features
         assert "internal_feature" in features
 
-    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_operator_metadata_handles_exceptions(self, mock_session, mock_factory_provider):
         """Test handling of operator initialization exceptions."""
         mock_session.return_value = Mock()
@@ -147,7 +147,7 @@ class TestOperatorMetadata:
         assert "failing_op" in result
         assert result["failing_op"] == {}
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_features_basic(self, mock_session):
         """Test getting features for an operator."""
         mock_session.return_value = Mock()
@@ -168,7 +168,7 @@ class TestOperatorMetadata:
         assert "feature1" in result
         assert "feature2" in result
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_features_with_purpose_filter(self, mock_session):
         """Test getting features filtered by purpose."""
         mock_session.return_value = Mock()
@@ -195,7 +195,7 @@ class TestOperatorMetadata:
         assert "filterable_feature" in result
         assert "non_filterable_feature" not in result
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_features_nonexistent_operator(self, mock_session):
         """Test getting features for nonexistent operator."""
         mock_session.return_value = Mock()
@@ -207,7 +207,7 @@ class TestOperatorMetadata:
 
         assert result == {}
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_features_from_input_output_features(self, mock_session):
         """Test getting features from input and output features."""
         mock_session.return_value = Mock()
@@ -225,7 +225,7 @@ class TestOperatorMetadata:
         assert "input_feat" in result
         assert "output_feat" in result
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_features_from_input_output_features_with_purpose(self, mock_session):
         """Test getting features with purpose filter."""
         mock_session.return_value = Mock()
@@ -251,7 +251,7 @@ class TestOperatorMetadata:
         assert len(result) == 1
         assert "feat1" in result
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_features_from_input_output_features_output_overrides(self, mock_session):
         """Test that output features override input features."""
         mock_session.return_value = Mock()
@@ -267,7 +267,7 @@ class TestOperatorMetadata:
 
         assert result["shared_feat"]["name"] == "Output Version"
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_required_feature_names(self, mock_session):
         """Test getting required feature names."""
         mock_session.return_value = Mock()
@@ -279,7 +279,7 @@ class TestOperatorMetadata:
 
         assert result == ["feature1", "feature2"]
 
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_required_feature_names_nonexistent(self, mock_session):
         """Test getting required features for nonexistent operator."""
         mock_session.return_value = Mock()
@@ -291,8 +291,8 @@ class TestOperatorMetadata:
 
         assert result == []
 
-    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_feature_operators_map(self, mock_session, mock_factory_provider):
         """Test getting feature to operators mapping."""
         mock_session.return_value = Mock()
@@ -323,8 +323,8 @@ class TestOperatorMetadata:
         assert "feature1" in result
         assert "Test Operator" in result["feature1"]
 
-    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    @patch("docpipe.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("docpipe.core.operators.operator_metadata.get_session_info")
     def test_get_feature_operators_map_no_label(self, mock_session, mock_factory_provider):
         """Test feature operators map when operator has no label."""
         mock_session.return_value = Mock()

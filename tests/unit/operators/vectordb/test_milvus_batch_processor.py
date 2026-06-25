@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datasift.core.operators.vectordb.adapters.outbound.milvus.batch_processor import (
+from docpipe.core.operators.vectordb.adapters.outbound.milvus.batch_processor import (
     DEFAULT_BATCH_SIZE,
     MilvusBatchProcessor,
 )
@@ -282,7 +282,7 @@ class TestBatchSizeCalculation:
 
     def test_calculate_batch_size_bytes(self, mock_client):
         """Test calculating batch size in bytes using shared utility"""
-        from datasift.utils.operators.vectordb_utils import calculate_batch_size_bytes
+        from docpipe.utils.operators.vectordb_utils import calculate_batch_size_bytes
 
         documents = [
             {"pk": "doc1", "text": "content1"},
@@ -295,14 +295,14 @@ class TestBatchSizeCalculation:
 
     def test_calculate_batch_size_empty_list(self, mock_client):
         """Test calculating size of empty list using shared utility"""
-        from datasift.utils.operators.vectordb_utils import calculate_batch_size_bytes
+        from docpipe.utils.operators.vectordb_utils import calculate_batch_size_bytes
 
         size = calculate_batch_size_bytes(documents=[])
         assert size >= 0
 
     def test_calculate_batch_size_with_vectors(self, mock_client):
         """Test calculating size with vector embeddings using shared utility"""
-        from datasift.utils.operators.vectordb_utils import calculate_batch_size_bytes
+        from docpipe.utils.operators.vectordb_utils import calculate_batch_size_bytes
 
         documents = [
             {"pk": "doc1", "vector": [0.1] * 384},

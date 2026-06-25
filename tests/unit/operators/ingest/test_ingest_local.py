@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
 
 EXPECTED_METADATA_COLUMNS = {
     "id",

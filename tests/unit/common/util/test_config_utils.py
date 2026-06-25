@@ -6,8 +6,8 @@ Tests for environment configuration loading and parsing.
 import os
 from unittest.mock import patch
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.utils.infrastructure.config import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.utils.infrastructure.config import (
     get_env_bool,
     get_env_int,
     get_env_var,
@@ -25,7 +25,7 @@ class TestGetOpensearchConfig:
 
             # Operator-level params
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is True
-            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "datasift_test"
+            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "docpipe_test"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "doc_id_hash"
 
             # Provider-specific params are in provider_config

@@ -1,6 +1,6 @@
 import unittest
 
-from datasift.core.operators.functional.entity_curation.transforms import (
+from docpipe.core.operators.functional.entity_curation.transforms import (
     currency_to_numeric,
     make_date_uniform,
     to_number,

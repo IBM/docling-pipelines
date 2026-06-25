@@ -18,12 +18,12 @@ from unittest.mock import MagicMock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.quality.pii_and_hap.domain.models import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.quality.pii_and_hap.domain.models import (
     DetectionResult,
     PIIHAPDetectionResponse,
 )
-from datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
+from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
     PIIAndHAPAnnotator,
 )
 
@@ -154,7 +154,7 @@ def mock_detect_pii_hap(payload: dict):
 @pytest.fixture
 def mock_pii_hap_service():
     """Mock the PIIHAPService for all tests."""
-    with patch("datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService") as mock_service_class:
+    with patch("docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.detect_pii_hap.side_effect = mock_detect_pii_hap
         mock_service_class.return_value = mock_service

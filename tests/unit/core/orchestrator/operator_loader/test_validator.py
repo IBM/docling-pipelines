@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from datasift.core.orchestration.operator_loader.ports.operator_source import OperatorInfo
-from datasift.core.orchestration.operator_loader.validator import OperatorValidator
+from docpipe.core.orchestration.operator_loader.ports.operator_source import OperatorInfo
+from docpipe.core.orchestration.operator_loader.validator import OperatorValidator
 
 
 class TestOperatorValidator:

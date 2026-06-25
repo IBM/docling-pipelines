@@ -1,6 +1,6 @@
 # Global Configuration Reference
 
-This document provides a comprehensive reference for all global configuration parameters that can be set in datasift flow definitions. Global configuration parameters control flow-level behavior and are specified in the `global_config` section of your flow JSON.
+This document provides a comprehensive reference for all global configuration parameters that can be set in docpipe flow definitions. Global configuration parameters control flow-level behavior and are specified in the `global_config` section of your flow JSON.
 
 ## Overview
 
@@ -219,16 +219,16 @@ Configuration for tracking and processing only changed documents.
 
 ### Centralized Incremental Metadata Configuration
 
-**Configuration Location**: `datasift-config.yaml`
+**Configuration Location**: `docling-pipelines-config.yaml`
 
-Datasift uses a centralized configuration system for incremental metadata storage. Instead of configuring incremental metadata in each flow JSON file, you configure it once in a repository-level `datasift-config.yaml` file.
+Docpipe uses a centralized configuration system for incremental metadata storage. Instead of configuring incremental metadata in each flow JSON file, you configure it once in a repository-level `docling-pipelines-config.yaml` file.
 
 #### Configuration Structure
 
-The incremental metadata configuration is defined in `datasift-config.yaml`:
+The incremental metadata configuration is defined in `docling-pipelines-config.yaml`:
 
 ```yaml
-# datasift-config.yaml
+# docling-pipelines-config.yaml
 storage:
   incremental_metadata:
     base_dir: "./data/incremental_metadata"
@@ -238,15 +238,15 @@ storage:
     postgresql:
       host: "localhost"
       port: 5432
-      database: "datasift"
-      user: "datasift_user"
+      database: "docpipe"
+      user: "docpipe_user"
       password: "secure_password" # pragma: allowlist secret
       schema: "incremental_metadata"
 ```
 
 #### Supported Storage Backends
 
-Datasift supports two storage backends for incremental metadata:
+Docpipe supports two storage backends for incremental metadata:
 
 1. **Filesystem** (default)
    - Efficient columnar storage using Apache Parquet format
@@ -265,24 +265,24 @@ Datasift supports two storage backends for incremental metadata:
 
 You can override configuration using environment variables:
 
-- `DATASIFT_INCREMENTAL_BASE_DIR`: Override the base directory for incremental metadata
-- `DATASIFT_INCREMENTAL_STORAGE_BACKEND`: Override the storage backend (filesystem, postgresql)
-- `DATASIFT_CONFIG_PATH`: Specify a custom path to datasift-config.yaml
+- `DOCPIPE_INCREMENTAL_BASE_DIR`: Override the base directory for incremental metadata
+- `DOCPIPE_INCREMENTAL_STORAGE_BACKEND`: Override the storage backend (filesystem, postgresql)
+- `DOCPIPE_CONFIG_PATH`: Specify a custom path to docling-pipelines-config.yaml
 
 **Example**:
 ```bash
-export DATASIFT_INCREMENTAL_BASE_DIR="/data/incremental"
-export DATASIFT_INCREMENTAL_STORAGE_BACKEND="filesystem"
-datasift-orchestrator --flow-file my_flow.json
+export DOCPIPE_INCREMENTAL_BASE_DIR="/data/incremental"
+export DOCPIPE_INCREMENTAL_STORAGE_BACKEND="filesystem"
+docling-pipelines --flow-file my_flow.json
 ```
 
 #### Configuration Precedence
 
 Configuration is resolved in the following order (highest to lowest priority):
 
-1. **Environment variables** (`DATASIFT_INCREMENTAL_BASE_DIR`, `DATASIFT_INCREMENTAL_STORAGE_BACKEND`)
-2. **Service-specific configuration** (e.g., `storage.incremental_metadata` in datasift-config.yaml)
-3. **Global storage configuration** (e.g., `storage.base_dir` in datasift-config.yaml)
+1. **Environment variables** (`DOCPIPE_INCREMENTAL_BASE_DIR`, `DOCPIPE_INCREMENTAL_STORAGE_BACKEND`)
+2. **Service-specific configuration** (e.g., `storage.incremental_metadata` in docling-pipelines-config.yaml)
+3. **Global storage configuration** (e.g., `storage.base_dir` in docling-pipelines-config.yaml)
 4. **System defaults** (Filesystem backend with `./data/incremental_metadata`)
 
 #### Flow JSON Configuration
@@ -313,7 +313,7 @@ In your flow JSON files, you no longer need to specify incremental metadata conf
 
 If you have existing flows with flow-level incremental metadata configuration, follow these steps:
 
-1. **Create datasift-config.yaml** in your repository root:
+1. **Create docling-pipelines-config.yaml** in your repository root:
    ```yaml
    storage:
      incremental_metadata:
@@ -327,7 +327,7 @@ If you have existing flows with flow-level incremental metadata configuration, f
 
 3. **Verify configuration**:
    ```bash
-   datasift-orchestrator --flow-file your_flow.json --validate
+   docling-pipelines --flow-file your_flow.json --validate
    ```
 
 #### Use Cases
@@ -405,10 +405,10 @@ The `batch_execution` section controls how batches are executed.
   "prefect": {
     "batch_execution": {
       "strategy": "work-pool-docker",
-      "work_pool_name": "datasift-docker-pool",
+      "work_pool_name": "docpipe-docker-pool",
       "deployment_name": "batch-processor",
-      "deployment_path": "/opt/datasift",
-      "image": "datasift:latest",
+      "deployment_path": "/opt/docpipe",
+      "image": "docpipe:latest",
       "batch_storage": {
         "type": "local",
         "path": "/data/batches"
@@ -433,7 +433,7 @@ Required when using work pool strategies (`work-pool-*`).
 **Example**:
 ```json
 {
-  "work_pool_name": "datasift-production-pool"
+  "work_pool_name": "docpipe-production-pool"
 }
 ```
 
@@ -463,7 +463,7 @@ Required when using work pool strategies (`work-pool-*`).
 **Example**:
 ```json
 {
-  "deployment_path": "/opt/datasift"
+  "deployment_path": "/opt/docpipe"
 }
 ```
 
@@ -483,10 +483,10 @@ Required when using work pool strategies (`work-pool-*`).
     "LOG_LEVEL": "INFO",
     "PREFECT_MODE": "cloud",
     "PREFECT_URL": "https://api.prefect.cloud",
-    "DATASIFT_STORAGE_BACKEND": "postgresql",
+    "DOCPIPE_STORAGE_BACKEND": "postgresql",
     "PYTHONPATH": "/app/src",
     "LOCAL_FLOWS_DIR": "/app/flows",
-    "DATASIFT_DATA_PATH": "/data/datasift"
+    "DOCPIPE_DATA_PATH": "/data/docpipe"
   }
 }
 ```
@@ -504,7 +504,7 @@ Required when using work pool strategies (`work-pool-*`).
 **Example**:
 ```json
 {
-  "image": "myregistry/datasift:v1.2.3"
+  "image": "myregistry/docpipe:v1.2.3"
 }
 ```
 
@@ -541,7 +541,7 @@ Required when using work pool strategies (`work-pool-*`).
 **Example**:
 ```json
 {
-  "networks": ["datasift-network", "monitoring-network"]
+  "networks": ["docpipe-network", "monitoring-network"]
 }
 ```
 
@@ -665,7 +665,7 @@ In this example, all operators use `doc_column: "content"` except the `extract_o
 
 ## Complete Example
 
-Here's a comprehensive example showing the separation between flow JSON and datasift-config.yaml:
+Here's a comprehensive example showing the separation between flow JSON and docling-pipelines-config.yaml:
 
 ### Flow JSON (`production_pipeline.json`)
 
@@ -685,10 +685,10 @@ Here's a comprehensive example showing the separation between flow JSON and data
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-docker",
-        "work_pool_name": "datasift-docker-pool",
+        "work_pool_name": "docpipe-docker-pool",
         "deployment_name": "doc-processor-v1",
-        "deployment_path": "/opt/datasift",
-        "image": "myregistry/datasift:1.0.0",
+        "deployment_path": "/opt/docpipe",
+        "image": "myregistry/docpipe:1.0.0",
         "env": {
           "OLLAMA_HOST": "http://ollama-service:11434",
           "LOG_LEVEL": "INFO"
@@ -721,7 +721,7 @@ Here's a comprehensive example showing the separation between flow JSON and data
 }
 ```
 
-### Centralized Configuration (`datasift-config.yaml`)
+### Centralized Configuration (`docling-pipelines-config.yaml`)
 
 ```yaml
 # Repository-level configuration for incremental metadata
@@ -734,8 +734,8 @@ storage:
     # postgresql:
     #   host: "localhost"
     #   port: 5432
-    #   database: "datasift"
-    #   user: "datasift_user"
+    #   database: "docpipe"
+    #   user: "docpipe_user"
     #   password: "secure_password" # pragma: allowlist secret
     #   schema: "incremental_metadata"
 ```
@@ -744,13 +744,13 @@ storage:
 
 ```bash
 # The flow automatically uses the centralized incremental metadata configuration
-datasift-orchestrator --flow-file production_pipeline.json
+docling-pipelines --flow-file production_pipeline.json
 
-datasift-orchestrator --flow-file production_pipeline.json
+docling-pipelines --flow-file production_pipeline.json
 ```
 
 **Key Points**:
-- Incremental metadata configuration is in `datasift-config.yaml`
+- Incremental metadata configuration is in `docling-pipelines-config.yaml`
 - Flow JSON focuses on pipeline structure and execution parameters
 - Centralized configuration is shared across all flows in the repository
 - Environment variables can override configuration for specific runs

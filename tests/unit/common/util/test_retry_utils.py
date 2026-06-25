@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import call, patch
 
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.utils.infrastructure.retry import retry_with_exponential_backoff
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.utils.infrastructure.retry import retry_with_exponential_backoff
 
 
 class RetriableException(Exception):
@@ -82,7 +82,7 @@ class TestRetryWithExponentialBackoff(unittest.TestCase):
         try:
             flaky_function()
         except Exception as e:
-            self.assertIsInstance(e, DatasiftException)
+            self.assertIsInstance(e, DocpipeException)
             self.assertEqual(
                 str(e),
                 "Retry logic indicated retry on successful call after 3 attempts:"

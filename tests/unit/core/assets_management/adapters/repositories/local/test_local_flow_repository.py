@@ -14,13 +14,13 @@ from uuid import uuid4
 
 import pytest
 
-from datasift.core.assets.flows.adapters.repositories.flow_filesystem_utils import (
+from docpipe.core.assets.flows.adapters.repositories.flow_filesystem_utils import (
     FlowFilesystemUtils,
 )
-from datasift.core.assets.flows.adapters.repositories.local.local_flow_repository import (
+from docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository import (
     LocalFlowRepository,
 )
-from datasift.core.assets.flows.domain.models.flow import Flow
+from docpipe.core.assets.flows.domain.models.flow import Flow
 
 
 class TestLocalFlowRepository:
@@ -619,11 +619,11 @@ class TestLocalFlowRepository:
         expected = (Path("/mock/home") / "Documents" / "pipeline" / "assets").resolve()
 
         with patch(
-            "datasift.core.assets.flows.adapters.repositories.local.local_flow_repository.os.getenv",
+            "docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository.os.getenv",
             return_value=None,
         ):
             with patch(
-                "datasift.core.assets.flows.adapters.repositories.local.local_flow_repository.Path.home"
+                "docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository.Path.home"
             ) as mock_home:
                 mock_home.return_value = Path("/mock/home")
 
@@ -636,7 +636,7 @@ class TestLocalFlowRepository:
         env_path = "/custom/flows"
 
         with patch(
-            "datasift.core.assets.flows.adapters.repositories.local.local_flow_repository.os.getenv",
+            "docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository.os.getenv",
             return_value=env_path,
         ):
             result = LocalFlowRepository.get_flows_dir()

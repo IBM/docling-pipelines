@@ -1,6 +1,6 @@
 [run]
 branch = True
-source = src/datasift_opensource
+source = src/docpipe_app
 omit =
     */tests/*
     */test_*.py

@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from datasift.api.auth.models import User
-from datasift.api.auth.oauth2_config import (
+from docpipe.api.auth.models import User
+from docpipe.api.auth.oauth2_config import (
     AzureADOAuth2Config,
     GoogleOAuth2Config,
     OAuth2Config,
 )
-from datasift.api.auth.oauth2_provider import (
+from docpipe.api.auth.oauth2_provider import (
     AzureADOAuth2Provider,
     GenericOIDCProvider,
     GoogleOAuth2Provider,

@@ -6,8 +6,8 @@ Tests the conversion from Elyra visual pipeline format to internal DAG format.
 
 import pytest
 
-from datasift.exceptions.datasift_exceptions import FlowValidationException
-from datasift.utils.orchestration.elyra_converter import ElyraConverter
+from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+from docpipe.utils.orchestration.elyra_converter import ElyraConverter
 
 
 class TestElyraConverter:

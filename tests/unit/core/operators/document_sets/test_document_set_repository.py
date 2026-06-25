@@ -12,12 +12,12 @@ Tests cover:
 
 import pytest
 
-from datasift.core.assets.document_sets.adapters.duckdb.metadata_repository import (
+from docpipe.core.assets.document_sets.adapters.duckdb.metadata_repository import (
     DuckDBDocumentSetMetadataRepository,
 )
-from datasift.core.assets.document_sets.domain.models.document_set import DocumentSet
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.storage.duck_db.key_value_storage import DuckDBKeyValueStorage
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.storage.duck_db.key_value_storage import DuckDBKeyValueStorage
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ class TestCreateDocumentSet:
         assert created.description == sample_document_set.description
 
     def test_create_document_set_duplicate_id(self, repository, sample_document_set):
-        """Test that creating document set with duplicate ID raises DatasiftException."""
+        """Test that creating document set with duplicate ID raises DocpipeException."""
         repository.create(document_set=sample_document_set)
 
         duplicate = DocumentSet(
@@ -65,11 +65,11 @@ class TestCreateDocumentSet:
             table_name="different_table",
         )
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             repository.create(document_set=duplicate)
 
     def test_create_document_set_duplicate_name(self, repository, sample_document_set):
-        """Test that creating document set with duplicate name raises DatasiftException."""
+        """Test that creating document set with duplicate name raises DocpipeException."""
         repository.create(document_set=sample_document_set)
 
         duplicate = DocumentSet(
@@ -78,7 +78,7 @@ class TestCreateDocumentSet:
             table_name="different_table",
         )
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             repository.create(document_set=duplicate)
 
     def test_create_document_set_with_metadata(self, repository):
@@ -110,7 +110,7 @@ class TestGetByID:
 
     def test_get_by_id_not_found(self, repository):
         """Test retrieving nonexistent document set raises exception."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             repository.get_by_id(document_set_id="nonexistent-id")
 
     def test_get_by_id_preserves_metadata(self, repository):
@@ -143,7 +143,7 @@ class TestGetByName:
 
     def test_get_by_name_not_found(self, repository):
         """Test retrieving nonexistent document set raises exception."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             repository.get_by_name(name="Nonexistent Name")
 
 
@@ -171,7 +171,7 @@ class TestUpdateDocumentSet:
             table_name="test_table",
         )
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             repository.update(document_set=doc_set)
 
     def test_update_document_set_updates_timestamp(self, repository, sample_document_set):
@@ -309,7 +309,7 @@ class TestRepositoryErrorHandling:
         )
         doc_set.id = None
 
-        with pytest.raises(DatasiftException, match="ID cannot be None"):
+        with pytest.raises(DocpipeException, match="ID cannot be None"):
             repository.create(document_set=doc_set)
 
     def test_update_without_id_raises_error(self, repository):
@@ -321,7 +321,7 @@ class TestRepositoryErrorHandling:
         )
         doc_set.id = None
 
-        with pytest.raises(DatasiftException, match="ID cannot be None"):
+        with pytest.raises(DocpipeException, match="ID cannot be None"):
             repository.update(document_set=doc_set)
 
 

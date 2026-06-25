@@ -63,9 +63,20 @@ echo ""
 echo -e "${YELLOW}Running mypy analysis...${NC}"
 echo "================================"
 
+# Filter out examples/ from mypy (standalone scripts, not part of the package)
+MYPY_FILES=()
+for file in "${EXISTING_FILES[@]}"; do
+    if [[ "$file" != examples/* ]]; then
+        MYPY_FILES+=("$file")
+    fi
+done
+
 # Run mypy
 if command -v mypy &> /dev/null; then
-    if mypy --config-file=./pyproject.toml "${EXISTING_FILES[@]}"; then
+    if [ ${#MYPY_FILES[@]} -eq 0 ]; then
+        echo -e "${GREEN}No files to check with mypy.${NC}"
+        MYPY_STATUS=0
+    elif mypy --config-file=./pyproject.toml "${MYPY_FILES[@]}"; then
         echo -e "${GREEN}Mypy analysis passed!${NC}"
         MYPY_STATUS=0
     else

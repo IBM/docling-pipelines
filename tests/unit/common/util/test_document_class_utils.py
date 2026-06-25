@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from datasift.utils.document_class_utils import DocumentClassUtils
+from docpipe.utils.document_class_utils import DocumentClassUtils
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def invoice_doc_class_path():
     return (
         Path(__file__).parent.parent.parent.parent.parent
         / "src"
-        / "datasift"
+        / "docpipe"
         / "core"
         / "document_classes"
         / "invoice.json"
@@ -31,7 +31,7 @@ def purchase_order_doc_class_path():
     return (
         Path(__file__).parent.parent.parent.parent.parent
         / "src"
-        / "datasift"
+        / "docpipe"
         / "core"
         / "document_classes"
         / "purchase_order.json"

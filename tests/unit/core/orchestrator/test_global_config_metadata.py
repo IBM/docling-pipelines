@@ -1,6 +1,6 @@
 """Unit tests for global_config_metadata module."""
 
-from datasift.core.orchestration.global_config_metadata import (
+from docpipe.core.orchestration.global_config_metadata import (
     EXECUTION_CONTROL,
     INCREMENTAL_PROCESSING,
     ORCHESTRATION,

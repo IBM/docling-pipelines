@@ -13,7 +13,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.operators.quality.local_pii_hap_detect import detect_pii_hap
+from docpipe.core.operators.quality.local_pii_hap_detect import detect_pii_hap
 
 
 def main():  # pragma: no cover

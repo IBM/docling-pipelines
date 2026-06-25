@@ -1,10 +1,10 @@
-# datasift-operators
+# docpipe-operators
 
-This repository contains the datasift operators with FastAPI server, CLI orchestrator, and UI components.
+This repository contains the docpipe operators with FastAPI server, CLI orchestrator, and UI components.
 
 ## Table of Contents
 
-- [datasift-operators](#datasift-operators)
+- [docpipe-operators](#docpipe-operators)
   - [Table of Contents](#table-of-contents)
   - [Documentation](#documentation)
     - [Getting Started](#getting-started)
@@ -37,7 +37,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
       - [Executing Flows](#executing-flows)
       - [Validating Flows](#validating-flows)
       - [Listing Operators](#listing-operators)
-    - [DatasiftFlowManager API](#datasiftflowmanager-api)
+    - [DocpipeFlowManager API](#docpipeflowmanager-api)
   - [Distributed Execution](#distributed-execution)
     - [Execution Modes](#execution-modes)
     - [Quick Start](#quick-start)
@@ -86,10 +86,10 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 ### Getting Started
 
-**New to datasift-operators?** Start here:
+**New to docpipe-operators?** Start here:
 
 - **[Quick Start Guide](QUICKSTART.md)** - Fast-track setup and first pipeline execution
-- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Comprehensive guide for new users covering:
+- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Comprehensive guide for new users covering:
   - Prerequisites and installation (Python 3.12, uv, dependencies)
   - Ollama setup for LLM operations and embeddings
   - OpenSearch setup with Podman/Docker for vector storage
@@ -99,7 +99,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 ### Flow Authoring
 
-- **[Flow Authoring Format Guide](docs/guides/FLOW_AUTHORING_FORMAT.md)** - Create DataSift flows with a simplified format:
+- **[Flow Authoring Format Guide](docs/guides/FLOW_AUTHORING_FORMAT.md)** - Create Docpipe flows with a simplified format:
   - Define operators and dependencies declaratively
   - Automatic dependency resolution
   - Usage with CLI, Python API, and HTTP API
@@ -151,7 +151,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### Additional Resources
 
 - **[Example Flows](examples/)** - Sample flow configurations and use cases
-- **[DatasiftFlowManager Examples](examples/datasift_flow_manager/)** - Programmatic flow execution guide
+- **[DocpipeFlowManager Examples](examples/docpipe_flow_manager/)** - Programmatic flow execution guide
 
 ---
 
@@ -187,10 +187,19 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
 
 ### Extract Operators
 
-- **ExtractOperator** - Document text and entity extraction with multiple provider support
-  - Text extraction: Docling (local/remote), OCR, VLM, ASR pipelines
-  - Entity extraction: LiteLLM (100+ providers), WatsonX.ai, Docling templates
-  - Hexagonal architecture with pluggable adapters
+- **ExtractOperator** - Unified extraction operator using hexagonal architecture (ports and adapters pattern)
+  - **Architecture**: Domain layer (`EntityExtractionService`), Port layer (interfaces), Adapter layer (implementations), Factory layer (adapter creation)
+  - **Text Extraction Modes**:
+    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines
+    - `docling_serve`: Remote extraction via Docling Serve API with OCR support
+  - **Entity Extraction Modes**:
+    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.). For Ollama, use `entity_extraction.provider_config.model_id: "openai/model_name"` with `entity_extraction.provider_config.api_base: "http://localhost:11434/v1"`
+    - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models
+    - `docling`: Template-based entity extraction using Docling templates
+    - `none`: No entity extraction (default)
+  - **Unified LLM Support**: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter` for consistent behavior
+  - Includes estimated page count output and aggregate page metadata
+  - Supports dual-mode operation: text and entity extraction in a single operator
 
 ### Chunking Operators
 
@@ -226,7 +235,7 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
 
 ### Custom Operators
 
-Datasift supports loading custom operators from external locations, enabling you to extend the framework with your own operators without modifying the core codebase.
+Docpipe supports loading custom operators from external locations, enabling you to extend the framework with your own operators without modifying the core codebase.
 
 **Supported Sources:**
 - Python packages (installed via pip or in PYTHONPATH)
@@ -235,20 +244,20 @@ Datasift supports loading custom operators from external locations, enabling you
 
 **Configuration:**
 ```bash
-export DATASIFT_CUSTOM_OPERATORS="my_operators,/path/to/operators,s3://bucket/operators"
+export DOCPIPE_CUSTOM_OPERATORS="my_operators,/path/to/operators,s3://bucket/operators"
 ```
 
 **Documentation:**
 - [Custom Operator Guide](examples/custom_operators/README.md) - Complete guide with examples
 - [Test Flow](tests/sample_test_flows/custom_operators/) - Working example flow
 
-Custom operators are automatically discovered, validated, and registered at runtime. Custom operators can override built-in datasift operators based on priority resolution.
+Custom operators are automatically discovered, validated, and registered at runtime. Custom operators can override built-in docpipe operators based on priority resolution.
 
 ## Project Structure
 
 ```
-datasift-opensource/
-├── src/datasift/              # Main Python package
+docling-pipelines/
+├── src/docpipe/              # Main Python package
 │   ├── api/                   # FastAPI application
 │   │   ├── routes/           # API route handlers
 │   │   ├── dto/              # Data transfer objects
@@ -256,7 +265,7 @@ datasift-opensource/
 │   │   ├── auth/             # Authentication
 │   │   └── main.py           # FastAPI app entry point
 │   ├── cli/                   # CLI tools
-│   │   └── datasift_cli.py   # Command-line interface
+│   │   └── docpipe_cli.py   # Command-line interface
 │   ├── core/                  # Core framework
 │   │   ├── operators/        # Operator implementations
 │   │   ├── orchestration/    # Workflow orchestration
@@ -270,7 +279,7 @@ datasift-opensource/
 │   ├── storage/               # Storage backends
 │   ├── utils/                 # Utility functions
 │   └── lib/                   # Library components
-├── src/datasift_opensource/   # UI components
+├── src/docpipe_app/   # UI components
 │   └── ui/                    # Gradio and Reflex UIs
 ├── tests/                     # Test suites
 │   ├── unit/                  # Unit tests
@@ -284,15 +293,15 @@ datasift-opensource/
 
 ## Job Runs and Execution Tracking
 
-datasift-opensource includes a pluggable job-management subsystem for tracking job runs, node execution state, micro-batch progress, and terminal outcomes.
+docling-pipelines includes a pluggable job-management subsystem for tracking job runs, node execution state, micro-batch progress, and terminal outcomes.
 
 ### Job Stats Components
 
-- **[`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py)** - orchestration-facing service contract
-- **[`JobStatsStore`](src/datasift/core/job_management/domain/ports/job_stats_store.py)** - pluggable persistence contract for job and node stats
-- **[`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py)** - production implementation built on the new hexagonal architecture
-- **[`NodeStatsAggregator`](src/datasift/core/job_management/application/services/node_stats_aggregator.py)** - read-side aggregation of batch node stats
-- **[`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py)** - backend selection and dependency wiring
+- **[`JobStatsService`](src/docpipe/core/job_management/domain/ports/job_stats_service.py)** - orchestration-facing service contract
+- **[`JobStatsStore`](src/docpipe/core/job_management/domain/ports/job_stats_store.py)** - pluggable persistence contract for job and node stats
+- **[`JobTrackerService`](src/docpipe/core/job_management/adapters/services/job_tracker_service.py)** - production implementation built on the new hexagonal architecture
+- **[`NodeStatsAggregator`](src/docpipe/core/job_management/application/services/node_stats_aggregator.py)** - read-side aggregation of batch node stats
+- **[`JobManagementFactory`](src/docpipe/core/job_management/adapters/config/job_management_factory.py)** - backend selection and dependency wiring
 
 ### Supported Backends
 
@@ -302,7 +311,7 @@ datasift-opensource includes a pluggable job-management subsystem for tracking j
 
 ### API Surface
 
-Job run APIs are exposed through [`job_runs.py`](src/datasift/api/routes/job_runs.py) for:
+Job run APIs are exposed through [`job_runs.py`](src/docpipe/api/routes/job_runs.py) for:
 - creating job runs
 - listing job runs
 - reading current job run status
@@ -311,7 +320,7 @@ Job run APIs are exposed through [`job_runs.py`](src/datasift/api/routes/job_run
 
 ### User Configuration
 
-The primary user-facing runtime configuration lives in [`datasift-config.yaml`](datasift-config.yaml), including:
+The primary user-facing runtime configuration lives in [`docling-pipelines-config.yaml`](docling-pipelines-config.yaml), including:
 
 - `assets_management.flow_repository` for the flow repository location
 - `job_management.storage.type` for the job stats storage backend (`filesystem`, `duckdb`, `postgresql`, `inmemory`)
@@ -320,24 +329,24 @@ The primary user-facing runtime configuration lives in [`datasift-config.yaml`](
 - `incremental_metadata.storage.config` for backend-specific incremental metadata settings
 - `incremental_metadata.postgres` for PostgreSQL connection details when the incremental metadata backend is `postgresql`
 
-Incremental metadata configuration is centralized in `datasift-config.yaml`. Flow-level `incremental_metadata` configuration is no longer the supported configuration source.
+Incremental metadata configuration is centralized in `docling-pipelines-config.yaml`. Flow-level `incremental_metadata` configuration is no longer the supported configuration source.
 
 Environment overrides can replace config values at runtime, including:
 
-- `DATASIFT_CONFIG_PATH`
-- `DATASIFT_STORAGE_BACKEND`
-- `DATASIFT_FRAMEWORK_TYPE`
-- `DATASIFT_JOB_STATS_BASE_DIR`
+- `DOCPIPE_CONFIG_PATH`
+- `DOCPIPE_STORAGE_BACKEND`
+- `DOCPIPE_FRAMEWORK_TYPE`
+- `DOCPIPE_JOB_STATS_BASE_DIR`
 
-Sensitive values such as PostgreSQL passwords should be supplied through environment variable substitution in `datasift-config.yaml`, for example `${POSTGRES_PASSWORD}` or `${INCR_META_DB_PASSWORD}`.
+Sensitive values such as PostgreSQL passwords should be supplied through environment variable substitution in `docling-pipelines-config.yaml`, for example `${POSTGRES_PASSWORD}` or `${INCR_META_DB_PASSWORD}`.
 
-When using distributed Prefect workers, all workers must resolve job stats storage and incremental metadata storage consistently. File-based backends such as Filesystem (for incremental metadata) require a shared filesystem path for submitters and workers. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective configuration resolved from environment variables and [`datasift-config.yaml`](datasift-config.yaml). See [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md#incremental-metadata-configuration) for backend examples.
+When using distributed Prefect workers, all workers must resolve job stats storage and incremental metadata storage consistently. File-based backends such as Filesystem (for incremental metadata) require a shared filesystem path for submitters and workers. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective configuration resolved from environment variables and [`docling-pipelines-config.yaml`](docling-pipelines-config.yaml). See [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md#incremental-metadata-configuration) for backend examples.
 
 ## Setup
 
 **For complete setup instructions, see:**
 - **[Quick Start Guide](QUICKSTART.md)** - Fast-track setup (5 minutes)
-- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Detailed setup with troubleshooting
+- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed setup with troubleshooting
 
 ---
 
@@ -346,7 +355,29 @@ When using distributed Prefect workers, all workers must resolve job stats stora
 **Quick Links:**
 
 - [CLI Orchestrator](#cli-orchestrator) - Command-line flow execution (recommended for new users)
-- [DatasiftFlowManager API](#datasiftflowmanager-api) - Programmatic Python API
+- [DocpipeFlowManager API](#docpipeflowmanager-api) - Programmatic Python API
+- [FastAPI Server](#fastapi-server-todo) - REST API (under development)
+
+### FastAPI Server (TODO)
+
+<details> FASTApi Server 
+<summary>Start the FastAPI server with uvicorn:</summary>
+
+```bash
+# Using uvicorn from project root
+uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
+
+# Or using uv from project root
+uv run uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The API will be available at:
+
+- API: http://localhost:8000
+- Interactive docs: http://localhost:8000/docs
+- Alternative docs: http://localhost:8000/redoc
+
+</details>
 
 ### CLI Orchestrator
 
@@ -354,15 +385,15 @@ Run the CLI orchestrator:
 
 ```bash
 # Using uv
-uv run datasift-orchestrator --help
+uv run docling-pipelines --help
 
 # Or with activated venv
-datasift-orchestrator --help
+docling-pipelines --help
 ```
 
 **See also:**
 
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
+- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
 - [Example Flows](examples/) - Sample flow configurations
 - [Operator Reference](docs/reference/OPERATORS.md) - Operator parameters and configuration options
 
@@ -371,7 +402,7 @@ datasift-orchestrator --help
 Execute a flow definition from a JSON file:
 
 ```bash
-datasift-orchestrator --flow-file path/to/flow.json
+docling-pipelines --flow-file path/to/flow.json
 ```
 
 **Controlling Output Verbosity:**
@@ -380,13 +411,13 @@ Use the `DS_LOG_LEVEL` environment variable to control console output detail:
 
 ```bash
 # Clean summaries with operator progress (recommended)
-DS_LOG_LEVEL=INFO datasift-orchestrator --flow-file flow.json
+DS_LOG_LEVEL=INFO docling-pipelines --flow-file flow.json
 
 # Detailed debugging information
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file flow.json
 
 # Minimal output (warnings and errors only)
-DS_LOG_LEVEL=WARNING datasift-orchestrator --flow-file flow.json
+DS_LOG_LEVEL=WARNING docling-pipelines --flow-file flow.json
 ```
 
 The default INFO level provides formatted output showing:
@@ -402,10 +433,10 @@ Validate a flow definition without executing it:
 
 ```bash
 # Using --validate flag
-datasift-orchestrator --flow-file flow.json --validate
+docling-pipelines --flow-file flow.json --validate
 
 # Using validate-flow command
-datasift-orchestrator validate-flow flow.json
+docling-pipelines validate-flow flow.json
 ```
 
 #### Listing Operators
@@ -415,10 +446,10 @@ List all available operators:
 ```bash
 # Summary view - shows table with Owner, Attributes, Features columns
 # Operators sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 
 # Detailed view - shows full operator details with all parameters
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
 ```
 
 **Summary table format:**
@@ -427,47 +458,35 @@ datasift-orchestrator --list-operators --verbose
 - **Features**: Count of special features/capabilities
 - **Categories**: Ingest, Extract, Quality, Functional, VectorDB, Storage
 
-### DatasiftFlowManager API
+### DocpipeFlowManager API
 
-Execute datasift flows programmatically using Python:
+Execute docpipe flows programmatically using Python:
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # Execute flow from file
-manager = DatasiftFlowManager(
+manager = DocpipeFlowManager(
     flow_file="path/to/flow.json"
 )
 result = manager.execute()
 
 # Execute flow from dictionary
 flow_dict = {
-    "flow_name": "my-pipeline",
-    "flow": [
-        {
-            "name": "ingest",
-            "type": "ingest_local",
-            "config": {"paths": "./data"}
-        },
-        {
-            "name": "extract",
-            "type": "extract_operator",
-            "depends_on": ["ingest"],
-            "config": {}
-        }
-    ]
+    "nodes": [...],
+    "edges": [...]
 }
-manager = DatasiftFlowManager(flow_def=flow_dict)
+manager = DocpipeFlowManager(flow_def=flow_dict)
 result = manager.execute()
 
 # List available operators
-operators = DatasiftFlowManager.list_operators()
+operators = DocpipeFlowManager.list_operators()
 ```
 
 **See also:**
 
-- [DatasiftFlowManager Examples](examples/datasift_flow_manager/) - Complete usage guide with code samples
-- [Quick Start Example](examples/datasift_flow_manager/01_execute_from_file.py) - Basic flow execution
+- [DocpipeFlowManager Examples](examples/docpipe_flow_manager/) - Complete usage guide with code samples
+- [Quick Start Example](examples/docpipe_flow_manager/01_execute_from_file.py) - Basic flow execution
 - [CLI Orchestrator](#cli-orchestrator) - Alternative command-line interface
 - [Operator Reference](docs/reference/OPERATORS.md) - Complete API documentation
 
@@ -475,7 +494,7 @@ operators = DatasiftFlowManager.list_operators()
 
 ## Distributed Execution
 
-Datasift-opensource supports multiple execution modes for scaling from local development to enterprise production deployments.
+Docpipe-opensource supports multiple execution modes for scaling from local development to enterprise production deployments.
 
 ### Execution Modes
 
@@ -491,7 +510,7 @@ Datasift-opensource supports multiple execution modes for scaling from local dev
 
 ```bash
 # No configuration needed - uses thread pool by default
-datasift-orchestrator --flow-file my-flow.json
+docling-pipelines --flow-file my-flow.json
 ```
 
 **Process Pool:**
@@ -501,7 +520,7 @@ datasift-orchestrator --flow-file my-flow.json
   "work_pool": {
     "enabled": true,
     "type": "process",
-    "name": "datasift-process-pool",
+    "name": "docpipe-process-pool",
     "max_workers": 4
   }
 }
@@ -514,8 +533,8 @@ datasift-orchestrator --flow-file my-flow.json
   "work_pool": {
     "enabled": true,
     "type": "docker",
-    "name": "datasift-docker-pool",
-    "image": "datasift-opensource:latest",
+    "name": "docpipe-docker-pool",
+    "image": "docling-pipelines:latest",
     "batch_storage": {
       "type": "local",
       "base_path": "/app/data/batches"
@@ -539,7 +558,7 @@ Distributed execution requires serializing batches for cross-process/container c
 
 ```bash
 # Create work pool
-prefect work-pool create datasift-docker-pool --type docker
+prefect work-pool create docpipe-docker-pool --type docker
 
 # Start workers
 docker-compose -f docker/docker-compose.worker.yml up -d
@@ -560,7 +579,7 @@ docker-compose -f docker/docker-compose.worker.yml up -d
 Build the Docker image for distributed execution:
 
 ```bash
-docker build -t datasift-opensource:latest -f docker/Dockerfile .
+docker build -t docling-pipelines:latest -f docker/Dockerfile .
 ```
 
 ### Local Development
@@ -568,13 +587,13 @@ docker build -t datasift-opensource:latest -f docker/Dockerfile .
 Run the FastAPI server:
 
 ```bash
-docker run -p 8000:8000 datasift-opensource:latest
+docker run -p 8000:8000 docling-pipelines:latest
 ```
 
 Run the CLI orchestrator:
 
 ```bash
-docker run datasift-opensource:latest datasift-orchestrator --help
+docker run docling-pipelines:latest docling-pipelines --help
 ```
 
 ### Distributed Execution with Docker
@@ -582,7 +601,7 @@ docker run datasift-opensource:latest datasift-orchestrator --help
 **1. Create Work Pool:**
 
 ```bash
-prefect work-pool create datasift-docker-pool --type docker
+prefect work-pool create docpipe-docker-pool --type docker
 ```
 
 **2. Start Workers with Docker Compose:**
@@ -593,17 +612,17 @@ Create `docker-compose.worker.yml`:
 version: "3.8"
 services:
   worker:
-    image: datasift-opensource:latest
-    command: prefect worker start --pool datasift-docker-pool
+    image: docling-pipelines:latest
+    command: prefect worker start --pool docpipe-docker-pool
     volumes:
-      - datasift-batches:/app/data/batches
+      - docpipe-batches:/app/data/batches
     environment:
       - PREFECT_API_URL=http://prefect-server:4200/api
     deploy:
       replicas: 3
 
 volumes:
-  datasift-batches:
+  docpipe-batches:
 ```
 
 Start workers:
@@ -621,8 +640,8 @@ Add work pool configuration to your flow JSON:
   "work_pool": {
     "enabled": true,
     "type": "docker",
-    "name": "datasift-docker-pool",
-    "image": "datasift-opensource:latest",
+    "name": "docpipe-docker-pool",
+    "image": "docling-pipelines:latest",
     "batch_storage": {
       "type": "local",
       "base_path": "/app/data/batches"
@@ -634,7 +653,7 @@ Add work pool configuration to your flow JSON:
 **4. Execute Flow:**
 
 ```bash
-datasift-orchestrator --flow-file my-flow.json
+docling-pipelines --flow-file my-flow.json
 ```
 
 ### Build Wheel
@@ -702,6 +721,7 @@ uv pip compile pyproject.toml -o requirements.txt
 
 ```bash
 # From project root
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv pip install -e .
 export TEST_CP4D_USERNAME=udp_unittest_user
 export TEST_CP4D_PASSWORD="udp_unittest_pass@123"  # pragma: allowlist secret
@@ -719,6 +739,9 @@ Run tests from the **project root** (recommended):
 ```bash
 # Activate virtual environment (from project root)
 source .venv/bin/activate
+
+# Set PYTHONPATH (from project root)
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Run all tests with colored output
 uv run pytest -v
@@ -787,7 +810,7 @@ Coverage configuration is in `.coveragerc` at the project root.
 **See also:**
 
 - [Code Quality](#code-quality) - Pre-commit hooks and linting tools
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#7-verification-and-testing) - Testing best practices
+- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md#verification-testing-and-troubleshooting) - Testing best practices
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common test failures and solutions
 
 ### Code Quality
@@ -873,14 +896,14 @@ uv run ruff format .
 
 ### Adding New Routes
 
-1. Create a new route file in `src/datasift/app/routes/`
+1. Create a new route file in `src/docpipe/app/routes/`
 2. Define your route handlers
-3. Import and include the router in `src/datasift/app/main.py`
+3. Import and include the router in `src/docpipe/app/main.py`
 
 Example:
 
 ```python
-# src/datasift/app/routes/example.py
+# src/docpipe/app/routes/example.py
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/example", tags=["example"])
@@ -916,19 +939,19 @@ API_PORT=8000
 DEBUG=true
 
 # Job Stats Storage Configuration
-DATASIFT_STORAGE_BACKEND=json  # Options: inmemory, json, postgresql
-DATASIFT_POSTGRES_HOST=localhost
-DATASIFT_POSTGRES_PORT=5432
-DATASIFT_POSTGRES_DB=datasift
-DATASIFT_POSTGRES_USER=datasift_user
-DATASIFT_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
+DOCPIPE_STORAGE_BACKEND=json  # Options: inmemory, json, postgresql
+DOCPIPE_POSTGRES_HOST=localhost
+DOCPIPE_POSTGRES_PORT=5432
+DOCPIPE_POSTGRES_DB=docpipe
+DOCPIPE_POSTGRES_USER=docpipe_user
+DOCPIPE_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 # Add other environment variables as needed
 ```
 
 **See also:**
 
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Environment setup examples
+- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md) - Environment setup examples
 - [Operator Specific Setup](#operator-specific-setup) - Required services configuration
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Configuration issues
 
@@ -938,7 +961,7 @@ DATASIFT_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 **For operator-specific configuration (Ollama, OpenSearch, Milvus), see:**
 - **[Quick Start Guide](QUICKSTART.md)** - Quick setup instructions
-- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Detailed configuration guides
+- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed configuration guides
 
 ---
 

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from datasift.utils.infrastructure.caching import LRUCache
+from docpipe.utils.infrastructure.caching import LRUCache
 
 
 class TestLRUCache(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestLRUCache(unittest.TestCase):
         cache = LRUCache(maxsize=10, ttl=2)
         self.assertIsInstance(cache, LRUCache)
 
-    @patch.dict("datasift.utils.core.patterns.Singleton._instances", clear=True)
+    @patch.dict("docpipe.utils.core.patterns.Singleton._instances", clear=True)
     def test_initialization_invalid_ttl(self):
         with self.assertRaises(ValueError):
             LRUCache(maxsize=10, ttl=-5)
@@ -71,7 +71,7 @@ class TestLRUCache(unittest.TestCase):
         # Verify key1 still exists
         self.assertEqual(cache.get(cache_key="key1"), "value1")
 
-    @patch.dict("datasift.utils.core.patterns.Singleton._instances", clear=True)
+    @patch.dict("docpipe.utils.core.patterns.Singleton._instances", clear=True)
     def test_document_class_lru_cache_default_ttl(self):
         """Test DocumentClassLRUCache has correct default TTL."""
         LRUCache._is_initialized = False

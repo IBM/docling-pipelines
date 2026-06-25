@@ -1,16 +1,16 @@
 # External Operator Integration Guide
 
-This guide explains how external applications can integrate their own operators with the datasift-opensource framework when it's installed as a wheel package.
+This guide explains how external applications can integrate their own operators with the docling-pipelines framework when it's installed as a wheel package.
 
 ## Overview
 
-The datasift-opensource package provides a **plugin hook pattern** that allows host applications to inject their own operators into the operator registry. This enables seamless integration of custom operators without modifying the datasift codebase.
+The docling-pipelines package provides a **plugin hook pattern** that allows host applications to inject their own operators into the operator registry. This enables seamless integration of custom operators without modifying the docpipe codebase.
 
 ## Architecture
 
 ```
 External Application
-├── datasift-opensource (installed wheel)
+├── docling-pipelines (installed wheel)
 │   └── operator_registry.py (provides hooks)
 └── custom_operators/
     ├── my_operator.py
@@ -23,7 +23,7 @@ External Application
 
 ```python
 # external_app/operators/my_custom_operator.py
-from datasift.core.operators.abstract_operator import AbstractOperator
+from docpipe.core.operators.abstract_operator import AbstractOperator
 import pyarrow as pa
 
 class MyCustomOperator(AbstractOperator):
@@ -63,7 +63,7 @@ APP_OPERATORS = frozenset({
 
 ```python
 # external_app/__init__.py or main.py
-from datasift.core.operators.operator_registry import register_operator_provider
+from docpipe.core.operators.operator_registry import register_operator_provider
 from external_app.operators import APP_OPERATORS
 
 def get_app_operators(orchestrator=None):
@@ -85,15 +85,15 @@ def get_app_operators(orchestrator=None):
     
     return APP_OPERATORS
 
-# Register at application startup (before using datasift)
+# Register at application startup (before using docpipe)
 register_operator_provider(get_app_operators)
 ```
 
-### 4. Use Datasift with Your Operators
+### 4. Use Docpipe with Your Operators
 
 ```python
 # external_app/pipeline.py
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # Your custom operator is now available in flows
 flow_def = {
@@ -113,7 +113,7 @@ flow_def = {
     ]
 }
 
-manager = DatasiftFlowManager(flow_def=flow_def)
+manager = DocpipeFlowManager(flow_def=flow_def)
 result = manager.execute()
 ```
 
@@ -147,7 +147,7 @@ def get_app_operators(orchestrator=None):
 Register multiple operator sources:
 
 ```python
-from datasift.core.operators.operator_registry import register_operator_provider
+from docpipe.core.operators.operator_registry import register_operator_provider
 
 # Register core application operators
 register_operator_provider(get_core_operators)
@@ -161,23 +161,23 @@ register_operator_provider(get_env_specific_operators)
 
 ### Operator Priority and Override
 
-Datasift uses a **priority-based resolution system** to handle operators with the same `short_name`. Operators are assigned priorities based on their `owner` attribute:
+Docpipe uses a **priority-based resolution system** to handle operators with the same `short_name`. Operators are assigned priorities based on their `owner` attribute:
 
 **Priority Levels** (lower number = higher priority):
 - **Enterprise operators** (priority 0): Highest precedence
 - **Custom operators** (priority 1): Medium precedence
-- **OSS Datasift operators** (priority 2): Lowest precedence
+- **OSS Docpipe operators** (priority 2): Lowest precedence
 
 #### Setting Operator Owner
 
 ```python
-from datasift.core.constants.constants import DatasiftConstants
+from docpipe.core.constants.constants import DocpipeConstants
 
 class CustomExtractOperator(AbstractOperator):
     """Custom extract operator with priority."""
     
-    short_name = "extract"  # Same as datasift's ExtractOperator
-    owner = DatasiftConstants.OWNER_CUSTOM  # Priority 1
+    short_name = "extract"  # Same as docpipe's ExtractOperator
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1
     
     def transform(self, table: pa.Table) -> pa.Table:
         # Custom extraction logic
@@ -194,13 +194,13 @@ class CustomExtractOperator(AbstractOperator):
 #### Example: Custom Operator Overriding OSS
 
 ```python
-# This custom operator will override datasift's built-in extract operator
+# This custom operator will override docpipe's built-in extract operator
 class MyExtractOperator(AbstractOperator):
     short_name = "extract"
-    owner = DatasiftConstants.OWNER_CUSTOM  # Priority 1 beats OSS priority 2
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 beats OSS priority 2
     
     def transform(self, table: pa.Table) -> pa.Table:
-        # Your custom logic replaces datasift's extract
+        # Your custom logic replaces docpipe's extract
         return table
 ```
 
@@ -210,7 +210,7 @@ class MyExtractOperator(AbstractOperator):
 # Enterprise operators have highest priority
 class EnterpriseExtractOperator(AbstractOperator):
     short_name = "extract"
-    owner = DatasiftConstants.OWNER_ENTERPRISE  # Priority 0 (highest)
+    owner = DocpipeConstants.OWNER_ENTERPRISE  # Priority 0 (highest)
     
     def transform(self, table: pa.Table) -> pa.Table:
         # This will override both custom and OSS operators
@@ -261,7 +261,7 @@ Register an external operator provider function.
 
 **Example:**
 ```python
-from datasift.core.operators.operator_registry import register_operator_provider
+from docpipe.core.operators.operator_registry import register_operator_provider
 
 def my_provider(orchestrator=None):
     return frozenset({MyOperator1, MyOperator2})
@@ -275,7 +275,7 @@ Clear all registered operator providers. Useful for testing.
 
 **Example:**
 ```python
-from datasift.core.operators.operator_registry import clear_operator_providers
+from docpipe.core.operators.operator_registry import clear_operator_providers
 
 # Clear all providers
 clear_operator_providers()
@@ -290,15 +290,15 @@ Get the number of registered external operator providers.
 
 **Example:**
 ```python
-from datasift.core.operators.operator_registry import get_registered_provider_count
+from docpipe.core.operators.operator_registry import get_registered_provider_count
 
 count = get_registered_provider_count()
 print(f"Registered providers: {count}")
 ```
 
-### `get_datasift_operators(orchestrator=None)`
+### `get_docpipe_operators(orchestrator=None)`
 
-Get all operators (datasift + external).
+Get all operators (docpipe + external).
 
 **Parameters:**
 - `orchestrator` (str, optional): Orchestrator type for filtering
@@ -308,13 +308,13 @@ Get all operators (datasift + external).
 
 **Example:**
 ```python
-from datasift.core.operators.operator_registry import get_datasift_operators
+from docpipe.core.operators.operator_registry import get_docpipe_operators
 
 # Get all operators
-all_ops = get_datasift_operators()
+all_ops = get_docpipe_operators()
 
 # Get Python-specific operators
-python_ops = get_datasift_operators(orchestrator="python")
+python_ops = get_docpipe_operators(orchestrator="python")
 ```
 
 ## Testing
@@ -323,10 +323,10 @@ python_ops = get_datasift_operators(orchestrator="python")
 
 ```python
 import pytest
-from datasift.core.operators.operator_registry import (
+from docpipe.core.operators.operator_registry import (
     register_operator_provider,
     clear_operator_providers,
-    get_datasift_operators
+    get_docpipe_operators
 )
 
 @pytest.fixture(autouse=True)
@@ -344,7 +344,7 @@ def test_custom_operator_registration():
     
     register_operator_provider(test_provider)
     
-    operators = get_datasift_operators()
+    operators = get_docpipe_operators()
     short_names = {op.short_name for op in operators}
     
     assert "my_test_op" in short_names
@@ -352,7 +352,7 @@ def test_custom_operator_registration():
 
 ## Best Practices
 
-1. **Register Early**: Register operators at application startup, before any datasift operations
+1. **Register Early**: Register operators at application startup, before any docpipe operations
 2. **Use Descriptive Names**: Choose unique `short_name` values to avoid conflicts
 3. **Implement `is_available()`**: Check dependencies in the `is_available()` method
 4. **Handle Errors Gracefully**: Provider functions should handle errors without crashing
@@ -366,7 +366,7 @@ def test_custom_operator_registration():
 **Problem**: Custom operators not appearing in flows
 
 **Solution**:
-1. Verify registration happens before datasift usage
+1. Verify registration happens before docpipe usage
 2. Check provider function returns frozenset
 3. Ensure operators have `short_name` attribute
 4. Check logs for registration errors
@@ -379,11 +379,11 @@ logging.basicConfig(level=logging.DEBUG)
 
 ### Operator Override Not Working
 
-**Problem**: Custom operator not overriding datasift operator
+**Problem**: Custom operator not overriding docpipe operator
 
 **Solution**:
 1. Ensure `short_name` matches exactly
-2. Set `owner = DatasiftConstants.OWNER_CUSTOM` on your operator
+2. Set `owner = DocpipeConstants.OWNER_CUSTOM` on your operator
 3. Verify priority: Custom (1) can override OSS (2) but not Enterprise (0)
 4. Check logs for priority resolution messages
 5. Ensure operator is registered before factory initialization
@@ -401,11 +401,11 @@ logging.basicConfig(level=logging.INFO)
 
 ### Import Errors
 
-**Problem**: Cannot import datasift modules
+**Problem**: Cannot import docpipe modules
 
 **Solution**:
-1. Verify datasift-opensource wheel is installed
-2. Check Python path includes datasift package
+1. Verify docling-pipelines wheel is installed
+2. Check Python path includes docpipe package
 3. Ensure compatible Python version (>=3.12)
 
 ## Example Application Structure

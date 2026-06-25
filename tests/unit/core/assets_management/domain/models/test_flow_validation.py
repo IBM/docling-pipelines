@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from datasift.core.assets.flows.domain.models.flow import Flow
-from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
+from docpipe.core.assets.flows.domain.models.flow import Flow
+from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
 
 
 class TestFlowCreation:
@@ -231,8 +231,8 @@ class TestFlowDefinitionValidation:
         # Act & Assert
         flow.validate()  # Should not raise
 
-    def test_validate_flow_with_datasift_definition_passes(self):
-        """Test validation passes with datasift-opensource format definition."""
+    def test_validate_flow_with_docpipe_definition_passes(self):
+        """Test validation passes with docling-pipelines format definition."""
         # Arrange
         definition = {
             "nodes": [{"id": "node1", "operator_type": "IngestLocalFolder"}],

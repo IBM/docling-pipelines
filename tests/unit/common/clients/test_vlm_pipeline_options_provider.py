@@ -3,8 +3,8 @@
 import pytest
 from docling.datamodel.pipeline_options import VlmPipelineOptions
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.integrations.docling.vlm_pipeline_options_provider import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.integrations.docling.vlm_pipeline_options_provider import (
     GenericApiPipelineOptionsProvider,
     LMStudioPipelineOptionsProvider,
     MlxPipelineOptionsProvider,
@@ -119,7 +119,7 @@ class TestWatsonxPipelineOptionsProvider:
 
         # Mock RestClient.call_rest_json to return fake IAM token
         mocker.patch(
-            "datasift.integrations.docling.vlm_pipeline_options_provider.RestClient.call_rest_json",
+            "docpipe.integrations.docling.vlm_pipeline_options_provider.RestClient.call_rest_json",
             return_value={"access_token": "fake_token_12345"},
         )
 

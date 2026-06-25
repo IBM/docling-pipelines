@@ -367,7 +367,7 @@ python examples/language_detection_example.py
 ### Flow Testing
 
 ```bash
-datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
+docling-pipelines --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
 ```
 
 ## Troubleshooting
@@ -438,4 +438,4 @@ For issues or questions:
 
 1. Check this documentation
 2. Review the langdetect library documentation
-3. Open an issue in the datasift-opensource repository
+3. Open an issue in the docling-pipelines repository

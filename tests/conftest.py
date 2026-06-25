@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for datasift-opensource tests.
+Pytest configuration and fixtures for docling-pipelines tests.
 """
 
 import shutil
@@ -17,7 +17,7 @@ def setup_python_path():
     Automatically setup Python path for all tests.
     This runs once per test session and ensures imports work correctly.
     """
-    backend_dir = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
+    backend_dir = Path(__file__).parent.parent / "src" / "docpipe_app" / "backend"
     if backend_dir.exists() and str(backend_dir) not in sys.path:
         sys.path.insert(0, str(backend_dir))
     yield
@@ -46,7 +46,7 @@ def src_dir(project_root):
 @pytest.fixture(scope="session")
 def backend_dir(src_dir):
     """Return the backend directory."""
-    return src_dir / "datasift_opensource" / "backend"
+    return src_dir / "docpipe_app" / "backend"
 
 
 @pytest.fixture(scope="session")
@@ -247,7 +247,7 @@ def cleanup_test_document_sets():
     yield  # Run test first
 
     # Clean up after test
-    backend_dir = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
+    backend_dir = Path(__file__).parent.parent / "src" / "docpipe_app" / "backend"
     db_path = backend_dir / "document_sets.duckdb"
 
     if db_path.exists():
@@ -297,8 +297,8 @@ def clear_singleton_caches():
 
     # Clear LRUCache singleton after each test
     try:
-        from datasift.utils.core.patterns import Singleton
-        from datasift.utils.infrastructure.caching import LRUCache
+        from docpipe.utils.core.patterns import Singleton
+        from docpipe.utils.infrastructure.caching import LRUCache
 
         # Access the singleton instance if it exists
         if LRUCache in Singleton._instances:

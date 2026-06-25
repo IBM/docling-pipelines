@@ -2,7 +2,7 @@
 
 ## Overview
 
-Document Libraries provide a way to organize and manage collections of Document Sets in datasift. A Document Library is a metadata container that groups related Document Sets together, enabling better organization, discovery, and management of your document collections.
+Document Libraries provide a way to organize and manage collections of Document Sets in docpipe. A Document Library is a metadata container that groups related Document Sets together, enabling better organization, discovery, and management of your document collections.
 
 ## Key Concepts
 
@@ -40,7 +40,7 @@ This hybrid approach balances architectural consistency (JSON for assets) with p
 ### Environment Setup
 ```bash
 # 1. Navigate to project root directory
-cd /path/to/datasift-opensource
+cd /path/to/docling-pipelines
 
 # 2. Activate virtual environment
 source .venv/bin/activate
@@ -57,7 +57,7 @@ Document Libraries are accessed via REST API endpoints. Start the API server:
 
 ```bash
 # From project root directory (with PYTHONPATH set)
-uvicorn datasift.api.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at `http://localhost:8000` with interactive documentation at `http://localhost:8000/api/v1/docs`.
@@ -66,8 +66,8 @@ The API will be available at `http://localhost:8000` with interactive documentat
 
 **Troubleshooting:**
 - **Error: "address already in use"**: Port 8000 is already occupied. Either:
-  - Stop the existing server: `pkill -f "uvicorn datasift.api.main:app"`
-  - Use a different port: `uvicorn datasift.api.main:app --port 8001`
+  - Stop the existing server: `pkill -f "uvicorn docpipe.api.main:app"`
+  - Use a different port: `uvicorn docpipe.api.main:app --port 8001`
 - **Error: "Could not import module"**: Ensure `PYTHONPATH` is set correctly and you're in the project root directory
 
 ## API Endpoints

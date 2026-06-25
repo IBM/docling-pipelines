@@ -254,7 +254,7 @@ input_table = pa.table({
 ### Example 1: Invoice Processing with Schema
 
 ```python
-from datasift.core.operators.functional.entity_curation import EntityCurationOperator
+from docpipe.core.operators.functional.entity_curation import EntityCurationOperator
 import pyarrow as pa
 
 # Input table with extracted entities

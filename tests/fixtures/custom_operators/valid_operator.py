@@ -2,8 +2,8 @@
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 
 class ValidCustomOperator(AbstractOperator):
@@ -11,7 +11,7 @@ class ValidCustomOperator(AbstractOperator):
 
     short_name: str = "valid_custom"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, config: dict):
         super().__init__(config)

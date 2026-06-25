@@ -6,9 +6,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from datasift.api.routes.flows import flows_router, get_flow_service
-from datasift.core.assets.flows.application.services.flow_service import FlowService
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.api.routes.flows import flows_router, get_flow_service
+from docpipe.core.assets.flows.application.services.flow_service import FlowService
+from docpipe.exceptions.docpipe_exceptions import (
     FlowAlreadyExistsException,
     FlowNotFoundException,
     FlowStorageException,
@@ -25,19 +25,19 @@ def app():
     from fastapi.exceptions import RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
-    from datasift.api.middleware.error_handler import (
-        datasift_exception_handler,
+    from docpipe.api.middleware.error_handler import (
+        docpipe_exception_handler,
         generic_exception_handler,
         http_exception_handler,
         validation_exception_handler,
     )
-    from datasift.exceptions.datasift_exceptions import DatasiftException
+    from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
     app = FastAPI()
     app.include_router(flows_router)
 
     # Register exception handlers in same order as main.py
-    app.add_exception_handler(DatasiftException, datasift_exception_handler)
+    app.add_exception_handler(DocpipeException, docpipe_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)

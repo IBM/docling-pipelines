@@ -6,16 +6,16 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import ValidationError
 
-from datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (
     OneDriveSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.onedrive.config import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.config import (
     OneDriveSourceConfig,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter import (
     SharePointSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.sharepoint.config import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.config import (
     SharePointSourceConfig,
 )
 
@@ -166,7 +166,7 @@ class TestOneDriveSourceAdapter:
         loader_instance._list_files.return_value = [file1, file2]
 
         with patch(
-            "datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
+            "docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
             return_value=loader_instance,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
@@ -210,7 +210,7 @@ class TestOneDriveSourceAdapter:
         loader_instance._list_files.return_value = [skipped_ext, skipped_size]
 
         with patch(
-            "datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
+            "docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
             return_value=loader_instance,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
@@ -226,7 +226,7 @@ class TestOneDriveSourceAdapter:
         loader_instance.lazy_load.return_value = [Mock(), Mock()]
 
         with patch(
-            "datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
+            "docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
             return_value=loader_instance,
         ):
             success, message = asyncio.run(adapter.test_connection(config))
@@ -235,7 +235,7 @@ class TestOneDriveSourceAdapter:
 
         loader_instance._get_token.return_value = None
         with patch(
-            "datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
+            "docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
             return_value=loader_instance,
         ):
             success, message = asyncio.run(adapter.test_connection(config))
@@ -295,7 +295,7 @@ class TestSharePointSourceAdapter:
         loader_instance._list_files.return_value = [file1]
 
         with patch(
-            "datasift.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter.MicrosoftGraphLoader",
+            "docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter.MicrosoftGraphLoader",
             return_value=loader_instance,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
@@ -314,7 +314,7 @@ class TestSharePointSourceAdapter:
         config = self.make_config()
 
         with patch(
-            "datasift.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter.MicrosoftGraphLoader",
+            "docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter.MicrosoftGraphLoader",
             side_effect=ImportError,
         ):
             success, message = asyncio.run(adapter.test_connection(config))
@@ -322,7 +322,7 @@ class TestSharePointSourceAdapter:
             assert "dependencies not installed" in message
 
         with patch(
-            "datasift.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter.MicrosoftGraphLoader",
+            "docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter.MicrosoftGraphLoader",
             side_effect=ValueError("bad config"),
         ):
             success, message = asyncio.run(adapter.test_connection(config))

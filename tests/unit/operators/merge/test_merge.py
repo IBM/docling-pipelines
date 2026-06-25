@@ -9,10 +9,10 @@ or column joins.
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.merge import MergeOperator
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.merge import MergeOperator
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -150,7 +150,7 @@ def test_row_merge_detects_duplicate_ids():
     }
     operator = MergeOperator(config)
 
-    with pytest.raises(DatasiftException):
+    with pytest.raises(DocpipeException):
         operator.transform(table=pa.table({}), tables={"branch1": table1, "branch2": table2})
 
 
@@ -483,7 +483,7 @@ def test_short_name_value():
 
 def test_category_is_functional():
     """Operator category is Functional."""
-    from datasift.core.operators.abstract_operator import OperatorCategory
+    from docpipe.core.operators.abstract_operator import OperatorCategory
 
     assert MergeOperator.category == OperatorCategory.Functional
 

@@ -15,12 +15,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.core.job_management.adapters.stores.inmemory.inmemory_job_stats_store import (
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.job_management.adapters.stores.inmemory.inmemory_job_stats_store import (
     InMemoryJobStatsStore,
 )
-from datasift.core.job_management.domain.models import JobStats, NodeStats
-from datasift.exceptions.datasift_exceptions import JobStatsStoreDeleteException
+from docpipe.core.job_management.domain.models import JobStats, NodeStats
+from docpipe.exceptions.docpipe_exceptions import JobStatsStoreDeleteException
 
 
 @pytest.fixture

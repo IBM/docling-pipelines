@@ -1,10 +1,10 @@
 # Custom Operators Guide
 
-This guide explains how to create and use custom operators in datasift-opensource.
+This guide explains how to create and use custom operators in docling-pipelines.
 
 ## Overview
 
-Custom operators allow you to extend datasift-opensource with your own data processing logic. The system supports loading custom operators from:
+Custom operators allow you to extend docling-pipelines with your own data processing logic. The system supports loading custom operators from:
 - Local filesystem (single files or directories)
 - S3 buckets
 
@@ -16,22 +16,22 @@ A custom operator must:
 1. Inherit from `AbstractOperator`
 2. Implement the `transform()`, `get_metadata()`, and `get_required_features()` methods
 3. Define `short_name` and `category` class attributes
-4. Set `owner` attribute to `DatasiftConstants.OWNER_CUSTOM` (for priority resolution)
+4. Set `owner` attribute to `DocpipeConstants.OWNER_CUSTOM` (for priority resolution)
 
-**Important**: Custom operators should set `owner = DatasiftConstants.OWNER_CUSTOM`. Do NOT set `owner = DatasiftConstants.OWNER_DATASIFT` as this is reserved for built-in operators and will cause validation errors.
+**Important**: Custom operators should set `owner = DocpipeConstants.OWNER_CUSTOM`. Do NOT set `owner = DocpipeConstants.OWNER_DOCPIPE` as this is reserved for built-in operators and will cause validation errors.
 
 Example:
 
 ```python
 import pyarrow as pa
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class ExampleCustomOperator(AbstractOperator):
     short_name: str = "example_custom"
     category: OperatorCategory = OperatorCategory.Functional  # Use appropriate standard category
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM  # Mark as custom operator for priority resolution
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM  # Mark as custom operator for priority resolution
     
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -53,7 +53,7 @@ class ExampleCustomOperator(AbstractOperator):
             "label": "Example Custom Operator",
             "description": "Adds a custom field to documents",
             "category": OperatorCategory.Functional.value,
-            "owner": DatasiftConstants.OWNER_CUSTOM,
+            "owner": DocpipeConstants.OWNER_CUSTOM,
         }
     
     def get_required_features(self) -> list:
@@ -65,25 +65,25 @@ class ExampleCustomOperator(AbstractOperator):
 
 ### 1. Set Environment Variable
 
-Before running your flow, set the `DATASIFT_CUSTOM_OPERATORS` environment variable:
+Before running your flow, set the `DOCPIPE_CUSTOM_OPERATORS` environment variable:
 
 ```bash
 # Python package - must be importable (installed or in PYTHONPATH)
-export DATASIFT_CUSTOM_OPERATORS="my_custom_operators"
+export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
 
 # Single local file - absolute or relative path
-export DATASIFT_CUSTOM_OPERATORS="/path/to/my_operator.py"
-export DATASIFT_CUSTOM_OPERATORS="./operators/my_operator.py"
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/my_operator.py"
+export DOCPIPE_CUSTOM_OPERATORS="./operators/my_operator.py"
 
 # Local directory - scans recursively for .py files
-export DATASIFT_CUSTOM_OPERATORS="/path/to/operators/"
-export DATASIFT_CUSTOM_OPERATORS="./tests/sample_test_flows/custom_operators"
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators/"
+export DOCPIPE_CUSTOM_OPERATORS="./tests/sample_test_flows/custom_operators"
 
 # S3 bucket
-export DATASIFT_CUSTOM_OPERATORS="s3://my-bucket/operators/my_operator.py"
+export DOCPIPE_CUSTOM_OPERATORS="s3://my-bucket/operators/my_operator.py"
 
 # Multiple sources - comma-separated, mixed types (auto-detected)
-export DATASIFT_CUSTOM_OPERATORS="my_package,/path/to/local/operators/,s3://my-bucket/operators/"
+export DOCPIPE_CUSTOM_OPERATORS="my_package,/path/to/local/operators/,s3://my-bucket/operators/"
 ```
 
 **Source Type Auto-Detection:**
@@ -145,20 +145,20 @@ Create a flow JSON file using your custom operator:
 
 ```bash
 # Set environment variable
-export DATASIFT_CUSTOM_OPERATORS="/path/to/example_custom_operator.py"
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/example_custom_operator.py"
 
 # Execute flow
-datasift-orchestrator --flow-file custom_flow.json
+docling-pipelines --flow-file custom_flow.json
 ```
 
 ### 4. Run with REST API
 
 ```bash
 # Set environment variable before starting the API server
-export DATASIFT_CUSTOM_OPERATORS="/path/to/operators/"
+export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators/"
 
 # Start API server
-uvicorn datasift.api.main:app --reload
+uvicorn docpipe.api.main:app --reload
 
 # Submit flow via API
 curl -X POST http://localhost:8000/api/flows/execute \
@@ -171,13 +171,13 @@ curl -X POST http://localhost:8000/api/flows/execute \
 ```python
 import os
 
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # Set custom operators path
-os.environ["DATASIFT_CUSTOM_OPERATORS"] = "/path/to/operators/"
+os.environ["DOCPIPE_CUSTOM_OPERATORS"] = "/path/to/operators/"
 
 # Create flow manager and execute
-manager = DatasiftFlowManager()
+manager = DocpipeFlowManager()
 result = manager.execute_flow_from_file(flow_file="custom_flow.json")
 ```
 
@@ -197,9 +197,9 @@ The S3 adapter uses boto3's default credential chain:
 export AWS_ACCESS_KEY_ID="your-access-key"  # pragma: allowlist secret
 export AWS_SECRET_ACCESS_KEY="your-secret-key"  # pragma: allowlist secret
 export AWS_DEFAULT_REGION="us-east-1"
-export DATASIFT_CUSTOM_OPERATORS="s3://my-bucket/operators/"
+export DOCPIPE_CUSTOM_OPERATORS="s3://my-bucket/operators/"
 
-datasift-orchestrator --flow-file flow.json
+docling-pipelines --flow-file flow.json
 ```
 
 ### S3 URI Format
@@ -228,13 +228,13 @@ If a custom operator has the same `SHORT_NAME` as a built-in operator:
 
 ### Caching (S3 only)
 
-S3 operators are downloaded to `~/.datasift/custom_operators_cache/` and cached for the session.
+S3 operators are downloaded to `~/.docpipe/custom_operators_cache/` and cached for the session.
 
 ## Best Practices
 
 1. **Use descriptive short_name**: Choose unique names to avoid conflicts
 2. **Set category appropriately**: Use `OperatorConstants.Misc.CATEGORY_CUSTOM` for custom operators
-3. **Set owner attribute**: Use `DatasiftConstants.OWNER_CUSTOM` for proper priority resolution
+3. **Set owner attribute**: Use `DocpipeConstants.OWNER_CUSTOM` for proper priority resolution
 4. **Use keyword-only arguments**: Follow project standard with `*` in method signatures
 5. **Handle errors gracefully**: Use try/except in transform() method
 6. **Document parameters**: Add docstrings explaining configuration options
@@ -245,7 +245,7 @@ S3 operators are downloaded to `~/.datasift/custom_operators_cache/` and cached 
 ### Operator Not Found
 
 Check:
-- `DATASIFT_CUSTOM_OPERATORS` is set correctly
+- `DOCPIPE_CUSTOM_OPERATORS` is set correctly
 - File/directory exists and is readable
 - S3 credentials are configured (for S3 sources)
 - Operator short_name matches the one in flow JSON

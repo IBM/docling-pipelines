@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from unittest.mock import patch
 
-from datasift.utils.infrastructure.filesystem import (
+from docpipe.utils.infrastructure.filesystem import (
     DEFAULT_DATA_ROOT_FOLDER,
     delete_folders,
     get_data_path,
@@ -209,7 +209,7 @@ class TestDeleteFolders:
             f.write("content2")
 
         # Mock logger to verify logging
-        with patch("datasift.utils.infrastructure.filesystem.logger") as mock_logger:
+        with patch("docpipe.utils.infrastructure.filesystem.logger") as mock_logger:
             delete_folders(paths_list=[temp_dir])
 
             # Verify that logger.info was called

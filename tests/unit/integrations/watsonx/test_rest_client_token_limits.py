@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.integrations.watsonx.rest_client import (
+from docpipe.integrations.watsonx.rest_client import (
     WATSONX_MODEL_TOKEN_LIMITS,
     WatsonxRestEmbeddingClient,
 )
@@ -20,7 +20,7 @@ from datasift.integrations.watsonx.rest_client import (
 @pytest.fixture
 def mock_iam_token_manager():
     """Mock IAM token manager to avoid real authentication."""
-    with patch("datasift.integrations.watsonx.rest_client.IAMTokenManager") as mock:
+    with patch("docpipe.integrations.watsonx.rest_client.IAMTokenManager") as mock:
         mock_instance = MagicMock()
         mock_instance.get_token.return_value = "mock-token"
         mock.return_value = mock_instance
@@ -30,7 +30,7 @@ def mock_iam_token_manager():
 @pytest.fixture
 def mock_rest_client():
     """Mock REST client to avoid real API calls."""
-    with patch("datasift.integrations.watsonx.rest_client.RestClient") as mock:
+    with patch("docpipe.integrations.watsonx.rest_client.RestClient") as mock:
         yield mock
 
 
@@ -80,7 +80,7 @@ class TestDynamicTokenLimitRetrieval:
 
     def test_fetch_token_limit_from_api_success(self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs):
         """Test successful token limit retrieval from API."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client = WatsonxRestEmbeddingClient(
@@ -101,7 +101,7 @@ class TestDynamicTokenLimitRetrieval:
 
     def test_fetch_token_limit_caching(self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs):
         """Test that token limits are cached after first fetch."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client = WatsonxRestEmbeddingClient(
@@ -126,7 +126,7 @@ class TestDynamicTokenLimitRetrieval:
         self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs
     ):
         """Test fallback to hardcoded values when model not found in API."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client = WatsonxRestEmbeddingClient(
@@ -146,7 +146,7 @@ class TestDynamicTokenLimitRetrieval:
         self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs
     ):
         """Test fallback when model_limits exists but max_sequence_length is missing."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client = WatsonxRestEmbeddingClient(
@@ -167,7 +167,7 @@ class TestDynamicTokenLimitRetrieval:
         self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs
     ):
         """Test fallback when model_limits key is missing entirely."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client = WatsonxRestEmbeddingClient(
@@ -185,7 +185,7 @@ class TestDynamicTokenLimitRetrieval:
 
     def test_fetch_token_limit_fallback_on_api_error(self, *, mock_iam_token_manager, mock_rest_client):
         """Test fallback to hardcoded values when API call fails."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.side_effect = Exception("API error")
 
             client = WatsonxRestEmbeddingClient(
@@ -204,7 +204,7 @@ class TestDynamicTokenLimitRetrieval:
 
     def test_fetch_token_limit_uses_hardcoded_for_known_models(self, *, mock_iam_token_manager, mock_rest_client):
         """Test that hardcoded values are used as fallback for known models."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.side_effect = Exception("API error")
 
             for model_name, expected_limit in WATSONX_MODEL_TOKEN_LIMITS.items():
@@ -228,7 +228,7 @@ class TestTokenLimitCacheManagement:
 
     def test_clear_token_limit_cache(self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs):
         """Test clearing the token limit cache."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client = WatsonxRestEmbeddingClient(
@@ -252,7 +252,7 @@ class TestTokenLimitCacheManagement:
 
     def test_cache_isolation_between_models(self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs):
         """Test that cache is isolated per model."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client1 = WatsonxRestEmbeddingClient(
@@ -282,7 +282,7 @@ class TestTokenLimitCacheManagement:
 
     def test_cache_isolation_between_api_keys(self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs):
         """Test that cache is isolated per API key."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client1 = WatsonxRestEmbeddingClient(
@@ -316,7 +316,7 @@ class TestTokenLimitIntegration:
 
     def test_token_limit_used_in_request_payload(self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs):
         """Test that fetched token limit is used in request payload."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             mock_get_models.return_value = sample_model_specs
 
             client = WatsonxRestEmbeddingClient(
@@ -339,7 +339,7 @@ class TestTokenLimitIntegration:
         self, *, mock_iam_token_manager, mock_rest_client, sample_model_specs
     ):
         """Test that different models use their respective token limits."""
-        with patch("datasift.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
+        with patch("docpipe.integrations.watsonx.rest_client.get_available_foundation_models") as mock_get_models:
             # Add a model with different token limit
             custom_specs = [
                 *sample_model_specs,

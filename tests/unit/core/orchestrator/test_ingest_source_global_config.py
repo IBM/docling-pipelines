@@ -4,15 +4,15 @@ from unittest.mock import Mock, patch
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.orchestration.python.python_orchestrator import PythonOrchestrator
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.orchestration.python.python_orchestrator import PythonOrchestrator
 
 
 class TestIngestSourceGlobalConfig:
     """Test that ingest_source params are populated in global_config."""
 
-    @patch("datasift.core.orchestration.abstract_orchestrator.get_session_info")
-    @patch("datasift.core.orchestration.abstract_orchestrator.set_session_info")
+    @patch("docpipe.core.orchestration.abstract_orchestrator.get_session_info")
+    @patch("docpipe.core.orchestration.abstract_orchestrator.set_session_info")
     def test_ingest_source_populates_global_config(self, mock_set_session, mock_get_session):
         """Test that ingest_source operator params are added to global_config."""
         # Setup session info mock
@@ -31,7 +31,7 @@ class TestIngestSourceGlobalConfig:
                 {
                     "id": "ingest_node",
                     "name": "ingest_source_node",
-                    "operator": "datasift.core.operators.ingest.ingest_source.IngestSourceOperator",
+                    "operator": "docpipe.core.operators.ingest.ingest_source.IngestSourceOperator",
                     "config": {
                         "provider": "s3",
                         "connection_params": {
@@ -49,8 +49,8 @@ class TestIngestSourceGlobalConfig:
         }
 
         params = {
-            DatasiftConstants.JOB_ID: "test_job",
-            DatasiftConstants.JOB_RUN_ID: "test_run",
+            DocpipeConstants.JOB_ID: "test_job",
+            DocpipeConstants.JOB_RUN_ID: "test_run",
         }
 
         # Capture global_config by wrapping execute_flow
@@ -70,7 +70,7 @@ class TestIngestSourceGlobalConfig:
 
         # Mock _execute_step to prevent real operator execution
         def mock_execute_step(*, op_def, global_config, prev_results, deleted_docs_count):
-            from datasift.core.orchestration.prefect.prefect_engine import ExecuteStepResults
+            from docpipe.core.orchestration.prefect.prefect_engine import ExecuteStepResults
 
             return ExecuteStepResults(
                 tables=[pa.Table.from_arrays([], names=[])],
@@ -82,8 +82,8 @@ class TestIngestSourceGlobalConfig:
         with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
             with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
                 with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("datasift.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
-                        with patch("datasift.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
+                    with patch("docpipe.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
+                        with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
                             # Execute the flow
                             orchestrator.execute(flow_def=flow_def, params=params)
 
@@ -98,8 +98,8 @@ class TestIngestSourceGlobalConfig:
                                 == "test_key"
                             )
 
-    @patch("datasift.core.orchestration.abstract_orchestrator.get_session_info")
-    @patch("datasift.core.orchestration.abstract_orchestrator.set_session_info")
+    @patch("docpipe.core.orchestration.abstract_orchestrator.get_session_info")
+    @patch("docpipe.core.orchestration.abstract_orchestrator.set_session_info")
     def test_ingest_local_does_not_populate_global_config(self, mock_set_session, mock_get_session):
         """Test that ingest_local operator does NOT add params to global_config."""
         # Setup session info mock
@@ -118,7 +118,7 @@ class TestIngestSourceGlobalConfig:
                 {
                     "id": "ingest_node",
                     "name": "ingest_local_node",
-                    "operator": "datasift.core.operators.ingest.ingest_local_folder.IngestLocalFolderOperator",
+                    "operator": "docpipe.core.operators.ingest.ingest_local_folder.IngestLocalFolderOperator",
                     "config": {
                         "paths": "/test/path",
                     },
@@ -128,8 +128,8 @@ class TestIngestSourceGlobalConfig:
         }
 
         params = {
-            DatasiftConstants.JOB_ID: "test_job",
-            DatasiftConstants.JOB_RUN_ID: "test_run",
+            DocpipeConstants.JOB_ID: "test_job",
+            DocpipeConstants.JOB_RUN_ID: "test_run",
         }
 
         # Capture global_config by wrapping execute_flow
@@ -149,7 +149,7 @@ class TestIngestSourceGlobalConfig:
 
         # Mock _execute_step to prevent real operator execution
         def mock_execute_step(*, op_def, global_config, prev_results, deleted_docs_count):
-            from datasift.core.orchestration.prefect.prefect_engine import ExecuteStepResults
+            from docpipe.core.orchestration.prefect.prefect_engine import ExecuteStepResults
 
             return ExecuteStepResults(
                 tables=[pa.Table.from_arrays([], names=[])],
@@ -160,8 +160,8 @@ class TestIngestSourceGlobalConfig:
         with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
             with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
                 with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("datasift.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
-                        with patch("datasift.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
+                    with patch("docpipe.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
+                        with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
                             # Execute the flow
                             orchestrator.execute(flow_def=flow_def, params=params)
 

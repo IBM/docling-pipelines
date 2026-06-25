@@ -16,9 +16,9 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.quality.ml_enrichment import MLEnrichmentOperator
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.quality.ml_enrichment import MLEnrichmentOperator
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 

@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from datasift.utils.core.collections import (
+from docpipe.utils.core.collections import (
     batch_list,
     get_index,
     get_list_from_map,
@@ -9,14 +9,14 @@ from datasift.utils.core.collections import (
     lowercase_keys,
     process_in_batches,
 )
-from datasift.utils.core.patterns import Singleton
-from datasift.utils.core.strings import (
+from docpipe.utils.core.patterns import Singleton
+from docpipe.utils.core.strings import (
     escape_query_value,
     get_truncated_text,
     is_null_or_empty,
     split_text_into_chunks,
 )
-from datasift.utils.core.validation import (
+from docpipe.utils.core.validation import (
     is_date_time_as_per_format,
     is_value_in_range,
     to_bool,

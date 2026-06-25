@@ -3,26 +3,26 @@
 import pytest
 from pydantic import BaseModel
 
-from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
     SourceAdapterFactory,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.filesystem.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.adapter import (
     FilesystemSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
     GoogleDriveSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (
     OneDriveSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter import (
     S3SourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter import (
     SharePointSourceAdapter,
 )
-from datasift.core.operators.ingest.domain.models import Document
-from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from docpipe.core.operators.ingest.domain.models import Document
+from docpipe.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
 
 class DummyConfig(BaseModel):

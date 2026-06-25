@@ -2,7 +2,7 @@
 
 import pytest
 
-from datasift.utils.core.validation import (
+from docpipe.utils.core.validation import (
     deduplicate_tags,
     validate_container_kind,
     validate_flow_definition,

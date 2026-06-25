@@ -1,6 +1,6 @@
 # Sample Test Flows
 
-This directory contains organized sample flow configurations for testing and demonstrating datasift-opensource capabilities.
+This directory contains organized sample flow configurations for testing and demonstrating docling-pipelines capabilities.
 
 ## Directory Structure
 
@@ -27,7 +27,7 @@ Simple, foundational flows demonstrating core pipeline patterns.
 - `opensearch_integration.json` - Complete OpenSearch integration test with all operators
 
 **Use Cases:**
-- Getting started with datasift-opensource
+- Getting started with docling-pipelines
 - Testing basic pipeline functionality
 - Learning operator chaining patterns
 
@@ -190,11 +190,11 @@ Advanced, domain-specific document processing flows.
 
 ```bash
 # Basic execution (from repo root)
-datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
+docling-pipelines --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
 
 # With custom environment
-export DATA_FOLDER=/tmp/datasift_data
-datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+export DATA_FOLDER=/tmp/docpipe_data
+docling-pipelines --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 ```
 
 ### Testing Flows
@@ -202,7 +202,7 @@ datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flo
 ```bash
 # Run flow tests (from repo root)
 source .venv/bin/activate
-uv run pytest tests/test_datasift_cli.py -v
+uv run pytest tests/test_docpipe_cli.py -v
 ```
 
 ---
@@ -310,13 +310,13 @@ Ingest → Extract → Quality Checks → Enrich → Chunk → Embed → Store
 Enable detailed logging using environment variable:
 
 ```bash
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
 ```
 
 Or set as environment variable:
 ```bash
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
+docling-pipelines --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
 ```
 
 ---
@@ -366,7 +366,7 @@ datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensea
 
 - **Architecture Documentation:** See `ARCHITECTURE.md` in project root
 - **User Guide:** See `docs/USER_GUIDE_PIPELINE_SETUP.md` for setup instructions
-- **Operator Documentation:** See `src/datasift/core/operators/`
+- **Operator Documentation:** See `src/docpipe/core/operators/`
 - **Integration Tests:** See `tests/integration/` for more examples
 
 ---

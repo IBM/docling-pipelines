@@ -2,9 +2,9 @@
 
 import pytest
 
-from datasift.storage.duck_db.key_value_storage import DuckDBKeyValueStorage
-from datasift.storage.exceptions import StorageValidationError
-from datasift.storage.factory import StorageFactory
+from docpipe.storage.duck_db.key_value_storage import DuckDBKeyValueStorage
+from docpipe.storage.exceptions import StorageValidationError
+from docpipe.storage.factory import StorageFactory
 
 
 class TestDuckDBKeyValueStorageBasicOperations:

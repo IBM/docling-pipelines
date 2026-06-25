@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus, Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.utils.operators.logging import (
+from docpipe.core.constants.constants import ExecutionStatus, Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.utils.operators.logging import (
     _count_and_remove_lists,
     _extract_document_level_errors,
     _handle_dict_with_logs_key,
@@ -87,7 +87,7 @@ class TestOperatorLogSplit:
 class TestGetLogAndJobFilePath:
     """Test get_log_and_job_file_path function."""
 
-    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
+    @patch("docpipe.utils.infrastructure.filesystem.get_data_path")
     def test_get_log_and_job_file_path(self, mock_data_path):
         """Test getting log and job file paths."""
         mock_data_path.return_value = "/test/warehouse"
@@ -191,7 +191,7 @@ class TestHandleStringLogs:
         assert "node_1" in result["node_sequence"]
         assert "node_1" in result
 
-    @patch("datasift.utils.operators.logging.read_json_if_exists")
+    @patch("docpipe.utils.operators.logging.read_json_if_exists")
     def test_handle_string_logs_with_job_stats(self, mock_read_json):
         """Test with job stats file."""
         mock_read_json.return_value = {"status": "completed"}
@@ -254,7 +254,7 @@ class TestGetLogs:
 class TestRetrieveNodeSpecificOperatorLogs:
     """Test retrieve_node_specific_operator_logs function."""
 
-    @patch("datasift.utils.operators.logging.retrieve_operator_logs")
+    @patch("docpipe.utils.operators.logging.retrieve_operator_logs")
     def test_retrieve_node_specific_operator_logs(self, mock_retrieve):
         """Test retrieving node-specific logs."""
         mock_retrieve.return_value = {
@@ -270,7 +270,7 @@ class TestRetrieveNodeSpecificOperatorLogs:
 class TestRetrieveOperatorsSequence:
     """Test retrieve_operators_sequence function."""
 
-    @patch("datasift.utils.operators.logging.retrieve_operator_logs")
+    @patch("docpipe.utils.operators.logging.retrieve_operator_logs")
     def test_retrieve_operators_sequence(self, mock_retrieve):
         """Test retrieving operators sequence."""
         mock_retrieve.return_value = {"node_sequence": ["node_1", "node_2", "node_3"]}
@@ -279,7 +279,7 @@ class TestRetrieveOperatorsSequence:
 
         assert result == ["node_1", "node_2", "node_3"]
 
-    @patch("datasift.utils.operators.logging.retrieve_operator_logs")
+    @patch("docpipe.utils.operators.logging.retrieve_operator_logs")
     def test_retrieve_operators_sequence_empty(self, mock_retrieve):
         """Test with no sequence."""
         mock_retrieve.return_value = {}
@@ -414,7 +414,7 @@ class TestFormatNodeStats:
 class TestFormatOperatorLogs:
     """Test format_operator_logs function."""
 
-    @patch("datasift.utils.operators.logging.retrieve_operators_sequence")
+    @patch("docpipe.utils.operators.logging.retrieve_operators_sequence")
     def test_format_operator_logs_basic(self, mock_sequence):
         """Test basic operator logs formatting."""
         mock_sequence.return_value = ["node_1"]

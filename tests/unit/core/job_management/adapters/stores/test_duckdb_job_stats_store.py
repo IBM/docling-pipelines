@@ -19,11 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.core.job_management.adapters.stores.duckdb.duckdb_job_stats_store import (
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.job_management.adapters.stores.duckdb.duckdb_job_stats_store import (
     DuckDBJobStatsStore,
 )
-from datasift.core.job_management.domain.models import JobStats, NodeStats
+from docpipe.core.job_management.domain.models import JobStats, NodeStats
 
 
 @pytest.fixture
@@ -234,7 +234,7 @@ class TestJobStatsCRUD:
     def test_delete_nonexistent_job_raises_exception(self, *, store):
         """Deleting nonexistent job should raise exception."""
         # DuckDB store raises exception for nonexistent job
-        from datasift.exceptions.datasift_exceptions import JobStatsStoreDeleteException
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreDeleteException
 
         with pytest.raises(JobStatsStoreDeleteException):
             store.delete_job_stats("nonexistent-job-id")

@@ -39,11 +39,11 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.embeddings import EmbeddingsOperator
-from datasift.integrations.ollama.client import OllamaClient
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.embeddings import EmbeddingsOperator
+from docpipe.integrations.ollama.client import OllamaClient
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -137,9 +137,9 @@ def main() -> int:
 
     # Import required operators
     try:
-        from datasift.core.operators.extract.extract_operator import ExtractOperator
-        from datasift.core.operators.functional.chunker import ChunkerOperator
-        from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
+        from docpipe.core.operators.extract.extract_operator import ExtractOperator
+        from docpipe.core.operators.functional.chunker import ChunkerOperator
+        from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
     except ImportError as e:
         logger.error(f"Failed to import required operators: {e}")
         print("\nError: Failed to import operators. Make sure you are running from the repository root.")

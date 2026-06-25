@@ -3,13 +3,13 @@
 # Import to trigger adapter registration
 import pytest
 
-import datasift.core.assets.document_sets.adapters.duckdb  # noqa: F401
-from datasift.core.assets.document_sets.domain.types import DataStoreConfig
-from datasift.core.assets.document_sets.factories import (
+import docpipe.core.assets.document_sets.adapters.duckdb  # noqa: F401
+from docpipe.core.assets.document_sets.domain.types import DataStoreConfig
+from docpipe.core.assets.document_sets.factories import (
     DataStoreFactory,
     MetadataRepositoryFactory,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestMetadataRepositoryFactory:
@@ -47,7 +47,7 @@ class TestMetadataRepositoryFactory:
 
     def test_create_unknown_adapter(self):
         """Test creating unknown adapter raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             MetadataRepositoryFactory.create(adapter_name="unknown_adapter", config={"database_path": "test.db"})
 
         assert exc_info.value.status_code == 400
@@ -55,7 +55,7 @@ class TestMetadataRepositoryFactory:
 
     def test_create_invalid_config_missing_path(self):
         """Test creating adapter with missing database_path raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             MetadataRepositoryFactory.create(adapter_name="duckdb", config={})
 
         assert exc_info.value.status_code == 400
@@ -63,14 +63,14 @@ class TestMetadataRepositoryFactory:
 
     def test_create_invalid_config_empty_path(self):
         """Test creating adapter with empty database_path raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             MetadataRepositoryFactory.create(adapter_name="duckdb", config={"database_path": ""})
 
         assert exc_info.value.status_code == 400
 
     def test_create_invalid_config_wrong_type(self):
         """Test creating adapter with wrong type for database_path raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             MetadataRepositoryFactory.create(adapter_name="duckdb", config={"database_path": 123})  # type: ignore
 
         assert exc_info.value.status_code == 400
@@ -85,7 +85,7 @@ class TestMetadataRepositoryFactory:
 
     def test_get_adapter_info_unknown(self):
         """Test getting info for unknown adapter raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             MetadataRepositoryFactory.get_adapter_info(adapter_name="unknown")
 
         assert exc_info.value.status_code == 400
@@ -126,7 +126,7 @@ class TestDataStoreFactory:
 
     def test_create_unknown_adapter(self):
         """Test creating unknown adapter raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DataStoreFactory.create(adapter_name="unknown_adapter", config={"database_path": "test.db"})
 
         assert exc_info.value.status_code == 400
@@ -134,7 +134,7 @@ class TestDataStoreFactory:
 
     def test_create_invalid_config_missing_path(self):
         """Test creating adapter with missing database_path raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DataStoreFactory.create(adapter_name="duckdb", config={})
 
         assert exc_info.value.status_code == 400
@@ -142,14 +142,14 @@ class TestDataStoreFactory:
 
     def test_create_invalid_config_empty_path(self):
         """Test creating adapter with empty database_path raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DataStoreFactory.create(adapter_name="duckdb", config={"database_path": ""})
 
         assert exc_info.value.status_code == 400
 
     def test_create_invalid_config_wrong_type(self):
         """Test creating adapter with wrong type for database_path raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DataStoreFactory.create(adapter_name="duckdb", config={"database_path": 123})
 
         assert exc_info.value.status_code == 400
@@ -164,7 +164,7 @@ class TestDataStoreFactory:
 
     def test_get_adapter_info_unknown(self):
         """Test getting info for unknown adapter raises error."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DataStoreFactory.get_adapter_info(adapter_name="unknown")
 
         assert exc_info.value.status_code == 400

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.operators.vectordb.vectordb_operator import VectorDBOperator
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.operators.vectordb.vectordb_operator import VectorDBOperator
 
 
 class TestVectorDBMetrics:
@@ -97,7 +97,7 @@ class TestVectorDBMetrics:
 
         # Patch the adapter factory to return our mock
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(config=vectordb_config)
@@ -141,7 +141,7 @@ class TestVectorDBMetrics:
         )
 
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(config=vectordb_config)
@@ -190,13 +190,13 @@ class TestVectorDBMetrics:
         )
 
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(config=vectordb_config)
             _, metadata = operator.transform(table=table)
 
-        # Document with failed chunk should be marked as failed (following datasift-api pattern)
+        # Document with failed chunk should be marked as failed (following docling-pipelines-api pattern)
         # 1 document had a chunk failure, so it's counted as failed
         assert metadata[Metrics.External.PROCESSED_DOCS] == 2  # Only 2 docs fully succeeded
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1  # 1 doc had chunk failure
@@ -212,13 +212,13 @@ class TestVectorDBMetrics:
         - 1 document with 3 chunks
         - 2 chunks index successfully, 1 chunk fails
 
-        Expected behavior (following datasift-api pattern):
+        Expected behavior (following docling-pipelines-api pattern):
         - processed_docs = 0 (document with any chunk failure is marked as failed)
         - failed_docs_count = 1 (entire document is failed)
         - items_indexed = 2 (chunk-level success count)
         - items_failed_to_index = 1 (chunk-level failure count)
 
-        This ensures consistency with datasift-api where if ANY chunk of a document
+        This ensures consistency with docling-pipelines-api where if ANY chunk of a document
         fails, the entire document is counted as failed.
         """
         # Mock adapter: 2 items indexed, 1 failed (chunk_1 of doc1)
@@ -244,7 +244,7 @@ class TestVectorDBMetrics:
         )
 
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(config=vectordb_config)

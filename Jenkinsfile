@@ -1,6 +1,6 @@
 #!groovy
 //
-// Jenkins Pipeline for datasift-opensource
+// Jenkins Pipeline for docling-pipelines
 //
 
 // Prefix Output With Timestamps
@@ -14,7 +14,7 @@ timestamps {
   def slackTokenCredentialId = 'e317d69f-0b8d-4526-aa99-29a02c34ff7c'
 
   def afaasCredentialsId = 'bda93d3f-f988-4da0-9bc3-9dc0dba90f95'
-  def datasifttwinpypiCredentialsId = 'pypi-creds'
+  def docpipetwinpypiCredentialsId = 'pypi-creds'
   def jenkinsCredentialsId = 'd89ad365-9ac7-41b6-966d-578b07ae9242'
   def dataconnCredentialsId = 'efe499cb-0bf7-41ff-8a21-eec440e16153'
 
@@ -37,7 +37,7 @@ timestamps {
     ])
   }
 
-  def APP_NAME = "datasift-opensource"
+  def APP_NAME = "docling-pipelines"
   def APP_VERSION = "NA"
   def buildMinorVersion = env.BUILD_NUMBER
   env.VERSION = "0.1.${buildMinorVersion}"
@@ -69,7 +69,7 @@ timestamps {
       stage('Code Quality Check') {
         script {
           withCredentials([
-            usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
+            usernamePassword(credentialsId: docpipetwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
           ]) {
             sh '''
               # Install uv
@@ -101,7 +101,7 @@ timestamps {
       stage('Pytest') {
         script {
           withCredentials([
-            usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
+            usernamePassword(credentialsId: docpipetwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
           ]) {
             sh """
               # Setup Python environment
@@ -115,8 +115,8 @@ timestamps {
               eval "\$(conda shell.bash hook)"
               
               # Create conda environment with Python 3.12
-              conda create -n datasift_py312 python=3.12 -y
-              conda activate datasift_py312
+              conda create -n docpipe_py312 python=3.12 -y
+              conda activate docpipe_py312
               
               # Install uv
               curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -173,7 +173,7 @@ timestamps {
                   # Setup Python environment
                   export PATH=\${HOME}/miniconda3/bin:\$PATH
                   eval "\$(conda shell.bash hook)"
-                  conda activate datasift_py312
+                  conda activate docpipe_py312
                   
                   # Build the wheel using uv
                   uv build --wheel
@@ -187,7 +187,7 @@ timestamps {
                   # Push to Artifactory
                   curl -u "\${ARTIFACTORY_USERNAME}:\${ARTIFACTORY_PASSWORD}" \\
                     -T "\$WHEEL_FILE" \\
-                    "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/datasift-opensource/${VERSION}/\${WHEEL_FILENAME}"
+                    "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/docling-pipelines/${VERSION}/\${WHEEL_FILENAME}"
                   
                   echo "Wheel file pushed to Artifactory successfully"
                 """
@@ -197,7 +197,7 @@ timestamps {
           stage('Publish') {
             script {
               withCredentials([
-                usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD') // pragma: allowlist secret
+                usernamePassword(credentialsId: docpipetwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD') // pragma: allowlist secret
               ]) {
                 sh """
                   echo "TBD"

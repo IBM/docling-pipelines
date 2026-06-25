@@ -2,8 +2,8 @@
 
 import pytest
 
-from datasift.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestDocumentLibraryCreation:
@@ -56,7 +56,7 @@ class TestDocumentLibraryNameValidation:
     def test_create_library_with_empty_name_raises_error(self):
         """Test that creating a library with empty name raises validation error."""
         # Arrange & Act & Assert
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="")
 
         assert "Field 'name'" in str(exc_info.value)
@@ -67,7 +67,7 @@ class TestDocumentLibraryNameValidation:
         long_name = "A" + "x" * 128  # Exceeds max length (128)
 
         # Act & Assert
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name=long_name)
 
         assert "128 characters" in str(exc_info.value)
@@ -109,7 +109,7 @@ class TestDocumentLibraryDescriptionValidation:
         long_description = "x" * 2001  # Exceeds max length (2000)
 
         # Act & Assert
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="Test Library", description=long_description)
 
         assert "2000 characters" in str(exc_info.value)
@@ -165,7 +165,7 @@ class TestDocumentLibraryDocumentSetManagement:
         library.add_document_set(document_set_id=document_set_id)
 
         # Act & Assert
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             library.add_document_set(document_set_id=document_set_id)
 
         assert "already exists" in str(exc_info.value)
@@ -191,7 +191,7 @@ class TestDocumentLibraryDocumentSetManagement:
         document_set_id = "nonexistent-set-id"
 
         # Act & Assert
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             library.remove_document_set(document_set_id=document_set_id)
 
         assert document_set_id in str(exc_info.value)

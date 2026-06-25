@@ -1,6 +1,6 @@
 """Unit tests for ACL query builder."""
 
-from datasift.api.services.acl_query_builder import ACLQueryBuilder
+from docpipe.api.services.acl_query_builder import ACLQueryBuilder
 
 
 class TestACLQueryBuilder:

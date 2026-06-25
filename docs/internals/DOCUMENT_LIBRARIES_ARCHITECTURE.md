@@ -247,10 +247,10 @@ tests/unit/core/assets_management/document_libraries/
 
 ```bash
 # Navigate to backend directory
-cd src/datasift_opensource/backend
+cd src/docpipe_app/backend
 
 # Set PYTHONPATH
-export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(cd ../../.. && pwd)/src/docpipe_app/backend:${PYTHONPATH}"
 
 # Run all document library tests
 uv run pytest ../../../tests/unit/core/assets_management/document_libraries/ -v

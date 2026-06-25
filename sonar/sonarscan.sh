@@ -30,13 +30,13 @@ function clean-exit() {
 
 logTimestamp "start sonarscan"
 
-echo "Running sonarscan.sh for datasift-opensource...."
+echo "Running sonarscan.sh for docling-pipelines...."
 
 # Project/scan specific properties
 SONAR_HOST_URL="https://sonarqube-prod.apps.wdc-sonarqube-prod.core.cirrus.ibm.com"
 SONAR_SCANNER_VERSION=7.0.2.4839
-PROJECT_KEY="56865-datasift-opensource"
-PROJECT_NAME="datasift-opensource"
+PROJECT_KEY="56865-docling-pipelines"
+PROJECT_NAME="docling-pipelines"
 JENKINS_BRANCH=$1
 SONAR_TOKEN=$2
 JENKINS_BUILD_DIR=$3
@@ -53,7 +53,7 @@ if [[ -z ${JENKINS_BRANCH} ]]; then
 fi
 
 ###################################################################################
-# Project-specific source directories for datasift-opensource
+# Project-specific source directories for docling-pipelines
 ###################################################################################
 SONAR_SOURCES="src"
 SONAR_TESTS="tests"

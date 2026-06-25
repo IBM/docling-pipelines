@@ -14,10 +14,10 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from datasift.api.auth.dependencies import get_current_user
-from datasift.api.auth.jwt_handler import JWTConfig, create_access_token, verify_token
-from datasift.api.auth.models import User
-from datasift.api.main import app
+from docpipe.api.auth.dependencies import get_current_user
+from docpipe.api.auth.jwt_handler import JWTConfig, create_access_token, verify_token
+from docpipe.api.auth.models import User
+from docpipe.api.main import app
 
 
 @pytest.fixture
@@ -135,8 +135,8 @@ class TestJWTTokenVerification:
 class TestLoginEndpoint:
     """Test login endpoint functionality."""
 
-    @patch("datasift.api.main.ldap_authenticator")
-    @patch("datasift.api.main.jwt_config")
+    @patch("docpipe.api.main.ldap_authenticator")
+    @patch("docpipe.api.main.jwt_config")
     def test_login_with_valid_credentials_returns_token(self, mock_jwt_config, mock_ldap_auth):
         """Test successful login returns JWT token."""
         # Setup mocks
@@ -157,8 +157,8 @@ class TestLoginEndpoint:
         assert data["token_type"] == "bearer"
         assert len(data["access_token"]) > 0
 
-    @patch("datasift.api.main.ldap_authenticator")
-    @patch("datasift.api.main.jwt_config")
+    @patch("docpipe.api.main.ldap_authenticator")
+    @patch("docpipe.api.main.jwt_config")
     def test_login_with_invalid_credentials_returns_401(self, mock_jwt_config, mock_ldap_auth):
         """Test login with invalid credentials returns 401."""
         # Setup mocks
@@ -175,8 +175,8 @@ class TestLoginEndpoint:
         assert "errors" in json_response
         assert json_response["errors"][0]["code"] == "unauthorized"
 
-    @patch("datasift.api.main.ldap_authenticator", None)
-    @patch("datasift.api.main.jwt_config", None)
+    @patch("docpipe.api.main.ldap_authenticator", None)
+    @patch("docpipe.api.main.jwt_config", None)
     def test_login_when_auth_not_configured_returns_503(self):
         """Test login returns 503 when authentication is not configured."""
         client = TestClient(app)
@@ -282,7 +282,7 @@ class TestAuthenticationDependency:
         # This would normally be called by FastAPI, we're testing the logic
         import asyncio
 
-        from datasift.api.auth.dependencies import get_current_user
+        from docpipe.api.auth.dependencies import get_current_user
 
         user = asyncio.run(get_current_user(credentials=credentials, jwt_config=jwt_config))
 
@@ -297,7 +297,7 @@ class TestAuthenticationDependency:
 
         import asyncio
 
-        from datasift.api.auth.dependencies import get_current_user
+        from docpipe.api.auth.dependencies import get_current_user
 
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_current_user(credentials=credentials, jwt_config=jwt_config))

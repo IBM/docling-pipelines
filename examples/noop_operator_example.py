@@ -15,7 +15,7 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.operators.functional.noop import NOOPOperator
+from docpipe.core.operators.functional.noop import NOOPOperator
 
 
 def main() -> None:  # pragma: no cover

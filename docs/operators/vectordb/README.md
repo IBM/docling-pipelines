@@ -90,7 +90,7 @@ The main operator that:
 ### Basic Configuration
 
 ```python
-from datasift.core.operators.vectordb import VectorDBOperator
+from docpipe.core.operators.vectordb import VectorDBOperator
 
 config = {
     "provider": "opensearch",  # Selects OpenSearch adapter
@@ -147,9 +147,9 @@ To add support for a new vector database (e.g., Pinecone, Weaviate):
 
 ```python
 # adapters/outbound/pinecone/adapter.py
-from datasift.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
-from datasift.core.operators.vectordb.domain.models import IndexRequest, IndexResult
-from datasift.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
+from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
+from docpipe.core.operators.vectordb.domain.models import IndexRequest, IndexResult
+from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
 
 @register_vector_store("pinecone")
 class PineconeAdapter(VectorStorePort):

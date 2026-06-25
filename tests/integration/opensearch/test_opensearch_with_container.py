@@ -13,8 +13,8 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.vectordb import VectorDBOperator
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.vectordb import VectorDBOperator
 
 
 def is_docker_available():

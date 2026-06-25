@@ -39,7 +39,7 @@ cp .env.example .env
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `OPENSEARCH_INDEX_NAME` | string | `datasift_test` | Name of the OpenSearch index |
+| `OPENSEARCH_INDEX_NAME` | string | `docpipe_test` | Name of the OpenSearch index |
 | `OPENSEARCH_DOC_ID_COLUMN` | string | `doc_id_hash` | Column name for document IDs |
 | `OPENSEARCH_EMBEDDINGS_COLUMN` | string | `embeddings` | Column name for vector embeddings |
 | `OPENSEARCH_BATCH_SIZE` | integer | `100` | Documents per batch |

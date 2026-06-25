@@ -4,8 +4,8 @@ from typing import Any
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 
 class ReverseOperator(AbstractOperator):
@@ -17,7 +17,7 @@ class ReverseOperator(AbstractOperator):
 
     short_name: str = "reverse_text"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, config: dict[str, Any]):
         """Initialize the reverse operator.

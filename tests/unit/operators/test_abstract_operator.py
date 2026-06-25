@@ -7,14 +7,14 @@ Tests initialization, validation, metadata handling, and utility methods.
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import (
-    DatasiftConstants,
+from docpipe.core.constants.constants import (
+    DocpipeConstants,
     ExecutionStatus,
     Metrics,
 )
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.models.session_info import create_session_info
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.models.session_info import create_session_info
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # ---------------------------------------------------------------------------
 # Test Operator Implementation
@@ -52,8 +52,8 @@ def make_config(**kwargs) -> dict:
     config = {
         OperatorConstants.Misc.NAME: "test_op",
         OperatorConstants.Misc.ID: "test_id_123",
-        DatasiftConstants.JOB_ID: "job_001",
-        DatasiftConstants.JOB_RUN_ID: "run_001",
+        DocpipeConstants.JOB_ID: "job_001",
+        DocpipeConstants.JOB_RUN_ID: "run_001",
     }
     config.update(kwargs)
     return config
@@ -87,12 +87,12 @@ def test_init_with_all_config_parameters():
         **{
             OperatorConstants.Misc.NAME: "my_operator",
             OperatorConstants.Misc.ID: "op_456",
-            DatasiftConstants.JOB_ID: "job_999",
-            DatasiftConstants.JOB_RUN_ID: "run_888",
-            DatasiftConstants.CONTEXT_ID: "context_777",
-            DatasiftConstants.OUTPUT_FEATURES_TO_DROP: ["feature1", "feature2"],
-            DatasiftConstants.UPDATED_FEATURES: ["feature3"],
-            DatasiftConstants.VALIDATING_FLOW: True,
+            DocpipeConstants.JOB_ID: "job_999",
+            DocpipeConstants.JOB_RUN_ID: "run_888",
+            DocpipeConstants.CONTEXT_ID: "context_777",
+            DocpipeConstants.OUTPUT_FEATURES_TO_DROP: ["feature1", "feature2"],
+            DocpipeConstants.UPDATED_FEATURES: ["feature3"],
+            DocpipeConstants.VALIDATING_FLOW: True,
         }
     )
     operator = make_operator(config)
@@ -122,7 +122,7 @@ def test_init_with_minimal_config():
 def test_init_context_id_defaults_to_job_id():
     """context_id defaults to job_id when not provided."""
     config = make_config()
-    config.pop(DatasiftConstants.CONTEXT_ID, None)
+    config.pop(DocpipeConstants.CONTEXT_ID, None)
     operator = make_operator(config)
 
     assert operator.context_id == operator.job_id
@@ -130,7 +130,7 @@ def test_init_context_id_defaults_to_job_id():
 
 def test_init_context_id_uses_provided_value():
     """context_id uses provided value when specified."""
-    config = make_config(**{DatasiftConstants.CONTEXT_ID: "custom_context"})
+    config = make_config(**{DocpipeConstants.CONTEXT_ID: "custom_context"})
     operator = make_operator(config)
 
     assert operator.context_id == "custom_context"
@@ -168,10 +168,10 @@ def test_init_common_log_arguments_structure():
     config = make_config()
     operator = make_operator(config)
 
-    assert DatasiftConstants.JOB_ID in operator.common_log_arguments
-    assert DatasiftConstants.JOB_RUN_ID in operator.common_log_arguments
-    assert operator.common_log_arguments[DatasiftConstants.JOB_ID] == operator.job_id
-    assert operator.common_log_arguments[DatasiftConstants.JOB_RUN_ID] == operator.job_run_id
+    assert DocpipeConstants.JOB_ID in operator.common_log_arguments
+    assert DocpipeConstants.JOB_RUN_ID in operator.common_log_arguments
+    assert operator.common_log_arguments[DocpipeConstants.JOB_ID] == operator.job_id
+    assert operator.common_log_arguments[DocpipeConstants.JOB_RUN_ID] == operator.job_run_id
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +304,7 @@ def test_get_metadata_returns_dict_type():
 
 def test_should_validate_field_returns_true_when_not_validating_flow():
     """should_validate_field() returns True during execution phase."""
-    config = make_config(**{DatasiftConstants.VALIDATING_FLOW: False})
+    config = make_config(**{DocpipeConstants.VALIDATING_FLOW: False})
     operator = make_operator(config)
 
     result = operator.should_validate_field(field_value="test")
@@ -314,7 +314,7 @@ def test_should_validate_field_returns_true_when_not_validating_flow():
 
 def test_should_validate_field_returns_false_when_validating_flow():
     """should_validate_field() returns False during validation phase."""
-    config = make_config(**{DatasiftConstants.VALIDATING_FLOW: True})
+    config = make_config(**{DocpipeConstants.VALIDATING_FLOW: True})
     operator = make_operator(config)
 
     result = operator.should_validate_field(field_value="test")
@@ -324,7 +324,7 @@ def test_should_validate_field_returns_false_when_validating_flow():
 
 def test_should_validate_field_with_none_value_not_validating():
     """should_validate_field() returns True for None value when not validating."""
-    config = make_config(**{DatasiftConstants.VALIDATING_FLOW: False})
+    config = make_config(**{DocpipeConstants.VALIDATING_FLOW: False})
     operator = make_operator(config)
 
     result = operator.should_validate_field(field_value=None)
@@ -334,7 +334,7 @@ def test_should_validate_field_with_none_value_not_validating():
 
 def test_should_validate_field_with_none_value_validating():
     """should_validate_field() returns False for None value when validating."""
-    config = make_config(**{DatasiftConstants.VALIDATING_FLOW: True})
+    config = make_config(**{DocpipeConstants.VALIDATING_FLOW: True})
     operator = make_operator(config)
 
     result = operator.should_validate_field(field_value=None)
@@ -344,7 +344,7 @@ def test_should_validate_field_with_none_value_validating():
 
 def test_should_validate_field_with_empty_string():
     """should_validate_field() behavior with empty string value."""
-    config = make_config(**{DatasiftConstants.VALIDATING_FLOW: False})
+    config = make_config(**{DocpipeConstants.VALIDATING_FLOW: False})
     operator = make_operator(config)
 
     result = operator.should_validate_field(field_value="")
@@ -354,7 +354,7 @@ def test_should_validate_field_with_empty_string():
 
 def test_should_validate_field_with_complex_value():
     """should_validate_field() behavior with complex value types."""
-    config = make_config(**{DatasiftConstants.VALIDATING_FLOW: False})
+    config = make_config(**{DocpipeConstants.VALIDATING_FLOW: False})
     operator = make_operator(config)
 
     result = operator.should_validate_field(field_value={"key": "value"})
@@ -668,8 +668,8 @@ def test_init_with_none_values_in_config():
     config = {
         OperatorConstants.Misc.NAME: None,
         OperatorConstants.Misc.ID: None,
-        DatasiftConstants.JOB_ID: None,
-        DatasiftConstants.JOB_RUN_ID: None,
+        DocpipeConstants.JOB_ID: None,
+        DocpipeConstants.JOB_RUN_ID: None,
     }
     operator = make_operator(config)
 

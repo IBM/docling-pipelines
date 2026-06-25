@@ -8,11 +8,11 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from opensearchpy import OpenSearch
 
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import (
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import (
     METADATA_COLUMNS,
     OpenSearchBatchProcessor,
 )
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
 
 
 class TestMetadataAggregation:

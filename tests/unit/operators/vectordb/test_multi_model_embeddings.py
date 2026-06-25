@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, Mock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.vectordb import VectorDBOperator
-from datasift.utils.operators.vectordb_utils import detect_all_vector_dimensions
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.utils.operators.vectordb_utils import detect_all_vector_dimensions
 
 
 class TestMultiModelEmbeddings:
@@ -107,12 +107,12 @@ class TestMultiModelEmbeddings:
         # Should only return dimension for existing column
         assert dimension_mapping == {"embeddings": 4}
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_vectordb_operator_identifies_multiple_vector_columns(
         self, mock_opensearch, multi_model_config, dual_embeddings_table
     ):
         """Test that VectorDBOperator correctly identifies multiple vector columns."""
-        with patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk"):
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor.helpers.bulk"):
             # Get vector columns from available_features
             available_features = multi_model_config[OperatorConstants.Config.AVAILABLE_FEATURES]
             vector_columns = [col for col, meta in available_features.items() if meta.get("type") == "vector"]
@@ -121,7 +121,7 @@ class TestMultiModelEmbeddings:
             assert "embeddings" in vector_columns
             assert "embeddings_alt" in vector_columns
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_create_index_called_with_dimension_mapping(
         self, mock_opensearch, multi_model_config, dual_embeddings_table
     ):
@@ -134,7 +134,7 @@ class TestMultiModelEmbeddings:
         mock_adapter.insert_documents = Mock(return_value=(3, 0, []))
 
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(multi_model_config)
@@ -148,7 +148,7 @@ class TestMultiModelEmbeddings:
             dimension_mapping = call_kwargs["dimension_mapping"]
             assert dimension_mapping == {"embeddings": 4, "embeddings_alt": 6}
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_multi_model_document_preparation(self, mock_opensearch, multi_model_config, dual_embeddings_table):
         """Test that documents are prepared with all vector columns."""
         mock_adapter = Mock()
@@ -166,7 +166,7 @@ class TestMultiModelEmbeddings:
         mock_adapter.index_documents = Mock(side_effect=capture_docs)
 
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(multi_model_config)
@@ -209,7 +209,7 @@ class TestMultiModelEmbeddings:
             }
         )
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch")
     def test_chunked_multi_model_embeddings(self, mock_opensearch, multi_model_config, chunked_dual_embeddings_table):
         """Test handling of chunked data with multiple embedding columns."""
         mock_adapter = Mock()
@@ -226,7 +226,7 @@ class TestMultiModelEmbeddings:
         mock_adapter.index_documents = Mock(side_effect=capture_docs)
 
         with patch(
-            "datasift.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
             return_value=mock_adapter,
         ):
             operator = VectorDBOperator(multi_model_config)
@@ -310,10 +310,10 @@ class TestMilvusMultiModelInterface:
             },
         }
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_milvus_create_index_accepts_dimension_mapping(self, mock_pymilvus, milvus_config):
         """Test that Milvus adapter's create_index accepts dimension_mapping parameter."""
-        from datasift.core.operators.vectordb.adapters.outbound.milvus.adapter import MilvusAdapter
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.adapter import MilvusAdapter
 
         # Mock the client
         mock_client_instance = MagicMock()
@@ -338,10 +338,10 @@ class TestMilvusMultiModelInterface:
         except TypeError as e:
             pytest.fail(f"create_index does not accept dimension_mapping parameter: {e}")
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_milvus_detect_all_vector_dimensions(self, mock_pymilvus, milvus_config):
         """Test that Milvus adapter implements detect_all_vector_dimensions."""
-        from datasift.core.operators.vectordb.adapters.outbound.milvus.adapter import MilvusAdapter
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.adapter import MilvusAdapter
 
         mock_client_instance = MagicMock()
         mock_pymilvus.return_value = mock_client_instance

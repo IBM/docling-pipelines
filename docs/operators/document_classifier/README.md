@@ -60,17 +60,29 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 
 ### Component Responsibilities
 
+<<<<<<<< HEAD:src/docpipe/core/operators/quality/classification/README.md
+#### 1. **Operator Layer** ([`document_classifier.py`](../../src/docpipe/core/operators/quality/classification/document_classifier.py))
+========
 #### 1. **Operator Layer** ([`document_classifier.py`](document_classifier.py))
+>>>>>>>> origin/main:docs/operators/document_classifier/README.md
 - Handles PyArrow table processing and orchestration
 - Manages parallel document classification
 - Integrates with job tracking and progress reporting
 
+<<<<<<<< HEAD:src/docpipe/core/operators/quality/classification/README.md
+#### 2. **Service Layer** ([`classification_service.py`](../../src/docpipe/core/operators/quality/classification/classification_service.py))
+========
 #### 2. **Service Layer** ([`classification_service.py`](classification_service.py))
+>>>>>>>> origin/main:docs/operators/document_classifier/README.md
 - Contains business logic for document classification
 - Validates configuration parameters
 - Manages LLM adapter lifecycle
 
+<<<<<<<< HEAD:src/docpipe/core/operators/quality/classification/README.md
+#### 3. **Domain Layer** ([`domain/models.py`](../../src/docpipe/core/operators/quality/classification/domain/models.py))
+========
 #### 3. **Domain Layer** ([`domain/models.py`](domain/models.py))
+>>>>>>>> origin/main:docs/operators/document_classifier/README.md
 - Pure domain models: `ClassificationRequest`, `ClassificationResponse`
 - Provider-agnostic prompt building logic
 - No infrastructure dependencies
@@ -289,7 +301,7 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 
 ### Supported File Extensions
 
-The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../src/datasift/core/constants/operator_constants.py) and only processes documents with the following formats:
+The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../src/docpipe/core/constants/operator_constants.py) and only processes documents with the following formats:
 - **PDF**: `.pdf`
 - **Microsoft Word**: `.docx`
 - **Microsoft PowerPoint**: `.pptx`

@@ -1,6 +1,6 @@
 {
   "flow_name": "invoice processing flow",
-  "description": "a flow to demonstrate invoice processing with datasift pipeline",
+  "description": "a flow to demonstrate invoice processing with docpipe pipeline",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -10,10 +10,10 @@
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-process",
-        "work_pool_name": "datasift-pool",
+        "work_pool_name": "docpipe-pool",
         "batch_storage": {
           "type": "local",
-          "path": "/tmp/datasift-batches"
+          "path": "/tmp/docpipe-batches"
         }
       }
     },

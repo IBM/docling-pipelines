@@ -5,9 +5,9 @@ from unittest.mock import Mock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus, Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.orchestration.python.python_operator_executor import PythonOperatorExecutor
+from docpipe.core.constants.constants import ExecutionStatus, Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.orchestration.python.python_operator_executor import PythonOperatorExecutor
 
 
 class TestEmptyDocumentHandling:
@@ -67,7 +67,7 @@ class TestEmptyDocumentHandling:
         )
         metadata = {Metrics.External.NODE_STATUS: ExecutionStatus.COMPLETED.value}
 
-        with patch("datasift.core.orchestration.abstract_operator_executor.OperatorUtils.merge_status") as mock_merge:
+        with patch("docpipe.core.orchestration.abstract_operator_executor.OperatorUtils.merge_status") as mock_merge:
             mock_merge.return_value = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
 
             executor._add_empty_docs_to_skipped_metadata(table=table, empty_doc_indices=[1], metadata=metadata)
@@ -199,8 +199,8 @@ class TestEmptyDocumentHandling:
         assert processed_tables is None
         assert updated_metadata == metadata
 
-    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
-    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    @patch("docpipe.core.incremental_metadata.IncrementalUpdateService")
+    @patch("docpipe.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     def test_save_empty_docs_to_incremental_metadata_success(self, mock_create_store, mock_service_class, executor):
         """Test saving empty documents to incremental metadata successfully."""
         mock_store = Mock()
@@ -224,8 +224,8 @@ class TestEmptyDocumentHandling:
         assert len(call_args.kwargs["tables"]) == 1
         assert call_args.kwargs["tables"][0].num_rows == 1
 
-    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
-    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    @patch("docpipe.core.incremental_metadata.IncrementalUpdateService")
+    @patch("docpipe.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     def test_save_empty_docs_to_incremental_metadata_failure(self, mock_create_store, mock_service_class, executor):
         """Test handling failure when saving to incremental metadata."""
         mock_store = Mock()
@@ -254,7 +254,7 @@ class TestEmptyDocumentHandling:
         )
 
         # Should return early without attempting to save
-        with patch("datasift.core.incremental_metadata.IncrementalUpdateService") as mock_service:
+        with patch("docpipe.core.incremental_metadata.IncrementalUpdateService") as mock_service:
             executor._save_empty_docs_to_incremental_metadata(table=table, empty_doc_indices=[])
             mock_service.assert_not_called()
 

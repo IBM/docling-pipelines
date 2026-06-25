@@ -5,10 +5,10 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from datasift.api.dependencies import get_job_management_service, get_job_stats_service
-from datasift.api.main import app
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.exceptions.datasift_exceptions import JobRunOperationFailedException
+from docpipe.api.dependencies import get_job_management_service, get_job_stats_service
+from docpipe.api.main import app
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.exceptions.docpipe_exceptions import JobRunOperationFailedException
 
 
 @pytest.fixture
@@ -98,7 +98,7 @@ class TestCreateJobRun:
 
     def test_create_job_run_service_error(self, client, mock_job_management_service):
         """Test handling service errors during job run creation."""
-        from datasift.exceptions.datasift_exceptions import JobRunOperationFailedException
+        from docpipe.exceptions.docpipe_exceptions import JobRunOperationFailedException
 
         mock_job_management_service.create_job_run_from_request.side_effect = JobRunOperationFailedException(
             "Database error"
@@ -244,7 +244,7 @@ class TestGetJobRunStatus:
 
     def test_get_job_run_status_not_found(self, client, mock_job_stats_service):
         """Test getting status for non-existent job run."""
-        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
+        from docpipe.exceptions.docpipe_exceptions import JobRunNotFoundException
 
         mock_job_stats_service.get_formatted_job_stats.side_effect = JobRunNotFoundException(
             "Job run not found: 00000000-0000-0000-0000-000000000000",
@@ -281,7 +281,7 @@ class TestCancelJobRun:
 
     def test_cancel_job_run_not_found(self, client, mock_job_management_service):
         """Test cancelling non-existent job run."""
-        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
+        from docpipe.exceptions.docpipe_exceptions import JobRunNotFoundException
 
         mock_job_management_service.cancel_job_run.side_effect = JobRunNotFoundException(
             "Job run not found: 00000000-0000-0000-0000-000000000000",
@@ -317,7 +317,7 @@ class TestDeleteJobRun:
 
     def test_delete_job_run_not_found(self, client, mock_job_management_service):
         """Test deleting non-existent job run."""
-        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
+        from docpipe.exceptions.docpipe_exceptions import JobRunNotFoundException
 
         mock_job_management_service.delete_job_run.side_effect = JobRunNotFoundException(
             "Job run not found: 00000000-0000-0000-0000-000000000000",

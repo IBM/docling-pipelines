@@ -9,22 +9,22 @@ from unittest.mock import Mock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.utils.data.schema_utils import (
+from docpipe.utils.data.schema_utils import (
     _combine_tables,
     _total_rows,
     align_table_schema,
 )
-from datasift.utils.orchestration.deleted_rows_tracker import (
+from docpipe.utils.orchestration.deleted_rows_tracker import (
     combine_cumulative_deleted_rows,
     update_deleted_rows,
 )
-from datasift.utils.orchestration.flow_utils import (
+from docpipe.utils.orchestration.flow_utils import (
     construct_deleted_rows_table_path,
     create_log_folders,
     create_node_id_to_index_map,
     write_job_logs,
 )
-from datasift.utils.orchestration.prefect_config import (
+from docpipe.utils.orchestration.prefect_config import (
     PREFECT_API_DATABASE_CONNECTION_URL,
     PREFECT_DEBUG,
     PREFECT_HOME,
@@ -64,7 +64,7 @@ class TestCreateNodeIdToIndexMap:
 class TestCreateLogFolders:
     """Test create_log_folders function."""
 
-    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
+    @patch("docpipe.utils.infrastructure.filesystem.get_data_path")
     def test_create_log_folders_job_type(self, mock_data_path):
         """Test creating log folders for job type."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -77,7 +77,7 @@ class TestCreateLogFolders:
             assert "job_stats.json" in result
             assert os.path.exists(os.path.dirname(result))
 
-    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
+    @patch("docpipe.utils.infrastructure.filesystem.get_data_path")
     def test_create_log_folders_agg_logs_type(self, mock_data_path):
         """Test creating log folders for aggregated logs type."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -445,7 +445,7 @@ class TestUpdateDeletedRows:
 class TestConstructDeletedRowsTablePath:
     """Test construct_deleted_rows_table_path function."""
 
-    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
+    @patch("docpipe.utils.infrastructure.filesystem.get_data_path")
     def test_construct_deleted_rows_table_path(self, mock_data_path):
         """Test constructing deleted rows table path."""
         mock_data_path.return_value = "/warehouse"

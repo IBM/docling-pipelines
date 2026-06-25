@@ -1,7 +1,7 @@
 {
   "flow_name": "sample flow",
   "flow_id": "55578a6c-96b0-4f51-af8f-3aa63c575140",
-  "description": "a sample flow to demonstrate the datasift pipeline command line execution",
+  "description": "a sample flow to demonstrate the docpipe pipeline command line execution",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -109,7 +109,7 @@
       ],
       "config": {
         "provider": "opensearch",
-        "index_name": "datasift_documents",
+        "index_name": "docpipe_documents",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 2560,

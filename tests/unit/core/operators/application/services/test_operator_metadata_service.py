@@ -11,7 +11,7 @@ ensuring proper:
 Test Strategy:
     - Mock the domain layer (OperatorMetadata) for isolated service testing
     - Verify service correctly delegates to domain layer
-    - Verify service translates exceptions to DatasiftException
+    - Verify service translates exceptions to DocpipeException
     - Verify logging at appropriate levels (info, error)
     - Test both success and failure scenarios
 
@@ -27,11 +27,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.operators.application.services.operator_metadata_service import (
+from docpipe.core.operators.application.services.operator_metadata_service import (
     OperatorMetadataService,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.exceptions.error_codes import ErrorCode
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.error_codes import ErrorCode
 
 
 class TestOperatorMetadataServiceGetAll:
@@ -143,9 +143,9 @@ class TestOperatorMetadataServiceGetAll:
             for feature_name, feature_data in features.items():
                 assert "type" in feature_data, f"Feature '{feature_name}' in operator '{operator_name}' missing 'type'"
 
-    @patch("datasift.core.operators.application.services.operator_metadata_service.OperatorMetadata")
-    def test_get_all_operator_metadata_raises_datasift_exception_on_error(self, mock_operator_metadata_class):
-        """Test that service raises DatasiftException when underlying call fails."""
+    @patch("docpipe.core.operators.application.services.operator_metadata_service.OperatorMetadata")
+    def test_get_all_operator_metadata_raises_docpipe_exception_on_error(self, mock_operator_metadata_class):
+        """Test that service raises DocpipeException when underlying call fails."""
         # Arrange
         mock_instance = Mock()
         mock_instance.get_operator_metadata.side_effect = RuntimeError("Test error")
@@ -154,14 +154,14 @@ class TestOperatorMetadataServiceGetAll:
         service = OperatorMetadataService()
 
         # Act & Assert
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             service.get_all_operator_metadata(internal_features=False)
 
         assert exc_info.value.status_code == 500
         assert exc_info.value.error_code == ErrorCode.OPERATOR_METADATA_FAILED
         assert "Failed to retrieve operator metadata" in str(exc_info.value)
 
-    @patch("datasift.core.operators.application.services.operator_metadata_service.OperatorMetadata")
+    @patch("docpipe.core.operators.application.services.operator_metadata_service.OperatorMetadata")
     def test_get_all_operator_metadata_logs_error_on_failure(self, mock_operator_metadata_class):
         """Test that errors are logged when metadata retrieval fails."""
         # Arrange
@@ -172,8 +172,8 @@ class TestOperatorMetadataServiceGetAll:
         service = OperatorMetadataService()
 
         # Act & Assert
-        with patch("datasift.core.operators.application.services.operator_metadata_service.logger") as mock_logger:
-            with pytest.raises(DatasiftException):
+        with patch("docpipe.core.operators.application.services.operator_metadata_service.logger") as mock_logger:
+            with pytest.raises(DocpipeException):
                 service.get_all_operator_metadata(internal_features=False)
 
             # Verify error was logged
@@ -186,7 +186,7 @@ class TestOperatorMetadataServiceGetAll:
         service = OperatorMetadataService()
 
         # Act
-        with patch("datasift.core.operators.application.services.operator_metadata_service.logger") as mock_logger:
+        with patch("docpipe.core.operators.application.services.operator_metadata_service.logger") as mock_logger:
             result = service.get_all_operator_metadata(internal_features=False)
 
             # Assert

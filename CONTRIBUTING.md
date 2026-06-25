@@ -1,6 +1,6 @@
-# Contributing to datasift-opensource
+# Contributing to docling-pipelines
 
-Thank you for your interest in contributing to datasift-opensource! This guide will help you get started with contributing to the project.
+Thank you for your interest in contributing to docling-pipelines! This guide will help you get started with contributing to the project.
 
 ## Table of Contents
 
@@ -51,14 +51,14 @@ If you experience or witness unacceptable behavior, please report it to the proj
 2. Clone your fork locally:
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/datasift-opensource.git
-cd datasift-opensource
+git clone https://github.com/YOUR-USERNAME/docling-pipelines.git
+cd docling-pipelines
 ```
 
 3. Add the upstream repository:
 
 ```bash
-git remote add upstream https://github.com/ORIGINAL-OWNER/datasift-opensource.git
+git remote add upstream https://github.com/ORIGINAL-OWNER/docling-pipelines.git
 ```
 
 ## Development Setup
@@ -68,7 +68,7 @@ git remote add upstream https://github.com/ORIGINAL-OWNER/datasift-opensource.gi
 Use the automated setup script for a complete environment:
 
 ```bash
-./scripts/setup_datasift_environment.sh
+./scripts/setup_docpipe_environment.sh
 ```
 
 This installs Python 3.12, uv, Ollama, OpenSearch, and all dependencies.
@@ -174,7 +174,7 @@ uv run pytest -v --cov=src --cov-report=html
 ### Job Metadata Aggregation Reminder
 
 If your change adds or modifies operator-emitted metadata used in job stats:
-- review [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py)
+- review [`DEFAULT_STRATEGIES`](src/docpipe/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/docpipe/core/job_management/application/aggregation/strategies.py)
 - add or update aggregation tests when the field should not use the default `LAST` behavior
 - update [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md) when the change introduces a new aggregation pattern or maintainer rule
 
@@ -258,10 +258,10 @@ def extract_text(file_path: str, use_ocr: bool = False) -> str:
 
 #### For Operator Users: Accessing Operator Metadata
 
-Use the [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) class to query metadata about available operators, their features, and requirements:
+Use the [`OperatorMetadata`](src/docpipe/core/operators/operator_metadata.py) class to query metadata about available operators, their features, and requirements:
 
 ```python
-from datasift.core.operators.operator_metadata import OperatorMetadata
+from docpipe.core.operators.operator_metadata import OperatorMetadata
 
 # Initialize metadata manager
 metadata = OperatorMetadata()
@@ -297,12 +297,12 @@ print(feature_map['content'])  # ['Extract Docling', 'Extract Entities (Ollama)'
 
 - `get_operator_metadata()`: Returns metadata for all registered operators
 - `get_features()`: Gets features from a specific operator, optionally filtered by purpose
-- [`required_feature_names()`](src/datasift/core/operators/operator_metadata.py:255): Returns list of required input features for an operator
-- [`get_feature_operators_map()`](src/datasift/core/operators/operator_metadata.py:278): Builds reverse mapping from features to operators that produce them
+- [`required_feature_names()`](src/docpipe/core/operators/operator_metadata.py:255): Returns list of required input features for an operator
+- [`get_feature_operators_map()`](src/docpipe/core/operators/operator_metadata.py:278): Builds reverse mapping from features to operators that produce them
 
 #### For Operator Developers: Implementing Metadata Methods
 
-When creating new operators, you **must implement** two static methods so [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) can discover and aggregate your operator's information:
+When creating new operators, you **must implement** two static methods so [`OperatorMetadata`](src/docpipe/core/operators/operator_metadata.py) can discover and aggregate your operator's information:
 
 **Required Static Methods:**
 
@@ -345,8 +345,8 @@ def get_required_features() -> list[str]:
 ```python
 from typing import Any
 import pyarrow as pa
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class MyCustomOperator(AbstractOperator):
     """Custom operator that processes documents."""
@@ -398,42 +398,42 @@ class MyCustomOperator(AbstractOperator):
         # Implementation using self.param1 and other instance attributes
         pass
 
-### Built-in Datasift Operator Requirements
+### Built-in Docpipe Operator Requirements
 
-When creating built-in datasift operators (operators that ship with the datasift package), you **must**:
+When creating built-in docpipe operators (operators that ship with the docpipe package), you **must**:
 
 1. **Set the owner attribute explicitly:**
    ```python
-   from datasift.core.constants.constants import DatasiftConstants
+   from docpipe.core.constants.constants import DocpipeConstants
    
-   class MyDatasiftOperator(AbstractOperator):
-       short_name: str = "my_datasift_operator"
+   class MyDocpipeOperator(AbstractOperator):
+       short_name: str = "my_docpipe_operator"
        category: OperatorCategory = OperatorCategory.Functional
-       owner: str = DatasiftConstants.OWNER_DATASIFT  # REQUIRED for built-in operators
+       owner: str = DocpipeConstants.OWNER_DOCPIPE  # REQUIRED for built-in operators
    ```
 
-2. **Import DatasiftConstants:**
-   All built-in operators must import `DatasiftConstants` to access the `OWNER_DATASIFT` constant:
+2. **Import DocpipeConstants:**
+   All built-in operators must import `DocpipeConstants` to access the `OWNER_DOCPIPE` constant:
    ```python
-   from datasift.core.constants.constants import DatasiftConstants
+   from docpipe.core.constants.constants import DocpipeConstants
    ```
 
 3. **Follow all other operator requirements** (implement `get_metadata()`, `get_required_features()`, etc.)
 
 4. **Register the operator in the operator registry:**
    
-   All built-in datasift operators must be registered in the operator registry frozenset to be discoverable by the operator factory.
+   All built-in docpipe operators must be registered in the operator registry frozenset to be discoverable by the operator factory.
    
    **Steps to register:**
    
-   a. Add the import in [`src/datasift/core/operators/operator_registry.py`](src/datasift/core/operators/operator_registry.py):
+   a. Add the import in [`src/docpipe/core/operators/operator_registry.py`](src/docpipe/core/operators/operator_registry.py):
    ```python
-   from datasift.core.operators.quality.my_operator import MyOperator
+   from docpipe.core.operators.quality.my_operator import MyOperator
    ```
    
-   b. Add the operator class to the `DATASIFT_OPERATORS` frozenset in the appropriate category section:
+   b. Add the operator class to the `DOCPIPE_OPERATORS` frozenset in the appropriate category section:
    ```python
-   DATASIFT_OPERATORS = frozenset(
+   DOCPIPE_OPERATORS = frozenset(
        {
            # ... other operators ...
            # Quality
@@ -447,7 +447,7 @@ When creating built-in datasift operators (operators that ship with the datasift
    
    **Verification:** After registration, verify the operator appears in the list:
    ```bash
-   datasift-orchestrator --list-operators
+   docling-pipelines --list-operators
    ```
 
 ### Custom Operator Requirements
@@ -458,15 +458,15 @@ When creating custom operators, you **must**:
    
    The `owner` attribute must be declared at the class level, alongside `short_name` and `category`.
    
-   **To override an existing datasift operator**, use the **same `short_name`** as the datasift operator:
+   **To override an existing docpipe operator**, use the **same `short_name`** as the docpipe operator:
    
    ```python
    class CustomChunkerOperator(AbstractOperator):
-       """Custom chunker that overrides datasift's chunker."""
+       """Custom chunker that overrides docpipe's chunker."""
        
-       short_name: str = OperatorConstants.Operators.CHUNKER  # Same as datasift!
+       short_name: str = OperatorConstants.Operators.CHUNKER  # Same as docpipe!
        category: OperatorCategory = OperatorCategory.Functional
-       owner: str = "custom"  # REQUIRED: Gives priority 1 (overrides datasift)
+       owner: str = "custom"  # REQUIRED: Gives priority 1 (overrides docpipe)
        
        def __init__(self, *, config: dict[str, Any]) -> None:
            super().__init__(config=config)
@@ -488,11 +488,11 @@ When creating custom operators, you **must**:
    
    **Why This Matters:**
    - Custom operators with `owner="custom"` receive **priority 1** (highest)
-   - Datasift operators with `owner="datasift"` receive **priority 2**
+   - Docpipe operators with `owner="docpipe"` receive **priority 2**
    - When both have the same `short_name`, only the custom operator (priority 1) is loaded
    - Without setting `owner="custom"`, your operator inherits `owner=None` from `AbstractOperator`, which will be treated as a custom operator
    - The `owner` attribute appears in operator metadata returned by `get_operator_metadata()`
-   - **All built-in datasift operators must explicitly set** `owner = DatasiftConstants.OWNER_DATASIFT`
+   - **All built-in docpipe operators must explicitly set** `owner = DocpipeConstants.OWNER_DOCPIPE`
 
 2. **Use keyword-only arguments:**
    All function parameters must use `*` to enforce keyword-only arguments:
@@ -512,12 +512,12 @@ When creating custom operators, you **must**:
 
 ### Environment Variables for Custom Operators
 
-**DATASIFT_CUSTOM_OPERATORS:**
+**DOCPIPE_CUSTOM_OPERATORS:**
 
 Comma-separated list of Python package paths containing custom operators.
 
 ```bash
-export DATASIFT_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
+export DOCPIPE_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
 ```
 
 **Requirements:**
@@ -525,23 +525,23 @@ export DATASIFT_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
 - Package paths separated by commas
 - Packages must be importable from PYTHONPATH
 
-**DATASIFT_ENABLE_CUSTOM_OPERATORS:**
+**DOCPIPE_ENABLE_CUSTOM_OPERATORS:**
 
 Boolean flag to enable/disable custom operator loading (default: `true`).
 
 ```bash
-export DATASIFT_ENABLE_CUSTOM_OPERATORS="true"  # or "false"
+export DOCPIPE_ENABLE_CUSTOM_OPERATORS="true"  # or "false"
 ```
 
 **Validation:**
 
-The operator factory validates the `DATASIFT_CUSTOM_OPERATORS` environment variable to ensure it's a string. Non-string values will trigger a warning and be ignored to prevent factory initialization failures. See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:35) for implementation.
+The operator factory validates the `DOCPIPE_CUSTOM_OPERATORS` environment variable to ensure it's a string. Non-string values will trigger a warning and be ignored to prevent factory initialization failures. See [`OperatorFactory`](src/docpipe/core/orchestration/operator_factory.py:35) for implementation.
 
 ```
 
 **Why Static Methods?**
 
-The static method pattern enables [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) to:
+The static method pattern enables [`OperatorMetadata`](src/docpipe/core/operators/operator_metadata.py) to:
 - Discover operator capabilities without instantiation
 - Validate flows before execution
 - Build feature dependency graphs
@@ -983,4 +983,4 @@ If you have questions:
 
 ---
 
-Thank you for contributing to datasift-opensource! Your contributions help make this project better for everyone.
+Thank you for contributing to docling-pipelines! Your contributions help make this project better for everyone.

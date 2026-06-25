@@ -1,0 +1,146 @@
+"""Transaction ID middleware for request tracking and distributed tracing.
+
+This middleware extracts or generates a unique transaction ID for each request
+and manages it through multiple mechanisms:
+- Stores in request.state.transaction_id for handler access
+- Sets in async context variable for logging access
+- Populates session_info for ConditionalFormatter access
+- Adds to response headers for client tracking
+- Creates OpenTelemetry spans for distributed tracing (when enabled)
+
+Header pattern for distributed tracing:
+- Request: Reads transaction ID from X-Global-Transaction-Id header
+- Response: Returns transaction ID in X-Transaction-ID header
+- This enables transaction tracking across services
+
+The async context variable approach allows ConditionalFormatter and other
+logging components to access the transaction ID without explicit parameter passing.
+"""
+
+import uuid
+from contextvars import ContextVar
+
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+from docpipe.core.models.session_info import create_session_info
+from docpipe.utils.infrastructure import get_telemetry_service
+
+# Context variable to store transaction ID for async context propagation
+# This allows logging components to access the transaction ID without explicit passing
+transaction_id_var: ContextVar[str] = ContextVar("transaction_id", default="unknown")
+
+
+def set_transaction_id(transaction_id: str) -> None:
+    """Set the transaction ID in the current async context.
+
+    This function stores the transaction ID in a context variable that automatically
+    propagates through async call chains, making it accessible to logging formatters
+    and other components without explicit parameter passing.
+
+    Args:
+        transaction_id: The transaction ID to set (typically a UUID string)
+    """
+    transaction_id_var.set(transaction_id)
+
+
+def get_transaction_id() -> str:
+    """Get the transaction ID from the current async context.
+
+    Retrieves the transaction ID that was set by TransactionMiddleware for the
+    current request. Used by logging components to include transaction IDs in logs.
+
+    Returns:
+        The transaction ID string, or "unknown" if not set in the current context
+    """
+    return transaction_id_var.get()
+
+
+class TransactionMiddleware(BaseHTTPMiddleware):
+    """Middleware to handle transaction ID for request tracking and distributed tracing.
+
+    Header pattern:
+    - Incoming: Reads transaction ID from X-Global-Transaction-Id header
+    - Outgoing: Returns transaction ID in X-Transaction-ID header
+    - Generates new UUID if X-Global-Transaction-Id is not provided
+
+    This pattern enables distributed tracing across services while maintaining
+    a consistent header naming convention for request/response flow.
+
+    Stores the ID in request.state.transaction_id, sets it in the async context,
+    populates session_info, adds to response headers, and creates OTEL spans
+    for distributed tracing when telemetry is enabled.
+    """
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        """Process request and add transaction ID with optional OTEL tracing.
+
+        Header handling:
+        1. Reads transaction ID from X-Global-Transaction-Id header (incoming)
+        2. Generates new UUID if header not present
+        3. Returns transaction ID in X-Transaction-ID header (outgoing)
+        4. Creates OTEL span for request tracing (if telemetry enabled)
+
+        Args:
+            request: FastAPI request object
+            call_next: Next middleware or route handler
+
+        Returns:
+            Response: Response with X-Transaction-ID header
+        """
+        # Get transaction ID from X-Global-Transaction-Id header
+        transaction_id = request.headers.get("X-Global-Transaction-Id")
+
+        # If not provided, generate a new one
+        if not transaction_id:
+            transaction_id = str(uuid.uuid4())
+
+        # Store in request state for access by handlers
+        request.state.transaction_id = transaction_id
+
+        # Set in async context for logging
+        set_transaction_id(transaction_id)
+
+        # Populate session_info for ConditionalFormatter access
+        create_session_info(transaction_id=transaction_id)
+
+        # Start OTEL span for HTTP request tracing
+        telemetry = get_telemetry_service()
+        span = telemetry.start_span(
+            name=f"{request.method} {request.url.path}",
+            attributes={
+                "http.method": request.method,
+                "http.url": str(request.url),
+                "http.scheme": request.url.scheme,
+                "http.host": request.url.hostname,
+                "http.target": request.url.path,
+                "transaction.id": transaction_id,
+            },
+        )
+
+        try:
+            # Process request
+            response = await call_next(request)
+
+            # Add response attributes to span
+            telemetry.set_span_attribute("http.status_code", response.status_code, span=span)
+
+            # Set span status based on HTTP status code
+            if response.status_code >= 500:
+                telemetry.set_span_attribute("error", True, span=span)
+
+            # Add transaction ID to response headers
+            response.headers["X-Transaction-ID"] = transaction_id
+
+            return response
+
+        except Exception as e:
+            # Record exception in span
+            telemetry.record_exception(e, span=span)
+            telemetry.set_span_attribute("error", True, span=span)
+            raise
+
+        finally:
+            # End span
+            telemetry.end_span(span)

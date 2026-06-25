@@ -10,14 +10,14 @@ import duckdb
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import (
+from docpipe.core.constants.constants import (
     ExecutionStatus,
     Metrics,
 )
-from datasift.core.constants.operator_constants import (
+from docpipe.core.constants.operator_constants import (
     OperatorConstants,
 )
-from datasift.core.operators.quality.sql_filter import (
+from docpipe.core.operators.quality.sql_filter import (
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
     SQLFilterOperator,
@@ -26,8 +26,8 @@ from datasift.core.operators.quality.sql_filter import (
     json_to_sql_where,
     process_condition,
 )
-from datasift.exceptions.datasift_exceptions import (
-    DatasiftException,
+from docpipe.exceptions.docpipe_exceptions import (
+    DocpipeException,
 )
 
 # ---------------------------------------------------------------------------
@@ -541,11 +541,11 @@ class TestConvertOperator:
         assert convert_operator("Like") == "LIKE"
 
     def test_unknown_operator_raises(self):
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             convert_operator("UNKNOWN_OP")
 
     def test_non_string_raises(self):
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             convert_operator(123)
 
 
@@ -638,12 +638,12 @@ class TestProcessCondition:
 
     def test_missing_variable_raises(self):
         condition = {"operator": "=", "value": 5}
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             process_condition(condition)
 
     def test_missing_operator_raises(self):
         condition = {"variable": "score", "value": 5}
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             process_condition(condition)
 
 
@@ -873,7 +873,7 @@ def test_duckdb_execution_failure():
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
     # Mock duckdb.connect() to return a connection that raises an exception on execute
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.BinderException("Mocked DuckDB error")
         mock_connect.return_value = mock_con
@@ -909,7 +909,7 @@ def test_duckdb_conversion_exception():
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.ConversionException("Type conversion error")
         mock_connect.return_value = mock_con
@@ -935,7 +935,7 @@ def test_duckdb_catalog_exception():
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.CatalogException("Table not found")
         mock_connect.return_value = mock_con
@@ -963,7 +963,7 @@ def test_transform_general_exception():
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
     # Mock duckdb.connect() to raise a general exception
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = RuntimeError("Unexpected runtime error")
 
         result_tables, metadata = operator.transform(table)
@@ -984,15 +984,15 @@ def test_transform_general_exception():
         assert len(metadata[Metrics.External.FAILED_DOCS]) == table.num_rows
 
 
-def test_datasift_exception_in_json_to_sql_where():
+def test_docpipe_exception_in_json_to_sql_where():
     """
-    Test when a DatasiftException is raised during JSON to SQL conversion.
+    Test when a DocpipeException is raised during JSON to SQL conversion.
     """
     table = make_table()
     # Invalid JSON criteria that will cause an error
     invalid_criteria_json = {
         "variable": "score",
-        # Missing operator - should raise DatasiftException
+        # Missing operator - should raise DocpipeException
         "value": 5,
     }
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: invalid_criteria_json})
@@ -1029,7 +1029,7 @@ def test_error_handling_with_filter_criteria_per_criterion():
     )
 
     # Mock to fail on the second criterion
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         call_count = [0]
 
@@ -1067,7 +1067,7 @@ def test_error_with_features_to_drop():
         }
     )
 
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = Exception("Unexpected error during filtering")
         mock_connect.return_value = mock_con
@@ -1093,7 +1093,7 @@ def test_error_handling_preserves_table_structure():
 
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Critical error")
 
         result_tables, _metadata = operator.transform(table)
@@ -1116,7 +1116,7 @@ def test_failed_docs_metadata_structure():
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Test error")
 
         _result_tables, metadata = operator.transform(table)
@@ -1152,7 +1152,7 @@ def test_error_with_empty_table():
 
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Error with empty table")
 
         result_tables, metadata = operator.transform(empty_table)
@@ -1183,7 +1183,7 @@ def test_error_handling_with_json_criteria():
     }
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
 
-    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.BinderException("JSON criteria error")
         mock_connect.return_value = mock_con

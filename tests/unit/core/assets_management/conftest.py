@@ -6,9 +6,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from datasift.core.assets.flows.application.services.flow_service import FlowService
-from datasift.core.assets.flows.domain.models.flow import Flow
-from datasift.core.assets.flows.domain.ports.flow_repository import FlowRepository
+from docpipe.core.assets.flows.application.services.flow_service import FlowService
+from docpipe.core.assets.flows.domain.models.flow import Flow
+from docpipe.core.assets.flows.domain.ports.flow_repository import FlowRepository
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Milvus adapter provides vector database capabilities for the datasift project, supporting both standalone Milvus deployments and IBM watsonx.data (wx.data) managed Milvus instances. This integration follows the hexagonal architecture pattern, implementing the `VectorStorePort` interface for seamless integration with the VectorDBOperator.
+The Milvus adapter provides vector database capabilities for the docpipe project, supporting both standalone Milvus deployments and IBM watsonx.data (wx.data) managed Milvus instances. This integration follows the hexagonal architecture pattern, implementing the `VectorStorePort` interface for seamless integration with the VectorDBOperator.
 
 ## Features
 
@@ -360,7 +360,7 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
 
 ## Deployment Scenarios
 
-Datasift provides two example pipeline flows demonstrating different Milvus deployment scenarios:
+Docpipe provides two example pipeline flows demonstrating different Milvus deployment scenarios:
 
 ### 1. Standalone Milvus (Local/Docker) - Sparse Vectors
 **Example Flow**: [`sample_flows/milvus_sparse_localhost_flow.json`](../../sample_flows/milvus_sparse_localhost_flow.json)
@@ -742,8 +742,8 @@ Or in Python code before importing Milvus libraries:
 import os
 os.environ["GRPC_DNS_RESOLVER"] = "native"
 
-# Then import and use datasift
-from datasift.core.operators.vectordb import VectorDBOperator
+# Then import and use docpipe
+from docpipe.core.operators.vectordb import VectorDBOperator
 ```
 
 **Verification Steps**:
@@ -801,7 +801,7 @@ Memory allocation failed
 ### Unit Tests
 
 ```bash
-cd /path/to/datasift-opensource
+cd /path/to/docling-pipelines
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv run pytest tests/unit/operators/vectordb/test_milvus_client.py -v
 ```
@@ -857,12 +857,12 @@ To migrate from OpenSearch to Milvus:
 - [Milvus Documentation](https://milvus.io/docs)
 - [PyMilvus SDK](https://github.com/milvus-io/pymilvus)
 - [IBM watsonx.data](https://www.ibm.com/products/watsonx-data)
-- [Datasift Architecture](../../ARCHITECTURE.md)
+- [Docpipe Architecture](../../ARCHITECTURE.md)
 
 ## Support
 
 For issues or questions:
 1. Check Milvus server logs
-2. Review datasift logs for detailed error messages
+2. Review docpipe logs for detailed error messages
 3. Consult Milvus documentation for index-specific issues
 4. For wx.data issues, contact IBM support

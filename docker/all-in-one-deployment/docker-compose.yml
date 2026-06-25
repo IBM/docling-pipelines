@@ -7,19 +7,19 @@ services:
   
   postgres:
     image: postgres:17-alpine
-    container_name: datasift-postgres
+    container_name: docpipe-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-datasift}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-datasift_password}
-      POSTGRES_DB: ${POSTGRES_DB:-datasift}
+      POSTGRES_USER: ${POSTGRES_USER:-docpipe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docpipe_password}
+      POSTGRES_DB: ${POSTGRES_DB:-docpipe}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - datasift-net
+      - docpipe-net
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-datasift}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docpipe}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,13 +31,13 @@ services:
   
   ollama:
     image: ollama/ollama:0.5.4
-    container_name: datasift-ollama
+    container_name: docpipe-ollama
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama-data:/root/.ollama
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags 2>/dev/null | grep -q 'models' || exit 1"]
       interval: 15s
@@ -60,10 +60,10 @@ services:
   
   opensearch:
     image: opensearchproject/opensearch:3.60.0
-    container_name: datasift-opensearch
+    container_name: docpipe-opensearch
     environment:
-      - cluster.name=datasift-cluster
-      - node.name=datasift-node
+      - cluster.name=docpipe-cluster
+      - node.name=docpipe-node
       - discovery.type=single-node
       - plugins.security.disabled=false
       - plugins.security.ssl.http.enabled=false
@@ -83,7 +83,7 @@ services:
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "curl -u admin:${OPENSEARCH_PASSWORD:-MyStrongPass123!} http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
@@ -93,19 +93,19 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # DATASIFT APPLICATION
+  # DOCPIPE APPLICATION
   # ============================================================================
   
-  datasift:
+  docpipe:
     build:
       context: ../..
       dockerfile: docker/Dockerfile
-    image: datasift-opensource:latest
-    container_name: datasift-app
+    image: docling-pipelines:latest
+    container_name: docpipe-app
     user: "1000:1000"
     environment:
       # Database Configuration
-      DATABASE_URL: postgresql://${POSTGRES_USER:-datasift}:${POSTGRES_PASSWORD:-datasift_password}@postgres:5432/${POSTGRES_DB:-datasift}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-docpipe}:${POSTGRES_PASSWORD:-docpipe_password}@postgres:5432/${POSTGRES_DB:-docpipe}
       
       # Python Configuration
       PYTHONPATH: /opt/app-root/src
@@ -120,9 +120,9 @@ services:
       OPENSEARCH_VERIFY_CERTS: "false"
       
       # Application Configuration
-      DATASIFT_DATA_PATH: /opt/app-root/src/data
+      DOCPIPE_DATA_PATH: /opt/app-root/src/data
     ports:
-      - "${DATASIFT_PORT:-8080}:8080"
+      - "${DOCPIPE_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,7 +131,7 @@ services:
       opensearch:
         condition: service_healthy
     networks:
-      - datasift-net
+      - docpipe-net
     volumes:
       - ./data:/opt/app-root/src/data:rw
       - ./logs:/opt/app-root/src/logs:rw
@@ -152,6 +152,6 @@ volumes:
     driver: local
 
 networks:
-  datasift-net:
+  docpipe-net:
     driver: bridge
-    name: datasift-net
+    name: docpipe-net

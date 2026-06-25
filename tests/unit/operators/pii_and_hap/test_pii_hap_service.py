@@ -4,15 +4,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.constants import LLMConstants
-from datasift.core.operators.quality.pii_and_hap.domain.models import (
+from docpipe.core.constants.constants import LLMConstants
+from docpipe.core.operators.quality.pii_and_hap.domain.models import (
     DetectionResult,
     PIIHAPDetectionResponse,
 )
-from datasift.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
-from datasift.core.ports.llm_inference_port import LLMInferencePort
-from datasift.core.ports.text_detection_port import TextDetectionPort
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
+from docpipe.core.ports.llm_inference_port import LLMInferencePort
+from docpipe.core.ports.text_detection_port import TextDetectionPort
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestPIIHAPService:
@@ -78,7 +78,7 @@ class TestPIIHAPService:
     def watsonx_service(self, watsonx_config, mock_text_detection_adapter):
         """Create a PIIHAPService instance for WatsonX."""
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter",
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter",
             return_value=mock_text_detection_adapter,
         ):
             return PIIHAPService(
@@ -91,7 +91,7 @@ class TestPIIHAPService:
     def litellm_service(self, litellm_config, mock_llm_inference_adapter):
         """Create a PIIHAPService instance for LiteLLM."""
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter",
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter",
             return_value=mock_llm_inference_adapter,
         ):
             return PIIHAPService(
@@ -103,7 +103,7 @@ class TestPIIHAPService:
     def test_initialization_watsonx(self, watsonx_config):
         """Test service initialization with WatsonX provider."""
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter"
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter"
         ) as mock_factory:
             mock_adapter = Mock(spec=TextDetectionPort)
             mock_adapter.validate.return_value = {
@@ -132,7 +132,7 @@ class TestPIIHAPService:
     def test_initialization_litellm(self, litellm_config):
         """Test service initialization with LiteLLM provider."""
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter"
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             mock_adapter = Mock(spec=LLMInferencePort)
             mock_adapter.validate.return_value = {
@@ -170,7 +170,7 @@ class TestPIIHAPService:
     def test_initialization_case_insensitive(self, watsonx_config):
         """Test provider name is case-insensitive."""
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter"
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter"
         ):
             service = PIIHAPService(
                 provider="WATSONX",
@@ -182,7 +182,7 @@ class TestPIIHAPService:
     def test_initialization_without_config(self):
         """Test initialization without provider config."""
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter"
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter"
         ):
             service = PIIHAPService(
                 provider="litellm",
@@ -201,7 +201,7 @@ class TestPIIHAPService:
         }
 
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results"
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results"
         ) as mock_convert:
             mock_result = DetectionResult(
                 detection="EMAIL",
@@ -246,7 +246,7 @@ class TestPIIHAPService:
             "error": "API Error",
         }
 
-        with pytest.raises(DatasiftException, match="Text detection failed: API Error"):
+        with pytest.raises(DocpipeException, match="Text detection failed: API Error"):
             watsonx_service.detect_pii_hap(payload=payload)
 
     def test_detect_via_specialized_api_exception(self, watsonx_service, mock_text_detection_adapter):
@@ -258,7 +258,7 @@ class TestPIIHAPService:
 
         mock_text_detection_adapter.detect.side_effect = Exception("Unexpected error")
 
-        with pytest.raises(DatasiftException, match="PII/HAP detection failed"):
+        with pytest.raises(DocpipeException, match="PII/HAP detection failed"):
             watsonx_service.detect_pii_hap(payload=payload)
 
     def test_provider_attribute(self, watsonx_service, litellm_service):
@@ -287,10 +287,10 @@ class TestPIIHAPService:
         """Test service with various providers."""
         with (
             patch(
-                "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter"
+                "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter"
             ),
             patch(
-                "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter"
+                "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter"
             ),
         ):
             service = PIIHAPService(
@@ -311,7 +311,7 @@ class TestPIIHAPService:
         }
 
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results",
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results",
             return_value=[],
         ):
             response = watsonx_service.detect_pii_hap(payload=payload)
@@ -330,7 +330,7 @@ class TestPIIHAPService:
         }
 
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results",
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results",
             return_value=[],
         ):
             response = watsonx_service.detect_pii_hap(payload=payload)
@@ -348,7 +348,7 @@ class TestPIIHAPService:
         }
 
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results",
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results",
             return_value=[],
         ):
             response = watsonx_service.detect_pii_hap(payload=payload)
@@ -371,7 +371,7 @@ class TestPIIHAPService:
         }
 
         with patch(
-            "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results"
+            "docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service.convert_detection_dicts_to_results"
         ) as mock_convert:
             mock_convert.return_value = [
                 DetectionResult(

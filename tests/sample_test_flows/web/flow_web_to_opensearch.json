@@ -80,7 +80,7 @@
       "type": "vectordb",
       "config": {
         "vector_db_type": "opensearch",
-        "index_name": "datasift_web_documents",
+        "index_name": "docpipe_web_documents",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 768,

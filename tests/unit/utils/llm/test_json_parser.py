@@ -2,9 +2,9 @@
 
 import pytest
 
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.exceptions.error_codes import ErrorCode
-from datasift.utils.llm.json_parser import parse_llm_json_response
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.utils.llm.json_parser import parse_llm_json_response
 
 
 class TestParseJSONResponse:
@@ -78,47 +78,47 @@ Second block:
         assert result == {"first": "block"}
 
     def test_parse_malformed_json_raises_exception(self):
-        """Test that malformed JSON raises DatasiftException."""
+        """Test that malformed JSON raises DocpipeException."""
         response = '{"key": "value", "incomplete"'
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             parse_llm_json_response(response)
         assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
 
     def test_parse_empty_string_raises_exception(self):
-        """Test that empty string raises DatasiftException."""
-        with pytest.raises(DatasiftException) as exc_info:
+        """Test that empty string raises DocpipeException."""
+        with pytest.raises(DocpipeException) as exc_info:
             parse_llm_json_response("")
         assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
 
     def test_parse_whitespace_only_raises_exception(self):
-        """Test that whitespace-only string raises DatasiftException."""
-        with pytest.raises(DatasiftException) as exc_info:
+        """Test that whitespace-only string raises DocpipeException."""
+        with pytest.raises(DocpipeException) as exc_info:
             parse_llm_json_response("   \n   \t   ")
         assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
 
     def test_parse_no_json_content_raises_exception(self):
-        """Test that text without JSON raises DatasiftException."""
+        """Test that text without JSON raises DocpipeException."""
         response = "This is just plain text without any JSON"
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             parse_llm_json_response(response)
         assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
 
     def test_parse_invalid_json_in_code_block_raises_exception(self):
-        """Test that invalid JSON in code block raises DatasiftException."""
+        """Test that invalid JSON in code block raises DocpipeException."""
         response = """```json
 {"key": "value", invalid}
 ```"""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             parse_llm_json_response(response)
         assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
 
     def test_parse_json_with_comments_raises_exception(self):
-        """Test that JSON with comments raises DatasiftException."""
+        """Test that JSON with comments raises DocpipeException."""
         response = """{
     // This is a comment
     "key": "value"
 }"""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             parse_llm_json_response(response)
         assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
 

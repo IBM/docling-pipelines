@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.exceptions.error_codes import ErrorCode
-from datasift.integrations.docling.client import DoclingServeClient
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.integrations.docling.client import DoclingServeClient
 
 
 class TestDoclingServeClient:
@@ -76,8 +76,8 @@ class TestDoclingServeClient:
         with pytest.raises(ValueError, match="Provide exactly one"):
             client.submit_document()
 
-    @patch("datasift.integrations.docling.client.Path")
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.Path")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_with_file_path(self, mock_rest_client_class, mock_path):
         """Test submit_document with file path."""
         # Setup mocks
@@ -102,7 +102,7 @@ class TestDoclingServeClient:
         assert "files" in call_args.kwargs
         assert "data" in call_args.kwargs
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_with_binary_content(self, mock_rest_client_class):
         """Test submit_document with binary content."""
         # Setup mock
@@ -125,7 +125,7 @@ class TestDoclingServeClient:
         _, content, _ = files["files"]
         assert content == binary_data
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_with_binary_content_and_filename(self, mock_rest_client_class):
         """Test submit_document with binary content and custom filename."""
         # Setup mock
@@ -147,7 +147,7 @@ class TestDoclingServeClient:
         assert content == binary_data
         assert mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_pdf(self, mock_rest_client_class):
         """Test MIME type detection for PDF files."""
         mock_rest_client_instance = MagicMock()
@@ -162,7 +162,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "application/pdf"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_docx(self, mock_rest_client_class):
         """Test MIME type detection for DOCX files."""
         mock_rest_client_instance = MagicMock()
@@ -177,7 +177,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_html(self, mock_rest_client_class):
         """Test MIME type detection for HTML files."""
         mock_rest_client_instance = MagicMock()
@@ -192,7 +192,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "text/html"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_markdown(self, mock_rest_client_class):
         """Test MIME type detection for Markdown files."""
         mock_rest_client_instance = MagicMock()
@@ -207,7 +207,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "text/markdown"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_txt(self, mock_rest_client_class):
         """Test MIME type detection for TXT files."""
         mock_rest_client_instance = MagicMock()
@@ -222,7 +222,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "text/plain"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_xlsx(self, mock_rest_client_class):
         """Test MIME type detection for XLSX files."""
         mock_rest_client_instance = MagicMock()
@@ -237,7 +237,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_pptx(self, mock_rest_client_class):
         """Test MIME type detection for PPTX files."""
         mock_rest_client_instance = MagicMock()
@@ -252,7 +252,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_mime_type_detection_unknown_extension(self, mock_rest_client_class):
         """Test MIME type detection defaults to octet-stream for unknown extensions."""
         mock_rest_client_instance = MagicMock()
@@ -267,7 +267,7 @@ class TestDoclingServeClient:
         _, _, mime_type = files["files"]
         assert mime_type == "application/octet-stream"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_filename_preservation_in_binary_content(self, mock_rest_client_class):
         """Test that filename is preserved when using binary_content."""
         mock_rest_client_instance = MagicMock()
@@ -282,7 +282,7 @@ class TestDoclingServeClient:
         filename, _, _ = files["files"]
         assert filename == "important_doc.pdf"
 
-    @patch("datasift.integrations.docling.client.RestClient")
+    @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_filename_optional_backward_compatibility(self, mock_rest_client_class):
         """Test that filename parameter is optional for backward compatibility."""
         mock_rest_client_instance = MagicMock()
@@ -300,21 +300,21 @@ class TestDoclingServeClient:
         # Should default to "document.pdf"
         assert filename == "document.pdf"
 
-    @patch("datasift.integrations.docling.client.RestClient.call_rest_multipart")
+    @patch("docpipe.integrations.docling.client.RestClient.call_rest_multipart")
     def test_submit_document_http_error(self, mock_call_rest_multipart):
         """Test submit_document handles HTTP errors."""
-        mock_call_rest_multipart.side_effect = DatasiftException(
+        mock_call_rest_multipart.side_effect = DocpipeException(
             message="Connection failed",
             status_code=503,
             error_code=ErrorCode.CONNECTION_ERROR,
         )
 
         client = DoclingServeClient()
-        with pytest.raises(DatasiftException, match="Connection failed"):
+        with pytest.raises(DocpipeException, match="Connection failed"):
             client.submit_document(binary_content=b"data")
 
-    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
-    @patch("datasift.integrations.docling.client.time.sleep")
+    @patch("docpipe.integrations.docling.client.RestClient.call_rest_json")
+    @patch("docpipe.integrations.docling.client.time.sleep")
     def test_poll_status_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with successful completion."""
         # Setup mock responses
@@ -328,8 +328,8 @@ class TestDoclingServeClient:
         assert status["task_status"] == "SUCCESS"
         mock_call_rest_json.assert_called_once()
 
-    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
-    @patch("datasift.integrations.docling.client.time.sleep")
+    @patch("docpipe.integrations.docling.client.RestClient.call_rest_json")
+    @patch("docpipe.integrations.docling.client.time.sleep")
     def test_poll_status_pending_then_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with pending then success."""
         # Setup mock responses
@@ -348,7 +348,7 @@ class TestDoclingServeClient:
         assert status["task_status"] == "SUCCESS"
         assert mock_call_rest_json.call_count == 3
 
-    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
+    @patch("docpipe.integrations.docling.client.RestClient.call_rest_json")
     def test_poll_status_failure(self, mock_call_rest_json):
         """Test poll_status with task failure."""
         mock_call_rest_json.return_value = {
@@ -357,10 +357,10 @@ class TestDoclingServeClient:
         }
 
         client = DoclingServeClient()
-        with pytest.raises(DatasiftException, match="Task test-task-123 failed"):
+        with pytest.raises(DocpipeException, match="Task test-task-123 failed"):
             client.poll_status(task_id="test-task-123")
 
-    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
+    @patch("docpipe.integrations.docling.client.RestClient.call_rest_json")
     def test_get_result_success(self, mock_call_rest_json):
         """Test get_result retrieves document data."""
         mock_call_rest_json.return_value = {"document": "data", "metadata": {}}
@@ -371,17 +371,17 @@ class TestDoclingServeClient:
         assert "document" in result
         assert result["document"] == "data"
 
-    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
+    @patch("docpipe.integrations.docling.client.RestClient.call_rest_json")
     def test_get_result_http_error(self, mock_call_rest_json):
         """Test get_result handles HTTP errors."""
-        mock_call_rest_json.side_effect = DatasiftException(
+        mock_call_rest_json.side_effect = DocpipeException(
             message="Network error",
             status_code=503,
             error_code=ErrorCode.CONNECTION_ERROR,
         )
 
         client = DoclingServeClient()
-        with pytest.raises(DatasiftException, match="Network error"):
+        with pytest.raises(DocpipeException, match="Network error"):
             client.get_result(task_id="test-task-123")
 
     @patch.object(DoclingServeClient, "submit_document")

@@ -15,7 +15,7 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.operators.quality.readability import (
+from docpipe.core.operators.quality.readability import (
     DEFAULT_READABILITY_SCORES,
     ReadabilityOperator,
 )

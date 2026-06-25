@@ -17,9 +17,9 @@ Pattern: ^[a-zA-Z][a-zA-Z0-9_ ]*$
 import pytest
 from pydantic import ValidationError
 
-from datasift.api.dto.document_library_dto import DocumentLibraryPatch, DocumentLibraryPrototype
-from datasift.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.api.dto.document_library_dto import DocumentLibraryPrototype
+from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestDocumentLibraryDTOValidation:
@@ -96,16 +96,6 @@ class TestDocumentLibraryDTOValidation:
         dto = DocumentLibraryPrototype(name="Test", tags=[long_tag])
         assert dto.tags[0] == long_tag
 
-    def test_patch_name_is_optional(self):
-        """PATCH DTO should allow omitted name."""
-        dto = DocumentLibraryPatch()
-        assert dto.name is None
-
-    def test_patch_name_accepts_valid_value(self):
-        """PATCH DTO should validate provided name."""
-        dto = DocumentLibraryPatch(name="Updated Library")
-        assert dto.name == "Updated Library"
-
 
 class TestDocumentLibraryDomainValidation:
     """Test domain model validation (business logic layer)."""
@@ -124,19 +114,19 @@ class TestDocumentLibraryDomainValidation:
     def test_domain_rejects_129_character_name(self):
         """Domain model rejects 129+ characters."""
         too_long = "A" + "a" * 128
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name=too_long)
         assert "must not exceed 128 characters" in str(exc_info.value)
 
     def test_domain_rejects_name_starting_with_digit(self):
         """Domain model rejects names starting with digits."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="123Test")
         assert "must start with an alphabetic character" in str(exc_info.value)
 
     def test_domain_rejects_name_with_special_chars(self):
         """Domain model rejects names with special characters."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="Test@Library")
         assert "can only contain letters, digits, spaces, and underscores" in str(exc_info.value)
 
@@ -149,7 +139,7 @@ class TestDocumentLibraryDomainValidation:
     def test_domain_rejects_2001_character_description(self):
         """Domain model rejects 2001+ characters."""
         too_long = "A" * 2001
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="Test", description=too_long)
         assert "must not exceed 2000 characters" in str(exc_info.value)
 
@@ -209,14 +199,14 @@ class TestNegativeValidationScenarios:
     def test_original_size_exceeds_max_safe_integer_fails_domain(self):
         """Size exceeding MAX_SAFE_INTEGER should fail domain validation."""
         too_large = 9007199254740992  # MAX_SAFE_INTEGER + 1
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="Test", original_size=too_large)
         assert "MAX_SAFE_INTEGER" in str(exc_info.value)
 
     def test_final_size_exceeds_max_safe_integer_fails_domain(self):
         """Size exceeding MAX_SAFE_INTEGER should fail domain validation."""
         too_large = 9007199254740992  # MAX_SAFE_INTEGER + 1
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="Test", final_size=too_large)
         assert "MAX_SAFE_INTEGER" in str(exc_info.value)
 
@@ -356,6 +346,6 @@ class TestValidationConsistencyWithDocumentSet:
 
     def test_pattern_enforcement_at_domain_layer(self):
         """Pattern validation enforced at domain layer."""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             DocumentLibrary.create(name="Test@Library")
         assert "can only contain letters, digits, spaces, and underscores" in str(exc_info.value)

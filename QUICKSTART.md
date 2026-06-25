@@ -1,4 +1,4 @@
-# DataSift Quick Start Guide
+# Docpipe Quick Start Guide
 
 **Get your first pipeline running in under 5 minutes!**
 
@@ -32,35 +32,23 @@ Run the automated setup script to install everything:
 
 ```bash
 # Clone the repository
-git clone https://github.ibm.com/wdp-gov/docling-pipelines.git
-cd docling-pipelines
+git clone https://github.com/your-org/docpipe.git
+cd docpipe
 
 # Make setup script executable
-chmod +x scripts/setup_datasift_environment.sh
+chmod +x scripts/setup_docpipe_environment.sh
 
-# Run automated setup (installs only required model for quick start)
-./scripts/setup_datasift_environment.sh --models nomic-embed-text
+# Run automated setup (installs everything)
+./scripts/setup_docpipe_environment.sh
 ```
 
 **What this installs:**
 - ✅ uv package manager
-- ✅ Ollama server + nomic-embed-text model (~274MB)
+- ✅ Ollama server + models (granite4, llama3.2, nomic-embed-text)
 - ✅ OpenSearch + Dashboards (for vector storage)
 - ✅ Python virtual environment + dependencies
 
-**Setup takes 5-10 minutes** depending on your internet connection.
-
-### Configure Environment
-
-Copy the example environment file and configure it:
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# The default values work for local development
-# Edit .env if you need to customize settings
-```
+**Setup takes 2-3 minutes** depending on your internet connection (downloading ~3GB of models).
 
 ### Setup Verification
 
@@ -83,17 +71,24 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 
 Now let's run a complete document processing pipeline!
 
-### Step 1: Verify Sample Documents
+### Step 1: Prepare Sample Documents
 
-The repository includes sample text files ready to process:
+Create a test directory with a sample document:
 
 ```bash
-# View existing sample documents
-ls -la sample_documents/
-# Output: hello.txt, 1kb_file.txt
-```
+# Create sample documents directory
+mkdir -p sample_documents
 
-**Note:** The sample flow processes these .txt files. You can add your own PDF, TXT, or DOCX files to this directory if desired.
+# Create a simple test document
+cat > sample_documents/hello.txt << 'EOF'
+Welcome to Docpipe!
+
+Docpipe is a modular data processing framework for building flexible pipelines.
+It supports document extraction, chunking, embeddings, and vector storage.
+
+This is your first document being processed through the pipeline.
+EOF
+```
 
 ### Step 2: Activate Environment
 
@@ -113,12 +108,12 @@ source .venv/bin/activate
 
 ```bash
 # Run the complete pipeline (from project root)
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 ### Expected Output
 
-DataSift provides clean, formatted console output showing pipeline progress in real-time:
+Docpipe provides clean, formatted console output showing pipeline progress in real-time:
 
 ```
 ================================================================================
@@ -153,11 +148,11 @@ DataSift provides clean, formatted console output showing pipeline progress in r
  Operator Summary:
  Operator                       Status               Duration     Docs
  ------------------------------------------------------------------------------
- ingest_local_folder            Completed            < 1s         2/2
- extract_with_docling           Completed            < 1s         2/2
- simple_chunker                 Completed            1.00s        2/2
- ollama_embeddings              Completed            1.00s        2/2
- opensearch_vector_store        Completed            1.00s        2/2
+ ingest                         COMPLETED            0.50s        1/1
+ extract                        COMPLETED            3.20s        1/1
+ chunk                          COMPLETED            1.10s        1/1
+ embeddings                     COMPLETED            8.50s        1/1
+ vectordb                       COMPLETED            2.00s        1/1
 ================================================================================
 ```
 
@@ -185,7 +180,7 @@ curl -u admin:MyStrongPass123! \
 - You see embeddings in the response
 
 **🎉 Congratulations!** You've successfully:
-1. ✅ Installed DataSift and all dependencies
+1. ✅ Installed Docpipe and all dependencies
 2. ✅ Processed a document through the complete pipeline
 3. ✅ Stored vector embeddings in OpenSearch
 
@@ -202,7 +197,7 @@ Your document went through this pipeline:
 **Each operator did:**
 
 1. **IngestLocalFolder**: Read `hello.txt` from disk
-2. **ExtractOperator**: Extracted structured content using docling_library provider
+2. **ExtractOperator**: Extracted structured content using docling_library mode
 3. **Chunker**: Split into simple chunks (~512 chars each)
 4. **EmbeddingsOperator**: Generated vector embeddings using Ollama
 5. **VectorDBOperator**: Stored in OpenSearch for similarity search
@@ -218,7 +213,7 @@ Your document went through this pipeline:
 ls -la sample_flows/
 
 # Try the invoice processing example
-datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+docling-pipelines --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 ```
 
 ### View Your Data in OpenSearch Dashboards
@@ -233,19 +228,22 @@ Navigate to **Dev Tools** to run queries against your indexed documents.
 
 ```bash
 # List all available operators (summary table with Owner, Attributes, Features)
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 
 # Detailed view with full operator parameters
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
+
+# Get help on a specific operator
+docling-pipelines --operator-help ingest_local
 ```
 
 ### Create Your Own Pipeline
 
 1. **Copy the sample flow**: `cp sample_flows/complete_pipeline_flow.json my_flow.json`
 2. **Edit the configuration**: Change `paths`, `chunk_size`, models, etc.
-3. **Run your custom flow**: `datasift-orchestrator --flow-file my_flow.json`
+3. **Run your custom flow**: `docling-pipelines --flow-file my_flow.json`
 
-**Flow Format:** DataSift uses a simplified authoring format where you define operators with `type`, `name`, `config`, and `depends_on` fields. See the **[Flow Authoring Format Guide](docs/guides/FLOW_AUTHORING_FORMAT.md)** for complete examples and best practices.
+**Flow Format:** Docpipe uses a simplified authoring format where you define operators with `type`, `name`, `config`, and `depends_on` fields. See the **[Flow Authoring Format Guide](docs/guides/FLOW_AUTHORING_FORMAT.md)** for complete examples and best practices.
 
 ### Deep Dive Documentation
 
@@ -265,13 +263,13 @@ datasift-orchestrator --list-operators --verbose
 **Python 3.12 not found:**
 ```bash
 # Install Python 3.12 first, then re-run setup
-./scripts/setup_datasift_environment.sh
+./scripts/setup_docpipe_environment.sh
 ```
 
 **Permission denied:**
 ```bash
-chmod +x scripts/setup_datasift_environment.sh
-./scripts/setup_datasift_environment.sh
+chmod +x scripts/setup_docpipe_environment.sh
+./scripts/setup_docpipe_environment.sh
 ```
 
 ### Services Not Running
@@ -310,7 +308,7 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Verify you're in the right directory
-pwd  # Should end with /datasift
+pwd  # Should end with /docpipe
 ```
 
 **"Connection refused" to Ollama:**
@@ -348,11 +346,11 @@ ls -la sample_flows/complete_pipeline_flow.json
 
 ### Still Having Issues?
 
-1. **Check the setup log**: `cat datasift_setup.log`
+1. **Check the setup log**: `cat docpipe_setup.log`
 2. **View detailed error messages**: Run with debug logging:
    ```bash
    export DS_LOG_LEVEL=DEBUG
-   datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+   docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
    ```
 3. **Start fresh**: Clean up and re-run setup:
    ```bash
@@ -361,10 +359,10 @@ ls -la sample_flows/complete_pipeline_flow.json
    pkill -f "ollama serve"
    
    # Remove config
-   rm .datasift_setup_config datasift_setup.log
+   rm .docpipe_setup_config docpipe_setup.log
    
    # Re-run setup
-   ./scripts/setup_datasift_environment.sh
+   ./scripts/setup_docpipe_environment.sh
    ```
 
 ---
@@ -377,13 +375,13 @@ export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 source .venv/bin/activate
 
 # Run a flow
-datasift-orchestrator --flow-file path/to/flow.json
+docling-pipelines --flow-file path/to/flow.json
 
 # List operators (summary table)
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 
 # List operators (detailed view)
-datasift-orchestrator --list-operators --verbose
+docling-pipelines --list-operators --verbose
 
 # Check services
 curl http://localhost:11434/api/tags  # Ollama

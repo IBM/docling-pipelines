@@ -4,12 +4,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.operators.acl.adapters.outbound.sharepoint_adapter import (
+from docpipe.core.operators.acl.adapters.outbound.sharepoint_adapter import (
     SharePointACLAdapter,
     SharePointACLConfig,
 )
-from datasift.core.operators.acl.domain.models import ACLResponse, RawPermission
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.core.operators.acl.domain.models import ACLResponse, RawPermission
+from docpipe.exceptions.docpipe_exceptions import (
     ConfigurationError,
     ExternalServiceError,
 )

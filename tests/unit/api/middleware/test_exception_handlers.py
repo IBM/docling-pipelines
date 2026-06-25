@@ -9,14 +9,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from datasift.api.middleware.error_handler import (
-    datasift_exception_handler,
+from docpipe.api.middleware.error_handler import (
+    docpipe_exception_handler,
     generic_exception_handler,
     get_trace_id,
     http_exception_handler,
     validation_exception_handler,
 )
-from datasift.exceptions.datasift_exceptions import RepositoryConfigurationException
+from docpipe.exceptions.docpipe_exceptions import RepositoryConfigurationException
 
 
 @pytest.fixture
@@ -253,7 +253,7 @@ async def test_generic_exception_handler_unknown_exception(mock_request):
 @pytest.mark.anyio
 async def test_exception_handlers_log_errors(mock_request):
     """Test that exception handlers log errors with stack traces."""
-    with patch("datasift.api.middleware.error_handler.logger") as mock_logger:
+    with patch("docpipe.api.middleware.error_handler.logger") as mock_logger:
         exc = StarletteHTTPException(status_code=500, detail="Test error")
 
         await http_exception_handler(mock_request, exc)
@@ -282,7 +282,7 @@ def repo_config_app():
         )
 
     # Register the exception handler
-    test_app.add_exception_handler(RepositoryConfigurationException, datasift_exception_handler)
+    test_app.add_exception_handler(RepositoryConfigurationException, docpipe_exception_handler)
 
     return test_app
 

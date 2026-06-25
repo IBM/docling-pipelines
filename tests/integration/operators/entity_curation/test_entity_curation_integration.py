@@ -3,8 +3,8 @@ import unittest
 
 import pyarrow as pa
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.entity_curation.entity_curation_operator import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.entity_curation.entity_curation_operator import (
     EntityCurationOperator,
 )
 

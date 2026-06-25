@@ -1,6 +1,6 @@
 # OAuth2 and OIDC Authentication
 
-This document describes the OAuth2 and OpenID Connect (OIDC) authentication implementation for DataSift.
+This document describes the OAuth2 and OpenID Connect (OIDC) authentication implementation for Docpipe.
 
 ## Overview
 

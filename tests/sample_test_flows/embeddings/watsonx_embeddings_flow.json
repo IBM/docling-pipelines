@@ -85,7 +85,7 @@
       ],
       "config": {
         "provider": "opensearch",
-        "index_name": "datasift_watsonx_embeddings",
+        "index_name": "docpipe_watsonx_embeddings",
         "vector_dimension": 768,
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",

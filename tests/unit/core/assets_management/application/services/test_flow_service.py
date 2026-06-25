@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from datasift.core.assets.flows.application.services.flow_service import FlowService
-from datasift.core.assets.flows.domain.models.flow import Flow
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.core.assets.flows.application.services.flow_service import FlowService
+from docpipe.core.assets.flows.domain.models.flow import Flow
+from docpipe.exceptions.docpipe_exceptions import (
     FlowAlreadyExistsException,
     FlowInvalidDataException,
     FlowNotFoundException,
@@ -64,7 +64,7 @@ class TestFlowServiceCreate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with patch("datasift.core.assets.flows.application.services.flow_service.logger") as mock_logger:
+        with patch("docpipe.core.assets.flows.application.services.flow_service.logger") as mock_logger:
             with pytest.raises(FlowAlreadyExistsException, match="already exists"):
                 service.create_flow(flow=sample_flow_with_id, is_elyra=True)
 
@@ -120,7 +120,7 @@ class TestFlowServiceCreate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act
-        with patch("datasift.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class:
+        with patch("docpipe.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class:
             result = service.create_flow(flow=elyra_flow, is_elyra=True)
 
             # Assert - converter should not be instantiated when is_elyra=True
@@ -208,7 +208,7 @@ class TestFlowServiceUpdate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act
-        with patch("datasift.core.assets.flows.domain.models.flow.datetime") as mock_datetime:
+        with patch("docpipe.core.assets.flows.domain.models.flow.datetime") as mock_datetime:
             mock_datetime.now.return_value = datetime(2024, 12, 31, 23, 59, 59, tzinfo=UTC)
             service.update_flow(sample_flow_with_id)
 

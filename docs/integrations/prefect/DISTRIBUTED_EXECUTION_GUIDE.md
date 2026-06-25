@@ -1,7 +1,7 @@
 
 # Prefect Distributed Execution Guide
 
-Complete guide for running DataSift pipelines with distributed execution using Prefect work pools and workers.
+Complete guide for running Docpipe pipelines with distributed execution using Prefect work pools and workers.
 
 ## Table of Contents
 
@@ -17,9 +17,9 @@ Complete guide for running DataSift pipelines with distributed execution using P
 
 ## 1. Introduction and Overview
 
-### What is Distributed Execution in DataSift?
+### What is Distributed Execution in Docpipe?
 
-Distributed execution allows DataSift pipelines to process data across multiple machines or containers, enabling horizontal scaling and improved throughput. Instead of processing all batches on a single machine, work is distributed to multiple workers that execute batches in parallel.
+Distributed execution allows Docpipe pipelines to process data across multiple machines or containers, enabling horizontal scaling and improved throughput. Instead of processing all batches on a single machine, work is distributed to multiple workers that execute batches in parallel.
 
 ### When to Use Distributed Execution
 
@@ -34,7 +34,7 @@ Distributed execution allows DataSift pipelines to process data across multiple 
 - Developing and testing
 - Processing small datasets (<1000 documents)
 - Running quick prototypes
-- Learning DataSift
+- Learning Docpipe
 
 ### Architecture Overview
 
@@ -76,7 +76,7 @@ Distributed execution allows DataSift pipelines to process data across multiple 
 
 ### Prerequisites
 
-- DataSift installed and configured
+- Docpipe installed and configured
 - Python 3.12+ with virtual environment activated
 - PYTHONPATH set correctly (see [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md))
 - Ollama and OpenSearch running (for operators that require them)
@@ -87,7 +87,7 @@ Distributed execution allows DataSift pipelines to process data across multiple 
 
 ### 2.1 Default Execution (Zero Setup)
 
-By default, DataSift runs in **ephemeral mode** with zero infrastructure setup.
+By default, Docpipe runs in **ephemeral mode** with zero infrastructure setup.
 
 **When to use:**
 - Development and testing
@@ -98,7 +98,7 @@ By default, DataSift runs in **ephemeral mode** with zero infrastructure setup.
 
 ```bash
 # Just run - no setup needed
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 **Under the hood:**
@@ -133,7 +133,7 @@ Server starts at `http://localhost:4200`. Open in browser to access Prefect UI.
 
 ```bash
 # Terminal 2: Create a process work pool
-prefect work-pool create datasift-pool --type process
+prefect work-pool create docpipe-pool --type process
 ```
 
 Verify:
@@ -145,7 +145,7 @@ prefect work-pool ls
 
 ```bash
 # Terminal 2: Start worker
-prefect worker start --pool datasift-pool
+prefect worker start --pool docpipe-pool
 ```
 
 #### Step 4: Configure Environment
@@ -156,16 +156,16 @@ export PREFECT_MODE=server
 export PREFECT_API_URL=http://localhost:4200/api
 ```
 
-**Critical**: Without `PREFECT_MODE=server`, DataSift uses ephemeral mode and ignores work pool configuration.
+**Critical**: Without `PREFECT_MODE=server`, Docpipe uses ephemeral mode and ignores work pool configuration.
 
 **Job stats store guidance for this setup:**
-- `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, and `DATASIFT_JOB_STATS_BASE_DIR` can be set explicitly in work-pool env, but if they are omitted the worker inherits the submitter's effective job-management configuration resolved from env
-- [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) can work for `work-pool-process` only when the submitter and worker share the same filesystem semantics
+- `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, and `DOCPIPE_JOB_STATS_BASE_DIR` can be set explicitly in work-pool env, but if they are omitted the worker inherits the submitter's effective job-management configuration resolved from env
+- [`JsonJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py) can work for `work-pool-process` only when the submitter and worker share the same filesystem semantics
 - Requirement: the submitter and worker must share the same filesystem and the same absolute path namespace for the job stats directory
 - Relative filesystem `base_dir` paths depend on where the submitter and worker processes are started
-- If filesystem storage is effective for the submitter, `DATASIFT_JOB_STATS_BASE_DIR` is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
-- For reliable distributed execution across different containers or machines, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
-- If PostgreSQL storage is effective for the submitter, the worker inherits `DATASIFT_POSTGRES_HOST`, `DATASIFT_POSTGRES_PORT`, `DATASIFT_POSTGRES_DB`, `DATASIFT_POSTGRES_USER`, and `DATASIFT_POSTGRES_PASSWORD` unless explicitly overridden in work-pool env
+- If filesystem storage is effective for the submitter, `DOCPIPE_JOB_STATS_BASE_DIR` is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
+- For reliable distributed execution across different containers or machines, use [`PostgresJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- If PostgreSQL storage is effective for the submitter, the worker inherits `DOCPIPE_POSTGRES_HOST`, `DOCPIPE_POSTGRES_PORT`, `DOCPIPE_POSTGRES_DB`, `DOCPIPE_POSTGRES_USER`, and `DOCPIPE_POSTGRES_PASSWORD` unless explicitly overridden in work-pool env
 
 #### Step 5: Configure Flow
 
@@ -182,10 +182,10 @@ Add work pool configuration to your flow JSON:
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-process",
-        "work_pool_name": "datasift-pool",
+        "work_pool_name": "docpipe-pool",
         "batch_storage": {
           "type": "local",
-          "path": "/tmp/datasift-batches"
+          "path": "/tmp/docpipe-batches"
         }
       }
     }
@@ -198,14 +198,14 @@ Add work pool configuration to your flow JSON:
 
 ```bash
 # Terminal 3: Run the flow
-datasift-orchestrator --flow-file your-flow.json
+docling-pipelines --flow-file your-flow.json
 ```
 
 #### Step 7: Verify Execution
 
 1. Check Prefect UI at `http://localhost:4200`
 2. Navigate to "Flow Runs" to see execution
-3. Check "Work Pools" → "datasift-pool" for worker activity
+3. Check "Work Pools" → "docpipe-pool" for worker activity
 4. Monitor worker logs in Terminal 2
 
 ---
@@ -222,10 +222,10 @@ Work pool configuration is added to your flow JSON under `global_config.prefect.
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-docker",
-        "work_pool_name": "datasift-pool",
+        "work_pool_name": "docpipe-pool",
         "batch_storage": {
           "type": "s3",
-          "bucket": "my-datasift-batches"
+          "bucket": "my-docpipe-batches"
         }
       }
     }
@@ -251,7 +251,7 @@ Work pool configuration is added to your flow JSON under `global_config.prefect.
   "prefect": {
     "batch_execution": {
       "strategy": "work-pool-process",
-      "work_pool_name": "datasift-pool",
+      "work_pool_name": "docpipe-pool",
       "batch_storage": {
         "type": "local",
         "path": "/data/batches"
@@ -268,7 +268,7 @@ Work pool configuration is added to your flow JSON under `global_config.prefect.
 
 **Work Pool Path Resolution:**
 
-The `deployment_path` configuration controls where Prefect workers look for your code. This is critical because the submitter (where you run `datasift-orchestrator`) and the worker (where batches execute) may have different filesystem layouts.
+The `deployment_path` configuration controls where Prefect workers look for your code. This is critical because the submitter (where you run `docling-pipelines`) and the worker (where batches execute) may have different filesystem layouts.
 
 | Scenario | Submitter | Worker | Paths Same? | `os.getcwd()` Works? |
 |---|---|---|---|---|
@@ -276,16 +276,16 @@ The `deployment_path` configuration controls where Prefect workers look for your
 | **Docker** (docker-compose) | Your machine | Docker container | ❌ No | ❌ No |
 
 *Local Development Flow* (`os.getcwd()` works):
-- Submitter creates deployment with `path = os.getcwd()` (e.g., `/Users/.../datasift-opensource`)
+- Submitter creates deployment with `path = os.getcwd()` (e.g., `/Users/.../docling-pipelines`)
 - Worker runs on same machine as subprocess
-- Worker sets working directory to `/Users/.../datasift-opensource`
+- Worker sets working directory to `/Users/.../docling-pipelines`
 - ✅ Path exists! Flow executes successfully
 
 *Docker Flow* (`os.getcwd()` breaks):
-- Submitter creates deployment with `path = os.getcwd()` (e.g., `/Users/.../datasift-opensource`)
+- Submitter creates deployment with `path = os.getcwd()` (e.g., `/Users/.../docling-pipelines`)
 - Worker runs in Docker container
-- Worker tries to set working directory to `/Users/.../datasift-opensource`
-- ❌ Path doesn't exist! Code is at `/app/src/datasift`
+- Worker tries to set working directory to `/Users/.../docling-pipelines`
+- ❌ Path doesn't exist! Code is at `/app/src/docpipe`
 
 **Solution:**
 
@@ -299,7 +299,7 @@ The `deployment_path` parameter is **optional**:
   "prefect": {
     "batch_execution": {
       "strategy": "work-pool-process",
-      "work_pool_name": "datasift-pool"
+      "work_pool_name": "docpipe-pool"
     }
   }
 }
@@ -311,8 +311,8 @@ The `deployment_path` parameter is **optional**:
   "prefect": {
     "batch_execution": {
       "strategy": "work-pool-process",
-      "work_pool_name": "datasift-pool",
-      "deployment_path": "/app/src/datasift"
+      "work_pool_name": "docpipe-pool",
+      "deployment_path": "/app/src/docpipe"
     }
   }
 }
@@ -324,15 +324,15 @@ This matches:
 
 
 **Job stats store guidance:**
-- The worker job environment can explicitly define `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, and backend-specific settings, but if omitted the worker inherits the submitter's effective job-management configuration
+- The worker job environment can explicitly define `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, and backend-specific settings, but if omitted the worker inherits the submitter's effective job-management configuration
 - Filesystem job stats storage is acceptable only when submitter and worker processes read/write the same filesystem path namespace
 - Requirement: submitter and workers must share the same filesystem and must see the same absolute job stats path
-- If using [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py), `DATASIFT_JOB_STATS_BASE_DIR` should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution
+- If using [`JsonJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py), `DOCPIPE_JOB_STATS_BASE_DIR` should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution
 - Example shared path choices:
-  - local machine process pool: `DATASIFT_JOB_STATS_BASE_DIR=/absolute/path/to/data/job_stats`
-  - Docker shared volume/process pool: `DATASIFT_JOB_STATS_BASE_DIR=/app/data/job_stats`
-- If workers run on different machines or in isolated runtimes, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
-- For PostgreSQL-backed job stats, workers must resolve the same database connection, typically via inherited or explicit `DATASIFT_POSTGRES_HOST`, `DATASIFT_POSTGRES_PORT`, `DATASIFT_POSTGRES_DB`, `DATASIFT_POSTGRES_USER`, and `DATASIFT_POSTGRES_PASSWORD` environment variables
+  - local machine process pool: `DOCPIPE_JOB_STATS_BASE_DIR=/absolute/path/to/data/job_stats`
+  - Docker shared volume/process pool: `DOCPIPE_JOB_STATS_BASE_DIR=/app/data/job_stats`
+- If workers run on different machines or in isolated runtimes, use [`PostgresJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- For PostgreSQL-backed job stats, workers must resolve the same database connection, typically via inherited or explicit `DOCPIPE_POSTGRES_HOST`, `DOCPIPE_POSTGRES_PORT`, `DOCPIPE_POSTGRES_DB`, `DOCPIPE_POSTGRES_USER`, and `DOCPIPE_POSTGRES_PASSWORD` environment variables
 
 #### Docker Work Pool (`work-pool-docker`)
 
@@ -355,7 +355,7 @@ This matches:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `image` | string | `"datasift-opensource:latest"` | Docker image for batch execution (can include registry) |
+| `image` | string | `"docling-pipelines:latest"` | Docker image for batch execution (can include registry) |
 | `image_pull_policy` | string | `"Never"` | When to pull: `"Never"` (POC), `"IfNotPresent"` (prod), `"Always"` (latest) |
 | `networks` | list[string] | `[]` | Docker networks to connect to |
 | `env` | dict | `{}` | Environment variables for container |
@@ -378,8 +378,8 @@ Public registries work by embedding the registry URL in the image name. No authe
   "prefect": {
     "batch_execution": {
       "strategy": "work-pool-docker",
-      "work_pool_name": "datasift-docker-pool",
-      "image": "myusername/datasift-opensource:v1.0.0",
+      "work_pool_name": "docpipe-docker-pool",
+      "image": "myusername/docling-pipelines:v1.0.0",
       "image_pull_policy": "IfNotPresent"
     }
   }
@@ -392,7 +392,7 @@ Public registries work by embedding the registry URL in the image name. No authe
   "prefect": {
     "batch_execution": {
       "strategy": "work-pool-docker",
-      "image": "ghcr.io/myorg/datasift-opensource:v1.0.0",
+      "image": "ghcr.io/myorg/docling-pipelines:v1.0.0",
       "image_pull_policy": "Always"
     }
   }
@@ -415,7 +415,7 @@ Private registries require authentication configured on the worker host machine.
    {
      "prefect": {
        "batch_execution": {
-         "image": "registry.example.com/datasift/runtime:v1.0.0",
+         "image": "registry.example.com/docpipe/runtime:v1.0.0",
          "image_pull_policy": "IfNotPresent"
        }
      }
@@ -425,7 +425,7 @@ Private registries require authentication configured on the worker host machine.
 3. Credentials are stored in `~/.docker/config.json` on worker host
 
 **Important notes:**
-- Authentication is NOT configured in DataSift flow JSON
+- Authentication is NOT configured in Docpipe flow JSON
 - Each worker host must authenticate separately
 - Use `image_pull_policy: "IfNotPresent"` to reduce registry load
 - POC setups use `"Never"` with locally built images
@@ -445,10 +445,10 @@ Private registries require authentication configured on the worker host machine.
   "prefect": {
     "batch_execution": {
       "strategy": "work-pool-docker",
-      "work_pool_name": "datasift-docker-pool",
-      "image": "datasift-opensource:v1.0.0",
+      "work_pool_name": "docpipe-docker-pool",
+      "image": "docling-pipelines:v1.0.0",
       "image_pull_policy": "IfNotPresent",
-      "networks": ["datasift-network"],
+      "networks": ["docpipe-network"],
       "env": {
         "PYTHONPATH": "/app/src",
         "LOG_LEVEL": "INFO",
@@ -478,10 +478,10 @@ Private registries require authentication configured on the worker host machine.
 - Private registry authentication configured on worker host (if applicable)
 
 **Job stats store guidance:**
-- Do not rely on [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) for Docker work pools unless submitter and all worker containers share the same mounted filesystem path for job stats
+- Do not rely on [`JsonJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py) for Docker work pools unless submitter and all worker containers share the same mounted filesystem path for job stats
 - Requirement: submitter and worker containers must share the same filesystem mount and must use the same in-container absolute path for job stats
-- If you switch Docker worker infrastructure to Prefect `process` execution on a shared volume, set `DATASIFT_JOB_STATS_BASE_DIR` to the mounted absolute path seen inside that runtime, for example `/app/data/job_stats`
-- For actual distributed Docker execution, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- If you switch Docker worker infrastructure to Prefect `process` execution on a shared volume, set `DOCPIPE_JOB_STATS_BASE_DIR` to the mounted absolute path seen inside that runtime, for example `/app/data/job_stats`
+- For actual distributed Docker execution, use [`PostgresJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 
 ### 3.3 Batch Storage Configuration
 
@@ -558,11 +558,11 @@ export PREFECT_SERVER_API_MAX_PARAMETER_SIZE=2097152
 
 ```yaml
 services:
-  datasift-submitter:
+  docpipe-submitter:
     volumes:
       - batch-data:/data/batches
   
-  datasift-worker:
+  docpipe-worker:
     volumes:
       - batch-data:/data/batches
 
@@ -570,7 +570,7 @@ volumes:
   batch-data:
 ```
 
-    "bucket": "datasift-batches",
+    "bucket": "docpipe-batches",
     "prefix": "tmp/batches/",
     "access_key": "minioadmin",
     "secret_key": "minioadmin",  <!-- pragma: allowlist secret -->
@@ -595,10 +595,10 @@ volumes:
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-docker",
-        "work_pool_name": "datasift-docker-pool",
-        "image": "datasift-opensource:latest",
+        "work_pool_name": "docpipe-docker-pool",
+        "image": "docling-pipelines:latest",
         "image_pull_policy": "Never",
-        "networks": ["datasift-network"],
+        "networks": ["docpipe-network"],
         "env": {
           "PYTHONPATH": "/app/src",
           "LOG_LEVEL": "INFO",
@@ -702,20 +702,20 @@ Docker-based distributed execution uses `docker/docker-compose.distributed.yml` 
 
 1. Docker or Podman installed
 2. Docker Compose or podman-compose installed
-3. DataSift repository cloned
+3. Docpipe repository cloned
 
 #### Step-by-Step Setup
 
-**1. Build the DataSift Image**
+**1. Build the Docpipe Image**
 
 ```bash
 # From project root
-docker build -t datasift-opensource:latest .
+docker build -t docling-pipelines:latest .
 ```
 
 Or with Podman:
 ```bash
-podman build -t datasift-opensource:latest .
+podman build -t docling-pipelines:latest .
 ```
 
 **2. Start the Distributed Stack**
@@ -772,7 +772,7 @@ export PREFECT_MODE=server
 export PREFECT_API_URL=http://localhost:4200/api
 ```
 
-**Critical**: Without `PREFECT_MODE=server`, DataSift uses ephemeral mode and ignores work pool configuration.
+**Critical**: Without `PREFECT_MODE=server`, Docpipe uses ephemeral mode and ignores work pool configuration.
 
 **6. Configure Flow**
 
@@ -786,7 +786,7 @@ mkdir -p data/input
 cp your-documents/* data/input/
 
 # Run flow
-datasift-orchestrator --flow-file your-flow.json
+docling-pipelines --flow-file your-flow.json
 ```
 
 **8. Monitor Execution**
@@ -811,7 +811,7 @@ volumes:
 
 **Docker Network:**
 
-All services must be on the same network (`datasift-net`).
+All services must be on the same network (`docpipe-net`).
 
 **Scaling Workers:**
 
@@ -883,7 +883,7 @@ chmod 777 /data/batches
 **Docker:**
 ```bash
 # Verify services on same network
-docker network inspect datasift-net
+docker network inspect docpipe-net
 
 # Test connectivity
 docker-compose exec prefect-worker ping -c 1 ollama
@@ -903,7 +903,7 @@ ValueError: work_pool_name is required for WorkPool strategy
 {
   "prefect": {
     "batch_execution": {
-      "work_pool_name": "datasift-pool"
+      "work_pool_name": "docpipe-pool"
     }
   }
 }
@@ -913,16 +913,16 @@ ValueError: work_pool_name is required for WorkPool strategy
 
 **Error:**
 ```
-WorkPoolNotFound: Work pool 'datasift-pool' not found
+WorkPoolNotFound: Work pool 'docpipe-pool' not found
 ```
 
 **Solution**: Create the work pool:
 ```bash
 # For process work pool
-prefect work-pool create datasift-pool --type process
+prefect work-pool create docpipe-pool --type process
 
 # For Docker work pool
-prefect work-pool create datasift-pool --type docker
+prefect work-pool create docpipe-pool --type docker
 ```
 
 #### Missing Batch Storage Configuration
@@ -994,13 +994,13 @@ prefect work-pool ls
 prefect deployment ls
 ```
 
-Look for `datasift-batch-subflow/<your-deployment-name>`.
+Look for `docpipe-batch-subflow/<your-deployment-name>`.
 
 #### Test Worker Connection
 
 ```bash
 # Start worker (separate terminal)
-prefect worker start --pool datasift-pool
+prefect worker start --pool docpipe-pool
 ```
 
 Worker should show "Worker started" message.
@@ -1045,10 +1045,10 @@ ls -la /data/batches
 prefect worker ls
 
 # Start worker
-prefect worker start --pool datasift-pool
+prefect worker start --pool docpipe-pool
 
 # Check work pool configuration
-prefect work-pool inspect datasift-pool
+prefect work-pool inspect docpipe-pool
 ```
 
 ### 5.5 Debug Mode
@@ -1056,7 +1056,7 @@ prefect work-pool inspect datasift-pool
 Enable debug logging for detailed troubleshooting:
 
 ```bash
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your-flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file your-flow.json
 ```
 
 ---
@@ -1097,10 +1097,10 @@ DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your-flow.json
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-process",
-        "work_pool_name": "datasift-pool",
+        "work_pool_name": "docpipe-pool",
         "batch_storage": {
           "type": "local",
-          "path": "/tmp/datasift-batches"
+          "path": "/tmp/docpipe-batches"
         }
       }
     }
@@ -1130,15 +1130,15 @@ export PREFECT_API_URL=http://localhost:4200/api
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-docker",
-        "work_pool_name": "datasift-pool",
-        "image": "datasift-opensource:latest",
+        "work_pool_name": "docpipe-pool",
+        "image": "docling-pipelines:latest",
         "env": {
           "PREFECT_MODE": "server",
           "PREFECT_API_URL": "http://prefect-server:4200/api"
         },
         "batch_storage": {
           "type": "s3",
-          "bucket": "datasift-batches",
+          "bucket": "docpipe-batches",
           "endpoint_url": "http://minio:9000"
         }
       }
@@ -1196,14 +1196,14 @@ export PREFECT_API_URL=http://localhost:4200/api
 |----------|----------|-------------|---------|
 | `PREFECT_MODE` | Yes (for distributed) | Execution mode | `server` or `ephemeral` |
 | `PREFECT_API_URL` | Yes (for distributed) | Prefect server URL | `http://localhost:4200/api` |
-| `DATASIFT_STORAGE_BACKEND` | Optional | Effective job stats storage backend for worker runtime; inherited from submitter if omitted | `filesystem`, `postgresql`, `inmemory` |
-| `DATASIFT_FRAMEWORK_TYPE` | Optional | Effective job framework type for worker runtime; inherited from submitter if omitted | `default` |
-| `DATASIFT_JOB_STATS_BASE_DIR` | Optional for filesystem store | Absolute shared job stats path for filesystem-backed job stats; inherited from submitter if omitted | `/app/data/job_stats` |
-| `DATASIFT_POSTGRES_HOST` | Optional for PostgreSQL store | PostgreSQL host for job stats store; inherited from submitter if omitted | `postgres` |
-| `DATASIFT_POSTGRES_PORT` | Optional for PostgreSQL store | PostgreSQL port for job stats store; inherited from submitter if omitted | `5432` |
-| `DATASIFT_POSTGRES_DB` | Optional for PostgreSQL store | PostgreSQL database name for job stats store; inherited from submitter if omitted | `datasift` |
-| `DATASIFT_POSTGRES_USER` | Optional for PostgreSQL store | PostgreSQL user for job stats store; inherited from submitter if omitted | `datasift_user` |
-| `DATASIFT_POSTGRES_PASSWORD` | Required for PostgreSQL store unless supplied in config | PostgreSQL password for job stats store | `secret` |
+| `DOCPIPE_STORAGE_BACKEND` | Optional | Effective job stats storage backend for worker runtime; inherited from submitter if omitted | `filesystem`, `postgresql`, `inmemory` |
+| `DOCPIPE_FRAMEWORK_TYPE` | Optional | Effective job framework type for worker runtime; inherited from submitter if omitted | `default` |
+| `DOCPIPE_JOB_STATS_BASE_DIR` | Optional for filesystem store | Absolute shared job stats path for filesystem-backed job stats; inherited from submitter if omitted | `/app/data/job_stats` |
+| `DOCPIPE_POSTGRES_HOST` | Optional for PostgreSQL store | PostgreSQL host for job stats store; inherited from submitter if omitted | `postgres` |
+| `DOCPIPE_POSTGRES_PORT` | Optional for PostgreSQL store | PostgreSQL port for job stats store; inherited from submitter if omitted | `5432` |
+| `DOCPIPE_POSTGRES_DB` | Optional for PostgreSQL store | PostgreSQL database name for job stats store; inherited from submitter if omitted | `docpipe` |
+| `DOCPIPE_POSTGRES_USER` | Optional for PostgreSQL store | PostgreSQL user for job stats store; inherited from submitter if omitted | `docpipe_user` |
+| `DOCPIPE_POSTGRES_PASSWORD` | Required for PostgreSQL store unless supplied in config | PostgreSQL password for job stats store | `secret` |
 | `OLLAMA_HOST` | For Ollama operators | Ollama server URL | `http://ollama:11434` |
 | `OPENSEARCH_HOST` | For OpenSearch | OpenSearch host | `localhost` |
 | `OPENSEARCH_PORT` | For OpenSearch | OpenSearch port | `9200` |
@@ -1218,7 +1218,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 ### 7.2 Configuration Schema
 
-**Note**: The `deployment_name` field is optional and defaults to `"datasift-batch-subflow"`. You only need to specify it if you want to create multiple deployments of the same flow in the same work pool (advanced use case).
+**Note**: The `deployment_name` field is optional and defaults to `"docpipe-batch-subflow"`. You only need to specify it if you want to create multiple deployments of the same flow in the same work pool (advanced use case).
 
 **Minimal configuration:**
 
@@ -1228,7 +1228,7 @@ export PREFECT_API_URL=http://localhost:4200/api
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-process",
-        "work_pool_name": "datasift-pool",
+        "work_pool_name": "docpipe-pool",
         "batch_storage": {
           "type": "local",
           "path": "/tmp/batches"
@@ -1247,7 +1247,7 @@ export PREFECT_API_URL=http://localhost:4200/api
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-docker",
-        "work_pool_name": "datasift-docker-pool",
+        "work_pool_name": "docpipe-docker-pool",
         "batch_storage": {
           "type": "inline"
         }
@@ -1324,9 +1324,9 @@ The following features are planned for future releases to enhance distributed ex
 #### Work Pool Naming
 
 Use descriptive names indicating environment and type:
-- `datasift-dev-docker` - Development Docker pool
-- `datasift-prod-process` - Production process pool
-- `datasift-staging-process` - Staging process pool
+- `docpipe-dev-docker` - Development Docker pool
+- `docpipe-prod-process` - Production process pool
+- `docpipe-staging-process` - Staging process pool
 
 #### Resource Allocation
 
@@ -1391,13 +1391,13 @@ prefect work-pool ls
 prefect deployment ls
 ```
 
-Look for `datasift-batch-subflow/<your-deployment-name>`.
+Look for `docpipe-batch-subflow/<your-deployment-name>`.
 
 #### Test Worker Connection
 
 ```bash
 # Start worker (separate terminal)
-prefect worker start --pool datasift-pool
+prefect worker start --pool docpipe-pool
 ```
 
 Worker should show "Worker started" message.
@@ -1441,10 +1441,10 @@ ls -la /data/batches
 prefect worker ls
 
 # Start worker
-prefect worker start --pool datasift-pool
+prefect worker start --pool docpipe-pool
 
 # Check work pool configuration
-prefect work-pool inspect datasift-pool
+prefect work-pool inspect docpipe-pool
 ```
 
 ### 5.5 Debug Mode
@@ -1452,7 +1452,7 @@ prefect work-pool inspect datasift-pool
 Enable debug logging for detailed troubleshooting:
 
 ```bash
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your-flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file your-flow.json
 ```
 
 ---
@@ -1493,10 +1493,10 @@ DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your-flow.json
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-process",
-        "work_pool_name": "datasift-pool",
+        "work_pool_name": "docpipe-pool",
         "batch_storage": {
           "type": "local",
-          "path": "/tmp/datasift-batches"
+          "path": "/tmp/docpipe-batches"
         }
       }
     }
@@ -1526,15 +1526,15 @@ export PREFECT_API_URL=http://localhost:4200/api
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-docker",
-        "work_pool_name": "datasift-pool",
-        "image": "datasift-opensource:latest",
+        "work_pool_name": "docpipe-pool",
+        "image": "docling-pipelines:latest",
         "env": {
           "PREFECT_MODE": "server",
           "PREFECT_API_URL": "http://prefect-server:4200/api"
         },
         "batch_storage": {
           "type": "s3",
-          "bucket": "datasift-batches",
+          "bucket": "docpipe-batches",
           "endpoint_url": "http://minio:9000"
         }
       }
@@ -1614,7 +1614,7 @@ export PREFECT_API_URL=http://localhost:4200/api
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-process",
-        "work_pool_name": "datasift-pool",
+        "work_pool_name": "docpipe-pool",
         "batch_storage": {
           "type": "local",
           "path": "/tmp/batches"
@@ -1641,9 +1641,9 @@ export PREFECT_API_URL=http://localhost:4200/api
 #### Work Pool Naming
 
 Use descriptive names indicating environment and type:
-- `datasift-dev-docker` - Development Docker pool
-- `datasift-prod-process` - Production process pool
-- `datasift-staging-process` - Staging process pool
+- `docpipe-dev-docker` - Development Docker pool
+- `docpipe-prod-process` - Production process pool
+- `docpipe-staging-process` - Staging process pool
 
 #### Resource Allocation
 
@@ -1678,7 +1678,7 @@ Monitor these metrics:
 
 ## Summary
 
-Distributed execution in DataSift enables horizontal scaling and improved throughput through Prefect work pools and workers. Key takeaways:
+Distributed execution in Docpipe enables horizontal scaling and improved throughput through Prefect work pools and workers. Key takeaways:
 
 1. **Start Simple**: Begin with ephemeral mode, progress to local POC, then Docker
 2. **PREFECT_MODE is Critical**: Always set `PREFECT_MODE=server` for distributed execution

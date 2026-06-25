@@ -17,10 +17,10 @@ except ImportError:
     print("python-dotenv not installed. Install with: pip install python-dotenv")
     print("Or set environment variables manually.")
 
-from datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (
     OneDriveSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.onedrive.config import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.config import (
     OneDriveSourceConfig,
 )
 

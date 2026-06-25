@@ -13,7 +13,7 @@
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "paths": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
+        "paths": "src/docpipe_app/ui/chat_with_docs/uploaded_files/",
         "include_filter": ".pdf",
         "max_workers": 2
       }

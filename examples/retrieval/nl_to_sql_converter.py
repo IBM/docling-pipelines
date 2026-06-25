@@ -234,7 +234,7 @@ class OpenSearchQueryExecutor:
             columns = [col["name"] for col in results.get("schema", [])]
             formatted = []
             for row in results["datarows"]:
-                formatted.append(dict(zip(columns, row)))
+                formatted.append(dict(zip(columns, row, strict=False)))
             return formatted
 
         elif "hits" in results:

@@ -10,8 +10,8 @@ import sys
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from datasift.core.constants import DatasiftConstants, OrchestratorType
-from datasift.core.orchestration.operator_factory import OperatorFactoryProvider
+from docpipe.core.constants import DocpipeConstants, OrchestratorType
+from docpipe.core.orchestration.operator_factory import OperatorFactoryProvider
 
 
 def test_frozenset_loading():
@@ -63,13 +63,13 @@ def test_custom_operators_disabled():
     operators = factory.operators
     print(f"\nLoaded {len(operators)} operators (custom operators disabled)")
 
-    # All operators should have owner='datasift'
-    all_datasift = all(getattr(op_class, "owner", "unknown") == "datasift" for op_class in operators.values())
+    # All operators should have owner='docpipe'
+    all_docpipe = all(getattr(op_class, "owner", "unknown") == "docpipe" for op_class in operators.values())
 
-    if all_datasift:
-        print("✓ All operators have owner='datasift'")
+    if all_docpipe:
+        print("✓ All operators have owner='docpipe'")
     else:
-        print("✗ Some operators have non-datasift owner")
+        print("✗ Some operators have non-docpipe owner")
         return False
 
     print("✓ Test passed: Custom operators disabled")
@@ -104,17 +104,17 @@ def test_operator_metadata():
 
 
 def test_env_var_validation():
-    """Test that non-string DATASIFT_CUSTOM_OPERATORS is handled gracefully"""
+    """Test that non-string DOCPIPE_CUSTOM_OPERATORS is handled gracefully"""
     print("\n" + "=" * 80)
     print("TEST 4: Environment Variable Validation")
     print("=" * 80)
 
     # Save original env var
-    original_value = os.environ.get("DATASIFT_CUSTOM_OPERATORS")
+    original_value = os.environ.get("DOCPIPE_CUSTOM_OPERATORS")
 
     try:
         # Test with valid string
-        os.environ["DATASIFT_CUSTOM_OPERATORS"] = "package1,package2"
+        os.environ["DOCPIPE_CUSTOM_OPERATORS"] = "package1,package2"
         _ = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
         print("✓ Valid string environment variable handled correctly")
 
@@ -127,9 +127,9 @@ def test_env_var_validation():
     finally:
         # Restore original env var
         if original_value is None:
-            os.environ.pop("DATASIFT_CUSTOM_OPERATORS", None)
+            os.environ.pop("DOCPIPE_CUSTOM_OPERATORS", None)
         else:
-            os.environ["DATASIFT_CUSTOM_OPERATORS"] = original_value
+            os.environ["DOCPIPE_CUSTOM_OPERATORS"] = original_value
 
 
 def test_custom_operator_owner_validation():
@@ -139,13 +139,13 @@ def test_custom_operator_owner_validation():
     print("=" * 80)
 
     # This test verifies that the validation logic exists
-    # In a real scenario, we would create a mock custom operator with owner="datasift"
+    # In a real scenario, we would create a mock custom operator with owner="docpipe"
     # and verify it gets skipped with an error log
 
     _ = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
 
     print("✓ Operator factory includes owner validation logic")
-    print("✓ Custom operators with owner='datasift' will be skipped with error log")
+    print("✓ Custom operators with owner='docpipe' will be skipped with error log")
     print("✓ Custom operators with owner=None are treated as custom (highest priority)")
     print("✓ Test passed: Owner validation is in place")
     return True
@@ -157,16 +157,16 @@ def test_priority_map_custom_has_highest_priority():
     print("TEST 6: Priority Map - Custom Has Highest Priority")
     print("=" * 80)
 
-    custom_priority = DatasiftConstants.OPERATOR_PRIORITY_MAP[DatasiftConstants.OWNER_CUSTOM]
-    datasift_priority = DatasiftConstants.OPERATOR_PRIORITY_MAP[DatasiftConstants.OWNER_DATASIFT]
+    custom_priority = DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+    docpipe_priority = DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
 
     print(f"custom priority: {custom_priority}")
-    print(f"datasift priority: {datasift_priority}")
-    print(f"Note: None owner is treated as '{DatasiftConstants.OWNER_CUSTOM}' during priority lookup")
+    print(f"docpipe priority: {docpipe_priority}")
+    print(f"Note: None owner is treated as '{DocpipeConstants.OWNER_CUSTOM}' during priority lookup")
 
-    if custom_priority == 1 and datasift_priority == 2 and custom_priority < datasift_priority:
+    if custom_priority == 1 and docpipe_priority == 2 and custom_priority < docpipe_priority:
         print("✓ Custom operator priority is highest (priority 1)")
-        print("✓ Datasift operator priority is lower (priority 2)")
+        print("✓ Docpipe operator priority is lower (priority 2)")
         print("✓ None owner is treated as custom (priority 1)")
         print("✓ Lower priority number carries higher weightage")
         return True

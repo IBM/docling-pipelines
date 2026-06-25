@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.entity_curation.entity_curation_operator import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.entity_curation.entity_curation_operator import (
     EntityCurationOperator,
 )
 
@@ -84,7 +84,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         self.assertEqual(metadata["short_name"], "entity_curation")
         self.assertIn("category", metadata)
 
-    @patch("datasift.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor")
+    @patch("docpipe.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor")
     def test_transform_with_schema(self, mock_schema_processor_class):
         """Test transform with schema-based processing"""
         # Mock schema processor
@@ -120,7 +120,7 @@ class TestEntityCurationOperator(unittest.TestCase):
         transformed_data = json.loads(transformed_json)
         self.assertIsInstance(transformed_data, dict)
 
-    @patch("datasift.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor")
+    @patch("docpipe.core.operators.functional.entity_curation.entity_curation_operator.SchemaProcessor")
     def test_transform_without_schema(self, mock_schema_processor_class):
         """Test transform without schema (returns empty dict)"""
         # Mock schema processor - returns empty dict for unknown types

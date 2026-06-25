@@ -65,7 +65,7 @@ def cleanup_after_test():
 
     # Clear safe repository-owned caches/singletons if present
     try:
-        from datasift.integrations.docling.client import DoclingClient
+        from docpipe.integrations.docling.client import DoclingClient
 
         if hasattr(DoclingClient, "_instance"):
             DoclingClient._instance = None
@@ -79,7 +79,7 @@ def test_extract_operator_doclang_format_exact_match():
     """Test that doclang format output has correct structure and content."""
     import pyarrow as pa
 
-    from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
     # Load test PDF
     test_file = Path("tests/fixtures/invoices/TR-INV_001_3_2.1.pdf")
@@ -142,7 +142,7 @@ def test_extract_operator_doclang_structure_validation():
     """Test that doclang format contains expected structural elements."""
     import pyarrow as pa
 
-    from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
     # Load test PDF
     test_file = Path("tests/fixtures/invoices/TR-INV_001_3_2.1.pdf")
@@ -205,7 +205,7 @@ def test_extract_operator_doclang_not_generated_by_default():
     """Test that doclang column is not created when not in additional_formats."""
     import pyarrow as pa
 
-    from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
     # Load test PDF
     test_file = Path("tests/fixtures/invoices/TR-INV_001_3_2.1.pdf")

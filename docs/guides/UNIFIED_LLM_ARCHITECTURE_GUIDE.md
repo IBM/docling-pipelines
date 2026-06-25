@@ -93,7 +93,7 @@ Factories create adapters dynamically:
 **File**
 
 ```text
-src/datasift/core/ports/llm_inference_port.py
+src/docpipe/core/ports/llm_inference_port.py
 ```
 
 ### Purpose
@@ -117,7 +117,7 @@ Common interface for:
 **File**
 
 ```text
-src/datasift/core/ports/llm_embedding_port.py
+src/docpipe/core/ports/llm_embedding_port.py
 ```
 
 ### Purpose
@@ -139,7 +139,7 @@ Common interface for:
 **File**
 
 ```text
-src/datasift/core/ports/text_detection_port.py
+src/docpipe/core/ports/text_detection_port.py
 ```
 
 ### Purpose
@@ -169,7 +169,7 @@ Each provider now has a **single consolidated adapter** that implements multiple
 **File**
 
 ```text
-src/datasift/core/adapters/watsonx/watsonx_adapter.py
+src/docpipe/core/adapters/watsonx/watsonx_adapter.py
 ```
 
 ### Implements Three Ports
@@ -190,7 +190,7 @@ TextDetectionPort     (detect, detect_entities, detect_entities_batch)
 ### Usage Example
 
 ```python
-from datasift.core.adapters import WatsonXAdapter
+from docpipe.core.adapters import WatsonXAdapter
 
 # Create adapter
 adapter = WatsonXAdapter(
@@ -223,7 +223,7 @@ result = adapter.detect(text="Check for PII")
 **File**
 
 ```text
-src/datasift/core/adapters/litellm/litellm_adapter.py
+src/docpipe/core/adapters/litellm/litellm_adapter.py
 ```
 
 ### Implements Two Ports
@@ -251,7 +251,7 @@ LLMEmbeddingPort      (generate_embeddings, generate_embeddings_batch, get_embed
 ### Usage Example
 
 ```python
-from datasift.core.adapters import LiteLLMAdapter
+from docpipe.core.adapters import LiteLLMAdapter
 
 # Ollama inference
 adapter = LiteLLMAdapter(
@@ -284,7 +284,7 @@ embeddings = adapter.generate_embeddings(
 **File**
 
 ```text
-src/datasift/core/adapters/llm_adapter_factory.py
+src/docpipe/core/adapters/llm_adapter_factory.py
 ```
 
 ### Overview
@@ -317,7 +317,7 @@ get_supported_providers(capability="inference")
 ### Usage Examples
 
 ```python
-from datasift.core.adapters import LLMAdapterFactory
+from docpipe.core.adapters import LLMAdapterFactory
 
 # Create WatsonX inference adapter
 adapter = LLMAdapterFactory.create_inference_adapter(
@@ -368,7 +368,7 @@ LiteLLM provides unified access to multiple providers via model ID prefixes:
 
 1. **Single factory file** instead of two separate factories
 2. **Returns consolidated adapters** (one per provider, not one per capability)
-3. **Unified import**: `from datasift.core.adapters import LLMAdapterFactory`
+3. **Unified import**: `from docpipe.core.adapters import LLMAdapterFactory`
 
 ---
 
@@ -426,7 +426,7 @@ LiteLLMAdapter (consolidated)
 **File**
 
 ```text
-src/datasift/core/operators/quality/classification/services/classification_service.py
+src/docpipe/core/operators/quality/classification/services/classification_service.py
 ```
 
 ### Responsibilities
@@ -531,7 +531,7 @@ LiteLLMAdapter (consolidated)
 **File**
 
 ```text
-src/datasift/core/operators/extract/services/entity_extraction_service.py
+src/docpipe/core/operators/extract/services/entity_extraction_service.py
 ```
 
 ### Responsibilities
@@ -660,7 +660,7 @@ Uses standard LLM inference:
 **File**
 
 ```text
-src/datasift/core/operators/quality/pii_and_hap/services/pii_hap_service.py
+src/docpipe/core/operators/quality/pii_and_hap/services/pii_hap_service.py
 ```
 
 ### Responsibilities
@@ -810,7 +810,7 @@ LiteLLMAdapter (consolidated)
 **File**
 
 ```text
-src/datasift/core/operators/functional/chunker/services/summarization_service.py
+src/docpipe/core/operators/functional/chunker/services/summarization_service.py
 ```
 
 ### Responsibilities

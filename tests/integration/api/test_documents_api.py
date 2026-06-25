@@ -6,10 +6,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from datasift.api.auth.dependencies import get_current_user
-from datasift.api.auth.models import User
-from datasift.api.main import app
-from datasift.api.services.opensearch_service import get_opensearch_service
+from docpipe.api.auth.dependencies import get_current_user
+from docpipe.api.auth.models import User
+from docpipe.api.main import app
+from docpipe.api.services.opensearch_service import get_opensearch_service
 
 
 @pytest.fixture

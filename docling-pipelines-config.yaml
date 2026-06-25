@@ -1,0 +1,44 @@
+assets_management:
+  flow_repository:
+    type: local
+    config:
+      # Set this to the directory where your flow definitions are stored (flow repository).
+      base_dir: sample_flows
+
+job_management:
+  framework:
+    type: default
+    config: {}
+  store:
+    # Storage backend options: inmemory, json, duckdb, postgresql
+    # Current active: json (file-based storage)
+    type: filesystem
+    config:
+      base_dir: ./data/job_stats_store_data
+
+
+incremental_metadata:
+  storage:
+    type: "filesystem"
+    config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+
+#
+#    # To use DuckDB (embedded database, no server required), uncomment below:
+#    type: duckdb
+#    config:
+#      database_path: ./data/duckdb/job_stats.duckdb
+    
+    # To use PostgreSQL (requires running PostgreSQL server), uncomment below:
+#     type: postgresql
+#     config:
+#       postgres:
+#         host: localhost
+#         port: 5432
+#         database: docpipe_oss
+#         user: postgres
+#         password: password  # From environment
+#         pool_size: 5
+#         max_overflow: 10
+#         pool_timeout: 30

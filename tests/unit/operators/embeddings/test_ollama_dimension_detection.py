@@ -4,11 +4,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter import (
+from docpipe.core.operators.functional.embeddings.adapters.outbound.ollama_adapter import (
     OllamaLLMAdapter,
 )
-from datasift.exceptions.datasift_exceptions import ExternalServiceError
-from datasift.integrations.ollama.client import InteractionMode
+from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+from docpipe.integrations.ollama.client import InteractionMode
 
 
 class TestOllamaDimensionDetection:
@@ -18,7 +18,7 @@ class TestOllamaDimensionDetection:
     def mock_ollama_client(self):
         """Create a mock Ollama client."""
         with patch(
-            "datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
+            "docpipe.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
         ) as mock:
             yield mock
 
@@ -253,7 +253,7 @@ class TestOllamaAdapterBackwardCompatibility:
     def mock_ollama_client(self):
         """Create a mock Ollama client."""
         with patch(
-            "datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
+            "docpipe.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
         ) as mock:
             yield mock
 

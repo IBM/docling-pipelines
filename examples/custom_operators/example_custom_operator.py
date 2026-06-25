@@ -7,8 +7,8 @@ from typing import Any
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 
 class ExampleCustomOperator(AbstractOperator):
@@ -19,13 +19,13 @@ class ExampleCustomOperator(AbstractOperator):
     - Define short_name, category, and owner class attributes
     - Implement transform(), get_metadata(), and get_required_features() methods
 
-    Note: Setting owner to DatasiftConstants.OWNER_CUSTOM identifies this as a custom operator.
+    Note: Setting owner to DocpipeConstants.OWNER_CUSTOM identifies this as a custom operator.
     The category should be one of the standard categories.
     """
 
     short_name: str = "example_custom"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, config: dict[str, Any]):
         """Initialize the custom operator.
@@ -50,7 +50,7 @@ class ExampleCustomOperator(AbstractOperator):
         """
         # Remove columns with dots in their names (e.g., 'doc_id_hash.original')
         # These cause issues with document_set storage
-        columns_to_keep = [name for name in table.column_names if '.' not in name]
+        columns_to_keep = [name for name in table.column_names if "." not in name]
         if len(columns_to_keep) < len(table.column_names):
             table = table.select(columns_to_keep)
 
@@ -75,7 +75,7 @@ class ExampleCustomOperator(AbstractOperator):
             "label": "Example Custom Operator",
             "description": "Adds a custom field to each document",
             "category": OperatorCategory.Functional.value,
-            "owner": DatasiftConstants.OWNER_CUSTOM,
+            "owner": DocpipeConstants.OWNER_CUSTOM,
             "features": {
                 "custom_field_name": {
                     "type": "string",

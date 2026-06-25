@@ -4,8 +4,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.utils.operators.display import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.utils.operators.display import (
     display_operator_summary,
     format_operator_details,
     list_operators,
@@ -202,7 +202,7 @@ class TestDisplayOperatorSummary:
 class TestListOperators:
     """Test list_operators function."""
 
-    @patch("datasift.core.operators.operator_metadata.OperatorMetadata")
+    @patch("docpipe.core.operators.operator_metadata.OperatorMetadata")
     def test_list_operators_summary_only(self, mock_metadata_class):
         """Test listing operators with summary only."""
         mock_metadata = Mock()
@@ -221,7 +221,7 @@ class TestListOperators:
         assert "op1" in result
         mock_metadata.get_operator_metadata.assert_called_once_with(internal_features=False)
 
-    @patch("datasift.core.operators.operator_metadata.OperatorMetadata")
+    @patch("docpipe.core.operators.operator_metadata.OperatorMetadata")
     def test_list_operators_verbose(self, mock_metadata_class):
         """Test listing operators with verbose output."""
         mock_metadata = Mock()
@@ -247,7 +247,7 @@ class TestListOperators:
         assert "Feature 1" in result
         mock_metadata.get_operator_metadata.assert_called_once_with(internal_features=False)
 
-    @patch("datasift.core.operators.operator_metadata.OperatorMetadata")
+    @patch("docpipe.core.operators.operator_metadata.OperatorMetadata")
     def test_list_operators_default_params(self, mock_metadata_class):
         """Test listing operators with default parameters."""
         mock_metadata = Mock()

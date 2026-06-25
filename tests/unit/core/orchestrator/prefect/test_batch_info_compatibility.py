@@ -12,9 +12,9 @@ import pyarrow as pa
 import pytest
 from prefect.client.schemas.objects import FlowRun, State
 
-from datasift.core.orchestration.batch_manager import BatchInfo, BatchManager
-from datasift.core.orchestration.prefect.adapters.thread_pool_adapter import ThreadPoolAdapter
-from datasift.core.orchestration.prefect.adapters.work_pool_adapter import WorkPoolAdapter
+from docpipe.core.orchestration.batch_manager import BatchInfo, BatchManager
+from docpipe.core.orchestration.prefect.adapters.thread_pool_adapter import ThreadPoolAdapter
+from docpipe.core.orchestration.prefect.adapters.work_pool_adapter import WorkPoolAdapter
 
 
 class TestBatchInfoCompatibility:
@@ -252,7 +252,7 @@ class TestBatchInfoCompatibility:
 
         mock_client.read_flow_run.return_value = mock_flow_run
 
-        with patch("datasift.core.orchestration.prefect.adapters.work_pool_adapter.get_client") as mock_get_client:
+        with patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client") as mock_get_client:
             # mock_get_client returns an async context manager
             mock_ctx = AsyncMock()
             mock_ctx.__aenter__.return_value = mock_client
@@ -271,7 +271,7 @@ class TestBatchInfoCompatibility:
         from unittest.mock import MagicMock
 
         mock_sync_client = MagicMock()
-        with patch("datasift.core.orchestration.prefect.adapters.work_pool_adapter.get_client") as mock_get_client_sync:
+        with patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client") as mock_get_client_sync:
             # mock_get_client with sync_client=True returns a sync context manager
             mock_ctx_sync = MagicMock()
             mock_ctx_sync.__enter__.return_value = mock_sync_client

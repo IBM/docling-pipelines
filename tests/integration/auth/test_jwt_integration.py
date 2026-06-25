@@ -5,11 +5,11 @@ from datetime import UTC
 import pytest
 from fastapi.testclient import TestClient
 
-from datasift.api.auth.jwt_handler import (
+from docpipe.api.auth.jwt_handler import (
     JWTConfig,
     create_access_token,
 )
-from datasift.api.main import app
+from docpipe.api.main import app
 
 
 @pytest.fixture

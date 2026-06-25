@@ -20,10 +20,10 @@ def _load_environment() -> None:
 
 
 async def main():
-    from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
+    from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
         GoogleDriveSourceAdapter,
     )
-    from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import (
+    from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.config import (
         GoogleDriveSourceConfig,
     )
 

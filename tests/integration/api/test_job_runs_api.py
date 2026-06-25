@@ -5,10 +5,10 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from datasift.api.dependencies import get_job_stats_service
-from datasift.api.main import app
-from datasift.exceptions.datasift_exceptions import DatasiftException, JobStatsStoreReadException
-from datasift.exceptions.error_codes import ErrorCode
+from docpipe.api.dependencies import get_job_stats_service
+from docpipe.api.main import app
+from docpipe.exceptions.docpipe_exceptions import DocpipeException, JobStatsStoreReadException
+from docpipe.exceptions.error_codes import ErrorCode
 
 
 @pytest.fixture
@@ -135,9 +135,9 @@ class TestGetFlowDefinitionSnapshot:
         """Test 404 when job run doesn't exist in stats service."""
         job_run_id = "9a5137a7-15d5-431c-b945-b147a3043694"
 
-        # Mock stats service to raise DatasiftException with 404 status
+        # Mock stats service to raise DocpipeException with 404 status
         mock_stats_service = MagicMock()
-        mock_stats_service.get_flow_definition.side_effect = DatasiftException(
+        mock_stats_service.get_flow_definition.side_effect = DocpipeException(
             message=f"Job run not found: {job_run_id}",
             status_code=404,
             error_code=ErrorCode.JOB_RUN_NOT_FOUND,

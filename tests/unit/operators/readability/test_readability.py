@@ -4,9 +4,9 @@ import unittest
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.quality.readability.readability_operator import (
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.quality.readability.readability_operator import (
     DEFAULT_READABILITY_SCORES,
     ReadabilityOperator,
 )
@@ -178,7 +178,7 @@ class TestReadabilityMetrics(unittest.TestCase):
     """Test the underlying readability metrics implementation."""
 
     def test_syllable_counting(self):
-        from datasift.core.operators.quality.readability.readability_metrics import ReadabilityMetrics
+        from docpipe.core.operators.quality.readability.readability_metrics import ReadabilityMetrics
 
         metrics = ReadabilityMetrics()
 
@@ -190,7 +190,7 @@ class TestReadabilityMetrics(unittest.TestCase):
         self.assertEqual(metrics.count_syllables(word="a"), 1)  # At least 1 syllable
 
     def test_easy_words_list(self):
-        from datasift.core.operators.quality.readability.readability_metrics import ReadabilityMetrics
+        from docpipe.core.operators.quality.readability.readability_metrics import ReadabilityMetrics
 
         metrics = ReadabilityMetrics()
 

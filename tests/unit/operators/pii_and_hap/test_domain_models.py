@@ -3,7 +3,7 @@
 
 """Unit tests for PII/HAP domain models."""
 
-from datasift.core.operators.quality.pii_and_hap.domain.models import (
+from docpipe.core.operators.quality.pii_and_hap.domain.models import (
     DetectionResult,
     PIIHAPDetectionResponse,
 )

@@ -1,6 +1,6 @@
 {
   "flow_name": "sample flow",
-  "description": "a sample flow to demonstrate the datasift pipeline command line execution",
+  "description": "a sample flow to demonstrate the docpipe pipeline command line execution",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -13,7 +13,7 @@
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "paths": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
+        "paths": "src/docpipe_app/ui/chat_with_docs/uploaded_files/",
         "include_filter": "txt,pdf"
       }
     },
@@ -70,7 +70,7 @@
       "type": "vectordb",
       "config": {
         "provider": "opensearch",
-        "index_name": "datasift_documents",
+        "index_name": "docpipe_documents",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 384,

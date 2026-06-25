@@ -15,7 +15,7 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 
 def main() -> None:  # pragma: no cover

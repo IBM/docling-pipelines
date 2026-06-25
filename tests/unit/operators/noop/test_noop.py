@@ -11,9 +11,9 @@ import time
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.noop import NOOPOperator
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.noop import NOOPOperator
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -441,7 +441,7 @@ def test_short_name_value():
 
 def test_category_is_functional():
     """Operator category is Functional."""
-    from datasift.core.operators.abstract_operator import OperatorCategory
+    from docpipe.core.operators.abstract_operator import OperatorCategory
 
     assert NOOPOperator.category == OperatorCategory.Functional
 

@@ -13,17 +13,17 @@ Tests cover:
 import pyarrow as pa
 import pytest
 
-from datasift.core.assets.document_sets.adapters.duckdb.data_store import (
+from docpipe.core.assets.document_sets.adapters.duckdb.data_store import (
     DuckDBDataStore,
 )
-from datasift.core.assets.document_sets.adapters.duckdb.metadata_repository import (
+from docpipe.core.assets.document_sets.adapters.duckdb.metadata_repository import (
     DuckDBMetadataRepository,
 )
-from datasift.core.assets.document_sets.application.services.document_set_service import (
+from docpipe.core.assets.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.storage import DuckDBTableStorage
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.storage import DuckDBTableStorage
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def storage(temp_duckdb_path):
 @pytest.fixture
 def metadata_repository(*, temp_duckdb_path):
     """Create a DuckDBMetadataRepository instance with dependency injection."""
-    from datasift.storage.factory import StorageFactory
+    from docpipe.storage.factory import StorageFactory
 
     key_value_storage = StorageFactory.create_key_value_storage(storage_type="duckdb", database_path=temp_duckdb_path)
     return DuckDBMetadataRepository(key_value_storage=key_value_storage, database_path=temp_duckdb_path)
@@ -44,7 +44,7 @@ def metadata_repository(*, temp_duckdb_path):
 @pytest.fixture
 def data_store(*, temp_duckdb_path):
     """Create a DuckDBDataStore instance with dependency injection."""
-    from datasift.storage.factory import StorageFactory
+    from docpipe.storage.factory import StorageFactory
 
     table_storage = StorageFactory.create_table_storage(storage_type="duckdb", database_path=temp_duckdb_path)
     return DuckDBDataStore(table_storage=table_storage)
@@ -104,7 +104,7 @@ class TestCreateDocumentSetService:
 
     def test_create_document_set_invalid_name(self, service, temp_duckdb_path):
         """Test that creating with invalid name fails."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.create_document_set(
                 name="123InvalidName",
                 description="Test",
@@ -176,12 +176,12 @@ class TestStoreData:
 
     def test_store_data_invalid_document_set_id(self, service, sample_table):
         """Test storing data with invalid document set ID."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.store_data(document_set_id="", data=sample_table)
 
     def test_store_data_nonexistent_document_set(self, service, sample_table):
         """Test storing data for nonexistent document set."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.store_data(document_set_id="nonexistent-id", data=sample_table)
 
 
@@ -228,14 +228,14 @@ class TestPreviewData:
         """Test preview with invalid limit."""
         doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.preview_data(document_set_id=doc_set.id, limit=0, offset=0)
 
     def test_preview_data_invalid_offset(self, service, temp_duckdb_path):
         """Test preview with invalid offset."""
         doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.preview_data(document_set_id=doc_set.id, limit=10, offset=-1)
 
 
@@ -300,7 +300,7 @@ class TestDeleteDocumentSetWithData:
 
     def test_delete_nonexistent_document_set(self, service):
         """Test deleting nonexistent document set."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.delete_document_set(document_set_id="nonexistent-id")
 
 
@@ -311,14 +311,14 @@ class TestInvalidPyArrowTable:
         """Test that None table raises error."""
         doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.store_data(document_set_id=doc_set.id, data=None)
 
     def test_invalid_pyarrow_table_wrong_type(self, service, temp_duckdb_path):
         """Test that non-PyArrow table raises error."""
         doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.store_data(document_set_id=doc_set.id, data={"not": "a table"})
 
     def test_invalid_pyarrow_table_missing_id(self, service, temp_duckdb_path):
@@ -327,7 +327,7 @@ class TestInvalidPyArrowTable:
 
         bad_table = pa.table({"name": ["Document 1"], "content": ["Content 1"]})
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.store_data(document_set_id=doc_set.id, data=bad_table)
 
 
@@ -379,12 +379,12 @@ class TestGetDocumentSet:
 
     def test_get_document_set_not_found(self, service):
         """Test retrieving nonexistent document set."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.get_document_set(document_set_id="nonexistent-id")
 
     def test_get_document_set_empty_id(self, service):
         """Test retrieving with empty ID."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.get_document_set(document_set_id="")
 
 
@@ -402,12 +402,12 @@ class TestGetDocumentSetByName:
 
     def test_get_document_set_by_name_not_found(self, service):
         """Test retrieving nonexistent document set by name."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.get_document_set_by_name(name="Nonexistent Name")
 
     def test_get_document_set_by_name_empty(self, service):
         """Test retrieving with empty name."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.get_document_set_by_name(name="")
 
 
@@ -458,12 +458,12 @@ class TestListDocumentSets:
 
     def test_list_document_sets_invalid_limit(self, service):
         """Test listing with invalid limit."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.list_document_sets(limit=0)
 
     def test_list_document_sets_invalid_offset(self, service):
         """Test listing with invalid offset."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.list_document_sets(offset=-1)
 
 
@@ -489,10 +489,10 @@ class TestUpdateDocumentSet:
 
     def test_update_document_set_not_found(self, service):
         """Test updating nonexistent document set."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.update_document_set(document_set_id="nonexistent-id", description="Updated")
 
     def test_update_document_set_empty_id(self, service):
         """Test updating with empty ID."""
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.update_document_set(document_set_id="", description="Updated")

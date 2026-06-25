@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from datasift.core.operators.ingest.adapters.outbound.sources.web.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.web.adapter import (
     WebPageSourceAdapter,
     WebPageSourceConfig,
 )
@@ -24,7 +24,7 @@ except ImportError:
     print("Or set environment variables manually.")
 
 # Add the backend directory to Python path
-backend_path = Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
+backend_path = Path(__file__).parent.parent.parent / "src" / "docpipe_app" / "backend"
 sys.path.insert(0, str(backend_path))
 
 # Configure logging

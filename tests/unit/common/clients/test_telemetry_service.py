@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.utils.infrastructure.telemetry_service import (
+from docpipe.utils.infrastructure.telemetry_service import (
     TelemetryConfig,
     TelemetryService,
     get_telemetry_service,
@@ -30,7 +30,7 @@ class TestTelemetryResilience:
 
         # Mock the OTEL modules to simulate them not being installed
         # We patch them as None in the telemetry_service module's namespace
-        with patch("datasift.utils.infrastructure.telemetry_service.logger") as mock_logger:
+        with patch("docpipe.utils.infrastructure.telemetry_service.logger") as mock_logger:
             with patch.dict(
                 "sys.modules",
                 {
@@ -118,7 +118,7 @@ class TestTelemetryResilience:
             service_name="test-service",
         )
 
-        with patch("datasift.utils.infrastructure.telemetry_service.logger") as mock_logger:
+        with patch("docpipe.utils.infrastructure.telemetry_service.logger") as mock_logger:
             # Mock successful initialization
             mock_trace = MagicMock()
             mock_tracer = MagicMock()
@@ -152,7 +152,7 @@ class TestTelemetryResilience:
         """Test that end_span handles exceptions without propagating them."""
         config = TelemetryConfig(enabled=True)
 
-        with patch("datasift.utils.infrastructure.telemetry_service.logger") as mock_logger:
+        with patch("docpipe.utils.infrastructure.telemetry_service.logger") as mock_logger:
             service = get_telemetry_service()
             service.initialize(config=config)
             service._enabled = True  # Force enabled
@@ -171,7 +171,7 @@ class TestTelemetryResilience:
         """Test that set_span_attribute handles exceptions without propagating them."""
         config = TelemetryConfig(enabled=True)
 
-        with patch("datasift.utils.infrastructure.telemetry_service.logger") as mock_logger:
+        with patch("docpipe.utils.infrastructure.telemetry_service.logger") as mock_logger:
             service = get_telemetry_service()
             service.initialize(config=config)
             service._enabled = True  # Force enabled
@@ -190,7 +190,7 @@ class TestTelemetryResilience:
         """Test that record_exception handles exceptions without propagating them."""
         config = TelemetryConfig(enabled=True)
 
-        with patch("datasift.utils.infrastructure.telemetry_service.logger") as mock_logger:
+        with patch("docpipe.utils.infrastructure.telemetry_service.logger") as mock_logger:
             service = get_telemetry_service()
             service.initialize(config=config)
             service._enabled = True  # Force enabled
@@ -209,7 +209,7 @@ class TestTelemetryResilience:
         """Test that shutdown handles exceptions without propagating them."""
         config = TelemetryConfig(enabled=True)
 
-        with patch("datasift.utils.infrastructure.telemetry_service.logger") as mock_logger:
+        with patch("docpipe.utils.infrastructure.telemetry_service.logger") as mock_logger:
             service = get_telemetry_service()
             service.initialize(config=config)
             service._enabled = True  # Force enabled

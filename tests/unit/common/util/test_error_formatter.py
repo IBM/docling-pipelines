@@ -2,15 +2,15 @@
 
 import pytest
 
-from datasift.exceptions.datasift_exceptions import (
-    DatasiftException,
+from docpipe.exceptions.docpipe_exceptions import (
+    DocpipeException,
     FlowValidationException,
     ValidationAlert,
 )
-from datasift.exceptions.error_messages import ValidationMessage
-from datasift.utils.infrastructure.error_formatter import (
+from docpipe.exceptions.error_messages import ValidationMessage
+from docpipe.utils.infrastructure.error_formatter import (
     ErrorFormatter,
-    format_datasift_exception,
+    format_docpipe_exception,
     format_generic_exception,
     format_validation_exception,
 )
@@ -80,28 +80,28 @@ class TestValidationExceptionFormatting:
         assert all(x in result for x in ["ExtractOperator", "Missing parameter"])
 
 
-class TestDatasiftExceptionFormatting:
-    """Test DatasiftException formatting."""
+class TestDocpipeExceptionFormatting:
+    """Test DocpipeException formatting."""
 
     def test_format_basic_exception(self, formatter):
-        """Test formatting basic DatasiftException."""
-        exception = DatasiftException("Test error message")
+        """Test formatting basic DocpipeException."""
+        exception = DocpipeException("Test error message")
 
-        result = formatter.format_datasift_exception(exception=exception)
+        result = formatter.format_docpipe_exception(exception=exception)
 
-        assert all(x in result for x in ["DATASIFT", "Test error message"])
+        assert all(x in result for x in ["DOCPIPE", "Test error message"])
 
     def test_format_with_context_attributes(self, formatter):
         """Test formatting with context attributes."""
 
-        class CustomException(DatasiftException):
+        class CustomException(DocpipeException):
             def __init__(self, message):
                 super().__init__(message)
                 self.flow_id = "flow-123"
                 self.job_id = "job-456"
 
         exception = CustomException("Error with context")
-        result = formatter.format_datasift_exception(exception=exception)
+        result = formatter.format_docpipe_exception(exception=exception)
 
         assert " Details:" in result
         assert " Flow Id: flow-123" in result
@@ -376,22 +376,22 @@ class TestConvenienceFunctions:
 
         assert all(x in result for x in ["FLOW VALIDATION FAILED", "TestOp"])
 
-    def test_format_datasift_exception_routes_validation(self):
-        """Test format_datasift_exception routes validation exceptions."""
+    def test_format_docpipe_exception_routes_validation(self):
+        """Test format_docpipe_exception routes validation exceptions."""
         errors: list[ValidationAlert | ValidationMessage] = [ValidationAlert(operator="TestOp", message="Test error")]
         exception = FlowValidationException(errors=errors)
 
-        result = format_datasift_exception(exception=exception)
+        result = format_docpipe_exception(exception=exception)
 
         assert "FLOW VALIDATION FAILED" in result
 
-    def test_format_datasift_exception_generic(self):
-        """Test format_datasift_exception with generic exception."""
-        exception = DatasiftException("Generic error")
+    def test_format_docpipe_exception_generic(self):
+        """Test format_docpipe_exception with generic exception."""
+        exception = DocpipeException("Generic error")
 
-        result = format_datasift_exception(exception=exception)
+        result = format_docpipe_exception(exception=exception)
 
-        assert all(x in result for x in ["DATASIFT", "Generic error"])
+        assert all(x in result for x in ["DOCPIPE", "Generic error"])
 
     def test_format_generic_exception_function(self):
         """Test format_generic_exception convenience function."""
@@ -419,18 +419,18 @@ class TestEdgeCases:
 
     def test_special_characters_in_message(self, formatter):
         """Test special characters are preserved."""
-        exception = DatasiftException("Error: @#$%^&*()")
+        exception = DocpipeException("Error: @#$%^&*()")
 
-        result = formatter.format_datasift_exception(exception=exception)
+        result = formatter.format_docpipe_exception(exception=exception)
 
         assert "@#$%^&*()" in result
 
     def test_very_long_message_wraps(self, formatter):
         """Test very long messages wrap correctly."""
         long_message = "word " * 100
-        exception = DatasiftException(long_message)
+        exception = DocpipeException(long_message)
 
-        result = formatter.format_datasift_exception(exception=exception)
+        result = formatter.format_docpipe_exception(exception=exception)
         message_lines = [line for line in result.split("\n") if line.startswith(" ") and "word" in line]
 
         assert message_lines

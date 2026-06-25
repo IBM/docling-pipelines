@@ -10,10 +10,10 @@ import time
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.quality.language_detection.lang_id import LanguageDetect
-from datasift.utils.infrastructure.fasttext_model_manager import FastTextModelManager
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.quality.language_detection.lang_id import LanguageDetect
+from docpipe.utils.infrastructure.fasttext_model_manager import FastTextModelManager
 
 
 class TestLanguageDetectFastText:

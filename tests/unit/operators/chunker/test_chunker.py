@@ -10,8 +10,8 @@ if "langchain_experimental" not in sys.modules:
     sys.modules["langchain_experimental"] = Mock()
     sys.modules["langchain_experimental.text_splitter"] = Mock()
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.chunker import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.chunker import (
     CHUNK_MAX_SIZE,
     CHUNK_MIN_SIZE,
     CHUNK_OVERLAP_MAX_SIZE,
@@ -19,7 +19,7 @@ from datasift.core.operators.functional.chunker import (
     ChunkerOperator,
     ChunkType,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestChunkerOperator(unittest.TestCase):
@@ -136,7 +136,7 @@ class TestChunkerOperator(unittest.TestCase):
         self.assertGreater(len(chunked_content), 1, "Long text should create multiple chunks")
 
     @patch("langchain_experimental.text_splitter.SemanticChunker")
-    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
     def test_semantic_chunking_transform(self, mock_ollama_client_class, mock_semantic_chunker_class):
         """Test semantic chunking with fully mocked Ollama client and SemanticChunker"""
         # Mock the OllamaClient to avoid any real API calls
@@ -201,7 +201,7 @@ class TestChunkerOperator(unittest.TestCase):
         mock_ollama_client_class.assert_called_once()
         mock_semantic_chunker_class.assert_called_once()
 
-    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
     def test_chunker_provider_config_host(self, mock_ollama_client_class):
         """Test that host in the provider_config is passed to OllamaClient."""
 
@@ -561,7 +561,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
         self.assertEqual(original_content, "Test content for chunking.")
 
     @patch("langchain_experimental.text_splitter.SemanticChunker")
-    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
     def test_chunker_different_breakpoint_types(self, mock_ollama_client_class, mock_semantic_chunker_class):
         """Test semantic chunking with different breakpoint types - fully mocked"""
         # Mock the OllamaClient to avoid any real API calls
@@ -1085,7 +1085,7 @@ class TestDoclingChunking(unittest.TestCase):
 class TestChunkerSummarization(unittest.TestCase):
     """Test Chunker summarization functionality with multi-provider support"""
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_initialization_litellm(self, mock_factory):
         """Test operator initialization with LiteLLM summarization config"""
         mock_adapter = MagicMock()
@@ -1110,7 +1110,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(operator.summarization_provider, "litellm")
         self.assertEqual(operator.summarization_model, "openai/llama3.2:3b")
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_initialization_watsonx(self, mock_factory):
         """Test operator initialization with WatsonX summarization config (nested structure)"""
         mock_adapter = MagicMock()
@@ -1135,7 +1135,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(operator.summarization_provider, "watsonx")
         self.assertEqual(operator.summarization_model, "ibm/granite-13b-chat-v2")
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_initialization_flat_config_backward_compat(self, mock_factory):
         """Test backward compatibility with flat config structure"""
         mock_adapter = MagicMock()
@@ -1161,7 +1161,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(operator.summarization_provider, "litellm")
         self.assertEqual(operator.summarization_model, "openai/llama3.2:3b")
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_backward_compatibility(self, mock_factory):
         """Test auto-configuration when provider_config is empty"""
         mock_adapter = MagicMock()
@@ -1186,7 +1186,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(operator.summarization_provider_config["api_base"], "http://localhost:11434/v1")
         self.assertEqual(operator.summarization_provider_config["api_key"], "<ollama>")
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_model_auto_prefix(self, mock_factory):
         """Test automatic prefixing of model names with 'openai/' for LiteLLM"""
         mock_adapter = MagicMock()
@@ -1214,7 +1214,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertFalse(operator.enable_summarization)
         self.assertIsNone(operator._summarization_service)
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_lazy_initialization(self, mock_factory):
         """Test that summarization service is lazily initialized during transform() when summarization is enabled"""
         mock_adapter = MagicMock()
@@ -1249,7 +1249,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertIsNotNone(operator._summarization_service)
         mock_factory.create_inference_adapter.assert_called_once()
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_with_chunking(self, mock_factory):
         """Test summarization integrated with chunking"""
         mock_adapter = MagicMock()
@@ -1284,7 +1284,7 @@ class TestChunkerSummarization(unittest.TestCase):
         # Verify LLM was called for summarization
         self.assertGreater(mock_adapter.chat.call_count, 0)
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_parameters(self, mock_factory):
         """Test summarization with custom parameters"""
         mock_adapter = MagicMock()
@@ -1401,7 +1401,7 @@ class TestChunkerSummarization(unittest.TestCase):
         operator.validate(errors, warnings, ["content"])
         self.assertGreater(len(errors), 0)
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_graceful_failure(self, mock_factory):
         """Test that summarization failures are handled gracefully"""
         mock_adapter = MagicMock()
@@ -1463,7 +1463,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertIn("summary_sentences", props)
         self.assertIn("summary_max_words", props)
 
-    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_empty_document(self, mock_factory):
         """Test summarization with empty document"""
         mock_adapter = MagicMock()
@@ -1491,7 +1491,7 @@ class TestChunkerSummarization(unittest.TestCase):
 
     def test_summarization_service_validation_called_on_init(self):
         """Test that validate() is called during summarization service initialization."""
-        from datasift.core.operators.functional.summarization_service import SummarizationService
+        from docpipe.core.operators.functional.summarization_service import SummarizationService
 
         mock_adapter = MagicMock()
         mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
@@ -1502,20 +1502,20 @@ class TestChunkerSummarization(unittest.TestCase):
         mock_adapter.validate.assert_called_once()
 
     def test_summarization_service_validation_failure_raises_error(self):
-        """Test that validation failures raise DatasiftException."""
-        from datasift.core.operators.functional.summarization_service import SummarizationService
+        """Test that validation failures raise DocpipeException."""
+        from docpipe.core.operators.functional.summarization_service import SummarizationService
 
         mock_adapter = MagicMock()
         mock_adapter.validate.return_value = {"valid": False, "errors": ["API key is required"], "warnings": []}
 
-        with self.assertRaises(DatasiftException) as context:
+        with self.assertRaises(DocpipeException) as context:
             SummarizationService(llm_adapter=mock_adapter)
 
         self.assertIn("API key is required", str(context.exception))
 
     def test_summarization_service_validation_with_warnings(self):
         """Test that warnings don't block service initialization."""
-        from datasift.core.operators.functional.summarization_service import SummarizationService
+        from docpipe.core.operators.functional.summarization_service import SummarizationService
 
         mock_adapter = MagicMock()
         mock_adapter.validate.return_value = {
@@ -1530,7 +1530,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertIsNotNone(service)
         mock_adapter.chat.assert_not_called()
 
-    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
     def test_semantic_chunking_missing_embeddings_model(self, mock_ollama_client_class):
         """Test that semantic chunking provides clear error when semantic_embeddings_model is missing"""
         # Create test data

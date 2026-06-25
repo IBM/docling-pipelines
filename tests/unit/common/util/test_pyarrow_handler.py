@@ -10,7 +10,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pytest
 
-from datasift.utils.data.pyarrow_handler import (
+from docpipe.utils.data.pyarrow_handler import (
     BaseParquetTableHandler,
     CpdParquetTableHandler,
     get_parquet_table_handler,

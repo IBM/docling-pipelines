@@ -1,6 +1,6 @@
-# Datasift All-in-One Docker Compose Setup
+# Docpipe All-in-One Docker Compose Setup
 
-This directory contains a simplified Docker Compose configuration for running Datasift with all required services in a single deployment.
+This directory contains a simplified Docker Compose configuration for running Docpipe with all required services in a single deployment.
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ The default `docker-compose.yml` includes:
 
 | Service | Port | Description |
 |---------|------|-------------|
-| **datasift** | 8080 | Main Datasift application API |
+| **docpipe** | 8080 | Main Docpipe application API |
 | **postgres** | 5432 | PostgreSQL database |
 | **ollama** | 11434 | Ollama LLM service |
 | **opensearch** | 9200, 9600 | OpenSearch vector database |
@@ -59,10 +59,10 @@ cp .env.example .env
 ```
 
 Key variables:
-- `POSTGRES_PASSWORD` - PostgreSQL password (default: datasift_password)
+- `POSTGRES_PASSWORD` - PostgreSQL password (default: docpipe_password)
 - `OPENSEARCH_PASSWORD` - OpenSearch admin password (default: MyStrongPass123!)
 - `OPENSEARCH_JAVA_OPTS` - OpenSearch JVM memory (default: -Xms1g -Xmx1g)
-- `DATASIFT_PORT` - Datasift API port (default: 8080)
+- `DOCPIPE_PORT` - Docpipe API port (default: 8080)
 
 ### Ollama Models
 
@@ -80,7 +80,7 @@ Check service health:
 # All services
 docker-compose ps
 
-# Datasift API
+# Docpipe API
 curl http://localhost:8080/health
 
 # OpenSearch
@@ -98,7 +98,7 @@ Data is persisted in Docker volumes:
 - `opensearch-data` - OpenSearch indices
 
 Local directories (owned by UID 1000):
-- `./data` - Datasift application data
+- `./data` - Docpipe application data
 - `./logs` - Application logs
 
 
@@ -138,7 +138,7 @@ OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g
 ### Port conflicts
 Change ports in `.env`:
 ```
-DATASIFT_PORT=8081
+DOCPIPE_PORT=8081
 POSTGRES_PORT=5433
 ```
 

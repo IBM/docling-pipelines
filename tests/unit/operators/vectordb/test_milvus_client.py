@@ -4,8 +4,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.operators.vectordb.adapters.outbound.milvus.client import MilvusClient
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.operators.vectordb.adapters.outbound.milvus.client import MilvusClient
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestMilvusClient:
@@ -27,14 +27,14 @@ class TestMilvusClient:
     def test_validate_parameters_no_host_or_uri(self):
         """Test validation fails when neither host nor URI is provided."""
         client = MilvusClient(host=None, uri=None, auth_type="standalone")
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             client._validate_parameters()
         assert "'host' is required for standalone auth_type" in str(exc_info.value)
 
     def test_validate_parameters_invalid_port(self):
         """Test validation fails with invalid port."""
         client = MilvusClient(host="localhost", port=70000, auth_type="standalone")
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             client._validate_parameters()
         assert "'port' must be an integer between 1 and 65535" in str(exc_info.value)
 
@@ -51,7 +51,7 @@ class TestMilvusClient:
         )
         client._validate_parameters()
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_connect_with_host(self, mock_pymilvus_client):
         """Test connection with host-based configuration."""
         mock_client_instance = Mock()
@@ -67,7 +67,7 @@ class TestMilvusClient:
         assert call_kwargs["host"] == "localhost"
         assert call_kwargs["port"] == 19530
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_connect_with_uri(self, mock_pymilvus_client):
         """Test connection with URI-based configuration."""
         mock_client_instance = Mock()
@@ -84,17 +84,17 @@ class TestMilvusClient:
         # URI auth embeds token in URI, not passed separately
         assert "token" not in call_kwargs or call_kwargs.get("token") == "test-token"
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_connect_failure(self, mock_pymilvus_client):
         """Test connection failure handling."""
         mock_pymilvus_client.side_effect = Exception("Connection failed")
 
         client = MilvusClient(host="localhost", auth_type="standalone")
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             client.connect()
         assert "MilvusDB Error: Failed to connect" in str(exc_info.value)
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_get_client_creates_if_none(self, mock_pymilvus_client):
         """Test get_client creates client if not exists."""
         mock_client_instance = Mock()
@@ -107,7 +107,7 @@ class TestMilvusClient:
         assert result == mock_client_instance
         assert client._client == mock_client_instance
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_get_client_returns_existing(self, mock_pymilvus_client):
         """Test get_client returns existing client."""
         mock_client_instance = Mock()
@@ -122,7 +122,7 @@ class TestMilvusClient:
         # Should not create a new client
         mock_pymilvus_client.assert_not_called()
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_test_connection_success(self, mock_pymilvus_client):
         """Test successful connection test."""
         mock_client_instance = Mock()
@@ -134,7 +134,7 @@ class TestMilvusClient:
 
         assert result is True
 
-    @patch("datasift.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
+    @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_test_connection_failure(self, mock_pymilvus_client):
         """Test failed connection test."""
         mock_client_instance = Mock()

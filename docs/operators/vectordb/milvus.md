@@ -164,8 +164,8 @@ Enable hybrid search by setting `add_sparse_vector: true` in `provider_config`. 
 ### Example 1: Basic Milvus Configuration
 
 ```python
-from datasift.core.operators.vectordb import VectorDBOperator
-from datasift.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.core.constants.operator_constants import OperatorConstants
 import pyarrow as pa
 import numpy as np
 
@@ -342,7 +342,7 @@ config = {
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "datasift_documents",
+    "index_name": "docpipe_documents",
     "doc_id_column": "doc_id_hash",
     "create_index": true,
     "provider_config": {

@@ -10,8 +10,8 @@ from unittest.mock import Mock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
-from datasift.core.constants.operator_constants import OperatorConstants
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.constants.operator_constants import OperatorConstants
 
 
 class TestBatchContextExecutorIntegration:
@@ -36,10 +36,10 @@ class TestBatchContextExecutorIntegration:
         return {
             OperatorConstants.Columns.NAME: "test_node",
             OperatorConstants.Columns.ID: "node-123",
-            DatasiftConstants.JOB_ID: "job-456",
-            DatasiftConstants.JOB_RUN_ID: "run-789",
-            DatasiftConstants.BATCH_ID: "batch-uuid-abc",
-            DatasiftConstants.BATCH_NUM: 7,
+            DocpipeConstants.JOB_ID: "job-456",
+            DocpipeConstants.JOB_RUN_ID: "run-789",
+            DocpipeConstants.BATCH_ID: "batch-uuid-abc",
+            DocpipeConstants.BATCH_NUM: 7,
         }
 
     @pytest.fixture
@@ -48,15 +48,15 @@ class TestBatchContextExecutorIntegration:
         return {
             OperatorConstants.Columns.NAME: "test_node",
             OperatorConstants.Columns.ID: "node-123",
-            DatasiftConstants.JOB_ID: "job-456",
-            DatasiftConstants.JOB_RUN_ID: "run-789",
+            DocpipeConstants.JOB_ID: "job-456",
+            DocpipeConstants.JOB_RUN_ID: "run-789",
         }
 
     def test_set_default_node_stats_with_batch_context(
         self, mock_job_stats_service, executor_params_with_batch, sample_table
     ):
         """Test that set_default_node_stats passes batch context to start_node_execution."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -86,7 +86,7 @@ class TestBatchContextExecutorIntegration:
         self, mock_job_stats_service, executor_params_without_batch, sample_table
     ):
         """Test that set_default_node_stats works without batch context."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -115,7 +115,7 @@ class TestBatchContextExecutorIntegration:
         self, mock_job_stats_service, executor_params_with_batch, sample_table
     ):
         """Test that update_final_node_stats passes batch context to complete_node_execution."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -146,7 +146,7 @@ class TestBatchContextExecutorIntegration:
         self, mock_job_stats_service, executor_params_without_batch, sample_table
     ):
         """Test that update_final_node_stats works without batch context."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -174,7 +174,7 @@ class TestBatchContextExecutorIntegration:
 
     def test_batch_context_with_failed_docs(self, mock_job_stats_service, executor_params_with_batch, sample_table):
         """Test batch context propagation when node has failed documents."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -202,7 +202,7 @@ class TestBatchContextExecutorIntegration:
 
     def test_batch_context_with_dict_tables(self, mock_job_stats_service, executor_params_with_batch, sample_table):
         """Test batch context with dict of tables (branching scenario)."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -244,17 +244,17 @@ class TestBatchStateTransitions:
 
     def test_pending_to_running_transition_with_batch_context(self, mock_job_stats_service, sample_table):
         """Test transition from PENDING to RUNNING state with batch context."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
         executor_params = {
             OperatorConstants.Columns.NAME: "test_node",
             OperatorConstants.Columns.ID: "node-123",
-            DatasiftConstants.JOB_ID: "job-456",
-            DatasiftConstants.JOB_RUN_ID: "run-789",
-            DatasiftConstants.BATCH_ID: "batch-uuid-pending",
-            DatasiftConstants.BATCH_NUM: 1,
+            DocpipeConstants.JOB_ID: "job-456",
+            DocpipeConstants.JOB_RUN_ID: "run-789",
+            DocpipeConstants.BATCH_ID: "batch-uuid-pending",
+            DocpipeConstants.BATCH_NUM: 1,
         }
 
         executor = PythonOperatorExecutor(
@@ -277,17 +277,17 @@ class TestBatchStateTransitions:
 
     def test_running_to_completed_transition_with_batch_context(self, mock_job_stats_service, sample_table):
         """Test transition from RUNNING to COMPLETED state with batch context."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
         executor_params = {
             OperatorConstants.Columns.NAME: "test_node",
             OperatorConstants.Columns.ID: "node-123",
-            DatasiftConstants.JOB_ID: "job-456",
-            DatasiftConstants.JOB_RUN_ID: "run-789",
-            DatasiftConstants.BATCH_ID: "batch-uuid-running",
-            DatasiftConstants.BATCH_NUM: 2,
+            DocpipeConstants.JOB_ID: "job-456",
+            DocpipeConstants.JOB_RUN_ID: "run-789",
+            DocpipeConstants.BATCH_ID: "batch-uuid-running",
+            DocpipeConstants.BATCH_NUM: 2,
         }
 
         executor = PythonOperatorExecutor(
@@ -311,7 +311,7 @@ class TestBatchStateTransitions:
 
     def test_running_to_failed_transition_with_batch_context(self, mock_job_stats_service):
         """Test transition from RUNNING to FAILED state with batch context."""
-        from datasift.core.orchestration.flow_execution_event_handler import (
+        from docpipe.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -325,16 +325,16 @@ class TestBatchStateTransitions:
         node_name = "FailedNode"
         exception = RuntimeError("Processing failed")
         global_config = {
-            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
-            DatasiftConstants.BATCH_ID: "batch-uuid-failed",
-            DatasiftConstants.BATCH_NUM: 3,
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.BATCH_ID: "batch-uuid-failed",
+            DocpipeConstants.BATCH_NUM: 3,
         }
 
         # Mock get_job to return a dict or object with model_dump
         mock_job_stats_service.get_job.return_value = None  # Simplest: skip stats injection
 
         # Call after_node_failure (RUNNING -> FAILED transition)
-        with patch("datasift.core.orchestration.flow_execution_event_handler.logger"):
+        with patch("docpipe.core.orchestration.flow_execution_event_handler.logger"):
             handler.after_node_failure(
                 node_id=node_id,
                 node_name=node_name,
@@ -353,7 +353,7 @@ class TestBatchStateTransitions:
 
     def test_multiple_batches_independent_state_transitions(self, mock_job_stats_service, sample_table):
         """Test that multiple batches can have independent state transitions."""
-        from datasift.core.orchestration.python.python_operator_executor import (
+        from docpipe.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -364,9 +364,9 @@ class TestBatchStateTransitions:
             params={
                 OperatorConstants.Columns.NAME: "test_node",
                 OperatorConstants.Columns.ID: "node-123",
-                DatasiftConstants.JOB_RUN_ID: "run-789",
-                DatasiftConstants.BATCH_ID: "batch-uuid-0",
-                DatasiftConstants.BATCH_NUM: 0,
+                DocpipeConstants.JOB_RUN_ID: "run-789",
+                DocpipeConstants.BATCH_ID: "batch-uuid-0",
+                DocpipeConstants.BATCH_NUM: 0,
             },
             job_stats_service=mock_job_stats_service,
         )
@@ -379,9 +379,9 @@ class TestBatchStateTransitions:
             params={
                 OperatorConstants.Columns.NAME: "test_node",
                 OperatorConstants.Columns.ID: "node-123",
-                DatasiftConstants.JOB_RUN_ID: "run-789",
-                DatasiftConstants.BATCH_ID: "batch-uuid-1",
-                DatasiftConstants.BATCH_NUM: 1,
+                DocpipeConstants.JOB_RUN_ID: "run-789",
+                DocpipeConstants.BATCH_ID: "batch-uuid-1",
+                DocpipeConstants.BATCH_NUM: 1,
             },
             job_stats_service=mock_job_stats_service,
         )

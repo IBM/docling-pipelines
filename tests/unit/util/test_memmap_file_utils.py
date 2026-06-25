@@ -7,9 +7,9 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.utils.core.memmap_file_utils import (
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.utils.core.memmap_file_utils import (
     cleanup_memmap_files,
     load_chunks_from_file,
     load_embeddings_from_memmap_file,
@@ -77,7 +77,7 @@ class TestMemmapFileUtils:
         write_embedding_metadata(filepath=filepath, dim=dim)
 
         # Verify metadata file exists
-        metadata_path = filepath + DatasiftConstants.METADATA_SUFFIX
+        metadata_path = filepath + DocpipeConstants.METADATA_SUFFIX
         assert os.path.exists(metadata_path)
 
         # Read metadata back
@@ -152,7 +152,7 @@ class TestMemmapFileUtils:
         table = pa.table(
             {
                 OperatorConstants.Columns.ID: ["doc1"],
-                "embeddings": [{DatasiftConstants.EMBEDDINGS_MEMMAP_FILE: filepath}],
+                "embeddings": [{DocpipeConstants.EMBEDDINGS_MEMMAP_FILE: filepath}],
             }
         )
 
@@ -179,7 +179,7 @@ class TestMemmapFileUtils:
         table = pa.table(
             {
                 OperatorConstants.Columns.ID: ["doc1"],
-                OperatorConstants.Columns.CHUNKED_CONTENT: [{DatasiftConstants.CHUNKS_MEMMAP_FILE: filepath}],
+                OperatorConstants.Columns.CHUNKED_CONTENT: [{DocpipeConstants.CHUNKS_MEMMAP_FILE: filepath}],
             }
         )
 
@@ -208,8 +208,8 @@ class TestMemmapFileUtils:
         table = pa.table(
             {
                 OperatorConstants.Columns.ID: ["doc1"],
-                "embeddings": [{DatasiftConstants.EMBEDDINGS_MEMMAP_FILE: embeddings_filepath}],
-                OperatorConstants.Columns.CHUNKED_CONTENT: [{DatasiftConstants.CHUNKS_MEMMAP_FILE: chunks_filepath}],
+                "embeddings": [{DocpipeConstants.EMBEDDINGS_MEMMAP_FILE: embeddings_filepath}],
+                OperatorConstants.Columns.CHUNKED_CONTENT: [{DocpipeConstants.CHUNKS_MEMMAP_FILE: chunks_filepath}],
             }
         )
 
@@ -268,7 +268,7 @@ class TestMemmapFileUtils:
             return os.path.join(temp_dir, sub_dir.lstrip("/"))
 
         # Use patch to mock get_data_path from the filesystem module
-        with patch("datasift.utils.infrastructure.filesystem.get_data_path", side_effect=mock_get_data_path):
+        with patch("docpipe.utils.infrastructure.filesystem.get_data_path", side_effect=mock_get_data_path):
             # Cleanup
             cleanup_memmap_files(job_id=job_id, job_run_id=job_run_id)
 
@@ -310,7 +310,7 @@ class TestMemmapFileUtils:
         assert os.path.getsize(filepath) == 0
 
         # No metadata file should be created for empty list
-        metadata_path = filepath + DatasiftConstants.METADATA_SUFFIX
+        metadata_path = filepath + DocpipeConstants.METADATA_SUFFIX
         assert not os.path.exists(metadata_path)
 
     def test_empty_chunks_list(self, *, temp_dir):

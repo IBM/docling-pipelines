@@ -1,6 +1,6 @@
 """Invalid operator missing transform method."""
 
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 
 class InvalidOperatorNoTransform(AbstractOperator):

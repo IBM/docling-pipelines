@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 class TestSchemaTemplateLoading:
@@ -81,7 +81,7 @@ class TestSchemaTemplateLoading:
         # Verify metadata was injected
         assert index_body["mappings"]["_meta"]["engine"] == "faiss"
         assert index_body["mappings"]["_meta"]["algorithm"] == "hnsw"
-        assert index_body["mappings"]["_meta"]["created_by"] == "datasift-opensource"
+        assert index_body["mappings"]["_meta"]["created_by"] == "docling-pipelines"
 
     def test_fallback_when_file_not_found(self, *, mock_client):
         """Test fallback to dynamic generation when schema file not found."""
@@ -612,8 +612,8 @@ class TestIndexingRules:
             },
         )
 
-        # Should raise DatasiftException for unknown field type
-        with pytest.raises(DatasiftException) as exc_info:
+        # Should raise DocpipeException for unknown field type
+        with pytest.raises(DocpipeException) as exc_info:
             dimension_mapping = {}
             manager.build_index_body(dimension_mapping=dimension_mapping)
 

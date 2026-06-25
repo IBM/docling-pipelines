@@ -1,6 +1,6 @@
-# DataSift Troubleshooting Guide
+# Docpipe Troubleshooting Guide
 
-This comprehensive guide helps you diagnose and resolve common issues when working with DataSift pipelines.
+This comprehensive guide helps you diagnose and resolve common issues when working with Docpipe pipelines.
 
 ## Table of Contents
 
@@ -24,7 +24,7 @@ This comprehensive guide helps you diagnose and resolve common issues when worki
 
 ## Quick Diagnostics
 
-Run these commands to quickly check your DataSift environment:
+Run these commands to quickly check your Docpipe environment:
 
 ```bash
 # 1. Check Python version (must be 3.12)
@@ -46,7 +46,7 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Milvus: Connected')"
 
 # 7. Verify you're in the project root
-pwd  # Should end with /datasift-opensource
+pwd  # Should end with /docling-pipelines
 
 # 8. List available Ollama models
 ollama list
@@ -59,7 +59,7 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 ```bash
 #!/bin/bash
-echo "=== DataSift Environment Health Check ==="
+echo "=== Docpipe Environment Health Check ==="
 echo ""
 echo "1. Python Version:"
 python3.12 --version || echo "❌ Python 3.12 not found"
@@ -187,14 +187,14 @@ uv sync --extra dev
 **Symptoms:**
 
 ```
-Permission denied: './scripts/setup_datasift_environment.sh'
+Permission denied: './scripts/setup_docpipe_environment.sh'
 ```
 
 **Solution:**
 
 ```bash
-chmod +x scripts/setup_datasift_environment.sh
-./scripts/setup_datasift_environment.sh
+chmod +x scripts/setup_docpipe_environment.sh
+./scripts/setup_docpipe_environment.sh
 ```
 
 ---
@@ -216,7 +216,7 @@ Job run exists on the submitter but worker updates do not appear in job status A
 2. For distributed execution, prefer PostgreSQL job stats storage.
 3. If using filesystem storage, configure a shared filesystem path visible to both submitter and workers.
 4. Ensure worker environments inherit the same effective backend configuration and connection settings.
-5. If needed, override config explicitly with `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, `DATASIFT_JOB_STATS_BASE_DIR`, and PostgreSQL env variables.
+5. If needed, override config explicitly with `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, `DOCPIPE_JOB_STATS_BASE_DIR`, and PostgreSQL env variables.
 6. Review [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
 
 ---
@@ -235,7 +235,7 @@ Batch progress looks incorrect in aggregated results
 - the field was left on the default `LAST` strategy when it should use `SUM`, `UNION`, `WEIGHTED_AVERAGE`, or another explicit strategy
 
 **Solutions:**
-1. Review [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
+1. Review [`DEFAULT_STRATEGIES`](src/docpipe/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/docpipe/core/job_management/application/aggregation/strategies.py).
 2. Add explicit mappings for newly introduced metadata fields when needed.
 3. Add or update tests covering multi-batch aggregation behavior.
 4. See [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md) for maintainer guidance.
@@ -255,7 +255,7 @@ Batch work starts, but the final job state becomes CRASHED or CANCELED unexpecte
 
 **Solutions:**
 1. Confirm the execution path waits for submitted batch work before the outer flow exits.
-2. Check [`PrefectEngine`](src/datasift/core/orchestration/prefect/prefect_engine.py) behavior when debugging batch failures.
+2. Check [`PrefectEngine`](src/docpipe/core/orchestration/prefect/prefect_engine.py) behavior when debugging batch failures.
 3. Validate that job-management terminal-state updates are still reached on failure paths.
 4. Prefer PostgreSQL storage in concurrent/distributed environments to reduce ambiguity in final state updates.
 
@@ -1030,7 +1030,7 @@ connections.connect(
 
 ```bash
 export GRPC_DNS_RESOLVER="native"
-datasift-orchestrator --flow-file sample_flows/milvus_dense_watsonx_flow.json
+docling-pipelines --flow-file sample_flows/milvus_dense_watsonx_flow.json
 ```
 
 **Verification Steps:**
@@ -1128,7 +1128,7 @@ Error code: flow_execution_failed
 ```bash
 # Enable debug logging
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file my_flow.json
+docling-pipelines --flow-file my_flow.json
 ```
 
 **Common Causes:**
@@ -1183,7 +1183,7 @@ Error code: prefect_flow_failed
 
 ```bash
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file my_flow.json
+docling-pipelines --flow-file my_flow.json
 ```
 
 3. **Check operator-specific errors:**
@@ -1196,7 +1196,7 @@ datasift-orchestrator --flow-file my_flow.json
 ---
 #### Issue: Documents Being Skipped (Already Ingested) - CLI Execution
 
-**Applies To:** `datasift-orchestrator` CLI execution only
+**Applies To:** `docling-pipelines` CLI execution only
 
 **Symptoms:**
 
@@ -1206,7 +1206,7 @@ Documents are being skipped during ingestion with "already ingested" messages, e
 
 **Cause:**
 
-When using `datasift-orchestrator`, multiple flows with the same `flow_name` will generate the same `job_id`, causing incremental metadata conflicts. Documents processed in one pipeline may be incorrectly marked as processed in another pipeline with the same flow_name.
+When using `docling-pipelines`, multiple flows with the same `flow_name` will generate the same `job_id`, causing incremental metadata conflicts. Documents processed in one pipeline may be incorrectly marked as processed in another pipeline with the same flow_name.
 
 **Diagnosis:**
 
@@ -1275,7 +1275,7 @@ grep -r "flow_name" sample_flows/*.json
 - Document your flow_name conventions in your project
 - The job_id is automatically generated from flow_name as a deterministic UUID v5 (36-character format)
 
-**Note:** This issue does not apply when using `DatasiftFlowManager` programmatically with custom job_id parameters.
+**Note:** This issue does not apply when using `DocpipeFlowManager` programmatically with custom job_id parameters.
 
 **Related Documentation:**
 - See [`docs/guides/FLOW_CONFIGURATION_GUIDE.md`](docs/guides/FLOW_CONFIGURATION_GUIDE.md#flow-identification-flow_name-and-job_id) section "Flow Identification: flow_name and job_id"
@@ -1290,7 +1290,7 @@ grep -r "flow_name" sample_flows/*.json
 **Symptoms:**
 
 ```
-ModuleNotFoundError: No module named 'datasift_opensource'
+ModuleNotFoundError: No module named 'docpipe_app'
 ModuleNotFoundError: No module named 'common'
 ModuleNotFoundError: No module named 'core'
 ```
@@ -1303,7 +1303,7 @@ ModuleNotFoundError: No module named 'core'
 
 ```bash
 # Navigate to project root
-cd /path/to/datasift-opensource
+cd /path/to/docling-pipelines
 
 # Set PYTHONPATH
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
@@ -1315,10 +1315,10 @@ echo $PYTHONPATH
 2. **Ensure you're in the project root:**
 
 ```bash
-pwd  # Should end with /datasift-opensource
+pwd  # Should end with /docling-pipelines
 
 # If not, navigate to project root
-cd /path/to/datasift-opensource
+cd /path/to/docling-pipelines
 ```
 
 3. **Activate virtual environment:**
@@ -1332,7 +1332,7 @@ source .venv/bin/activate
 
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-echo 'export PYTHONPATH="/path/to/datasift-opensource/src:${PYTHONPATH}"' >> ~/.bashrc
+echo 'export PYTHONPATH="/path/to/docling-pipelines/src:${PYTHONPATH}"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -1348,16 +1348,16 @@ FileNotFoundError: [Errno 2] No such file or directory: 'sample_flows/...'
 
 **Solution:**
 
-**Always run datasift-orchestrator from the project root:**
+**Always run docling-pipelines from the project root:**
 
 ```bash
 # ✅ CORRECT: From project root
-cd /path/to/datasift-opensource
-datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+cd /path/to/docling-pipelines
+docling-pipelines --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 
 # ❌ INCORRECT: From subdirectory - will cause path resolution issues
 cd some/subdirectory
-datasift-orchestrator --flow-file ...  # WILL FAIL
+docling-pipelines --flow-file ...  # WILL FAIL
 ```
 
 ---
@@ -1377,7 +1377,7 @@ FileNotFoundError: Input folder not found: ~/documents
 ```json
 {
   "config": {
-    "paths": "/Users/username/datasift-opensource/sample_documents"
+    "paths": "/Users/username/docling-pipelines/sample_documents"
   }
 }
 ```
@@ -1781,7 +1781,7 @@ AssertionError: Row count mismatch: expected 100, got 95
 3. Enable debug logging to see detailed row counts:
 
    ```bash
-   DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your_flow.json
+   DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file your_flow.json
    ```
 
 4. Inspect the PyArrow table before storage:
@@ -1960,13 +1960,13 @@ HTTP 500: Internal server error when creating document set
 
 **Set log level to DEBUG:**
 ```bash
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file my_flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
 ```
 
 Or set as environment variable:
 ```bash
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file my_flow.json
+docling-pipelines --flow-file my_flow.json
 ```
 
 **Log levels:**
@@ -1986,7 +1986,7 @@ datasift-orchestrator --flow-file my_flow.json
 ```bash
 # Logs are output to terminal by default
 # To save to file:
-datasift-orchestrator --flow-file my_flow.json > pipeline.log 2>&1
+docling-pipelines --flow-file my_flow.json > pipeline.log 2>&1
 ```
 
 **Operator logs:**
@@ -2072,7 +2072,7 @@ podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
 **Pattern 4: Import Error**
 
 ```
-[ERROR] ModuleNotFoundError: No module named 'datasift_opensource'
+[ERROR] ModuleNotFoundError: No module named 'docpipe_app'
 ```
 
 **Meaning:** PYTHONPATH not set correctly  
@@ -2091,7 +2091,7 @@ import pdb; pdb.set_trace()
 **Run with debugger:**
 
 ```bash
-python -m pdb -m datasift.cli.datasift_cli --flow-file my_flow.json
+python -m pdb -m docpipe.cli.docpipe_cli --flow-file my_flow.json
 ```
 
 ---
@@ -2102,7 +2102,7 @@ python -m pdb -m datasift.cli.datasift_cli --flow-file my_flow.json
 
 ```bash
 # Set debug level for detailed operator output
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file my_flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
 ```
 
 **Note:** Individual operator verbosity settings (if supported) are separate from the global log level.
@@ -2520,7 +2520,7 @@ uv sync --extra dev
 **Issue: PYTHONPATH not set**
 
 ```
-ModuleNotFoundError: No module named 'datasift_opensource'
+ModuleNotFoundError: No module named 'docpipe_app'
 ```
 
 **Solution: Set PYTHONPATH**
@@ -2538,7 +2538,7 @@ echo $PYTHONPATH
 
 **Expected output:**
 ```
-/Users/username/codebase/datasift-opensource/src:...
+/Users/username/codebase/docling-pipelines/src:...
 ```
 
 The output should show your project's `src` directory as the first entry. The actual path will match your project location.
@@ -2547,7 +2547,7 @@ The output should show your project's `src` directory as the first entry. The ac
 
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-echo 'export PYTHONPATH="/path/to/datasift-opensource/src:${PYTHONPATH}"' >> ~/.bashrc
+echo 'export PYTHONPATH="/path/to/docling-pipelines/src:${PYTHONPATH}"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -2564,7 +2564,7 @@ A: Python 3.12 is required. Earlier or later versions are not supported.
 A: Yes, Docker and Podman are interchangeable. Use `docker-compose` instead of `podman-compose`.
 
 **Q: Where are the log files stored?**  
-A: Logs are output to the terminal by default. Redirect to a file: `datasift-orchestrator --flow-file my_flow.json > pipeline.log 2>&1`
+A: Logs are output to the terminal by default. Redirect to a file: `docling-pipelines --flow-file my_flow.json > pipeline.log 2>&1`
 
 **Q: How do I stop all services?**  
 A:
@@ -2692,14 +2692,14 @@ curl http://localhost:11434/api/tags
 curl -u admin:MyStrongPass123! http://localhost:9200
 
 # Check logs
-datasift-orchestrator --flow-file my_flow.json 2>&1 | tee debug.log
+docling-pipelines --flow-file my_flow.json 2>&1 | tee debug.log
 ```
 
 4. **Try with debug logging:**
 
 ```bash
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file my_flow.json
+docling-pipelines --flow-file my_flow.json
 ```
 
 ---
@@ -2725,7 +2725,7 @@ uv pip list
 
 ```bash
 # Full error output
-datasift-orchestrator --flow-file my_flow.json 2>&1 | tee error.log
+docling-pipelines --flow-file my_flow.json 2>&1 | tee error.log
 ```
 
 3. **Flow configuration:**
@@ -2757,8 +2757,8 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 **GitHub Issues:**
 
-- Search existing issues: https://github.com/your-org/datasift-opensource/issues
-- Create new issue: https://github.com/your-org/datasift-opensource/issues/new
+- Search existing issues: https://github.com/your-org/docling-pipelines/issues
+- Create new issue: https://github.com/your-org/docling-pipelines/issues/new
 
 **Documentation:**
 
@@ -2778,11 +2778,11 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 **For bugs and feature requests:**
 
-- GitHub Issues: https://github.com/your-org/datasift-opensource/issues
+- GitHub Issues: https://github.com/your-org/docling-pipelines/issues
 
 **For questions and discussions:**
 
-- GitHub Discussions: https://github.com/your-org/datasift-opensource/discussions
+- GitHub Discussions: https://github.com/your-org/docling-pipelines/discussions
 
 **For security issues:**
 
@@ -2805,11 +2805,11 @@ ollama serve &
 podman-compose -f docker/docker-compose.opensearch.yml up -d
 
 # Pipeline execution
-datasift-orchestrator --flow-file my_flow.json
+docling-pipelines --flow-file my_flow.json
 
 # Debugging
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file my_flow.json 2>&1 | tee debug.log
+docling-pipelines --flow-file my_flow.json 2>&1 | tee debug.log
 
 # Service health checks
 curl http://localhost:11434/api/tags

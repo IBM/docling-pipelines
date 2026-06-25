@@ -8,10 +8,10 @@ Tests cover:
 - Edge cases and error handling
 """
 
-from datasift.core.job_management.application.services.node_stats_aggregator import (
+from docpipe.core.job_management.application.services.node_stats_aggregator import (
     NodeStatsAggregator,
 )
-from datasift.core.job_management.domain.models import NodeStats
+from docpipe.core.job_management.domain.models import NodeStats
 
 # Valid UUIDs for testing
 NODE_1_ID = "12345678-1234-1234-1234-123456789abc"

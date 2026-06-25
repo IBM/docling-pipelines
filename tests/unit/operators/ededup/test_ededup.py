@@ -11,12 +11,12 @@ from dpk_ededup import (
     int_column_name_key,
 )
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
 
 # from dpk_ededup.transform_python import EdedupTransform
-# from datasift_core.operators.quality.ededup import EdedupOperator
-from datasift.core.operators.quality.ededup import EdedupOperator
+# from docpipe_core.operators.quality.ededup import EdedupOperator
+from docpipe.core.operators.quality.ededup import EdedupOperator
 
 
 class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
@@ -71,7 +71,7 @@ class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
         ]
 
 
-class TestDatasiftEdedupOperator(unittest.TestCase):
+class TestDocpipeEdedupOperator(unittest.TestCase):
     def test_init(self):
         config = {"doc_column": "content", "doc_id_hash_column": "doc_id_hash"}
         operator = EdedupOperator(config)

@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.adapters import WatsonXAdapter
-from datasift.core.ports.llm_inference_port import LLMInferencePort
-from datasift.core.ports.text_detection_port import TextDetectionPort
+from docpipe.core.adapters import WatsonXAdapter
+from docpipe.core.ports.llm_inference_port import LLMInferencePort
+from docpipe.core.ports.text_detection_port import TextDetectionPort
 
 
 class TestWatsonXInferenceAdapter:
@@ -15,7 +15,7 @@ class TestWatsonXInferenceAdapter:
     @pytest.fixture
     def mock_watsonx_client(self):
         """Create a mock WatsonX client."""
-        with patch("datasift.core.adapters.watsonx.watsonx_adapter.WatsonXClient") as mock_client_class:
+        with patch("docpipe.core.adapters.watsonx.watsonx_adapter.WatsonXClient") as mock_client_class:
             mock_client = Mock()
             mock_client_class.return_value = mock_client
             yield mock_client
@@ -192,7 +192,7 @@ class TestWatsonXInferenceAdapter:
 
     def test_client_initialization_parameters(self):
         """Test that client is initialized with correct parameters."""
-        with patch("datasift.core.adapters.watsonx.watsonx_adapter.WatsonXClient") as mock_client_class:
+        with patch("docpipe.core.adapters.watsonx.watsonx_adapter.WatsonXClient") as mock_client_class:
             WatsonXAdapter(
                 model_name="test-model",
                 api_key="watsonx-test-credential",  # pragma: allowlist secret
@@ -256,7 +256,7 @@ class TestWatsonXTextDetection:
     @pytest.fixture
     def mock_rest_client(self):
         """Create a mock REST client."""
-        with patch("datasift.core.adapters.watsonx.watsonx_adapter.RestClient") as mock_client_class:
+        with patch("docpipe.core.adapters.watsonx.watsonx_adapter.RestClient") as mock_client_class:
             mock_client = Mock()
             mock_client_class.return_value = mock_client
             yield mock_client
@@ -265,7 +265,7 @@ class TestWatsonXTextDetection:
     def mock_iam_token(self):
         """Mock IAM token retrieval."""
         with patch(
-            "datasift.core.adapters.watsonx.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
+            "docpipe.core.adapters.watsonx.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
         ) as mock_token:
             mock_token.return_value = "test-access-token"
             yield mock_token
@@ -273,7 +273,7 @@ class TestWatsonXTextDetection:
     @pytest.fixture
     def adapter(self, mock_iam_token):
         """Create a WatsonX adapter instance for text detection."""
-        with patch("datasift.core.adapters.watsonx.watsonx_adapter.WatsonXClient"):
+        with patch("docpipe.core.adapters.watsonx.watsonx_adapter.WatsonXClient"):
             return WatsonXAdapter(
                 model_name="test-model",
                 api_key="watsonx-test-credential",  # pragma: allowlist secret
@@ -335,7 +335,7 @@ class TestWatsonXTextDetection:
 
     def test_detect_api_error_handling(self, adapter, mock_rest_client):
         """Test error handling when API call fails."""
-        from datasift.exceptions.datasift_exceptions import ExternalServiceError
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
 
         text = "Test text"
         mock_rest_client.call_rest_json.side_effect = ExternalServiceError(message="API Error", status_code=500)
@@ -411,14 +411,14 @@ class TestWatsonXTextDetection:
 
     def test_detect_entities_batch_partial_failure(self, adapter, mock_rest_client):
         """Test batch detection with partial failures."""
-        from datasift.exceptions.datasift_exceptions import DatasiftException
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
         texts = ["Text 1", "Text 2", "Text 3"]
         prompt = "Detect PII"
 
         mock_rest_client.call_rest_json.side_effect = [
             {"detections": [{"detection": "EMAIL"}]},
-            DatasiftException(message="API Error", status_code=500),
+            DocpipeException(message="API Error", status_code=500),
             {"detections": []},
         ]
 
@@ -475,7 +475,7 @@ class TestWatsonXTextDetection:
 
     def test_detect_token_refresh_on_auth_error(self, adapter, mock_rest_client, mock_iam_token):
         """Test that access token is refreshed on authentication errors."""
-        from datasift.exceptions.datasift_exceptions import ExternalServiceError
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
 
         text = "Test text"
         mock_rest_client.call_rest_json.side_effect = ExternalServiceError(message="Unauthorized", status_code=401)

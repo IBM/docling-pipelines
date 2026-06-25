@@ -40,15 +40,15 @@ class OllamaNLToSQLConverter:
         Returns:
             Schema table name string.
         """
-        _DEFAULT_SCHEMA = "purchase_orders"
+        _default_schema = "purchase_orders"
         if not index_name:
-            return _DEFAULT_SCHEMA
+            return _default_schema
 
         try:
             with open(_SCHEMAS_FILE, encoding="utf-8") as f:
                 all_schemas = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            return _DEFAULT_SCHEMA
+            return _default_schema
 
         index_lower = index_name.lower()
         for schema in all_schemas.get("schemas", []):
@@ -56,7 +56,7 @@ class OllamaNLToSQLConverter:
             if table and table in index_lower:
                 return table
 
-        return _DEFAULT_SCHEMA
+        return _default_schema
 
     @classmethod
     def schema_from_index_mapping(
@@ -91,7 +91,7 @@ class OllamaNLToSQLConverter:
             if the mapping cannot be fetched.
         """
         # OpenSearch type → SQL-friendly type label
-        _TYPE_MAP: dict[str, str] = {
+        _type_map: dict[str, str] = {
             "text": "TEXT",
             "keyword": "VARCHAR",
             "float": "FLOAT",
@@ -138,7 +138,7 @@ class OllamaNLToSQLConverter:
             # Skip vector fields — not usable in SQL
             if field_type == "knn_vector":
                 continue
-            sql_type = _TYPE_MAP.get(field_type, "TEXT")
+            sql_type = _type_map.get(field_type, "TEXT")
             columns[field_name] = sql_type
 
         return {
@@ -341,11 +341,11 @@ SQL QUERY:"""
         except requests.exceptions.Timeout:
             raise RuntimeError(
                 f"Ollama request timed out after 60 s. The model '{self.model}' may be too slow or not responding."
-            )
-        except requests.exceptions.ConnectionError:
+            ) from None
+        except requests.exceptions.ConnectionError as err:
             raise RuntimeError(
                 f"Cannot connect to Ollama at {self.ollama_host}. Make sure Ollama is running (`ollama serve`)."
-            )
+            ) from err
         except requests.exceptions.HTTPError as exc:
             raise RuntimeError(
                 f"Ollama returned HTTP {exc.response.status_code} for model "
@@ -425,12 +425,12 @@ SQL QUERY:"""
             response = requests.post(self.api_endpoint, json=payload, stream=True, timeout=60)
             response.raise_for_status()
         except requests.exceptions.Timeout:
-            raise RuntimeError(f"Ollama streaming request timed out after 60 s for model '{self.model}'.")
-        except requests.exceptions.ConnectionError:
+            raise RuntimeError(f"Ollama streaming request timed out after 60 s for model '{self.model}'.") from None
+        except requests.exceptions.ConnectionError as err:
             raise RuntimeError(
                 f"Cannot connect to Ollama at {self.ollama_host} for streaming. "
                 "Make sure Ollama is running (`ollama serve`)."
-            )
+            ) from err
         except requests.exceptions.HTTPError as exc:
             raise RuntimeError(f"Ollama returned HTTP {exc.response.status_code} during streaming.") from exc
 

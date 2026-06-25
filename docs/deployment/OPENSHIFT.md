@@ -1,10 +1,10 @@
-# DataSift OpenShift Deployment Guide
+# Docpipe OpenShift Deployment Guide
 
-Complete guide for deploying the DataSift project on OpenShift using the automated deployment script.
+Complete guide for deploying the Docpipe project on OpenShift using the automated deployment script.
 
 ## Overview
 
-This guide covers deploying DataSift on OpenShift by:
+This guide covers deploying Docpipe on OpenShift by:
 1. Creating a project namespace
 2. Building the application from Git repository
 3. Creating an ImageStream for the container image
@@ -47,14 +47,14 @@ cd docling-pipelines
 
 ### 2. Configure Git Credentials for Private Repositories
 
-If the repository is private, export the Git username and personal access token before starting the deployment script. The script uses these values to create the OpenShift secret [`datasift-git-auth`](docs/deploy/OPENSHIFT_DEPLOYMENT.md:58) and attach it to the build source.
+If the repository is private, export the Git username and personal access token before starting the deployment script. The script uses these values to create the OpenShift secret [`docpipe-git-auth`](docs/deploy/OPENSHIFT_DEPLOYMENT.md:58) and attach it to the build source.
 
 ```bash
 export GIT_USERNAME="your-git-username"
 export GIT_TOKEN="your-personal-access-token"
 
 # Optional: override the secret name created by the script
-export GIT_SECRET_NAME="datasift-git-auth"  # pragma: allowlist secret
+export GIT_SECRET_NAME="docpipe-git-auth"  # pragma: allowlist secret
 ```
 
 Notes:
@@ -65,35 +65,35 @@ Notes:
 ### 3. Run Deployment Script
 
 ```bash
-# Deploy with default settings (project name: datasift)
+# Deploy with default settings (project name: docpipe)
 ./scripts/deploy-openshift.sh
 
 # Or specify custom project name and Git repository
-./scripts/deploy-openshift.sh my-datasift-project https://github.ibm.com/wdp-gov/datasift-opensource.git main
+./scripts/deploy-openshift.sh my-docpipe-project https://github.ibm.com/wdp-gov/docling-pipelines.git main
 ```
 
 ### 4. Monitor Deployment
 
 ```bash
 # Watch build progress
-oc logs -f bc/datasift-app
+oc logs -f bc/docpipe-app
 
 # Watch pod status
 oc get pods -w
 
 # Check deployment status
-oc get deployment datasift-backend
+oc get deployment docpipe-backend
 ```
 
 ### 5. Access the Application
 
 ```bash
 # Get the route URL
-oc get route datasift-route -o jsonpath='{.spec.host}'
+oc get route docpipe-route -o jsonpath='{.spec.host}'
 
 # Test the application
-DATASIFT_URL=$(oc get route datasift-route -o jsonpath='{.spec.host}')
-curl -k https://$DATASIFT_URL/health
+DOCPIPE_URL=$(oc get route docpipe-route -o jsonpath='{.spec.host}')
+curl -k https://$DOCPIPE_URL/health
 ```
 
 ## Deployment Script Details
@@ -105,8 +105,8 @@ curl -k https://$DATASIFT_URL/health
 ```
 
 **Parameters:**
-- `project-name` (optional): OpenShift project name (default: `datasift`)
-- `git-repo-url` (optional): Git repository URL (default: `https://github.ibm.com/wdp-gov/datasift-opensource.git`)
+- `project-name` (optional): OpenShift project name (default: `docpipe`)
+- `git-repo-url` (optional): Git repository URL (default: `https://github.ibm.com/wdp-gov/docling-pipelines.git`)
 - `git-branch` (optional): Git branch to deploy (default: `main`)
 
 ### What the Script Does
@@ -160,15 +160,15 @@ If you prefer manual deployment or need to customize the process:
 ### 1. Create Project
 
 ```bash
-oc new-project datasift --display-name="DataSift Pipeline" \
-  --description="DataSift - Modular data processing framework"
+oc new-project docpipe --display-name="Docpipe Pipeline" \
+  --description="Docpipe - Modular data processing framework"
 ```
 
 ### 2. Create Application from Git
 
 ```bash
-oc new-app python:3.12~https://github.ibm.com/wdp-gov/datasift-opensource.git \
-  --name=datasift-app \
+oc new-app python:3.12~https://github.ibm.com/wdp-gov/docling-pipelines.git \
+  --name=docpipe-app \
   --strategy=source \
   --context-dir=. \
   --env PYTHONPATH=/opt/app-root/src/src \
@@ -182,7 +182,7 @@ cat <<EOF | oc apply -f -
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
-  name: datasift-image
+  name: docpipe-image
 spec:
   lookupPolicy:
     local: true
@@ -196,16 +196,16 @@ cat <<EOF | oc apply -f -
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
-  name: datasift-build
+  name: docpipe-build
 spec:
   output:
     to:
       kind: ImageStreamTag
-      name: datasift-image:latest
+      name: docpipe-image:latest
   source:
     type: Git
     git:
-      uri: https://github.ibm.com/wdp-gov/datasift-opensource.git
+      uri: https://github.ibm.com/wdp-gov/docling-pipelines.git
       ref: main
   strategy:
     type: Source
@@ -224,20 +224,20 @@ cat <<EOF | oc apply -f -
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: datasift-backend
+  name: docpipe-backend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: datasift-app
+      app: docpipe-app
   template:
     metadata:
       labels:
-        app: datasift-app
+        app: docpipe-app
     spec:
       containers:
-      - name: datasift
-        image: datasift-image:latest
+      - name: docpipe
+        image: docpipe-image:latest
         ports:
         - containerPort: 8000
         resources:
@@ -253,13 +253,13 @@ EOF
 ### 6. Create Service
 
 ```bash
-oc expose deployment datasift-backend --port=8000 --name=datasift-service
+oc expose deployment docpipe-backend --port=8000 --name=docpipe-service
 ```
 
 ### 7. Create Route
 
 ```bash
-oc create route edge datasift-route --service=datasift-service --insecure-policy=Redirect
+oc create route edge docpipe-route --service=docpipe-service --insecure-policy=Redirect
 ```
 
 ## Configuration
@@ -268,7 +268,7 @@ oc create route edge datasift-route --service=datasift-service --insecure-policy
 
 The deployment configures the following environment variables:
 
-- `PYTHONPATH=/opt/app-root/src/src`: Ensures Python can find datasift modules
+- `PYTHONPATH=/opt/app-root/src/src`: Ensures Python can find docpipe modules
 - `PYTHONUNBUFFERED=1`: Enables real-time log output
 
 ### Resource Limits
@@ -298,33 +298,33 @@ Default resource configuration per pod:
 
 ```bash
 # Scale to 3 replicas
-oc scale deployment/datasift-backend --replicas=3
+oc scale deployment/docpipe-backend --replicas=3
 
 # Check scaling status
-oc get deployment datasift-backend
+oc get deployment docpipe-backend
 ```
 
 ### Viewing Logs
 
 ```bash
 # View application logs
-oc logs -f deployment/datasift-backend
+oc logs -f deployment/docpipe-backend
 
 # View specific pod logs
 oc logs -f <pod-name>
 
 # View build logs
-oc logs -f bc/datasift-app
+oc logs -f bc/docpipe-app
 ```
 
 ### Rebuilding
 
 ```bash
 # Trigger new build from Git
-oc start-build datasift-app
+oc start-build docpipe-app
 
 # Follow build logs
-oc logs -f bc/datasift-app
+oc logs -f bc/docpipe-app
 
 # Check build status
 oc get builds
@@ -334,31 +334,31 @@ oc get builds
 
 ```bash
 # Update environment variable
-oc set env deployment/datasift-backend NEW_VAR=value
+oc set env deployment/docpipe-backend NEW_VAR=value
 
 # Update resource limits
-oc set resources deployment/datasift-backend \
+oc set resources deployment/docpipe-backend \
   --requests=cpu=1500m,memory=3Gi \
   --limits=cpu=2500m,memory=5Gi
 
 # Rollout restart
-oc rollout restart deployment/datasift-backend
+oc rollout restart deployment/docpipe-backend
 ```
 
 ### Rolling Updates
 
 ```bash
 # Update image
-oc set image deployment/datasift-backend datasift=datasift-image:v2.0
+oc set image deployment/docpipe-backend docpipe=docpipe-image:v2.0
 
 # Check rollout status
-oc rollout status deployment/datasift-backend
+oc rollout status deployment/docpipe-backend
 
 # View rollout history
-oc rollout history deployment/datasift-backend
+oc rollout history deployment/docpipe-backend
 
 # Rollback to previous version
-oc rollout undo deployment/datasift-backend
+oc rollout undo deployment/docpipe-backend
 ```
 
 ## Monitoring
@@ -402,13 +402,13 @@ oc get events -w
 
 ```bash
 # Check build logs
-oc logs -f bc/datasift-app
+oc logs -f bc/docpipe-app
 
 # Describe build for errors
 oc describe build <build-name>
 
 # Check build config
-oc describe bc/datasift-app
+oc describe bc/docpipe-app
 ```
 
 ### Pod Not Starting
@@ -431,10 +431,10 @@ oc logs <pod-name> --previous
 
 ```bash
 # Check imagestream
-oc get imagestream datasift-image
+oc get imagestream docpipe-image
 
 # Describe imagestream
-oc describe imagestream datasift-image
+oc describe imagestream docpipe-image
 
 # Check image tags
 oc get imagestreamtag
@@ -444,30 +444,30 @@ oc get imagestreamtag
 
 ```bash
 # Check route configuration
-oc get route datasift-route
+oc get route docpipe-route
 
 # Describe route
-oc describe route datasift-route
+oc describe route docpipe-route
 
 # Check service endpoints
-oc get endpoints datasift-service
+oc get endpoints docpipe-service
 
 # Test from inside cluster
 oc run test-pod --image=curlimages/curl -it --rm -- \
-  curl http://datasift-service:8000/health
+  curl http://docpipe-service:8000/health
 ```
 
 ### Network Issues
 
 ```bash
 # Check service
-oc get svc datasift-service
+oc get svc docpipe-service
 
 # Check endpoints
-oc get endpoints datasift-service
+oc get endpoints docpipe-service
 
 # Test connectivity from debug pod
-oc debug deployment/datasift-backend
+oc debug deployment/docpipe-backend
 ```
 
 ## Cleanup
@@ -476,29 +476,29 @@ oc debug deployment/datasift-backend
 
 ```bash
 # Delete all resources in project
-oc delete all -l app=datasift-app
+oc delete all -l app=docpipe-app
 
 # Or delete entire project
-oc delete project datasift
+oc delete project docpipe
 ```
 
 ### Selective Cleanup
 
 ```bash
 # Delete deployment only
-oc delete deployment datasift-backend
+oc delete deployment docpipe-backend
 
 # Delete service
-oc delete svc datasift-service
+oc delete svc docpipe-service
 
 # Delete route
-oc delete route datasift-route
+oc delete route docpipe-route
 
 # Delete buildconfig
-oc delete bc datasift-build
+oc delete bc docpipe-build
 
 # Delete imagestream
-oc delete imagestream datasift-image
+oc delete imagestream docpipe-image
 ```
 
 ## Advanced Configuration
@@ -513,16 +513,16 @@ cat <<EOF | oc apply -f -
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
-  name: datasift-docker-build
+  name: docpipe-docker-build
 spec:
   output:
     to:
       kind: ImageStreamTag
-      name: datasift-image:latest
+      name: docpipe-image:latest
   source:
     type: Git
     git:
-      uri: https://github.ibm.com/wdp-gov/datasift-opensource.git
+      uri: https://github.ibm.com/wdp-gov/docling-pipelines.git
   strategy:
     type: Docker
     dockerStrategy:
@@ -540,7 +540,7 @@ cat <<EOF | oc apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: datasift-data
+  name: docpipe-data
 spec:
   accessModes:
   - ReadWriteOnce
@@ -550,10 +550,10 @@ spec:
 EOF
 
 # Mount in deployment
-oc set volume deployment/datasift-backend \
+oc set volume deployment/docpipe-backend \
   --add --name=data-volume \
   --type=persistentVolumeClaim \
-  --claim-name=datasift-data \
+  --claim-name=docpipe-data \
   --mount-path=/data
 ```
 
@@ -561,22 +561,22 @@ oc set volume deployment/datasift-backend \
 
 ```bash
 # Create ConfigMap
-oc create configmap datasift-config \
+oc create configmap docpipe-config \
   --from-file=config.yaml
 
 # Create Secret
-oc create secret generic datasift-secrets \
+oc create secret generic docpipe-secrets \
   --from-literal=api-key=your-secret-key
 
 # Mount in deployment
-oc set volume deployment/datasift-backend \
+oc set volume deployment/docpipe-backend \
   --add --name=config \
   --type=configmap \
-  --configmap-name=datasift-config \
+  --configmap-name=docpipe-config \
   --mount-path=/config
 
-oc set env deployment/datasift-backend \
-  --from=secret/datasift-secrets
+oc set env deployment/docpipe-backend \
+  --from=secret/docpipe-secrets
 ```
 
 ## Integration with CI/CD
@@ -587,7 +587,7 @@ The BuildConfig includes webhook triggers for automated builds:
 
 ```bash
 # Get webhook URL
-oc describe bc/datasift-build | grep -A 1 "Webhook GitHub"
+oc describe bc/docpipe-build | grep -A 1 "Webhook GitHub"
 
 # Configure in GitHub repository settings:
 # Settings > Webhooks > Add webhook
@@ -603,7 +603,7 @@ cat <<EOF | oc apply -f -
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
-  name: datasift-pipeline
+  name: docpipe-pipeline
 spec:
   strategy:
     type: JenkinsPipeline
@@ -616,8 +616,8 @@ spec:
               steps {
                 script {
                   openshift.withCluster() {
-                    openshift.withProject('datasift') {
-                      openshift.startBuild('datasift-build').logs('-f')
+                    openshift.withProject('docpipe') {
+                      openshift.startBuild('docpipe-build').logs('-f')
                     }
                   }
                 }
@@ -627,8 +627,8 @@ spec:
               steps {
                 script {
                   openshift.withCluster() {
-                    openshift.withProject('datasift') {
-                      openshift.selector('deployment', 'datasift-backend').rollout().latest()
+                    openshift.withProject('docpipe') {
+                      openshift.selector('deployment', 'docpipe-backend').rollout().latest()
                     }
                   }
                 }

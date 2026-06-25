@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Embeddings Operator generates vector embeddings from text using various AI providers through a unified adapter architecture. It uses the centralized `LLMAdapterFactory` for consistent provider integration across the DataSift framework.
+The Embeddings Operator generates vector embeddings from text using various AI providers through a unified adapter architecture. It uses the centralized `LLMAdapterFactory` for consistent provider integration across the Docpipe framework.
 
 ## Supported Providers
 
@@ -14,7 +14,7 @@ The Embeddings Operator generates vector embeddings from text using various AI p
 
 ## Architecture
 
-The operator uses the centralized `LLMAdapterFactory` from `src/datasift/core/adapters/llm_adapter_factory.py`:
+The operator uses the centralized `LLMAdapterFactory` from `src/docpipe/core/adapters/llm_adapter_factory.py`:
 
 ```
 ┌─────────────────────────────────────────┐
@@ -490,4 +490,4 @@ For issues or questions:
 
 1. Check this documentation
 2. Review provider-specific documentation
-3. Open an issue in the datasift-opensource repository
+3. Open an issue in the docling-pipelines repository

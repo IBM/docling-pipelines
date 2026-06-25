@@ -2,7 +2,7 @@
 
 import pytest
 
-from datasift.core.operators.acl.domain.models import (
+from docpipe.core.operators.acl.domain.models import (
     ACLExtractionResult,
     ACLRequest,
     ACLResponse,

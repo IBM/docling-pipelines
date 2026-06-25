@@ -7,8 +7,8 @@ import pytest
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
-from datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
-from datasift.core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
+from docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
+from docpipe.core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
 
 # Configure pytest-asyncio
 pytestmark = pytest.mark.asyncio
@@ -154,7 +154,7 @@ class TestS3SourceAdapter:
         schema = adapter.get_config_schema()
         # Check class name and module to avoid import identity issues in CI
         assert schema.__name__ == "S3SourceConfig"
-        assert schema.__module__ == "datasift.core.operators.ingest.adapters.outbound.sources.s3.config"
+        assert schema.__module__ == "docpipe.core.operators.ingest.adapters.outbound.sources.s3.config"
 
     def test_build_config_from_operator_params(self, adapter):
         """Test building config from operator parameters."""
@@ -345,7 +345,7 @@ class TestS3SourceAdapter:
         # (avoids import identity issues in CI)
         for doc in documents:
             assert doc.__class__.__name__ == "Document"
-            assert doc.__class__.__module__ == "datasift.core.operators.ingest.domain.models"
+            assert doc.__class__.__module__ == "docpipe.core.operators.ingest.domain.models"
         assert documents[0].name == "file1.pdf"
         assert documents[1].name == "file2.txt"
         # Verify lazy loading: content should be empty
@@ -401,7 +401,7 @@ class TestResolveAwsAccountId:
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
 
-        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
             account_id = adapter._get_aws_account_id(aws_config_no_verify)
 
         assert account_id == "123456789012"
@@ -411,7 +411,7 @@ class TestResolveAwsAccountId:
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
 
-        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts) as mock_boto:
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client", return_value=mock_sts) as mock_boto:
             account_id = adapter._get_aws_account_id(aws_config)
 
         assert account_id == "123456789012"
@@ -424,7 +424,7 @@ class TestResolveAwsAccountId:
 
     def test_skips_sts_for_s3_compatible_storage(self, adapter, cos_config):
         """No STS call is made when endpoint_url is set (S3-compatible storage)."""
-        with patch("datasift.integrations.aws.s3_utils.boto3.client") as mock_boto:
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client") as mock_boto:
             account_id = adapter._get_aws_account_id(cos_config)
 
         assert account_id is None
@@ -436,13 +436,13 @@ class TestResolveAwsAccountId:
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
         mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
 
-        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
             with pytest.raises(RuntimeError, match="STS GetCallerIdentity failed"):
                 adapter._get_aws_account_id(aws_config)
 
     def test_raises_on_unexpected_exception_when_verify_enabled(self, adapter, aws_config):
         """Raises RuntimeError on any unexpected error when verify_expected_bucket_owner is True."""
-        with patch("datasift.integrations.aws.s3_utils.boto3.client", side_effect=RuntimeError("network error")):
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client", side_effect=RuntimeError("network error")):
             with pytest.raises(RuntimeError, match="Unable to resolve AWS account ID"):
                 adapter._get_aws_account_id(aws_config)
 
@@ -452,14 +452,14 @@ class TestResolveAwsAccountId:
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
         mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
 
-        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
             account_id = adapter._get_aws_account_id(aws_config_no_verify)
 
         assert account_id is None
 
     def test_returns_none_on_unexpected_exception_when_verify_disabled(self, adapter, aws_config_no_verify):
         """Gracefully returns None on any unexpected error when verify is False."""
-        with patch("datasift.integrations.aws.s3_utils.boto3.client", side_effect=RuntimeError("network error")):
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client", side_effect=RuntimeError("network error")):
             account_id = adapter._get_aws_account_id(aws_config_no_verify)
 
         assert account_id is None
@@ -475,7 +475,7 @@ class TestResolveAwsAccountId:
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {"Account": "999888777666"}
 
-        with patch("datasift.integrations.aws.s3_utils.boto3.client", return_value=mock_sts) as mock_boto:
+        with patch("docpipe.integrations.aws.s3_utils.boto3.client", return_value=mock_sts) as mock_boto:
             account_id = adapter._get_aws_account_id(config)
 
         assert account_id == "999888777666"
@@ -571,7 +571,7 @@ class TestExpectedBucketOwnerPropagation:
 
         with patch("boto3.client", return_value=mock_client):
             with patch(
-                "datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                "docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
                 return_value="123456789012",
             ):
                 result = adapter.fetch_binary_content(
@@ -599,7 +599,7 @@ class TestExpectedBucketOwnerPropagation:
 
         with patch("boto3.client", return_value=mock_client):
             with patch(
-                "datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                "docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
                 return_value=None,
             ):
                 result = adapter.fetch_binary_content(

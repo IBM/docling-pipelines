@@ -10,10 +10,10 @@ import pyarrow as pa
 import pytest
 import requests
 
-from datasift.core.operators.functional.embeddings.embeddings_operator import (
+from docpipe.core.operators.functional.embeddings.embeddings_operator import (
     EmbeddingsOperator,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 def is_ollama_running():
@@ -221,7 +221,7 @@ class TestOllamaClientIntegration:
 
     def test_ollama_client_generate_embeddings(self, available_model):
         """Test OllamaClient.generate_embeddings() directly."""
-        from datasift.integrations.ollama.client import OllamaClient
+        from docpipe.integrations.ollama.client import OllamaClient
 
         client = OllamaClient(model_name=available_model)
 
@@ -235,7 +235,7 @@ class TestOllamaClientIntegration:
         """Test that OllamaClient raises error for empty embeddings."""
         from unittest.mock import patch
 
-        from datasift.integrations.ollama.client import OllamaClient
+        from docpipe.integrations.ollama.client import OllamaClient
 
         client = OllamaClient(model_name=available_model)
 
@@ -243,7 +243,7 @@ class TestOllamaClientIntegration:
         with patch("ollama.embeddings") as mock_embeddings:
             mock_embeddings.return_value = {"embedding": []}
 
-            with pytest.raises(DatasiftException) as exc_info:
+            with pytest.raises(DocpipeException) as exc_info:
                 client.generate_embeddings("test")
 
             assert "Empty or missing embedding" in str(exc_info.value)
@@ -253,7 +253,7 @@ class TestOllamaClientIntegration:
         """Test that OllamaClient raises error when embedding key is missing."""
         from unittest.mock import patch
 
-        from datasift.integrations.ollama.client import OllamaClient
+        from docpipe.integrations.ollama.client import OllamaClient
 
         client = OllamaClient(model_name=available_model)
 
@@ -261,7 +261,7 @@ class TestOllamaClientIntegration:
         with patch("ollama.embeddings") as mock_embeddings:
             mock_embeddings.return_value = {"some_other_key": "value"}
 
-            with pytest.raises(DatasiftException) as exc_info:
+            with pytest.raises(DocpipeException) as exc_info:
                 client.generate_embeddings("test")
 
             assert "Empty or missing embedding" in str(exc_info.value)

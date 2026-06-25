@@ -1,6 +1,6 @@
 """Unit tests for OAuth2 configuration."""
 
-from datasift.api.auth.oauth2_config import (
+from docpipe.api.auth.oauth2_config import (
     AzureADOAuth2Config,
     GoogleOAuth2Config,
     OAuth2Config,

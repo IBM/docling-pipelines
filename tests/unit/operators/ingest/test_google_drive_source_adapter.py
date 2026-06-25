@@ -6,10 +6,10 @@ from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
-from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
     GoogleDriveSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.config import (
     GoogleDriveSourceConfig,
 )
 

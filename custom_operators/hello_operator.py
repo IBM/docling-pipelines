@@ -2,9 +2,9 @@ from typing import Any
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import AttributeDataTypes, DocpipeConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 
 class HelloOperator(AbstractOperator):
@@ -13,7 +13,7 @@ class HelloOperator(AbstractOperator):
     # Required class attributes
     short_name: str = "hello"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """Add a greeting column to the table."""

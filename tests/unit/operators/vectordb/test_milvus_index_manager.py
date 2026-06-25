@@ -9,13 +9,13 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from datasift.core.operators.vectordb.adapters.outbound.milvus.index_manager import (
+from docpipe.core.operators.vectordb.adapters.outbound.milvus.index_manager import (
     INDEX_DEFAULT_PARAMETERS,
     MilvusIndexManager,
     MilvusIndexTypes,
     MilvusMetricTypes,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 @pytest.fixture
@@ -119,7 +119,7 @@ class TestIndexManagerInitialization:
 
     def test_invalid_index_type(self, mock_client):
         """Test initialization with invalid index type"""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             MilvusIndexManager(
                 client=mock_client,
                 collection_name="test_collection",
@@ -131,7 +131,7 @@ class TestIndexManagerInitialization:
 
     def test_invalid_metric_type(self, mock_client):
         """Test initialization with invalid metric type"""
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             MilvusIndexManager(
                 client=mock_client,
                 collection_name="test_collection",
@@ -259,7 +259,7 @@ class TestCollectionValidation:
             feature_mappings={"embeddings": "vector_embeddings"},
         )
 
-        with pytest.raises(DatasiftException, match="existing dimension 768 but current run produced 384"):
+        with pytest.raises(DocpipeException, match="existing dimension 768 but current run produced 384"):
             manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
 
 
@@ -268,7 +268,7 @@ class TestVectorDimensionDetection:
 
     def test_detect_dimension_from_table(self, mock_client):
         """Test detecting vector dimension from PyArrow table using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         # Create table with embeddings
         embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
@@ -279,7 +279,7 @@ class TestVectorDimensionDetection:
 
     def test_detect_dimension_with_numpy_arrays(self, mock_client):
         """Test detecting dimension with numpy arrays using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         embeddings = [np.array([0.1, 0.2, 0.3, 0.4]), np.array([0.5, 0.6, 0.7, 0.8])]
         table = pa.table({"embeddings": embeddings})
@@ -289,7 +289,7 @@ class TestVectorDimensionDetection:
 
     def test_detect_dimension_missing_column(self, mock_client):
         """Test detecting dimension when embeddings column is missing using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         table = pa.table({"content": ["text1", "text2"]})
 

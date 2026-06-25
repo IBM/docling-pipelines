@@ -7,10 +7,10 @@ Tests utility functions for table manipulation, validation, and feature manageme
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import internal_metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.operator_utils import OperatorUtils
-from datasift.exceptions.datasift_exceptions import FlowValidationException
+from docpipe.core.constants.constants import internal_metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.operator_utils import OperatorUtils
+from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1094,7 +1094,7 @@ class TestOperatorUtilsExtractTextFile:
 
 def test_sanitize_doc_id_for_filename_with_slashes():
     """Test sanitizing document IDs containing forward slashes."""
-    from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+    from docpipe.core.operators.operator_utils import sanitize_doc_id_for_filename
 
     doc_id = "folder/subfolder/document.pdf"
     result = sanitize_doc_id_for_filename(doc_id=doc_id)
@@ -1105,7 +1105,7 @@ def test_sanitize_doc_id_for_filename_with_slashes():
 
 def test_sanitize_doc_id_for_filename_no_slashes():
     """Test sanitizing document IDs without slashes."""
-    from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+    from docpipe.core.operators.operator_utils import sanitize_doc_id_for_filename
 
     doc_id = "simple_document_id"
     result = sanitize_doc_id_for_filename(doc_id=doc_id)
@@ -1115,7 +1115,7 @@ def test_sanitize_doc_id_for_filename_no_slashes():
 
 def test_sanitize_doc_id_for_filename_multiple_slashes():
     """Test sanitizing document IDs with multiple consecutive slashes."""
-    from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+    from docpipe.core.operators.operator_utils import sanitize_doc_id_for_filename
 
     doc_id = "path//to///file.txt"
     result = sanitize_doc_id_for_filename(doc_id=doc_id)

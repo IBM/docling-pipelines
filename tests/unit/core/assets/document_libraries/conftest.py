@@ -5,11 +5,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from datasift.core.assets.document_libraries.application.services.document_library_service import (
+from docpipe.core.assets.document_libraries.application.services.document_library_service import (
     DocumentLibraryService,
 )
-from datasift.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
-from datasift.core.assets.document_libraries.domain.ports.document_library_repository import (
+from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
+from docpipe.core.assets.document_libraries.domain.ports.document_library_repository import (
     DocumentLibraryRepository,
 )
 

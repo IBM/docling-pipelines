@@ -11,8 +11,8 @@ from unittest.mock import patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.extract.extract_operator import ExtractOperator
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ class TestExtractOperatorExtensionValidation:
 
     def test_get_supported_extensions_docling_library_without_asr(self, docling_library_config):
         """Test _get_supported_extensions for docling_library mode without ASR."""
-        with patch("datasift.core.operators.operator_utils.is_asr_available", return_value=False):
+        with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=False):
             operator = ExtractOperator(config=docling_library_config)
             extensions = operator._get_supported_extensions()
 
@@ -91,7 +91,7 @@ class TestExtractOperatorExtensionValidation:
 
     def test_get_supported_extensions_docling_library_with_asr(self, docling_library_config):
         """Test _get_supported_extensions for docling_library mode with ASR."""
-        with patch("datasift.core.operators.operator_utils.is_asr_available", return_value=True):
+        with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=True):
             operator = ExtractOperator(config=docling_library_config)
             extensions = operator._get_supported_extensions()
 
@@ -123,7 +123,7 @@ class TestExtractOperatorExtensionValidation:
 
     def test_validate_extensions_skips_unsupported_files(self, docling_library_config, mock_table_with_extensions):
         """Test that _validate_extensions skips files with unsupported extensions."""
-        with patch("datasift.core.operators.operator_utils.is_asr_available", return_value=False):
+        with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=False):
             operator = ExtractOperator(config=docling_library_config)
             metadata = operator.create_base_metadata(total_docs_count=mock_table_with_extensions.num_rows)
 
@@ -142,7 +142,7 @@ class TestExtractOperatorExtensionValidation:
 
     def test_validate_extensions_with_asr_allows_audio_video(self, docling_library_config, mock_table_with_extensions):
         """Test that audio/video files are allowed when ASR is available."""
-        with patch("datasift.core.operators.operator_utils.is_asr_available", return_value=True):
+        with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=True):
             operator = ExtractOperator(config=docling_library_config)
             metadata = operator.create_base_metadata(total_docs_count=mock_table_with_extensions.num_rows)
 
@@ -158,7 +158,7 @@ class TestExtractOperatorExtensionValidation:
 
     def test_validate_extensions_records_skipped_documents(self, docling_library_config, mock_table_with_extensions):
         """Test that skipped documents are recorded in metadata."""
-        with patch("datasift.core.operators.operator_utils.is_asr_available", return_value=False):
+        with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=False):
             operator = ExtractOperator(config=docling_library_config)
             metadata = operator.create_base_metadata(total_docs_count=mock_table_with_extensions.num_rows)
 
@@ -196,7 +196,7 @@ class TestExtractOperatorExtensionValidation:
 
     def test_validate_extensions_error_message_includes_mode(self, docling_library_config, mock_table_with_extensions):
         """Test that error messages include the extraction mode."""
-        with patch("datasift.core.operators.operator_utils.is_asr_available", return_value=False):
+        with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=False):
             operator = ExtractOperator(config=docling_library_config)
             metadata = operator.create_base_metadata(total_docs_count=mock_table_with_extensions.num_rows)
 
@@ -214,7 +214,7 @@ class TestEntityExtractionExtensionValidation:
 
     def test_entity_extraction_supported_extensions(self):
         """Test that entity extraction supports PDF, office formats, and image formats."""
-        from datasift.core.constants.operator_constants import OperatorConstants
+        from docpipe.core.constants.operator_constants import OperatorConstants
 
         entity_extensions = set(OperatorConstants.FileExtensions.DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY)
 
@@ -247,7 +247,7 @@ class TestOperatorUtilsExtensionValidation:
 
     def test_prepare_document_content_fetch_with_supported_extensions(self):
         """Test that prepare_document_content_fetch validates extensions."""
-        from datasift.core.operators.operator_utils import OperatorUtils
+        from docpipe.core.operators.operator_utils import OperatorUtils
 
         table = pa.table(
             {
@@ -259,7 +259,7 @@ class TestOperatorUtilsExtensionValidation:
 
         supported_extensions = {".pdf", ".png"}
 
-        with patch("datasift.utils.operators.binary_content_fetcher.get_binary_content") as mock_get_binary:
+        with patch("docpipe.utils.operators.binary_content_fetcher.get_binary_content") as mock_get_binary:
             # Mock successful binary content fetch
             mock_get_binary.return_value = b"fake binary content"
 
@@ -282,7 +282,7 @@ class TestOperatorUtilsExtensionValidation:
 
     def test_prepare_document_content_fetch_without_extension_validation(self):
         """Test that prepare_document_content_fetch works without extension validation."""
-        from datasift.core.operators.operator_utils import OperatorUtils
+        from docpipe.core.operators.operator_utils import OperatorUtils
 
         table = pa.table(
             {
@@ -292,7 +292,7 @@ class TestOperatorUtilsExtensionValidation:
             }
         )
 
-        with patch("datasift.utils.operators.binary_content_fetcher.get_binary_content") as mock_get_binary:
+        with patch("docpipe.utils.operators.binary_content_fetcher.get_binary_content") as mock_get_binary:
             # Mock successful binary content fetch
             mock_get_binary.return_value = b"fake binary content"
 

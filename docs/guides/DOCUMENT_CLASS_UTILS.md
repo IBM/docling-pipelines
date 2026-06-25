@@ -22,11 +22,11 @@ The `DocumentClassUtils` class provides methods to:
 ### Basic Template Generation
 
 ```python
-from datasift.utils.document_class_utils import generate_docling_template
+from docpipe.utils.document_class_utils import generate_docling_template
 
 # Generate template from document class
 template = generate_docling_template(
-    "src/datasift/utils/document_classes/invoice.json"
+    "src/docpipe/utils/document_classes/invoice.json"
 )
 
 # Result:
@@ -48,12 +48,12 @@ template = generate_docling_template(
 ### Use with ExtractOperator
 
 ```python
-from datasift.utils.document_class_utils import generate_docling_template
-from datasift.core.operators.extract.extract_operator import ExtractOperator
+from docpipe.utils.document_class_utils import generate_docling_template
+from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
 # Generate template
 template = generate_docling_template(
-    "src/datasift/utils/document_classes/invoice.json"
+    "src/docpipe/utils/document_classes/invoice.json"
 )
 
 # Configure operator

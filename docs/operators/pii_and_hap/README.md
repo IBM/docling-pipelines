@@ -16,7 +16,7 @@ pii_and_hap/
 
 ## New Architecture (Phase 2)
 
-The PII/HAP operator now uses the **common infrastructure** located in `src/datasift/core/adapters/`:
+The PII/HAP operator now uses the **common infrastructure** located in `src/docpipe/core/adapters/`:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -56,8 +56,8 @@ The PII/HAP operator now uses the **common infrastructure** located in `src/data
 - Hard to maintain consistency
 
 **After (Common Infrastructure):**
-- Shared port interfaces in `src/datasift/core/adapters/ports/`
-- Shared adapter implementations in `src/datasift/core/adapters/{provider}/`
+- Shared port interfaces in `src/docpipe/core/adapters/ports/`
+- Shared adapter implementations in `src/docpipe/core/adapters/{provider}/`
 - Service layer wraps common ports for operator-specific logic
 - Single source of truth for each provider
 
@@ -160,7 +160,7 @@ PIIHAPService implements two detection paths:
 ### Programmatic Usage
 
 ```python
-from datasift.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
+from docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
 
 # Create service (uses common infrastructure)
 service = PIIHAPService(
@@ -222,7 +222,7 @@ print(f"Detections: {response.detections}")
 
 **Old Code:**
 ```text
-from datasift.core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter import OllamaAdapter
+from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter import OllamaAdapter
 
 adapter = OllamaAdapter(model_name="granite4")
 response = adapter.detect_pii_hap(payload)
@@ -230,7 +230,7 @@ response = adapter.detect_pii_hap(payload)
 
 **New Code:**
 ```text
-from datasift.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
+from docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
 
 service = PIIHAPService(
     provider="litellm",
@@ -289,10 +289,10 @@ pytest tests/unit/core/adapters/litellm/ -v  # LiteLLM adapters
 
 ## Common Infrastructure Location
 
-All shared components are in `src/datasift/core/adapters/`:
+All shared components are in `src/docpipe/core/adapters/`:
 
 ```
-src/datasift/core/adapters/
+src/docpipe/core/adapters/
 ├── ports/                    # Common port interfaces
 │   ├── llm_inference.py     # LLMInferencePort
 │   ├── llm_embedding.py     # LLMEmbeddingPort

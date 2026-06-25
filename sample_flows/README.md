@@ -1,6 +1,6 @@
 # Sample Flows
 
-This directory contains ready-to-run sample flows for first-time users of datasift-opensource.
+This directory contains ready-to-run sample flows for first-time users of docling-pipelines.
 
 ## Complete Pipeline Flow
 
@@ -202,7 +202,7 @@ The `feature_mappings` in the OpenSearch operator maps PyArrow table columns to 
 2. **Execute the flow:**
 
    ```bash
-   datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+   docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
    ```
 
 3. **Monitor progress:**
@@ -235,13 +235,13 @@ Enable detailed logging using environment variable:
 
 ```bash
 # Set log level before running
-DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 Or in your shell profile:
 ```bash
 export DS_LOG_LEVEL=DEBUG
-datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 ### Next Steps

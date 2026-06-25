@@ -9,10 +9,10 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
     OpenSearchIndexManager,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 @pytest.fixture
@@ -104,8 +104,8 @@ class TestEngineAlgorithmValidation:
     """Test engine and algorithm validation"""
 
     def test_invalid_engine_raises_error(self, mock_client):
-        """Test that invalid engine raises DatasiftException"""
-        with pytest.raises(DatasiftException, match="Invalid engine"):
+        """Test that invalid engine raises DocpipeException"""
+        with pytest.raises(DocpipeException, match="Invalid engine"):
             OpenSearchIndexManager(
                 client=mock_client,
                 index_name="test_index",
@@ -113,8 +113,8 @@ class TestEngineAlgorithmValidation:
             )
 
     def test_invalid_algorithm_raises_error(self, mock_client):
-        """Test that invalid algorithm raises DatasiftException"""
-        with pytest.raises(DatasiftException, match="Invalid algorithm"):
+        """Test that invalid algorithm raises DocpipeException"""
+        with pytest.raises(DocpipeException, match="Invalid algorithm"):
             OpenSearchIndexManager(
                 client=mock_client,
                 index_name="test_index",
@@ -156,7 +156,7 @@ class TestEngineAlgorithmValidation:
 
     def test_lucene_ivf_incompatibility(self, mock_client):
         """Test Lucene with IVF is invalid"""
-        with pytest.raises(DatasiftException, match="not supported by engine"):
+        with pytest.raises(DocpipeException, match="not supported by engine"):
             OpenSearchIndexManager(
                 client=mock_client,
                 index_name="test_index",
@@ -271,7 +271,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_from_flat_embeddings(self, mock_client):
         """Test dimension detection from flat embeddings using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         # Create table with flat embeddings
         data = {
@@ -288,7 +288,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_from_chunked_embeddings(self, mock_client):
         """Test dimension detection from chunked embeddings using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         # Create table with chunked embeddings
         data = {
@@ -305,7 +305,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_empty_table(self, mock_client):
         """Test dimension detection with empty table using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         empty_table = pa.table({"doc_id": [], "embeddings": []})
 
@@ -314,7 +314,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_missing_column(self, mock_client):
         """Test dimension detection with missing embeddings column using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         table = pa.table({"doc_id": ["doc1"], "content": ["test"]})
 
@@ -323,7 +323,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_with_none_values(self, mock_client):
         """Test dimension detection skips None values using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         data = {
             "doc_id": ["doc1", "doc2", "doc3"],
@@ -336,7 +336,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_with_empty_lists(self, mock_client):
         """Test dimension detection skips empty lists using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         data = {
             "doc_id": ["doc1", "doc2"],
@@ -349,7 +349,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_malformed_data(self, mock_client):
         """Test dimension detection with malformed data using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         # Non-list value
         data = {"doc_id": ["doc1"], "embeddings": ["not a list"]}
@@ -360,7 +360,7 @@ class TestDimensionDetection:
 
     def test_detect_dimension_with_different_dimensions(self, mock_client):
         """Test dimension detection uses first valid embedding using shared utility"""
-        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+        from docpipe.utils.operators.vectordb_utils import detect_vector_dimension
 
         # All embeddings have same dimension - should detect 384
         data = {
@@ -666,7 +666,7 @@ class TestIndexValidation:
             algorithm="hnsw",
         )
 
-        with pytest.raises(DatasiftException, match="existing dimension 768 but current run produced 384"):
+        with pytest.raises(DocpipeException, match="existing dimension 768 but current run produced 384"):
             manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
     def test_validate_existing_index_no_metadata(self, mock_client):

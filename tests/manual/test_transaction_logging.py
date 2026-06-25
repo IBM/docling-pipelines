@@ -14,11 +14,11 @@ Run this script to verify the implementation:
 import logging
 import sys
 
-from datasift.api.middleware.transaction_middleware import (
+from docpipe.api.middleware.transaction_middleware import (
     get_transaction_id,
     set_transaction_id,
 )
-from datasift.utils.infrastructure.logging import ConditionalFormatter
+from docpipe.utils.infrastructure.logging import ConditionalFormatter
 
 
 def test_transaction_logging():

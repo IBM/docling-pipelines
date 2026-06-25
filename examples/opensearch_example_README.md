@@ -1,6 +1,6 @@
 # OpenSearch Integration Example
 
-This example demonstrates how to use the OpenSearch operator for vector similarity search in the DataSift pipeline.
+This example demonstrates how to use the OpenSearch operator for vector similarity search in the Docpipe pipeline.
 
 ## Prerequisites
 
@@ -28,7 +28,7 @@ This example demonstrates how to use the OpenSearch operator for vector similari
    OPENSEARCH_PASSWORD=your-password
    
    # Index Configuration
-   OPENSEARCH_INDEX_NAME=datasift_vectors
+   OPENSEARCH_INDEX_NAME=docpipe_vectors
    OPENSEARCH_VECTOR_DIMENSION=384
    
    # Engine Configuration
@@ -149,7 +149,7 @@ To use OpenSearch in a complete pipeline:
 
 ```python
 # 1. Ingest documents
-from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
 
 ingest_config = {
     "paths": "/path/to/documents",
@@ -159,14 +159,14 @@ ingest_op = IngestLocalOperator(ingest_config)
 table = ingest_op.transform()
 
 # 2. Extract content
-from datasift.core.operators.extract.extract_operator import ExtractOperator
+from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
 extract_config = {}
 extract_op = ExtractOperator(extract_config)
 table, _ = extract_op.transform(table)
 
 # 3. Chunk documents
-from datasift.core.operators.functional.chunker import ChunkerOperator
+from docpipe.core.operators.functional.chunker import ChunkerOperator
 
 chunk_config = {
     "chunk_size": 512,
@@ -179,8 +179,8 @@ table, _ = chunk_op.transform(table)
 # table = add_embeddings(table)
 
 # 5. Index in OpenSearch
-from datasift.utils.infrastructure.config import get_opensearch_config
-from datasift.core.operators.vectordb import VectorDBOperator
+from docpipe.utils.infrastructure.config import get_opensearch_config
+from docpipe.core.operators.vectordb import VectorDBOperator
 
 # Load configuration from environment variables
 opensearch_config = get_opensearch_config()

@@ -2,8 +2,8 @@
 
 import pytest
 
-from datasift.core.operators.ingest.adapters.outbound.sources.box.adapter import BoxSourceAdapter
-from datasift.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
+from docpipe.core.operators.ingest.adapters.outbound.sources.box.adapter import BoxSourceAdapter
+from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
 
 
 class TestBoxSourceConfig:

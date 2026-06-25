@@ -12,9 +12,9 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
-from datasift.api.main import app
-from datasift.api.routes.flows import get_flow_repository
-from datasift.core.assets.flows.adapters.repositories.local.local_flow_repository import (
+from docpipe.api.main import app
+from docpipe.api.routes.flows import get_flow_repository
+from docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository import (
     LocalFlowRepository,
 )
 

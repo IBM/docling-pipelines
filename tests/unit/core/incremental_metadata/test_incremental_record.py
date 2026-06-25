@@ -1,6 +1,6 @@
 """Tests for IncrementalMetadataRecord domain model."""
 
-from datasift.core.incremental_metadata.domain.models import IncrementalMetadataRecord
+from docpipe.core.incremental_metadata.domain.models import IncrementalMetadataRecord
 
 
 class TestIncrementalMetadataRecord:

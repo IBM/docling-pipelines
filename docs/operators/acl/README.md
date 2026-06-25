@@ -310,7 +310,7 @@ ACL extraction completed: 0 processed, 10 failed, 0 skipped
 Enable debug logging to see detailed ACL extraction information:
 
 ```bash
-datasift-orchestrator --flow-file flow.json --log-level debug
+docling-pipelines --flow-file flow.json --log-level debug
 ```
 
 ## References

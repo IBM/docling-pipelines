@@ -1,13 +1,13 @@
 """Unit tests for global_config display module."""
 
-from datasift.core.orchestration.global_config_metadata import (
+from docpipe.core.orchestration.global_config_metadata import (
     EXECUTION_CONTROL,
     INCREMENTAL_PROCESSING,
     ORCHESTRATION,
     GlobalConfigMetadata,
     GlobalConfigParam,
 )
-from datasift.utils.global_config.display import (
+from docpipe.utils.global_config.display import (
     display_global_config_summary,
     format_global_config_details,
     list_global_config,

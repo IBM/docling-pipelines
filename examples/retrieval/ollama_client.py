@@ -3,7 +3,7 @@ import re
 from enum import Enum
 from typing import Any, Callable, Generator
 
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -187,7 +187,7 @@ class OllamaClient:
                     yield f"[Tool {out['name']} → {out['content']}]"
                 collected.extend([{"role": "tool", "content": out["content"]} for out in tool_outputs])
 
-        self._manage_history([{"role": "user", "content": user_prompt}] + collected)
+        self._manage_history([{"role": "user", "content": user_prompt}, *collected])
 
     def _stream_generate_response(self, response: Any) -> Generator[str, None, None]:
 

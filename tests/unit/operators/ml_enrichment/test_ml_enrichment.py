@@ -5,8 +5,8 @@ Unit tests for ML Enrichment Operator
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants import Metrics, OperatorConstants
-from datasift.core.operators.quality.ml_enrichment import (
+from docpipe.core.constants import Metrics, OperatorConstants
+from docpipe.core.operators.quality.ml_enrichment import (
     ENRICHMENT_COLUMNS_KEY,
     FEATURES_ADDED_KEY,
     MLEnrichmentOperator,
@@ -347,7 +347,7 @@ Numbers: 1234567890""",
         operator = MLEnrichmentOperator(sample_config)
         metadata = operator.get_metadata()
 
-        from datasift.core.operators.abstract_operator import OperatorCategory
+        from docpipe.core.operators.abstract_operator import OperatorCategory
 
         assert metadata[OperatorConstants.Misc.CATEGORY] == OperatorCategory.Quality.value
 

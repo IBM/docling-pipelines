@@ -3,9 +3,9 @@
 import pyarrow as pa
 import pytest
 
-from datasift.storage.duck_db.table_storage import DuckDBTableStorage
-from datasift.storage.exceptions import StorageException, StorageValidationError
-from datasift.storage.factory import StorageFactory
+from docpipe.storage.duck_db.table_storage import DuckDBTableStorage
+from docpipe.storage.exceptions import StorageException, StorageValidationError
+from docpipe.storage.factory import StorageFactory
 
 
 @pytest.fixture

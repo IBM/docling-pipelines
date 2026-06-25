@@ -15,9 +15,9 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.vectordb import VectorDBOperator
-from datasift.utils.infrastructure.config import get_milvus_config
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.utils.infrastructure.config import get_milvus_config
 
 # Check if .env file exists
 env_file = Path(__file__).parent.parent / ".env"
@@ -58,7 +58,7 @@ def example_1_basic_indexing():
     config.update(
         {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "datasift_example_basic",
+            OperatorConstants.VectorDB.INDEX_NAME: "docpipe_example_basic",
             OperatorConstants.Config.AVAILABLE_FEATURES: {
                 "doc_id_hash": {
                     "name": "Document ID",
@@ -136,7 +136,7 @@ def example_2_ivf_flat_index():
     config.update(
         {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "datasift_example_ivf",
+            OperatorConstants.VectorDB.INDEX_NAME: "docpipe_example_ivf",
             OperatorConstants.Config.BATCH_SIZE: 50,
             OperatorConstants.Config.PROVIDER_CONFIG: {
                 **config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}),
@@ -201,7 +201,7 @@ def example_3_cosine_similarity():
     config.update(
         {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "datasift_example_cosine",
+            OperatorConstants.VectorDB.INDEX_NAME: "docpipe_example_cosine",
             OperatorConstants.Config.PROVIDER_CONFIG: {
                 **config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}),
                 OperatorConstants.VectorDB.INDEX_TYPE: "HNSW",
@@ -300,7 +300,7 @@ def example_5_batch_processing():
     config.update(
         {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "datasift_example_batch",
+            OperatorConstants.VectorDB.INDEX_NAME: "docpipe_example_batch",
             OperatorConstants.Config.BATCH_SIZE: 50,  # Smaller batch size for demonstration
             OperatorConstants.Config.AVAILABLE_FEATURES: {
                 "doc_id_hash": {
@@ -356,7 +356,7 @@ def example_6_error_handling():
     config.update(
         {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "datasift_example_errors",
+            OperatorConstants.VectorDB.INDEX_NAME: "docpipe_example_errors",
             OperatorConstants.Config.AVAILABLE_FEATURES: {
                 "doc_id_hash": {
                     "available_for_vector_db": True,
@@ -410,7 +410,7 @@ def example_7_sparse_vectors():
     config.update(
         {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "datasift_example_sparse",
+            OperatorConstants.VectorDB.INDEX_NAME: "docpipe_example_sparse",
             OperatorConstants.Config.PROVIDER_CONFIG: {
                 **config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}),
                 OperatorConstants.VectorDB.ADD_SPARSE_VECTOR: True,

@@ -7,8 +7,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.orchestration.operator_loader.adapters.package_adapter import PackageAdapter
-from datasift.core.orchestration.operator_loader.ports.operator_source import (
+from docpipe.core.orchestration.operator_loader.adapters.package_adapter import PackageAdapter
+from docpipe.core.orchestration.operator_loader.ports.operator_source import (
     OperatorInfo,
     ValidationResult,
 )
@@ -80,7 +80,7 @@ class TestPackageAdapter:
             mock_module.__name__ = "test_package.operators"
 
             # Mock operator class
-            from datasift.core.operators.abstract_operator import AbstractOperator
+            from docpipe.core.operators.abstract_operator import AbstractOperator
 
             mock_operator_class = Mock(spec=AbstractOperator)
             mock_operator_class.__name__ = "TestOperator"

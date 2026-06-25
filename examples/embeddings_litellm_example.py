@@ -11,7 +11,7 @@ Prerequisites:
     3. Run from project root: python examples/embeddings_litellm_example.py
 
 For detailed documentation, see:
-    src/datasift_opensource/backend/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md
+    src/docpipe_app/backend/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md
 """
 
 import os
@@ -20,11 +20,11 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
 
 # Add backend to path
-backend_path = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
+backend_path = Path(__file__).parent.parent / "src" / "docpipe_app" / "backend"
 sys.path.insert(0, str(backend_path))
 
 
@@ -265,7 +265,7 @@ def main():
     print("\nThese examples demonstrate using LiteLLM adapter with various providers.")
     print("LiteLLM provides a unified interface to 100+ embedding providers.")
     print("\nFor detailed documentation, see:")
-    print("  src/datasift_opensource/backend/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md")
+    print("  src/docpipe_app/backend/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md")
 
     # Run examples
     example_openai()

@@ -17,11 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from datasift.core.constants.constants import ExecutionStatus
-from datasift.core.job_management.adapters.stores.json.json_job_stats_store import (
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.job_management.adapters.stores.json.json_job_stats_store import (
     JsonJobStatsStore,
 )
-from datasift.core.job_management.domain.models import JobStats, NodeStats
+from docpipe.core.job_management.domain.models import JobStats, NodeStats
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def store(temp_data_dir, monkeypatch):
         return str(temp_data_dir / sub_dir.lstrip("/"))
 
     monkeypatch.setattr(
-        "datasift.core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
+        "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
         mock_get_data_path,
     )
 
@@ -152,7 +152,7 @@ class TestFilePersistence:
             return str(temp_data_dir / sub_dir.lstrip("/"))
 
         monkeypatch.setattr(
-            "datasift.core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
+            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
             mock_get_data_path,
         )
 

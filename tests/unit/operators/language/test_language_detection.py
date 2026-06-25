@@ -12,31 +12,31 @@ import pyarrow as pa
 import pytest
 
 # Import to trigger adapter registration
-import datasift.core.operators.quality.language_detection.adapters.outbound.langdetect_adapter  # noqa: F401
-from datasift.core.constants.constants import (
+import docpipe.core.operators.quality.language_detection.adapters.outbound.langdetect_adapter  # noqa: F401
+from docpipe.core.constants.constants import (
     ExecutionStatus,
     Metrics,
 )
-from datasift.core.constants.operator_constants import (
+from docpipe.core.constants.operator_constants import (
     OperatorConstants,
 )
-from datasift.core.operators.quality.language_detection.adapters.outbound.factories.language_adapter_factory import (
+from docpipe.core.operators.quality.language_detection.adapters.outbound.factories.language_adapter_factory import (
     LanguageAdapterFactory,
 )
-from datasift.core.operators.quality.language_detection.adapters.outbound.langdetect_adapter import (
+from docpipe.core.operators.quality.language_detection.adapters.outbound.langdetect_adapter import (
     LangdetectAdapter,
 )
-from datasift.core.operators.quality.language_detection.domain.models import (
+from docpipe.core.operators.quality.language_detection.domain.models import (
     LanguageDetectionResult,
 )
-from datasift.core.operators.quality.language_detection.lang_id import (
+from docpipe.core.operators.quality.language_detection.lang_id import (
     DEFAULT_LANGUAGE_PROVIDER,
     LanguageDetect,
 )
-from datasift.core.operators.quality.language_detection.ports.outbound.language_service import (
+from docpipe.core.operators.quality.language_detection.ports.outbound.language_service import (
     LanguageServicePort,
 )
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.exceptions.docpipe_exceptions import (
     ExternalServiceError,
 )
 

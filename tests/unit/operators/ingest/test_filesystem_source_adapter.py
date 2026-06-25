@@ -7,10 +7,10 @@ from unittest.mock import mock_open, patch
 import pytest
 from pydantic import ValidationError
 
-from datasift.core.operators.ingest.adapters.outbound.sources.filesystem.adapter import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.adapter import (
     FilesystemSourceAdapter,
 )
-from datasift.core.operators.ingest.adapters.outbound.sources.filesystem.config import (
+from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.config import (
     FilesystemSourceConfig,
 )
 

@@ -8,15 +8,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator import PIIAndHAPAnnotator
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator import PIIAndHAPAnnotator
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 @pytest.mark.unit
 class TestPIIHAPAnnotatorValidation:
     """Test PII/HAP annotator validation during initialization."""
 
-    @patch("datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService")
+    @patch("docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService")
     def test_service_validation_called_on_init(self, mock_service_class):
         """Test that validate() is called during service initialization."""
         # Setup mock adapter with validate method
@@ -50,11 +50,11 @@ class TestPIIHAPAnnotatorValidation:
         assert operator.provider == "litellm"
         assert operator.model_name == "openai/llama3.2:latest"
 
-    @patch("datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService")
+    @patch("docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService")
     def test_service_validation_failure_raises_error(self, mock_service_class):
-        """Test that validation failures raise DatasiftException."""
-        # Mock service initialization to raise DatasiftException
-        mock_service_class.side_effect = DatasiftException(
+        """Test that validation failures raise DocpipeException."""
+        # Mock service initialization to raise DocpipeException
+        mock_service_class.side_effect = DocpipeException(
             message="Adapter validation failed: API key is required",
             status_code=400,
         )
@@ -68,11 +68,11 @@ class TestPIIHAPAnnotatorValidation:
             },
         }
 
-        # Attempt to create operator should raise DatasiftException
-        with pytest.raises(DatasiftException, match="API key is required"):
+        # Attempt to create operator should raise DocpipeException
+        with pytest.raises(DocpipeException, match="API key is required"):
             PIIAndHAPAnnotator(config=config)
 
-    @patch("datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService")
+    @patch("docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService")
     def test_service_validation_with_warnings(self, mock_service_class, caplog):
         """Test that warnings don't block service initialization."""
         # Setup mock adapter with warnings

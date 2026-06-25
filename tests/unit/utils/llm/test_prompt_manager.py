@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.exceptions.error_codes import ErrorCode
-from datasift.utils.llm.prompt_manager import PromptManager
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.utils.llm.prompt_manager import PromptManager
 
 
 class TestPromptManager:
@@ -85,7 +85,7 @@ class TestPromptManager:
         """Test loading non-existent prompt file."""
         non_existent = tmp_path / "non_existent.json"
         manager = PromptManager(non_existent)
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager.load_prompt()
         assert exc_info.value.error_code == ErrorCode.INVALID_CONFIGURATION
         assert "not found" in str(exc_info.value).lower()
@@ -95,7 +95,7 @@ class TestPromptManager:
         invalid_file = tmp_path / "invalid.json"
         invalid_file.write_text("{ invalid json }")
         manager = PromptManager(invalid_file)
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager.load_prompt()
         assert exc_info.value.error_code == ErrorCode.INVALID_CONFIGURATION
         assert "invalid json" in str(exc_info.value).lower()
@@ -105,7 +105,7 @@ class TestPromptManager:
         no_desc_file = tmp_path / "no_desc.json"
         no_desc_file.write_text(json.dumps({"examples": []}))
         manager = PromptManager(no_desc_file)
-        with pytest.raises(DatasiftException) as exc_info:
+        with pytest.raises(DocpipeException) as exc_info:
             manager.load_prompt()
         assert exc_info.value.error_code == ErrorCode.INVALID_CONFIGURATION
         assert "description" in str(exc_info.value).lower()

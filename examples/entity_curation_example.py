@@ -19,11 +19,11 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.entity_curation.entity_curation_operator import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.entity_curation.entity_curation_operator import (
     EntityCurationOperator,
 )
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 

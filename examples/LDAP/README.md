@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides instructions for setting up a local LDAP server for datasift authentication and OAuth2 integration. The setup uses OpenLDAP with phpLDAPAdmin for easy management through a web interface.
+This guide provides instructions for setting up a local LDAP server for docpipe authentication and OAuth2 integration. The setup uses OpenLDAP with phpLDAPAdmin for easy management through a web interface.
 
 The LDAP server is configured with:
 - Organization: ABC Inc
@@ -271,11 +271,11 @@ docker-compose down -v
 podman-compose down -v
 ```
 
-## Integration with Datasift
+## Integration with Docpipe
 
-Once LDAP is running, configure datasift to use it for authentication:
+Once LDAP is running, configure docpipe to use it for authentication:
 
-1. Set environment variables in your datasift `.env`:
+1. Set environment variables in your docpipe `.env`:
    ```
    LDAP_SERVER=localhost
    LDAP_PORT=1389
@@ -285,7 +285,7 @@ Once LDAP is running, configure datasift to use it for authentication:
    LDAP_BIND_PASSWORD=changeme
    ```
 
-2. Test authentication with datasift API using test user credentials
+2. Test authentication with docpipe API using test user credentials
 
 3. For OAuth2 integration, refer to [OAuth2 Authentication Guide](../../docs/api/OAUTH2_AUTHENTICATION.md)
 

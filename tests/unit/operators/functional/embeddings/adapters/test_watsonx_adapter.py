@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.exceptions.datasift_exceptions import ConfigurationError
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def valid_config() -> dict[str, Any]:
 def mock_watsonx_client():
     """Fixture providing mocked WatsonxRestEmbeddingClient."""
     with patch(
-        "datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.WatsonxRestEmbeddingClient"
+        "docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.WatsonxRestEmbeddingClient"
     ) as mock_client_class:
         mock_instance = MagicMock()
         mock_instance.generate_embeddings.return_value = [0.1] * 768
@@ -48,10 +48,10 @@ def mock_model_validator():
     """Fixture providing mocked model validator and dimension lookup."""
     with (
         patch(
-            "datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.validate_model_id"
+            "docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.validate_model_id"
         ) as mock_validator,
         patch(
-            "datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.get_model_dimension"
+            "docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.get_model_dimension"
         ) as mock_dimension,
     ):
         mock_validator.return_value = True
@@ -65,7 +65,7 @@ class TestWatsonxAdapterRegistration:
 
     def test_adapter_registered_with_factory(self):
         """Test that WatsonxLLMAdapter is registered with the factory."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
             LLMAdapterFactory,
         )
 
@@ -74,7 +74,7 @@ class TestWatsonxAdapterRegistration:
 
     def test_adapter_has_required_attributes(self):
         """Test that adapter defines required class attributes."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -90,13 +90,13 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_valid_config(self, *, valid_config: dict[str, Any], mock_watsonx_client, mock_model_validator):
         """Test successful initialization with valid configuration."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
         # Mock get_session_info to return None for job_run_id
         with patch(
-            "datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.get_session_info"
+            "docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.get_session_info"
         ) as mock_session_info:
             mock_session_info.return_value = None
 
@@ -131,7 +131,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_missing_api_key(self, *, mock_model_validator):
         """Test initialization fails with missing api_key."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -148,7 +148,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_missing_url(self, *, mock_model_validator):
         """Test initialization fails with missing url."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -165,7 +165,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_missing_container_kind(self, *, mock_model_validator):
         """Test initialization fails with missing container_kind."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -182,7 +182,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_missing_container_id(self, *, mock_model_validator):
         """Test initialization fails with missing container_id."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -199,12 +199,12 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_invalid_model(self, *, valid_config: dict[str, Any], mock_watsonx_client):
         """Test initialization fails with invalid model."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
         with patch(
-            "datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.validate_model_id"
+            "docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter.validate_model_id"
         ) as mock_validator:
             mock_validator.return_value = False
 
@@ -213,7 +213,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_default_batch_size(self, *, mock_watsonx_client, mock_model_validator):
         """Test initialization uses default batch size when not specified."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -235,7 +235,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_enable_rate_limiting_true(self, *, mock_watsonx_client, mock_model_validator):
         """Test initialization with enable_rate_limiting=True."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -258,7 +258,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_enable_rate_limiting_false(self, *, mock_watsonx_client, mock_model_validator):
         """Test initialization with enable_rate_limiting=False."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -281,7 +281,7 @@ class TestWatsonxAdapterInitialization:
 
     def test_init_with_enable_rate_limiting_default(self, *, mock_watsonx_client, mock_model_validator):
         """Test initialization defaults to enable_rate_limiting=False when not specified."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -308,7 +308,7 @@ class TestWatsonxAdapterContainerKind:
 
     def test_init_with_project_container(self, *, mock_watsonx_client, mock_model_validator):
         """Test initialization with project container kind."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -328,7 +328,7 @@ class TestWatsonxAdapterContainerKind:
 
     def test_init_with_space_container(self, *, mock_watsonx_client, mock_model_validator):
         """Test initialization with space container kind."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -353,7 +353,7 @@ class TestWatsonxAdapterEmbeddings:
 
     def test_generate_embeddings(self, *, valid_config: dict[str, Any], mock_watsonx_client, mock_model_validator):
         """Test single text embedding generation."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -370,7 +370,7 @@ class TestWatsonxAdapterEmbeddings:
         self, *, valid_config: dict[str, Any], mock_watsonx_client, mock_model_validator
     ):
         """Test batch embedding generation."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -391,7 +391,7 @@ class TestWatsonxAdapterModelInfo:
 
     def test_get_model_token_limit(self, *, valid_config: dict[str, Any], mock_watsonx_client, mock_model_validator):
         """Test getting model token limit."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -407,7 +407,7 @@ class TestWatsonxAdapterModelInfo:
 
     def test_get_embedding_dimension(self, *, valid_config: dict[str, Any], mock_watsonx_client, mock_model_validator):
         """Test getting embedding dimension."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -424,7 +424,7 @@ class TestWatsonxAdapterModelInfo:
         self, *, valid_config: dict[str, Any], mock_watsonx_client, mock_model_validator
     ):
         """Test that get_embedding_dimension returns None when dimension is 0."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -445,7 +445,7 @@ class TestWatsonxAdapterFactoryIntegration:
         self, *, valid_config: dict[str, Any], mock_watsonx_client, mock_model_validator
     ):
         """Test creating adapter instance through LLMAdapterFactory."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
             LLMAdapterFactory,
         )
 

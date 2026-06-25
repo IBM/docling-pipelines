@@ -8,9 +8,9 @@ Tests the _process_extraction_result method's page count calculation logic.
 
 import pytest
 
-from datasift.core.constants.constants import Metrics
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
+from docpipe.core.constants.constants import Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 
 
 class MockTextExtractionAdapter(TextExtractionPort):

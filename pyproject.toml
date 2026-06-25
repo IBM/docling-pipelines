@@ -1,7 +1,7 @@
 [project]
-name = "datasift-opensource"
+name = "docling-pipelines"
 version = "0.1.0"
-description = "This repository contains the datasift operators."
+description = "This repository contains the docpipe operators."
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "accelerate==1.13.0",
@@ -116,11 +116,11 @@ vlm_asr = [
 ]
 
 [project.scripts]
-datasift-api = "datasift.api.main:app"
-datasift-orchestrator = "datasift.cli.datasift_cli:main"
+docling-pipelines-api = "docpipe.api.main:app"
+docling-pipelines = "docpipe.cli.docpipe_cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/datasift"]
+packages = ["src/docpipe"]
 
 
 [tool.hatch.build]
@@ -183,7 +183,7 @@ ignore = [
 # Configure import sorting
 # NOTE: Ruff's isort implementation is the single source of truth for import sorting.
 # No conflicting isort configurations exist in .isort.cfg or setup.cfg files.
-known-first-party = ["datasift"]
+known-first-party = ["docpipe"]
 
 [tool.ruff.format]
 # Quote style standardization: Converting all string quotes to double quotes for consistency
@@ -241,8 +241,7 @@ module = [
     "babel.core",
     "babel.numbers",
     "datefinder",
-    "datefinder.*",
-    "retrieval_main"
+    "datefinder.*"
 ]
 ignore_missing_imports = true
 follow_imports = "silent"

@@ -9,8 +9,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from datasift.core.constants.constants import DatasiftConstants, EnvironmentVariables, OrchestratorType
-from datasift.core.orchestration.operator_factory import OperatorFactory, OperatorFactoryProvider
+from docpipe.core.constants.constants import DocpipeConstants, EnvironmentVariables, OrchestratorType
+from docpipe.core.orchestration.operator_factory import OperatorFactory, OperatorFactoryProvider
 
 
 class TestOperatorFactoryIntegration:
@@ -23,8 +23,8 @@ class TestOperatorFactoryIntegration:
 
         # Clear environment variables
         for var in [
-            EnvironmentVariables.DATASIFT_CUSTOM_OPERATORS,
-            EnvironmentVariables.DATASIFT_ENABLE_CUSTOM_OPERATORS,
+            EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS,
+            EnvironmentVariables.DOCPIPE_ENABLE_CUSTOM_OPERATORS,
         ]:
             if var in os.environ:
                 del os.environ[var]
@@ -36,21 +36,21 @@ class TestOperatorFactoryIntegration:
 
         # Clear environment variables
         for var in [
-            EnvironmentVariables.DATASIFT_CUSTOM_OPERATORS,
-            EnvironmentVariables.DATASIFT_ENABLE_CUSTOM_OPERATORS,
+            EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS,
+            EnvironmentVariables.DOCPIPE_ENABLE_CUSTOM_OPERATORS,
         ]:
             if var in os.environ:
                 del os.environ[var]
 
     def test_environment_variable_loading(self):
-        """Test 1: Loading custom operators via DATASIFT_CUSTOM_OPERATORS environment variable."""
+        """Test 1: Loading custom operators via DOCPIPE_CUSTOM_OPERATORS environment variable."""
         print("\n" + "=" * 80)
         print("TEST 1: Environment Variable Loading")
         print("=" * 80)
 
         # Set environment variable to test custom operator path
         test_operator_path = str(Path(__file__).parent.parent / "sample_test_flows" / "custom_operators")
-        os.environ[EnvironmentVariables.DATASIFT_CUSTOM_OPERATORS] = test_operator_path
+        os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = test_operator_path
 
         # Create factory - should automatically load from environment variable
         factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
@@ -62,7 +62,7 @@ class TestOperatorFactoryIntegration:
 
         uppercase_op = factory.operators["uppercase"]
         assert uppercase_op.short_name == "uppercase"
-        assert getattr(uppercase_op, "owner", None) == DatasiftConstants.OWNER_CUSTOM
+        assert getattr(uppercase_op, "owner", None) == DocpipeConstants.OWNER_CUSTOM
 
         print(f"✓ Loaded custom operator from environment variable: {uppercase_op.__name__}")
         print(f"  Owner: {getattr(uppercase_op, 'owner', 'unknown')}")
@@ -80,13 +80,13 @@ class TestOperatorFactoryIntegration:
             operator_file = Path(tmpdir) / "test_operator.py"
             operator_file.write_text("""
 import pyarrow as pa
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class TestFilesystemOperator(AbstractOperator):
     short_name: str = "test_filesystem"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -135,13 +135,13 @@ class TestFilesystemOperator(AbstractOperator):
         # Mock S3 get_object response with operator code
         operator_code = b"""
 import pyarrow as pa
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class TestS3Operator(AbstractOperator):
     short_name: str = "test_s3"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -171,19 +171,19 @@ class TestS3Operator(AbstractOperator):
         print("TEST 4: Priority Resolution")
         print("=" * 80)
 
-        # Create factory with only datasift operators
+        # Create factory with only docpipe operators
         factory1 = OperatorFactoryProvider.get_operator_factory(
             orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False
         )
 
-        # Get a datasift operator
+        # Get a docpipe operator
         if "noop" in factory1.operators:
-            datasift_noop = factory1.operators["noop"]
-            datasift_owner = getattr(datasift_noop, "owner", None)
+            docpipe_noop = factory1.operators["noop"]
+            docpipe_owner = getattr(docpipe_noop, "owner", None)
 
-            print(f"✓ Datasift operator 'noop': {datasift_noop.__name__}")
-            print(f"  Owner: {datasift_owner}")
-            priority = OperatorFactory.PRIORITY_MAP.get(datasift_owner or DatasiftConstants.OWNER_DATASIFT, "unknown")
+            print(f"✓ Docpipe operator 'noop': {docpipe_noop.__name__}")
+            print(f"  Owner: {docpipe_owner}")
+            priority = OperatorFactory.PRIORITY_MAP.get(docpipe_owner or DocpipeConstants.OWNER_DOCPIPE, "unknown")
             print(f"  Priority: {priority}")
 
         # Create temporary custom operator that could override
@@ -191,13 +191,13 @@ class TestS3Operator(AbstractOperator):
             operator_file = Path(tmpdir) / "custom_noop.py"
             operator_file.write_text("""
 import pyarrow as pa
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class CustomNoopOperator(AbstractOperator):
     short_name: str = "custom_noop"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -228,16 +228,16 @@ class CustomNoopOperator(AbstractOperator):
             print(f"✓ Custom operator 'custom_noop': {custom_op.__name__}")
             print(f"  Owner: {custom_owner}")
             print(
-                f"  Priority: {OperatorFactory.PRIORITY_MAP.get(custom_owner or DatasiftConstants.OWNER_CUSTOM, 'unknown')}"
+                f"  Priority: {OperatorFactory.PRIORITY_MAP.get(custom_owner or DocpipeConstants.OWNER_CUSTOM, 'unknown')}"
             )
 
             # Verify priority map
             assert (
-                OperatorFactory.PRIORITY_MAP[DatasiftConstants.OWNER_CUSTOM]
-                < OperatorFactory.PRIORITY_MAP[DatasiftConstants.OWNER_DATASIFT]
+                OperatorFactory.PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+                < OperatorFactory.PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
             )
             print(
-                f"✓ Priority resolution verified: CUSTOM ({OperatorFactory.PRIORITY_MAP[DatasiftConstants.OWNER_CUSTOM]}) < DATASIFT ({OperatorFactory.PRIORITY_MAP[DatasiftConstants.OWNER_DATASIFT]})"
+                f"✓ Priority resolution verified: CUSTOM ({OperatorFactory.PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]}) < DOCPIPE ({OperatorFactory.PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]})"
             )
 
     def test_refresh_operators(self):
@@ -251,13 +251,13 @@ class CustomNoopOperator(AbstractOperator):
             operator_file = Path(tmpdir) / "refreshable_operator.py"
             operator_file.write_text("""
 import pyarrow as pa
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class RefreshableOperator(AbstractOperator):
     short_name: str = "refreshable_v1"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -286,13 +286,13 @@ class RefreshableOperator(AbstractOperator):
             # Update operator file with new version
             operator_file.write_text("""
 import pyarrow as pa
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class RefreshableOperator(AbstractOperator):
     short_name: str = "refreshable_v1"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -332,15 +332,15 @@ class RefreshableOperator(AbstractOperator):
             orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False
         )
 
-        # Verify only datasift operators are loaded
+        # Verify only docpipe operators are loaded
         for op_name, op_class in factory.operators.items():
             owner = getattr(op_class, "owner", None)
-            assert owner == DatasiftConstants.OWNER_DATASIFT or owner is None, (
-                f"Operator {op_name} should be a datasift operator when custom operators are disabled"
+            assert owner == DocpipeConstants.OWNER_DOCPIPE or owner is None, (
+                f"Operator {op_name} should be a docpipe operator when custom operators are disabled"
             )
 
         print("✓ Custom operators disabled successfully")
-        print(f"  Loaded {len(factory.operators)} datasift operators only")
+        print(f"  Loaded {len(factory.operators)} docpipe operators only")
 
     def test_mixed_sources(self):
         """Test loading from multiple source types simultaneously."""
@@ -353,13 +353,13 @@ class RefreshableOperator(AbstractOperator):
             operator_file = Path(tmpdir) / "mixed_operator.py"
             operator_file.write_text("""
 import pyarrow as pa
-from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
-from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class MixedSourceOperator(AbstractOperator):
     short_name: str = "mixed_source"
     category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -377,7 +377,7 @@ class MixedSourceOperator(AbstractOperator):
 
             # Set environment variable to test operator path
             test_operator_path = str(Path(__file__).parent.parent / "sample_test_flows" / "custom_operators")
-            os.environ[EnvironmentVariables.DATASIFT_CUSTOM_OPERATORS] = test_operator_path
+            os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = test_operator_path
 
             # Create factory with additional filesystem path
             factory = OperatorFactoryProvider.get_operator_factory(

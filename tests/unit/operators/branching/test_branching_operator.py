@@ -10,9 +10,9 @@ registered by OperatorFactory (the primary bug that was previously fixed).
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import Metrics, OrchestratorType
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.functional.branching_operator import BranchingOperator
+from docpipe.core.constants.constants import Metrics, OrchestratorType
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.functional.branching_operator import BranchingOperator
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -81,7 +81,7 @@ class TestOperatorFactoryRegistration:
         OperatorFactory for the Python orchestrator must contain BranchingOperator
         under the key OperatorConstants.Operators.BRANCHING ('branching').
         """
-        from datasift.core.orchestration.operator_factory import OperatorFactory
+        from docpipe.core.orchestration.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
         operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
@@ -101,7 +101,7 @@ class TestOperatorFactoryRegistration:
         rather than identity/issubclass to avoid false failures from module
         reloading.
         """
-        from datasift.core.orchestration.operator_factory import OperatorFactory
+        from docpipe.core.orchestration.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
         operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
@@ -116,7 +116,7 @@ class TestOperatorFactoryRegistration:
         The class retrieved from OperatorFactory can be instantiated with a
         minimal config dict without raising an exception.
         """
-        from datasift.core.orchestration.operator_factory import OperatorFactory
+        from docpipe.core.orchestration.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
         operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)

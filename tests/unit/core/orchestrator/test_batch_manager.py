@@ -16,9 +16,9 @@ from unittest.mock import MagicMock, patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.orchestration.batch_manager import BatchManager
-from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
+from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.orchestration.batch_manager import BatchManager
+from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 
 class TestBatchSemaphore:
@@ -180,8 +180,8 @@ class TestBatchConfiguration:
         """Verify batching configuration when enabled."""
         batch_manager = BatchManager()
         global_config = {
-            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
-            DatasiftConstants.MICRO_BATCH_SIZE: 100,
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.MICRO_BATCH_SIZE: 100,
         }
 
         enabled, size = batch_manager.configure_batching(global_config=global_config)
@@ -192,12 +192,12 @@ class TestBatchConfiguration:
     def test_configure_batching_disabled(self):
         """Verify batching configuration when disabled."""
         batch_manager = BatchManager()
-        global_config = {DatasiftConstants.ENABLE_MICRO_BATCHING: False}
+        global_config = {DocpipeConstants.ENABLE_MICRO_BATCHING: False}
 
         enabled, size = batch_manager.configure_batching(global_config=global_config)
 
         assert enabled is False
-        assert size == DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE
+        assert size == DocpipeConstants.DEFAULT_MICRO_BATCH_SIZE
 
     def test_configure_batching_default(self):
         """Verify batching configuration with defaults."""
@@ -207,7 +207,7 @@ class TestBatchConfiguration:
         enabled, size = batch_manager.configure_batching(global_config=global_config)
 
         assert enabled is False
-        assert size == DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE
+        assert size == DocpipeConstants.DEFAULT_MICRO_BATCH_SIZE
 
 
 class TestBatchCreation:
@@ -259,8 +259,8 @@ class TestBatchPreparation:
         batch_manager = BatchManager()
         table = pa.table({"id": list(range(25))})
         global_config = {
-            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
-            DatasiftConstants.MICRO_BATCH_SIZE: 10,
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.MICRO_BATCH_SIZE: 10,
         }
 
         batches, updated_config = batch_manager.prepare_batches(
@@ -270,14 +270,14 @@ class TestBatchPreparation:
         )
 
         assert len(batches) == 3
-        assert updated_config[DatasiftConstants.BATCH_COUNT] == 3
-        assert DatasiftConstants.ENABLE_MICRO_BATCHING in updated_config
+        assert updated_config[DocpipeConstants.BATCH_COUNT] == 3
+        assert DocpipeConstants.ENABLE_MICRO_BATCHING in updated_config
 
     def test_prepare_batches_non_batch_mode(self):
         """Verify batch preparation in non-batch mode."""
         batch_manager = BatchManager()
         table = pa.table({"id": list(range(25))})
-        global_config = {DatasiftConstants.ENABLE_MICRO_BATCHING: False}
+        global_config = {DocpipeConstants.ENABLE_MICRO_BATCHING: False}
 
         batches, updated_config = batch_manager.prepare_batches(
             ingested_table=table,
@@ -287,7 +287,7 @@ class TestBatchPreparation:
 
         assert len(batches) == 1
         assert batches[0].table.num_rows == 25
-        assert DatasiftConstants.BATCH_COUNT not in updated_config
+        assert DocpipeConstants.BATCH_COUNT not in updated_config
 
     def test_prepare_batches_raises_when_batch_size_missing(self):
         """Verify error when batch size is missing in batch mode."""
@@ -298,8 +298,8 @@ class TestBatchPreparation:
             batch_manager.prepare_batches(
                 ingested_table=table,
                 global_config={
-                    DatasiftConstants.ENABLE_MICRO_BATCHING: True,
-                    DatasiftConstants.MICRO_BATCH_SIZE: None,
+                    DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+                    DocpipeConstants.MICRO_BATCH_SIZE: None,
                 },
                 common_log_arguments=None,
             )
@@ -308,7 +308,7 @@ class TestBatchPreparation:
 class TestBatchDataAccess:
     """Test DataAccess creation for batches."""
 
-    @patch("datasift.core.orchestration.batch_manager.DataAccessFactory")
+    @patch("docpipe.core.orchestration.batch_manager.DataAccessFactory")
     def test_create_batch_data_access(self, mock_factory_class):
         """Verify DataAccess creation for batch table."""
         # Setup mock
@@ -370,7 +370,7 @@ class TestBatchUUIDPropagation:
         """Verify non-batch mode still creates BatchInfo with batch_id for consistency."""
         batch_manager = BatchManager()
         table = pa.table({"id": list(range(5))})
-        global_config = {DatasiftConstants.ENABLE_MICRO_BATCHING: False}
+        global_config = {DocpipeConstants.ENABLE_MICRO_BATCHING: False}
 
         batches, _ = batch_manager.prepare_batches(
             ingested_table=table, global_config=global_config, common_log_arguments=None
@@ -467,21 +467,21 @@ class TestIngestExclusionFromMicroBatching:
 
         # Simulate ingest execution config (no batch context)
         ingest_config = {
-            DatasiftConstants.JOB_ID: "job-1",
-            DatasiftConstants.JOB_RUN_ID: "run-1",
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
             # Note: No BATCH_ID or BATCH_NUM
         }
 
-        assert DatasiftConstants.BATCH_ID not in ingest_config
-        assert DatasiftConstants.BATCH_NUM not in ingest_config
+        assert DocpipeConstants.BATCH_ID not in ingest_config
+        assert DocpipeConstants.BATCH_NUM not in ingest_config
 
         # Simulate batch execution config (has batch context)
         batch_config = ingest_config.copy()
-        batch_config[DatasiftConstants.BATCH_ID] = "batch-uuid-123"
-        batch_config[DatasiftConstants.BATCH_NUM] = 0
+        batch_config[DocpipeConstants.BATCH_ID] = "batch-uuid-123"
+        batch_config[DocpipeConstants.BATCH_NUM] = 0
 
-        assert DatasiftConstants.BATCH_ID in batch_config
-        assert DatasiftConstants.BATCH_NUM in batch_config
+        assert DocpipeConstants.BATCH_ID in batch_config
+        assert DocpipeConstants.BATCH_NUM in batch_config
 
     def test_ingest_node_id_stored_for_dependency_resolution(self):
         """Verify ingest node ID is stored in global_config for batch dependency resolution."""
@@ -489,13 +489,13 @@ class TestIngestExclusionFromMicroBatching:
         # so batch operators can identify ingest dependencies (prefect_engine.py line 428)
 
         global_config = {
-            DatasiftConstants.INGEST_NODE_ID: "ingest-node-1",
-            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.INGEST_NODE_ID: "ingest-node-1",
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
         }
 
         # Batch operators check if dependency is ingest node
         dependency_node_id = "ingest-node-1"
-        ingest_node_id = global_config.get(DatasiftConstants.INGEST_NODE_ID)
+        ingest_node_id = global_config.get(DocpipeConstants.INGEST_NODE_ID)
 
         is_ingest_dependency = dependency_node_id == ingest_node_id
         assert is_ingest_dependency, "Should recognize ingest node as dependency"
@@ -506,13 +506,13 @@ class TestPrefectEngineValidation:
 
     def test_batch_outer_flow_rejects_non_positive_max_concurrent_batches(self):
         """Verify error when max_concurrent_batches is non-positive."""
-        from datasift.core.orchestration.prefect.prefect_engine import PrefectEngine
+        from docpipe.core.orchestration.prefect.prefect_engine import PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
         orchestrator.common_log_arguments = {
-            DatasiftConstants.JOB_ID: "job-1",
-            DatasiftConstants.JOB_RUN_ID: "run-1",
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
         }
         orchestrator._create_empty_result.return_value = MagicMock()
 
@@ -528,7 +528,7 @@ class TestPrefectEngineValidation:
             engine.batch_outer_flow_impl(
                 op_flow=[],
                 batches=[],
-                global_config={DatasiftConstants.MAX_CONCURRENT_BATCHES: 0},
+                global_config={DocpipeConstants.MAX_CONCURRENT_BATCHES: 0},
             )
 
 
@@ -537,13 +537,13 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_waits_for_cancelled_futures_before_reset(self):
         """Verify cancelled futures are waited on before semaphore reset."""
-        from datasift.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
         orchestrator.common_log_arguments = {
-            DatasiftConstants.JOB_ID: "job-1",
-            DatasiftConstants.JOB_RUN_ID: "run-1",
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
         }
         orchestrator._create_empty_result.return_value = MagicMock()
 
@@ -579,13 +579,13 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_resets_semaphore_when_cancelled_wait_errors(self):
         """Verify semaphore reset even when cancelled future wait fails."""
-        from datasift.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
         orchestrator.common_log_arguments = {
-            DatasiftConstants.JOB_ID: "job-1",
-            DatasiftConstants.JOB_RUN_ID: "run-1",
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
         }
         orchestrator._create_empty_result.return_value = MagicMock()
 

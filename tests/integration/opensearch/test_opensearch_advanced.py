@@ -10,15 +10,15 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.vectordb import VectorDBOperator
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.client import OpenSearchClient
-from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.client import OpenSearchClient
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
     OpenSearchAlgorithmTypes,
     OpenSearchEngineTypes,
     VectorSimilarityTypes,
 )
-from datasift.utils.infrastructure.config import get_opensearch_config
+from docpipe.utils.infrastructure.config import get_opensearch_config
 
 # Check if .env file exists
 env_file = Path(".env")

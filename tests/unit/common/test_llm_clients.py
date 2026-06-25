@@ -13,10 +13,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from datasift.exceptions.datasift_exceptions import ConfigurationError
-from datasift.integrations.base_llm_client import BaseLLMClient, retry_with_backoff
-from datasift.integrations.huggingface.client import HuggingFaceLLMClient
-from datasift.integrations.litellm.client import LiteLLMLLMClient
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError
+from docpipe.integrations.base_llm_client import BaseLLMClient, retry_with_backoff
+from docpipe.integrations.huggingface.client import HuggingFaceLLMClient
+from docpipe.integrations.litellm.client import LiteLLMLLMClient
 
 # Check for optional dependencies
 HAS_SENTENCE_TRANSFORMERS = importlib.util.find_spec("sentence_transformers") is not None

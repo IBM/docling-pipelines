@@ -11,9 +11,9 @@ from unittest.mock import patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants import DatasiftConstants, ExecutionStatus, Metrics
-from datasift.core.operators.operator_utils import OperatorUtils
-from datasift.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
+from docpipe.core.constants import DocpipeConstants, ExecutionStatus, Metrics
+from docpipe.core.operators.operator_utils import OperatorUtils
+from docpipe.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
 
 
 @pytest.fixture
@@ -110,7 +110,7 @@ def test_document_classifier_basic_litellm():
     ]
 
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         side_effect=mock_responses,
     ):
         operator = DocumentClassifierOperator(config)
@@ -206,7 +206,7 @@ def test_document_classifier_without_content_column():
     ]
 
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         side_effect=mock_responses,
     ):
         operator = DocumentClassifierOperator(config)
@@ -216,7 +216,7 @@ def test_document_classifier_without_content_column():
         result_table = result_tables[0]
 
         # Assertions - hybrid approach stores content in temporary column
-        assert DatasiftConstants.TEMP_CONTENT_COLUMN in result_table.column_names, (
+        assert DocpipeConstants.TEMP_CONTENT_COLUMN in result_table.column_names, (
             "temporary content column should be added"
         )
         assert "content" not in result_table.column_names, "content column should NOT be in output (stored as temp)"
@@ -226,7 +226,7 @@ def test_document_classifier_without_content_column():
 
         # Check that content was extracted and stored in temp column
         for idx in range(result_table.num_rows):
-            content = result_table[DatasiftConstants.TEMP_CONTENT_COLUMN][idx].as_py()
+            content = result_table[DocpipeConstants.TEMP_CONTENT_COLUMN][idx].as_py()
             assert content is not None, f"Content should not be None for row {idx}"
             assert len(content) > 0, f"Content should not be empty for row {idx}"
 
@@ -406,7 +406,7 @@ def test_document_classifier_list_document_types():
     )
 
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         return_value=mock_response,
     ):
         operator = DocumentClassifierOperator(config)
@@ -440,7 +440,7 @@ def test_ollama_provider_rejected():
 @pytest.mark.unit
 def test_document_classifier_progress_tracking_litellm():
     """Test that document classifier reports progress in metadata with litellm."""
-    from datasift.core.constants import Metrics
+    from docpipe.core.constants import Metrics
 
     # Create test table with content
     table = pa.table(
@@ -474,7 +474,7 @@ def test_document_classifier_progress_tracking_litellm():
     ]
 
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         side_effect=mock_responses,
     ):
         operator = DocumentClassifierOperator(config)
@@ -540,7 +540,7 @@ def test_document_classifier_file_extension_validation():
 
     # Mock the classification service to avoid actual LLM calls
     with patch(
-        "datasift.core.operators.quality.classification.document_classifier.ClassificationService"
+        "docpipe.core.operators.quality.classification.document_classifier.ClassificationService"
     ) as mock_service:
         mock_instance = mock_service.return_value
         mock_instance.classify_document.return_value = type(
@@ -681,7 +681,7 @@ def test_document_classifier_supported_extensions_only():
 
     # Mock the classification service
     with patch(
-        "datasift.core.operators.quality.classification.document_classifier.ClassificationService"
+        "docpipe.core.operators.quality.classification.document_classifier.ClassificationService"
     ) as mock_service:
         mock_instance = mock_service.return_value
         mock_instance.classify_document.return_value = type(
@@ -710,7 +710,7 @@ def test_document_classifier_supported_extensions_only():
 @pytest.mark.unit
 def test_document_classifier_batch_progress_litellm():
     """Test that document classifier updates progress during batch processing with litellm."""
-    from datasift.core.constants import Metrics
+    from docpipe.core.constants import Metrics
 
     # Create larger test table
     num_docs = 10
@@ -742,7 +742,7 @@ def test_document_classifier_batch_progress_litellm():
     mock_responses = [json.dumps({"document_type": "invoice", "confidence": 8})] * num_docs
 
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         side_effect=mock_responses,
     ):
         operator = DocumentClassifierOperator(config)
@@ -835,7 +835,7 @@ def test_transform_sets_correct_status_on_all_failures(basic_litellm_config):
 
     # Mock classification to fail for all documents
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         side_effect=Exception("API Error"),
     ):
         operator = DocumentClassifierOperator(basic_litellm_config)
@@ -869,7 +869,7 @@ def test_transform_sets_correct_status_on_partial_failures(basic_litellm_config)
     ]
 
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         side_effect=mock_responses,
     ):
         operator = DocumentClassifierOperator(basic_litellm_config)
@@ -903,7 +903,7 @@ def test_transform_sets_correct_status_on_success(basic_litellm_config):
     ]
 
     with patch(
-        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
         side_effect=mock_responses,
     ):
         operator = DocumentClassifierOperator(basic_litellm_config)

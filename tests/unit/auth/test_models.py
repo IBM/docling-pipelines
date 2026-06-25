@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from datasift.api.auth.models import (
+from docpipe.api.auth.models import (
     LoginRequest,
     TokenResponse,
     User,

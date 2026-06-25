@@ -1,10 +1,10 @@
-# DataSift Documentation
+# Docpipe Documentation
 
-Welcome to the DataSift documentation! This guide will help you navigate our comprehensive documentation and find exactly what you need.
+Welcome to the Docpipe documentation! This guide will help you navigate our comprehensive documentation and find exactly what you need.
 
 ## 🚀 Getting Started
 
-**New to DataSift?** Start here:
+**New to Docpipe?** Start here:
 
 - **[Quick Start Guide](../QUICKSTART.md)** - Get your first pipeline running in 5 minutes
 - **[Complete Setup Guide](../USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
@@ -17,7 +17,7 @@ Task-oriented guides to help you accomplish specific goals:
 ### Core Guides
 - **[Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)** - Learn the simplified flow authoring format
 - **[Flow Configuration Guide](guides/FLOW_CONFIGURATION_GUIDE.md)** - Complete flow configuration reference
-- **[Python API Guide](guides/PYTHON_API_GUIDE.md)** - Use DataSift programmatically
+- **[Python API Guide](guides/PYTHON_API_GUIDE.md)** - Use Docpipe programmatically
 
 ### Developer Guides
 - **[Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)** - Build custom data source connectors
@@ -28,7 +28,6 @@ Task-oriented guides to help you accomplish specific goals:
 - **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)** - Production deployment and optimization
 - **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)** - LLM integration patterns
 - **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)** - Managing document collections
-- **[Document Class Utils](guides/DOCUMENT_CLASS_UTILS.md)** - Document schema utilities
 
 ## ⚙️ Operator Configurations
 
@@ -51,11 +50,10 @@ Quick lookup documentation for parameters and APIs:
 
 - **[Global Configuration Reference](reference/GLOBAL_CONFIG.md)** - Flow-level configuration parameters
 - **[Operator Reference](reference/OPERATORS.md)** - Complete operator parameter specifications
-- **[Document Schemas](reference/DOCUMENT_SCHEMAS.md)** - Document class schema definitions
 
 ## 🌐 REST API
 
-Documentation for the DataSift REST API server:
+Documentation for the Docpipe REST API server:
 
 - **[Document Retrieval API](api/ACL_DOCUMENT_RETRIEVAL.md)** - ACL-based document retrieval endpoints
 - **[OAuth2 Authentication](api/OAUTH2_AUTHENTICATION.md)** - OAuth2 and OIDC authentication setup
@@ -76,24 +74,23 @@ Integration-specific documentation:
 
 Resources for contributors:
 
-- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to DataSift
+- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to Docpipe
 
 ## 🔬 Internals
 
 Internal documentation for maintainers:
 
-- **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
 - **[Metadata Aggregation Strategy](internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Metadata aggregation in micro-batching
 
 ## 🚀 Deployment
 
 Deployment guides for production environments:
 
-- **[OpenShift Deployment](deployment/OPENSHIFT.md)** - Deploy DataSift on OpenShift
+- **[OpenShift Deployment](deployment/OPENSHIFT.md)** - Deploy Docpipe on OpenShift
 
 ## 💡 Architecture
 
-Understand how DataSift works:
+Understand how Docpipe works:
 
 - **[Architecture Overview](../ARCHITECTURE.md)** - System design and operator catalog
 
@@ -112,6 +109,8 @@ docs/
 └── deployment/          # Deployment guides
 ```
 
+**Note:** Comprehensive operator documentation (architecture, implementation details) is located in the source code directories at `src/docpipe/core/operators/*/README.md`.
+
 ## 🔍 Finding What You Need
 
 **I want to...**
@@ -121,7 +120,7 @@ docs/
 - **Write my first flow** → [Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)
 - **Look up a parameter** → [Global Config Reference](reference/GLOBAL_CONFIG.md) or [Operator Reference](reference/OPERATORS.md)
 - **See operator config examples** → [Operator Configs Directory](operators/)
-- **Understand operator internals** → Browse [operator documentation](operators/)
+- **Understand operator internals** → Check `src/docpipe/core/operators/*/README.md` in source code
 - **Use the Python API** → [Python API Guide](guides/PYTHON_API_GUIDE.md)
 - **Set up OAuth2 authentication** → [OAuth2 Authentication Guide](api/OAUTH2_AUTHENTICATION.md)
 - **Create a custom connector** → [Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)

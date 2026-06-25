@@ -15,7 +15,7 @@ services:
     volumes:
       - prefect-postgres-data:/var/lib/postgresql/data
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U prefect"]
       interval: 10s
@@ -38,7 +38,7 @@ services:
       prefect-postgres:
         condition: service_healthy
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:4200/api/health || exit 1"]
       interval: 10s
@@ -48,23 +48,23 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # PREFECT WORKERS (Datasift Image)
+  # PREFECT WORKERS (Docpipe Image)
   # ============================================================================
   
   prefect-worker:
     build:
       context: .
       dockerfile: Dockerfile
-    image: datasift-opensource:latest
+    image: docling-pipelines:latest
     user: root  # Required for Docker socket access
     command: |
-      sh -c "sleep 30 && prefect work-pool create datasift-pool --type docker || true &&
-             prefect worker start --pool datasift-pool --limit 10 --with-healthcheck"
+      sh -c "sleep 30 && prefect work-pool create docpipe-pool --type docker || true &&
+             prefect worker start --pool docpipe-pool --limit 10 --with-healthcheck"
     environment:
       # Prefect Configuration
       PREFECT_API_URL: http://prefect-server:4200/api
       PREFECT_MODE: server
-      PYTHONPATH: /app/src/datasift_opensource/backend
+      PYTHONPATH: /app/src/docpipe_app/backend
       
       # Docker Configuration for Docker Work Pool
       DOCKER_HOST: unix:///var/run/docker.sock
@@ -102,7 +102,7 @@ services:
       docling-serve:
         condition: service_started
     networks:
-      - datasift-net
+      - docpipe-net
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
@@ -128,7 +128,7 @@ services:
     volumes:
       - minio-data:/data
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -145,12 +145,12 @@ services:
     entrypoint: >
       /bin/sh -c "
       mc alias set myminio http://minio:9000 minioadmin minioadmin;
-      mc mb myminio/datasift-batches --ignore-existing;
-      mc anonymous set download myminio/datasift-batches;
-      echo 'MinIO bucket created: datasift-batches';
+      mc mb myminio/docpipe-batches --ignore-existing;
+      mc anonymous set download myminio/docpipe-batches;
+      echo 'MinIO bucket created: docpipe-batches';
       "
     networks:
-      - datasift-net
+      - docpipe-net
 
   # ============================================================================
   # EXTERNAL SERVICES
@@ -164,7 +164,7 @@ services:
     volumes:
       - ollama-data:/root/.ollama
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags 2>/dev/null | grep -q 'models' || exit 1"]
       interval: 15s
@@ -188,7 +188,7 @@ services:
     ports:
       - "5001:5001"
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5001/health || exit 1"]
       interval: 30s
@@ -222,7 +222,7 @@ services:
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "curl -u admin:MyStrongPass123! http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
@@ -244,7 +244,7 @@ services:
       opensearch:
         condition: service_healthy
     networks:
-      - datasift-net
+      - docpipe-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f -u admin:MyStrongPass123! http://localhost:5601/api/status || exit 1"]
       interval: 30s
@@ -260,6 +260,6 @@ volumes:
   opensearch-data:
 
 networks:
-  datasift-net:
+  docpipe-net:
     driver: bridge
-    name: datasift-net
+    name: docpipe-net

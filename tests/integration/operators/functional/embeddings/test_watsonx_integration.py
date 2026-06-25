@@ -80,7 +80,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_adapter_initialization_with_project(self, *, project_config: dict[str, Any]):
         """Test adapter initialization with project container."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -95,7 +95,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_adapter_initialization_with_space(self, *, space_config: dict[str, Any]):
         """Test adapter initialization with space container."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -110,7 +110,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_generate_single_embedding(self, *, project_config: dict[str, Any]):
         """Test generating embedding for single text."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -130,7 +130,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_generate_batch_embeddings(self, *, project_config: dict[str, Any], sample_texts: list[str]):
         """Test generating embeddings for batch of texts."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -150,7 +150,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_model_validation_api_call(self, *, project_config: dict[str, Any]):
         """Test that model validation makes API call."""
-        from datasift.integrations.watsonx.model_validator import validate_model_id
+        from docpipe.integrations.watsonx.model_validator import validate_model_id
 
         is_valid = validate_model_id(
             model_id="ibm/slate-125m-english-rtrvr",
@@ -162,7 +162,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_invalid_model_validation(self, *, project_config: dict[str, Any]):
         """Test that invalid model is rejected."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -174,7 +174,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_get_model_token_limit(self, *, project_config: dict[str, Any]):
         """Test getting model token limit."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -190,7 +190,7 @@ class TestWatsonxAdapterIntegration:
 
     def test_get_embedding_dimension(self, *, project_config: dict[str, Any]):
         """Test getting embedding dimension."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -211,7 +211,7 @@ class TestWatsonxEmbeddingsOperatorIntegration:
 
     def test_embeddings_operator_with_watsonx(self, *, project_config: dict[str, Any], sample_texts: list[str]):
         """Test EmbeddingsOperator end-to-end with watsonx provider."""
-        from datasift.core.operators.functional.embeddings.embeddings_operator import (
+        from docpipe.core.operators.functional.embeddings.embeddings_operator import (
             EmbeddingsOperator,
         )
 
@@ -248,7 +248,7 @@ class TestWatsonxEmbeddingsOperatorIntegration:
 
     def test_embeddings_operator_batch_processing(self, *, project_config: dict[str, Any]):
         """Test batch processing with large dataset."""
-        from datasift.core.operators.functional.embeddings.embeddings_operator import (
+        from docpipe.core.operators.functional.embeddings.embeddings_operator import (
             EmbeddingsOperator,
         )
 
@@ -288,7 +288,7 @@ class TestWatsonxModelVariants:
 
     def test_slate_30m_model(self, *, project_config: dict[str, Any]):
         """Test with slate-30m model (384 dimensions)."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -306,7 +306,7 @@ class TestWatsonxModelVariants:
 
     def test_slate_125m_model(self, *, project_config: dict[str, Any]):
         """Test with slate-125m model (768 dimensions)."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 
@@ -329,10 +329,10 @@ class TestWatsonxErrorHandling:
 
     def test_empty_text_handling(self, *, project_config: dict[str, Any]):
         """Test handling of empty text."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
-        from datasift.exceptions.datasift_exceptions import ConfigurationError
+        from docpipe.exceptions.docpipe_exceptions import ConfigurationError
 
         adapter = WatsonxLLMAdapter(
             model_name="ibm/slate-125m-english-rtrvr",
@@ -344,7 +344,7 @@ class TestWatsonxErrorHandling:
 
     def test_long_text_truncation(self, *, project_config: dict[str, Any]):
         """Test automatic truncation of long texts."""
-        from datasift.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.watsonx_adapter import (
             WatsonxLLMAdapter,
         )
 

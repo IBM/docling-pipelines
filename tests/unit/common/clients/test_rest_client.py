@@ -14,9 +14,9 @@ import pytest
 import requests
 from requests.exceptions import ConnectionError, HTTPError, Timeout
 
-from datasift.exceptions.datasift_exceptions import ExternalServiceError
-from datasift.exceptions.error_codes import ErrorCode
-from datasift.integrations.rest_client import (
+from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.integrations.rest_client import (
     METHOD_CONFIG,
     RestClient,
     RestClientConfig,
@@ -564,8 +564,8 @@ class TestErrorHandling:
     """Test error handling."""
 
     @patch.object(RestClient, "_call_rest_method_impl")
-    def test_datasift_exception_raised_on_http_errors(self, mock_call_rest_method):
-        """Test DatasiftException raised on HTTP errors."""
+    def test_docpipe_exception_raised_on_http_errors(self, mock_call_rest_method):
+        """Test DocpipeException raised on HTTP errors."""
         config = RestClientConfig()
         client = RestClient(config, base_url="https://api.example.com")
 
@@ -607,7 +607,7 @@ class TestErrorHandling:
         assert "Forbidden" in error_message
 
     @patch.object(RestClient, "_call_rest_method_impl")
-    @patch("datasift.integrations.rest_client.logger")
+    @patch("docpipe.integrations.rest_client.logger")
     def test_sanitized_logging_on_errors(self, mock_logger, mock_call_rest_method):
         """Test sanitized logging on errors."""
         config = RestClientConfig()

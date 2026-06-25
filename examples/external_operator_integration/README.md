@@ -1,13 +1,13 @@
 # External Operator Integration Example
 
-This example demonstrates how an external application can integrate custom operators with datasift-opensource when it's installed as a wheel package.
+This example demonstrates how an external application can integrate custom operators with docling-pipelines when it's installed as a wheel package.
 
 ## Scenario
 
 You have an external application that:
-1. Installs `datasift-opensource` as a dependency (wheel package)
+1. Installs `docling-pipelines` as a dependency (wheel package)
 2. Has its own custom operators
-3. Wants to use both datasift and custom operators in pipelines
+3. Wants to use both docpipe and custom operators in pipelines
 
 ## Directory Structure
 
@@ -37,7 +37,7 @@ name = "external-app"
 version = "1.0.0"
 requires-python = ">=3.12"
 dependencies = [
-    "datasift-opensource>=0.1.0",  # Install datasift as wheel
+    "docling-pipelines>=0.1.0",  # Install docpipe as wheel
 ]
 
 [project.scripts]
@@ -48,8 +48,8 @@ external-app = "external_app.main:main"
 
 ```python
 """Custom operator that converts text to uppercase."""
-from datasift.core.operators.abstract_operator import AbstractOperator
-from datasift.core.constants.constants import DatasiftConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator
+from docpipe.core.constants.constants import DocpipeConstants
 import pyarrow as pa
 import pyarrow.compute as pc
 
@@ -58,7 +58,7 @@ class UppercaseOperator(AbstractOperator):
     """Converts all text columns to uppercase."""
     
     short_name = "uppercase"
-    owner = DatasiftConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
     
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -93,8 +93,8 @@ class UppercaseOperator(AbstractOperator):
 
 ```python
 """Custom operator that reverses text."""
-from datasift.core.operators.abstract_operator import AbstractOperator
-from datasift.core.constants.constants import DatasiftConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator
+from docpipe.core.constants.constants import DocpipeConstants
 import pyarrow as pa
 
 
@@ -102,7 +102,7 @@ class ReverseOperator(AbstractOperator):
     """Reverses text in specified column."""
     
     short_name = "reverse"
-    owner = DatasiftConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
     
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -156,7 +156,7 @@ __all__ = ["APP_OPERATORS", "UppercaseOperator", "ReverseOperator"]
 
 ```python
 """External application initialization - register operators."""
-from datasift.core.operators.operator_registry import register_operator_provider
+from docpipe.core.operators.operator_registry import register_operator_provider
 from external_app.operators import APP_OPERATORS
 
 
@@ -187,8 +187,8 @@ __all__ = ["get_app_operators"]
 """Main application entry point."""
 import sys
 from pathlib import Path
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -196,7 +196,7 @@ logger = get_logger()
 def main():
     """Run the external application pipeline."""
     
-    # Flow definition using both datasift and custom operators
+    # Flow definition using both docpipe and custom operators
     flow_def = {
         "flow_name": "External App Pipeline",
         "flow": [
@@ -225,7 +225,7 @@ def main():
                 "depends_on": ["uppercase_text"]
             },
             {
-                "type": "noop",  # Datasift operator
+                "type": "noop",  # Docpipe operator
                 "name": "output",
                 "config": {},
                 "depends_on": ["reverse_text"]
@@ -234,11 +234,11 @@ def main():
     }
     
     logger.info("Starting external app pipeline")
-    logger.info("Using datasift operators + custom operators")
+    logger.info("Using docpipe operators + custom operators")
     
     try:
         # Create and execute flow
-        manager = DatasiftFlowManager(flow_def=flow_def)
+        manager = DocpipeFlowManager(flow_def=flow_def)
         result = manager.execute()
         
         logger.info("Pipeline completed successfully")
@@ -292,10 +292,10 @@ if __name__ == "__main__":
 ```python
 """Integration tests for external operator registration."""
 import pytest
-from datasift.core.operators.operator_registry import (
+from docpipe.core.operators.operator_registry import (
     register_operator_provider,
     clear_operator_providers,
-    get_datasift_operators,
+    get_docpipe_operators,
     get_registered_provider_count
 )
 from external_app.operators import APP_OPERATORS, UppercaseOperator, ReverseOperator
@@ -319,14 +319,14 @@ def test_operator_registration():
     
     assert get_registered_provider_count() == 1
     
-    operators = get_datasift_operators()
+    operators = get_docpipe_operators()
     short_names = {op.short_name for op in operators}
     
     # Check custom operators are present
     assert "uppercase" in short_names
     assert "reverse" in short_names
     
-    # Check datasift operators are still present
+    # Check docpipe operators are still present
     assert "ingest_local" in short_names
     assert "noop" in short_names
 
@@ -357,7 +357,7 @@ def test_multiple_providers():
     
     assert get_registered_provider_count() == 2
     
-    operators = get_datasift_operators()
+    operators = get_docpipe_operators()
     short_names = {op.short_name for op in operators}
     
     assert "uppercase" in short_names
@@ -369,8 +369,8 @@ def test_multiple_providers():
 ### Installation
 
 ```bash
-# Install datasift-opensource wheel
-pip install datasift-opensource-0.1.0-py3-none-any.whl
+# Install docling-pipelines wheel
+pip install docling-pipelines-0.1.0-py3-none-any.whl
 
 # Install external application
 cd external_app
@@ -387,7 +387,7 @@ external-app
 python -m external_app.main
 
 # Or use flow file
-datasift-orchestrator --flow-file external_app/flows/example_flow.json
+docling-pipelines --flow-file external_app/flows/example_flow.json
 ```
 
 ### Testing
@@ -406,27 +406,27 @@ pytest tests/test_integration.py::test_operator_registration
 ## Key Points
 
 1. **Automatic Registration**: Operators are registered when `external_app` module is imported
-2. **Seamless Integration**: Custom operators work alongside datasift operators
-3. **No Datasift Modification**: Datasift codebase remains unchanged
+2. **Seamless Integration**: Custom operators work alongside docpipe operators
+3. **No Docpipe Modification**: Docpipe codebase remains unchanged
 4. **Type Safety**: Custom operators inherit from `AbstractOperator`
 5. **Priority-Based Resolution**: Custom operators (priority 1) can override OSS operators (priority 2)
 6. **Testable**: Easy to test operator registration and functionality
 
 ## Operator Priority System
 
-Datasift uses priority-based resolution for operators with the same `short_name`:
+Docpipe uses priority-based resolution for operators with the same `short_name`:
 
 - **Enterprise operators** (priority 0): Highest precedence
 - **Custom operators** (priority 1): Medium precedence - **can override OSS**
-- **OSS Datasift operators** (priority 2): Lowest precedence
+- **OSS Docpipe operators** (priority 2): Lowest precedence
 
 Set the `owner` attribute on your operators:
 ```python
-from datasift.core.constants.constants import DatasiftConstants
+from docpipe.core.constants.constants import DocpipeConstants
 
 class MyOperator(AbstractOperator):
     short_name = "my_op"
-    owner = DatasiftConstants.OWNER_CUSTOM  # Priority 1
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1
 ```
 
 If `owner` is not set, it defaults to `OWNER_CUSTOM`.
@@ -437,7 +437,7 @@ If `owner` is not set, it defaults to `OWNER_CUSTOM`.
 
 If custom operators are not found in flows:
 
-1. Ensure `external_app` is imported before using datasift
+1. Ensure `external_app` is imported before using docpipe
 2. Check that `register_operator_provider()` is called
 3. Verify operators are in `APP_OPERATORS` frozenset
 4. Check logs for registration errors
@@ -446,9 +446,9 @@ If custom operators are not found in flows:
 
 If you get import errors:
 
-1. Verify datasift-opensource wheel is installed
+1. Verify docling-pipelines wheel is installed
 2. Check Python version (>=3.12 required)
-3. Ensure PYTHONPATH includes datasift package
+3. Ensure PYTHONPATH includes docpipe package
 
 ## Next Steps
 

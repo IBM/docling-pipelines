@@ -10,7 +10,7 @@ The Document Classifier operator uses LLM-based classification to identify docum
 
 ### Supported File Extensions
 
-The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../src/datasift/core/constants/operator_constants.py) and processes documents with the following formats:
+The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../src/docpipe/core/constants/operator_constants.py) and processes documents with the following formats:
 
 **Document Formats:**
 - **PDF**: `.pdf`

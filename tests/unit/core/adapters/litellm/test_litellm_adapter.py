@@ -4,8 +4,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datasift.core.adapters.litellm import LiteLLMAdapter
-from datasift.core.ports.llm_inference_port import LLMInferencePort
+from docpipe.core.adapters.litellm import LiteLLMAdapter
+from docpipe.core.ports.llm_inference_port import LLMInferencePort
 
 
 class TestLiteLLMInferenceAdapter:
@@ -14,7 +14,7 @@ class TestLiteLLMInferenceAdapter:
     @pytest.fixture
     def mock_litellm_client(self):
         """Create a mock LiteLLM client."""
-        with patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_client_class:
+        with patch("docpipe.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_client_class:
             mock_client = Mock()
             mock_client_class.return_value = mock_client
             yield mock_client
@@ -218,7 +218,7 @@ class TestLiteLLMInferenceAdapter:
 
     def test_client_initialization_parameters(self):
         """Test that client is initialized with correct parameters."""
-        with patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_client_class:
+        with patch("docpipe.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_client_class:
             LiteLLMAdapter(
                 model_name="gpt-4",
                 api_key="test-api-key",  # pragma: allowlist secret

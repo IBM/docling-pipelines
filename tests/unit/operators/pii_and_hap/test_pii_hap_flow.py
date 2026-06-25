@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 # Path setup is now automatic via conftest.py
-from datasift.cli.datasift_cli import load_flow_definition, run_command_line_executor
+from docpipe.cli.docpipe_cli import load_flow_definition, run_command_line_executor
 
 
 def test_pii_hap_with_ollama():
@@ -13,7 +13,7 @@ def test_pii_hap_with_ollama():
 
     # Set environment variables
     os.environ["test_mode"] = "True"
-    os.environ["DATA_FOLDER"] = "/tmp/datasift_test"
+    os.environ["DATA_FOLDER"] = "/tmp/docpipe_test"
 
     # Load and compile the flow definition (authoring format -> runtime DAG)
     # Navigate: tests/unit/operators/pii_and_hap -> tests (up 3 levels using resolve().parents)

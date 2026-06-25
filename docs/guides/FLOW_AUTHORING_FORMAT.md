@@ -1,6 +1,6 @@
 # Flow Authoring Format Guide
 
-The Flow Authoring Format is a simplified, user-friendly way to define DataSift pipelines without managing UUIDs, edges, and low-level DAG details.
+The Flow Authoring Format is a simplified, user-friendly way to define Docpipe pipelines without managing UUIDs, edges, and low-level DAG details.
 
 ## Table of Contents
 
@@ -20,7 +20,7 @@ The Flow Authoring Format is a simplified, user-friendly way to define DataSift 
 
 ### What is the Authoring Format?
 
-The authoring format is a simplified JSON structure for defining DataSift flows that:
+The authoring format is a simplified JSON structure for defining Docpipe flows that:
 - **Simplifies dependencies** - Use operator names instead of node IDs
 - **Removes edge management** - Edges are constructed automatically from dependencies
 - **Improves readability** - Clear, declarative operator definitions
@@ -28,7 +28,7 @@ The authoring format is a simplified JSON structure for defining DataSift flows 
 ### When to Use
 
 - **CLI execution** - All CLI flows use authoring format
-- **Python API** - `DatasiftFlowManager` accepts authoring format
+- **Python API** - `DocpipeFlowManager` accepts authoring format
 - **HTTP API** - `POST /api/v1/flows` (default format)
 - **Notebooks** - Cleaner format for Jupyter/programmatic usage
 
@@ -187,7 +187,7 @@ Use the operator's class name or short name:
 
 **List available operators:**
 ```bash
-datasift-orchestrator --list-operators
+docling-pipelines --list-operators
 ```
 
 ---
@@ -302,19 +302,19 @@ Operators can override global settings in their `config`:
 
 ```bash
 # Execute authoring format flow
-datasift-orchestrator --flow-file my_flow.json
+docling-pipelines --flow-file my_flow.json
 
 # Validate without executing
-datasift-orchestrator validate-flow my_flow.json
+docling-pipelines validate-flow my_flow.json
 ```
 
 ### 2. Python API
 
 ```python
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 # From file
-manager = DatasiftFlowManager(flow_file="my_flow.json")
+manager = DocpipeFlowManager(flow_file="my_flow.json")
 result = manager.execute()
 
 # From dictionary
@@ -328,7 +328,7 @@ flow_def = {
         }
     ]
 }
-manager = DatasiftFlowManager(flow_def=flow_def)
+manager = DocpipeFlowManager(flow_def=flow_def)
 result = manager.execute()
 ```
 

@@ -3,13 +3,13 @@
 import pytest
 import yaml
 
-from datasift.core.incremental_metadata.adapters.config.incremental_metadata_factory import (
+from docpipe.core.incremental_metadata.adapters.config.incremental_metadata_factory import (
     IncrementalMetadataFactory,
     IncrementalStorageBackend,
     create_incremental_metadata_store,
     reset_default_incremental_factory,
 )
-from datasift.core.incremental_metadata.adapters.stores.filesystem import FilesystemIncrementalMetadataStore
+from docpipe.core.incremental_metadata.adapters.stores.filesystem import FilesystemIncrementalMetadataStore
 
 
 class TestIncrementalMetadataFactory:
@@ -126,7 +126,7 @@ class TestIncrementalMetadataFactory:
 
     def test_from_environment(self, *, monkeypatch):
         """Test creating factory from environment variables."""
-        monkeypatch.setenv("DATASIFT_INCREMENTAL_STORAGE_BACKEND", "filesystem")
+        monkeypatch.setenv("DOCPIPE_INCREMENTAL_STORAGE_BACKEND", "filesystem")
 
         factory = IncrementalMetadataFactory.from_environment()
 
@@ -134,7 +134,7 @@ class TestIncrementalMetadataFactory:
 
     def test_from_environment_invalid_backend(self, *, monkeypatch):
         """Test that invalid backend in environment raises ValueError."""
-        monkeypatch.setenv("DATASIFT_INCREMENTAL_STORAGE_BACKEND", "duckdb")
+        monkeypatch.setenv("DOCPIPE_INCREMENTAL_STORAGE_BACKEND", "duckdb")
 
         # Should raise ValueError for invalid backend
         with pytest.raises(ValueError, match="Invalid storage backend 'duckdb' for incremental metadata"):
@@ -154,16 +154,16 @@ class TestIncrementalMetadataFactory:
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
 
-        monkeypatch.setenv("DATASIFT_CONFIG_PATH", str(config_path))
-        monkeypatch.setenv("DATASIFT_INCREMENTAL_STORAGE_BACKEND", "filesystem")
+        monkeypatch.setenv("DOCPIPE_CONFIG_PATH", str(config_path))
+        monkeypatch.setenv("DOCPIPE_INCREMENTAL_STORAGE_BACKEND", "filesystem")
 
         factory = IncrementalMetadataFactory.from_default_sources()
 
         assert factory.storage_backend == IncrementalStorageBackend.FILESYSTEM
 
     def test_base_dir_environment_override(self, *, tmp_path, monkeypatch):
-        """Test DATASIFT_INCREMENTAL_BASE_DIR overrides config."""
-        monkeypatch.setenv("DATASIFT_INCREMENTAL_BASE_DIR", str(tmp_path / "env_override"))
+        """Test DOCPIPE_INCREMENTAL_BASE_DIR overrides config."""
+        monkeypatch.setenv("DOCPIPE_INCREMENTAL_BASE_DIR", str(tmp_path / "env_override"))
 
         factory = IncrementalMetadataFactory(
             storage_backend=IncrementalStorageBackend.FILESYSTEM, config={"base_dir": str(tmp_path / "config")}
@@ -185,7 +185,7 @@ class TestIncrementalMetadataFactory:
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
 
-        monkeypatch.setenv("DATASIFT_CONFIG_PATH", str(config_path))
+        monkeypatch.setenv("DOCPIPE_CONFIG_PATH", str(config_path))
         reset_default_incremental_factory()
 
         store = create_incremental_metadata_store(job_id="test-job")

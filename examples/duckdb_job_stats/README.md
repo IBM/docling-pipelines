@@ -1,6 +1,6 @@
 # DuckDB Job Stats Storage Example
 
-This example demonstrates how to use DuckDB as a storage backend for job statistics and logs in datasift.
+This example demonstrates how to use DuckDB as a storage backend for job statistics and logs in docpipe.
 
 ## Overview
 
@@ -22,7 +22,7 @@ DuckDB is an embedded analytical database that provides:
    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
    ```
 
-3. **DuckDB configuration enabled** in `datasift-config.yaml`:
+3. **DuckDB configuration enabled** in `docling-pipelines-config.yaml`:
    ```yaml
    job_management:
      store:
@@ -33,7 +33,7 @@ DuckDB is an embedded analytical database that provides:
 
 ## Quick Start
 
-1. **Uncomment DuckDB configuration** in `datasift-config.yaml` (lines 20-22):
+1. **Uncomment DuckDB configuration** in `docling-pipelines-config.yaml` (lines 20-22):
    ```yaml
    job_management:
      store:
@@ -50,8 +50,8 @@ DuckDB is an embedded analytical database that provides:
 ## What the Example Does
 
 1. **Creates test data** automatically in `./test_data/sample_document.txt`
-2. **Loads configuration** automatically from `datasift-config.yaml`
-3. **Executes a complete pipeline** using `examples/datasift_flow_manager/sample_flow.json`:
+2. **Loads configuration** automatically from `docling-pipelines-config.yaml`
+3. **Executes a complete pipeline** using `examples/docpipe_flow_manager/sample_flow.json`:
    - Ingest documents from test_data
    - Extract text using Docling
    - Chunk content
@@ -64,11 +64,11 @@ DuckDB is an embedded analytical database that provides:
 - `duckdb_job_store_example.py` - Main example script (creates test data automatically)
 - `README.md` - This file
 
-**Note:** This example uses the existing `examples/datasift_flow_manager/sample_flow.json` flow definition and creates test data dynamically.
+**Note:** This example uses the existing `examples/docpipe_flow_manager/sample_flow.json` flow definition and creates test data dynamically.
 
 ## Configuration
 
-The DuckDB storage backend is configured in `datasift-config.yaml`:
+The DuckDB storage backend is configured in `docling-pipelines-config.yaml`:
 
 ```yaml
 job_management:
@@ -201,5 +201,5 @@ FROM node_stats GROUP BY node_id, name;
 ## Related Documentation
 
 - [Job Management Architecture](../../README.md)
-- [DatasiftFlowManager Examples](../datasift_flow_manager/)
+- [DocpipeFlowManager Examples](../docpipe_flow_manager/)
 - [Operator Reference](../../docs/reference/OPERATORS.md)

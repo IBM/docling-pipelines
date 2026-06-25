@@ -2,8 +2,8 @@
 
 from unittest.mock import patch
 
-from datasift.core.assets.flows.application.services.validation_service import ValidationService
-from datasift.exceptions.datasift_exceptions import (
+from docpipe.core.assets.flows.application.services.validation_service import ValidationService
+from docpipe.exceptions.docpipe_exceptions import (
     FlowValidationException,
     ValidationAlert,
 )
@@ -30,8 +30,8 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to succeed (no exception)
             mock_validator = mock_validator_class.return_value
@@ -56,8 +56,8 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise FlowValidationException with errors
             mock_validator = mock_validator_class.return_value
@@ -101,8 +101,8 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise FlowValidationException with warnings only
             mock_validator = mock_validator_class.return_value
@@ -145,9 +145,9 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class,
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock converter
             mock_converter = mock_converter_class.return_value
@@ -173,7 +173,7 @@ class TestValidationService:
         }
 
         # Act
-        with patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory") as mock_factory:
+        with patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory") as mock_factory:
             # Mock factory to raise unexpected exception
             mock_factory.create_orchestrator.side_effect = RuntimeError("Unexpected error")
 
@@ -198,8 +198,8 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise FlowValidationException with multiple errors
             mock_validator = mock_validator_class.return_value
@@ -232,8 +232,8 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise FlowValidationException with multiple warnings
             mock_validator = mock_validator_class.return_value
@@ -262,8 +262,8 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise FlowValidationException with both errors and warnings
             mock_validator = mock_validator_class.return_value
@@ -289,7 +289,7 @@ class TestValidationService:
         flow_def = {"flow_name": "test-flow", "flow": []}
 
         # Act - even with catastrophic failure, should return dict
-        with patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory") as mock_factory:
+        with patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory") as mock_factory:
             mock_factory.create_orchestrator.side_effect = Exception("Catastrophic failure")
 
             # Should not raise - should return error dict
@@ -343,8 +343,8 @@ class TestValidationService:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise FlowValidationException with no errors/warnings
             mock_validator = mock_validator_class.return_value
@@ -363,9 +363,9 @@ class TestFlowValidatorEnhancements:
 
     def test_validate_no_cycles_detects_simple_cycle(self):
         """Test cycle detection with simple A->B->A cycle."""
-        from datasift.core.constants.constants import OrchestratorType
-        from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
-        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.constants.constants import OrchestratorType
+        from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         # Arrange
         orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
@@ -393,9 +393,9 @@ class TestFlowValidatorEnhancements:
 
     def test_validate_no_cycles_allows_valid_dag(self):
         """Test cycle detection allows valid DAG without cycles."""
-        from datasift.core.constants.constants import OrchestratorType
-        from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
-        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.constants.constants import OrchestratorType
+        from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         # Arrange
         orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
@@ -417,9 +417,9 @@ class TestFlowValidatorEnhancements:
 
     def test_validate_no_cycles_detects_self_reference(self):
         """Test cycle detection with self-referencing node."""
-        from datasift.core.constants.constants import OrchestratorType
-        from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
-        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.constants.constants import OrchestratorType
+        from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         # Arrange
         orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
@@ -444,9 +444,9 @@ class TestFlowValidatorEnhancements:
 
     def test_validate_operator_availability_detects_missing_operator(self):
         """Test operator availability check detects missing operator."""
-        from datasift.core.constants.constants import OrchestratorType
-        from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
-        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.constants.constants import OrchestratorType
+        from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         # Arrange
         orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
@@ -475,9 +475,9 @@ class TestFlowValidatorEnhancements:
 
     def test_validate_operator_availability_allows_valid_operators(self):
         """Test operator availability check allows registered operators."""
-        from datasift.core.constants.constants import OrchestratorType
-        from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
-        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.constants.constants import OrchestratorType
+        from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         # Arrange
         orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
@@ -504,9 +504,9 @@ class TestFlowValidatorEnhancements:
 
     def test_validate_operator_availability_skips_custom_operators_when_configured(self):
         """Test operator availability check skips custom operators when skip flag is set."""
-        from datasift.core.constants.constants import DatasiftConstants, OrchestratorType
-        from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
-        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.constants.constants import DocpipeConstants, OrchestratorType
+        from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         # Arrange
         orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
@@ -521,7 +521,7 @@ class TestFlowValidatorEnhancements:
             }
         ]
 
-        global_config = {DatasiftConstants.SKIP_CUSTOM_OP_VALIDATION: True}
+        global_config = {DocpipeConstants.SKIP_CUSTOM_OP_VALIDATION: True}
 
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
@@ -539,7 +539,7 @@ class TestMandatoryFeatureValidation:
 
     def test_chunker_requires_content_feature(self):
         """Test that Chunker operator fails validation when content feature is missing."""
-        from datasift.core.assets.flows.application.services.validation_service import ValidationService
+        from docpipe.core.assets.flows.application.services.validation_service import ValidationService
 
         # Arrange
         service = ValidationService()
@@ -558,8 +558,8 @@ class TestMandatoryFeatureValidation:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise error for missing content feature
             mock_validator = mock_validator_class.return_value
@@ -583,7 +583,7 @@ class TestMandatoryFeatureValidation:
 
     def test_embeddings_operator_requires_content_feature(self):
         """Test that EmbeddingsOperator fails validation when content feature is missing."""
-        from datasift.core.assets.flows.application.services.validation_service import ValidationService
+        from docpipe.core.assets.flows.application.services.validation_service import ValidationService
 
         # Arrange
         service = ValidationService()
@@ -602,8 +602,8 @@ class TestMandatoryFeatureValidation:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise error for missing content feature
             mock_validator = mock_validator_class.return_value
@@ -644,8 +644,8 @@ class TestMandatoryFeatureValidation:
 
         # Act
         with (
-            patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory"),
-            patch("datasift.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
+            patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory"),
+            patch("docpipe.core.orchestration.flow_validator.FlowValidator") as mock_validator_class,
         ):
             # Mock validator to raise error for missing embeddings feature
             mock_validator = mock_validator_class.return_value

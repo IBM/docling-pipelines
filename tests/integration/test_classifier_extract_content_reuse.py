@@ -10,12 +10,12 @@ from unittest.mock import patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants import DatasiftConstants, Metrics, OperatorConstants
-from datasift.core.operators.extract import ExtractOperator
-from datasift.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
+from docpipe.core.constants import DocpipeConstants, Metrics, OperatorConstants
+from docpipe.core.operators.extract import ExtractOperator
+from docpipe.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
 
 PDF_FIXTURE_PATH = Path("tests/fixtures/invoices/TR-INV_001_3_2.1.pdf")
-CLASSIFIER_TEMP_COLUMN = DatasiftConstants.TEMP_CONTENT_COLUMN
+CLASSIFIER_TEMP_COLUMN = DocpipeConstants.TEMP_CONTENT_COLUMN
 REUSED_CONTENT = "Classifier-prefetched content for reuse path."
 FRESH_LIBRARY_CONTENT = "Fresh docling_library extraction content."
 FRESH_SERVE_CONTENT = "Fresh docling_serve extraction content."
@@ -98,7 +98,7 @@ def test_classifier_content_reuse_with_docling_library():
         }
     )
     with patch(
-        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.OperatorUtils.extract_content"
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.OperatorUtils.extract_content"
     ) as mock_docling_extract_content:
         extract_tables, extract_metadata = extract_operator.transform(
             classifier_output,
@@ -136,14 +136,14 @@ def test_classifier_content_reextraction_with_docling_serve():
             )(),
         ),
         patch(
-            "datasift.core.operators.quality.classification.document_classifier.OperatorUtils.extract_content",
+            "docpipe.core.operators.quality.classification.document_classifier.OperatorUtils.extract_content",
             side_effect=lambda *args, **kwargs: {
                 OperatorConstants.Extraction.SUCCESS: True,
                 OperatorConstants.Columns.DOC_COLUMN_DEFAULT: REUSED_CONTENT,
             },
         ) as mock_extract_content,
         patch(
-            "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient"
+            "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient"
         ) as mock_docling_serve_client_class,
     ):
         mock_docling_serve_client = mock_docling_serve_client_class.return_value
@@ -196,7 +196,7 @@ def test_classifier_content_no_reuse_with_provider_config():
         }
     )
     with patch(
-        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.OperatorUtils.extract_content",
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.OperatorUtils.extract_content",
         return_value={
             OperatorConstants.Extraction.SUCCESS: True,
             OperatorConstants.Columns.DOC_COLUMN_DEFAULT: FRESH_LIBRARY_CONTENT,
@@ -222,7 +222,7 @@ def test_extract_backward_compatibility_without_classifier():
     input_table = _build_pdf_input_table()
 
     with patch(
-        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.OperatorUtils.extract_content",
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.OperatorUtils.extract_content",
         return_value={
             OperatorConstants.Extraction.SUCCESS: True,
             OperatorConstants.Columns.DOC_COLUMN_DEFAULT: FRESH_LIBRARY_CONTENT,

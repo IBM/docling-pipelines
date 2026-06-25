@@ -3,10 +3,10 @@
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.incremental_metadata.adapters.stores.filesystem import FilesystemIncrementalMetadataStore
-from datasift.core.incremental_metadata.application.services import IncrementalUpdateService
-from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.incremental_metadata.adapters.stores.filesystem import FilesystemIncrementalMetadataStore
+from docpipe.core.incremental_metadata.application.services import IncrementalUpdateService
+from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 
 @pytest.fixture

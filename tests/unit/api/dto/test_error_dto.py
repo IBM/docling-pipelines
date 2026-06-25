@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from datasift.api.dto.error_dto import (
+from docpipe.api.dto.error_dto import (
     ErrorDetail,
     ErrorResponse,
     ErrorTarget,

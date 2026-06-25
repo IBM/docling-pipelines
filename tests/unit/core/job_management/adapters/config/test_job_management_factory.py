@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datasift.core.job_management.adapters.config import (
+from docpipe.core.job_management.adapters.config import (
     FrameworkType,
     JobManagementFactory,
     StorageBackend,
@@ -33,11 +33,11 @@ class TestJobManagementFactoryStoreSelection:
         assert store is not None
         assert store.__class__.__name__ == "JsonJobStatsStore"
 
-    @patch("datasift.core.job_management.adapters.config.job_management_factory.run_migrations")
-    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_session_factory")
-    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_postgres_engine")
+    @patch("docpipe.core.job_management.adapters.config.job_management_factory.run_migrations")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_session_factory")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_postgres_engine")
     @patch(
-        "datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
+        "docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
     )
     def test_postgresql_store_creation_with_config(
         self, mock_conn_string, mock_engine, mock_session_factory, mock_run_migrations
@@ -45,7 +45,7 @@ class TestJobManagementFactoryStoreSelection:
         """Test PostgresJobStatsStore creation with config."""
         # Mock successful PostgreSQL setup
         mock_conn_string.return_value = (
-            "postgresql+psycopg2://user:pass@localhost:5432/datasift"  # pragma: allowlist secret
+            "postgresql+psycopg2://user:pass@localhost:5432/docpipe"  # pragma: allowlist secret
         )
         mock_engine_instance = MagicMock()
         mock_engine.return_value = mock_engine_instance
@@ -55,7 +55,7 @@ class TestJobManagementFactoryStoreSelection:
             "postgres": {
                 "host": "localhost",
                 "port": 5432,
-                "database": "datasift",
+                "database": "docpipe",
                 "user": "test_user",
                 "password": "test_password",  # pragma: allowlist secret
             }
@@ -74,7 +74,7 @@ class TestJobManagementFactoryStoreSelection:
         """Test PostgresJobStatsStore creation fails without password."""
         factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL)
 
-        from datasift.exceptions.datasift_exceptions import (
+        from docpipe.exceptions.docpipe_exceptions import (
             JobStatsStoreInitializationException,
         )
 
@@ -98,8 +98,8 @@ class TestJobManagementFactoryStoreSelection:
         with patch.dict(
             os.environ,
             {
-                "DATASIFT_STORAGE_BACKEND": "postgresql",
-                "DATASIFT_FRAMEWORK_TYPE": "default",
+                "DOCPIPE_STORAGE_BACKEND": "postgresql",
+                "DOCPIPE_FRAMEWORK_TYPE": "default",
             },
         ):
             factory = JobManagementFactory.from_environment()
@@ -117,6 +117,6 @@ class TestJobManagementFactoryStoreSelection:
 
     def test_from_environment_invalid_backend_raises_error(self):
         """Test invalid storage backend raises ValueError."""
-        with patch.dict(os.environ, {"DATASIFT_STORAGE_BACKEND": "invalid_backend"}):
-            with pytest.raises(ValueError, match="Invalid DATASIFT_STORAGE_BACKEND"):
+        with patch.dict(os.environ, {"DOCPIPE_STORAGE_BACKEND": "invalid_backend"}):
+            with pytest.raises(ValueError, match="Invalid DOCPIPE_STORAGE_BACKEND"):
                 JobManagementFactory.from_environment()

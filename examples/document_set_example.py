@@ -14,8 +14,8 @@ The example shows:
 5. Getting statistics
 
 Requirements:
-- DuckDB (installed via datasift dependencies)
-- PyArrow (installed via datasift dependencies)
+- DuckDB (installed via docpipe dependencies)
+- PyArrow (installed via docpipe dependencies)
 """
 
 import sys
@@ -27,9 +27,9 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift.core.constants.operator_constants import OperatorConstants
-from datasift.core.operators.document_sets.document_set_operator import DocumentSetOperator
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.document_sets.document_set_operator import DocumentSetOperator
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 

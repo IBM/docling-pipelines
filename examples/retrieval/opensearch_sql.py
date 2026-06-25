@@ -67,7 +67,7 @@ class SQLQueryResult:
             return []
 
         column_names = [col["name"] for col in self.schema]
-        return [dict(zip(column_names, row)) for row in self.datarows]
+        return [dict(zip(column_names, row, strict=False)) for row in self.datarows]
 
     def to_dataframe(self):
         """Convert result to pandas DataFrame (if pandas is available)"""
@@ -75,8 +75,8 @@ class SQLQueryResult:
             import pandas as pd
 
             return pd.DataFrame(self.to_dict_list())
-        except ImportError:
-            raise ImportError("pandas is required for to_dataframe(). Install with: pip install pandas")
+        except ImportError as err:
+            raise ImportError("pandas is required for to_dataframe(). Install with: pip install pandas") from err
 
 
 class OpenSearchSQLClient:

@@ -20,7 +20,7 @@ This directory contains test flows demonstrating the Chunker operator with vario
 
 **Usage:**
 ```bash
-datasift-orchestrator --flow-file tests/sample_test_flows/chunking/simple_chunking_with_summarization.json
+docling-pipelines --flow-file tests/sample_test_flows/chunking/simple_chunking_with_summarization.json
 ```
 
 ### 2. Hybrid Chunking with Summarization
@@ -40,7 +40,7 @@ datasift-orchestrator --flow-file tests/sample_test_flows/chunking/simple_chunki
 
 **Usage:**
 ```bash
-datasift-orchestrator --flow-file tests/sample_test_flows/chunking/hybrid_chunking_with_summarization.json
+docling-pipelines --flow-file tests/sample_test_flows/chunking/hybrid_chunking_with_summarization.json
 ```
 
 ## Prerequisites
@@ -122,4 +122,4 @@ Consider:
 
 - [Chunker Operator Reference](../../../docs/operators/chunker.md)
 - [Summarization Service Architecture](../../../ARCHITECTURE.md#summarization-service)
-- [LiteLLM Integration](../../../src/datasift/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md)
+- [LiteLLM Integration](../../../src/docpipe/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md)

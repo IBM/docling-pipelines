@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
-# DataSift OpenShift Deployment Script
+# Docpipe OpenShift Deployment Script
 # Usage: ./deploy-openshift.sh [project-name] [git-repo-url]
 
-PROJECT_NAME=${1:-datasift}
-GIT_REPO=${2:-https://github.ibm.com/wdp-gov/datasift-opensource.git}
+PROJECT_NAME=${1:-docpipe}
+GIT_REPO=${2:-https://github.ibm.com/wdp-gov/docling-pipelines.git}
 GIT_BRANCH=${3:-main}
 GIT_USERNAME=${GIT_USERNAME:-}
 GIT_TOKEN=${GIT_TOKEN:-}
-GIT_SECRET_NAME=${GIT_SECRET_NAME:-datasift-git-auth}
+GIT_SECRET_NAME=${GIT_SECRET_NAME:-docpipe-git-auth}
 
 # Colors for output
 RED='\033[0;31m'
@@ -84,8 +84,8 @@ create_project() {
             exit 1
         fi
     else
-        oc new-project "$PROJECT_NAME" --display-name="DataSift Pipeline" \
-            --description="DataSift - Modular data processing framework"
+        oc new-project "$PROJECT_NAME" --display-name="Docpipe Pipeline" \
+            --description="Docpipe - Modular data processing framework"
         log_info "Project created successfully"
     fi
     
@@ -96,7 +96,7 @@ create_project() {
 create_app_from_git() {
     log_step "Creating application from Git repository..."
     
-    APP_NAME="datasift-app"
+    APP_NAME="docpipe-app"
     
     # Check if app already exists
     if oc get bc "$APP_NAME" &> /dev/null 2>&1 || oc get deployment "$APP_NAME" &> /dev/null 2>&1; then
@@ -129,7 +129,7 @@ spec:
   output:
     to:
       kind: ImageStreamTag
-      name: datasift-image:latest
+      name: docpipe-image:latest
   source:
     type: Git
     git:
@@ -154,7 +154,7 @@ EOF
 create_imagestream() {
     log_step "Creating ImageStream..."
     
-    IMAGESTREAM_NAME="datasift-image"
+    IMAGESTREAM_NAME="docpipe-image"
     
     # Check if imagestream exists
     if oc get imagestream "$IMAGESTREAM_NAME" &> /dev/null; then
@@ -170,7 +170,7 @@ metadata:
   name: $IMAGESTREAM_NAME
   namespace: $PROJECT_NAME
   labels:
-    app: datasift-app
+    app: docpipe-app
 spec:
   lookupPolicy:
     local: true
@@ -183,7 +183,7 @@ EOF
 create_deployment() {
     log_step "Creating Deployment configuration..."
     
-    DEPLOYMENT_NAME="datasift-backend"
+    DEPLOYMENT_NAME="docpipe-backend"
     
     # Check if deployment exists
     if oc get deployment "$DEPLOYMENT_NAME" &> /dev/null; then
@@ -199,32 +199,32 @@ metadata:
   name: $DEPLOYMENT_NAME
   namespace: $PROJECT_NAME
   labels:
-    app: datasift-app
+    app: docpipe-app
     component: backend
 spec:
   replicas: 2
   selector:
-    app: datasift-app
+    app: docpipe-app
     component: backend
   triggers:
   - type: ImageChange
     imageChangeParams:
       automatic: true
       containerNames:
-      - datasift
+      - docpipe
       from:
         kind: ImageStreamTag
-        name: datasift-image:latest
+        name: docpipe-image:latest
   - type: ConfigChange
   template:
     metadata:
       labels:
-        app: datasift-app
+        app: docpipe-app
         component: backend
     spec:
       containers:
-      - name: datasift
-        image: image-registry.openshift-image-registry.svc:5000/$PROJECT_NAME/datasift-image:latest
+      - name: docpipe
+        image: image-registry.openshift-image-registry.svc:5000/$PROJECT_NAME/docpipe-image:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -261,7 +261,7 @@ EOF
 create_service() {
     log_step "Creating Service..."
     
-    SERVICE_NAME="datasift-service"
+    SERVICE_NAME="docpipe-service"
     
     # Check if service exists
     if oc get service "$SERVICE_NAME" &> /dev/null; then
@@ -277,10 +277,10 @@ metadata:
   name: $SERVICE_NAME
   namespace: $PROJECT_NAME
   labels:
-    app: datasift-app
+    app: docpipe-app
 spec:
   selector:
-    app: datasift-app
+    app: docpipe-app
     component: backend
   ports:
   - name: http
@@ -296,7 +296,7 @@ EOF
 create_route() {
     log_step "Creating Route..."
     
-    ROUTE_NAME="datasift-route"
+    ROUTE_NAME="docpipe-route"
     
     # Check if route exists
     if oc get route "$ROUTE_NAME" &> /dev/null; then
@@ -312,11 +312,11 @@ metadata:
   name: $ROUTE_NAME
   namespace: $PROJECT_NAME
   labels:
-    app: datasift-app
+    app: docpipe-app
 spec:
   to:
     kind: Service
-    name: datasift-service
+    name: docpipe-service
   port:
     targetPort: http
   tls:
@@ -330,7 +330,7 @@ EOF
 wait_for_build() {
     log_step "Waiting for build to complete..."
     
-    APP_NAME="datasift-app"
+    APP_NAME="docpipe-app"
     BUILD_NAME=""
     BUILD_STATUS=""
     MAX_ATTEMPTS=120
@@ -402,11 +402,11 @@ print_access_info() {
     
     echo ""
     echo "=========================================="
-    echo "  DataSift Deployment Completed!"
+    echo "  Docpipe Deployment Completed!"
     echo "=========================================="
     echo ""
     
-    ROUTE_URL=$(oc get route datasift-route -n "$PROJECT_NAME" -o jsonpath='{.spec.host}' 2>/dev/null || echo "Not configured")
+    ROUTE_URL=$(oc get route docpipe-route -n "$PROJECT_NAME" -o jsonpath='{.spec.host}' 2>/dev/null || echo "Not configured")
     
     echo "Project: $PROJECT_NAME"
     echo "Application URL: https://$ROUTE_URL"
@@ -414,10 +414,10 @@ print_access_info() {
     
     echo "Useful Commands:"
     echo "  View pods:        oc get pods -n $PROJECT_NAME"
-    echo "  View logs:        oc logs -f dc/datasift-backend -n $PROJECT_NAME"
+    echo "  View logs:        oc logs -f dc/docpipe-backend -n $PROJECT_NAME"
     echo "  View builds:      oc get builds -n $PROJECT_NAME"
-    echo "  Start new build:  oc start-build datasift-app -n $PROJECT_NAME"
-    echo "  Scale app:        oc scale dc/datasift-backend --replicas=3 -n $PROJECT_NAME"
+    echo "  Start new build:  oc start-build docpipe-app -n $PROJECT_NAME"
+    echo "  Scale app:        oc scale dc/docpipe-backend --replicas=3 -n $PROJECT_NAME"
     echo ""
     
     echo "Access the application:"
@@ -428,7 +428,7 @@ print_access_info() {
 main() {
     echo ""
     echo "=========================================="
-    echo "  DataSift OpenShift Deployment"
+    echo "  Docpipe OpenShift Deployment"
     echo "=========================================="
     echo ""
     echo "Project Name: $PROJECT_NAME"

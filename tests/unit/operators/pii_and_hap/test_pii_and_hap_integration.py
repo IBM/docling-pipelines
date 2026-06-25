@@ -2,7 +2,7 @@
 Integration tests for PII and HAP Annotator operator with a real OpenAI-compatible backend.
 
 These tests require an OpenAI-compatible endpoint to be running locally.
-For Ollama, expose the OpenAI-compatible API and use the [`litellm`](src/datasift/core/operators/quality/pii_and_hap/services/pii_hap_service.py:90) provider.
+For Ollama, expose the OpenAI-compatible API and use the [`litellm`](src/docpipe/core/operators/quality/pii_and_hap/services/pii_hap_service.py:90) provider.
 They will be skipped if Ollama is not available.
 
 Run these tests separately when you want to verify real LLM behavior:
@@ -15,7 +15,7 @@ import pyarrow as pa
 import pytest
 import requests
 
-from datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
+from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
     PIIAndHAPAnnotator,
 )
 

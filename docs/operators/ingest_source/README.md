@@ -1,11 +1,11 @@
 # Ingest Source Operator
 
 ## Overview
-The [`IngestSourceOperator`](../../../src/datasift/core/operators/ingest/ingest_source.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../../src/datasift/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../../src/datasift/core/operators/ingest/ingest_local.py).
+The [`IngestSourceOperator`](../../../src/docpipe/core/operators/ingest/ingest_source.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../../src/docpipe/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../../src/docpipe/core/operators/ingest/ingest_local.py).
 
 ## Features
 - **Multi-Provider Support**: Single operator for multiple data sources
-- **Automatic File Filtering**: Skips directories, hidden files, and empty objects by extension using [`OperatorConstants.FileExtensions.BASE_EXTENSIONS`](../../../src/datasift/core/constants/operator_constants.py)
+- **Automatic File Filtering**: Skips directories, hidden files, and empty objects by extension using [`OperatorConstants.FileExtensions.BASE_EXTENSIONS`](../../../src/docpipe/core/constants/operator_constants.py)
 - **Extension Validation**: Validates file extensions against supported formats, defaulting to all supported extensions if not specified
 - **Incremental Updates**: Skip previously processed documents (configurable)
 - **Metadata Tracking**: Comprehensive tracking of processed, failed, and skipped documents
@@ -256,7 +256,7 @@ node_config = {
 
 ### Basic Example
 ```python
-from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 import pyarrow as pa
 
 # Configure the operator
@@ -328,7 +328,7 @@ for i in range(result_table.num_rows):
 ## File Filtering
 
 ### Extension-Based Filtering
-The operator validates and filters files by extension using centralized constants from [`OperatorConstants.FileExtensions`](../../../src/datasift/core/constants/operator_constants.py):
+The operator validates and filters files by extension using centralized constants from [`OperatorConstants.FileExtensions`](../../../src/docpipe/core/constants/operator_constants.py):
 
 **Supported Extensions:**
 - **Documents**: PDF, DOCX, PPTX, XLSX
@@ -604,7 +604,7 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 
 ### Class: IngestSourceOperator
 
-Inherits from: [`AbstractOperator`](../../../src/datasift/core/operators/abstract_operator.py)
+Inherits from: [`AbstractOperator`](../../../src/docpipe/core/operators/abstract_operator.py)
 
 #### `__init__(node_config: dict)`
 Initialize the operator with configuration.

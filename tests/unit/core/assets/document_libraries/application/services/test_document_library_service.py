@@ -4,10 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from datasift.core.assets.document_libraries.application.services.document_library_service import (
+from docpipe.core.assets.document_libraries.application.services.document_library_service import (
     DocumentLibraryService,
 )
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ class TestDocumentLibraryServiceCreate:
     def test_create_library_with_invalid_name_raises_error(self, service):
         """Test that creating library with invalid name raises error."""
         # Act & Assert
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.create_library(name="")
 
 
@@ -98,7 +98,7 @@ class TestDocumentLibraryServiceGet:
         mock_repository.get_by_id.return_value = None
 
         # Act & Assert
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service.get_library(library_id="nonexistent-id")
 
 
@@ -240,7 +240,7 @@ class TestDocumentLibraryServiceDocumentSets:
         mock_repository.get_by_id.return_value = sample_library_domain
         mock_document_set_service.document_set_exists.side_effect = [True, False]
 
-        with pytest.raises(DatasiftException):
+        with pytest.raises(DocpipeException):
             service_with_document_set_validation.add_document_sets_bulk(
                 library_id=sample_library_domain.library_id,
                 document_set_ids=["set-1", "missing-set"],
