@@ -357,17 +357,21 @@ class TestFlowExecutor:
         mock_orchestrator.initialize = Mock()
 
         flow_def = {"name": "Test Flow", "dag": [{"id": "node1"}]}
-        executor = FlowExecutor(flow_def=flow_def)
+        original_flow = {"flow_name": "Test Flow", "flow": [{"name": "node1", "type": "test"}]}
+        executor = FlowExecutor(flow_def=flow_def, original_flow_def=original_flow)
 
         job_id = "test_job_789"
         job_run_id = "test_run_012"
-        params = {DatasiftConstants.JOB_ID: job_id, DatasiftConstants.JOB_RUN_ID: job_run_id}
+        params = {
+            DatasiftConstants.JOB_ID: job_id,
+            DatasiftConstants.JOB_RUN_ID: job_run_id,
+        }
 
         executor.execute(orchestrator=mock_orchestrator, params=params)
 
-        # Verify job_stats_service.save_flow_definition was called
+        # Verify job_stats_service.save_flow_definition was called with original flow
         mock_job_stats_service.save_flow_definition.assert_called_once_with(
-            job_id=job_id, job_run_id=job_run_id, flow_definition=flow_def
+            job_id=job_id, job_run_id=job_run_id, flow_definition=original_flow
         )
 
     @patch("datasift.core.orchestration.flow_executor.get_session_info")

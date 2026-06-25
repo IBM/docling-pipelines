@@ -81,7 +81,7 @@ def generate_job_id_from_flow_name(*, flow_name: str) -> str:
     return job_id
 
 
-def run_command_line_executor(flow_def: dict) -> None:
+def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = None) -> None:
     from datasift.core.constants.constants import DatasiftConstants
     from datasift.core.orchestration.flow_executor import FlowExecutor
     from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
@@ -92,7 +92,7 @@ def run_command_line_executor(flow_def: dict) -> None:
     logger.info(">>> Creating the orchestrator")
     orchestrator = OrchestratorFactory.create_orchestrator(execution_reporter=execution_reporter)
     logger.info(">>> Creating the flow executor")
-    executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
+    executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator, original_flow_def=original_flow_json)
     logger.info(">>> Setting up execution parameters")
     # Generate job_id from flow name (required field in compiled flow)
     flow_name = flow_def.get("name")
@@ -105,6 +105,7 @@ def run_command_line_executor(flow_def: dict) -> None:
         DatasiftConstants.JOB_ID: job_id,
         DatasiftConstants.JOB_RUN_ID: job_run_id,
     }
+
     os.environ["RUNTIME"] = "local"
     from datasift.core.models.session_info import (
         SessionInfo,
@@ -124,17 +125,18 @@ def run_command_line_executor(flow_def: dict) -> None:
     logger.info(">>> Completed flow execution")
 
 
-def load_flow_definition(file_path: str) -> dict[str, Any]:
+def load_flow_definition(*, file_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Load and compile an authoring format flow definition from a JSON file.
 
     The authoring format is automatically compiled to runtime DAG format for execution.
+    Returns both the original flow definition and the compiled DAG.
 
     Args:
         file_path: Path to the JSON file containing the flow definition
 
     Returns:
-        Dictionary containing the compiled runtime DAG format flow definition
+        Tuple of (original_flow_json, compiled_runtime_dag)
 
     Raises:
         FileNotFoundError: If the flow definition file is not found
@@ -147,19 +149,19 @@ def load_flow_definition(file_path: str) -> dict[str, Any]:
     from datasift.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
 
     with open(file_path, encoding="utf-8") as file:
-        flow_data: dict[str, Any] = json.load(file)
+        original_flow_json: dict[str, Any] = json.load(file)
 
     logger.info("Loading authoring format flow from %s", file_path)
 
     # Parse and validate authoring flow
-    authoring_flow = AuthoringFlow.from_dict(data=flow_data)
+    authoring_flow = AuthoringFlow.from_dict(data=original_flow_json)
 
     # Compile to runtime DAG format
     compiler = AuthoringCompiler()
     runtime_dag = compiler.compile(authoring_flow=authoring_flow)
 
     logger.info("Successfully compiled authoring format to runtime DAG")
-    return runtime_dag
+    return original_flow_json, runtime_dag
 
 
 def validate_flow_definition(flow_file: str) -> bool:
@@ -178,7 +180,7 @@ def validate_flow_definition(flow_file: str) -> bool:
     from datasift.exceptions.datasift_exceptions import FlowInvalidDataException, FlowValidationException
 
     try:
-        flow_def: dict[str, Any] = load_flow_definition(file_path=flow_file)
+        _original_flow_json, flow_def = load_flow_definition(file_path=flow_file)
         flow_name: str = flow_def.get("name", "Unnamed flow")
 
         logger.info(
@@ -409,7 +411,7 @@ Examples:
     logger.info("Loading flow definition from %s", args.flow_file)
 
     try:
-        flow_def = load_flow_definition(file_path=args.flow_file)
+        original_flow_json, flow_def = load_flow_definition(file_path=args.flow_file)
     except FileNotFoundError:
         cwd = os.getcwd()
         abs_path = os.path.abspath(args.flow_file)
@@ -461,7 +463,7 @@ Examples:
     logger.info("Number of operators: %d", len(flow_def.get("dag", [])))
 
     try:
-        run_command_line_executor(flow_def=flow_def)
+        run_command_line_executor(flow_def=flow_def, original_flow_json=original_flow_json)
         logger.info("Execution completed")
     except Exception as e:
         from datasift.exceptions.datasift_exceptions import DatasiftException, FlowValidationException

@@ -651,6 +651,29 @@ DataSift uses two distinct representations:
 - **config**: Operator-specific configuration parameters
 - **Automatic Compilation**: The system automatically generates the runtime DAG from the authoring format
 
+### Flow Definition Storage
+
+When a flow is executed, the **original flow definition** (before compilation to runtime DAG format) is automatically saved to the filesystem for audit and reproducibility purposes.
+
+**Storage Location:**
+```
+{data_path}/{job_id}/{job_run_id}/flow_definition.json
+```
+
+**Key Details:**
+- The original flow definition is stored at the start of each job run execution
+- This preserves the exact flow configuration used for that specific execution
+- Enables audit trails and reproducibility of past executions
+- The file is saved as `flow_definition.json` in the job run's data directory
+- Storage occurs in [`FlowExecutor`](src/datasift/core/orchestration/flow_executor.py) via the job stats service
+
+**Example Path:**
+```
+/path/to/data/my-job-id/run-12345/flow_definition.json
+```
+
+This behavior ensures that even if the original flow file is modified or deleted, the exact configuration used for each execution is preserved and can be retrieved for debugging, auditing, or re-execution purposes.
+
 ### 4. DAG-Based Execution Model
 
 The execution model follows these principles:

@@ -102,12 +102,17 @@ class DatasiftFlowManager:
         # Set up logging
         self.logger: Logger = get_logger()
 
+        # Initialize original_flow_def with proper type annotation
+        self.original_flow_def: dict[str, Any] | None = None
+
         # Load and compile flow definition from authoring format
         if flow_file is not None:
             self.flow_file = flow_file
-            self.flow_def = self._load_and_compile_flow(file_path=flow_file)
+            # Load and compile - returns both original and compiled
+            self.original_flow_def, self.flow_def = self._load_and_compile_flow(file_path=flow_file)
         else:
             self.flow_file = None  # type: ignore[assignment]
+            self.original_flow_def = flow_def  # Store original for audit trail
             self.flow_def = self._compile_flow_dict(flow_dict=flow_def)  # type: ignore
 
         # Set up execution parameters with priority: parameter > flow_def > UUID
@@ -137,7 +142,7 @@ class DatasiftFlowManager:
         self.session_info: SessionInfo | None = None
         self.executor: FlowExecutor | None = None
 
-    def _load_and_compile_flow(self, *, file_path: str) -> dict[str, Any]:
+    def _load_and_compile_flow(self, *, file_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
         """
         Load authoring format flow from JSON file and compile to runtime DAG format.
 
@@ -145,7 +150,7 @@ class DatasiftFlowManager:
             file_path: Path to authoring format JSON file
 
         Returns:
-            Compiled runtime DAG format flow definition
+            Tuple of (original_flow_data, compiled_runtime_dag)
 
         Raises:
             FileNotFoundError: If file doesn't exist
@@ -162,7 +167,8 @@ class DatasiftFlowManager:
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Invalid JSON in flow definition file: {e.msg}", e.doc, e.pos) from e
 
-        return self._compile_flow_dict(flow_dict=flow_data)
+        compiled_flow = self._compile_flow_dict(flow_dict=flow_data)
+        return flow_data, compiled_flow
 
     def register_custom_operators(self, *, package_names: list[str]) -> None:
         """
@@ -257,7 +263,9 @@ class DatasiftFlowManager:
         self.orchestrator.initialize(job_id=self.job_id, job_run_id=self.job_run_id)
 
         # Create flow executor - must be done after session_info is set
-        self.executor = FlowExecutor(flow_def=self.flow_def, orchestrator=self.orchestrator)
+        self.executor = FlowExecutor(
+            flow_def=self.flow_def, orchestrator=self.orchestrator, original_flow_def=self.original_flow_def
+        )
 
     def validate(self) -> dict[str, Any]:
         """

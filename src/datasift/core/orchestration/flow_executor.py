@@ -25,17 +25,25 @@ class FlowExecutor:
     - flow_def: A dictionary containing the flow definition loaded from the JSON file.
     """
 
-    def __init__(self, flow_def_file: str | None = None, flow_def: dict | None = None, orchestrator=None):
+    def __init__(
+        self,
+        flow_def_file: str | None = None,
+        flow_def: dict | None = None,
+        orchestrator=None,
+        original_flow_def: dict | None = None,
+    ):
         """
         Loads the flow definition from the given JSON file and stores it in the `flow_def` attribute.
         Parameters:
         - flow_def_file: The path to the JSON file containing the flow definition.
         - flow_def: Actual flow definition in JSON format. Will be ignored if flow_def_file is passed
         - orchestrator: Orchestrator to be used by this flow executor.
+        - original_flow_def: Original flow definition before compilation (for audit trail)
         """
         self.session_info = get_session_info()
         self.common_log_arguments = self.session_info.get_common_log_arguments()
         self.__orchestrator = orchestrator
+        self.original_flow_def = original_flow_def
         if flow_def_file is not None:
             with open(flow_def_file) as json_file:
                 self.flow_def = json.load(json_file).get("flow")
@@ -103,13 +111,13 @@ class FlowExecutor:
 
         FlowExecutor.print_diagnostic_info(self)
 
-        # Save flow definition to filesystem for audit and reproducibility
+        # Save original flow definition to filesystem for audit and reproducibility
         if job_id and job_run_id:
             job_stats_service = self.__orchestrator.job_stats_service
             if job_stats_service:
                 try:
                     job_stats_service.save_flow_definition(
-                        job_id=job_id, job_run_id=job_run_id, flow_definition=self.flow_def
+                        job_id=job_id, job_run_id=job_run_id, flow_definition=self.original_flow_def
                     )
                 except Exception as e:
                     # Log error but don't fail the flow execution

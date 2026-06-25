@@ -55,11 +55,12 @@ class TestCommandLineOrchestrator(unittest.TestCase):
 
         filepath = "./tests/sample_test_flows/basic/local_to_opensearch.json"
 
-        flow_def = load_flow_definition(file_path=filepath)
+        original_flow, flow_def = load_flow_definition(file_path=filepath)
         # After compilation, should have runtime DAG format
         assert flow_def is not None
         assert "dag" in flow_def
         assert "global_config" in flow_def
+        assert original_flow is not None
 
     def test_invalid_flow_definition(self):
         """

@@ -60,8 +60,9 @@ class TestCommandLineOrchestrator(unittest.TestCase):
 
         filepath = "../../../tests/sample_test_flows/basic/local_to_opensearch.json"
 
-        flow_def = load_flow_definition(file_path=filepath)
+        original_flow, flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None
+        assert original_flow is not None
 
     def test_invalid_flow_definition(self):
         """

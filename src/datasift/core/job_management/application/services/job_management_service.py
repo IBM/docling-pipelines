@@ -192,6 +192,7 @@ class JobManagementService:
             job_run_id,
             flow_dag_definition,
             flow_config,
+            flow.definition,  # Pass original flow definition
         )
 
         logger.info(f"Created job run: flow_id={flow_id}, job_id={job_id}, job_run_id={job_run_id}")
@@ -294,6 +295,7 @@ class JobManagementService:
         job_run_id: str,
         flow_definition: dict[str, Any],
         flow_config: dict[str, Any],
+        original_flow_definition: dict[str, Any] | None = None,
     ) -> None:
         """Execute the resolved flow definition in a background thread."""
         try:
@@ -309,7 +311,9 @@ class JobManagementService:
             set_session_info(session_info=session_info)
 
             executable_flow = flow_definition.get(DatasiftConstants.FLOW, flow_definition)
-            flow_executor = FlowExecutor(flow_def=executable_flow, orchestrator=orchestrator)
+            flow_executor = FlowExecutor(
+                flow_def=executable_flow, orchestrator=orchestrator, original_flow_def=original_flow_definition
+            )
             params = {
                 DatasiftConstants.JOB_ID: job_id,
                 DatasiftConstants.JOB_RUN_ID: job_run_id,

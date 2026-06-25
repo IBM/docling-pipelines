@@ -134,11 +134,14 @@ class TestLoadFlowDefinition:
 
     def test_load_valid_flow(self, valid_flow_file):
         """Test loading a valid flow definition from real file."""
-        flow_def = load_flow_definition(file_path=valid_flow_file)
+        original_flow, flow_def = load_flow_definition(file_path=valid_flow_file)
         # After compilation, should have runtime DAG format
         assert "dag" in flow_def
         assert len(flow_def["dag"]) == 2
         assert "global_config" in flow_def
+        # Original flow should also be returned
+        assert original_flow is not None
+        assert "flow_name" in original_flow
 
     def test_load_elyra_format_fails(self, elyra_format_file):
         """Test that Elyra format (with 'definition' wrapper) is not supported by CLI."""
@@ -151,11 +154,14 @@ class TestLoadFlowDefinition:
 
     def test_load_real_invoice_flow(self, real_flow_invoice):
         """Test loading the real invoice flow file."""
-        flow_def = load_flow_definition(file_path=real_flow_invoice)
+        original_flow, flow_def = load_flow_definition(file_path=real_flow_invoice)
         # After compilation, should have runtime DAG format
         assert "dag" in flow_def
         assert len(flow_def["dag"]) == 6
         assert "global_config" in flow_def
+        # Original flow should also be returned
+        assert original_flow is not None
+        assert "flow_name" in original_flow
 
     def test_file_not_found(self, tmp_path):
         """Test FileNotFoundError is raised for non-existent files."""
@@ -324,7 +330,7 @@ class TestIntegrationScenarios:
 
     def test_load_and_parse_real_invoice_flow(self, real_flow_invoice):
         """Test loading and parsing the real invoice flow file."""
-        flow_def = load_flow_definition(file_path=real_flow_invoice)
+        _original_flow, flow_def = load_flow_definition(file_path=real_flow_invoice)
 
         # Verify structure (after compilation to runtime DAG)
         assert "dag" in flow_def
@@ -362,7 +368,7 @@ class TestIntegrationScenarios:
         flow_file = tmp_path / "temp_flow.json"
         flow_file.write_text(json.dumps(flow))
 
-        loaded_flow = load_flow_definition(file_path=str(flow_file))
+        _original_flow, loaded_flow = load_flow_definition(file_path=str(flow_file))
 
         # After compilation, should have runtime DAG format
         assert "dag" in loaded_flow
