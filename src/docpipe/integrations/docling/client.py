@@ -34,7 +34,7 @@ class DoclingServeClient:
     def __init__(
         self,
         *,
-        base_url: str = "http://0.0.0.0:5001",
+        base_url: str,
         api_key: str | None = None,
         timeout: int = 300,
         poll_interval: int = 2,
@@ -45,14 +45,20 @@ class DoclingServeClient:
         Initialize the Docling Serve client.
 
         Args:
-            base_url: Base URL of docling-serve service (default: http://0.0.0.0:5001)
+            base_url: Base URL of docling-serve service (required, must not be empty)
             api_key: Optional API key for authentication via X-API-KEY header
             timeout: Request timeout in seconds (default: 300)
             poll_interval: Polling interval in seconds (default: 2)
             max_retries: Maximum retry attempts for API call failures (default: 3)
             verify_ssl: Enable SSL certificate verification (default: True).
                        Set to False only for internal testing with self-signed certificates.
+
+        Raises:
+            ValueError: If base_url is empty or whitespace-only
         """
+        if not base_url or not base_url.strip():
+            raise ValueError("base_url must not be empty")
+
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout

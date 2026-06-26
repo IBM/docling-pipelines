@@ -18,6 +18,13 @@ from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Precompiled regex patterns for better performance.
+# Fixed ReDoS: replaced `.*?` (backtracking) with `[^`]*` (possessive-safe linear scan)
+# to prevent exponential backtracking on malformed/adversarial inputs.
+_MARKDOWN_BLOCK_PATTERN = re.compile(r"```(?:json)?[ \t]*\n([^`]*?)```", re.DOTALL)
+
+_LOG_TRUNCATE_CHARS = 5000
+
 
 def _try_parse_json(text: str) -> tuple[dict[str, Any] | None, json.JSONDecodeError | None]:
     """Try to parse text as JSON, return (result, error)."""
@@ -28,12 +35,15 @@ def _try_parse_json(text: str) -> tuple[dict[str, Any] | None, json.JSONDecodeEr
 
 
 def _try_extract_from_markdown(raw_response: str) -> tuple[dict[str, Any] | None, json.JSONDecodeError | None]:
-    """Try to extract JSON from markdown code blocks."""
-    markdown_pattern = r"```(?:json)?\s*\n?(.*?)\n?```"
-    markdown_match = re.search(markdown_pattern, raw_response, re.DOTALL)
-    if markdown_match:
-        return _try_parse_json(markdown_match.group(1))
-    return None, None
+    """Try to extract JSON from markdown code blocks, iterating all blocks to find valid JSON."""
+    last_error: json.JSONDecodeError | None = None
+    for match in _MARKDOWN_BLOCK_PATTERN.finditer(raw_response):
+        result, error = _try_parse_json(match.group(1).strip())
+        if result is not None:
+            return result, None
+        if error is not None:
+            last_error = error
+    return None, last_error
 
 
 def _try_extract_from_braces(raw_response: str) -> tuple[dict[str, Any] | None, json.JSONDecodeError | None]:
@@ -102,7 +112,15 @@ def parse_llm_json_response(
     # All strategies failed - log and raise error with original exception details
     if log_on_error:
         log_func = getattr(logger, log_level, logger.debug)
-        log_func(f"Failed to parse JSON from LLM response. Full response: {raw_response}")
+        # Truncate response to avoid excessive logging
+        truncated_response = (
+            raw_response[:_LOG_TRUNCATE_CHARS] + "..." if len(raw_response) > _LOG_TRUNCATE_CHARS else raw_response
+        )
+        log_func(
+            f"Failed to parse JSON from LLM response. "
+            f"Response length: {len(raw_response)} chars. "
+            f"Response (truncated): {truncated_response}"
+        )
 
     # Include original error details in exception message
     error_detail = f": {last_json_error!s}" if last_json_error else ""

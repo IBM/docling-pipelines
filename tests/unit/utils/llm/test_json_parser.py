@@ -169,3 +169,29 @@ Second block:
         response = 'Text before {"first": "object"} middle text'
         result = parse_llm_json_response(response)
         assert result == {"first": "object"}
+
+    def test_parse_json_skips_non_json_code_blocks(self):
+        """Test parser skips non-JSON code blocks and finds valid JSON in a later block."""
+        response = """First block contains Python:
+```python
+def hello():
+    print("world")
+```
+Second block contains JSON:
+```json
+{"key": "value"}
+```"""
+        result = parse_llm_json_response(response)
+        assert result == {"key": "value"}
+
+    def test_parse_json_with_nested_braces_in_strings(self):
+        """Test parsing JSON with nested braces inside string values."""
+        response = '{"template": "use {placeholder} here", "nested": {"a": 1}}'
+        result = parse_llm_json_response(response)
+        assert result == {"template": "use {placeholder} here", "nested": {"a": 1}}
+
+    def test_parse_json_with_escaped_quotes(self):
+        """Test parsing JSON with escaped quotes inside string values."""
+        response = '{"message": "She said \\"hello\\" to him", "valid": true}'
+        result = parse_llm_json_response(response)
+        assert result == {"message": 'She said "hello" to him', "valid": True}

@@ -16,10 +16,17 @@ title: Operator Reference
     - [Ingest Operators](#ingest-operators)
       - [IngestLocalOperator](#ingestlocaloperator)
       - [IngestSourceOperator](#ingestsourceoperator)
-    - [Quality Operators](#quality-operators)
-      - [DocumentClassifierOperator](#documentclassifieroperator)
     - [Extract Operators](#extract-operators)
       - [ExtractOperator](#extractoperator)
+    - [Quality Operators](#quality-operators)
+      - [DocumentClassifierOperator](#documentclassifieroperator)
+      - [LanguageDetect](#languagedetect)
+      - [ReadabilityOperator](#readabilityoperator)
+      - [RedactionOperator](#redactionoperator)
+      - [PIIAndHAPAnnotator](#piiandhapannotator)
+      - [EdedupOperator](#ededupoperator)
+      - [MLEnrichmentOperator](#mlenrichmentoperator)
+      - [SQLFilterOperator](#sqlfilteroperator)
     - [Functional Operators](#functional-operators)
       - [ChunkerOperator](#chunkeroperator)
       - [EntityCurationOperator](#entitycurationoperator)
@@ -28,14 +35,6 @@ title: Operator Reference
       - [MergeOperator](#mergeoperator)
       - [NOOPOperator](#noopoperator)
       - [DocIdHashOperator](#docidhashoperator)
-    - [Quality Operators](#quality-operators-1)
-      - [LanguageDetect](#languagedetect)
-      - [ReadabilityOperator](#readabilityoperator)
-      - [RedactionOperator](#redactionoperator)
-      - [DocumentClassifierOperator](#documentclassifieroperator-1)
-      - [EdedupOperator](#ededupoperator)
-      - [MLEnrichmentOperator](#mlenrichmentoperator)
-      - [SQLFilterOperator](#sqlfilteroperator)
     - [VectorDB Operators](#vectordb-operators)
       - [VectorDBOperator](#vectordboperator)
     - [Storage Operators](#storage-operators)
@@ -371,200 +370,6 @@ The operator validates file extensions against supported formats from [`Operator
 
 ---
 
-### Quality Operators
-
-#### DocumentClassifierOperator
-
-**Purpose:** Classifies documents into predefined types using LLM-based classification with confidence scoring and reasoning. Uses simplified service-based architecture with shared LLM infrastructure supporting multiple providers (LiteLLM, Watsonx).
-
-**Category:** Quality
-
-**Class:** `core.operators.quality.classification.document_classifier.DocumentClassifierOperator`
-
-| Parameter                  | Type      | Required | Default                        | Description                                                                                                                                                                     |
-|----------------------------| --------- | -------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider`                 | string    | No       | `"litellm"`                    | LLM provider: `"litellm"` or `"watsonx"`                                                                                                                                        |
-| `provider_config`          | object    | No       | `{}`                           | Provider-specific configuration (api_key, api_base, etc.)                                                                                                                       |
-| `provider_config.model_id` | string    | No       | `"openai/granite3.1-dense:8b"` | Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"` for Ollama, `"openai/gpt-4o-mini"`, `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`) |
-| `document_types`           | list/dict | No       | Auto-loaded                    | Document types to classify into (list or dict with descriptions)                                                                                                                |
-| `confidence_threshold`     | float     | No       | `7.0`                          | Minimum confidence for classification (1-10 scale)                                                                                                                              |
-| `doc_column`               | string    | No       | `"content"`                    | Column containing document text                                                                                                                                                 |
-| `output_column`            | string    | No       | `"document_type"`              | Column name for classification result                                                                                                                                           |
-| `include_confidence`       | boolean   | No       | `true`                         | Include confidence score in output                                                                                                                                              |
-| `include_reasoning`        | boolean   | No       | `false`                        | Include reasoning explanation in output                                                                                                                                         |
-| `max_content_length`       | integer   | No       | `2000`                         | Maximum content length to send to LLM                                                                                                                                           |
-| `max_workers`              | integer   | No       | Auto                           | Number of parallel workers                                                                                                                                                      |
-| `use_processes`            | boolean   | No       | `false`                        | Use processes instead of threads                                                                                                                                                |
-
-**Provider-Specific Configuration**
-
-**LiteLLM (100+ providers):**
-
-```json
-{
-  "provider": "litellm",
-  "provider_config": {
-    "model_id": "openai/gpt-4o-mini",
-    "api_key": "${OPENAI_API_KEY}",
-    "request_timeout": 120
-  }
-}
-```
-
-Supported LiteLLM providers:
-
-- OpenAI: `openai/gpt-4o-mini`, `openai/gpt-4`, `openai/gpt-3.5-turbo`
-- Anthropic: `anthropic/claude-3-opus`, `anthropic/claude-3-sonnet`, `anthropic/claude-3-haiku`
-- Azure OpenAI: `azure/gpt-4`
-- AWS Bedrock: `bedrock/anthropic.claude-3-sonnet`
-- Google Vertex AI: `vertex_ai/gemini-pro`
-- HuggingFace: `huggingface/meta-llama/Llama-3.3-70B-Instruct`, `huggingface/mistralai/Mistral-7B-Instruct-v0.2`
-- Ollama via OpenAI-compatible endpoint: `openai/llama3.2:latest`, `openai/granite3.1-dense:8b` with `api_base: "http://localhost:11434/v1"`
-
-**Watsonx:**
-
-```json
-{
-  "provider": "watsonx",
-  "provider_config": {
-    "model_id": "ibm/granite-13b-chat-v2",
-    "api_base": "https://us-south.ml.cloud.ibm.com",
-    "api_key": "${WATSONX_API_KEY}",
-    "container_kind": "project",
-    "container_id": "${WATSONX_CONTAINER_ID}",
-    "request_timeout": 120
-  }
-}
-```
-
-**Input Schema**
-
-- PyArrow Table with document content (text column or binary content for extraction)
-- Optional `content` column (if not present, will be fetched from binary content)
-- **File Extension Validation**: Only documents with supported file extensions are processed: `.pdf`, `.docx`, `.pptx`
-  - Unsupported file types are **skipped** (not classified) but remain in the output table with `None` classification values
-
-**Output Schema**
-
-Adds the following columns:
-
-- `document_type` (string): Classified document type
-- `document_type_confidence` (float): Confidence score 1-10 (if `include_confidence=true`)
-- `document_type_reasoning` (string): Classification explanation (if `include_reasoning=true`)
-- `content` (string): Document content (if fetched and not already present)
-
-**Metadata**
-
-The operator tracks document processing statistics in metadata:
-
-- `processed_docs`: Number of successfully classified documents
-- `failed_docs`: List of failed document paths with reasons (errors during processing)
-- `failed_docs_count`: Total number of failed documents
-- `skipped_docs`: List of skipped document paths with reasons (includes unsupported file extensions)
-- `skipped_docs_count`: Total number of skipped documents
-
-**Document Types Configuration**
-
-Simple list format:
-
-```json
-{
-  "document_types": ["invoice", "receipt", "contract", "report", "letter"]
-}
-```
-
-Detailed dictionary format (recommended):
-
-```json
-{
-  "document_types": {
-    "invoice": "Business invoice with line items, totals, and payment terms",
-    "receipt": "Payment receipt or transaction confirmation",
-    "contract": "Legal contract or agreement document",
-    "report": "Business or technical report with analysis and findings",
-    "other": "Other document types not fitting above categories"
-  }
-}
-```
-
-**Exceptions**
-
-- `DocpipeException`: Adapter initialization failures, invalid provider configuration
-- `ValueError`: Invalid response format from LLM
-- `json.JSONDecodeError`: Failed to parse LLM response
-
-**Example - LiteLLM with OpenAI**
-
-```json
-{
-  "id": "classify-node",
-  "name": "classify",
-  "operator": "classification_operator",
-  "config": {
-    "provider": "litellm",
-    "provider_config": {
-      "model_id": "openai/gpt-4o-mini",
-      "api_key": "${OPENAI_API_KEY}"
-    },
-    "document_types": {
-      "invoice": "Business invoice with line items and totals",
-      "receipt": "Payment receipt or confirmation",
-      "contract": "Legal contract or agreement",
-      "report": "Business or technical report"
-    },
-    "confidence_threshold": 8.0,
-    "include_confidence": true,
-    "include_reasoning": true,
-    "max_content_length": 4000
-  }
-}
-```
-
-**Example - LiteLLM with Ollama OpenAI-Compatible Endpoint**
-
-```json
-{
-  "id": "classify-node",
-  "name": "classify",
-  "operator": "document_classifier",
-  "config": {
-    "provider": "litellm",
-    "provider_config": {
-      "model_id": "openai/llama3.2:latest",
-      "api_key": "${api-key}",
-      "api_base": "http://localhost:11434/v1"
-    },
-    "document_types": {
-      "invoice": "Business invoice with line items, totals, and payment terms",
-      "receipt": "Payment receipt or transaction confirmation",
-      "contract": "Legal contract or agreement document",
-      "other": "Other document types"
-    },
-    "confidence_threshold": 7.0,
-    "include_confidence": true,
-    "include_reasoning": true
-  }
-}
-```
-
-**Architecture**
-
-Uses simplified service-based architecture:
-
-- **Operator Layer**: `DocumentClassifierOperator` handles PyArrow table processing and orchestration
-- **Service Layer**: `ClassificationService` contains business logic for document classification
-- **Domain Layer**: Pure domain models (`ClassificationRequest`, `ClassificationResponse`) and prompt building
-- **Infrastructure Layer**: Leverages shared `LLMAdapterFactory` for multi-provider LLM support (LiteLLM, Watsonx)
-
-This simplified design removes the port/adapter overhead while maintaining clean separation of concerns and provider flexibility through the shared LLM infrastructure.
-
-**Related Documentation**
-
-- [Classification Operator Guide](docs/operators/document_classifier.md)
-- [Extract Operator](docs/operators/extract_operator.md)
-
----
-
 ### Extract Operators
 
 #### ExtractOperator
@@ -588,7 +393,7 @@ This simplified design removes the port/adapter overhead while maintaining clean
 | `text_extraction.provider_config.asr_pipeline`            | object |       No | `null`                    | ASR (Automatic Speech Recognition) pipeline configuration (docling_library mode). When present, ASR processing is enabled. |
 | `text_extraction.provider_config.asr_pipeline.model_id` | string |       No | `whisper_turbo`           | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
 | `text_extraction.provider_config`                         | object |       No | `{}`                      | Provider-specific configuration (docling_serve mode)                                               |
-| `text_extraction.provider_config.base_url`                | string |       No | `http://localhost:5001`   | Docling Serve API endpoint (docling_serve mode)                                                    |
+| `text_extraction.provider_config.base_url`                | string |      Yes | -                         | Docling Serve API endpoint — required, must not be empty (docling_serve mode)                      |
 | `text_extraction.provider_config.api_key`                 | string |       No | `null`                    | Optional API key for authentication (docling_serve mode)                                           |
 | `text_extraction.provider_config.timeout`                 | int    |       No | `300`                     | Request timeout in seconds (docling_serve mode)                                                    |
 | `text_extraction.provider_config.do_ocr`                  | bool   |       No | `true`                    | Enable OCR processing (docling_serve mode)                                                         |
@@ -940,7 +745,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 **Integration Requirements**
 
 - **Ollama** (for litellm entity mode with Ollama): Server at `http://localhost:11434`, model pulled (e.g., `ollama pull llama3.2`). Access via litellm mode with `openai/` model prefix
-- **Docling Serve** (for docling_serve text mode): Service at configured URL (default `http://localhost:5001`)
+- **Docling Serve** (for docling_serve text mode): Service at configured `base_url` (required — no default)
 - **LiteLLM** (for litellm entity mode): API keys for chosen provider (OpenAI, Anthropic, etc.)
 - **WatsonX** (for watsonx entity mode): Environment variables `WATSONX_API_KEY`, `WATSONX_CONTAINER_ID`, optional `WATSONX_API_BASE_URL`, `WATSONX_CONTAINER_KIND`
 - **ffmpeg** (for audio/video processing): Required for M4A, AAC, OGG, FLAC audio formats and all video formats (MP4, AVI, MOV). Not required for WAV/MP3. Install: `brew install ffmpeg` (macOS) or `sudo apt install ffmpeg` (Linux)
@@ -967,6 +772,341 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 - See [ExtractOperator Configuration Guide](docs/operators/extract/extract_operator_config.md) for complete documentation including detailed extension support
 
 ---
+
+### Quality Operators
+
+#### DocumentClassifierOperator
+
+**Purpose:** Classifies documents into predefined types using LLM-based classification with confidence scoring and reasoning. Uses simplified service-based architecture with shared LLM infrastructure supporting multiple providers (LiteLLM, Watsonx).
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.classification.document_classifier.DocumentClassifierOperator`
+
+| Parameter                  | Type      | Required | Default                        | Description                                                                                                                                                                     |
+|----------------------------| --------- | -------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider`                 | string    | No       | `"litellm"`                    | LLM provider: `"litellm"` or `"watsonx"`                                                                                                                                        |
+| `provider_config`          | object    | No       | `{}`                           | Provider-specific configuration (api_key, api_base, etc.)                                                                                                                       |
+| `provider_config.model_id` | string    | No       | `"openai/granite3.1-dense:8b"` | Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"` for Ollama, `"openai/gpt-4o-mini"`, `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`) |
+| `document_types`           | list/dict | No       | Auto-loaded                    | Document types to classify into (list or dict with descriptions)                                                                                                                |
+| `confidence_threshold`     | float     | No       | `7.0`                          | Minimum confidence for classification (1-10 scale)                                                                                                                              |
+| `doc_column`               | string    | No       | `"content"`                    | Column containing document text                                                                                                                                                 |
+| `output_column`            | string    | No       | `"document_type"`              | Column name for classification result                                                                                                                                           |
+| `include_confidence`       | boolean   | No       | `true`                         | Include confidence score in output                                                                                                                                              |
+| `include_reasoning`        | boolean   | No       | `false`                        | Include reasoning explanation in output                                                                                                                                         |
+| `max_content_length`       | integer   | No       | `2000`                         | Maximum content length to send to LLM                                                                                                                                           |
+| `max_workers`              | integer   | No       | Auto                           | Number of parallel workers                                                                                                                                                      |
+| `use_processes`            | boolean   | No       | `false`                        | Use processes instead of threads                                                                                                                                                |
+
+**Provider-Specific Configuration**
+
+**LiteLLM (100+ providers):**
+
+```json
+{
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/gpt-4o-mini",
+    "api_key": "${OPENAI_API_KEY}",
+    "request_timeout": 120
+  }
+}
+```
+
+Supported LiteLLM providers:
+
+- OpenAI: `openai/gpt-4o-mini`, `openai/gpt-4`, `openai/gpt-3.5-turbo`
+- Anthropic: `anthropic/claude-3-opus`, `anthropic/claude-3-sonnet`, `anthropic/claude-3-haiku`
+- Azure OpenAI: `azure/gpt-4`
+- AWS Bedrock: `bedrock/anthropic.claude-3-sonnet`
+- Google Vertex AI: `vertex_ai/gemini-pro`
+- HuggingFace: `huggingface/meta-llama/Llama-3.3-70B-Instruct`, `huggingface/mistralai/Mistral-7B-Instruct-v0.2`
+- Ollama via OpenAI-compatible endpoint: `openai/llama3.2:latest`, `openai/granite3.1-dense:8b` with `api_base: "http://localhost:11434/v1"`
+
+**Watsonx:**
+
+```json
+{
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
+    "api_base": "https://us-south.ml.cloud.ibm.com",
+    "api_key": "${WATSONX_API_KEY}",
+    "container_kind": "project",
+    "container_id": "${WATSONX_CONTAINER_ID}",
+    "request_timeout": 120
+  }
+}
+```
+
+**Input Schema**
+
+- PyArrow Table with document content (text column or binary content for extraction)
+- Optional `content` column (if not present, will be fetched from binary content)
+- **File Extension Validation**: Only documents with supported file extensions are processed: `.pdf`, `.docx`, `.pptx`
+  - Unsupported file types are **skipped** (not classified) but remain in the output table with `None` classification values
+
+**Output Schema**
+
+Adds the following columns:
+
+- `document_type` (string): Classified document type
+- `document_type_confidence` (float): Confidence score 1-10 (if `include_confidence=true`)
+- `document_type_reasoning` (string): Classification explanation (if `include_reasoning=true`)
+- `content` (string): Document content (if fetched and not already present)
+
+**Metadata**
+
+The operator tracks document processing statistics in metadata:
+
+- `processed_docs`: Number of successfully classified documents
+- `failed_docs`: List of failed document paths with reasons (errors during processing)
+- `failed_docs_count`: Total number of failed documents
+- `skipped_docs`: List of skipped document paths with reasons (includes unsupported file extensions)
+- `skipped_docs_count`: Total number of skipped documents
+
+**Document Types Configuration**
+
+Simple list format:
+
+```json
+{
+  "document_types": ["invoice", "receipt", "contract", "report", "letter"]
+}
+```
+
+Detailed dictionary format (recommended):
+
+```json
+{
+  "document_types": {
+    "invoice": "Business invoice with line items, totals, and payment terms",
+    "receipt": "Payment receipt or transaction confirmation",
+    "contract": "Legal contract or agreement document",
+    "report": "Business or technical report with analysis and findings",
+    "other": "Other document types not fitting above categories"
+  }
+}
+```
+
+**Exceptions**
+
+- `DocpipeException`: Adapter initialization failures, invalid provider configuration
+- `ValueError`: Invalid response format from LLM
+- `json.JSONDecodeError`: Failed to parse LLM response
+
+**Example - LiteLLM with OpenAI**
+
+```json
+{
+  "id": "classify-node",
+  "name": "classify",
+  "operator": "classification_operator",
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/gpt-4o-mini",
+      "api_key": "${OPENAI_API_KEY}"
+    },
+    "document_types": {
+      "invoice": "Business invoice with line items and totals",
+      "receipt": "Payment receipt or confirmation",
+      "contract": "Legal contract or agreement",
+      "report": "Business or technical report"
+    },
+    "confidence_threshold": 8.0,
+    "include_confidence": true,
+    "include_reasoning": true,
+    "max_content_length": 4000
+  }
+}
+```
+
+**Example - LiteLLM with Ollama OpenAI-Compatible Endpoint**
+
+```json
+{
+  "id": "classify-node",
+  "name": "classify",
+  "operator": "document_classifier",
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/llama3.2:latest",
+      "api_key": "${api-key}",
+      "api_base": "http://localhost:11434/v1"
+    },
+    "document_types": {
+      "invoice": "Business invoice with line items, totals, and payment terms",
+      "receipt": "Payment receipt or transaction confirmation",
+      "contract": "Legal contract or agreement document",
+      "other": "Other document types"
+    },
+    "confidence_threshold": 7.0,
+    "include_confidence": true,
+    "include_reasoning": true
+  }
+}
+```
+
+**Architecture**
+
+Uses simplified service-based architecture:
+
+- **Operator Layer**: `DocumentClassifierOperator` handles PyArrow table processing and orchestration
+- **Service Layer**: `ClassificationService` contains business logic for document classification
+- **Domain Layer**: Pure domain models (`ClassificationRequest`, `ClassificationResponse`) and prompt building
+- **Infrastructure Layer**: Leverages shared `LLMAdapterFactory` for multi-provider LLM support (LiteLLM, Watsonx)
+
+This simplified design removes the port/adapter overhead while maintaining clean separation of concerns and provider flexibility through the shared LLM infrastructure.
+
+**Related Documentation**
+
+- [Classification Operator Guide](docs/operators/document_classifier.md)
+- [Extract Operator](docs/operators/extract_operator.md)
+
+---
+
+#### LanguageDetect
+
+**Purpose:** Detect document language and confidence scores using a pluggable adapter.
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.language_detection.lang_id.LanguageDetect`
+
+| Parameter                 | Type   | Required | Default      | Description                              |
+| ------------------------- | ------ | -------: | ------------ | ---------------------------------------- |
+| `doc_column`              | string |       No | `content`    | Text input column                        |
+| `filter_unknown_language` | bool   |       No | `false`      | Drop documents that cannot be classified |
+| `language_provider`       | string |       No | `langdetect` | Detection provider                       |
+
+**Output Schema**
+
+- language name column
+- language score column
+
+---
+
+#### ReadabilityOperator
+
+**Purpose:** Compute readability metrics using pyphen-based implementation.
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.readability.ReadabilityOperator`
+
+| Parameter                | Type         | Required | Default           | Description        |
+| ------------------------ | ------------ | -------: | ----------------- | ------------------ |
+| `doc_column`             | string       |       No | `content`         | Input text column  |
+| `readability_score_list` | list[string] |      Yes | default score set | Metrics to compute |
+
+**Output Schema**
+
+- selected readability columns
+
+---
+
+#### RedactionOperator
+
+**Purpose:** Mask words or regex matches in document content.
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.redaction.RedactionOperator`
+
+| Parameter           | Type   | Required | Default           | Description                  |
+| ------------------- | ------ | -------: | ----------------- | ---------------------------- |
+| `doc_column`        | string |       No | `content`         | Input text column            |
+| `regex`             | string |      Yes | -                 | Pattern or literal to redact |
+| `masking_character` | string |       No | `*`               | Replacement character        |
+| `stats_column`      | string |       No | `redaction_stats` | Per-row redaction count      |
+
+**Output Schema**
+
+- updated `content`
+- redaction stats column
+
+---
+#### PIIAndHAPAnnotator
+
+**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using Large Language Models.
+
+**Category:** Quality
+
+**Short Name:** `pii_and_hap`
+
+**Class:** `core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator`
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `provider` | string | No | `litellm` | LLM provider (`ollama`, `watsonx`, `litellm`) |
+| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"<any-string-works-for-ollama-no-need-of-api-key>"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. |
+| `provider_config.model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
+| `doc_column` | string | No | `content` | Input text column |
+| `pii_types` | list[string] | No | all types | PII types to detect |
+| `hap_types` | list[string] | No | all types | HAP types to detect |
+| `output_column_prefix` | string | No | `pii_hap_` | Prefix for output columns |
+
+**Output Schema:**
+- `{prefix}pii_detected` (bool)
+- `{prefix}hap_detected` (bool)
+- `{prefix}pii_types` (list)
+- `{prefix}hap_types` (list)
+- Optional confidence and reasoning columns
+
+**See Also:** [PII and HAP Documentation](docs/operators/pii_and_hap/pii_and_hap.md)
+
+---
+
+#### EdedupOperator
+
+**Purpose:** Remove exact duplicate documents using `dpk_ededup`.
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.ededup.EdedupOperator`
+
+| Parameter     | Type   | Required | Default          | Description               |
+| ------------- | ------ | -------: | ---------------- | ------------------------- |
+| `doc_column`  | string |       No | `content`        | Content column to compare |
+| `doc_id_hash` | string |       No | `doc_id_hash`    | Hash/id column            |
+| `filter`      | object |       No | `HashFilter({})` | Hash filter state/config  |
+
+---
+
+#### MLEnrichmentOperator
+
+**Purpose:** Compute text quality features using `dpk_enrichment`.
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.ml_enrichment.MLEnrichmentOperator`
+
+| Parameter                        | Type   | Required | Default           | Description                          |
+| -------------------------------- | ------ | -------: | ----------------- | ------------------------------------ |
+| `doc_column`                     | string |       No | `content`         | Input text column                    |
+| `lang_column`                    | string |       No | language constant | Language column                      |
+| `output_column_prefix`           | string |       No | `""`              | Prefix for generated feature columns |
+| `newline_normalized_column_name` | string |       No | `""`              | Optional normalized text output      |
+| `error_column_name`              | string |       No | `""`              | Optional per-row error column        |
+
+---
+
+#### SQLFilterOperator
+
+**Purpose:** Filter rows with SQL-like expressions or structured criteria and optionally drop selected columns.
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.sql_filter.SQLFilterOperator`
+
+| Parameter                 | Type         | Required | Default | Description                       |
+| ------------------------- | ------------ | -------: | ------- | --------------------------------- |
+| `filter_criteria_list`    | list[string] |       No | `[]`    | SQL-style predicates              |
+| `filter_logical_operator` | string       |       No | `AND`   | Join operator for criteria        |
+| `features_to_drop`        | list[string] |       No | `[]`    | Columns to remove after filtering |
+| `filter_criteria_json`    | object       |       No | -       | Structured criteria format        |
 
 ### Functional Operators
 
@@ -1520,149 +1660,6 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 **Output Schema**
 
 - `doc_id_hash`
-
-### Quality Operators
-
-#### LanguageDetect
-
-**Purpose:** Detect document language and confidence scores using a pluggable adapter.
-
-**Category:** Quality
-
-**Class:** `core.operators.quality.language_detection.lang_id.LanguageDetect`
-
-| Parameter                 | Type   | Required | Default      | Description                              |
-| ------------------------- | ------ | -------: | ------------ | ---------------------------------------- |
-| `doc_column`              | string |       No | `content`    | Text input column                        |
-| `filter_unknown_language` | bool   |       No | `false`      | Drop documents that cannot be classified |
-| `language_provider`       | string |       No | `langdetect` | Detection provider                       |
-
-**Output Schema**
-
-- language name column
-- language score column
-
----
-
-#### ReadabilityOperator
-
-**Purpose:** Compute readability metrics using pyphen-based implementation.
-
-**Category:** Quality
-
-**Class:** `core.operators.quality.readability.ReadabilityOperator`
-
-| Parameter                | Type         | Required | Default           | Description        |
-| ------------------------ | ------------ | -------: | ----------------- | ------------------ |
-| `doc_column`             | string       |       No | `content`         | Input text column  |
-| `readability_score_list` | list[string] |      Yes | default score set | Metrics to compute |
-
-**Output Schema**
-
-- selected readability columns
-
----
-
-#### RedactionOperator
-
-**Purpose:** Mask words or regex matches in document content.
-
-**Category:** Quality
-
-**Class:** `core.operators.quality.redaction.RedactionOperator`
-
-| Parameter           | Type   | Required | Default           | Description                  |
-| ------------------- | ------ | -------: | ----------------- | ---------------------------- |
-| `doc_column`        | string |       No | `content`         | Input text column            |
-| `regex`             | string |      Yes | -                 | Pattern or literal to redact |
-| `masking_character` | string |       No | `*`               | Replacement character        |
-| `stats_column`      | string |       No | `redaction_stats` | Per-row redaction count      |
-
-**Output Schema**
-
-- updated `content`
-- redaction stats column
-
----
-#### PIIAndHAPAnnotator
-
-**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using Large Language Models.
-
-**Category:** Quality
-
-**Short Name:** `pii_and_hap`
-
-**Class:** `core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator`
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `provider` | string | No | `litellm` | LLM provider (`ollama`, `watsonx`, `litellm`) |
-| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"<any-string-works-for-ollama-no-need-of-api-key>"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. |
-| `provider_config.model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
-| `doc_column` | string | No | `content` | Input text column |
-| `pii_types` | list[string] | No | all types | PII types to detect |
-| `hap_types` | list[string] | No | all types | HAP types to detect |
-| `output_column_prefix` | string | No | `pii_hap_` | Prefix for output columns |
-
-**Output Schema:**
-- `{prefix}pii_detected` (bool)
-- `{prefix}hap_detected` (bool)
-- `{prefix}pii_types` (list)
-- `{prefix}hap_types` (list)
-- Optional confidence and reasoning columns
-
-**See Also:** [PII and HAP Documentation](docs/operators/pii_and_hap/pii_and_hap.md)
-
----
-
-#### EdedupOperator
-
-**Purpose:** Remove exact duplicate documents using `dpk_ededup`.
-
-**Category:** Quality
-
-**Class:** `core.operators.quality.ededup.EdedupOperator`
-
-| Parameter     | Type   | Required | Default          | Description               |
-| ------------- | ------ | -------: | ---------------- | ------------------------- |
-| `doc_column`  | string |       No | `content`        | Content column to compare |
-| `doc_id_hash` | string |       No | `doc_id_hash`    | Hash/id column            |
-| `filter`      | object |       No | `HashFilter({})` | Hash filter state/config  |
-
----
-
-#### MLEnrichmentOperator
-
-**Purpose:** Compute text quality features using `dpk_enrichment`.
-
-**Category:** Quality
-
-**Class:** `core.operators.quality.ml_enrichment.MLEnrichmentOperator`
-
-| Parameter                        | Type   | Required | Default           | Description                          |
-| -------------------------------- | ------ | -------: | ----------------- | ------------------------------------ |
-| `doc_column`                     | string |       No | `content`         | Input text column                    |
-| `lang_column`                    | string |       No | language constant | Language column                      |
-| `output_column_prefix`           | string |       No | `""`              | Prefix for generated feature columns |
-| `newline_normalized_column_name` | string |       No | `""`              | Optional normalized text output      |
-| `error_column_name`              | string |       No | `""`              | Optional per-row error column        |
-
----
-
-#### SQLFilterOperator
-
-**Purpose:** Filter rows with SQL-like expressions or structured criteria and optionally drop selected columns.
-
-**Category:** Quality
-
-**Class:** `core.operators.quality.sql_filter.SQLFilterOperator`
-
-| Parameter                 | Type         | Required | Default | Description                       |
-| ------------------------- | ------------ | -------: | ------- | --------------------------------- |
-| `filter_criteria_list`    | list[string] |       No | `[]`    | SQL-style predicates              |
-| `filter_logical_operator` | string       |       No | `AND`   | Join operator for criteria        |
-| `features_to_drop`        | list[string] |       No | `[]`    | Columns to remove after filtering |
-| `filter_criteria_json`    | object       |       No | -       | Structured criteria format        |
 
 ### VectorDB Operators
 

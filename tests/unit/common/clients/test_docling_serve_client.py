@@ -19,12 +19,22 @@ class TestDoclingServeClient:
 
     def test_init_default_values(self):
         """Test client initialization with default values."""
-        client = DoclingServeClient()
-        assert client.base_url == "http://0.0.0.0:5001"
+        client = DoclingServeClient(base_url="http://localhost:5001")
+        assert client.base_url == "http://localhost:5001"
         assert client.api_key is None
         assert client.timeout == 300
         assert client.poll_interval == 2
         # max_retries is passed to RestClient but not stored as instance attribute
+
+    def test_init_empty_base_url_validation(self):
+        """Test client initialization validates empty base_url."""
+        with pytest.raises(ValueError, match="base_url must not be empty"):
+            DoclingServeClient(base_url="")
+
+    def test_init_whitespace_base_url_validation(self):
+        """Test client initialization validates whitespace-only base_url."""
+        with pytest.raises(ValueError, match="base_url must not be empty"):
+            DoclingServeClient(base_url="   ")
 
     def test_init_custom_values(self):
         """Test client initialization with custom values."""
@@ -44,7 +54,7 @@ class TestDoclingServeClient:
 
     def test_build_options_defaults(self):
         """Test default options building."""
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         options = client._build_options()
 
         assert options["do_ocr"] is True
@@ -54,7 +64,7 @@ class TestDoclingServeClient:
 
     def test_build_options_override(self):
         """Test options override."""
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         custom_options = {"do_ocr": False, "custom_param": "value"}
         options = client._build_options(custom_options)
 
@@ -64,14 +74,14 @@ class TestDoclingServeClient:
 
     def test_submit_document_validation_error(self):
         """Test submit_document raises error when both params provided."""
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
 
         with pytest.raises(ValueError, match="Provide exactly one"):
             client.submit_document(file_path="test.pdf", binary_content=b"data")
 
     def test_submit_document_validation_error_neither(self):
         """Test submit_document raises error when neither param provided."""
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
 
         with pytest.raises(ValueError, match="Provide exactly one"):
             client.submit_document()
@@ -92,7 +102,7 @@ class TestDoclingServeClient:
         mock_rest_client_class.return_value = mock_rest_client_instance
 
         # Execute
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         task_id = client.submit_document(file_path="test.pdf")
 
         # Verify
@@ -111,7 +121,7 @@ class TestDoclingServeClient:
         mock_rest_client_class.return_value = mock_rest_client_instance
 
         # Execute
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         binary_data = b"test binary content"
         task_id = client.submit_document(binary_content=binary_data)
 
@@ -134,7 +144,7 @@ class TestDoclingServeClient:
         mock_rest_client_class.return_value = mock_rest_client_instance
 
         # Execute
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         binary_data = b"test binary content"
         task_id = client.submit_document(binary_content=binary_data, filename="custom.docx")
 
@@ -154,7 +164,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="document.pdf")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -169,7 +179,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="document.docx")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -184,7 +194,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="page.html")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -199,7 +209,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="readme.md")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -214,7 +224,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="notes.txt")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -229,7 +239,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="spreadsheet.xlsx")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -244,7 +254,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="presentation.pptx")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -259,7 +269,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="file.xyz")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -274,7 +284,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         client.submit_document(binary_content=b"data", filename="important_doc.pdf")
 
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
@@ -289,7 +299,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         # Should not raise error when filename is not provided
         task_id = client.submit_document(binary_content=b"data")
 
@@ -309,7 +319,7 @@ class TestDoclingServeClient:
             error_code=ErrorCode.CONNECTION_ERROR,
         )
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         with pytest.raises(DocpipeException, match="Connection failed"):
             client.submit_document(binary_content=b"data")
 
@@ -321,7 +331,7 @@ class TestDoclingServeClient:
         mock_call_rest_json.return_value = {"task_status": "SUCCESS", "progress": 100}
 
         # Execute
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         status = client.poll_status(task_id="test-task-123")
 
         # Verify
@@ -341,7 +351,7 @@ class TestDoclingServeClient:
         mock_call_rest_json.side_effect = responses
 
         # Execute
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         status = client.poll_status(task_id="test-task-123")
 
         # Verify
@@ -356,7 +366,7 @@ class TestDoclingServeClient:
             "error": "Processing failed",
         }
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         with pytest.raises(DocpipeException, match="Task test-task-123 failed"):
             client.poll_status(task_id="test-task-123")
 
@@ -365,7 +375,7 @@ class TestDoclingServeClient:
         """Test get_result retrieves document data."""
         mock_call_rest_json.return_value = {"document": "data", "metadata": {}}
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         result = client.get_result(task_id="test-task-123")
 
         assert "document" in result
@@ -380,7 +390,7 @@ class TestDoclingServeClient:
             error_code=ErrorCode.CONNECTION_ERROR,
         )
 
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         with pytest.raises(DocpipeException, match="Network error"):
             client.get_result(task_id="test-task-123")
 
@@ -399,7 +409,7 @@ class TestDoclingServeClient:
         mock_get_result.return_value = {"document": "processed"}
 
         # Execute
-        client = DoclingServeClient()
+        client = DoclingServeClient(base_url="http://localhost:5001")
         result = client.process_document(binary_content=b"data")
 
         # Verify all methods called

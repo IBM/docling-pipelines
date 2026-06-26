@@ -292,9 +292,9 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 
 #### 8. `text_extraction.provider_config.base_url` (String)
 **Type:** String  
-**Required:** No  
-**Default:** `"http://localhost:5001"`  
-**Description:** Base URL for the docling-serve service (docling_serve provider only).  
+**Required:** Yes (when using `provider: "docling_serve"`)  
+**Default:** None  
+**Description:** Base URL for the docling-serve service (docling_serve mode only). Must not be empty or whitespace-only.  
 
 **Examples:**
 ```json
