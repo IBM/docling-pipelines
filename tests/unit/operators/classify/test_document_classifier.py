@@ -917,5 +917,82 @@ def test_transform_sets_correct_status_on_success(basic_litellm_config):
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
 
 
+@pytest.mark.unit
+def test_temp_pages_processed_column_added():
+    """Test that _temp_pages_processed column is added when content is fetched."""
+    from unittest.mock import patch
+
+    # Create sample table without content column (simulating content fetch scenario)
+    table = pa.table(
+        {
+            "id": ["doc1", "doc2"],
+            "name": ["test1.pdf", "test2.pdf"],
+            "path": ["/path/to/test1.pdf", "/path/to/test2.pdf"],
+        }
+    )
+
+    config = {
+        "provider": "litellm",
+        "provider_config": {
+            "model_id": "openai/llama3",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",  # pragma: allowlist secret
+        },
+        "document_types": ["invoice", "receipt"],
+        "doc_column": "content",
+    }
+
+    operator = DocumentClassifierOperator(config)
+
+    # Mock the content extraction and classification
+    with patch.object(operator, "_classify_document") as mock_classify:
+        mock_classify.return_value = {
+            "success": True,
+            "document_type": "invoice",
+            "confidence": 9,
+            "reasoning": "Test",
+            "is_confident": True,
+        }
+
+        # Mock OperatorUtils.extract_content to return content
+        with patch("docpipe.core.operators.operator_utils.OperatorUtils.extract_content") as mock_extract:
+            mock_extract.return_value = {
+                "success": True,
+                "content": "A" * 3000,  # 1 page worth of content
+            }
+
+            # Mock OperatorUtils.prepare_document_content_fetch
+            with patch(
+                "docpipe.core.operators.operator_utils.OperatorUtils.prepare_document_content_fetch"
+            ) as mock_prepare:
+                mock_prepare.return_value = [
+                    {
+                        "idx": 0,
+                        "doc_id": "doc1",
+                        "doc_name": "test1.pdf",
+                        "binary_content": b"fake_binary",
+                    },
+                    {
+                        "idx": 1,
+                        "doc_id": "doc2",
+                        "doc_name": "test2.pdf",
+                        "binary_content": b"fake_binary",
+                    },
+                ]
+
+                result_tables, _ = operator.transform(table)
+                result_table = result_tables[0]
+
+                # Verify _temp_content_for_extract column was added
+                assert DocpipeConstants.TEMP_CONTENT_COLUMN in result_table.column_names
+
+                # Verify _temp_pages_processed column was added
+                assert DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN in result_table.column_names
+
+                # Verify page counts are correct (both should be 1 page)
+                pages_column = result_table[DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN].to_pylist()
+                assert pages_column == [1, 1]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

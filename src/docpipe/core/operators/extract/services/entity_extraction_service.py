@@ -139,7 +139,6 @@ class EntityExtractionService:
         document_types, schema_templates = self._prepare_schemas(table=table)
         doc_tasks = self._prepare_document_tasks(table, document_types, metadata)
         entities_list: list[dict[str, Any]] = [{} for _ in range(table.num_rows)]
-        content_list: dict[str, Any] = {}
 
         logger.info(
             "Processing %s documents in parallel with %s workers using %s",
@@ -149,12 +148,10 @@ class EntityExtractionService:
         )
 
         # Process documents in parallel and collect results
-        self._process_documents_parallel(doc_tasks, schema_templates, entities_list, metadata, content_list)
+        self._process_documents_parallel(doc_tasks, schema_templates, entities_list, metadata)
 
         # Add entities to table and finalize
-        table = self._finalize_table(
-            table=table, entities_list=entities_list, content_list=content_list, metadata=metadata
-        )
+        table = self._finalize_table(table=table, entities_list=entities_list, metadata=metadata)
         metadata = self._set_execution_status(metadata=metadata)
 
         return [table], metadata
@@ -253,7 +250,6 @@ class EntityExtractionService:
         schema_templates: dict[str, dict],
         entities_list: list[dict[str, Any]],
         metadata: dict[str, Any],
-        content_list: dict[str, Any] | None = None,
     ) -> None:
         """Process documents in parallel using ThreadPoolExecutor.
 
@@ -262,7 +258,6 @@ class EntityExtractionService:
             schema_templates: Cache of loaded schemas by document type
             entities_list: List to populate with extracted entities
             metadata: Metadata dictionary for tracking results
-            content_list: Dictionary to populate with extracted content
         """
         # Progress tracking variables
         completed_count = 0
@@ -294,7 +289,7 @@ class EntityExtractionService:
                     failed_count += 1
 
                 # Handle the extraction result
-                self._handle_extraction_result(future, task, entities_list, metadata, content_list)
+                self._handle_extraction_result(future, task, entities_list, metadata)
 
                 # Update progress periodically (every update_interval seconds)
                 current_time = time.time()
@@ -378,7 +373,6 @@ class EntityExtractionService:
         task: dict[str, Any],
         entities_list: list[dict[str, Any]],
         metadata: dict[str, Any],
-        content_list: dict[str, Any] | None = None,
     ) -> None:
         """Handle the result of a single extraction task.
 
@@ -387,7 +381,6 @@ class EntityExtractionService:
             task: Task dictionary with document information
             entities_list: List to populate with extracted entities
             metadata: Metadata dictionary for tracking results
-            content_list: Dictionary to populate with extracted content
         """
         idx = task["idx"]
 
@@ -398,8 +391,6 @@ class EntityExtractionService:
                 # All shared data structure updates need thread safety
                 with self._metadata_lock:
                     entities_list[idx] = result[OperatorConstants.Misc.ENTITIES]
-                    if content_list is not None and result.get(OperatorConstants.Columns.DOC_COLUMN, None):
-                        content_list[idx] = result[OperatorConstants.Columns.DOC_COLUMN]
                     metadata[Metrics.External.PROCESSED_DOCS] += 1
                 logger.debug("Extracted entities for document %s:\n %s", task["doc_name"], entities_list[idx])
                 return
@@ -416,7 +407,6 @@ class EntityExtractionService:
         *,
         table: pa.Table,
         entities_list: list[dict[str, Any]],
-        content_list: dict[str, Any] | None = None,
         metadata: dict[str, Any],
     ) -> pa.Table:
         """Add entities column and hash IDs to table.
@@ -424,7 +414,6 @@ class EntityExtractionService:
         Args:
             table: PyArrow table to finalize
             entities_list: List of extracted entities
-            content_list: Dictionary of extracted content
             metadata: Metadata dictionary containing processing stats
 
         Returns:
@@ -437,14 +426,6 @@ class EntityExtractionService:
             # Optionally expand entities into individual columns
             if self.expand_extracted_data and entities_list:
                 table = self._expand_entities_columns(table=table, entities_list=entities_list)
-
-            # check table doesn't already have content column then add it
-            if self.doc_column not in table.column_names:
-                content_col_list: list[str] = [""] * table.num_rows
-                if content_list:
-                    for idx_key, content in content_list.items():
-                        content_col_list[int(idx_key)] = content
-                table = TransformUtils.add_column(table=table, name=self.doc_column, content=content_col_list)
 
             # Add entities column - convert to JSON strings for PyArrow compatibility
             entities_json_list: list[str] = [json.dumps(entity) if entity else "{}" for entity in entities_list]

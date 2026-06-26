@@ -78,6 +78,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
             "provider": "docling_library",
             "doc_column": "doc_content",
         },
+        "entity_extraction": {"provider": "none"},
         "max_workers": 2,
     }
 
@@ -151,6 +152,7 @@ def test_extract_operator_multi_format_output(sample_pdf_files):
                 "additional_formats": ["html", "json"],
             },
         },
+        "entity_extraction": {"provider": "none"},
         "max_workers": 2,
     }
 
@@ -221,6 +223,7 @@ def test_extract_operator_default_format(sample_pdf_files):
             "provider": "docling_library",
             "doc_column": "doc_content",
         },
+        "entity_extraction": {"provider": "none"},
         "max_workers": 2,
     }
 
@@ -285,6 +288,7 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
             },
             "doc_column": "doc_content",
         },
+        "entity_extraction": {"provider": "none"},
         "max_workers": 2,
     }
 
@@ -321,6 +325,7 @@ def test_extract_operator_docling_serve_config_validation():
                 "base_url": "http://docpipe-worker1.fyre.ibm.com:30501/",
             },
         },
+        "entity_extraction": {"provider": "none"},
     }
 
     operator = ExtractOperator(config=config)
@@ -2095,6 +2100,9 @@ def test_extract_operator_stage_progress_metadata(mock_text_transform):
         "text_extraction": {
             "provider": "docling_library",
         },
+        "entity_extraction": {
+            "provider": "none",
+        },
         "job_id": "test-job",
         "job_run_id": "test-run",
         "node_id": "test-node",
@@ -2120,3 +2128,50 @@ def test_extract_operator_stage_progress_metadata(mock_text_transform):
     assert text_stage["documents_completed"] == 2
     assert text_stage["documents_failed"] == 0
     assert text_stage["progress_percentage"] == 100.0
+
+
+@pytest.mark.unit
+def test_extract_content_reuse_with_temp_pages_and_hash():
+    """Test that ExtractOperator handles content reuse metadata correctly."""
+    import pyarrow as pa
+
+    from docpipe.core.constants import DocpipeConstants
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    # Create table with reused content and temp pages column
+    table = pa.table(
+        {
+            "id": ["doc1", "doc2"],
+            "name": ["test1.pdf", "test2.pdf"],
+            DocpipeConstants.TEMP_CONTENT_COLUMN: [
+                {"text": "Content for doc1"},
+                {"text": "Content for doc2"},
+            ],
+            DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN: [1, 2],
+        }
+    )
+
+    config = {
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "content",
+        },
+        "entity_extraction": {"provider": "none"},
+    }
+
+    operator = ExtractOperator(config=config)
+    result_tables, _ = operator.transform(table)
+    result_table = result_tables[0]
+
+    # Verify temp column was renamed to final column
+    assert OperatorConstants.Columns.PAGES_PROCESSED in result_table.column_names
+    assert DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN not in result_table.column_names
+
+    # Verify page counts are preserved
+    pages_column = result_table[OperatorConstants.Columns.PAGES_PROCESSED].to_pylist()
+    assert pages_column == [1, 2]
+
+    # Verify doc_hash_id column was added
+    assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result_table.column_names
+    hash_column = result_table[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
+    assert all(h is not None for h in hash_column)

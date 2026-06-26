@@ -469,11 +469,14 @@ class DocumentClassifierOperator(AbstractOperator):
         content_was_fetched = False
         # Process documents in parallel
         doc_contents = []
+        doc_extraction_metadata = []  # Track extraction metadata for page counts
         skipped_indices = set()  # Track indices skipped due to unsupported extensions
 
         if doc_column_exists:
             # Use existing content column
             doc_contents = table.column(self.doc_column).to_pylist()
+            # No extraction metadata available when content already exists
+            doc_extraction_metadata = [None] * table.num_rows
             logger.info(f"Using existing '{self.doc_column}' column for classification")
 
             # Validate file extensions for existing content
@@ -527,6 +530,9 @@ class DocumentClassifierOperator(AbstractOperator):
                     future_to_task[future] = task
 
                 # Collect results as they complete
+                # Also collect extraction metadata for page counts
+                doc_extraction_metadata = [None] * table.num_rows
+
                 for future in as_completed(future_to_task):
                     task = future_to_task[future]
                     idx = task["idx"]
@@ -536,6 +542,8 @@ class DocumentClassifierOperator(AbstractOperator):
 
                         if result[OperatorConstants.Extraction.SUCCESS]:
                             doc_contents[idx] = result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+                            # Store extraction metadata for page count extraction
+                            doc_extraction_metadata[idx] = result.get(OperatorConstants.Metadata.METADATA, {})
                         else:
                             self.record_failed_document(
                                 metadata=metadata,
@@ -658,11 +666,44 @@ class DocumentClassifierOperator(AbstractOperator):
         output_table = table
 
         # Handle content column storage based on whether it was fetched
-        if content_was_fetched:
+        # Only store temp columns if ALL documents have supported extensions (no skipped documents)
+        # This ensures Extract operator doesn't have mixed content (some null, some not)
+        if content_was_fetched and len(skipped_indices) == 0:
             output_table = TransformUtils.add_column(output_table, DocpipeConstants.TEMP_CONTENT_COLUMN, doc_contents)
 
             logger.info(
                 f"Stored fetched content in '{DocpipeConstants.TEMP_CONTENT_COLUMN}' column for potential reuse by extract operator"
+            )
+
+            # Calculate and store pages_processed for content reuse scenario
+            # Try to use page_count from Docling metadata first, fall back to character-based calculation
+            pages_processed_list = []
+            for idx, content in enumerate(doc_contents):
+                # Try to get page count from extraction metadata (from Docling)
+                extraction_meta = doc_extraction_metadata[idx] if idx < len(doc_extraction_metadata) else None
+                native_page_count = extraction_meta.get("page_count") if extraction_meta else None
+
+                if native_page_count and isinstance(native_page_count, (int, float)) and native_page_count > 0:
+                    # Use native page count from Docling metadata
+                    page_count = int(native_page_count)
+                else:
+                    # Fallback to character-based calculation
+                    char_count = len(content) if content else 0
+                    chars_per_page = OperatorConstants.Processing.CHARS_PER_PAGE
+                    page_count = max(1, (char_count + chars_per_page - 1) // chars_per_page)
+
+                pages_processed_list.append(page_count)
+
+            output_table = TransformUtils.add_column(
+                output_table, DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN, pages_processed_list
+            )
+            logger.info(
+                f"Calculated and stored page counts in '{DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN}' column for extract operator"
+            )
+        elif content_was_fetched and len(skipped_indices) > 0:
+            logger.info(
+                f"Skipping temp column creation: {len(skipped_indices)} documents with unsupported extensions detected. "
+                f"Extract operator will fetch content for all documents."
             )
 
         # Add classification columns to table

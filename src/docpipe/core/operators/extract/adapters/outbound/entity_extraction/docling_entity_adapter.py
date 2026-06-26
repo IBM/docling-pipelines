@@ -274,7 +274,6 @@ class DoclingEntityAdapter(EntityExtractionPort):
             {
                 "success": bool,
                 "entities": dict,
-                "doc_content": str,
                 "metadata": dict,
                 "error": str | None
             }
@@ -307,7 +306,6 @@ class DoclingEntityAdapter(EntityExtractionPort):
 
             # Convert pages to proper dict format
             pages_data = []
-            raw_text = ""
             for page in result.pages:
                 extracted_data = page.extracted_data
 
@@ -322,19 +320,15 @@ class DoclingEntityAdapter(EntityExtractionPort):
                 page_dict = {
                     OperatorConstants.Extraction.PAGE_NO: page.page_no,
                     OperatorConstants.Columns.EXTRACTED_DATA: extracted_data,
-                    OperatorConstants.Columns.RAW_TEXT: page.raw_text,
                     OperatorConstants.Extraction.ERRORS: page.errors,
                 }
                 pages_data.append(page_dict)
-                if page.raw_text:
-                    raw_text += page.raw_text + "\n"
             logger.info("Saved structured results for %s", doc_name)
             logger.debug(f"Extraction Format Options used: {extractor.extraction_format_to_options}")
             logger.debug(f"Extracted Pages: {pages_data}")
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
                 OperatorConstants.Misc.ENTITIES: pages_data,
-                OperatorConstants.Columns.DOC_COLUMN: raw_text,
                 OperatorConstants.Metadata.METADATA: {"page_count": len(pages_data)},
             }
         except ImportError as e:

@@ -110,6 +110,7 @@ class DocpipeConstants:
     DATA_STORAGE_TYPE = "data_storage_type"
     DISABLE_VALIDATION = "disable_validation"
     TEMP_CONTENT_COLUMN = "_temp_content_for_extract"
+    TEMP_PAGES_PROCESSED_COLUMN = "_temp_pages_processed"
 
     # Storage configuration
     STORAGE_TYPE = "storage_type"

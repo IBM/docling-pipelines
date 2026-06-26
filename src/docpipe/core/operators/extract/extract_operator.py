@@ -713,6 +713,15 @@ class ExtractOperator(AbstractOperator):
                 temp_idx = column_names.index(DocpipeConstants.TEMP_CONTENT_COLUMN)
                 column_names[temp_idx] = self.doc_column
 
+                # Also rename _temp_pages_processed if present
+                if DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN in table.column_names:
+                    temp_pages_idx = column_names.index(DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN)
+                    column_names[temp_pages_idx] = OperatorConstants.Columns.PAGES_PROCESSED
+                    logger.info(
+                        f"Renaming '{DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN}' to "
+                        f"'{OperatorConstants.Columns.PAGES_PROCESSED}'"
+                    )
+
                 table = pa.table(
                     {
                         name: table.column(old_name)
@@ -738,43 +747,35 @@ class ExtractOperator(AbstractOperator):
 
                 logger.info(
                     f"Pre-fetched content found but not reusable ({reason_str}). "
-                    f"Dropping '{DocpipeConstants.TEMP_CONTENT_COLUMN}' and performing fresh extraction."
+                    f"Dropping temporary columns and performing fresh extraction."
                 )
-                table = table.drop([DocpipeConstants.TEMP_CONTENT_COLUMN])
+                # Drop both temp columns if present
+                columns_to_drop = []
+                if DocpipeConstants.TEMP_CONTENT_COLUMN in table.column_names:
+                    columns_to_drop.append(DocpipeConstants.TEMP_CONTENT_COLUMN)
+                if DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN in table.column_names:
+                    columns_to_drop.append(DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN)
+
+                if columns_to_drop:
+                    table = table.drop(columns_to_drop)
 
         result_tables: list[pa.Table] = []
         text_metadata: dict[str, Any] = {}
         entity_metadata: dict[str, Any] | None = None
 
         try:
-            # Special case: if text_mode is docling_library and entity_mode is docling,
-            # entity_mode docling can get content as well (combined extraction)
-            if (
-                self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY
-                and self.entity_extraction_mode == EntityExtractionMode.DOCLING
-            ):
-                logger.info("Starting combined text and entity extraction")
-                if self.entity_adapter:
-                    result_tables, result_metadata = self.entity_adapter.transform(table=table, metadata=metadata)
-                else:
-                    raise FlowExecutionFailedException("Entity adapter not initialized for combined extraction")
-
-                # Add page statistics to metadata
-                result_metadata = self._add_page_statistics(metadata=result_metadata, table=result_tables[0])
-
-                # Drop binary_content column after extraction is complete
-                result_tables = self._drop_binary_content_column(tables=result_tables)
-
-                logger.info(
-                    "Extraction completed: %s/%s documents processed",
-                    result_metadata.get(Metrics.External.PROCESSED_DOCS, 0),
-                    result_metadata.get(Metrics.External.TOTAL_DOCS, table.num_rows),
-                )
-                return result_tables, result_metadata
-
             # Step 1: Text extraction (skip if content was reused)
             if content_reused:
                 # Content already present in doc_column, skip text extraction
+                # But we still need to generate doc_hash_id if not present
+                from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
+
+                if OperatorConstants.Columns.DOC_ID_HASH_DEFAULT not in table.column_names:
+                    logger.info("Generating hash id for reused content")
+                    hash_operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
+                    table_list, _ = hash_operator.transform(table)
+                    table = table_list[0]
+
                 result_tables = [table]
                 text_metadata = metadata.copy()
                 text_metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows

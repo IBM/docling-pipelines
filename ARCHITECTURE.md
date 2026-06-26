@@ -665,7 +665,7 @@ When a flow is executed, the **original flow definition** (before compilation to
 - This preserves the exact flow configuration used for that specific execution
 - Enables audit trails and reproducibility of past executions
 - The file is saved as `flow_definition.json` in the job run's data directory
-- Storage occurs in [`FlowExecutor`](src/datasift/core/orchestration/flow_executor.py) via the job stats service
+- Storage occurs in [`FlowExecutor`](src/docpipe/core/orchestration/flow_executor.py) via the job stats service
 
 **Example Path:**
 ```
