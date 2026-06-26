@@ -614,14 +614,14 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 idx = doc_info["idx"]
-                file_name = name_column[idx]
+                actual_file_name = name_column[idx]
                 _id = id_column[idx]
                 logger.error(
-                    f"PII and HAP extraction failed. {file_name} is removed",
+                    f"PII and HAP extraction failed. {actual_file_name} is removed",
                     extra=self.common_log_arguments,
                 )
                 self._populate_remove_row_id_and_index(
-                    file_name=file_name,
+                    file_name=actual_file_name,
                     metadata=metadata,
                     remove_row_id=remove_row_id,
                     _id=_id,
@@ -675,14 +675,14 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 idx = doc_info["idx"]
-                file_name = name_column[idx]
+                actual_file_name = name_column[idx]
                 _id = id_column[idx]
                 logger.error(
-                    f"PII and HAP extraction failed. {file_name} is removed",
+                    f"PII and HAP extraction failed. {actual_file_name} is removed",
                     extra=self.common_log_arguments,
                 )
                 self._populate_remove_row_id_and_index(
-                    file_name=file_name,
+                    file_name=actual_file_name,
                     metadata=metadata,
                     remove_row_id=remove_row_id,
                     _id=_id,

@@ -6,7 +6,7 @@ This adapter implements the repository port using a hybrid approach:
 """
 
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
@@ -397,7 +397,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                     (library_id, document_set_id, added_at)
                     VALUES (?, ?, ?)
                     """,
-                    (library_id, document_set_id, datetime.utcnow()),
+                    (library_id, document_set_id, datetime.now(UTC).replace(tzinfo=None)),
                 )
 
             logger.info(f"Added document set {document_set_id} to library {library_id}")
@@ -556,7 +556,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             """
 
             # Flatten params: (lib_id, doc_set_id, timestamp) for each document set
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(UTC).replace(tzinfo=None)
             params = []
             for doc_set_id in document_set_ids:
                 params.extend([library_id, doc_set_id, timestamp])

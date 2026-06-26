@@ -54,7 +54,7 @@ class TestSingleton(unittest.TestCase):
         instance_a = ClassA()
         instance_b = ClassB()
 
-        self.assertIsNot(instance_a, instance_b)
+        self.assertNotEqual(type(instance_a), type(instance_b))
 
 
 class TestLowercaseKeys(unittest.TestCase):

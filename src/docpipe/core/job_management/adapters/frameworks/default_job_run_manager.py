@@ -4,7 +4,7 @@ This adapter provides a simple, synchronous job execution framework
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
@@ -66,7 +66,7 @@ class DefaultJobRunManager(JobRunManager):
             DocpipeConstants.JOB_ID: job_id,
             DocpipeConstants.JOB_RUN_ID: job_run_id,
             DocpipeConstants.STATUS: ExecutionStatus.PENDING.value,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
         }
 
     def get_job_run(self, *, job_id: str, job_run_id: str) -> dict[str, Any]:
@@ -125,7 +125,7 @@ class DefaultJobRunManager(JobRunManager):
 
         # Update status
         job_stats.status = status
-        job_stats.heartbeat_timestamp = int(datetime.utcnow().timestamp())
+        job_stats.heartbeat_timestamp = int(datetime.now(UTC).timestamp())
 
         # Merge additional stats if provided
         if job_run_stats:
