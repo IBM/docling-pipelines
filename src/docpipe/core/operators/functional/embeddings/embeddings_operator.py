@@ -49,7 +49,7 @@ PROVIDER_KEY: str = "provider"
 PROVIDER_DEFAULT: str = "litellm"
 
 
-class EmbeddingsOperator(AbstractOperator):
+class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
     """
     Operator for generating embeddings using LLM providers.
 
@@ -400,7 +400,7 @@ class EmbeddingsOperator(AbstractOperator):
         if summary:
             return f"abstract: {summary}\ncontent: {chunk_text}"
 
-        return chunk_text
+        return str(chunk_text)
 
     def _generate_document_hash(self, content: str) -> str:
         """

@@ -107,7 +107,7 @@ def get_supported_file_extensions() -> str:
     return ",".join(supported_extensions)
 
 
-def resolve_env_var(value):
+def resolve_env_var(value: Any) -> Any:
     if not isinstance(value, str):
         return value
     if value.startswith("${") and value.endswith("}"):
@@ -117,12 +117,12 @@ def resolve_env_var(value):
             parts = env_var_name.split(":", 1)
             env_var_name = parts[0]
             default_value = parts[1].lstrip("-")  # Remove optional '-' after colon
-            resolved = os.getenv(env_var_name, default_value)
+            return os.getenv(env_var_name, default_value)
         else:
             resolved = os.getenv(env_var_name)
             if resolved is None:
                 raise ValueError(f"Environment variable {env_var_name} is not set")
-        return resolved
+            return resolved
     if value.startswith("$"):
         env_var_name = value[1:]
         resolved = os.getenv(env_var_name)
@@ -161,22 +161,22 @@ class OperatorUtils:
             'Completed'
         """
         if failed_count > 0 and processed_count == 0:
-            return ExecutionStatus.FAILED.value
+            return str(ExecutionStatus.FAILED.value)
         elif failed_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_ERRORS.value
+            return str(ExecutionStatus.COMPLETED_WITH_ERRORS.value)
         elif skipped_count > 0 and processed_count == 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+            return str(ExecutionStatus.COMPLETED_WITH_WARNINGS.value)
         elif skipped_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+            return str(ExecutionStatus.COMPLETED_WITH_WARNINGS.value)
         else:
-            return ExecutionStatus.COMPLETED.value
+            return str(ExecutionStatus.COMPLETED.value)
 
     @staticmethod
     def validate_columns(
-        table: pa.Table | list,
+        table: pa.Table | list[str],
         required: list[str],
         operator_name: str,
-        error_messages: list | None = None,
+        error_messages: list[ValidationMessage] | None = None,
     ) -> None:
         """
         Check if required columns exist in the provided available features or table.
@@ -189,8 +189,8 @@ class OperatorUtils:
         if isinstance(table, pa.Table):
             table = table.schema.names
 
-        missing_features = []
-        missing_operators = []
+        missing_features: list[str] = []
+        missing_operators: list[str] = []
 
         result = True
         for r in required:
@@ -240,13 +240,13 @@ class OperatorUtils:
 
     @staticmethod
     def get_feature(
-        name,
-        description,
-        type,
-        available_for_filter=False,
-        available_for_vector_db=False,
-        mandatory_for_vector_db=False,
-    ):
+        name: str,
+        description: str,
+        type: str,
+        available_for_filter: bool = False,
+        available_for_vector_db: bool = False,
+        mandatory_for_vector_db: bool = False,
+    ) -> dict[str, Any]:
         return {
             OperatorConstants.Misc.NAME: name,
             OperatorConstants.Config.DESCRIPTION: description,
@@ -312,7 +312,7 @@ class OperatorUtils:
         }
 
     @staticmethod
-    def get_aggregated_flow_logs(job_id, jobrun_id):
+    def get_aggregated_flow_logs(job_id: str, jobrun_id: str) -> dict[str, Any]:
         """
         Private method to retrieve operator logs based on the execution environment.
 
@@ -338,10 +338,10 @@ class OperatorUtils:
             job_stats = aggregated_flow_logs["job_stats"]
             if isinstance(job_stats, dict):
                 normalize_node_stats_for_dto(job_stats_data=job_stats)
-        return aggregated_flow_logs
+        return dict(aggregated_flow_logs)
 
     @staticmethod
-    def determine_final_job_status(*, node_stats_list: dict) -> ExecutionStatus:
+    def determine_final_job_status(*, node_stats_list: dict[str, Any]) -> ExecutionStatus:
         """Determines the most severe job status from a list of node statuses."""
         if not node_stats_list:
             return ExecutionStatus.STARTING
@@ -365,8 +365,8 @@ class OperatorUtils:
     @staticmethod
     def get_unique_ids(
         tables: pa.Table | list[pa.Table] | dict[str, pa.Table] | None,
-        id_col=OperatorConstants.Misc.ID,
-    ):
+        id_col: str = OperatorConstants.Misc.ID,
+    ) -> list[Any]:
 
         if not tables:  # empty list
             return []
@@ -408,7 +408,7 @@ class OperatorUtils:
             return None
 
     @staticmethod
-    def is_operator_present_in_flow(flow_definition: dict, operator: str) -> bool:
+    def is_operator_present_in_flow(flow_definition: dict[str, Any], operator: str) -> bool:
         """
         Check if any operator in the flow definition is an ACL operator.
 
@@ -425,7 +425,7 @@ class OperatorUtils:
         return exists
 
     @staticmethod
-    def remove_rows(*, table: pa.Table, remove_row_idx: list) -> pa.Table:
+    def remove_rows(*, table: pa.Table, remove_row_idx: list[int]) -> pa.Table:
         """
         Removes the rows for the given list of indexes in remove_row_idx from the table
         """
@@ -433,7 +433,7 @@ class OperatorUtils:
         return table.take(pa.array(indices_to_keep, type=pa.int64()))
 
     @staticmethod
-    def remove_all_rows(*, table: pa.Table, remove_row_id: list):
+    def remove_all_rows(*, table: pa.Table, remove_row_id: list[Any]) -> pa.Table:
         """
         Removes all the rows for the given list of ID from the table.
 
@@ -473,7 +473,7 @@ class OperatorUtils:
         return len(doc_names)
 
     @staticmethod
-    def validate_link_name(*, link_name: str, existing_link_names: set, errors: list):
+    def validate_link_name(*, link_name: str, existing_link_names: set[str], errors: list[str]) -> None:
         if not link_name:
             errors.append("Missing link name. Please provide a link name.")
             return
@@ -484,7 +484,7 @@ class OperatorUtils:
             existing_link_names.add(key)
 
     @staticmethod
-    def doc_id_hash(*, content) -> str:
+    def doc_id_hash(*, content: str) -> str:
         """
         Uses the content and adds a column with unique hash
         """
@@ -534,7 +534,7 @@ class OperatorUtils:
         return pa.schema(updated_fields)
 
     @staticmethod
-    def remove_internal_metrics_from_metadata(metadata) -> dict:
+    def remove_internal_metrics_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         internal_metadata = {}
         for key in list(metadata.keys()):
             if key in internal_metrics:
@@ -542,7 +542,7 @@ class OperatorUtils:
         return internal_metadata
 
     @staticmethod
-    def drop_features_from_table(output_features_to_drop: list, table: Table) -> Table:
+    def drop_features_from_table(output_features_to_drop: list[str], table: Table) -> Table:
         """
 
         Parameters
@@ -565,12 +565,12 @@ class OperatorUtils:
 
     @staticmethod
     def rename_features_and_save_original(
-        *, updated_features: list | None = None, input_features: dict | Table | None = None
+        *, updated_features: list[dict[str, Any]] | None = None, input_features: dict[str, Any] | Table | None = None
     ) -> Any | None:
         if not input_features or not updated_features:
             return None
 
-        existing_features: set | dict = (
+        existing_features: set[str] | dict[str, Any] = (
             set(input_features.schema.names) if isinstance(input_features, Table) else input_features
         )
 
@@ -590,10 +590,10 @@ class OperatorUtils:
         return None
 
     @staticmethod
-    def _build_rename_map(*, updated_features: list | None = None, existing_features: set | dict) -> dict[str, str]:
+    def _build_rename_map(*, updated_features: list[dict[str, Any]] | None = None, existing_features: set[str] | dict[str, Any]) -> dict[str, str]:
         rename_map: dict[str, str] = {}
-        seen_old: set = set()
-        seen_new: set = set()
+        seen_old: set[str] = set()
+        seen_new: set[str] = set()
 
         if updated_features is None:
             return rename_map
@@ -622,7 +622,7 @@ class OperatorUtils:
         return rename_map
 
     @staticmethod
-    def _validate_feature(upd: dict, idx: int):
+    def _validate_feature(upd: dict[str, Any], idx: int) -> None:
         if not isinstance(upd, dict):
             OperatorUtils._raise_value_error(
                 f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}"
@@ -648,10 +648,10 @@ class OperatorUtils:
         old_name: str,
         new_name: str,
         idx: int,
-        seen_old: set,
-        seen_new: set,
+        seen_old: set[str],
+        seen_new: set[str],
         input_features: Any,
-    ):
+    ) -> None:
         if old_name in seen_old:
             OperatorUtils._raise_value_error(f"Duplicate mapping for old_feature '{old_name}' at index {idx}")
 
@@ -661,7 +661,7 @@ class OperatorUtils:
             )
 
     @staticmethod
-    def _validate_existing_features(rename_map: dict[str, str], existing_features: set | dict):
+    def _validate_existing_features(rename_map: dict[str, str], existing_features: set[str] | dict[str, Any]) -> None:
         feature_set = existing_features if isinstance(existing_features, set) else set(existing_features.keys())
         missing_old = [old for old in rename_map if old not in feature_set]
         if missing_old:
@@ -683,7 +683,7 @@ class OperatorUtils:
             raise
 
     @staticmethod
-    def _validate_dict_mandatory(rename_map: dict[str, str], input_features: dict):
+    def _validate_dict_mandatory(rename_map: dict[str, str], input_features: dict[str, Any]) -> None:
         mandatory_features = OperatorUtils.get_mandatory_features(
             check_features=list(rename_map.keys()), input_features=input_features
         )
@@ -701,7 +701,7 @@ class OperatorUtils:
             )
 
     @staticmethod
-    def _apply_dict_rename(input_features: dict, rename_map: dict[str, str]):
+    def _apply_dict_rename(input_features: dict[str, Any], rename_map: dict[str, str]) -> None:
         for old_name, new_name in rename_map.items():
             feature = input_features.pop(old_name, None)
 
@@ -714,7 +714,7 @@ class OperatorUtils:
             input_features[new_name] = feature
 
     @staticmethod
-    def get_mandatory_features(*, check_features: list, input_features: dict):
+    def get_mandatory_features(*, check_features: list[str], input_features: dict[str, Any]) -> list[str]:
         if not check_features or not input_features:
             return []
 
@@ -727,12 +727,12 @@ class OperatorUtils:
         return mandatory_features
 
     @staticmethod
-    def _raise_value_error(msg: str):
+    def _raise_value_error(msg: str) -> None:
         logger.error(msg, stack_info=True, exc_info=True)
         raise ValueError(msg)
 
     @staticmethod
-    def validate_filter_criteria(*, criteria_list, criteria_json) -> tuple[bool, bool]:
+    def validate_filter_criteria(*, criteria_list: Any, criteria_json: Any) -> tuple[bool, bool]:
         """
         Validates filter criteria for operators that use criteria_list and criteria_json.
 
@@ -756,7 +756,7 @@ class OperatorUtils:
         return criteria_valid, json_valid
 
     @staticmethod
-    def _validate_criteria_json(*, criteria_json) -> bool:
+    def _validate_criteria_json(*, criteria_json: Any) -> bool:
         """
         Recursively validates criteria_json structure (matches runtime behavior).
 
@@ -791,7 +791,7 @@ class OperatorUtils:
     @staticmethod
     def prepare_document_content_fetch(
         *, table: pa.Table, global_config: dict[str, Any] | None = None, supported_extensions: set[str] | None = None
-    ) -> list:
+    ) -> list[dict[str, Any]]:
         """
         Prepare to fetch document content from a PyArrow table row using on-demand fetching.
 
@@ -1227,14 +1227,14 @@ class OperatorUtils:
             }
 
 
-def get_missing_operator(features: list[str]):
+def get_missing_operator(features: list[str]) -> set[str]:
     from docpipe.core.operators.operator_metadata import OperatorMetadata
 
     operator_metadata = OperatorMetadata()
     feature_operators_map = operator_metadata.get_feature_operators_map()
-    operator_list = set()
+    operator_list: set[str] = set()
     for feature in features:
-        oplist: list = feature_operators_map.get(feature, [])
+        oplist: list[str] = feature_operators_map.get(feature, [])
         # Temporary change to omit Extract Json operator name from validation failure logs
         if "Extract Json" in oplist:
             oplist.remove("Extract Json")

@@ -21,6 +21,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -250,7 +251,7 @@ class WorkPoolAdapter(BatchExecutionPort):
 
                     try:
                         flow_runs = await client.read_flow_runs(
-                            flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=ids_to_check))
+                            flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=[UUID(i) for i in ids_to_check]))
                         )
 
                         for fr in flow_runs:

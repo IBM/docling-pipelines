@@ -25,7 +25,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger: logging.Logger = get_logger()
 
 
-class DocumentClassifierOperator(AbstractOperator):
+class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
     """
     Operator for classifying documents into predefined types using LLM.
 
@@ -289,7 +289,7 @@ class DocumentClassifierOperator(AbstractOperator):
         """
         from docpipe.utils.document_class_utils import DocumentClassUtils
 
-        return DocumentClassUtils.get_document_types()
+        return dict(DocumentClassUtils.get_document_types())
 
     def _update_classification_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int
@@ -398,7 +398,7 @@ class DocumentClassifierOperator(AbstractOperator):
             }
 
     def _validate_extensions_for_existing_content(
-        self, *, table: pa.Table, doc_contents: list, metadata: dict[str, Any]
+        self, *, table: pa.Table, doc_contents: list[Any], metadata: dict[str, Any]
     ) -> set[int]:
         """
         Validate file extensions for documents with existing content.
@@ -563,9 +563,9 @@ class DocumentClassifierOperator(AbstractOperator):
                         )
 
         # Process each document
-        classifications: list = [None] * table.num_rows
-        confidences: list = [0] * table.num_rows
-        reasonings: list = [None] * table.num_rows
+        classifications: list[Any] = [None] * table.num_rows
+        confidences: list[Any] = [0] * table.num_rows
+        reasonings: list[Any] = [None] * table.num_rows
 
         # Use ThreadPoolExecutor for classification (I/O-bound LLM API calls)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:

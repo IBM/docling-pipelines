@@ -5,9 +5,12 @@ This is the PRIMARY PORT used by the orchestrator for all job stats operations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from docpipe.core.constants import ExecutionStatus
+
+if TYPE_CHECKING:
+    from docpipe.core.job_management.domain.models import JobStats, NodeStats
 
 
 class JobStatsService(ABC):
@@ -39,7 +42,7 @@ class JobStatsService(ABC):
         flow_name: str,
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ):
+    ) -> "JobStats":
         """
         Start tracking a new job run with initial statistics.
 
@@ -62,7 +65,7 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def get_job_run_stats(self, *, job_run_id: str):
+    def get_job_run_stats(self, *, job_run_id: str) -> "JobStats | None":
         """
         Retrieve job-level statistics WITHOUT node_stats aggregation (lightweight).
 
@@ -78,7 +81,7 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def get_job(self, *, job_run_id: str, include_node_stats: bool = True, include_batch_stats: bool = False):
+    def get_job(self, *, job_run_id: str, include_node_stats: bool = True, include_batch_stats: bool = False) -> "JobStats | None":
         """
         Retrieve complete job statistics with optional aggregation.
 
@@ -305,7 +308,7 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def update_node_stats(self, *, job_run_id: str, node_id: str, node_stats, batch_id: str | None = None) -> None:
+    def update_node_stats(self, *, job_run_id: str, node_id: str, node_stats: "NodeStats", batch_id: str | None = None) -> None:
         """
         Update node-level statistics.
 
@@ -378,7 +381,7 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def store_job_stats(self, *, job_stats) -> None:
+    def store_job_stats(self, *, job_stats: "JobStats") -> None:
         """
         Store or update job-level statistics.
 
@@ -391,7 +394,7 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def request_cancel_job(self, *, job_run_id: str):
+    def request_cancel_job(self, *, job_run_id: str) -> None:
         """
         Initiate cancellation process for a running job.
 
@@ -452,7 +455,7 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def determine_and_update_final_documents_count(self, *, job_stats, dag_nodes: list[dict[str, Any]]) -> None:
+    def determine_and_update_final_documents_count(self, *, job_stats: "JobStats", dag_nodes: list[dict[str, Any]]) -> None:
         """
         Determine final status of each document and update job statistics.
 
@@ -463,7 +466,7 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def write_job_logs(self, *, job_stats, job_log_path: str) -> None:
+    def write_job_logs(self, *, job_stats: "JobStats", job_log_path: str) -> None:
         """
         Write job statistics to log file.
 

@@ -285,7 +285,7 @@ class ChunkerOperator(AbstractOperator):
         self._ollama_client: OllamaClient | None = None
 
         # Docling HybridChunker will be lazily initialized when needed
-        self._docling_chunker = None
+        self._docling_chunker: object | None = None
 
         # Summarization service (lazy initialization)
         self._summarization_service = None
@@ -947,10 +947,15 @@ class ChunkerOperator(AbstractOperator):
         if self._docling_chunker is None:
             try:
                 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+                from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+                from transformers import AutoTokenizer
 
-                self._docling_chunker = HybridChunker(
-                    tokenizer=self.docling_tokenizer,
+                hf_tokenizer = HuggingFaceTokenizer(
+                    tokenizer=AutoTokenizer.from_pretrained(self.docling_tokenizer),
                     max_tokens=self.chunk_size,
+                )
+                self._docling_chunker = HybridChunker(
+                    tokenizer=hf_tokenizer,
                     merge_peers=True,  # Merge chunks at the same hierarchy level
                 )
                 logger.info(

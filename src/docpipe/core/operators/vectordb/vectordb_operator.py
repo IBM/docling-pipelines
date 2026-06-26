@@ -50,7 +50,7 @@ DEFAULT_VECTOR_DIMENSION: int = 384
 NUMBER_OF_BATCHES_KEY: str = "number_of_batches"
 
 
-class VectorDBOperator(AbstractOperator):
+class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
     """
     Generic vector database operator using hexagonal architecture.
 
@@ -501,7 +501,7 @@ class VectorDBOperator(AbstractOperator):
         Returns:
             List of matching documents
         """
-        return self.adapter.query_by_doc_names(doc_names, fields)
+        return list(self.adapter.query_by_doc_names(doc_names, fields))
 
     def delete_documents_by_ids(self, doc_ids: list[str]) -> tuple[int, int]:
         """
@@ -513,11 +513,12 @@ class VectorDBOperator(AbstractOperator):
         Returns:
             Tuple of (success_count, failed_count)
         """
-        return self.adapter.delete_documents_by_ids(doc_ids)
+        result = self.adapter.delete_documents_by_ids(doc_ids)
+        return (int(result[0]), int(result[1]))
 
     def get_document_count(self) -> int:
         """Get total document count in the index."""
-        return self.adapter.get_document_count()
+        return int(self.adapter.get_document_count())
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:

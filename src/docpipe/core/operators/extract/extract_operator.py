@@ -134,7 +134,7 @@ from docpipe.utils.operators.config_validation import validate_config_from_metad
 logger: logging.Logger = get_logger()
 
 
-class ExtractOperator(AbstractOperator):
+class ExtractOperator(AbstractOperator):  # type: ignore[misc]
     """Unified extraction operator using hexagonal architecture.
 
     This operator provides a single interface for multiple extraction strategies,

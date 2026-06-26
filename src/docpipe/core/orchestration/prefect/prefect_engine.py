@@ -7,7 +7,7 @@ following hexagonal architecture principles by implementing the FlowEnginePort i
 
 import copy
 import threading
-from typing import Any, Callable, ParamSpec, Protocol, TypeVar
+from typing import Any, Callable, ParamSpec, Protocol, TypeVar, cast
 
 # CRITICAL: Set Prefect env vars BEFORE importing Prefect modules
 from docpipe.utils.orchestration.prefect_config import set_prefect_env_variables
@@ -18,7 +18,7 @@ from prefect import flow, task  # noqa: E402
 from prefect.futures import PrefectFuture  # noqa: E402
 from prefect.runtime import task_run  # noqa: E402
 from prefect.states import Completed  # noqa: E402
-from prefect.task_runners import ThreadPoolTaskRunner  # noqa: E402
+from prefect.task_runners import TaskRunner, ThreadPoolTaskRunner  # noqa: E402
 
 from docpipe.core.constants.constants import DocpipeConstants, TaskType  # noqa: E402
 from docpipe.core.constants.operator_constants import OperatorConstants  # noqa: E402
@@ -149,7 +149,9 @@ class PrefectEngine(FlowEnginePort):
             retries=prefect_config["flow_retries"],
             retry_delay_seconds=prefect_config["retry_delay_seconds"],
             log_prints=prefect_config["log_prints"],
-            task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"]),
+            task_runner=cast(
+                "TaskRunner[PrefectFuture[Any]]", ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"])
+            ),
         )(flow_impl)
 
     def build_non_execute_flow(self, *, flow_name=None):
@@ -162,7 +164,9 @@ class PrefectEngine(FlowEnginePort):
             retries=prefect_config["flow_retries"],
             retry_delay_seconds=prefect_config["retry_delay_seconds"],
             log_prints=prefect_config["log_prints"],
-            task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"]),
+            task_runner=cast(
+                "TaskRunner[PrefectFuture[Any]]", ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"])
+            ),
         )(self.__non_execute_inner_flow)
 
     def batch_outer_flow_impl(self, op_flow, batches, global_config) -> list[BatchFuture]:

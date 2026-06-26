@@ -36,7 +36,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger()
 
 
-class DuckDBJobStatsStore(JobStatsStore):
+class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
     """
     DuckDB-backed storage for job statistics.
 
@@ -242,7 +242,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                     return None
 
                 # Convert to dict
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
                 data = dict(zip(columns, result, strict=False))
 
                 # Parse JSON fields
@@ -386,7 +386,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                 ).fetchall()
 
                 node_stats_list = []
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
 
                 for result in results:
                     data = dict(zip(columns, result, strict=False))
@@ -439,7 +439,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                 ).fetchall()
 
                 batch_stats: dict[str, dict[str, NodeStats]] = {}
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
 
                 for result in results:
                     data = dict(zip(columns, result, strict=False))
@@ -558,7 +558,7 @@ class DuckDBJobStatsStore(JobStatsStore):
         job_run_id: str,
         increments: dict[str, int],
         updates: dict[str, Any] | None = None,
-        jsonb_merges: dict[str, dict] | None = None,
+        jsonb_merges: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """
         Atomically increment numeric fields and update others.
@@ -669,7 +669,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                 if result is None:
                     return None
 
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
                 data = dict(zip(columns, result, strict=False))
 
                 # Parse JSON fields
@@ -777,7 +777,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                 results = conn.execute(sql, params).fetchall()
 
                 job_stats_list = []
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
 
                 for result in results:
                     data = dict(zip(columns, result, strict=False))

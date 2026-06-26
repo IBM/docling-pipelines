@@ -199,6 +199,8 @@ skip-magic-trailing-comma = false
 mypy_path = "."
 namespace_packages = true
 explicit_package_bases = true
+check_untyped_defs = true
+plugins = ["pydantic.mypy"]
 # Treat the backend directory as the source root
 files = ["."]
 # Set Python version to 3.12 to support PEP 695 type parameter syntax

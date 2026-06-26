@@ -142,7 +142,7 @@ class JobStatsStore(ABC):
         job_run_id: str,
         increments: dict[str, int],
         updates: dict[str, Any] | None = None,
-        jsonb_merges: dict[str, dict] | None = None,
+        jsonb_merges: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """
         Atomically increment numeric fields and update others.

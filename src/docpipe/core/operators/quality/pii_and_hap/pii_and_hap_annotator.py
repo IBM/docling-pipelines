@@ -59,7 +59,7 @@ MIN_CHUNK_SIZE_KEY = "min_chunk_size_kb"
 MAX_CHUNK_SIZE_KEY = "max_chunk_size_kb"
 
 
-class PIIAndHAPAnnotator(AbstractOperator):
+class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
     """
     Extract PII and HAP information from ingested documents.
 
@@ -453,7 +453,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
     def populate_table_columns(
         self,
-        table_columns: dict[str, list],
+        table_columns: dict[str, list[Any]],
         columns_to_add: dict[str, Any],
         fields_to_redact: list[str],
     ) -> None:
@@ -748,9 +748,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
         *,
         file_name: str,
         metadata: dict[str, Any],
-        remove_row_id: list,
+        remove_row_id: list[Any],
         _id: str,
-        remove_row_idx: list,
+        remove_row_idx: list[Any],
         idx: int,
         e: Exception,
     ) -> None:

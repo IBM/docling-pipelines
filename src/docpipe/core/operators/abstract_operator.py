@@ -27,7 +27,7 @@ class OperatorCategory(StrEnum):
     Storage = "Storage"
 
 
-class AbstractOperator(AbstractTableTransform):
+class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
     short_name: str
     category: OperatorCategory
     owner: str | None = None  # None indicates custom operator, specific value (e.g., "docpipe") for built-in operators
@@ -50,7 +50,7 @@ class AbstractOperator(AbstractTableTransform):
         # Initialize telemetry service for operator tracing
         self._telemetry = get_telemetry_service()
 
-    def _create_operator_span(self, *, operation_name: str | None = None):
+    def _create_operator_span(self, *, operation_name: str | None = None) -> Any:
         """Create a telemetry span for operator execution.
 
         This method creates an OTEL span with operator metadata as attributes.
@@ -92,7 +92,7 @@ class AbstractOperator(AbstractTableTransform):
             },
         )
 
-    def _record_operator_metrics(self, *, span, metadata: dict[str, Any] | None = None):
+    def _record_operator_metrics(self, *, span: Any, metadata: dict[str, Any] | None = None) -> None:
         """Record operator execution metrics in the current span.
 
         Args:
@@ -136,10 +136,10 @@ class AbstractOperator(AbstractTableTransform):
                 )
 
     @staticmethod
-    def is_available():
+    def is_available() -> bool:
         return True
 
-    def validate(self, errors: list, warnings: list, available_features: list):
+    def validate(self, errors: list[Any], warnings: list[Any], available_features: list[Any]) -> None:
         # The concrete subclasses validates the parameters passed to the operators from the flow definition
         OperatorUtils.validate_columns(available_features, self.get_required_features(), self.short_name, errors)
 
@@ -149,7 +149,7 @@ class AbstractOperator(AbstractTableTransform):
         return []
 
     @staticmethod
-    def get_metadata():
+    def get_metadata() -> dict[str, Any]:
         # Returns operator metadata including owner
         return {}
 
