@@ -22,12 +22,23 @@
   },
   "flow": [
     {
-      "name": "ingest",
-      "type": "ingest_local",
+      "name": "s3_ingest",
+      "type": "ingest_source",
       "config": {
-        "paths": "./tests/fixtures/invoices/",
-        "include_filter": ".pdf",
-        "max_files": 30,
+        "provider": "s3",
+        "connection_params": {
+          "bucket": "${S3_BUCKET_NAME}",
+          "prefix": "${S3_PREFIX}",
+          "recursive": true
+        },
+        "credentials": {
+          "access_key": "${S3_ACCESS_KEY}",
+          "secret_key": "${S3_SECRET_KEY}",
+          "region": "us-east-1"
+        },
+        "max_files": 1,
+        "include_filter": "pdf,docx,txt",
+        "ignore_hidden_files": true,
         "force_ingest": true
       }
     },
