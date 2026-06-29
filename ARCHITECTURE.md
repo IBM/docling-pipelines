@@ -1,8 +1,8 @@
 ---
-title: Docpipe Architecture
+title: Docling-pipelines Architecture
 ---
 
-# Docpipe Architecture
+# Docling-pipelines Architecture
 
 ## Table of Contents
 
@@ -20,11 +20,11 @@ title: Docpipe Architecture
 
 ---
 
-This document describes the architecture and organization of the docpiperepository.
+This document describes the architecture and organization of the Docling-pipelines repository.
 
 ## Overview
 
-Docpipe-open is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities. It uses a mixed architecture approach comprising of dynamic plugin discovery across operators, hexagonal architecture in subsystems that need interchangeable external services.
+Docling-pipelines is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities. It uses a mixed architecture approach comprising of dynamic plugin discovery across operators, hexagonal architecture in subsystems that need interchangeable external services.
 
 ### Key Capabilities
 
@@ -36,7 +36,7 @@ Docpipe-open is a modular, operator-based data processing framework designed for
 
 ### Architectural Patterns
 
-Docpipe-opensource intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
+Docling-pipelines intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
 
 - **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes. Quality operators such as the PII/HAP stack use runtime-native ports-and-adapters packages under [`src/docpipe/core/operators/quality`](src/docpipe/core/operators/quality).
 - **Factory Pattern**: `OrchestratorFactory` and `OperatorFactory` provide centralized instantiation logic for orchestrators and operators
@@ -237,7 +237,7 @@ This separation keeps write paths simple and makes aggregation behavior explicit
 
 ### Micro-Batching Model
 
-For micro-batch execution, docpipe stores node statistics at batch granularity.
+For micro-batch execution, Docling-pipelines stores node statistics at batch granularity.
 
 - Every batch execution can produce a separate [`NodeStatsDto`](src/docpipe/api/dto/node_stats_dto.py) record.
 - Batch records are keyed by `job_run_id`, `node_id`, and `batch_id`.
@@ -336,7 +336,7 @@ graph LR
 All operators must properly identify themselves using the `owner` attribute to ensure correct priority resolution in the operator factory.
 
 **Owner Attribute:**
-- **Docpipe operators**: `owner = DocpipeConstants.OWNER_DOCPIPE` (must be explicitly set for all built-in operators)
+- **Docling-pipelines operators**: `owner = DocpipeConstants.OWNER_DOCPIPE` (must be explicitly set for all built-in operators)
 - **Custom operators**: `owner = "custom"` (must be explicitly set)
 - **Default**: `owner = None` (inherited from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py:32), treated as custom)
 
@@ -344,11 +344,11 @@ All operators must properly identify themselves using the `owner` attribute to e
 
 When multiple operators share the same `short_name`, the operator factory uses priority-based resolution:
 - **Priority 1**: Custom operators (`owner="custom"` or `owner=None`)
-- **Priority 2**: Docpipe operators (`owner="docpipe"`)
+- **Priority 2**: Docling-pipelines operators (`owner="docpipe"`)
 
-**Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override docpipe operators with the same `short_name`.
+**Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override Docling-pipelines operators with the same `short_name`.
 
-**Example - Built-in Docpipe Operator:**
+**Example - Built-in Docling-pipelines Operator:**
 
 ```python
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -595,7 +595,7 @@ A **Flow** is a JSON-defined configuration that specifies a pipeline of operator
 
 **Flow Authoring Format vs Runtime DAG:**
 
-Docpipe uses two distinct representations:
+Docling-pipelines uses two distinct representations:
 
 1. **Authoring Format** (User-facing): Simplified JSON structure for defining flows
    - Uses `flow` array with operator definitions
@@ -1462,7 +1462,7 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph "Docpipe Operators"
+    subgraph "Docling-pipelines Operators"
         EXT[ExtractOperator]
         EMB[EmbeddingsOperator]
     end
@@ -1526,7 +1526,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Docpipe Operators"
+    subgraph "Docling-pipelines Operators"
         EXT[ExtractOperator]
         DC[DocumentClassifier]
     end
@@ -1615,7 +1615,7 @@ If neither is provided, a `ConfigurationError` will be thrown.
 
 ```mermaid
 graph TB
-    subgraph "Docpipe Layer"
+    subgraph "Docling-pipelines Layer"
         VDB[VectorDBOperator]
     end
 
@@ -2090,7 +2090,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Docpipe Layer"
+    subgraph "Docling-pipelines Layer"
         VDB[VectorDBOperator]
     end
     
@@ -2468,7 +2468,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Docpipe Layer"
+    subgraph "Docling-pipelines Layer"
         EXT[ExtractOperator]
     end
 
@@ -2678,7 +2678,7 @@ The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII
 
 ```mermaid
 graph TB
-    subgraph "Docpipe Layer"
+    subgraph "Docling-pipelines Layer"
         PIIHAP[PIIAndHAPAnnotator]
     end
 
@@ -2836,7 +2836,7 @@ The IngestSource operator provides a unified interface for ingesting documents f
 
 ```mermaid
 graph TB
-    subgraph "Docpipe Layer"
+    subgraph "Docling-pipelines Layer"
         ISO[IngestSourceOperator]
     end
 
@@ -4388,6 +4388,15 @@ Operators are organized by category (defined in `OperatorCategory` enum). For co
 - Service layer pattern for complex business logic
 - Factory pattern for adapter creation
 
+## Operator Pattern
+
+Each operator follows a consistent pattern:
+
+- Inherits from `AbstractOperator`
+- Implements `transform()` method
+- Configurable via JSON
+- Chainable in flows
+
 ### 4. CLI Application (`src/docpipe/cli/`)
 
 - **docpipe_cli.py**: Command-line interface implementation
@@ -4402,15 +4411,6 @@ Operators are organized by category (defined in `OperatorCategory` enum). For co
 4. **Flow Configuration**: JSON-based flow definitions
 5. **Local Data Processing**: File system and local storage support
 6. **Distributed Execution**: Support for scaling across multiple workers using Prefect work pools (Docker)
-
-## Operator Pattern
-
-Each operator follows a consistent pattern:
-
-- Inherits from `AbstractOperator`
-- Implements `transform()` method
-- Configurable via JSON
-- Chainable in flows
 
 ## Orchestrator Architecture
 
@@ -4495,12 +4495,3 @@ This architecture enables:
 - **Developer Guide**: How to create custom operators
 - **API Reference**: Detailed API documentation
 - **Examples**: Sample flows and use cases
-
-## Future Enhancements
-
-- Additional operator types
-- Enhanced plugin system
-- Performance optimizations
-- Enhanced work pool types
-- Auto-scaling based on workload
-- Web UI for flow management
