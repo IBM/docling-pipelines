@@ -1,7 +1,3 @@
----
-title: Docling-pipelines Architecture
----
-
 # Docling-pipelines Architecture
 
 ## Table of Contents
@@ -14,13 +10,15 @@ title: Docling-pipelines Architecture
 6. [Operator Lifecycle](#operator-lifecycle)
 7. [Data Flow Architecture](#data-flow-architecture)
 8. [Integration Patterns](#integration-patterns)
-9. [Design Decisions](#design-decisions)
-10. [Repository Structure](#repository-structure)
-11. [Development Guidelines](#development-guidelines)
+9. [Deployment Patterns](#deployment-patterns)
+10. [Security Architecture](#security-architecture)
+11. [Design Decisions](#design-decisions)
+12. [Repository Structure](#repository-structure)
+13. [Development Guidelines](#development-guidelines)
 
 ---
 
-This document describes the architecture and organization of the Docling-pipelines repository.
+This document describes the architecture and organization of the Docling-pipelinesrepository.
 
 ## Overview
 
@@ -594,6 +592,7 @@ Each feature in the `features` dictionary contains:
 A **Flow** is a JSON-defined configuration that specifies a pipeline of operators connected in a directed acyclic graph (DAG).
 
 **Flow Authoring Format vs Runtime DAG:**
+
 
 Docling-pipelines uses two distinct representations:
 
@@ -1462,6 +1461,7 @@ graph LR
 
 ```mermaid
 graph TB
+
     subgraph "Docling-pipelines Operators"
         EXT[ExtractOperator]
         EMB[EmbeddingsOperator]
@@ -2090,6 +2090,7 @@ graph TB
 
 ```mermaid
 graph TB
+
     subgraph "Docling-pipelines Layer"
         VDB[VectorDBOperator]
     end
@@ -2468,6 +2469,7 @@ graph TB
 
 ```mermaid
 graph TB
+
     subgraph "Docling-pipelines Layer"
         EXT[ExtractOperator]
     end
@@ -2540,26 +2542,26 @@ graph LR
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   DocumentClassifierOperator                 │
-│                     (Main Operator)                          │
+│                   DocumentClassifierOperator                │
+│                     (Main Operator)                         │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  ClassificationService                       │
-│              (Business Logic Layer)                          │
-│  ┌──────────────────────────────────────────────────────┐  │
+│                  ClassificationService                      │
+│              (Business Logic Layer)                         │
+│  ┌─────────────────────────────────────────────────-─────┐  │
 │  │  Domain Models:                                       │  │
 │  │  - ClassificationRequest                              │  │
 │  │  - ClassificationResponse                             │  │
 │  │  - build_classification_prompt()                      │  │
-│  └──────────────────────────────────────────────────────┘  │
+│  └───────────────────────────────────────────────-───────┘  │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Shared LLM Adapter Infrastructure               │
-│                  (LLMAdapterFactory)                         │
+│              Shared LLM Adapter Infrastructure              │
+│                  (LLMAdapterFactory)                        │
 └────────────────────────┬────────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
@@ -2678,6 +2680,7 @@ The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII
 
 ```mermaid
 graph TB
+
     subgraph "Docling-pipelines Layer"
         PIIHAP[PIIAndHAPAnnotator]
     end
@@ -2836,6 +2839,7 @@ The IngestSource operator provides a unified interface for ingesting documents f
 
 ```mermaid
 graph TB
+
     subgraph "Docling-pipelines Layer"
         ISO[IngestSourceOperator]
     end
@@ -3761,6 +3765,194 @@ volumes:
 - Scaling across multiple hosts
 - Consistent runtime environment required
 - Docker infrastructure already available
+
+---
+
+## Security Architecture
+
+This section documents the security model of Docling-pipelines across its REST API, data pipeline, and external service integration layers.
+
+### 1. REST API Authentication
+
+The FastAPI-based REST API (`src/docpipe/api/`) supports two authentication paths that both produce a short-lived JWT and are enforced on every protected endpoint via the [`get_current_user`](src/docpipe/api/auth/dependencies.py) dependency.
+
+```
+                        ┌─────────────────────────────────┐
+                        │         REST API Request         │
+                        └──────────────┬──────────────────┘
+                                       │
+               ┌───────────────────────┼───────────────────────┐
+               │                       │                       │
+               ▼                       ▼                       ▼
+    POST /auth/login        GET /auth/oauth2/authorize   Bearer <JWT>
+    (LDAP credentials)      (OAuth2 / OIDC flow)         (subsequent calls)
+               │                       │                       │
+               ▼                       ▼                       │
+    LDAPAuthenticator       OAuth2Provider                     │
+    (bind + verify DN)      (code exchange                     │
+               │             + ID-token validation)            │
+               └───────────────────────┘                       │
+                           │                                   │
+                           ▼                                   ▼
+                  create_access_token()              verify_token()
+                  (HS256 JWT, 30 min TTL)            (HS256, username claim)
+                           │                                   │
+                           └─────────────────┬─────────────────┘
+                                             ▼
+                                    User object injected
+                                    into route handler
+```
+
+#### LDAP Authentication (`src/docpipe/api/auth/ldap_auth.py`)
+
+- **Standard LDAP/OpenLDAP**: service-account bind to locate the user DN, then re-binds as the user to verify credentials.
+- **Active Directory**: authenticates directly with `username@domain` UPN format via `simple_bind_s`.
+- **TLS**: optional StartTLS (`ldap_use_ssl: true`) upgrades the connection before any credential exchange.
+- Configuration is loaded from environment variables via [`LDAPConfig`](src/docpipe/api/auth/ldap_auth.py) (see `.env.oauth2.example`).
+
+| Config Variable | Description |
+|---|---|
+| `LDAP_SERVER` | LDAP server URL (e.g. `ldap://localhost:389`) |
+| `LDAP_BASE_DN` | Base distinguished name |
+| `LDAP_BIND_DN` | Service-account DN for user search |
+| `LDAP_BIND_PASSWORD` | Service-account password |
+| `LDAP_USE_SSL` | Enable StartTLS |
+| `LDAP_USE_ACTIVE_DIRECTORY` | Enable AD-style UPN authentication |
+| `LDAP_AD_DOMAIN` | Domain suffix for AD UPN |
+
+#### OAuth2 / OIDC Authentication (`src/docpipe/api/auth/`)
+
+The OAuth2 subsystem follows the Authorization Code flow with PKCE-style state validation for CSRF protection.
+
+**Built-in providers:**
+
+| Provider | Class | Discovery |
+|---|---|---|
+| Google | `GoogleOAuth2Provider` | `https://accounts.google.com/.well-known/openid-configuration` |
+| Azure AD | `AzureADOAuth2Provider` | `https://login.microsoftonline.com/{tenant}/v2.0/.well-known/openid-configuration` |
+| Generic OIDC | `GenericOIDCProvider` | Configurable (Okta, Auth0, Keycloak, GitLab, …) |
+
+**Flow:**
+1. `GET /auth/oauth2/authorize` — generates a cryptographically random `state` token (via `secrets.token_urlsafe(32)`) and redirects to the provider.
+2. `GET /auth/oauth2/callback` — validates the returned `state`, exchanges the authorization code for tokens, and validates the `id_token` signature against the provider's JWKS.
+3. A Docpipe-signed HS256 JWT is issued and returned to the caller.
+
+**ID token validation** (`OAuth2Provider.validate_id_token`):
+- Fetches the provider's JWKS and matches the `kid` header.
+- Verifies signature (RS256), audience, and issuer.
+
+#### JWT Tokens (`src/docpipe/api/auth/jwt_handler.py`)
+
+| Parameter | Default | Env variable |
+|---|---|---|
+| Algorithm | HS256 | — |
+| Expiry | 30 minutes | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` |
+| Secret | — | `JWT_SECRET_KEY` (must be set in production) |
+
+All tokens carry `username`, `email`, and `full_name` claims. Verification rejects tokens missing the `username` claim.
+
+---
+
+### 2. HTTP Security Headers
+
+`SecurityHeadersMiddleware` (defined in [`src/docpipe/api/main.py`](src/docpipe/api/main.py)) adds the following headers to every response:
+
+| Header | Value |
+|---|---|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Referrer-Policy` | `no-referrer` |
+| `Content-Security-Policy` | `default-src 'self'`; scripts/styles limited to self + CDN |
+
+CORS is configurable via the `CORS_ORIGINS` environment variable (comma-separated origins). The default restricts to `http://localhost:3000`.
+
+---
+
+### 3. Request Validation and DoS Protection
+
+`validate_payload_size` middleware ([`src/docpipe/api/middleware/payload_validation.py`](src/docpipe/api/middleware/payload_validation.py)) rejects `POST`/`PUT`/`PATCH` requests with a `Content-Length` exceeding **5 MB**, returning HTTP 413.
+
+---
+
+### 4. Document-Level Access Control (ACL)
+
+When the REST API serves documents from OpenSearch, the [`ACLQueryBuilder`](src/docpipe/api/services/acl_query_builder.py) enforces row-level access by injecting the authenticated username into every query as a filter on the `allowed_users` field.
+
+**Security model — fail-closed:**
+
+| `allowed_users` field | Access |
+|---|---|
+| Field absent | Denied |
+| Empty array | Denied |
+| Contains authenticated username | Granted |
+
+All search, single-document retrieval, and existence queries include the ACL filter as a mandatory `must` clause in the OpenSearch `bool` query, so no code path can accidentally omit the check.
+
+---
+
+### 5. Credential and Secret Management
+
+All sensitive credentials are supplied at runtime via environment variables and are never committed to source control.
+
+| Credential | Mechanism |
+|---|---|
+| JWT signing secret | `JWT_SECRET_KEY` env var |
+| LDAP bind password | `LDAP_BIND_PASSWORD` env var |
+| OAuth2 client secret | `OAUTH2_CLIENT_SECRET` env var |
+| IBM Cloud / WatsonX API key | `WATSONX_API_KEY` env var |
+| OpenAI / Hugging Face API keys | `OPENAI_API_KEY`, `HUGGINGFACE_API_KEY` env vars |
+| OpenSearch credentials | `OPENSEARCH_USERNAME`, `OPENSEARCH_PASSWORD` env vars |
+| Object storage keys (S3/COS) | `access_key`, `secret_key` in operator config |
+
+Configuration files support environment variable substitution (e.g. `${WATSONX_API_KEY}`) so flow definitions remain secret-free. The repository is protected by `detect-secrets` pre-commit hooks to prevent accidental secret commits.
+
+---
+
+### 6. IAM Token Management (WatsonX / IBM Cloud)
+
+The [`IAMTokenManager`](src/docpipe/utils/infrastructure/iam_token_manager.py) handles short-lived bearer tokens for IBM Cloud and MCSP environments:
+
+- Tokens are cached per API key in an `LRUCache` with a 1-hour TTL.
+- Tokens are refreshed **10 minutes before expiry**, preventing clock-skew failures.
+- Cache keys are scoped to the API key, supporting multi-tenant deployments without token bleed.
+- Environment is detected automatically from the WatsonX URL pattern.
+
+---
+
+### 7. PII Detection and Data Redaction
+
+Docling-pipelines provides a dedicated pipeline stage for detecting and redacting sensitive data:
+
+- **`PIIAndHAPAnnotator` operator**: detects PII (email, phone, SSN, credit cards, names, addresses, dates of birth, medical records) and HAP content using WatsonX or LiteLLM.
+- **`Redaction` operator**: masks or removes spans annotated by the PII detector before data reaches downstream stages such as chunking, embedding, or vector storage.
+
+This enables compliance patterns such as GDPR/CCPA scanning, data-loss prevention, and document sanitization. See [Integration Patterns — PIIAndHAPAnnotator](#10-piinandhapannotator-hexagonal-architecture-pattern) for the detailed architecture.
+
+---
+
+### 8. Security Layers Summary
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         REST API Layer                          │
+│  CORS  │  SecurityHeaders  │  PayloadValidation  │  JWT Bearer  │
+├─────────────────────────────────────────────────────────────────┤
+│                      Authentication Layer                       │
+│         LDAP / Active Directory   │   OAuth2 / OIDC             │
+│            LDAPAuthenticator      │   OAuth2Provider            │
+│                        JWT issuance (HS256)                     │
+├─────────────────────────────────────────────────────────────────┤
+│                    Authorization Layer                          │
+│       ACLQueryBuilder — OpenSearch allowed_users filter         │
+│            (fail-closed: deny if field absent or empty)         │
+├─────────────────────────────────────────────────────────────────┤
+│                     Data Privacy Layer                          │
+│    PIIAndHAPAnnotator  →  Redaction  (pipeline operators)       │
+├─────────────────────────────────────────────────────────────────┤
+│               External Service Credential Layer                 │
+│  IAMTokenManager (WatsonX)  │  API key env vars  │  TLS/LDAPS   │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
