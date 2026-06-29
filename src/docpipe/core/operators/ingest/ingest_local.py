@@ -466,9 +466,23 @@ class IngestLocalOperator(AbstractOperator):
             OperatorConstants.Misc.LABEL: "Local File Ingest",
             OperatorConstants.Config.DESCRIPTION: "Ingest documents from local file system paths into the pipeline.",
             OperatorConstants.Config.FEATURES: {
-                "path": {
-                    OperatorConstants.Columns.NAME: "File Path",
+                OperatorConstants.Columns.ID: {
+                    OperatorConstants.Columns.NAME: "Document ID",
+                    OperatorConstants.Config.DESCRIPTION: "Document identifier",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                },
+                OperatorConstants.Columns.NAME: {
+                    OperatorConstants.Columns.NAME: "File Name",
                     OperatorConstants.Config.DESCRIPTION: "The absolute path to the document file",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                },
+                OperatorConstants.Columns.PATH: {
+                    OperatorConstants.Columns.NAME: "File Path",
+                    OperatorConstants.Config.DESCRIPTION: "The absolute path to the document file (same as name)",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
@@ -480,22 +494,26 @@ class IngestLocalOperator(AbstractOperator):
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
-                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
-                    OperatorConstants.Columns.NAME: "Hash ID",
-                    OperatorConstants.Config.DESCRIPTION: "Hash ID of the row",
-                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-                    OperatorConstants.Misc.IS_PRIMARY: True,
-                    OperatorConstants.Misc.TAGS: [
-                        OperatorConstants.Misc.MANDATORY,
-                        OperatorConstants.Misc.PRIMARY,
-                    ],
+                OperatorConstants.Misc.SIZE: {
+                    OperatorConstants.Columns.NAME: "File Size",
+                    OperatorConstants.Config.DESCRIPTION: "File size in bytes",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_INT64,
                 },
-                OperatorConstants.Columns.ID: {
-                    OperatorConstants.Columns.NAME: "Document ID",
-                    OperatorConstants.Config.DESCRIPTION: "Document ID (alternative hash column name)",
-                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Metadata.CREATED_TIME: {
+                    OperatorConstants.Columns.NAME: "Created Time",
+                    OperatorConstants.Config.DESCRIPTION: "File creation timestamp (Unix epoch time)",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_INT64,
+                },
+                OperatorConstants.Metadata.MODIFIED_TIME: {
+                    OperatorConstants.Columns.NAME: "Modified Time",
+                    OperatorConstants.Config.DESCRIPTION: "File modification timestamp (Unix epoch time)",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_INT64,
                 },
             },
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestLocalOperator.is_available(),

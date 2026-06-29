@@ -95,9 +95,21 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 
 ## Output Features
 
-### `path` (String)
+### `id` (String)
+**Type:** String  
+**Description:** Document identifier  
+**Available for Filter:** Yes  
+**Available for Vector DB:** Yes  
+
+### `name` (String)
 **Type:** String  
 **Description:** The absolute path to the document file  
+**Available for Filter:** Yes  
+**Available for Vector DB:** No  
+
+### `path` (String)
+**Type:** String  
+**Description:** The absolute path to the document file (same as name)  
 **Available for Filter:** Yes  
 **Available for Vector DB:** No  
 
@@ -107,12 +119,23 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 **Available for Filter:** Yes  
 **Available for Vector DB:** No  
 
-### `doc_id_hash` (String)
-**Type:** String  
-**Description:** Hash ID of the document row  
-**Available for Vector DB:** Yes  
-**Is Primary:** Yes
-**Tags:** `mandatory`, `primary`  
+### `size` (Integer)
+**Type:** Integer  
+**Description:** File size in bytes  
+**Available for Filter:** Yes  
+**Available for Vector DB:** No  
+
+### `created_time` (Integer)
+**Type:** Integer  
+**Description:** File creation timestamp (Unix epoch time)  
+**Available for Filter:** Yes  
+**Available for Vector DB:** No  
+
+### `modified_time` (Integer)
+**Type:** Integer  
+**Description:** File modification timestamp (Unix epoch time)  
+**Available for Filter:** Yes  
+**Available for Vector DB:** No  
 
 ## Configuration Examples
 
