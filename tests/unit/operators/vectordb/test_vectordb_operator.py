@@ -106,6 +106,22 @@ class TestVectorDBOperatorInitialization:
         with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
             VectorDBOperator(config)
 
+    def test_missing_provider_config(self, basic_config):
+        """Test that missing provider_config raises clear error"""
+        config = basic_config.copy()
+        del config[OperatorConstants.Config.PROVIDER_CONFIG]
+
+        with pytest.raises(DocpipeException, match="'provider_config' is required but missing or empty"):
+            VectorDBOperator(config)
+
+    def test_empty_provider_config(self, basic_config):
+        """Test that empty provider_config raises clear error"""
+        config = basic_config.copy()
+        config[OperatorConstants.Config.PROVIDER_CONFIG] = {}
+
+        with pytest.raises(DocpipeException, match="'provider_config' is required but missing or empty"):
+            VectorDBOperator(config)
+
 
 class TestBatchProcessing:
     """Test batch processing functionality through public interface"""
@@ -325,14 +341,16 @@ class TestMetadata:
         """Test get_metadata returns correct structure"""
         config = {
             "provider": "opensearch",
-            "host": "localhost",
-            "port": 9200,
             "index_name": "test_index",
             "doc_id_column": "doc_id_hash",
             "embeddings_column": "embeddings",
             "vector_dimension": 384,
-            "engine": "faiss",
-            "algorithm": "hnsw",
+            "provider_config": {
+                "host": "localhost",
+                "port": 9200,
+                "engine": "faiss",
+                "algorithm": "hnsw",
+            },
         }
 
         with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):

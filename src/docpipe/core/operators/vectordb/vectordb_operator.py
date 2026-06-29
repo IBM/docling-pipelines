@@ -43,7 +43,6 @@ ALGORITHM_KEY: str = "algorithm"
 SPACE_TYPE_KEY: str = "space_type"
 PROVIDER_DEFAULT: str = "opensearch"
 ENGINE_PARAMETERS_KEY: str = "engine_parameters"
-SPARSE_EMBEDDINGS_COLUMN_KEY: str = "sparse_embeddings_column"
 SCHEMA_TEMPLATE_PATH_KEY: str = "schema_template_path"
 DEFAULT_BATCH_SIZE: int = 100
 DEFAULT_VECTOR_DIMENSION: int = 384
@@ -99,6 +98,18 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         try:
             # Extract provider_config (adapter-specific config like host, port, engine, etc.)
             adapter_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+            # Validate that provider_config is not empty
+            if not adapter_config:
+                raise DocpipeException(
+                    message=(
+                        f"'provider_config' is required but missing or empty. "
+                        f"Connection parameters (host, port, use_ssl, etc.) must be inside 'provider_config'. "
+                        f"Example: {{'provider': '{self.provider}', 'provider_config': {{'host': 'localhost', 'port': 9200, 'use_ssl': false}}}}"
+                    ),
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
 
             # Add operator-level parameters that the adapter needs
             adapter_config[OperatorConstants.VectorDB.INDEX_NAME] = self.index_name
@@ -575,45 +586,6 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.VectorDB.HOST: {
-                    OperatorConstants.Misc.NAME: "Vector Database Host",
-                    OperatorConstants.Config.DESCRIPTION: "Vector database server host address",
-                    OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.VectorDB.PORT: {
-                    OperatorConstants.Misc.NAME: "Vector Database Port",
-                    OperatorConstants.Config.DESCRIPTION: "Vector database server port",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: 9200,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                OperatorConstants.VectorDB.USERNAME: {
-                    OperatorConstants.Misc.NAME: "Username",
-                    OperatorConstants.Config.DESCRIPTION: "Username for database authentication",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.VectorDB.PASSWORD: {
-                    OperatorConstants.Misc.NAME: "Password",
-                    OperatorConstants.Config.DESCRIPTION: "Password for database authentication",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.VectorDB.USE_SSL: {
-                    OperatorConstants.Misc.NAME: "Use SSL",
-                    OperatorConstants.Config.DESCRIPTION: "Use SSL/TLS for connection",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                OperatorConstants.VectorDB.VERIFY_CERTS: {
-                    OperatorConstants.Misc.NAME: "Verify Certificates",
-                    OperatorConstants.Config.DESCRIPTION: "Verify SSL certificates",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
                 OperatorConstants.VectorDB.INDEX_NAME: {
                     OperatorConstants.Misc.NAME: "Index Name",
                     OperatorConstants.Config.DESCRIPTION: "Name of the vector database index/collection",
@@ -634,7 +606,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                SPARSE_EMBEDDINGS_COLUMN_KEY: {
+                OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN: {
                     OperatorConstants.Misc.NAME: "Sparse Embeddings Column",
                     OperatorConstants.Config.DESCRIPTION: "Column containing sparse vector embeddings for hybrid search",
                     OperatorConstants.Config.REQUIRED: False,
@@ -664,7 +636,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider-Specific Parameters",
                     OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration parameters (JSON object). For OpenSearch: engine, algorithm, space_type, engine_parameters, index_settings, aws_auth, aws_region, etc.",
-                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
             },

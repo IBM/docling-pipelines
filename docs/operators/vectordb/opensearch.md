@@ -46,7 +46,7 @@ When configured with `provider: "opensearch"`, the operator supports multiple KN
 | `vector_dimension` | integer | No | 384 | Dimension of vector embeddings |
 | `create_index` | boolean | No | true | Create index if it doesn't exist |
 | `batch_size` | integer | No | 100 | Documents per batch |
-| `provider_config` | object | No | {} | Provider-specific configuration (see below) |
+| `provider_config` | object | Yes | - | Provider-specific configuration (see below) |
 
 ### provider_config Structure
 

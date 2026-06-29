@@ -114,77 +114,12 @@ The Vector Database Operator provides a unified interface for storing documents 
 "batch_size": 500
 ```
 
-### Connection Parameters
-
-#### 9. `host` (String)
-**Type:** String  
-**Required:** Yes  
-**Description:** Vector database server host address.  
-
-**Examples:**
-```json
-"host": "localhost"
-```
-
-#### 10. `port` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `9200`  
-**Description:** Vector database server port.  
-
-**Examples:**
-```json
-"port": 443
-```
-
-#### 11. `username` (String)
-**Type:** String  
-**Required:** No  
-**Description:** Username for database authentication.  
-
-**Examples:**
-```json
-"username": "admin"
-```
-
-#### 12. `password` (String)
-**Type:** String  
-**Required:** No  
-**Description:** Password for database authentication.  
-
-**Examples:**
-```json
-"password": "your-password" # pragma: allowlist secret
-```
-
-#### 13. `use_ssl` (Boolean)
-**Type:** Boolean  
-**Required:** No  
-**Default:** `true`  
-**Description:** Use SSL/TLS for connection.  
-
-**Examples:**
-```json
-"use_ssl": true
-```
-
-#### 14. `verify_certs` (Boolean)
-**Type:** Boolean  
-**Required:** No  
-**Default:** `true`  
-**Description:** Verify SSL certificates. Set to false for self-signed certificates (not recommended for production).  
-
-**Examples:**
-```json
-"verify_certs": false
-```
-
 ### Provider-Specific Configuration
 
-#### 15. `provider_config` (JSON)
+#### 9. `provider_config` (JSON)
 **Type:** JSON Object  
-**Required:** No  
-**Description:** Provider-specific configuration parameters. Structure varies by provider.  
+**Required:** Yes  
+**Description:** Provider-specific configuration parameters including connection settings. **All connection parameters (host, port, username, password, use_ssl, etc.) must be inside this object.**  
 
 **OpenSearch Example:**
 ```json
@@ -392,7 +327,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 ## Validation Rules
 
 - `index_name` is required
-- `host` is required
+- `provider_config` is required and must not be empty
 - `vector_dimension` must match embedding model output
 - `batch_size` must be greater than 0
 - `doc_id_column` must exist in input data

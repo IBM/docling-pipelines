@@ -112,6 +112,7 @@ class OperatorConstants:
         EMBEDDINGS: Final[str] = "embeddings"
         EMBEDDINGS_COLUMN: Final[str] = "embeddings_column"
         EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "embeddings"
+        SPARSE_EMBEDDINGS_COLUMN: Final[str] = "sparse_embeddings_column"
         SPARSE_EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "sparse_embeddings"
 
         # Entity and Extraction Columns
