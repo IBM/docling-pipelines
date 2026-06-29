@@ -290,10 +290,9 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
       "https://example.com/page1",
       "https://example.com/page2"
     ],
-    "recursive": false,
-    "max_depth": 2
-  },
-  "credentials": {}
+    "max_depth": 2,
+    "prevent_outside": true
+  }
 }
 ```
 

@@ -35,7 +35,6 @@ uv pip install langchain-community requests
 | `prevent_outside` | bool | No | `true` | Restrict crawling to pages within the starting domain |
 | `exclude_patterns` | list[str] | No | `[]` | URL path patterns excluded from crawling; passed to `RecursiveUrlLoader` as `exclude_dirs` |
 | `timeout` | int | No | `30` | Request timeout in seconds |
-| `extractor` | str \| null | No | `null` | Reserved config field; current adapter uses the default HTML extractor internally |
 
 ## Behavior
 
@@ -46,8 +45,6 @@ The adapter creates one LangChain `RecursiveUrlLoader` per configured seed URL w
 - `prevent_outside=<configured prevent_outside>`
 - `exclude_dirs=<exclude_patterns or None>`
 - `timeout=<configured timeout>`
-- `use_async=False`
-- default extractor returning raw HTML
 
 Each crawled LangChain document is converted into a Docpipe ingest document with:
 
@@ -76,16 +73,22 @@ If downstream logic expects file timestamps, treat web-ingested records as times
 Use one seed URL with domain restriction enabled.
 
 ```json
-{
-  "source_type": "web",
-  "provider_config": {
-    "urls": ["https://example.com/docs"],
-    "max_depth": 2,
-    "prevent_outside": true,
-    "exclude_patterns": ["/admin", "/login", "/api"],
-    "timeout": 30
+  {
+        "provider": "web",
+        "connection_params": {
+          "urls": [
+            "https://example.com"
+          ],
+          "max_depth": 2,
+          "prevent_outside": true,
+          "exclude_patterns": [
+            "/admin",
+            "/login",
+            "/api"
+          ],
+          "timeout": 30
+        }
   }
-}
 ```
 
 ### Multiple seed URLs
@@ -93,19 +96,23 @@ Use one seed URL with domain restriction enabled.
 Use multiple URLs when bootstrapping content from more than one site.
 
 ```json
-{
-  "source_type": "web",
-  "provider_config": {
-    "urls": [
-      "https://example.com",
-      "https://www.iana.org/domains/reserved"
-    ],
-    "max_depth": 1,
-    "prevent_outside": true,
-    "exclude_patterns": [],
-    "timeout": 30
+  {
+        "provider": "web",
+        "connection_params": {
+          "urls": [
+            "https://example.com",
+            "https://www.iana.org/domains/reserved"
+          ],
+          "max_depth": 2,
+          "prevent_outside": true,
+          "exclude_patterns": [
+            "/admin",
+            "/login",
+            "/api"
+          ],
+          "timeout": 30
+        }
   }
-}
 ```
 
 ### Landing page only
@@ -113,36 +120,45 @@ Use multiple URLs when bootstrapping content from more than one site.
 Use `max_depth: 0` to ingest only the seed page without following links.
 
 ```json
-{
-  "source_type": "web",
-  "provider_config": {
-    "urls": ["https://example.com"],
-    "max_depth": 0,
-    "prevent_outside": true,
-    "exclude_patterns": [],
-    "timeout": 30
+  {
+        "provider": "web",
+        "connection_params": {
+          "urls": [
+            "https://example.com"
+          ],
+          "max_depth": 0,
+          "prevent_outside": true,
+          "exclude_patterns": [],
+          "timeout": 30
+        }
   }
-}
 ```
 
 ## Example Flow Configuration
 
 ```json
 {
-  "nodes": [
+  "flow_name": "Web Page Ingestion",
+  "flow": [
     {
-      "id": "web-ingest",
-      "operator_type": "IngestSourceOperator",
-      "operator_params": {
+      "name": "ingest_web",
+      "type": "ingest_source",
+      "config": {
         "provider": "web",
         "connection_params": {
-          "urls": ["https://example.com/docs"],
-          "max_depth": 2,
+          "urls": [
+            "https://example.com",
+            "https://www.iana.org/domains/reserved"
+          ],
+          "max_depth": 1,
           "prevent_outside": true,
-          "exclude_patterns": ["/admin", "/login", "/api"],
+          "exclude_patterns": [
+            "/admin",
+            "/login",
+            "/api"
+          ],
           "timeout": 30
-        },
-        "credentials": {}
+        }
       }
     }
   ]

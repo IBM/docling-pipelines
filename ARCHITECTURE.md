@@ -3066,8 +3066,7 @@ graph TB
       "prevent_outside": true,
       "exclude_patterns": ["/admin", "/login", "/api"],
       "timeout": 30
-    },
-    "credentials": {}
+    }
   }
 }
 ```

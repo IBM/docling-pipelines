@@ -55,8 +55,8 @@ region = us-east-1
 ```json
 {
   "credentials": {
-    "access_key": "your-access-key",  # pragma: allowlist secret
-    "secret_key": "your-secret-key"  # pragma: allowlist secret
+    "access_key": "<your-access-key>",  # pragma: allowlist secret
+    "secret_key": "<your-secret-key>"  # pragma: allowlist secret
   }
 }
 ```
@@ -102,8 +102,8 @@ python examples/connectors/test_s3_adapter.py
 from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
 
 config = S3SourceConfig(
-    access_key="AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
-    secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+    access_key="<your-access-key>",  # pragma: allowlist secret
+    secret_key="<your-secret-key>",  # pragma: allowlist secret
     bucket="my-documents-bucket",
     prefix="documents/reports/",
     region="us-east-1",
@@ -118,8 +118,8 @@ config = S3SourceConfig(
 #### S3-Compatible Storage (IBM COS, MinIO)
 ```python
 config = S3SourceConfig(
-    access_key="your-access-key",  # pragma: allowlist secret
-    secret_key="your-secret-key",  # pragma: allowlist secret
+    access_key="<your-access-key>",  # pragma: allowlist secret
+    secret_key="<your-secret-key>",  # pragma: allowlist secret
     bucket="my-bucket",
     prefix="data/",
     endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
@@ -140,8 +140,8 @@ from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceCo
 async def main():
     # Create configuration
     config = S3SourceConfig(
-        access_key="your-access-key",  # pragma: allowlist secret
-        secret_key="your-secret-key",  # pragma: allowlist secret
+        access_key="<your-access-key>",  # pragma: allowlist secret
+        secret_key="<your-secret-key>",  # pragma: allowlist secret
         bucket="my-bucket",
         prefix="documents/",
         file_extensions=[".pdf", ".txt"],
@@ -177,8 +177,8 @@ if __name__ == "__main__":
             "config": {
                 "provider": "s3",
                 "credentials": {
-                    "access_key": "AKIAIOSFODNN7EXAMPLE", # pragma: allowlist secret
-                    "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" # pragma: allowlist secret
+                    "access_key": "<your-s3-access-key>", # pragma: allowlist secret
+                    "secret_key": "<your-s3-secret-key>" # pragma: allowlist secret
                 },
                 "connection_params": {
                     "bucket": "my-documents-bucket",
@@ -204,8 +204,8 @@ if __name__ == "__main__":
 {
     "provider": "s3",
     "credentials": {
-        "access_key": "your-cos-access-key",  # pragma: allowlist secret
-        "secret_key": "your-cos-secret-key"  # pragma: allowlist secret
+        "access_key": "<your-cos-access-key>",  # pragma: allowlist secret
+        "secret_key": "<your-cos-secret-key>"  # pragma: allowlist secret
     },
     "connection_params": {
         "bucket": "my-cos-bucket",
