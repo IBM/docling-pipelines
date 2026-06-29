@@ -8,8 +8,8 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
+from docpipe.api.dependencies import get_flow_repository
 from docpipe.api.main import app
-from docpipe.api.routes.flows import get_flow_repository
 from docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository import (
     LocalFlowRepository,
 )

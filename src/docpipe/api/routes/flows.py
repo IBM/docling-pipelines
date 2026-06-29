@@ -15,11 +15,11 @@ All endpoints delegate to service layer which raises custom DocpipeException sub
 """
 
 import logging
-from functools import lru_cache
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 
+from docpipe.api.dependencies import get_flow_service
 from docpipe.api.dto.authoring_flow_dto import (
     AuthoringFlowCreateRequest,
     AuthoringFlowResponse,
@@ -45,10 +45,8 @@ from docpipe.api.dto.flow_dto import (
     PaginatedFlowResponse,
 )
 from docpipe.api.dto.mappers.flow_mapper import FlowMapper
-from docpipe.core.assets.flows.adapters.config.repository_factory import RepositoryFactory
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
-from docpipe.core.assets.flows.domain.ports.flow_repository import FlowRepository
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -204,36 +202,6 @@ def get_filter_params(
         "tags": tags,
         "is_hidden": is_hidden,
     }
-
-
-# Dependency providers
-@lru_cache(maxsize=1)
-def get_flow_repository() -> FlowRepository:
-    """Dependency provider for flow repository (singleton).
-
-    Creates a single repository instance that is reused across all requests
-    using LRU cache. Uses FlowRepositoryFactory for repository creation.
-
-    Returns:
-        FlowRepository: Configured repository instance (cached singleton)
-
-    Note:
-         Configuration is handled by RepositoryFactory via environment variables.
-         See RepositoryFactory.create_flow_repository() for configuration details.
-    """
-    return RepositoryFactory.create_flow_repository()
-
-
-def get_flow_service(repository: FlowRepository = Depends(get_flow_repository)) -> FlowService:  # noqa: B008
-    """Dependency provider for flow service.
-
-    Args:
-        repository: Injected repository instance
-
-    Returns:
-        FlowService: Service instance with injected repository
-    """
-    return FlowService(repository=repository)
 
 
 # Type alias for dependency injection

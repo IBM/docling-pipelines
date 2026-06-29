@@ -10,9 +10,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from docpipe.core.assets.flows.adapters.config.repository_factory import (
-    RepositoryFactory,
-)
+from docpipe.core.assets.flows.domain.ports import FlowRepository
 from docpipe.core.constants.constants import (
     DocpipeConstants,
     ExecutionStatus,
@@ -52,6 +50,7 @@ class JobManagementService:
         *,
         job_stats_service: JobStatsService,
         job_run_manager: JobRunManager,
+        flow_repository: FlowRepository,
         executor: ThreadPoolExecutor | None = None,
     ):
         """
@@ -65,7 +64,7 @@ class JobManagementService:
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
         self.executor = executor or ThreadPoolExecutor(max_workers=10)
-        self.flow_repository = RepositoryFactory.create_default_flow_repository()
+        self.flow_repository = flow_repository
 
     def create_job_run_from_request(self, *, request_body: Any) -> str:
         """
