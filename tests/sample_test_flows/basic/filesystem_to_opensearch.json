@@ -18,9 +18,7 @@
       "config": {
         "provider": "filesystem",
         "connection_params": {
-          "root_paths": [
-            "./tests/fixtures/customer_support_docs"
-          ],
+          "root_path": "./tests/fixtures/customer_support_docs",
           "recursive": true,
           "file_extensions": [
             ".txt",
