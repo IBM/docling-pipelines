@@ -942,6 +942,10 @@ Update documentation when you:
 - **[`QUICKSTART.md`](QUICKSTART.md)**: Quick start guide
 - **`docs/operators/`**: Operator-specific documentation
 - **`examples/`**: Code examples and sample flows
+- **[`CHANGELOG.md`](CHANGELOG.md)**: All notable changes per release
+- **[`RELEASE_PROCESS.md`](RELEASE_PROCESS.md)**: How to cut a release (versioning, signing, announcements)
+- **[`docs/guides/DEPRECATION_POLICY.md`](docs/guides/DEPRECATION_POLICY.md)**: How deprecated features are handled
+- **[`docs/guides/MIGRATION_GUIDE_TEMPLATE.md`](docs/guides/MIGRATION_GUIDE_TEMPLATE.md)**: Template for writing migration guides
 
 ### Documentation Style
 
@@ -966,6 +970,9 @@ Update documentation when you:
 - **[Architecture Documentation](ARCHITECTURE.md)**: System design details
 - **[Operator Reference](docs/reference/OPERATORS.md)**: Detailed operator and API documentation
 - **[Examples](examples/)**: Sample flows and code examples
+- **[Release Process](RELEASE_PROCESS.md)**: Versioning, release steps, and announcement plan
+- **[Deprecation Policy](docs/guides/DEPRECATION_POLICY.md)**: How features are deprecated and removed
+- **[Migration Guide Template](docs/guides/MIGRATION_GUIDE_TEMPLATE.md)**: Template for upgrade guides
 
 ### Communication
 
