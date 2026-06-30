@@ -33,7 +33,7 @@ Thank you for your interest in contributing to docling-pipelines! This guide wil
 
 ### Reporting Issues
 
-If you experience or witness unacceptable behavior, please report it to the project maintainers.
+If you experience or witness unacceptable behavior, please report it to the project maintainers. See [COMMUNITY.md](COMMUNITY.md) for contact details and escalation process.
 
 ## Getting Started
 
@@ -969,17 +969,22 @@ Update documentation when you:
 
 ### Communication
 
-- **Issues**: For bug reports and feature requests
-- **Discussions**: For questions and general discussion
-- **Pull Requests**: For code contributions
+For full details on support channels, response time expectations, and maintainer responsibilities, see **[COMMUNITY.md](COMMUNITY.md)**.
+
+Quick reference:
+
+- **[GitHub Issues](https://github.com/IBM/docling-pipelines/issues)**: Bug reports and feature requests
+- **[GitHub Discussions](https://github.com/IBM/docling-pipelines/discussions)**: General questions and ideas
+- **[Pull Requests](https://github.com/IBM/docling-pipelines/pulls)**: Code contributions
+- **Security issues**: Follow [SECURITY.md](SECURITY.md) — do not open a public issue
 
 ### Questions?
 
 If you have questions:
 
 1. Check existing documentation
-2. Search existing issues and discussions
-3. Create a new discussion or issue
+2. Search [GitHub Discussions](https://github.com/IBM/docling-pipelines/discussions)
+3. Open a new Discussion in the Q&A category
 
 ---
 
