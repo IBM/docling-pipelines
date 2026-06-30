@@ -26,6 +26,7 @@ Task-oriented guides to help you accomplish specific goals:
 
 ### Advanced Topics
 - **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)** - Production deployment and optimization
+- **[Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)** - Credential management, authentication, ACL, and production hardening
 - **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)** - LLM integration patterns
 - **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)** - Managing document collections
 
@@ -124,6 +125,7 @@ docs/
 - **Use the Python API** → [Python API Guide](guides/PYTHON_API_GUIDE.md)
 - **Set up OAuth2 authentication** → [OAuth2 Authentication Guide](api/OAUTH2_AUTHENTICATION.md)
 - **Create a custom connector** → [Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)
+- **Secure my deployment** → [Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)
 - **Deploy to production** → [Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)
 - **Troubleshoot an issue** → [Troubleshooting Guide](../TROUBLESHOOTING.md)
 - **Contribute code** → [Contributing Guide](../CONTRIBUTING.md)
