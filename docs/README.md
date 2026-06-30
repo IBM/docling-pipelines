@@ -30,6 +30,9 @@ Task-oriented guides to help you accomplish specific goals:
 - **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)** - LLM integration patterns
 - **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)** - Managing document collections
 
+### Best Practices
+- **[Logging Best Practices](LOGGING_BEST_PRACTICES.md)** - Security-first logging, sensitive data handling, and NFR Point 12 compliance
+
 ## ⚙️ Operator Configurations
 
 Configuration examples and patterns for all operators:
