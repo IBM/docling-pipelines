@@ -228,7 +228,7 @@ async for document in adapter.fetch_documents(config):
       "id": "ingest_gdrive",
       "operator_type": "docpipe.core.operators.ingest.ingest_source.IngestSourceOperator",
       "operator_params": {
-        "source_type": "google_drive",
+        "provider": "google_drive",
         "connection_params": {
           "folder_id": "${GOOGLE_DRIVE_FOLDER_ID}",
           "recursive": true
@@ -236,7 +236,7 @@ async for document in adapter.fetch_documents(config):
         "credentials": {
           "credentials_json_path": "${GOOGLE_DRIVE_CREDENTIALS_PATH}",
           "_comment": "For the first run, run the flow without token_path. After authentication, add the token_path as an env variable and export it and add the field below for future use.",
-          "token_path": "${GOOGLE_DRIVE_TOKEN_PATH}" 
+          "token_path": "${GOOGLE_DRIVE_TOKEN_PATH}"
         },
         "included_extensions": [".pdf", ".docx"]
       }
@@ -253,7 +253,7 @@ async for document in adapter.fetch_documents(config):
       "id": "ingest_gdrive",
       "operator_type": "docpipe.core.operators.ingest.ingest_source.IngestSourceOperator",
       "operator_params": {
-        "source_type": "google_drive",
+        "provider": "google_drive",
         "connection_params": {
           "folder_id": "${GOOGLE_DRIVE_FOLDER_ID}",
           "recursive": true

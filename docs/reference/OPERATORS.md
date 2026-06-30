@@ -294,13 +294,15 @@ The operator validates file extensions against supported formats from [`Operator
 
 **Class:** `core.operators.ingest.ingest_source.IngestSourceOperator`
 
-| Parameter         | Type   | Required | Default              | Description                     |
-| ----------------- | ------ | -------: | -------------------- | ------------------------------- |
-| `source_type`     | string |      Yes | -                    | Adapter type                    |
-| `include_filter`  | string |       No | All supported        | Extension include list. Defaults to all supported extensions. Must be subset of supported extensions (validated) |
-| `exclude_filter`  | string |       No | -                    | Extension exclude list. Must be subset of supported extensions (validated) |
-| `force_ingest`    | bool   |       No | `false`              | Reprocess prior docs            |
-| `provider_config` | object |      Yes | -                    | Provider-specific configuration |
+| Parameter            | Type   | Required | Default              | Description                     |
+| -------------------- | ------ | -------: | -------------------- | ------------------------------- |
+| `provider`           | string |      Yes | -                    | Provider type (s3, google_drive, sharepoint, onedrive, box_driver, filesystem, web, custom) |
+| `connection_params`  | object |      Yes | -                    | Provider-specific connection parameters |
+| `credentials`        | object |      Yes | -                    | Authentication credentials |
+| `include_filter`     | string |       No | All supported        | Extension include list. Defaults to all supported extensions. Must be subset of supported extensions (validated) |
+| `exclude_filter`     | string |       No | -                    | Extension exclude list. Must be subset of supported extensions (validated) |
+| `force_ingest`       | bool   |       No | `false`              | Reprocess prior docs            |
+| `max_files`          | int    |       No | 100                  | Maximum number of files to process |
 
 **Input Schema**
 
@@ -341,10 +343,14 @@ The operator validates file extensions against supported formats from [`Operator
   "name": "s3-ingest",
   "operator": "ingest_source",
   "config": {
-    "source_type": "s3",
-    "provider_config": {
+    "provider": "s3",
+    "connection_params": {
       "bucket": "example-bucket",
       "prefix": "incoming/"
+    },
+    "credentials": {
+      "access_key": "${S3_ACCESS_KEY}",
+      "secret_key": "${S3_SECRET_KEY}"
     }
   }
 }
@@ -357,10 +363,14 @@ The operator validates file extensions against supported formats from [`Operator
   "name": "s3-file-ingest",
   "operator": "ingest_source",
   "config": {
-    "source_type": "s3",
-    "provider_config": {
+    "provider": "s3",
+    "connection_params": {
       "bucket": "example-bucket",
       "prefix": "incoming/document.pdf"
+    },
+    "credentials": {
+      "access_key": "${S3_ACCESS_KEY}",
+      "secret_key": "${S3_SECRET_KEY}"
     }
   }
 }
