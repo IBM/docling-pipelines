@@ -16,7 +16,39 @@ The [`IngestSourceOperator`](../../../src/docpipe/core/operators/ingest/ingest_s
 
 ## Supported Providers
 
-### 1. Amazon S3 and S3-Compatible Storage
+### 1. Local Filesystem
+Ingest documents from one or more local directories or individual files. No credentials are required.
+
+**Configuration:**
+```python
+node_config = {
+    'provider': 'filesystem',
+    'connection_params': {
+        'root_paths': ['/data/invoices', '/data/contracts'],
+        'recursive': True,
+        'exclude_patterns': ['*.tmp', '__pycache__/*'],
+        'max_file_size_mb': 100,
+        'follow_symlinks': False
+    },
+    'credentials': {}
+}
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `root_paths` | `list[str]` | Yes | — | One or more absolute or relative paths to files or directories |
+| `recursive` | bool | No | `True` | Recursively traverse subdirectories |
+| `exclude_patterns` | list[str] | No | `[]` | Glob patterns to skip (e.g. `["*.tmp", "__pycache__/*"]`) |
+| `max_file_size_mb` | int | No | `None` | Skip files larger than this size (MB). `None` means no limit |
+| `follow_symlinks` | bool | No | `False` | Follow symbolic links during directory traversal |
+
+> `credentials` is not used for the filesystem provider — pass `{}`.
+
+**File filtering** is also controlled by the top-level `include_filter` / `exclude_filter` operator parameters (comma-separated extension list, e.g. `"pdf,docx,txt"`).
+
+### 2. Amazon S3 and S3-Compatible Storage
 Ingest documents from Amazon S3 buckets and S3-compatible storage services (IBM Cloud Object Storage, MinIO, etc.).
 
 **Configuration (AWS S3):**
@@ -66,7 +98,7 @@ node_config = {
 - `skip_empty_files` (optional): Whether to skip files with zero size (default: True)
 - `verify_expected_bucket_owner` (optional): When `True`, verifies that the S3 bucket is owned by the caller's AWS account via STS `GetCallerIdentity`. If the bucket owner does not match, AWS rejects the request. Default `False`. Has no effect for S3-compatible storage (IBM COS, MinIO).
 
-### 2. Microsoft SharePoint
+### 3. Microsoft SharePoint
 Ingest documents from SharePoint document libraries.
 
 **Configuration:**
@@ -94,7 +126,7 @@ node_config = {
 - `client_secret` (required): Azure AD application client secret
 - `tenant_id` (required): Azure AD tenant ID
 
-### 3. Microsoft OneDrive
+### 4. Microsoft OneDrive
 Ingest documents from OneDrive folders.
 
 **Configuration:**
@@ -124,7 +156,7 @@ node_config = {
 - `client_secret` (required): Azure AD application client secret
 - `tenant_id` (required): Azure AD tenant ID
 
-### 4. Google Drive
+### 5. Google Drive
 Ingest documents from Google Drive folders using OAuth 2.0 authentication.
 
 **Configuration:**
@@ -163,7 +195,7 @@ The operator uses read-only access by default for security. Available scopes:
 
 **Important:** If you change scopes, you must delete the existing token file to re-authenticate with the new permissions.
 
-### 5. Box
+### 6. Box
 Ingest documents from Box folders using JWT authentication.
 
 **Configuration:**
@@ -223,7 +255,7 @@ The adapter uses JWT (JSON Web Token) authentication which provides:
 - Rotate keys periodically as per security policy
 - Use environment variables for file paths in production
 
-### 6. Custom Loaders
+### 7. Custom Loaders
 Extend functionality with custom LangChain-compatible loaders.
 
 **Configuration:**
@@ -646,7 +678,70 @@ Get operator metadata including features and attributes.
 
 ## Examples
 
-### Example 1: S3 with Folder Prefix Filtering
+### Example 1: Filesystem — Single Directory (Python)
+```python
+node_config = {
+    'provider': 'filesystem',
+    'connection_params': {
+        'root_paths': ['/data/customer_support_docs'],
+        'recursive': True,
+        'exclude_patterns': ['*.tmp', '__pycache__/*'],
+        'max_file_size_mb': 100,
+        'follow_symlinks': False
+    },
+    'credentials': {},
+    'include_filter': 'pdf,docx,txt',
+    'max_files': 500
+}
+```
+
+### Example 2: Filesystem — Multiple Directories (Python)
+```python
+node_config = {
+    'provider': 'filesystem',
+    'connection_params': {
+        'root_paths': [
+            '/data/invoices',
+            '/data/contracts',
+            '/data/reports'
+        ],
+        'recursive': True,
+        'exclude_patterns': ['*.tmp'],
+        'max_file_size_mb': 50,
+        'follow_symlinks': False
+    },
+    'credentials': {},
+    'include_filter': 'pdf,docx',
+    'force_ingest': False
+}
+```
+
+### Example 3: Filesystem — Flow JSON (Multiple Directories)
+```json
+{
+  "name": "ingest",
+  "type": "ingest_source",
+  "config": {
+    "provider": "filesystem",
+    "connection_params": {
+      "root_paths": [
+        "./data/invoices",
+        "./data/contracts"
+      ],
+      "recursive": true,
+      "exclude_patterns": ["*.tmp", "__pycache__/*"],
+      "max_file_size_mb": 100,
+      "follow_symlinks": false
+    },
+    "credentials": {},
+    "include_filter": "pdf,docx,txt",
+    "max_files": 1000,
+    "force_ingest": false
+  }
+}
+```
+
+### Example 4: S3 with Folder Prefix Filtering
 ```python
 node_config = {
     'provider': 's3',
@@ -661,7 +756,7 @@ node_config = {
 }
 ```
 
-### Example 2: S3 with File-Level Ingestion
+### Example 5: S3 with File-Level Ingestion
 ```python
 node_config = {
     'provider': 's3',
@@ -676,7 +771,7 @@ node_config = {
 }
 ```
 
-### Example 3: S3-Compatible Storage (IBM COS)
+### Example 6: S3-Compatible Storage (IBM COS)
 ```python
 node_config = {
     'provider': 's3',
@@ -692,7 +787,7 @@ node_config = {
 }
 ```
 
-### Example 3: Google Drive Recursive
+### Example 7: Google Drive Recursive
 ```python
 node_config = {
     'provider': 'google_drive',
@@ -708,7 +803,7 @@ node_config = {
 }
 ```
 
-### Example 4: Box with JWT Authentication
+### Example 8: Box with JWT Authentication
 ```python
 node_config = {
     'provider': 'box_driver',

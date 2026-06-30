@@ -32,7 +32,7 @@ repos:
       - id: mypy
         language_version: python3.12
         args: [--ignore-missing-imports, --config-file=pyproject.toml, --python-version=3.12]
-        additional_dependencies: [types-requests, types-cachetools]
+        additional_dependencies: [types-requests, types-cachetools, pydantic]
         files: ^src/.*\.py$
 
   - repo: https://github.com/Yelp/detect-secrets

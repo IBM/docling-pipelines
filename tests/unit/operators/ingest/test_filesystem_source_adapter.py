@@ -20,19 +20,39 @@ async def collect_async(async_gen):
 
 
 class TestFilesystemSourceConfig:
-    def test_expands_root_path(self, tmp_path):
+    def test_accepts_single_path_in_list(self, tmp_path):
         config = FilesystemSourceConfig(
-            root_path=str(tmp_path),
+            root_path=[str(tmp_path)],
             recursive=True,
             max_file_size_mb=None,
             follow_symlinks=False,
         )
-        assert config.root_path == str(tmp_path)
+        assert config.root_path == [str(tmp_path)]
+
+    def test_accepts_multiple_paths(self, tmp_path):
+        second = tmp_path / "sub"
+        second.mkdir()
+        config = FilesystemSourceConfig(
+            root_path=[str(tmp_path), str(second)],
+            recursive=True,
+            max_file_size_mb=None,
+            follow_symlinks=False,
+        )
+        assert config.root_path == [str(tmp_path), str(second)]
 
     def test_rejects_missing_root_path(self):
         with pytest.raises(ValidationError, match="Root path does not exist"):
             FilesystemSourceConfig(
-                root_path="/definitely/missing/path",
+                root_path=["/definitely/missing/path"],
+                recursive=True,
+                max_file_size_mb=None,
+                follow_symlinks=False,
+            )
+
+    def test_rejects_empty_list(self, tmp_path):
+        with pytest.raises(ValidationError, match="at least one path"):
+            FilesystemSourceConfig(
+                root_path=[],
                 recursive=True,
                 max_file_size_mb=None,
                 follow_symlinks=False,
@@ -43,18 +63,17 @@ class TestFilesystemSourceConfig:
         file_path = tmp_path / "file.txt"
         file_path.write_text("x")
 
-        # Should not raise - files are now accepted
         config = FilesystemSourceConfig(
-            root_path=str(file_path),
+            root_path=[str(file_path)],
             recursive=True,
             max_file_size_mb=None,
             follow_symlinks=False,
         )
-        assert config.root_path == str(file_path.resolve())
+        assert config.root_path == [str(file_path.resolve())]
 
     def test_normalizes_extensions_and_validates_size(self, tmp_path):
         config = FilesystemSourceConfig(
-            root_path=str(tmp_path),
+            root_path=[str(tmp_path)],
             recursive=True,
             file_extensions=["txt", ".pdf"],
             max_file_size_mb=5,
@@ -66,7 +85,7 @@ class TestFilesystemSourceConfig:
     def test_rejects_non_positive_max_file_size(self, tmp_path):
         with pytest.raises(ValidationError, match="max_file_size_mb must be positive"):
             FilesystemSourceConfig(
-                root_path=str(tmp_path),
+                root_path=[str(tmp_path)],
                 recursive=True,
                 max_file_size_mb=0,
                 follow_symlinks=False,
@@ -75,10 +94,12 @@ class TestFilesystemSourceConfig:
 
 class TestFilesystemSourceAdapter:
     def test_build_config_from_operator_params(self, tmp_path):
+        second = tmp_path / "sub"
+        second.mkdir()
         adapter = FilesystemSourceAdapter()
         config = adapter.build_config_from_operator_params(
             connection_params={
-                "root_path": str(tmp_path),
+                "root_paths": [str(tmp_path), str(second)],
                 "recursive": False,
                 "exclude_patterns": ["*.tmp"],
                 "follow_symlinks": True,
@@ -90,7 +111,7 @@ class TestFilesystemSourceAdapter:
         config_data = config.model_dump()
 
         assert type(config).__name__ == "FilesystemSourceConfig"
-        assert config_data["root_path"] == str(tmp_path)
+        assert config_data["root_path"] == [str(tmp_path), str(second)]
         assert config_data["recursive"] is False
         assert config_data["file_extensions"] == [".txt"]
         assert config_data["exclude_patterns"] == ["*.tmp"]
@@ -107,7 +128,7 @@ class TestFilesystemSourceAdapter:
         (nested_dir / "nested.txt").write_text("nested")
 
         config = FilesystemSourceConfig(
-            root_path=str(tmp_path),
+            root_path=[str(tmp_path)],
             recursive=False,
             file_extensions=[".txt"],
             exclude_patterns=["*.tmp"],
@@ -122,7 +143,7 @@ class TestFilesystemSourceAdapter:
     def test_should_include_file_and_exclusion(self, tmp_path):
         adapter = FilesystemSourceAdapter()
         config = FilesystemSourceConfig(
-            root_path=str(tmp_path),
+            root_path=[str(tmp_path)],
             recursive=True,
             file_extensions=[".txt"],
             exclude_patterns=["*ignore*"],
@@ -144,7 +165,7 @@ class TestFilesystemSourceAdapter:
         large.write_text("x" * 10)
 
         config = FilesystemSourceConfig(
-            root_path=str(tmp_path),
+            root_path=[str(tmp_path)],
             recursive=False,
             file_extensions=[".txt"],
             max_file_size_mb=1,
@@ -214,7 +235,7 @@ class TestFilesystemSourceAdapter:
         file_path = tmp_path / "doc.txt"
         file_path.write_text("hello world")
         config = FilesystemSourceConfig(
-            root_path=str(tmp_path),
+            root_path=[str(tmp_path)],
             recursive=False,
             max_file_size_mb=None,
             follow_symlinks=False,
@@ -246,7 +267,7 @@ class TestFilesystemSourceAdapter:
     def test_test_connection_variants(self, tmp_path):
         adapter = FilesystemSourceAdapter()
         config = FilesystemSourceConfig(
-            root_path=str(tmp_path),
+            root_path=[str(tmp_path)],
             recursive=True,
             max_file_size_mb=None,
             follow_symlinks=False,
