@@ -150,6 +150,12 @@ This repository contains the docpipe operators with FastAPI server, CLI orchestr
 
 ### Additional Resources
 
+- **[Jupyter Notebooks](examples/notebooks/)** - Interactive tutorials and examples
+  - Quick start and complete pipeline examples
+  - Operator demonstrations and best practices
+  - Document extraction and quality assessment
+  - RAG pipeline implementation
+  - Programmatic flow authoring
 - **[Example Flows](examples/)** - Sample flow configurations and use cases
 - **[DocpipeFlowManager Examples](examples/docpipe_flow_manager/)** - Programmatic flow execution guide
 

@@ -23,6 +23,10 @@ ENV/
 *.swo
 *~
 
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
 # Testing
 .pytest_cache/
 .coverage
@@ -60,6 +64,9 @@ src/models/
 # OS
 .DS_Store
 Thumbs.db
+
+# Notebook runtime output
+examples/notebooks/data/
 
 # Connector credentials
 examples/connectors/.env

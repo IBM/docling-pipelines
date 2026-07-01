@@ -680,10 +680,13 @@ as valid JSON that exactly matches the provided schema template.
 
 Rules:
 1. Return ONLY a valid JSON object — no markdown fences, no explanation text.
-2. Use null for any field that cannot be found in the document.
-3. For NESTED fields, return a list of objects.
-4. Do not add extra fields not in the template.
-5. Preserve original values (dates, amounts, names) exactly as they appear.
+2. Use DOUBLE QUOTES for all strings (not single quotes).
+3. Use null for any field that cannot be found in the document.
+4. For NESTED fields, return a list of objects.
+5. Do not add extra fields not in the template.
+6. Preserve original values (dates, amounts, names) exactly as they appear.
+
+Example format: {"key": "value", "number": 123, "missing": null}
 """
 
         ENTITY_EXTRACTION_SCHEMA_FREE_SYSTEM_PROMPT: Final[str] = """\
@@ -693,11 +696,14 @@ from the document text and return them as a valid JSON object.
 
 Rules:
 1. Return ONLY a valid JSON object — no markdown fences, no explanation text.
-2. Use meaningful key names that describe the entity type (e.g. "invoice_number", "vendor_name", "total_amount").
-3. Group related entities under nested objects where appropriate (e.g. "vendor": {"name": ..., "address": ...}).
-4. Use null for any field that cannot be determined.
-5. Preserve original values (dates, amounts, names) exactly as they appear.
-6. Include all significant entities: people, organizations, dates, amounts, locations, identifiers, etc.
+2. Use DOUBLE QUOTES for all strings (not single quotes).
+3. Use meaningful key names that describe the entity type (e.g. "invoice_number", "vendor_name", "total_amount").
+4. Group related entities under nested objects where appropriate (e.g. "vendor": {"name": ..., "address": ...}).
+5. Use null for any field that cannot be determined.
+6. Preserve original values (dates, amounts, names) exactly as they appear.
+7. Include all significant entities: people, organizations, dates, amounts, locations, identifiers, etc.
+
+Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, "total": 100.50, "date": null}
 """
 
     class LLM:
