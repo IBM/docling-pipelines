@@ -145,6 +145,8 @@ Consistent contributors who have demonstrated code quality, reliability, and ali
 
 ## Maintainers
 
-TBD
+The full list of maintainers is in [MAINTAINERS.md](MAINTAINERS.md).
 
-For private matters (security issues, conduct reports), open a private security advisory via [GitHub Security Advisories](https://github.com/IBM/docling-pipelines/security/advisories/new).
+**Point of contact:** [docling_pipeline_team-dg@ibm.com](mailto:docling_pipeline_team-dg@ibm.com)
+
+For private matters (security issues, conduct reports), open a private security advisory via [GitHub Security Advisories](https://github.com/IBM/docling-pipelines/security/advisories/new) or email the team directly at [docling_pipeline_team-dg@ibm.com](mailto:docling_pipeline_team-dg@ibm.com).

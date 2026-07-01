@@ -1,6 +1,6 @@
 # Release Process
 
-This document describes the end-to-end release process for `docling-pipelines`, covering versioning strategy, artifact signing, release notes, migration guides, deprecation policy, and the release announcement plan.
+This document describes the end-to-end release process for `docling-pipelines`, covering versioning strategy, release notes, migration guides, deprecation policy, and the release announcement plan.
 
 ---
 
@@ -12,7 +12,6 @@ This document describes the end-to-end release process for `docling-pipelines`, 
 - [Step-by-Step Release Process](#step-by-step-release-process)
 - [Release Notes](#release-notes)
 - [Migration Guides](#migration-guides)
-- [Artifact Signing](#artifact-signing)
 - [Release Announcement Plan](#release-announcement-plan)
 - [Deprecation Policy](#deprecation-policy)
 
@@ -74,7 +73,7 @@ Before every release, confirm all of the following:
 - [ ] `detect-secrets` pre-commit hook passes
 - [ ] Release notes drafted and reviewed by at least one maintainer
 - [ ] Announcement text prepared (see [Release Announcement Plan](#release-announcement-plan))
-- [ ] PyPI distribution artifact built, signed, and verified
+- [ ] PyPI distribution artifact built and verified
 - [ ] Git tag pushed
 
 ---
@@ -127,11 +126,9 @@ After the PR is approved and merged:
 ```bash
 git checkout main
 git pull origin main
-git tag -s vX.Y.Z -m "Release vX.Y.Z"
+git tag vX.Y.Z -m "Release vX.Y.Z"
 git push origin vX.Y.Z
 ```
-
-The `-s` flag signs the tag with the maintainer's GPG key (see [Artifact Signing](#artifact-signing)).
 
 ### 7. Build and publish distribution artifacts
 
@@ -140,7 +137,6 @@ source .venv/bin/activate
 uv build
 # Verify the wheel and source distribution
 twine check dist/*
-# Sign artifacts (see Artifact Signing section)
 # Publish to PyPI
 twine upload dist/*
 ```
@@ -205,37 +201,6 @@ Each guide must include:
 - Step-by-step upgrade instructions
 - Automated migration script path (if one exists under `scripts/`)
 - Known limitations or caveats
-
----
-
-## Artifact Signing
-
-### PyPI Distribution Artifacts (Wheel and Source Distribution)
-
-Distribution artifacts published to PyPI are signed using [Sigstore](https://www.sigstore.dev/) via `sigstore sign` as part of the CI publish step. This produces `.sigstore` provenance bundles alongside each `.whl` and `.tar.gz` file.
-
-Consumers can verify authenticity with:
-
-```bash
-pip install sigstore
-sigstore verify identity \
-  --bundle docling_pipelines-X.Y.Z-py3-none-any.whl.sigstore \
-  --cert-identity maintainer@ibm.com \
-  --cert-oidc-issuer https://accounts.google.com \
-  docling_pipelines-X.Y.Z-py3-none-any.whl
-```
-
-### Git Tag Signing
-
-Release tags are GPG-signed by the releasing maintainer (`git tag -s`). Consumers can verify:
-
-```bash
-git tag -v vX.Y.Z
-```
-
-### Verification of CI-Generated Artifacts
-
-All artifacts produced by CI pipelines carry [SLSA](https://slsa.dev/) provenance attestations where supported by the target registry.
 
 ---
 
