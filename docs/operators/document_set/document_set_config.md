@@ -260,4 +260,4 @@ Error: Cannot evolve schema: incompatible types
 
 ## Complete Flow Example
 
-See [`tests/sample_test_flows/document_set/document_set_flow.json`](tests/sample_test_flows/document_set/document_set_flow.json) for a complete pipeline example.
+See [`sample_flows/use_cases/document_set_management.json`](../../../sample_flows/use_cases/document_set_management.json) for a complete pipeline example.

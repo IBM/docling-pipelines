@@ -26,7 +26,7 @@ This comprehensive guide walks you through setting up and executing a complete D
 >
 > ```bash
 > # From project root (docling-pipelines/)
-> docling-pipelines --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+> docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json
 > ```
 >
 > **Incorrect:**

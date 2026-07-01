@@ -418,7 +418,7 @@ This keeps the operator discoverable and reduces repeated setup/debugging work.
 
 ### Step 5: Create Flow Configuration
 
-Create a JSON flow file (e.g., `tests/sample_test_flows/cloud_sources/flow_your_connector.json`):
+Create a JSON flow file (e.g., `sample_flows/use_cases/your_connector_pipeline.json`):
 
 ```json
 {

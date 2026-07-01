@@ -378,4 +378,4 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 
 ## Complete Flow Example
 
-- [Sample Flow](../../../tests/sample_test_flows/invoice_processing/flow_invoice_process.json)
+- [Sample Flow](../../../sample_flows/use_cases/s3_to_opensearch.json)

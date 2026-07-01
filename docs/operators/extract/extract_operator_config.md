@@ -960,5 +960,5 @@ Extract text from audio/video files using Automatic Speech Recognition:
 
 ## Complete Flow Example
 
-- [Sample Flow 1](../../../tests/sample_test_flows/extract/flow_extract_complete.json)
-- [Sample Flow 2](../../../tests/sample_test_flows/invoice_processing/flow_invoice_entities.json)
+- [Sample Flow 1](../../../sample_flows/operators/entity_extraction_litellm.json)
+- [Sample Flow 2](../../../sample_flows/use_cases/invoice_processing.json)

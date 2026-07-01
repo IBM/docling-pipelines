@@ -599,13 +599,11 @@ curl http://localhost:11434/api/tags
 
 ---
 
-## Test Flows
+## Sample Flows
 
-Sample test flows are available in `tests/sample_test_flows/classification/`:
+Sample flows demonstrating document classification are available in `sample_flows/operators/`:
 
-- [`flow_classify_ollama.json`](../../../../../../tests/sample_test_flows/classification/flow_classify_ollama.json): Ollama provider example
-- [`flow_classify_litellm_ollama_openai_compat.json`](../../../../../../tests/sample_test_flows/classification/flow_classify_litellm_ollama_openai_compat.json): LiteLLM with OpenAI-compatible endpoint example
-- [`flow_classify_watsonx.json`](../../../../../../tests/sample_test_flows/classification/flow_classify_watsonx.json): Watsonx provider example
+- [`classification_ollama.json`](../../../../../../sample_flows/operators/classification_ollama.json): Document classification using Ollama provider
 
 ---
 

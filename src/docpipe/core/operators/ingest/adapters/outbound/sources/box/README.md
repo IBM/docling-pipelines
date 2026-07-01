@@ -156,8 +156,8 @@ pip install box_sdk_gen langchain-box
 
 ## Example Flow
 
-See `tests/sample_test_flows/cloud_sources/flow_box.json` for a complete example pipeline:
-- Ingest from Box
+For complete example pipelines using cloud source connectors, see `sample_flows/use_cases/`:
+- Ingest from cloud sources (Box, S3, OneDrive, etc.)
 - Extract with Docling
 - Chunk with hybrid strategy
 - Generate embeddings with Ollama

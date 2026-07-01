@@ -1,0 +1,84 @@
+{
+  "flow_name": "audio-video-extraction-pipeline",
+  "description": "Complete audio/video pipeline: ASR transcription → chunking → embeddings → vector storage",
+  "global_config": {
+    "doc_column": "content",
+    "storage": "disk",
+    "execute_type": "local",
+    "output_folder": "./output/audio_video",
+    "disable_validation": false
+  },
+  "flow": [
+    {
+      "name": "ingest_audio_video",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./sample_documents",
+        "include_filter": "wav,mp3,mp4,m4a"
+      }
+    },
+    {
+      "name": "extract_transcription",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {}
+        }
+      },
+      "depends_on": ["ingest_audio_video"]
+    },
+    {
+      "name": "chunk_transcription",
+      "type": "chunker",
+      "config": {
+        "chunk_type": "simple",
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "retain_original_content": false
+      },
+      "depends_on": ["extract_transcription"]
+    },
+    {
+      "name": "generate_embeddings",
+      "type": "embeddings",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<any-string-works-for-ollama>"
+        },
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.1
+      },
+      "depends_on": ["chunk_transcription"]
+    },
+    {
+      "name": "store_in_opensearch",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "audio-transcriptions",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": true,
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        }
+      },
+      "depends_on": ["generate_embeddings"]
+    }
+  ]
+}

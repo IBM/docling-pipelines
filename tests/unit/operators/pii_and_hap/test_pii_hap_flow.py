@@ -16,15 +16,14 @@ def test_pii_hap_with_ollama():
     os.environ["DATA_FOLDER"] = "/tmp/docpipe_test"
 
     # Load and compile the flow definition (authoring format -> runtime DAG)
-    # Navigate: tests/unit/operators/pii_and_hap -> tests (up 3 levels using resolve().parents)
-    tests_root = Path(__file__).resolve().parents[3]
-    flow_file = tests_root / "sample_test_flows" / "quality_and_enrichment" / "flow_pii_hap_example.json"
+    # Navigate: tests/unit/operators/pii_and_hap -> project root (up 4 levels)
+    project_root = Path(__file__).resolve().parents[4]
+    flow_file = project_root / "sample_flows" / "operators" / "pii_hap_detection.json"
 
     # load_flow_definition compiles authoring format to runtime DAG format
     _original_flow, flow_def = load_flow_definition(file_path=str(flow_file))
 
-    # Fix the paths path to be absolute
-    project_root = Path(__file__).resolve().parents[4]
+    # Fix the paths to be absolute
     for node in flow_def["dag"]:
         if node.get("operator") == "ingest_local" and "paths" in node.get("config", {}):
             relative_path = node["config"]["paths"]

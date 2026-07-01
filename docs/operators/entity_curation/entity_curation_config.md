@@ -379,4 +379,4 @@ The operator handles errors gracefully:
 
 ## Complete Flow Example
 
-- [Sample Flow](../../../tests/sample_test_flows/entity_curation/flow_entity_curation.json)
+- [Entity Curation Flow with Classification](../../../sample_flows/operators/entity_curation_ollama.json) - Demonstrates document classification, entity extraction, and entity curation using Ollama

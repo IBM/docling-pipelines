@@ -335,5 +335,5 @@ The Vector Database Operator provides a unified interface for storing documents 
 
 ## Complete Flow Example
 
-- [Sample Flow](../../../sample_flows/complete_pipeline_flow.json)
-- [Sample Flow](../../../tests/sample_test_flows/specialized/flow_purchase_orders_with_schema.json)
+- [Sample Flow](../../../sample_flows/quickstart/complete_pipeline_ollama.json)
+- [Sample Flow](../../../sample_flows/vectordb/opensearch_integration.json)

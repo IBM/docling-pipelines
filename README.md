@@ -255,7 +255,7 @@ export DOCPIPE_CUSTOM_OPERATORS="my_operators,/path/to/operators,s3://bucket/ope
 
 **Documentation:**
 - [Custom Operator Guide](examples/custom_operators/README.md) - Complete guide with examples
-- [Test Flow](tests/sample_test_flows/custom_operators/) - Working example flow
+- [Sample Flows](sample_flows/custom_operators/) - Working example flows
 
 Custom operators are automatically discovered, validated, and registered at runtime. Custom operators can override built-in docpipe operators based on priority resolution.
 

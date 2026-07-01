@@ -367,7 +367,7 @@ python examples/language_detection_example.py
 ### Flow Testing
 
 ```bash
-docling-pipelines --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
+docling-pipelines --flow-file sample_flows/advanced/branching_quality_routing.json
 ```
 
 ## Troubleshooting

@@ -243,7 +243,7 @@ export S3_BUCKET='test-bucket'
 python examples/connectors/test_s3_adapter.py
 
 # Or run flow-based test
-docling-pipelines --flow-file tests/sample_test_flows/cloud_sources/flow_s3_adapter_test.json
+docling-pipelines --flow-file sample_flows/use_cases/s3_to_opensearch.json
 ```
 
 ## Architecture

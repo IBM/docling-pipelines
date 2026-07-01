@@ -30,7 +30,7 @@ from docpipe.core.constants.operator_constants import OperatorConstants
 @pytest.fixture
 def real_flow_invoice(project_root):
     """Return path to real invoice flow file."""
-    return str(project_root / "tests" / "sample_test_flows" / "invoice_processing" / "flow_invoice.json")
+    return str(project_root / "sample_flows" / "use_cases" / "invoice_processing.json")
 
 
 @pytest.fixture

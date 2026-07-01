@@ -108,7 +108,7 @@ source .venv/bin/activate
 
 ```bash
 # Run the complete pipeline (from project root)
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 ```
 
 ### Expected Output
@@ -213,7 +213,7 @@ Your document went through this pipeline:
 ls -la sample_flows/
 
 # Try the invoice processing example
-docling-pipelines --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json
 ```
 
 ### View Your Data in OpenSearch Dashboards
@@ -239,7 +239,7 @@ docling-pipelines --operator-help ingest_local
 
 ### Create Your Own Pipeline
 
-1. **Copy the sample flow**: `cp sample_flows/complete_pipeline_flow.json my_flow.json`
+1. **Copy the sample flow**: `cp sample_flows/quickstart/complete_pipeline_ollama.json my_flow.json`
 2. **Edit the configuration**: Change `paths`, `chunk_size`, models, etc.
 3. **Run your custom flow**: `docling-pipelines --flow-file my_flow.json`
 
@@ -341,7 +341,7 @@ podman-compose -f docker/docker-compose.opensearch.yml restart
 mkdir -p sample_documents
 
 # Verify the flow file path is correct
-ls -la sample_flows/complete_pipeline_flow.json
+ls -la sample_flows/quickstart/complete_pipeline_ollama.json
 ```
 
 ### Still Having Issues?
@@ -350,7 +350,7 @@ ls -la sample_flows/complete_pipeline_flow.json
 2. **View detailed error messages**: Run with debug logging:
    ```bash
    export DS_LOG_LEVEL=DEBUG
-   docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+   docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
    ```
 3. **Start fresh**: Clean up and re-run setup:
    ```bash

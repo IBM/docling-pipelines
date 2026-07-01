@@ -459,4 +459,4 @@ The Chunker Operator provides intelligent text chunking with support for three s
 
 ## Complete Flow Example
 
-- [Sample Flow](../../../tests/sample_test_flows/invoice_processing/flow_invoice.json)
+- [Sample Flow](../../../sample_flows/use_cases/invoice_processing.json)

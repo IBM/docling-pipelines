@@ -194,4 +194,4 @@ The Ingest Local Operator discovers and loads file metadata from a local filesys
 
 ## Complete Flow Example
 
-- [Sample Flow](../../../sample_flows/complete_pipeline_flow.json)
+- [Sample Flow](../../../sample_flows/quickstart/complete_pipeline_ollama.json)

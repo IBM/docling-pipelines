@@ -214,8 +214,8 @@ def main():  # pragma: no cover
     parser.add_argument(
         "-f",
         "--file",
-        help="input filename to be executed (default: tests/sample_test_flows/basic/local_to_opensearch.json)",
-        default="tests/sample_test_flows/basic/local_to_opensearch.json",
+        help="input filename to be executed (default: sample_flows/quickstart/complete_pipeline_ollama.json)",
+        default="sample_flows/quickstart/complete_pipeline_ollama.json",
     )
     parser.add_argument(
         "-o",

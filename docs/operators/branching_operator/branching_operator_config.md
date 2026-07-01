@@ -280,4 +280,4 @@ Structured JSON format for complex conditions:
 
 ## Complete Flow Example
 
-- [Branching with Quality operators](../../../tests/sample_test_flows/quality_and_enrichment/flow_quality_pipeline_branching.json)
+- [Branching with Quality operators](../../../sample_flows/advanced/branching_quality_routing.json)

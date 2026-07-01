@@ -58,7 +58,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         from docpipe.cli.docpipe_cli import load_flow_definition
 
-        filepath = "../../../tests/sample_test_flows/basic/local_to_opensearch.json"
+        filepath = "../../../sample_flows/quickstart/complete_pipeline_ollama.json"
 
         original_flow, flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None

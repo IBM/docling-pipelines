@@ -175,9 +175,8 @@ Enable ASR pipeline for audio and video file transcription:
 - Quick prototyping and testing
 
 **Sample Flows:**
-- Basic: [`tests/sample_test_flows/extract/flow_extract_basic_none.json`](../../../../../tests/sample_test_flows/extract/flow_extract_basic_none.json)
-- Complete: [`tests/sample_test_flows/extract/flow_extract_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete.json)
-- Audio/Video: [`tests/sample_test_flows/audio_video/flow_audio_video_extraction.json`](../../../../../tests/sample_test_flows/audio_video/flow_audio_video_extraction.json)
+- Complete pipeline: [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../../../../sample_flows/quickstart/complete_pipeline_ollama.json)
+- Audio/Video transcription: [`sample_flows/use_cases/audio_video_extraction.json`](../../../../../sample_flows/use_cases/audio_video_extraction.json)
 
 ### 2. Docling Serve Provider
 
@@ -258,7 +257,7 @@ docker-compose -f docker-compose.docling-serve.yml up -d
 - Multi-language document processing
 - Distributed processing architectures
 
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_complete_docling_serve.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete_docling_serve.json)
+**Sample Flow:** See complete pipeline examples in [`sample_flows/quickstart/`](../../../../../sample_flows/quickstart/)
 
 ## Entity Extraction Providers
 
@@ -360,7 +359,7 @@ Users can configure custom inline VLM models for entity extraction using the `vl
 - Custom model integration for specialized domains
 - Template-driven workflows with VLM enhancement
 
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_docling_custom_model.json`](../../../../../tests/sample_test_flows/extract/flow_extract_docling_custom_model.json)
+**Sample Flow:** See complete pipeline examples in [`sample_flows/quickstart/`](../../../../../sample_flows/quickstart/)
 
 ### 3. LiteLLM Provider
 
@@ -478,8 +477,7 @@ During high-concurrency scalability testing with remote vLLM clusters, connectio
 - Local LLM processing via Ollama
 
 **Sample Flows:**
-- With Schema: [`tests/sample_test_flows/extract/flow_extract_litellm_with_schema.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_with_schema.json)
-- Schema Free: [`tests/sample_test_flows/extract/flow_extract_litellm_schema_free.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_schema_free.json)
+- Entity Extraction: [`sample_flows/operators/entity_extraction_litellm.json`](../../../../../sample_flows/operators/entity_extraction_litellm.json)
 
 ### 4. WatsonX Provider
 
@@ -522,7 +520,9 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 - Schema-based entity extraction with IBM Granite models
 - Integration with existing IBM Cloud infrastructure
 
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_watsonx_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_watsonx_complete.json)
+**Sample Flows:**
+- Entity Extraction: [`sample_flows/operators/entity_extraction_watsonx.json`](../../../../../sample_flows/operators/entity_extraction_watsonx.json)
+- Complete Pipeline: [`sample_flows/quickstart/complete_pipeline_watsonx.json`](../../../../../sample_flows/quickstart/complete_pipeline_watsonx.json)
 
 ## Configuration Parameters
 
@@ -1037,16 +1037,14 @@ These metrics are available through the operator's metadata and can be used for 
 
 ## Sample Flows
 
-Complete sample flows are available in [`tests/sample_test_flows/extract/`](../../../../../tests/sample_test_flows/extract/) and [`tests/sample_test_flows/audio_video/`](../../../../../tests/sample_test_flows/audio_video/):
+Complete sample flows demonstrating the ExtractOperator are available in [`sample_flows/`](../../../../../sample_flows/):
 
-- [`flow_extract_basic_none.json`](../../../../../tests/sample_test_flows/extract/flow_extract_basic_none.json) - Basic text extraction without entity extraction
-- [`flow_extract_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete.json) - Complete extraction with VLM and entity extraction
-- [`flow_extract_complete_docling_serve.json`](../../../../../tests/sample_test_flows/extract/flow_extract_complete_docling_serve.json) - Docling Serve text extraction
-- [`flow_extract_litellm_with_schema.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_with_schema.json) - LiteLLM entity extraction with custom schema
-- [`flow_extract_litellm_schema_free.json`](../../../../../tests/sample_test_flows/extract/flow_extract_litellm_schema_free.json) - LiteLLM entity extraction without schema
-- [`flow_extract_watsonx_complete.json`](../../../../../tests/sample_test_flows/extract/flow_extract_watsonx_complete.json) - WatsonX entity extraction
-- [`flow_extract_docling_custom_model.json`](../../../../../tests/sample_test_flows/extract/flow_extract_docling_custom_model.json) - Docling with custom VLM model
-- [`flow_audio_video_extraction.json`](../../../../../tests/sample_test_flows/audio_video/flow_audio_video_extraction.json) - Audio and video extraction sample flow
+- [`quickstart/complete_pipeline_ollama.json`](../../../../../sample_flows/quickstart/complete_pipeline_ollama.json) - Complete pipeline with Ollama
+- [`quickstart/complete_pipeline_watsonx.json`](../../../../../sample_flows/quickstart/complete_pipeline_watsonx.json) - Complete pipeline with WatsonX
+- [`operators/entity_extraction_litellm.json`](../../../../../sample_flows/operators/entity_extraction_litellm.json) - Entity extraction using LiteLLM
+- [`operators/entity_extraction_watsonx.json`](../../../../../sample_flows/operators/entity_extraction_watsonx.json) - Entity extraction using WatsonX
+- [`operators/entity_curation_ollama.json`](../../../../../sample_flows/operators/entity_curation_ollama.json) - Classification, extraction, and entity curation
+- [`use_cases/audio_video_extraction.json`](../../../../../sample_flows/use_cases/audio_video_extraction.json) - Audio/video transcription with ASR
 
 ## Troubleshooting
 
@@ -1174,4 +1172,4 @@ ExtractOperator (Orchestrator)
 
 - [Docling Documentation](https://github.com/DS4SD/docling)
 - [Ollama Documentation](https://ollama.com/docs)
-- [Sample Flows](../../../../../tests/sample_test_flows/extract/)
+- [Sample Flows](../../../../../sample_flows/)

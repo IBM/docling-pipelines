@@ -1353,7 +1353,7 @@ FileNotFoundError: [Errno 2] No such file or directory: 'sample_flows/...'
 ```bash
 # ✅ CORRECT: From project root
 cd /path/to/docling-pipelines
-docling-pipelines --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json
 
 # ❌ INCORRECT: From subdirectory - will cause path resolution issues
 cd some/subdirectory
@@ -2769,8 +2769,7 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 **Examples:**
 
-- Sample flows: [`sample_flows/`](sample_flows/)
-- Test flows: [`tests/sample_test_flows/`](tests/sample_test_flows/)
+- Sample flows: [`sample_flows/`](sample_flows/) - Organized by use case and operator type
 
 ---
 

@@ -377,4 +377,4 @@ If not specified, the operator loads 30+ predefined document types from `common/
 
 ## Complete flow example
 
-[tests/sample_test_flows/classification/flow_document_classifier.json](../../../tests/sample_test_flows/classification/flow_document_classifier.json)
+[sample_flows/operators/classification_ollama.json](../../../sample_flows/operators/classification_ollama.json)

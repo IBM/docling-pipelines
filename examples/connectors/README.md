@@ -62,7 +62,7 @@ python examples/connectors/test_sharepoint_adapter.py
 
 - **Security**: The `.env` file is gitignored and should NEVER be committed to version control
 - **Scope**: These environment variables are only for testing the connector scripts, NOT for the main pipeline
-- **Pipeline Configuration**: The main docpipe pipeline uses credentials embedded in flow JSON files (see `tests/sample_test_flows/cloud_sources/flow_onedrive_to_opensearch.json`)
+- **Pipeline Configuration**: The main docpipe pipeline uses credentials embedded in flow JSON files (see `sample_flows/use_cases/` for examples)
 
 ## Available Test Scripts
 
