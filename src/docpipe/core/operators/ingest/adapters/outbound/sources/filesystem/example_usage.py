@@ -31,7 +31,7 @@ async def example_basic_usage():
 
     # Create configuration (with validation)
     config = FilesystemSourceConfig(
-        root_path="./tests/fixtures/customer_support_docs",
+        paths=["./tests/fixtures/customer_support_docs"],
         recursive=True,
         file_extensions=[".txt", ".pdf"],
         max_file_size_mb=10,
@@ -90,14 +90,14 @@ async def example_error_handling():
     # Try invalid configuration
     print("\nTrying invalid configuration (non-existent path)...")
     try:
-        config = FilesystemSourceConfig(root_path="/non/existent/path", recursive=True)
+        config = FilesystemSourceConfig(paths=["/non/existent/path"], recursive=True)
     except ValueError as e:
         print(f"  ✓ Validation caught error: {e}")
 
     # Try invalid file extension
     print("\nTrying invalid file extension format...")
     config = FilesystemSourceConfig(
-        root_path="./tests/fixtures",
+        paths=["./tests/fixtures"],
         file_extensions=["txt", "pdf"],  # Missing dots
     )
     print(f"  ✓ Auto-corrected extensions: {config.file_extensions}")

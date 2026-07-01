@@ -276,8 +276,40 @@ class FlowService:
         if flow is None:
             raise FlowNotFoundException(f"Flow {flow_id} not found", flow_id=flow_id)
 
+        # Backward compatibility: migrate legacy root_path (str) → paths (list) for
+        # flows persisted before the multi-path filesystem change.
+        flow.definition = self._migrate_root_path(flow.definition)
+
         logger.info("Successfully retrieved flow %s", flow_id)
         return flow
+
+    def _migrate_root_path(self, definition: Any) -> Any:
+        """Migrate legacy ``root_path`` string to ``paths`` list in-memory.
+
+        Flows saved before the multi-path filesystem change stored a single
+        ``root_path`` string under ``connection_params``.  This rewrites the
+        definition on load so the rest of the system always sees the new
+        ``paths`` list format without requiring a data migration on disk.
+        """
+        if not isinstance(definition, dict):
+            return definition
+
+        nodes = definition.get("flow") or definition.get("dag") or []
+        for node in nodes:
+            config = node.get("config", {})
+            if not isinstance(config, dict):
+                continue
+            if config.get("provider") != "filesystem":
+                continue
+            conn = config.get("connection_params", {})
+            if not isinstance(conn, dict):
+                continue
+            if "root_path" in conn and "paths" not in conn:
+                root_path = conn.pop("root_path")
+                conn["paths"] = [root_path] if isinstance(root_path, str) else list(root_path)
+                logger.debug("Migrated root_path -> paths for filesystem node '%s'", node.get("name", ""))
+
+        return definition
 
     def update_flow(self, flow: Flow) -> Flow:
         """Update an existing flow with full replacement.

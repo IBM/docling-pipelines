@@ -17,7 +17,7 @@ from typing import Any
 
 import yaml
 
-from docpipe.core.assets.flows.domain.ports import FlowRepository
+from docpipe.core.assets.flows.application.services import FlowService
 from docpipe.core.constants import DocpipeConfigKeys, EnvironmentVariables
 from docpipe.core.constants.constants import _find_project_root
 from docpipe.core.job_management.adapters.frameworks import DefaultJobRunManager
@@ -323,7 +323,7 @@ class JobManagementFactory:
         logger.info("Created JobTrackerService")
         return self._job_stats_service
 
-    def create_job_management_service(self, flow_repository: FlowRepository) -> JobManagementService:
+    def create_job_management_service(self, flow_service: FlowService) -> JobManagementService:
         """
         Create job management service with dependencies.
 
@@ -337,7 +337,7 @@ class JobManagementFactory:
         job_run_manager = self.create_job_run_manager()
 
         self._job_management_service = JobManagementService(
-            job_stats_service=job_stats_service, job_run_manager=job_run_manager, flow_repository=flow_repository
+            job_stats_service=job_stats_service, job_run_manager=job_run_manager, flow_service=flow_service
         )
 
         logger.info("Created JobManagementService")

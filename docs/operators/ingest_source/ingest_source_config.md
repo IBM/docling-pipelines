@@ -195,6 +195,57 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 
 ## Provider-Specific Configuration
 
+### Filesystem
+
+**Single directory:**
+```json
+{
+  "provider": "filesystem",
+  "connection_params": {
+    "paths": ["/data/documents"],
+    "recursive": true,
+    "exclude_patterns": ["*.tmp", "__pycache__/*"],
+    "max_file_size_mb": 100,
+    "follow_symlinks": false
+  }
+}
+```
+
+**Multiple directories:**
+```json
+{
+  "provider": "filesystem",
+  "connection_params": {
+    "paths": ["/data/invoices", "/data/contracts", "/data/reports"],
+    "recursive": true,
+    "exclude_patterns": ["*.tmp"],
+    "max_file_size_mb": 50,
+    "follow_symlinks": false
+  }
+}
+```
+
+**Single file:**
+```json
+{
+  "provider": "filesystem",
+  "connection_params": {
+    "paths": ["/data/documents/report.pdf"],
+    "recursive": false
+  }
+}
+```
+
+**`connection_params` fields:**
+
+| Parameter | Type | Required | Default | Description |
+|---------|------|----------|---------|-------------|
+| `paths` | `list[string]` | Yes | — | One or more absolute or relative paths (files or directories) |
+| `recursive` | boolean | No | `true` | Recursively traverse subdirectories |
+| `exclude_patterns` | list[string] | No | `[]` | Glob patterns to skip (e.g. `["*.tmp", "__pycache__/*"]`) |
+| `max_file_size_mb` | integer | No | `null` | Skip files larger than this size (MB). `null` means no limit |
+| `follow_symlinks` | boolean | No | `false` | Follow symbolic links during directory traversal |
+
 ### S3 / IBM COS
 
 **Folder Ingestion:**
@@ -298,7 +349,52 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 
 ## Configuration Examples
 
-### Example 1: S3 Ingestion
+### Example 1: Filesystem — Single Directory
+```json
+{
+  "name": "ingest",
+  "type": "ingest_source",
+  "config": {
+    "provider": "filesystem",
+    "connection_params": {
+      "root_paths": ["./data/documents"],
+      "recursive": true,
+      "exclude_patterns": ["*.tmp", "__pycache__/*"],
+      "max_file_size_mb": 100,
+      "follow_symlinks": false
+    },
+    "credentials": {},
+    "include_filter": "pdf,docx,txt",
+    "max_files": 500
+  }
+}
+```
+
+### Example 2: Filesystem — Multiple Directories
+```json
+{
+  "name": "ingest",
+  "type": "ingest_source",
+  "config": {
+    "provider": "filesystem",
+    "connection_params": {
+      "root_paths": [
+        "./data/invoices",
+        "./data/contracts",
+        "./data/reports"
+      ],
+      "recursive": true,
+      "exclude_patterns": ["*.tmp"],
+      "max_file_size_mb": 50,
+      "follow_symlinks": false
+    },
+    "credentials": {},
+    "include_filter": "pdf,docx"
+  }
+}
+```
+
+### Example 3: S3 Ingestion
 ```json
 {
   "operator": "ingest_source",
@@ -318,7 +414,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 }
 ```
 
-### Example 2: SharePoint Ingestion
+### Example 4: SharePoint Ingestion
 ```json
 {
   "operator": "ingest_source",
@@ -340,7 +436,7 @@ The Ingest Source Operator provides a unified interface for ingesting documents 
 }
 ```
 
-### Example 3: Google Drive Ingestion
+### Example 5: Google Drive Ingestion
 ```json
 {
   "operator": "ingest_source",

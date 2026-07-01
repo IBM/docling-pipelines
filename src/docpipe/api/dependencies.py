@@ -53,7 +53,7 @@ def get_flow_service(repository: FlowRepository = Depends(get_flow_repository)) 
 
 
 @lru_cache(maxsize=1)
-def get_job_management_service(flow_repository: FlowRepository = Depends(get_flow_repository)) -> JobManagementService:  # noqa: B008
+def get_job_management_service(flow_service: FlowService = Depends(get_flow_service)) -> JobManagementService:  # noqa: B008
     """
     Dependency provider for job management service (singleton).
 
@@ -61,5 +61,4 @@ def get_job_management_service(flow_repository: FlowRepository = Depends(get_flo
         JobManagementService: Configured service instance (cached singleton)
     """
     factory = get_default_factory()
-    return factory.create_job_management_service(flow_repository=flow_repository)
-
+    return factory.create_job_management_service(flow_service=flow_service)
