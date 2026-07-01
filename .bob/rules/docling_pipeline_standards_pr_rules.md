@@ -10,7 +10,7 @@ Run these checks after the common rules in `common.md` have been completed.
 - **AUTO-FIX** — Bob applies the fix automatically when the developer agrees.
 - **ADVISORY** — Informational only. Note findings in the PR body; never block.
 
-**Applies to:** All `.py` files under `src/datasift/`
+**Applies to:** All `.py` files under `src/docpipe/`
 
 ---
 
@@ -20,7 +20,7 @@ Run these checks after the common rules in `common.md` have been completed.
 
 All function and method definitions with 2 or more parameters (excluding `self` and `cls`) must use
 the `*` separator to enforce keyword-only arguments. This is a project-wide convention applied
-throughout `src/datasift/`.
+throughout `src/docpipe/`.
 
 ### What to check
 Scan the diff for `def` signatures that have positional parameters without a `*` separator.
@@ -78,19 +78,19 @@ def get_metadata() -> dict[str, Any]:
 
 ---
 
-## Rule 3: Built-In Operator — Must Be Registered in `DATASIFT_OPERATORS`
+## Rule 3: Built-In Operator — Must Be Registered in `DOCPIPE_OPERATORS`
 
 **Mode: PROMPT + AUTO-FIX**
 
-Built-in operators (those with `owner = DatasiftConstants.OWNER_DATASIFT`) must be added to the
-`DATASIFT_OPERATORS` frozenset in `operator_registry.py`. Unregistered operators are invisible to
+Built-in operators (those with `owner = DocpipeConstants.OWNER_DOCPIPE`) must be added to the
+`DOCPIPE_OPERATORS` frozenset in `operator_registry.py`. Unregistered operators are invisible to
 the CLI (`--list-operators`) and the pipeline executor.
 
 ### Workflow
-1. Detect new operator classes with `owner = DatasiftConstants.OWNER_DATASIFT` in the diff.
-2. Check whether the class appears in the `DATASIFT_OPERATORS` frozenset in `operator_registry.py`.
+1. Detect new operator classes with `owner = DocpipeConstants.OWNER_DOCPIPE` in the diff.
+2. Check whether the class appears in the `DOCPIPE_OPERATORS` frozenset in `operator_registry.py`.
 3. If it is missing:
-   - Ask: *"This operator is not registered in `DATASIFT_OPERATORS`. Add it now? (Yes / No)"*
+   - Ask: *"This operator is not registered in `DOCPIPE_OPERATORS`. Add it now? (Yes / No)"*
    - **Yes** — Bob adds the import and the class to the frozenset.
    - **No** — Note the gap in the PR body.
 4. If already registered, proceed.
