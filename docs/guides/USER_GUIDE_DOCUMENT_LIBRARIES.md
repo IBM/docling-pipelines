@@ -117,7 +117,7 @@ All Document Library endpoints are under: `/api/v1/document-libraries`
 curl -X POST "http://localhost:8000/api/v1/document-libraries" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Financial Documents Q1 2024",
+    "name": "Financial Documents Q1 20241",
     "description": "Collection of financial documents for Q1 2024 analysis",
     "tags": ["finance", "q1-2024", "reports"]
   }'
@@ -129,18 +129,19 @@ curl -X POST "http://localhost:8000/api/v1/document-libraries" \
 **Response** (200 OK):
 ```json
 {
-  "library_id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "Financial Documents Q1 2024",
+  "library_id": "81cea322-ae1b-4142-8f27-e06ff39e211a",
+  "name": "Financial Documents Q1 20241",
   "description": "Collection of financial documents for Q1 2024 analysis",
-  "tags": ["finance", "q1-2024", "reports"],
-  "document_set_ids": ["abc123", "def456"],
-  "aggregate_metrics": {
-    "total_document_sets": 2,
-    "total_documents": 150,
-    "total_size_bytes": 52428800
-  },
-  "created_at": "2024-01-15T10:30:00Z",
-  "updated_at": "2024-01-15T11:45:00Z"
+  "purpose": null,
+  "original_size": null,
+  "final_size": null,
+  "tags": [
+    "finance",
+    "q1-2024",
+    "reports"
+  ],
+  "created_by": null,
+  "href": null
 }
 ```
 
@@ -234,14 +235,34 @@ curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41
 ```json
 [
   {
-    "library_id": "550e8400-e29b-41d4-a716-446655440000",
+    "library_id": "e8b2cf35-4d2a-4997-b1e2-2470cd05fd73",
     "name": "Financial Documents Q1 2024",
-    "description": "Collection of financial documents",
-    "tags": ["finance", "q1-2024"],
-    "document_set_ids": ["abc123", "def456"],
-    "aggregate_metrics": {...},
-    "created_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T11:45:00Z"
+    "description": "Collection of financial documents for Q1 2024 analysis",
+    "purpose": null,
+    "original_size": null,
+    "final_size": null,
+    "tags": [
+      "finance",
+      "q1-2024",
+      "reports"
+    ],
+    "created_by": null,
+    "href": null
+  },
+  {
+    "library_id": "81cea322-ae1b-4142-8f27-e06ff39e211a",
+    "name": "Financial Documents Q1 20241",
+    "description": "Collection of financial documents for Q1 2024 analysis",
+    "purpose": null,
+    "original_size": null,
+    "final_size": null,
+    "tags": [
+      "finance",
+      "q1-2024",
+      "reports"
+    ],
+    "created_by": null,
+    "href": null
   }
 ]
 ```
@@ -262,12 +283,26 @@ curl -X GET "http://localhost:8000/api/v1/document-libraries?offset=0&limit=10"
 {
   "document_sets": [
     {
-      "document_set_id": "abc123",
-      "name": "Document Set 1"
+      "id": "f824b653-45af-45a6-9336-341c6aeb2d8a",
+      "name": "Research Documents1",
+      "container_id": null,
+      "container_type": null,
+      "description": "Collection of research papers and reports.",
+      "documents": null,
+      "tags": [],
+      "propagate_source_acls": null,
+      "is_derivative_available": null
     },
     {
-      "document_set_id": "def456",
-      "name": "Document Set 2"
+      "id": "85d7a47f-9d81-4ffe-a112-a93b88cd9c70",
+      "name": "Research Documents",
+      "container_id": null,
+      "container_type": null,
+      "description": "Collection of research papers and reports.",
+      "documents": null,
+      "tags": [],
+      "propagate_source_acls": null,
+      "is_derivative_available": null
     }
   ]
 }
@@ -351,16 +386,6 @@ class DocumentLibraryClient:
         response = requests.get(url)
         response.raise_for_status()
         return response.json()
-    
-    def list_libraries(self, name: str = None, offset: int = 0, limit: int = 100):
-        """List all document libraries with optional name filter"""
-        url = f"{self.base_url}{self.api_path}"
-        params = {"offset": offset, "limit": limit}
-        if name:
-            params["name"] = name
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
 
 # Usage example
 if __name__ == "__main__":
@@ -380,10 +405,6 @@ if __name__ == "__main__":
     # List document sets in library
     doc_sets = client.list_document_sets(library['library_id'])
     print(f"Library has {len(doc_sets['document_sets'])} document sets")
-    
-    # List libraries with name filter
-    results = client.list_libraries(name="Invoice")
-    print(f"Found {len(results)} libraries matching 'Invoice'")
 ```
 
 ## Error Handling
