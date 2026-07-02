@@ -43,6 +43,9 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
         self.output_features_to_drop = config.get(DocpipeConstants.OUTPUT_FEATURES_TO_DROP, [])
         self.updated_features = config.get(DocpipeConstants.UPDATED_FEATURES, [])
         self.validating_flow = config.get(DocpipeConstants.VALIDATING_FLOW, False)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.common_log_arguments = {
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,

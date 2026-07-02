@@ -43,7 +43,6 @@ class RedactionOperator(AbstractOperator):
         - regex: The pattern or word to be masked/redacted.
         """
         super().__init__(config)
-        self.doc_column = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
         self.stats_column = config.get(STATS_COLUMN_NAME_KEY, STATS_COLUMN_NAME_DEFAULT)
         self.masking_character = config.get(
             OperatorConstants.PIIHAP.REDACTION_MASKING_CHARACTER_KEY, DEFAULT_MASKING_CHARACTER

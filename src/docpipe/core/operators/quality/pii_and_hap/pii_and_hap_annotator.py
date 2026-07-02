@@ -115,12 +115,6 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         # Configuration mapping: (attribute_name, config_key, default_value)
         config_mappings = [
-            # Document column
-            (
-                "doc_column_name",
-                OperatorConstants.Columns.DOC_COLUMN,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
-            ),
             # Detection configuration
             ("provider", PROVIDER, PROVIDER_DEFAULT),
             # Redaction configuration
@@ -577,13 +571,13 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         remove_row_idx: list[int] = []
         remove_row_id: list[str] = []
-        new_doc_content = table[self.doc_column_name].to_pylist()
+        new_doc_content = table[self.doc_column].to_pylist()
         name_column = table[OperatorConstants.Misc.NAME].to_pylist()
         id_column = table[OperatorConstants.Columns.ID].to_pylist()
 
         doc_info_list = []
 
-        for idx, doc_contents in enumerate(table[self.doc_column_name]):
+        for idx, doc_contents in enumerate(table[self.doc_column]):
             doc_info = {"idx": idx, "doc_contents": doc_contents}
             doc_info_list.append(doc_info)
 

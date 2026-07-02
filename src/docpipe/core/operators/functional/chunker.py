@@ -209,9 +209,6 @@ class ChunkerOperator(AbstractOperator):
                 - retain_original_content (bool): Keep original content (default: False)
         """
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.chunk_type: str = config.get(CHUNK_TYPE_KEY, CHUNK_TYPE_DEFAULT)
         self.chunk_size: int = config.get(
             OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT

@@ -47,9 +47,6 @@ class DocIdHashOperator(AbstractOperator):
             OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.hash_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )

@@ -182,9 +182,6 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         )
 
         # Column configuration
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Classification.DEFAULT_DOC_COLUMN
-        )
         self.output_column: str = config.get(
             OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Classification.DEFAULT_OUTPUT_COLUMN
         )

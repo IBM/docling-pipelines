@@ -66,7 +66,7 @@ class TestLanguageDetectFastText:
         """Test that operator initializes correctly with FastText provider"""
         operator = LanguageDetect(sample_config)
 
-        assert operator.doc_column_name == "content"
+        assert operator.doc_column == "content"
         assert operator.filter_value is False
         assert operator.language_provider == "fasttext"
         assert operator.language_adapter is not None

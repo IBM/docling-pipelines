@@ -40,9 +40,6 @@ class EdedupOperator(AbstractOperator):
         Parameters are: {"doc_column": "content", "doc_id_column": "doc_id_hash}
         """
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.doc_id_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )

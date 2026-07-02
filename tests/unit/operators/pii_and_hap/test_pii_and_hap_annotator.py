@@ -543,8 +543,8 @@ def test_empty_input_table(mock_pii_hap_service):
 
     # 2. Create empty input table
     content = pa.array([])
-    ids = []
-    names = []
+    ids: list[str] = []
+    names: list[str] = []
     col_names = ["id", "content", "name"]
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
@@ -571,7 +571,7 @@ def test_configuration_validation():
                 },
             }
         )
-        assert operator.doc_column_name == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
     except Exception as e:
         pytest.fail(f"Unexpected exception with default doc_column: {e!s}")
 
@@ -588,7 +588,7 @@ def test_configuration_validation():
                 },
             }
         )
-        assert operator.doc_column_name == "text"
+        assert operator.doc_column == "text"
         assert operator.provider == "litellm"
     except Exception as e:
         pytest.fail(f"Unexpected exception with custom configuration: {e!s}")

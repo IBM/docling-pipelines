@@ -123,9 +123,6 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             OperatorConstants.Columns.EMBEDDINGS_COLUMN,
             OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
         )
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.doc_id_hash_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )

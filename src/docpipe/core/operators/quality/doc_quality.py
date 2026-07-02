@@ -41,9 +41,6 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         )
         config.update({BAD_WORD_FILEPATH_KEY: normalized_bad_word_filepath})
         super().__init__(config)
-        self.doc_column_name: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.doc_content_column: str = config.get(DOC_CONTENT_COLUMN_KEY, "content")
         self.text_lang: str = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
         self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)
