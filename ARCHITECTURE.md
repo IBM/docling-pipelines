@@ -4625,25 +4625,29 @@ Supporting Components:
 
 **Note**: There is no separate `CommandLineOrchestrator` class. The CLI uses `PythonOrchestrator` through the factory pattern.
 
-### 5. REST API (`src/docpipe/app/`)
+### 5. REST API (`src/docpipe/api/`)
 
-The FastAPI-based REST API provides programmatic access to flow and job management:
+The FastAPI-based REST API provides programmatic access to flow and job management.
+See [REST API Server](docs/api/REST_API_SERVER.md) for the full endpoint reference, startup instructions, and security overview.
 
 #### Flow Management Endpoints (`/api/v1/flows`)
 
-- `POST /flows` - Create a new flow
-- `GET /flows/{flow_id}` - Retrieve flow by ID
-- `GET /flows` - List flows with pagination and filtering
-- `PUT /flows/{flow_id}` - Update flow (full replacement)
-- `PATCH /flows/{flow_id}` - Partial flow update
-- `DELETE /flows/{flow_id}` - Delete flow
-- `DELETE /flows` - Bulk delete flows
+- `POST /api/v1/flows` - Create a new flow
+- `GET /api/v1/flows/{flow_id}` - Retrieve flow by ID
+- `GET /api/v1/flows` - List flows with pagination and filtering
+- `PUT /api/v1/flows/{flow_id}` - Update flow (full replacement)
+- `PATCH /api/v1/flows/{flow_id}` - Partial flow update
+- `DELETE /api/v1/flows/{flow_id}` - Delete flow
+- `DELETE /api/v1/flows` - Bulk delete flows
 
-#### Job Run Management Endpoints (`/api/v1/job-runs`)
+#### Job Run Management Endpoints (`/api/v1/job_runs`)
 
-- `GET /job-runs/{job_run_id}` - Get job run status and statistics
-- `POST /job-runs/{job_run_id}/cancel` - Request job cancellation
-- `DELETE /job-runs/{job_run_id}` - Delete job run data
+- `POST /api/v1/job_runs` - Create and start a job run
+- `GET /api/v1/job_runs` - List job runs
+- `GET /api/v1/job_runs/{job_run_id}` - Get job run status
+- `POST /api/v1/job_runs/{job_run_id}/cancel` - Request job cancellation
+- `DELETE /api/v1/job_runs/{job_run_id}` - Delete job run data
+- `GET /api/v1/job_runs/{job_run_id}/flow_definition` - Get flow definition snapshot
 
 #### Job Management Architecture
 

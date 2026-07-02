@@ -89,7 +89,7 @@ This repository contains the docpipe operators with FastAPI server, CLI orchestr
 **New to docpipe-operators?** Start here:
 
 - **[Quick Start Guide](QUICKSTART.md)** - Fast-track setup and first pipeline execution
-- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Comprehensive guide for new users covering:
+- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Comprehensive guide for new users covering:
   - Prerequisites and installation (Python 3.12, uv, dependencies)
   - Ollama setup for LLM operations and embeddings
   - OpenSearch setup with Podman/Docker for vector storage
@@ -352,7 +352,7 @@ When using distributed Prefect workers, all workers must resolve job stats stora
 
 **For complete setup instructions, see:**
 - **[Quick Start Guide](QUICKSTART.md)** - Fast-track setup (5 minutes)
-- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed setup with troubleshooting
+- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Detailed setup with troubleshooting
 
 ---
 
@@ -362,28 +362,6 @@ When using distributed Prefect workers, all workers must resolve job stats stora
 
 - [CLI Orchestrator](#cli-orchestrator) - Command-line flow execution (recommended for new users)
 - [DocpipeFlowManager API](#docpipeflowmanager-api) - Programmatic Python API
-- [FastAPI Server](#fastapi-server-todo) - REST API (under development)
-
-### FastAPI Server (TODO)
-
-<details> FASTApi Server 
-<summary>Start the FastAPI server with uvicorn:</summary>
-
-```bash
-# Using uvicorn from project root
-uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
-
-# Or using uv from project root
-uv run uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The API will be available at:
-
-- API: http://localhost:8000
-- Interactive docs: http://localhost:8000/docs
-- Alternative docs: http://localhost:8000/redoc
-
-</details>
 
 ### CLI Orchestrator
 
@@ -399,7 +377,7 @@ docling-pipelines --help
 
 **See also:**
 
-- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
+- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
 - [Example Flows](examples/) - Sample flow configurations
 - [Operator Reference](docs/reference/OPERATORS.md) - Operator parameters and configuration options
 
@@ -479,8 +457,20 @@ result = manager.execute()
 
 # Execute flow from dictionary
 flow_dict = {
-    "nodes": [...],
-    "edges": [...]
+    "flow_name": "my-pipeline",
+    "flow": [
+        {
+            "name": "ingest",
+            "type": "ingest_local",
+            "config": {"paths": "./data"}
+        },
+        {
+            "name": "extract",
+            "type": "extract_operator",
+            "depends_on": ["ingest"],
+            "config": {}
+        }
+    ]
 }
 manager = DocpipeFlowManager(flow_def=flow_dict)
 result = manager.execute()
@@ -727,7 +717,6 @@ uv pip compile pyproject.toml -o requirements.txt
 
 ```bash
 # From project root
-export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv pip install -e .
 export TEST_CP4D_USERNAME=udp_unittest_user
 export TEST_CP4D_PASSWORD="udp_unittest_pass@123"  # pragma: allowlist secret
@@ -745,9 +734,6 @@ Run tests from the **project root** (recommended):
 ```bash
 # Activate virtual environment (from project root)
 source .venv/bin/activate
-
-# Set PYTHONPATH (from project root)
-export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Run all tests with colored output
 uv run pytest -v
@@ -816,7 +802,7 @@ Coverage configuration is in `.coveragerc` at the project root.
 **See also:**
 
 - [Code Quality](#code-quality) - Pre-commit hooks and linting tools
-- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md#verification-testing-and-troubleshooting) - Testing best practices
+- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#7-verification-and-testing) - Testing best practices
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common test failures and solutions
 
 ### Code Quality
@@ -957,7 +943,7 @@ DOCPIPE_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 **See also:**
 
-- [Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md) - Environment setup examples
+- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Environment setup examples
 - [Operator Specific Setup](#operator-specific-setup) - Required services configuration
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Configuration issues
 
@@ -967,7 +953,7 @@ DOCPIPE_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 **For operator-specific configuration (Ollama, OpenSearch, Milvus), see:**
 - **[Quick Start Guide](QUICKSTART.md)** - Quick setup instructions
-- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)** - Detailed configuration guides
+- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Detailed configuration guides
 
 ---
 

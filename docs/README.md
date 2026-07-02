@@ -29,6 +29,7 @@ Task-oriented guides to help you accomplish specific goals:
 - **[Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)** - Credential management, authentication, ACL, and production hardening
 - **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)** - LLM integration patterns
 - **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)** - Managing document collections
+- **[Document Class Utils](guides/DOCUMENT_CLASS_UTILS.md)** - Document schema utilities
 
 ### Best Practices
 - **[Logging Best Practices](LOGGING_BEST_PRACTICES.md)** - Security-first logging, sensitive data handling, and NFR Point 12 compliance
@@ -54,11 +55,13 @@ Quick lookup documentation for parameters and APIs:
 
 - **[Global Configuration Reference](reference/GLOBAL_CONFIG.md)** - Flow-level configuration parameters
 - **[Operator Reference](reference/OPERATORS.md)** - Complete operator parameter specifications
+- **[Document Schemas](reference/DOCUMENT_SCHEMAS.md)** - Document class schema definitions
 
 ## 🌐 REST API
 
 Documentation for the Docpipe REST API server:
 
+- **[REST API Server](api/REST_API_SERVER.md)** - Server setup, all endpoints, authentication, and security overview
 - **[Document Retrieval API](api/ACL_DOCUMENT_RETRIEVAL.md)** - ACL-based document retrieval endpoints
 - **[OAuth2 Authentication](api/OAUTH2_AUTHENTICATION.md)** - OAuth2 and OIDC authentication setup
 
@@ -84,6 +87,7 @@ Resources for contributors:
 
 Internal documentation for maintainers:
 
+- **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
 - **[Metadata Aggregation Strategy](internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Metadata aggregation in micro-batching
 
 ## 🚀 Deployment
@@ -113,8 +117,6 @@ docs/
 └── deployment/          # Deployment guides
 ```
 
-**Note:** Comprehensive operator documentation (architecture, implementation details) is located in the source code directories at `src/docpipe/core/operators/*/README.md`.
-
 ## 🔍 Finding What You Need
 
 **I want to...**
@@ -124,8 +126,9 @@ docs/
 - **Write my first flow** → [Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)
 - **Look up a parameter** → [Global Config Reference](reference/GLOBAL_CONFIG.md) or [Operator Reference](reference/OPERATORS.md)
 - **See operator config examples** → [Operator Configs Directory](operators/)
-- **Understand operator internals** → Check `src/docpipe/core/operators/*/README.md` in source code
+- **Understand operator internals** → Browse [operator documentation](operators/)
 - **Use the Python API** → [Python API Guide](guides/PYTHON_API_GUIDE.md)
+- **Use the REST API** → [REST API Server](api/REST_API_SERVER.md)
 - **Set up OAuth2 authentication** → [OAuth2 Authentication Guide](api/OAUTH2_AUTHENTICATION.md)
 - **Create a custom connector** → [Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)
 - **Secure my deployment** → [Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)
