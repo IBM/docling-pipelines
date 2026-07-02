@@ -14,7 +14,7 @@ dependencies = [
     "box-sdk-gen==1.17.0",
     "data-prep-toolkit-transforms==1.1.7",
     "datefinder==1.0.0",
-    "docling==2.105.0",
+    "docling[rapidocr]==2.105.0",
     "datatrove==0.3.0",
     "duckdb==1.3.2",
     "fastapi==0.136.3",
@@ -157,6 +157,8 @@ override-dependencies = [
     # scipy>=1.18.0 requires numpy>=2.0.0 which conflicts with the numpy<2.0.0 pin above.
     # Pin to <1.18.0 to prevent the Docker build resolving a breaking scipy version.
     "scipy>=1.13.0,<1.18.0",
+    # Pin rapidocr to 3.9.0 within docling-slim's >=3.8,<4.0 constraint.
+    "rapidocr==3.9.0",
 ]
 
 [tool.ruff]

@@ -759,6 +759,10 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 - **LiteLLM** (for litellm entity mode): API keys for chosen provider (OpenAI, Anthropic, etc.)
 - **WatsonX** (for watsonx entity mode): Environment variables `WATSONX_API_KEY`, `WATSONX_CONTAINER_ID`, optional `WATSONX_API_BASE_URL`, `WATSONX_CONTAINER_KIND`
 - **ffmpeg** (for audio/video processing): Required for M4A, AAC, OGG, FLAC audio formats and all video formats (MP4, AVI, MOV). Not required for WAV/MP3. Install: `brew install ffmpeg` (macOS) or `sudo apt install ffmpeg` (Linux)
+- **vlm_asr extra** (for VLM/ASR pipelines or Docling entity extraction): Install the `vlm_asr` optional dependency group to get the full `docling[vlm,asr]` extras required for VLM-based text extraction, ASR transcription, and Docling template-based entity extraction:
+  ```bash
+  uv sync --extra vlm_asr
+  ```
 
 **Usage Notes**
 
@@ -769,8 +773,9 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
   - A `custom_schema` in the operator configuration, OR
   - A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
   - If neither is provided, a `ConfigurationError` will be thrown with message: "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"
-- **VLM Pipeline**: Configure via nested `text_extraction.provider_config.vlm_pipeline` object with `preset`, `engine`, and `engine_options` for enhanced extraction of complex documents
-- **ASR Pipeline**: Configure via nested `text_extraction.provider_config.asr_pipeline` object with `model_id` for audio/video transcription
+- **VLM Pipeline**: Configure via nested `text_extraction.provider_config.vlm_pipeline` object with `preset`, `engine`, and `engine_options` for enhanced extraction of complex documents. Requires the `vlm_asr` extra (`uv sync --extra vlm_asr`).
+- **ASR Pipeline**: Configure via nested `text_extraction.provider_config.asr_pipeline` object with `model_id` for audio/video transcription. Requires the `vlm_asr` extra (`uv sync --extra vlm_asr`).
+- **Docling entity extraction**: When using `entity_extraction.provider: "docling"`, the `vlm_asr` extra is required (`uv sync --extra vlm_asr`).
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
 - **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured
 - **Extension Detection**: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)

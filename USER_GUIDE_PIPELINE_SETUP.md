@@ -319,6 +319,17 @@ This command:
 - Installs all project dependencies
 - Installs development dependencies
 
+> **Note: VLM, ASR, and Docling entity extraction require an additional install step.**
+>
+> If you intend to use VLM-based text extraction (`text_extraction.provider_config.vlm_pipeline`),
+> ASR transcription (`text_extraction.provider_config.asr_pipeline`), or Docling template-based
+> entity extraction (`entity_extraction.provider: "docling"`), install the `vlm_asr` optional
+> dependency group which provides `docling[vlm,asr]`:
+>
+> ```bash
+> uv sync --extra vlm_asr
+> ```
+
 **3. Activate the virtual environment:**
 
 **macOS/Linux:**
