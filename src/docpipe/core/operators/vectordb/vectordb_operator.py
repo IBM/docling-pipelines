@@ -177,8 +177,26 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
         Important: If ANY chunk of a document fails to index, the entire document is marked as failed.
         """
+        # Count unique documents (not chunks) for accurate total_docs_count
+        # Also build mapping from doc_id_hash to original id for failure tracking
+        unique_doc_ids: set[str] = set()
+        doc_hash_to_id: dict[str, str] = {}
+        id_column = OperatorConstants.Misc.ID
+
+        if self.doc_id_column and self.doc_id_column in table.column_names:
+            for idx in range(table.num_rows):
+                doc_hash = table[self.doc_id_column][idx].as_py()
+                if doc_hash:
+                    unique_doc_ids.add(str(doc_hash))
+                    # Build mapping from doc_id_hash to original id
+                    if id_column in table.column_names:
+                        original_id = table[id_column][idx].as_py()
+                        if original_id:
+                            doc_hash_to_id[str(doc_hash)] = str(original_id)
+        total_unique_docs = len(unique_doc_ids) if unique_doc_ids else table.num_rows
+
         # Initialize metadata
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_unique_docs)
         metadata[NUMBER_OF_BATCHES_KEY] = 0
 
         if table.num_rows == 0:
@@ -249,10 +267,19 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     self.adapter.create_index(dimension_mapping=dimension_mapping)
             except Exception as e:
                 logger.error(f"Failed to create or validate index: {e!s}", extra=self.common_log_arguments)
-                raise DocpipeException(
-                    message=f"Failed to create or validate index: {e!s}",
-                    error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
-                ) from e
+                # Mark all unique documents as failed when index creation fails
+                # Use original document IDs (from 'id' column) for consistency
+                for doc_hash in unique_doc_ids:
+                    original_id = doc_hash_to_id.get(doc_hash, doc_hash)
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=original_id,
+                        doc_name=original_id,
+                        reason=f"Failed to create index: {e!s}",
+                    )
+                metadata[Metrics.External.PROCESSED_DOCS] = 0
+                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+                return [table], metadata
 
         # Prepare documents for bulk indexing
         documents: list[tuple[str, dict[str, Any]]] = []
@@ -490,6 +517,22 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
         except Exception as e:
             logger.error(f"Failed to index documents: {e!s}", extra=self.common_log_arguments)
+            # Mark all documents as failed when the entire indexing operation fails
+            # Use original document IDs (from 'id' column) for consistency
+            unique_doc_hashes_from_chunks: set[str] = set()
+            for doc_id, _ in documents:
+                original_doc_hash = chunk_id_to_doc_id.get(doc_id, doc_id)
+                unique_doc_hashes_from_chunks.add(original_doc_hash)
+
+            for doc_hash in unique_doc_hashes_from_chunks:
+                original_id = doc_hash_to_id.get(doc_hash, doc_hash)
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=original_id,
+                    doc_name=original_id,
+                    reason=f"Indexing operation failed: {e!s}",
+                )
+            metadata[Metrics.External.PROCESSED_DOCS] = 0
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return [table], metadata
 
