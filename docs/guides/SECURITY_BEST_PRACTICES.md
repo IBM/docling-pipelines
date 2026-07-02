@@ -237,7 +237,7 @@ Never bypass hooks with `--no-verify`.
 
 ### Validate custom operators before use
 
-Custom operators loaded from `custom_operators/` or external packages execute arbitrary Python during pipeline runs. Only load operators from trusted, reviewed sources.
+Custom operators loaded from `examples/custom_operators/` or external packages execute arbitrary Python during pipeline runs. Only load operators from trusted, reviewed sources.
 
 ---
 

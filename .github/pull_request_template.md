@@ -5,7 +5,7 @@ Note -
 -->
 
 ## Issue
-<!-- Tag the issue link to the PR for which the changes are done -->
+- <!-- Tag the issue link to the PR for which the changes are done -->
 
 ## Dev Tracking
 <!-- Link to epic or parent task if this PR is part of a larger feature/epic -->

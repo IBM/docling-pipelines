@@ -32,7 +32,7 @@ Task-oriented guides to help you accomplish specific goals:
 - **[Document Class Utils](guides/DOCUMENT_CLASS_UTILS.md)** - Document schema utilities
 
 ### Best Practices
-- **[Logging Best Practices](LOGGING_BEST_PRACTICES.md)** - Security-first logging, sensitive data handling, and NFR Point 12 compliance
+- **[Logging Best Practices](guides/LOGGING_BEST_PRACTICES.md)** - Security-first logging, sensitive data handling, and NFR Point 12 compliance
 
 ## ⚙️ Operator Configurations
 

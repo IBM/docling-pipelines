@@ -77,7 +77,7 @@ export DOCPIPE_CUSTOM_OPERATORS="./operators/my_operator.py"
 
 # Local directory - scans recursively for .py files
 export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators/"
-export DOCPIPE_CUSTOM_OPERATORS="./custom_operators"
+export DOCPIPE_CUSTOM_OPERATORS="./examples/custom_operators"
 
 # S3 bucket
 export DOCPIPE_CUSTOM_OPERATORS="s3://my-bucket/operators/my_operator.py"

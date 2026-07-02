@@ -76,73 +76,30 @@ Before creating custom operators, ensure you have:
 
 Let's create a simple operator that adds a greeting column to your data.
 
-### Step 1: Create the Operator File
+### Step 1: Get the Example Operator File
 
-Create a file named `hello_operator.py`:
+A ready-made example operator is available at `examples/custom_operators/hello_operator.py`.
+It adds a greeting column to the table — a minimal but complete custom operator.
 
-```python
-from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from docpipe.core.constants.constants import DocpipeConstants, AttributeDataTypes
-from docpipe.core.constants.operator_constants import OperatorConstants
-import pyarrow as pa
-from typing import Any
+Use it directly, or copy it as a starting point for your own operator:
 
-class HelloOperator(AbstractOperator):
-    """A simple operator that adds a greeting column to the table."""
-    
-    # Required class attributes
-    short_name: str = "hello"
-    category: OperatorCategory = OperatorCategory.Functional
-    owner: str | None = DocpipeConstants.OWNER_CUSTOM
-    
-    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
-        """Add a greeting column to the table."""
-        # Create greeting values for each row
-        greetings = ["Hello from custom operator!"] * table.num_rows
-        
-        # Add new column to table
-        table = table.append_column("greeting", pa.array(greetings))
-        
-        # Return table and metadata
-        metadata = self.create_base_metadata(total_docs_count=table.num_rows)
-        return [table], metadata
-    
-    @staticmethod
-    def get_metadata() -> dict[str, Any]:
-        """Return operator metadata for UI and validation."""
-        return {
-            OperatorConstants.Misc.CATEGORY: HelloOperator.category.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
-            OperatorConstants.Misc.LABEL: "Hello Operator",
-            OperatorConstants.Config.FEATURES: {
-                "greeting": {
-                    OperatorConstants.Misc.NAME: "Greeting",
-                    OperatorConstants.Config.DESCRIPTION: "A friendly greeting message",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
-                }
-            },
-            OperatorConstants.Config.ATTRIBUTES: {},
-        }
-    
-    @staticmethod
-    def get_required_features() -> list[str]:
-        """Return list of required input columns."""
-        return []  # No specific columns required
+```bash
+# Use the example directly
+export DOCPIPE_CUSTOM_OPERATORS="./examples/custom_operators/hello_operator.py"
+
+# Or copy it to your own workspace
+cp examples/custom_operators/hello_operator.py ~/my_custom_operators/hello_operator.py
 ```
 
 ### Step 2: Register the Operator
 
-Create a directory and place your operator file there:
+Point `DOCPIPE_CUSTOM_OPERATORS` at a file or a directory:
 
 ```bash
-# Create directory for custom operators
-mkdir -p ~/my_custom_operators
+# Single file
+export DOCPIPE_CUSTOM_OPERATORS="./examples/custom_operators/hello_operator.py"
 
-# Move your operator file there
-mv hello_operator.py ~/my_custom_operators/
-
-# Register the directory
+# Directory (scans recursively for .py files)
 export DOCPIPE_CUSTOM_OPERATORS="$HOME/my_custom_operators"
 ```
 
