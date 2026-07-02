@@ -95,13 +95,13 @@ dev = [
     "faker==40.8.0",
     "flake8==7.3.0",
     "httpx==0.28.1",  # For testing FastAPI
-    "mypy==1.19.1",
+    "mypy==2.1.0",
     "pre-commit==4.5.1",
     "pytest==9.0.2",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.0.0",
     "pytest-mock==3.15.1",
-    "ruff==0.15.5",
+    "ruff==0.15.20",
 ]
 
 notebooks = [
@@ -270,5 +270,3 @@ dev = [
     "types-python-dateutil==2.9.0.20260408",
     "types-requests==2.33.0.20260408",
 ]
-
-
