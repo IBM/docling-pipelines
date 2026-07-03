@@ -59,7 +59,7 @@ class TestDoclingServeAdapter:
 
     def test_init_missing_docling_serve_config(self):
         """Test adapter initialization fails without docling_serve_config."""
-        config = {}
+        config: dict[str, object] = {}
         with pytest.raises(ValueError, match="docling_serve_config is required"):
             DoclingServeAdapter(config=config)
 
@@ -588,3 +588,291 @@ class TestDoclingServeAdapter:
         config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
         adapter = DoclingServeAdapter(config=config)
         assert adapter.verify_ssl is True
+
+    def test_init_with_additional_formats_empty(self):
+        """Test adapter initialization with empty additional_formats (markdown-only)."""
+        config = {
+            "additional_formats": [],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == []
+        assert "additional_formats" not in adapter.processing_options
+
+    def test_init_with_additional_formats_single(self):
+        """Test adapter initialization with single additional format."""
+        config = {
+            "additional_formats": ["html"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == ["html"]
+        assert adapter.processing_options["additional_formats"] == ["html"]
+
+    def test_init_with_additional_formats_multiple(self):
+        """Test adapter initialization with multiple additional formats."""
+        config = {
+            "additional_formats": ["html", "json", "text"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == ["html", "json", "text"]
+        assert adapter.processing_options["additional_formats"] == ["html", "json", "text"]
+
+    def test_init_without_additional_formats_defaults_to_empty(self):
+        """Test that additional_formats defaults to empty list when not specified."""
+        config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == []
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_additional_formats_html(self, mock_client_class):
+        """Test extraction with HTML additional format."""
+        config = {
+            "additional_formats": ["html"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "# Markdown content",
+                "html_content": "<h1>HTML content</h1>",
+            },
+            "processing_time": 2.0,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown content"
+        assert result[OperatorConstants.Columns.CONTENT_HTML] == "<h1>HTML content</h1>"
+        assert "html" in result[OperatorConstants.Metadata.METADATA]["formats"]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_additional_formats_multiple(self, mock_client_class):
+        """Test extraction with multiple additional formats."""
+        config = {
+            "additional_formats": ["html", "json", "text"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "# Markdown",
+                "html_content": "<h1>HTML</h1>",
+                "json_content": {"pages": [{"page_no": 1}]},
+                "text_content": "Plain text",
+            },
+            "processing_time": 2.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
+        assert result[OperatorConstants.Columns.CONTENT_HTML] == "<h1>HTML</h1>"
+        assert result[OperatorConstants.Columns.CONTENT_TEXT] == "Plain text"
+        assert OperatorConstants.Columns.CONTENT_JSON in result
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        assert "markdown" in formats
+        assert "html" in formats
+        assert "json" in formats
+        assert "text" in formats
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_markdown_only_no_additional_formats(self, mock_client_class):
+        """Test extraction with markdown only (no additional formats requested)."""
+        config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {"md_content": "# Markdown only"},
+            "processing_time": 1.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown only"
+        assert OperatorConstants.Columns.CONTENT_HTML not in result
+        assert OperatorConstants.Columns.CONTENT_JSON not in result
+        assert OperatorConstants.Columns.CONTENT_TEXT not in result
+        assert result[OperatorConstants.Metadata.METADATA]["formats"] == ["markdown"]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_doclang_format(self, mock_client_class):
+        """Test extraction with doclang additional format."""
+        config = {
+            "additional_formats": ["doclang"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "# Markdown",
+                "doclang_content": "DocLang formatted content",
+            },
+            "processing_time": 2.0,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
+        assert result[OperatorConstants.Columns.CONTENT_DOCLANG] == "DocLang formatted content"
+        assert "doclang" in result[OperatorConstants.Metadata.METADATA]["formats"]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_unsupported_format_error_422(self, mock_client_class):
+        """Test that 422 errors for unsupported formats provide clear guidance via error classifier."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+        from docpipe.exceptions.error_codes import ErrorCode
+
+        config = {
+            "additional_formats": ["html", "json"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        # Simulate enhanced 422 error from docling client (enhanced by error classifier)
+        enhanced_error_msg = (
+            "The docling-serve instance at http://localhost:5001 rejected the requested output formats. "
+            "This typically occurs when using an older docling-serve version that does not support "
+            "one or more of the requested formats: ['md', 'html', 'json']. "
+            "\n\nTo resolve this issue:\n"
+            "1. Upgrade docling-serve to the latest version, OR\n"
+            "2. Remove unsupported formats from 'text_extraction.provider_config.additional_formats' in your flow configuration.\n"
+            "\nOriginal error: Unexpected status code 422"
+        )
+        mock_client_instance.process_document.side_effect = DocpipeException(
+            message=enhanced_error_msg,
+            status_code=422,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+        )
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert OperatorConstants.Extraction.ERROR in result
+        error_msg = result[OperatorConstants.Extraction.ERROR]
+        # Verify the error message contains helpful guidance (from error classifier)
+        assert "docling-serve" in error_msg.lower()
+        assert "format" in error_msg.lower()
+        assert "upgrade" in error_msg.lower()
+        assert "additional_formats" in error_msg.lower()
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_format_compatibility_error_message(self, mock_client_class):
+        """Test that format-related error messages trigger compatibility guidance via error classifier."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+        from docpipe.exceptions.error_codes import ErrorCode
+
+        config = {
+            "additional_formats": ["doctags"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        # Simulate enhanced format-related error from docling client (enhanced by error classifier)
+        enhanced_error_msg = (
+            "The docling-serve instance at http://localhost:5001 rejected the requested output formats. "
+            "This typically occurs when using an older docling-serve version that does not support "
+            "one or more of the requested formats: ['md', 'doctags']. "
+            "\n\nTo resolve this issue:\n"
+            "1. Upgrade docling-serve to the latest version, OR\n"
+            "2. Remove unsupported formats from 'text_extraction.provider_config.additional_formats' in your flow configuration.\n"
+            "\nOriginal error: Invalid format 'doctags' not supported"
+        )
+        mock_client_instance.process_document.side_effect = DocpipeException(
+            message=enhanced_error_msg,
+            status_code=400,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+        )
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert OperatorConstants.Extraction.ERROR in result
+        error_msg = result[OperatorConstants.Extraction.ERROR]
+        # Verify helpful guidance is provided (from error classifier)
+        assert "additional_formats" in error_msg.lower()
+        assert "upgrade" in error_msg.lower()
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_non_format_error_passes_through(self, mock_client_class):
+        """Test that non-format errors are passed through without modification."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+        from docpipe.exceptions.error_codes import ErrorCode
+
+        config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        # Simulate a different type of error (not format-related)
+        mock_client_instance.process_document.side_effect = DocpipeException(
+            message="Connection timeout",
+            status_code=500,
+            error_code=ErrorCode.CONNECTION_ERROR,
+        )
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert OperatorConstants.Extraction.ERROR in result
+        error_msg = result[OperatorConstants.Extraction.ERROR]
+        # Should contain original error, not format guidance
+        assert "Connection timeout" in error_msg
+        assert "upgrade docling-serve" not in error_msg.lower()

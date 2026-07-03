@@ -5,9 +5,10 @@ It delegates extraction to a remote Docling Serve instance, enabling distributed
 processing and reducing local resource requirements.
 """
 
+import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
@@ -54,6 +55,17 @@ class DoclingServeAdapter(TextExtractionPort):
     ADAPTER_NAME = "docling_serve"
     ADAPTER_DISPLAY_NAME = "Docling Serve Extractor"
 
+    # Maps format name → docling-serve API response field name.
+    # Paired with FORMAT_COLUMN_MAPPING (inherited from TextExtractionPort) this gives
+    # both the source key (API response) and the destination key (PyArrow column).
+    FORMAT_API_FIELD_MAPPING: ClassVar[dict[str, str]] = {
+        OperatorConstants.Extraction.OUTPUT_FORMAT_HTML: OperatorConstants.Extraction.DOCLING_SERVE_HTML_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_JSON: OperatorConstants.Extraction.DOCLING_SERVE_JSON_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT: OperatorConstants.Extraction.DOCLING_SERVE_TEXT_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS: OperatorConstants.Extraction.DOCLING_SERVE_DOCTAGS_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG: OperatorConstants.Extraction.DOCLING_SERVE_DOCLANG_CONTENT,
+    }
+
     def __init__(self, *, config: dict[str, Any]) -> None:
         """Initialize the adapter with configuration.
 
@@ -83,11 +95,15 @@ class DoclingServeAdapter(TextExtractionPort):
         self.max_retries = docling_serve_config.get("max_retries", 3)
         self.verify_ssl = docling_serve_config.get("verify_ssl", True)
 
-        # Build processing options
+        # Build processing options (additional_formats is read from top-level config by the port base class;
+        # we pass it into processing_options so _build_options in the client can forward it to the API)
         self.processing_options = {
             "do_ocr": docling_serve_config.get("do_ocr", True),
             "pdf_backend": docling_serve_config.get("pdf_backend", "dlparse_v2"),
         }
+
+        if self.additional_formats:
+            self.processing_options["additional_formats"] = self.additional_formats
 
         # Add optional parameters if present
         if "ocr_engine" in docling_serve_config:
@@ -99,13 +115,18 @@ class DoclingServeAdapter(TextExtractionPort):
         if "image_export_mode" in docling_serve_config:
             self.processing_options["image_export_mode"] = docling_serve_config["image_export_mode"]
 
-        logger.info("Initialized DoclingServeAdapter with base_url: %s, timeout: %s", self.base_url, self.timeout)
+        logger.info(
+            "Initialized DoclingServeAdapter with base_url: %s, timeout: %s, additional_formats: %s",
+            self.base_url,
+            self.timeout,
+            self.additional_formats,
+        )
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs: Any) -> dict[str, Any]:
         """Extract content from a single document using Docling Serve API.
 
         Sends the document to a remote Docling Serve instance for extraction.
-        Polls for results and returns the extracted markdown content.
+        Polls for results and returns the extracted markdown content plus any additional formats.
 
         Args:
             file_path: Path to the document file (used for logging and filename preservation)
@@ -115,11 +136,16 @@ class DoclingServeAdapter(TextExtractionPort):
         Returns:
             Dictionary containing:
                 - success: True if extraction succeeded
-                - doc_content: Extracted content as markdown
-                - metadata: Extraction metadata (processing_time, page_count, etc.)
+                - content: Extracted content as markdown (mandatory)
+                - content_html: HTML format (if requested in additional_formats)
+                - content_json: JSON format (if requested in additional_formats)
+                - content_text: Plain text format (if requested in additional_formats)
+                - content_doctags: DocTags format (if requested in additional_formats)
+                - content_doclang: DocLang format (if requested in additional_formats)
+                - metadata: Extraction metadata (processing_time, page_count, formats, etc.)
                 - error: Error message if extraction failed
         """
-        logger.info("Processing file with docling-serve: %s", file_path)
+        logger.info("Processing file with docling-serve (formats: md + %s): %s", self.additional_formats, file_path)
 
         try:
             file_suffix = Path(file_path).suffix.lower()
@@ -147,29 +173,58 @@ class DoclingServeAdapter(TextExtractionPort):
                 filename=filename,
                 options=self.processing_options,
             )
-            # Debug: Log the full result structure
-            logger.debug(
-                f"Docling-serve result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}"
-            )
-            # Extract markdown and metadata from v1 API response format
-            # v1 API returns: {"document": {"md_content": "...", ...}, "processing_time": ..., ...}
-            document = result.get("document", {})
-            logger.info(
-                f"Document object keys: {list(document.keys()) if isinstance(document, dict) else 'Not a dict'}"
-            )
-            markdown_text = document.get("md_content", "")
-            logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0} for file {file_path}")
-            metadata = {"processing_time": result.get("processing_time", 0)}
-            pages = document.get("json_content", {}).get("pages", {})
-            if pages:
-                metadata[OperatorConstants.Metadata.PAGE_COUNT] = len(pages)
 
-            logger.info("Completed docling-serve extraction for %s", file_path)
-            return {
+            # Extract content from v1 API response format
+            # v1 API returns: {"document": {"md_content": "...", "html_content": "...", ...}, "processing_time": ..., ...}
+            document = result.get(OperatorConstants.Extraction.DOCLING_SERVE_DOCUMENT, {})
+            logger.debug(
+                f"Document keys from docling-serve: {list(document.keys()) if isinstance(document, dict) else 'Not a dict'}"
+            )
+
+            # Build result dictionary starting with mandatory markdown
+            result_dict: dict[str, Any] = {
                 OperatorConstants.Extraction.SUCCESS: True,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
-                OperatorConstants.Metadata.METADATA: metadata,
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: document.get("md_content", ""),
             }
+
+            # Add additional formats if they were requested and are present in response
+            formats_generated = [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN]
+
+            for fmt in self.additional_formats:
+                if fmt in self.FORMAT_API_FIELD_MAPPING and fmt in self.FORMAT_COLUMN_MAPPING:
+                    api_field = self.FORMAT_API_FIELD_MAPPING[fmt]
+                    output_column = self.FORMAT_COLUMN_MAPPING[fmt]
+                    if api_field in document:
+                        content = document.get(api_field, "")
+                        # Special handling for JSON format: serialise the dict response to a string
+                        if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_JSON and content:
+                            content = json.dumps(content, indent=2) if content else ""
+                        result_dict[output_column] = content
+                        formats_generated.append(fmt)
+                        logger.info(f"Generated {fmt} format for {file_path}")
+
+            # Build metadata
+            markdown_text = result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+            metadata = {
+                OperatorConstants.Extraction.DOCLING_SERVE_PROCESSING_TIME: result.get(
+                    OperatorConstants.Extraction.DOCLING_SERVE_PROCESSING_TIME, 0
+                ),
+                "char_count": len(markdown_text) if markdown_text else 0,
+                "formats": formats_generated,
+            }
+
+            # Add page count if available from json_content
+            json_content = document.get("json_content", {})
+            if json_content and isinstance(json_content, dict):
+                pages = json_content.get(OperatorConstants.Extraction.DOCLING_SERVE_PAGES, {})
+                if pages:
+                    metadata[OperatorConstants.Metadata.PAGE_COUNT] = len(pages)
+
+            result_dict[OperatorConstants.Metadata.METADATA] = metadata
+
+            logger.info(f"Completed docling-serve extraction for {file_path} (formats: {formats_generated})")
+            return result_dict
+
         except Exception as e:
             logger.error("Error extracting with docling-serve from %s: %s", file_path, str(e))
             return {

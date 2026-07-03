@@ -151,9 +151,14 @@ The ExtractOperator validates file extensions before processing to ensure compat
 
 **Valid Values:** `"html"`, `"json"`, `"text"`, `"doctags"`, `"doclang"`
 
+**Provider Support:**
+- **docling_library**: All formats supported
+- **docling_serve**: Supported formats depend on docling-serve version. Older versions may not support all formats (e.g., `doclang` was added in newer versions). Only formats returned by docling-serve will be included in output.
+
 **Examples:**
 ```json
 "text_extraction": {
+  "provider": "docling_library",
   "provider_config": {
     "additional_formats": ["html", "json"]
   }
@@ -162,8 +167,10 @@ The ExtractOperator validates file extensions before processing to ensure compat
 
 ```json
 "text_extraction": {
+  "provider": "docling_serve",
   "provider_config": {
-    "additional_formats": ["html", "json", "text", "doctags", "doclang"]
+    "base_url": "http://localhost:5001",
+    "additional_formats": ["html", "json", "text"]
   }
 }
 ```
@@ -173,6 +180,7 @@ The ExtractOperator validates file extensions before processing to ensure compat
 - This parameter specifies which formats to generate **in addition to** markdown
 - Each additional format creates a corresponding column: `content_html`, `content_json`, `content_text`, `content_doctags`, `content_doclang`
 - **Additional formats are only generated for documents processed through Docling** (docling_library or docling_serve providers). Plain text files (.txt, .md) are read directly and will not generate these additional format columns.
+- **For docling_serve**: If a requested format is not supported by your docling-serve version, you will receive a clear error message with guidance to either upgrade docling-serve or remove the unsupported format from `additional_formats`. Older docling-serve versions may not support all formats (e.g., `doclang` was added in newer versions).
 - Only request formats you actually need to minimize memory usage and storage
 
 ### Text Extraction - VLM (Vision-Language Model) Parameters
@@ -723,7 +731,7 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
 }
 ```
 
-### Example 4: Docling Serve Extraction
+### Example 4: Docling Serve Extraction (Markdown Only)
 ```json
 {
   "operator": "extract_operator",
@@ -744,6 +752,32 @@ All Docling Serve parameters should be nested under `text_extraction.provider_co
   }
 }
 ```
+**Output columns**: `content` (markdown only)
+
+### Example 4b: Docling Serve with Additional Formats
+```json
+{
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction": {
+      "provider": "docling_serve",
+      "provider_config": {
+        "base_url": "http://docling-serve:5001",
+        "timeout": 300,
+        "do_ocr": true,
+        "ocr_engine": "easyocr",
+        "table_mode": "accurate",
+        "additional_formats": ["html", "json"]
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
+  }
+}
+```
+**Output columns**: `content` (markdown), `content_html`, `content_json`
+**Note**: Only formats supported by your docling-serve version will be generated
 
 ### Example 5: Multi-Format Output
 ```json

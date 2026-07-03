@@ -857,6 +857,19 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         # Validate configuration against metadata
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
+        # Warn about any additional_formats values that won't produce an output column
+        provider_config = self.text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        additional_formats = provider_config.get(OperatorConstants.Extraction.ADDITIONAL_FORMATS, [])
+        if additional_formats:
+            unknown = [
+                fmt for fmt in additional_formats if fmt not in OperatorConstants.Extraction.VALID_OUTPUT_FORMATS
+            ]
+            if unknown:
+                warnings.append(
+                    f"text_extraction.provider_config.additional_formats contains unknown values {unknown}. "
+                    f"These will be ignored. Valid options are: {OperatorConstants.Extraction.VALID_OUTPUT_FORMATS}"
+                )
+
     @staticmethod
     def get_metadata() -> dict[str, Any]:
         """Get metadata about the operator including features and attributes.

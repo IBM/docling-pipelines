@@ -9,6 +9,7 @@ processing documents through docling-serve service.
 """
 
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,92 @@ from docpipe.integrations.rest_client import RestClient, RestClientConfig, RestM
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class DoclingServeErrorHandler:
+    """
+    Extensible error handler for docling-serve exceptions.
+
+    Each registered handler is a (matcher, enhancer) pair:
+      - matcher(exception) -> bool  : returns True if this handler applies
+      - enhancer(exception, context) -> DocpipeException : returns the enhanced exception
+
+    To add a new error type, call register():
+        handler.register(my_matcher, my_enhancer)
+    """
+
+    def __init__(self, *, base_url: str) -> None:
+        self.base_url = base_url
+        self._handlers: list[
+            tuple[
+                Callable[[DocpipeException], bool],
+                Callable[[DocpipeException, dict[str, Any]], DocpipeException],
+            ]
+        ] = []
+        self._register_defaults()
+
+    def _register_defaults(self) -> None:
+        self.register(self._is_format_compatibility_error, self._enhance_format_compatibility_error)
+
+    def register(
+        self,
+        matcher: Callable[[DocpipeException], bool],
+        enhancer: Callable[[DocpipeException, dict[str, Any]], DocpipeException],
+    ) -> None:
+        """Register a new (matcher, enhancer) pair. Handlers are checked in registration order."""
+        self._handlers.append((matcher, enhancer))
+
+    def handle(self, exception: DocpipeException, context: dict[str, Any] | None = None) -> DocpipeException:
+        """
+        Return an enhanced exception if any registered handler matches, otherwise return the original.
+
+        Args:
+            exception: The exception to classify
+            context: Optional context passed to the enhancer (e.g. requested_formats)
+        """
+        ctx = context or {}
+        for matcher, enhancer in self._handlers:
+            if matcher(exception):
+                return enhancer(exception, ctx)
+        return exception
+
+    # --- built-in handler: format compatibility ---
+
+    @staticmethod
+    def _is_format_compatibility_error(exception: DocpipeException) -> bool:
+        if exception.status_code == 422:
+            return True
+        msg = str(exception).lower()
+        return any(
+            indicator in msg
+            for indicator in (
+                "format",
+                "to_formats",
+                "unsupported",
+                "invalid format",
+                "unknown format",
+                "not supported",
+            )
+        )
+
+    def _enhance_format_compatibility_error(
+        self, exception: DocpipeException, context: dict[str, Any]
+    ) -> DocpipeException:
+        requested_formats = context.get("requested_formats", [])
+        message = (
+            f"The docling-serve instance at {self.base_url} rejected the requested output formats. "
+            f"This typically occurs when using an older docling-serve version that does not support "
+            f"one or more of the requested formats: {requested_formats}. "
+            f"\n\nTo resolve this issue:\n"
+            f"1. Upgrade docling-serve to the latest version, OR\n"
+            f"2. Remove unsupported formats from 'text_extraction.provider_config.additional_formats' in your flow configuration.\n"
+            f"\nOriginal error: {exception}"
+        )
+        return DocpipeException(
+            message=message,
+            status_code=exception.status_code,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+        )
 
 
 class DoclingServeClient:
@@ -73,6 +160,9 @@ class DoclingServeClient:
         if self.api_key:
             self.custom_headers["X-API-KEY"] = self.api_key
 
+        # Error handler — use register() to add new error types as needed
+        self.error_handler = DoclingServeErrorHandler(base_url=self.base_url)
+
         logger.info(f"Initialized DoclingServeClient with base_url={self.base_url}")
 
     def _build_options(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -96,11 +186,32 @@ class DoclingServeClient:
             "include_images": True,
             "images_scale": 2.0,
             "image_export_mode": "embedded",
-            "to_formats": ["json", "md", "text", "doclang"],
+            # Markdown is mandatory, additional formats come from options
+            "to_formats": ["md"],
         }
 
         if options:
-            default_options.update(options)
+            # Work on a copy so we never mutate the caller's dict (processing_options on the adapter
+            # is reused across every document — mutating it would lose additional_formats after the first call)
+            opts = dict(options)
+
+            # Pull out additional_formats and append to to_formats before merging the rest
+            additional_formats = opts.pop("additional_formats", None)
+            if additional_formats:
+                to_formats_list: list[str] = default_options["to_formats"]  # type: ignore[assignment]
+                for fmt in additional_formats:
+                    if fmt and fmt not in to_formats_list:
+                        to_formats_list.append(fmt)
+
+            # Pull out any explicit to_formats override before the general update
+            user_to_formats = opts.pop("to_formats", None)
+            default_options.update(opts)
+
+            if user_to_formats:
+                # Ensure "md" is always present
+                if "md" not in user_to_formats:
+                    user_to_formats.insert(0, "md")
+                default_options["to_formats"] = user_to_formats
 
         return default_options
 
@@ -179,7 +290,7 @@ class DoclingServeClient:
             Task ID from response
 
         Raises:
-            DocpipeException: For HTTP or network errors
+            DocpipeException: For HTTP or network errors, including unsupported format errors
         """
         # Determine MIME type based on file extension
         mime_type = "application/octet-stream"
@@ -203,13 +314,18 @@ class DoclingServeClient:
         # Build form data with options as individual fields
         data = self._build_options(options)
 
-        result = self.rest_client.call_rest_multipart(
-            method=RestMethod.POST,
-            endpoint=endpoint,
-            files=files,
-            data=data,
-            headers=self.custom_headers,
-        )
+        try:
+            result = self.rest_client.call_rest_multipart(
+                method=RestMethod.POST,
+                endpoint=endpoint,
+                files=files,
+                data=data,
+                headers=self.custom_headers,
+            )
+        except DocpipeException as e:
+            context = {"requested_formats": data.get("to_formats", [])}
+            enhanced = self.error_handler.handle(e, context)
+            raise enhanced from e
 
         task_id = result.get("task_id")
         if not task_id:

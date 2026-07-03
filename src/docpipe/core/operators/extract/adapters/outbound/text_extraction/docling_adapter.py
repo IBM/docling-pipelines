@@ -194,7 +194,7 @@ class DoclingAdapter(TextExtractionPort):
             logger.info(
                 "Processing file with VLM pipeline (preset: %s, engine: %s): %s",
                 self.vlm_preset,
-                self.vlm_engine_type or "default",
+                self.vlm_engine_type or OperatorConstants.Config.DEFAULT,
                 file_path,
             )
         else:
