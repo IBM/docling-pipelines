@@ -89,12 +89,13 @@ node_config = {
 - `access_key` (required): AWS access key ID or S3-compatible access key
 - `secret_key` (required): AWS secret access key or S3-compatible secret key
 - `recursive` (optional): Whether to recursively traverse subdirectories (default: True)
-- `file_extensions` (optional): List of file extensions to include (e.g., ['.pdf', '.docx'])
 - `exclude_patterns` (optional): List of glob patterns to exclude (e.g., ['*.tmp', '.DS_Store'])
 - `max_file_size_mb` (optional): Maximum file size in MB to process
 - `skip_hidden_files` (optional): Whether to skip hidden files (default: True)
 - `skip_empty_files` (optional): Whether to skip files with zero size (default: True)
 - `verify_expected_bucket_owner` (optional): When `True`, verifies that the S3 bucket is owned by the caller's AWS account via STS `GetCallerIdentity`. If the bucket owner does not match, AWS rejects the request. Default `False`. Has no effect for S3-compatible storage (IBM COS, MinIO).
+
+**Note:** File extension filtering is configured at the operator level using `include_filter` and `exclude_filter` parameters (see [File Filtering](#file-filtering) section below).
 
 ### 3. Microsoft SharePoint
 Ingest documents from SharePoint document libraries.
@@ -209,7 +210,7 @@ node_config = {
     'credentials': {
         'credentials_json_path': '/path/to/box_jwt_config.json'
     },
-    'included_extensions': ['.pdf', '.docx', '.txt', '.pptx', '.xlsx'],  # Optional
+    'include_filter': 'pdf,docx,txt,pptx,xlsx',  # Optional: file extensions to include
     'max_files': 100  # Optional
 }
 ```
@@ -226,8 +227,6 @@ node_config = {
 - `max_file_size_mb` (optional): Maximum file size in MB to process
 - `exclude_patterns` (optional): List of glob patterns to exclude (e.g., `['*.tmp', 'Trash/*']`)
 - `credentials_json_path` (required): Path to Box JWT configuration JSON file
-- `included_extensions` (optional): List of file extensions to include (e.g., `['.pdf', '.docx']`)
-- `max_files` (optional): Maximum number of files to process
 
 **Box JWT Setup:**
 1. Create a Box application in the [Box Developer Console](https://app.box.com/developers/console)
@@ -354,6 +353,16 @@ for i in range(result_table.num_rows):
     print(f"  Text length: {len(text)}")
     print(f"  Metadata: {metadata}")
 ```
+### Parameter Naming Clarification
+
+**User Configuration (Flow JSON):**
+- Use `include_filter` and `exclude_filter` parameters (comma-separated strings)
+- Example: `"include_filter": "pdf,docx,txt"`
+
+**Internal Implementation (For Connector Developers):**
+- Internally converted to `included_extensions` (list) → `file_extensions` (config model field)
+- Users should never use `included_extensions` or `file_extensions` in their flow configurations
+
 
 ## File Filtering
 
@@ -811,7 +820,7 @@ node_config = {
     'credentials': {
         'credentials_json_path': os.getenv('BOX_JWT_CONFIG_FILE')
     },
-    'included_extensions': ['.pdf', '.docx', '.txt', '.pptx', '.xlsx'],
+    'include_filter': 'pdf,docx,txt,pptx,xlsx',  # File extensions to include
     'max_files': 100
 }
 ```

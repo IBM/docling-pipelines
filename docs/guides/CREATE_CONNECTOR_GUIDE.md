@@ -380,6 +380,13 @@ class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
             recursive=connection_params.get("recursive", True),
             file_types=included_extensions or connection_params.get("file_types"),
         )
+
+**Parameter Naming Note:**
+- Users configure file filtering using `include_filter` (comma-separated string) in their flow JSON
+- The operator converts this to `included_extensions` (list) and passes it to your adapter
+- Your adapter config model typically uses `file_extensions` or `file_types` as the field name
+- This separation keeps the user API simple while allowing flexible internal implementation
+
 ```
 
 **Key Points:**
