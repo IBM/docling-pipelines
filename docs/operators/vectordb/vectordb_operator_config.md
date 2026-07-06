@@ -19,10 +19,10 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Core Parameters
 
 #### 1. `provider` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"opensearch"`  
-**Description:** Type of vector database provider to use.  
+**Type:** String
+**Required:** No
+**Default:** `"opensearch"`
+**Description:** Type of vector database provider to use.
 
 **Valid Values:** `opensearch`, `pinecone`, `weaviate`
 
@@ -32,9 +32,9 @@ The Vector Database Operator provides a unified interface for storing documents 
 ```
 
 #### 2. `index_name` (String)
-**Type:** String  
-**Required:** Yes  
-**Description:** Name of the vector database index/collection where documents will be stored.  
+**Type:** String
+**Required:** Yes
+**Description:** Name of the vector database index/collection where documents will be stored.
 
 **Examples:**
 ```json
@@ -42,10 +42,10 @@ The Vector Database Operator provides a unified interface for storing documents 
 ```
 
 #### 3. `doc_id_column` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"doc_id_hash"`  
-**Description:** Column containing document IDs. Used as primary key in the vector database.  
+**Type:** String
+**Required:** No
+**Default:** `"doc_id_hash"`
+**Description:** Column containing document IDs. Used as primary key in the vector database.
 
 **Examples:**
 ```json
@@ -57,10 +57,10 @@ The Vector Database Operator provides a unified interface for storing documents 
 ```
 
 #### 4. `embeddings_column` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"embeddings"`  
-**Description:** Column containing dense vector embeddings for similarity search.  
+**Type:** String
+**Required:** No
+**Default:** `"embeddings"`
+**Description:** Column containing dense vector embeddings for similarity search.
 
 **Examples:**
 ```json
@@ -72,9 +72,9 @@ The Vector Database Operator provides a unified interface for storing documents 
 ```
 
 #### 5. `sparse_embeddings_column` (String)
-**Type:** String  
-**Required:** No  
-**Description:** Column containing sparse vector embeddings for hybrid search (dense + sparse).  
+**Type:** String
+**Required:** No
+**Description:** Column containing sparse vector embeddings for hybrid search (dense + sparse).
 
 **Examples:**
 ```json
@@ -82,10 +82,10 @@ The Vector Database Operator provides a unified interface for storing documents 
 ```
 
 #### 6. `create_index` (Boolean)
-**Type:** Boolean  
-**Required:** No  
-**Default:** `true`  
-**Description:** Create index if it doesn't exist. When false, expects index to already exist.  
+**Type:** Boolean
+**Required:** No
+**Default:** `true`
+**Description:** Create index if it doesn't exist. When false, expects index to already exist.
 
 **Examples:**
 ```json
@@ -93,10 +93,10 @@ The Vector Database Operator provides a unified interface for storing documents 
 ```
 
 #### 7. `vector_dimension` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `384`  
-**Description:** Dimension of dense vector embeddings. Auto-detected from data if not specified.  
+**Type:** Integer
+**Required:** No
+**Default:** `384`
+**Description:** Dimension of dense vector embeddings. Auto-detected from data if not specified.
 
 **Examples:**
 ```json
@@ -104,10 +104,10 @@ The Vector Database Operator provides a unified interface for storing documents 
 ```
 
 #### 8. `batch_size` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `100`  
-**Description:** Number of documents to index in each batch. Larger batches improve throughput but use more memory.  
+**Type:** Integer
+**Required:** No
+**Default:** `100`
+**Description:** Number of documents to index in each batch. Larger batches improve throughput but use more memory.
 
 **Examples:**
 ```json
@@ -117,9 +117,9 @@ The Vector Database Operator provides a unified interface for storing documents 
 ### Provider-Specific Configuration
 
 #### 9. `provider_config` (JSON)
-**Type:** JSON Object  
-**Required:** Yes  
-**Description:** Provider-specific configuration parameters including connection settings. **All connection parameters (host, port, username, password, use_ssl, etc.) must be inside this object.**  
+**Type:** JSON Object
+**Required:** Yes
+**Description:** Provider-specific configuration parameters including connection settings. **All connection parameters (host, port, username, password, use_ssl, etc.) must be inside this object.**
 
 **OpenSearch Example:**
 ```json
@@ -147,34 +147,6 @@ The Vector Database Operator provides a unified interface for storing documents 
   "algorithm": "hnsw"
 }
 ```
-
-## Output Features
-
-### `doc_id_hash` (String)
-**Type:** String  
-**Description:** Unique identifier for the document  
-**Available for Vector DB:** Yes  
-**Mandatory for Vector DB:** Yes  
-**Is Primary:** Yes  
-**Tags:** `mandatory`, `primary`  
-
-### `embeddings` (Vector)
-**Type:** Vector (Dense)  
-**Description:** Dense vector embeddings for similarity search  
-**Available for Vector DB:** Yes  
-**Mandatory for Vector DB:** Yes  
-**Tags:** `mandatory`  
-
-### `sparse_embeddings` (Vector)
-**Type:** Vector (Sparse)  
-**Description:** Sparse vector embeddings for hybrid search  
-**Available for Vector DB:** Yes  
-
-### `content` (String)
-**Type:** String  
-**Description:** The text content of the document  
-**Available for Filter:** Yes  
-**Available for Vector DB:** Yes  
 
 ## Configuration Examples
 
@@ -316,7 +288,7 @@ The Vector Database Operator provides a unified interface for storing documents 
 1. **Index Creation**: Let the operator create the index on first run (`create_index: true`)
 2. **Vector Dimension**: Match the dimension to your embedding model output
 3. **Batch Size**: Use larger batches (500-1000) for better throughput
-4. **Engine Selection**: 
+4. **Engine Selection**:
    - Use NMSLIB for general use
    - Use Faiss for large datasets
    - Use Lucene for smaller datasets
