@@ -337,3 +337,81 @@ class TestEdgeCases:
         unicode_name = "测试日志器"
         logger = get_logger(name=unicode_name)
         assert logger.name == unicode_name
+
+
+class TestConditionalFormatterTraceCorrelation:
+    """Test that ConditionalFormatter injects trace_id and span_id for log-trace correlation."""
+
+    @pytest.fixture
+    def formatter(self):
+        return ConditionalFormatter(datefmt="%H:%M:%S")
+
+    @pytest.fixture
+    def basic_record(self):
+        return logging.LogRecord(
+            name="test_logger",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="hello",
+            args=(),
+            exc_info=None,
+        )
+
+    def _format_json(self, formatter, record) -> dict:
+        import json
+
+        with patch("docpipe.core.models.session_info.get_session_info") as mock_session:
+            session = MagicMock()
+            session.transaction_id = "tx-1"
+            mock_session.return_value = session
+            return json.loads(formatter.format(record))
+
+    def test_trace_id_and_span_id_present_in_output(self, formatter, basic_record):
+        """JSON output must always contain trace_id and span_id keys."""
+        parsed = self._format_json(formatter, basic_record)
+        assert "trace_id" in parsed
+        assert "span_id" in parsed
+
+    def test_trace_id_and_span_id_empty_when_telemetry_disabled(self, formatter, basic_record):
+        """When telemetry is disabled, both fields should be empty strings."""
+        mock_telemetry = MagicMock()
+        mock_telemetry.get_trace_context.return_value = {"trace_id": "", "span_id": ""}
+
+        with patch(
+            "docpipe.utils.infrastructure.telemetry_service.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            parsed = self._format_json(formatter, basic_record)
+
+        assert parsed["trace_id"] == ""
+        assert parsed["span_id"] == ""
+
+    def test_trace_id_and_span_id_populated_when_span_active(self, formatter, basic_record):
+        """When a span is active, trace_id and span_id should be hex strings."""
+        mock_telemetry = MagicMock()
+        mock_telemetry.get_trace_context.return_value = {
+            "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+            "span_id": "00f067aa0ba902b7",
+        }
+
+        with patch(
+            "docpipe.utils.infrastructure.telemetry_service.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            parsed = self._format_json(formatter, basic_record)
+
+        assert parsed["trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+        assert parsed["span_id"] == "00f067aa0ba902b7"
+
+    def test_formatter_resilient_when_telemetry_raises(self, formatter, basic_record):
+        """If get_telemetry_service raises, formatter should not propagate the error."""
+        with patch(
+            "docpipe.utils.infrastructure.telemetry_service.get_telemetry_service",
+            side_effect=Exception("telemetry unavailable"),
+        ):
+            parsed = self._format_json(formatter, basic_record)
+
+        # Keys must still be present with empty fallback
+        assert parsed["trace_id"] == ""
+        assert parsed["span_id"] == ""

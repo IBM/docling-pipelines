@@ -81,7 +81,9 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def get_job(self, *, job_run_id: str, include_node_stats: bool = True, include_batch_stats: bool = False) -> "JobStats | None":
+    def get_job(
+        self, *, job_run_id: str, include_node_stats: bool = True, include_batch_stats: bool = False
+    ) -> "JobStats | None":
         """
         Retrieve complete job statistics with optional aggregation.
 
@@ -308,7 +310,9 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def update_node_stats(self, *, job_run_id: str, node_id: str, node_stats: "NodeStats", batch_id: str | None = None) -> None:
+    def update_node_stats(
+        self, *, job_run_id: str, node_id: str, node_stats: "NodeStats", batch_id: str | None = None
+    ) -> None:
         """
         Update node-level statistics.
 
@@ -455,7 +459,9 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
-    def determine_and_update_final_documents_count(self, *, job_stats: "JobStats", dag_nodes: list[dict[str, Any]]) -> None:
+    def determine_and_update_final_documents_count(
+        self, *, job_stats: "JobStats", dag_nodes: list[dict[str, Any]]
+    ) -> None:
         """
         Determine final status of each document and update job statistics.
 

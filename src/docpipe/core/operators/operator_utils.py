@@ -590,7 +590,9 @@ class OperatorUtils:
         return None
 
     @staticmethod
-    def _build_rename_map(*, updated_features: list[dict[str, Any]] | None = None, existing_features: set[str] | dict[str, Any]) -> dict[str, str]:
+    def _build_rename_map(
+        *, updated_features: list[dict[str, Any]] | None = None, existing_features: set[str] | dict[str, Any]
+    ) -> dict[str, str]:
         rename_map: dict[str, str] = {}
         seen_old: set[str] = set()
         seen_new: set[str] = set()

@@ -76,6 +76,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
 
         op.logger = get_logger(f"{DocpipeConstants.LOGGER_NAME} : NODE_LOGGER")
 
+        span = op._create_operator_span()
         try:
             self._log_start(
                 op_logger=logger,
@@ -117,6 +118,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             time_taken = timeit.default_timer() - start
             # Removing the internal metrics from the operator metadata if any to another dict
             _ = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata_copy)
+            op._record_operator_metrics(span=span, metadata=metadata, duration_ms=time_taken * 1000, success=True)
             self._log_completion(
                 op_logger=logger,
                 name=op.name,
@@ -127,8 +129,16 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             )
             return out_tables, metadata
         except Exception as e:
+            op._record_operator_metrics(
+                span=span,
+                duration_ms=(timeit.default_timer() - start) * 1000,
+                success=False,
+            )
+            op._telemetry.record_exception(e, span=span)
             self._handle_exception(op_logger=op.logger, node_id=node_id, exception=e)
             raise
+        finally:
+            op._telemetry.end_span(span)
 
     def _handle_exception(self, *, op_logger, node_id, exception):
         from docpipe.core.models.session_info import get_session_info

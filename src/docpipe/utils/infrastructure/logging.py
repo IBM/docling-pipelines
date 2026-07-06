@@ -174,8 +174,22 @@ class ConditionalFormatter(logging.Formatter):
         # Fallback to default for non-API contexts (CLI, background jobs, etc.)
         return DocpipeConstants.DEFAULT_TRANSACTION_ID
 
+    def _get_trace_context(self) -> dict[str, str]:
+        """Get trace_id and span_id from the active OTEL span, if any.
+
+        Returns:
+            Dict with 'trace_id' and 'span_id' strings, or empty strings when
+            telemetry is disabled or there is no active span.
+        """
+        try:
+            from docpipe.utils.infrastructure.telemetry_service import get_telemetry_service
+
+            return get_telemetry_service().get_trace_context()
+        except Exception:
+            return {"trace_id": "", "span_id": ""}
+
     def format(self, record):
-        """Format log record as JSON with transaction ID and conditional fields.
+        """Format log record as JSON with transaction ID, trace context, and conditional fields.
 
         Args:
             record: LogRecord instance to format
@@ -186,6 +200,9 @@ class ConditionalFormatter(logging.Formatter):
         # Get transaction ID with fallback support
         transaction_id = self._get_transaction_id()
 
+        # Get trace context for log-trace correlation
+        trace_context = self._get_trace_context()
+
         # Add transaction_id to the record for potential use by other handlers
         record.transaction_id = transaction_id
 
@@ -194,6 +211,8 @@ class ConditionalFormatter(logging.Formatter):
             "logger": record.name,
             "logLevel": record.levelname,
             "transaction_ID": transaction_id,
+            "trace_id": trace_context["trace_id"],
+            "span_id": trace_context["span_id"],
             "message": record.getMessage() if record.getMessage() else record.msg,
             "saveServiceCopy": "false",
             "appname": "docling-pipelines-api",

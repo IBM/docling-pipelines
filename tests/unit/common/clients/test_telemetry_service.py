@@ -313,3 +313,205 @@ class TestTelemetryConfig:
             # Original case should not exist
             assert "Authorization" not in config.otlp_headers
             assert "X-Custom-Header" not in config.otlp_headers
+
+
+class TestTelemetrySampling:
+    """Test head-based sampling configuration."""
+
+    def setup_method(self):
+        TelemetryService._instance = None
+
+    def test_default_sample_rate_is_1(self):
+        """Default sample rate should be 1.0 (100%)."""
+        config = TelemetryConfig()
+        assert config.sample_rate == 1.0
+
+    def test_sample_rate_loaded_from_env(self):
+        """Sample rate should be read from OTEL_TRACES_SAMPLER_ARG."""
+        with patch.dict("os.environ", {"OTEL_TRACES_SAMPLER_ARG": "0.25"}, clear=False):
+            config = TelemetryConfig.from_environment()
+            assert config.sample_rate == 0.25
+
+    def test_sample_rate_clamped_below_zero(self):
+        """Sample rates below 0 should be clamped to 0."""
+        with patch.dict("os.environ", {"OTEL_TRACES_SAMPLER_ARG": "-0.5"}, clear=False):
+            config = TelemetryConfig.from_environment()
+            assert config.sample_rate == 0.0
+
+    def test_sample_rate_clamped_above_one(self):
+        """Sample rates above 1 should be clamped to 1."""
+        with patch.dict("os.environ", {"OTEL_TRACES_SAMPLER_ARG": "1.5"}, clear=False):
+            config = TelemetryConfig.from_environment()
+            assert config.sample_rate == 1.0
+
+    def test_invalid_sample_rate_falls_back_to_default(self):
+        """Non-numeric OTEL_TRACES_SAMPLER_ARG should fall back to default."""
+        with patch.dict("os.environ", {"OTEL_TRACES_SAMPLER_ARG": "not-a-number"}, clear=False):
+            config = TelemetryConfig.from_environment()
+            assert config.sample_rate == 1.0
+
+
+class TestTelemetryMetrics:
+    """Test metrics recording methods."""
+
+    def setup_method(self):
+        TelemetryService._instance = None
+
+    def test_record_http_request_no_op_when_disabled(self):
+        """record_http_request should silently do nothing when telemetry is disabled."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = False
+
+        # Should not raise
+        service.record_http_request(method="GET", path="/api/v1/operators", status_code=200, duration_ms=42.5)
+
+    def test_record_http_request_no_op_when_counter_none(self):
+        """record_http_request should do nothing when metrics not initialised."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = True
+        service._http_request_counter = None
+
+        # Should not raise
+        service.record_http_request(method="POST", path="/api/v1/flows", status_code=201, duration_ms=100.0)
+
+    def test_record_http_request_calls_counter_and_histogram(self):
+        """record_http_request should increment counter and record histogram."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = True
+
+        mock_counter = MagicMock()
+        mock_histogram = MagicMock()
+        service._http_request_counter = mock_counter
+        service._http_request_duration = mock_histogram
+
+        service.record_http_request(method="GET", path="/health", status_code=200, duration_ms=5.0)
+
+        expected_labels = {"http.method": "GET", "http.route": "/health", "http.status_code": "200"}
+        mock_counter.add.assert_called_once_with(1, expected_labels)
+        mock_histogram.record.assert_called_once_with(5.0, expected_labels)
+
+    def test_record_operator_execution_no_op_when_disabled(self):
+        """record_operator_execution should silently do nothing when telemetry is disabled."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = False
+
+        service.record_operator_execution(
+            operator_name="chunker", category="Functional", duration_ms=200.0, success=True
+        )
+
+    def test_record_operator_execution_calls_counter_and_histogram(self):
+        """record_operator_execution should increment counter and record histogram."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = True
+
+        mock_counter = MagicMock()
+        mock_histogram = MagicMock()
+        mock_error_counter = MagicMock()
+        service._operator_execution_counter = mock_counter
+        service._operator_execution_duration = mock_histogram
+        service._operator_error_counter = mock_error_counter
+
+        service.record_operator_execution(
+            operator_name="chunker", category="Functional", duration_ms=150.0, success=True
+        )
+
+        expected_labels = {"operator.name": "chunker", "operator.category": "Functional", "success": "true"}
+        mock_counter.add.assert_called_once_with(1, expected_labels)
+        mock_histogram.record.assert_called_once_with(150.0, expected_labels)
+        mock_error_counter.add.assert_not_called()
+
+    def test_record_operator_execution_increments_error_counter_on_failure(self):
+        """record_operator_execution should increment error counter on failure."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = True
+
+        mock_counter = MagicMock()
+        mock_histogram = MagicMock()
+        mock_error_counter = MagicMock()
+        service._operator_execution_counter = mock_counter
+        service._operator_execution_duration = mock_histogram
+        service._operator_error_counter = mock_error_counter
+
+        service.record_operator_execution(operator_name="extract", category="Extract", duration_ms=300.0, success=False)
+
+        mock_error_counter.add.assert_called_once_with(1, {"operator.name": "extract", "operator.category": "Extract"})
+
+    def test_metrics_enabled_property_false_when_disabled(self):
+        """metrics_enabled property should be False when telemetry is disabled."""
+        service = get_telemetry_service()
+        service._enabled = False
+        service._meter = None
+        assert service.metrics_enabled is False
+
+    def test_metrics_enabled_property_false_when_meter_none(self):
+        """metrics_enabled property should be False when meter not initialised."""
+        service = get_telemetry_service()
+        service._enabled = True
+        service._meter = None
+        assert service.metrics_enabled is False
+
+    def test_metrics_enabled_property_true_when_active(self):
+        """metrics_enabled property should be True when telemetry and meter are active."""
+        service = get_telemetry_service()
+        service._enabled = True
+        service._meter = MagicMock()
+        assert service.metrics_enabled is True
+
+
+class TestTraceContext:
+    """Test log-trace correlation via get_trace_context."""
+
+    def setup_method(self):
+        TelemetryService._instance = None
+
+    def test_get_trace_context_returns_empty_when_disabled(self):
+        """get_trace_context should return empty strings when telemetry is disabled."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = False
+
+        ctx = service.get_trace_context()
+        assert ctx == {"trace_id": "", "span_id": ""}
+
+    def test_get_trace_context_returns_empty_when_no_active_span(self):
+        """get_trace_context should return empty strings when no active span exists."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = True
+
+        mock_span_ctx = MagicMock()
+        mock_span_ctx.is_valid = False
+        mock_span = MagicMock()
+        mock_span.get_span_context.return_value = mock_span_ctx
+
+        with patch("opentelemetry.trace.get_current_span", return_value=mock_span):
+            ctx = service.get_trace_context()
+
+        assert ctx == {"trace_id": "", "span_id": ""}
+
+    def test_get_trace_context_returns_ids_when_span_active(self):
+        """get_trace_context should return hex trace_id and span_id from active span."""
+        service = get_telemetry_service()
+        service._initialized = True
+        service._enabled = True
+
+        mock_span_ctx = MagicMock()
+        mock_span_ctx.is_valid = True
+        mock_span_ctx.trace_id = 0xABCDEF1234567890ABCDEF1234567890
+        mock_span_ctx.span_id = 0x1234567890ABCDEF
+        mock_span = MagicMock()
+        mock_span.get_span_context.return_value = mock_span_ctx
+
+        with patch("opentelemetry.trace.get_current_span", return_value=mock_span):
+            ctx = service.get_trace_context()
+
+        assert len(ctx["trace_id"]) == 32
+        assert len(ctx["span_id"]) == 16
+        assert ctx["trace_id"] == format(0xABCDEF1234567890ABCDEF1234567890, "032x")
+        assert ctx["span_id"] == format(0x1234567890ABCDEF, "016x")

@@ -85,6 +85,11 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
     from docpipe.core.constants.constants import DocpipeConstants
     from docpipe.core.orchestration.flow_executor import FlowExecutor
     from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+    from docpipe.utils.infrastructure import get_telemetry_service
+
+    # Initialise telemetry early so spans and metrics are captured during flow execution
+    telemetry = get_telemetry_service()
+    telemetry.initialize()
 
     # Create execution reporter for user-friendly console output
     execution_reporter = FlowExecutionReporter()
@@ -122,6 +127,7 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
 
     logger.info(">>> Starting flow execution")
     executor.execute(orchestrator=orchestrator, params=params)
+    telemetry.shutdown()
     logger.info(">>> Completed flow execution")
 
 

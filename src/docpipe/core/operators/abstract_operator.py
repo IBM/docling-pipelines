@@ -95,18 +95,27 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
             },
         )
 
-    def _record_operator_metrics(self, *, span: Any, metadata: dict[str, Any] | None = None) -> None:
-        """Record operator execution metrics in the current span.
+    def _record_operator_metrics(
+        self,
+        *,
+        span: Any,
+        metadata: dict[str, Any] | None = None,
+        duration_ms: float | None = None,
+        success: bool = True,
+    ) -> None:
+        """Record operator execution metrics in the current span and as OTEL metrics.
 
         Args:
             span: The span to record metrics in
             metadata: Optional metadata dict containing execution metrics
+            duration_ms: Execution duration in milliseconds for the metrics histogram
+            success: Whether the operator execution succeeded
         """
-        if not hasattr(self, "_telemetry") or span is None:
+        if not hasattr(self, "_telemetry"):
             return
 
-        if metadata:
-            # Record document processing metrics
+        if span is not None and metadata:
+            # Record document processing metrics as span attributes
             if Metrics.External.PROCESSED_DOCS in metadata:
                 self._telemetry.set_span_attribute(
                     "operator.processed_docs",
@@ -137,6 +146,15 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
                     metadata[Metrics.External.NODE_STATUS],
                     span=span,
                 )
+
+        # Record OTEL metrics if duration is provided
+        if duration_ms is not None:
+            self._telemetry.record_operator_execution(
+                operator_name=self.short_name,
+                category=str(self.category),
+                duration_ms=duration_ms,
+                success=success,
+            )
 
     @staticmethod
     def is_available() -> bool:

@@ -17,6 +17,7 @@ The async context variable approach allows ConditionalFormatter and other
 logging components to access the transaction ID without explicit parameter passing.
 """
 
+import time
 import uuid
 from contextvars import ContextVar
 
@@ -119,6 +120,8 @@ class TransactionMiddleware(BaseHTTPMiddleware):
             },
         )
 
+        start_time = time.monotonic()
+
         try:
             # Process request
             response = await call_next(request)
@@ -142,5 +145,12 @@ class TransactionMiddleware(BaseHTTPMiddleware):
             raise
 
         finally:
-            # End span
+            duration_ms = (time.monotonic() - start_time) * 1000
+            status_code = getattr(response, "status_code", 0) if "response" in dir() else 0
+            telemetry.record_http_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=status_code,
+                duration_ms=duration_ms,
+            )
             telemetry.end_span(span)
