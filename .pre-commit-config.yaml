@@ -24,8 +24,9 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
       - id: check-merge-conflict
-      
+
   # Strip Jupyter notebook outputs before other checks
   - repo: https://github.com/kynan/nbstripout
     rev: 0.8.1

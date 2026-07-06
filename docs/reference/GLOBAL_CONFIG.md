@@ -76,7 +76,17 @@ Parameters that control how the flow executes and processes data.
 }
 ```
 
-**Warning**: Disabling validation can lead to runtime errors that would have been caught during validation.
+**Warning**: Disabling validation skips the main flow validation pass and can lead to runtime errors that validation would normally catch.
+
+**What Gets Skipped When `disable_validation: true`**:
+1. **DAG structure validation**: Checks for empty DAG, unnamed operators, duplicate operator names
+2. **First operator validation**: Verification that the first operator is an Ingest category operator
+3. **ACL operator placement validation**: Checks that ACL operators are correctly positioned in the flow
+4. **Disjoint operators validation**: Detection of disconnected or isolated operators in the flow
+5. **Cycle detection**: Checks for circular dependencies in the DAG
+6. **Operator availability validation**: Verification that all operator types are registered and available
+7. **Node-level validation**: Individual operator configuration and parameter validation
+8. **Last operator validation**: Warning if the last operator is not a VectorDB operator
 
 ---
 
@@ -103,8 +113,8 @@ Parameters that control how the flow executes and processes data.
 
 ### `output_folder`
 
-**Type**: `string`
-**Description**: Directory for storing final output files. Can be either a relative path (relative to workspace directory) or an absolute path. If not specified, the system generates a unique path based on job execution IDs.
+**Type**: `string`  
+**Description**: Directory for storing final output files. Can be either a relative path (relative to workspace directory) or an absolute path. If not specified, the system generates a unique path based on job execution IDs.  
 **Valid Values**: Valid directory path (relative or absolute)
 
 **Example**:
@@ -122,12 +132,11 @@ Parameters that control how the flow executes and processes data.
 
 ### `data_storage_type`
 
-**Type**: `string`
-**Description**: Storage backend type for intermediate data during flow execution.
-
+**Type**: `string`  
+**Description**: Controls intermediate execution data storage behavior during flow execution.  
 **Valid Values**:
-- `"memory"`: Store data in memory
-- `"local"`: Store data on local filesystem
+- `"memory"`: Use in-memory intermediate data handling
+- `"local"`: Use local filesystem-backed intermediate data handling
 
 **Example**:
 ```json
@@ -142,10 +151,30 @@ Parameters that control how the flow executes and processes data.
 
 ---
 
+### `storage_type`
+
+**Type**: `string`  
+**Default**: `"duckdb"`  
+**Description**: Controls the global storage backend for orchestrator-managed storage-backed components. We can also use this when you want one shared backend choice for metadata/storage-backed assets handled through that path.  
+**Valid Values**:  
+- `"duckdb"`: Use DuckDB-backed storage
+- `"filesystem"`: Use filesystem-backed storage
+
+**Example**:
+```json
+{
+  "global_config": {
+    "storage_type": "duckdb"
+  }
+}
+```
+
+---
+
 ### `memmap_threshold`
 
-**Type**: `integer`
-**Default**: `100`
+**Type**: `integer`  
+**Default**: `100`  
 **Description**: Threshold in MB after which persistent storage is used for chunks and embeddings.
 **Valid Values**: Must be greater than 1.
 
@@ -166,8 +195,8 @@ Configuration for tracking and processing only changed documents.
 
 ### `force_ingest`
 
-**Type**: `boolean`
-**Default**: `false`
+**Type**: `boolean`  
+**Default**: `false`  
 **Description**: Forces re-ingestion of all documents, even if they were previously processed. Useful for reprocessing data after operator configuration changes.
 
 **Valid Values**:
@@ -194,8 +223,8 @@ Configuration for tracking and processing only changed documents.
 
 ### `retain_deleted_docs`
 
-**Type**: `boolean`
-**Default**: `true`
+**Type**: `boolean`  
+**Default**: `true`  
 **Description**: Controls whether documents deleted from the source should be retained in the output or removed.
 
 **Valid Values**:
@@ -215,43 +244,67 @@ Configuration for tracking and processing only changed documents.
 - Maintaining historical records (set to `true`)
 - Keeping output synchronized with source (set to `false`)
 
+**Important Limitations**:
+- This feature only works when the source directory/path still exists
+- If you delete the entire source directory (e.g., `./sample_documents`), the system will report an error: `Path does not exist`
+- To handle deleted directories, you must either:
+  - Keep the source directory structure intact (even if empty)
+  - Set `force_ingest: true` to reset incremental metadata
+
 ---
 
 ### Centralized Incremental Metadata Configuration
 
-**Configuration Location**: `docling-pipelines-config.yaml`
-
 Docpipe uses a centralized configuration system for incremental metadata storage. Instead of configuring incremental metadata in each flow JSON file, you configure it once in a repository-level `docling-pipelines-config.yaml` file.
 
-#### Configuration Structure
+#### Configuration Structure :
 
 The incremental metadata configuration is defined in `docling-pipelines-config.yaml`:
 
+**Option 1: Inherit from global_storage**
 ```yaml
-# docling-pipelines-config.yaml
-storage:
-  incremental_metadata:
-    base_dir: "./data/incremental_metadata"
-    backend: "filesystem"  # Options: filesystem, postgresql
-    
-    # PostgreSQL-specific configuration (only if backend is postgresql)
-    postgresql:
+global_storage:
+   type: "filesystem"  # Options: filesystem, postgresql
+   config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+   # PostgreSQL configuration (only needed if type is "postgres")
+   postgres:
       host: "localhost"
       port: 5432
       database: "docpipe"
       user: "docpipe_user"
-      password: "secure_password" # pragma: allowlist secret
+      password: "${POSTGRES_PASSWORD}" # pragma: allowlist secret
       schema: "incremental_metadata"
+
+incremental_metadata: {} # inherit from global_storage
 ```
 
-#### Supported Storage Backends
+**Option 2: Override with service-specific configuration**
+```yaml
+global_storage:
+  type: "filesystem"
+  config:
+    base_dir: "./data"
+    lock_timeout: 30.0
 
-Docpipe supports two storage backends for incremental metadata:
+# incremental_metadata overrides global_storage
+incremental_metadata:
+  storage:
+    type: "filesystem"
+    config:
+      base_dir: "./incremental_data"  # Different path
+      lock_timeout: 60.0
+```
+
+#### Supported Storage types :
+
+Docpipe supports two storage types for incremental metadata:
 
 1. **Filesystem** (default)
    - Efficient columnar storage using Apache Parquet format
    - Best for: Development, small to medium-scale deployments
-   - Configuration: Only requires `base_dir`
+   - Configuration: Required `config.base_dir` and `config.lock_timeout`
    - Features: Thread-safe operations with file locking, atomic writes
 
 2. **PostgreSQL**
@@ -259,9 +312,7 @@ Docpipe supports two storage backends for incremental metadata:
    - Best for: Production deployments, multi-user environments, high concurrency
    - Configuration: Requires database connection parameters
 
-**Note**: JSON storage is no longer supported. The filesystem backend uses Parquet format for efficient storage.
-
-#### Environment Variables
+#### Environment Variables :
 
 You can override configuration using environment variables:
 
@@ -276,16 +327,16 @@ export DOCPIPE_INCREMENTAL_STORAGE_BACKEND="filesystem"
 docling-pipelines --flow-file my_flow.json
 ```
 
-#### Configuration Precedence
+#### Configuration Precedence :
 
 Configuration is resolved in the following order (highest to lowest priority):
 
 1. **Environment variables** (`DOCPIPE_INCREMENTAL_BASE_DIR`, `DOCPIPE_INCREMENTAL_STORAGE_BACKEND`)
-2. **Service-specific configuration** (e.g., `storage.incremental_metadata` in docling-pipelines-config.yaml)
-3. **Global storage configuration** (e.g., `storage.base_dir` in docling-pipelines-config.yaml)
-4. **System defaults** (Filesystem backend with `./data/incremental_metadata`)
+2. **Service-specific configuration** (e.g., `incremental_metadata.storage` in docling-pipelines-config.yaml)
+3. **Global storage configuration** (e.g., `global_storage` in docling-pipelines-config.yaml)
+4. **System defaults** (Filesystem backend with `./data`)
 
-#### Flow JSON Configuration
+#### Flow JSON Configuration :
 
 In your flow JSON files, you no longer need to specify incremental metadata configuration. The system automatically uses the centralized configuration:
 
@@ -309,37 +360,39 @@ In your flow JSON files, you no longer need to specify incremental metadata conf
 }
 ```
 
-#### Migration from Flow-Level Configuration
+#### Migration from Flow-Level Configuration :
 
 If you have existing flows with flow-level incremental metadata configuration, follow these steps:
 
 1. **Create docling-pipelines-config.yaml** in your repository root:
    ```yaml
-   storage:
-     incremental_metadata:
-       base_dir: "./data/incremental_metadata"
-       backend: "filesystem"
+    incremental_metadata:
+      storage:
+        type: "filesystem"
+        config:
+          base_dir: "./incremental_data"
+          lock_timeout: 60.0
    ```
 
 2. **Remove incremental_metadata from flow JSON**:
    - Delete the `incremental_metadata` section from `global_config`
    - The system will automatically use the centralized configuration
 
+
 3. **Verify configuration**:
    ```bash
    docling-pipelines --flow-file your_flow.json --validate
    ```
 
-#### Use Cases
+#### Use Cases :
 
 - **Processing only new or modified documents**: Incremental metadata tracks document hashes and modification times
 - **Resuming interrupted pipeline runs**: Metadata persists across runs, allowing pipelines to resume where they left off
 - **Efficient updates to large document collections**: Only process changed documents, not the entire collection
 - **Multi-flow coordination**: Share incremental metadata across multiple flows using the same base directory
 
-**Related Documentation**:
-- [Incremental Metadata Storage](docs/INCREMENTAL_METADATA_STORAGE.md)
-- [Incremental Metadata Migration Plan](docs/INCREMENTAL_METADATA_MIGRATION_PLAN.md)
+**Related Documentation** :
+- [Incremental Metadata Configuration](docs/guides/ADVANCED_CONFIGURATION.md)
 
 ---
 
@@ -347,14 +400,14 @@ If you have existing flows with flow-level incremental metadata configuration, f
 
 ### Prefect Configuration
 
-Configuration for Prefect-based workflow orchestration and batch execution strategies.
+Configuration for prefect-based workflow orchestration and batch execution strategies.
 
 #### `prefect`
 
-**Type**: `object`
+**Type**: `object`  
 **Description**: Prefect orchestration settings including batch execution strategy and work pool configuration.
 
-**Structure**:
+**Structure** :
 ```json
 {
   "prefect": {
@@ -456,8 +509,8 @@ Required when using work pool strategies (`work-pool-*`).
 
 #### `deployment_path`
 
-**Type**: `string`
-**Default**: Current working directory
+**Type**: `string`  
+**Default**: Current working directory  
 **Description**: Runtime path where flow code is available in the worker environment.
 
 **Example**:
@@ -471,8 +524,8 @@ Required when using work pool strategies (`work-pool-*`).
 
 #### `env`
 
-**Type**: `object` (dictionary of string key-value pairs)
-**Default**: `{}`
+**Type**: `object` (dictionary of string key-value pairs)  
+**Default**: `{}`  
 **Description**: Environment variables injected into the worker job process or container. Used to pass configuration, credentials, or runtime settings to workers.
 
 **Example**:
@@ -513,7 +566,7 @@ Required when using work pool strategies (`work-pool-*`).
 #### `image_pull_policy`
 
 **Type**: `string`  
-**Default**: `"Never"` (Docker)
+**Default**: `"Never"`  
 **Description**: Policy for pulling container images.
 
 **Valid Values**:
@@ -530,7 +583,7 @@ Required when using work pool strategies (`work-pool-*`).
 
 ---
 
-### Docker-Specific Configuration
+### Docker - Specific Configuration
 
 #### `networks`
 
@@ -563,8 +616,8 @@ The `batch_storage` section controls where batch data is stored during distribut
 
 #### `path`
 
-**Type**: `string`
-**Required**: Yes (when `type` is `"local"`)
+**Type**: `string`  
+**Required**: Yes (when `type` is `"local"`)  
 **Description**: Filesystem path for storing batch data when using local storage type.
 
 **Example - Local Storage**:
@@ -579,20 +632,19 @@ The `batch_storage` section controls where batch data is stored during distribut
 
 ---
 
-**Related Documentation**: [Prefect Documentation](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
+**Related Documentation**: [Prefect Documentation](docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
 
 ---
 
 ### Micro-Batching Configuration
 
-Parameters for controlling micro-batching behavior. Micro-batching is **enabled by default** and splits large datasets into smaller batches for parallel processing.
+Parameters for controlling micro-batching behavior. Micro-batching must be explicitly enabled and splits large datasets into smaller batches for parallel processing.
 
 #### `micro_batch_size`
 
-**Type**: `integer`
-**Default**: `100`
-**Description**: Note that the batch_batch is not strictly enforced. The files are adjusted in the batches to make the batch size uniform across the batches, but limiting the number of documents in a batch to the given batch_size.
-
+**Type**: `integer`  
+**Default**: `100`  
+**Description**: Note that the batch_size is not strictly enforced. The files are adjusted in the batches to make the batch size uniform across the batches, but limiting the number of documents in a batch to the given batch_size.  
 **Valid Values**: Positive integer
 
 **Example**:
@@ -613,10 +665,9 @@ Parameters for controlling micro-batching behavior. Micro-batching is **enabled 
 
 #### `max_concurrent_batches`
 
-**Type**: `integer`
-**Default**: `10`
-**Description**: Maximum number of batches that can execute concurrently. Controls parallelism and resource usage.
-
+**Type**: `integer`  
+**Default**: `10`  
+**Description**: Maximum number of batches that can execute concurrently. Controls parallelism and resource usage.  
 **Valid Values**: Positive integer
 
 **Example**:
@@ -667,7 +718,7 @@ In this example, all operators use `doc_column: "content"` except the `extract_o
 
 Here's a comprehensive example showing the separation between flow JSON and docling-pipelines-config.yaml:
 
-### Flow JSON (`production_pipeline.json`)
+### Flow JSON
 
 ```json
 {
@@ -725,27 +776,26 @@ Here's a comprehensive example showing the separation between flow JSON and docl
 
 ```yaml
 # Repository-level configuration for incremental metadata
-storage:
-  incremental_metadata:
-    base_dir: "./data/incremental_metadata"
-    backend: "parquet"  # Options: json, parquet, postgresql
-    
-    # PostgreSQL configuration (only needed if backend is postgresql)
-    # postgresql:
-    #   host: "localhost"
-    #   port: 5432
-    #   database: "docpipe"
-    #   user: "docpipe_user"
-    #   password: "secure_password" # pragma: allowlist secret
-    #   schema: "incremental_metadata"
+incremental_metadata:
+   storage:
+      type: "filesystem"
+      config:
+         base_dir: "./incremental_data"
+         lock_timeout: 60.0
+#  PostgreSQL configuration (only needed if type is "postgres")
+#  postgres:
+#    host: "localhost"
+#    port: 5432
+#    database: "docpipe"
+#    user: "docpipe_user"
+#    password: "${POSTGRES_PASSWORD}" # pragma: allowlist secret
+#    schema: "incremental_metadata"
 ```
 
 ### Execution
 
 ```bash
 # The flow automatically uses the centralized incremental metadata configuration
-docling-pipelines --flow-file production_pipeline.json
-
 docling-pipelines --flow-file production_pipeline.json
 ```
 
