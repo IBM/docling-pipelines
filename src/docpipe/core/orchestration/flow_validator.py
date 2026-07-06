@@ -110,7 +110,7 @@ class FlowValidator:
         1. validate(): Basic structural validation without feature tracking
         2. validate_dag(): Full validation with error accumulation
         3. validate_dag_with_features(): Validation + feature propagation results
-        4. debug_feature_propagation(): Detailed per-node feature snapshots
+        4. propagate_features_per_node(): Per-node feature propagation results
 
     Thread Safety:
         FlowValidator instances are NOT thread-safe. Each validation request
@@ -416,7 +416,7 @@ class FlowValidator:
 
         See Also:
             - validate_dag: Standard validation without feature propagation
-            - debug_feature_propagation: Detailed per-node feature snapshots
+            - propagate_features_per_node: Per-node feature propagation results
             - FeaturePropagator.propagate_features: Core feature tracking logic
         """
         # First, run standard validation (this will raise if validation fails)
@@ -654,8 +654,13 @@ class FlowValidator:
         if node_id in node_result.output_features_to_drop:
             propagation_result.output_features_to_drop[node_id] = node_result.output_features_to_drop[node_id]
 
-    def debug_feature_propagation(self, *, flow_def: dict, global_config: dict) -> dict[str, dict[str, Any]]:
-        """Return per-node feature propagation snapshots without changing validation behavior."""
+    def propagate_features_per_node(self, *, flow_def: dict, global_config: dict) -> dict[str, dict[str, Any]]:
+        """Propagate features through the DAG and return a per-node result dict.
+
+        Unlike validate_dag_with_features(), this method does not raise on validation
+        warnings, making it safe to call on in-progress flows. Each node in the DAG
+        produces one entry in the returned dict regardless of validation state.
+        """
         normalized_flow_def = flow_def
         if "definition" in normalized_flow_def:
             normalized_flow_def = normalized_flow_def["definition"]
@@ -663,7 +668,7 @@ class FlowValidator:
             normalized_flow_def = normalized_flow_def["flow"]
 
         dag = normalized_flow_def.get(DocpipeConstants.DAG, [])
-        debug_snapshots: dict[str, dict[str, Any]] = {}
+        node_features: dict[str, dict[str, Any]] = {}
         parent_node_map: dict[str, list[str]] = {}
 
         for node in dag:
@@ -681,7 +686,7 @@ class FlowValidator:
                 global_config=global_config,
             )
 
-            debug_snapshots[node_id] = {
+            node_features[node_id] = {
                 "node_id": node_id,
                 "node_name": op_def.get(OperatorConstants.Misc.NAME),
                 "operator": operator,
@@ -712,7 +717,7 @@ class FlowValidator:
             flow_name="feature_propagation_debug_flow", task=feature_debug_task, dag=dag
         )
         clean_up_prefect_home()
-        return debug_snapshots
+        return node_features
 
     def validate_first_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
         """Validate that the first operator in the DAG is an Ingest operator.
