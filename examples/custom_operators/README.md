@@ -32,20 +32,20 @@ class ExampleCustomOperator(AbstractOperator):
     short_name: str = "example_custom"
     category: OperatorCategory = OperatorCategory.Functional  # Use appropriate standard category
     owner: str | None = DocpipeConstants.OWNER_CUSTOM  # Mark as custom operator for priority resolution
-    
+
     def __init__(self, *, config: dict):
         super().__init__(config=config)
         self.custom_field_value = config.get("custom_field_value", "default")
-    
+
     def transform(self, *, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict]:
         # Add custom field to table
         custom_field = pa.array([self.custom_field_value] * len(table))
         table = table.append_column("custom_field", custom_field)
-        
+
         # Return list of tables and metadata
         metadata = self.create_base_metadata(total_docs_count=table.num_rows)
         return [table], metadata
-    
+
     @staticmethod
     def get_metadata() -> dict:
         """Return operator metadata for UI display."""
@@ -55,7 +55,7 @@ class ExampleCustomOperator(AbstractOperator):
             "category": OperatorCategory.Functional.value,
             "owner": DocpipeConstants.OWNER_CUSTOM,
         }
-    
+
     def get_required_features(self) -> list:
         """Return list of required input features."""
         return []
@@ -98,44 +98,38 @@ Create a flow JSON file using your custom operator:
 
 ```json
 {
-  "name": "Custom Operator Example Flow",
-  "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "flow_name": "Custom Operator Example Flow",
   "description": "Example flow using a custom operator with extraction",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
-    "doc_column": "content"
+    "doc_column": "content",
+    "disable_validation": false
   },
-  "dag": [
+  "flow": [
     {
-      "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
       "name": "ingest",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "paths": "./data/input"
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}]
+      }
     },
     {
-      "id": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
       "name": "extract",
-      "operator": "extract_docling",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
       "config": {
-        "doc_column": "content"
-      },
-      "input_edges": [{"node_id_ref": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c"}],
-      "output_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}]
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      }
     },
     {
-      "id": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
       "name": "custom",
-      "operator": "example_custom",
+      "type": "example_custom",
+      "depends_on": ["extract"],
       "config": {
         "custom_field_value": "example_value"
-      },
-      "input_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}],
-      "output_edges": []
+      }
     }
   ]
 }

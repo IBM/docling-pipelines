@@ -133,8 +133,8 @@ Shows how to programmatically construct or modify flow definitions before execut
 
 ```python
 flow_def = {
-    "name": "My Flow",
-    "dag": [...]
+    "flow_name": "My Flow",
+    "flow": [...]
 }
 executor = DocpipeFlowManager(flow_def=flow_def)
 result = executor.execute()

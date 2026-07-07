@@ -59,7 +59,7 @@ source .venv/bin/activate
 
 ### 3. Verify Python Import
 
-Test that the DatasiftFlowManager can be imported:
+Test that the DocpipeFlowManager can be imported:
 
 ```bash
 python -c "from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager; print('Import successful')"

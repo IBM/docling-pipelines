@@ -2,7 +2,7 @@
 
 ## Overview
 
-Datasift implements a security-first logging architecture designed to provide comprehensive observability while protecting sensitive data. The logging system supports both human-readable colored output for development and structured JSON logging for production environments.
+Docpipe implements a security-first logging architecture designed to provide comprehensive observability while protecting sensitive data. The logging system supports both human-readable colored output for development and structured JSON logging for production environments.
 
 **Key Features:**
 - Structured JSON logging with transaction ID tracking
@@ -19,7 +19,7 @@ Set the environment variable to enable structured JSON logging:
 
 ```bash
 export DS_LOG_JSON=True
-datasift-orchestrator --flow-file your_flow.json
+docling-pipelines --flow-file your_flow.json
 ```
 
 ### Set Log Level
@@ -28,12 +28,12 @@ Control verbosity with the `DS_LOG_LEVEL` environment variable:
 
 ```bash
 export DS_LOG_LEVEL=INFO
-datasift-orchestrator --flow-file your_flow.json
+docling-pipelines --flow-file your_flow.json
 ```
 
 ## Log Levels
 
-Datasift uses standard Python logging levels. Choose the appropriate level based on your environment and needs:
+Docpipe uses standard Python logging levels. Choose the appropriate level based on your environment and needs:
 
 | Level | When to Use | What Gets Logged |
 |-------|-------------|------------------|
@@ -77,12 +77,12 @@ When JSON logging is enabled, each log entry follows this structure:
 ```json
 {
   "time": "14:23:45",
-  "logger": "datasift",
+  "logger": "docpipe",
   "logLevel": "INFO",
   "transaction_ID": "abc123-def456-ghi789",
   "message": "Flow execution completed successfully",
   "saveServiceCopy": "false",
-  "appname": "datasift-api",
+  "appname": "docling-pipelines-api",
   "job_id": "flow-123",
   "job_run_id": "run-456"
 }
@@ -90,7 +90,7 @@ When JSON logging is enabled, each log entry follows this structure:
 
 **Field Descriptions:**
 - `time`: Timestamp in HH:MM:SS format
-- `logger`: Logger name (typically "datasift")
+- `logger`: Logger name (typically "docpipe")
 - `logLevel`: Log severity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 - `transaction_ID`: Unique identifier for request tracing
 - `message`: Log message content
@@ -104,7 +104,7 @@ When exceptions occur, JSON logs include formatted stack traces:
 ```json
 {
   "time": "14:23:45",
-  "logger": "datasift",
+  "logger": "docpipe",
   "logLevel": "ERROR",
   "transaction_ID": "abc123-def456-ghi789",
   "message": "Operator execution failed",
@@ -145,7 +145,7 @@ When exceptions occur, JSON logs include formatted stack traces:
 
 ### Automatic Sanitization
 
-Datasift automatically sanitizes sensitive data in HTTP requests and responses using the [`sanitize_sensitive_data()`](../src/datasift/integrations/rest_client.py:73) function.
+Docpipe automatically sanitizes sensitive data in HTTP requests and responses using the [`sanitize_sensitive_data()`](../src/docpipe/integrations/rest_client.py:73) function.
 
 **Protected patterns:**
 - API keys and tokens
@@ -178,7 +178,7 @@ Transaction IDs enable distributed tracing across multiple services and requests
 ### How Transaction IDs Work
 
 1. **API Requests**: Transaction ID extracted from `X-Global-Transaction-Id` header
-2. **CLI Execution**: Default transaction ID used (`datasift-cli-default`)
+2. **CLI Execution**: Default transaction ID used (`docpipe-cli-default`)
 3. **Propagation**: ID automatically included in all log entries within that context
 
 ### Using Transaction IDs
@@ -227,7 +227,7 @@ cat application.log | jq 'select(.transaction_ID == "my-unique-id-123")'
 export DS_LOG_LEVEL=INFO  # Not DEBUG
 
 # Monitor third-party library logs
-# Datasift automatically configures these to respect DS_LOG_LEVEL:
+# Docpipe automatically configures these to respect DS_LOG_LEVEL:
 # - uvicorn, prefect, httpx, httpcore, urllib3
 ```
 
@@ -238,7 +238,7 @@ export DS_LOG_LEVEL=INFO  # Not DEBUG
 **Good logging practices:**
 
 ```python
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -305,7 +305,7 @@ logger.info(
 )
 ```
 
-These extra fields automatically appear in JSON logs when using [`ConditionalFormatter`](../src/datasift/utils/infrastructure/logging.py:126).
+These extra fields automatically appear in JSON logs when using [`ConditionalFormatter`](../src/docpipe/utils/infrastructure/logging.py:126).
 
 ## Examples
 
@@ -322,30 +322,30 @@ These extra fields automatically appear in JSON logs when using [`ConditionalFor
 ### Complete Example
 
 ```python
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
 def process_documents(documents, job_id, job_run_id):
     """Process documents with proper logging."""
-    
+
     # ✅ Log start with identifiers
     logger.info(
         f"Starting document processing for job_run_id={job_run_id}",
         extra={"job_id": job_id, "job_run_id": job_run_id}
     )
-    
+
     processed_count = 0
     error_count = 0
-    
+
     for idx, doc in enumerate(documents):
         try:
             # ✅ Log progress with metadata (not content)
             logger.debug(f"Processing document {idx + 1}/{len(documents)}")
-            
+
             result = process_single_document(doc)
             processed_count += 1
-            
+
         except Exception as e:
             # ✅ Log error with context (not sensitive data)
             logger.error(
@@ -353,14 +353,14 @@ def process_documents(documents, job_id, job_run_id):
                 exc_info=True
             )
             error_count += 1
-    
+
     # ✅ Log summary statistics
     logger.info(
         f"Document processing completed: {processed_count} successful, "
         f"{error_count} failed out of {len(documents)} total",
         extra={"job_id": job_id, "job_run_id": job_run_id}
     )
-    
+
     return processed_count, error_count
 ```
 
@@ -399,7 +399,7 @@ export DS_LOG_LEVEL=ERROR
 
 ```python
 import logging
-from datasift.utils.infrastructure.logging import get_logger
+from docpipe.utils.infrastructure.logging import get_logger
 
 # Check current configuration
 logger = get_logger(__name__)
@@ -421,9 +421,9 @@ print(f"JSON enabled: {os.getenv('DS_LOG_JSON')}")
 
 ### Related Documentation
 
-- [Logging Implementation](../src/datasift/utils/infrastructure/logging.py) - Source code reference
-- [REST Client Sanitization](../src/datasift/integrations/rest_client.py) - Sensitive data handling
-- [API Middleware](../src/datasift/api/middleware/transaction_middleware.py) - Transaction ID management
+- [Logging Implementation](../src/docpipe/utils/infrastructure/logging.py) - Source code reference
+- [REST Client Sanitization](../src/docpipe/integrations/rest_client.py) - Sensitive data handling
+- [API Middleware](../src/docpipe/api/middleware/transaction_middleware.py) - Transaction ID management
 
 ### Additional Resources
 

@@ -520,9 +520,9 @@ async def delete_job_run(
             "content": {
                 "application/json": {
                     "example": {
-                        "name": "Sample Flow",
+                        "flow_name": "Sample Flow",
                         "description": "Flow description",
-                        "dag": [{"id": "node1", "operator": "ingest", "config": {}}],
+                        "flow": [{"name": "node1", "type": "ingest", "config": {}}],
                     }
                 }
             },

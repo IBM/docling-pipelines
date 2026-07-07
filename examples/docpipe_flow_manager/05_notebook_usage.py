@@ -60,8 +60,8 @@ flow_file = "path/to/your/flow.json"
 
 # Or define inline:
 flow_def = {
-    "name": "My Notebook Flow",
-    "dag": [
+    "flow_name": "My Notebook Flow",
+    "flow": [
         # ... operator definitions
     ]
 }

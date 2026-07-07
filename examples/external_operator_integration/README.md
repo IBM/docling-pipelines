@@ -56,33 +56,33 @@ import pyarrow.compute as pc
 
 class UppercaseOperator(AbstractOperator):
     """Converts all text columns to uppercase."""
-    
+
     short_name = "uppercase"
     owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
-    
+
     def __init__(self, *, config: dict):
         super().__init__(config=config)
         self.target_column = config.get("target_column", "contents")
-    
+
     def transform(self, table: pa.Table) -> pa.Table:
         """Convert target column to uppercase."""
         if self.target_column not in table.column_names:
             self.logger.warning(f"Column '{self.target_column}' not found")
             return table
-        
+
         # Get the column
         column = table.column(self.target_column)
-        
+
         # Convert to uppercase using PyArrow compute
         uppercase_column = pc.utf8_upper(column)
-        
+
         # Replace the column
         column_index = table.column_names.index(self.target_column)
         new_table = table.set_column(column_index, self.target_column, uppercase_column)
-        
+
         self.logger.info(f"Converted {len(new_table)} rows to uppercase")
         return new_table
-    
+
     @staticmethod
     def is_available() -> bool:
         """Check if operator is available."""
@@ -100,36 +100,36 @@ import pyarrow as pa
 
 class ReverseOperator(AbstractOperator):
     """Reverses text in specified column."""
-    
+
     short_name = "reverse"
     owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
-    
+
     def __init__(self, *, config: dict):
         super().__init__(config=config)
         self.target_column = config.get("target_column", "contents")
-    
+
     def transform(self, table: pa.Table) -> pa.Table:
         """Reverse text in target column."""
         if self.target_column not in table.column_names:
             self.logger.warning(f"Column '{self.target_column}' not found")
             return table
-        
+
         # Get the column as Python list
         column_data = table.column(self.target_column).to_pylist()
-        
+
         # Reverse each string
         reversed_data = [text[::-1] if isinstance(text, str) else text for text in column_data]
-        
+
         # Create new column
         reversed_column = pa.array(reversed_data)
-        
+
         # Replace the column
         column_index = table.column_names.index(self.target_column)
         new_table = table.set_column(column_index, self.target_column, reversed_column)
-        
+
         self.logger.info(f"Reversed {len(new_table)} rows")
         return new_table
-    
+
     @staticmethod
     def is_available() -> bool:
         """Check if operator is available."""
@@ -163,10 +163,10 @@ from external_app.operators import APP_OPERATORS
 def get_app_operators(orchestrator=None):
     """
     Provider function for application operators.
-    
+
     Args:
         orchestrator: Optional orchestrator type for filtering
-    
+
     Returns:
         frozenset: Application operator classes
     """
@@ -195,7 +195,7 @@ logger = get_logger()
 
 def main():
     """Run the external application pipeline."""
-    
+
     # Flow definition using both docpipe and custom operators
     flow_def = {
         "flow_name": "External App Pipeline",
@@ -204,7 +204,7 @@ def main():
                 "type": "ingest_local",
                 "name": "ingest",
                 "config": {
-                    "input_folder": "./sample_data",
+                    "paths": ["./sample_data"],
                     "file_pattern": "*.txt"
                 }
             },
@@ -232,18 +232,18 @@ def main():
             }
         ]
     }
-    
+
     logger.info("Starting external app pipeline")
     logger.info("Using docpipe operators + custom operators")
-    
+
     try:
         # Create and execute flow
         manager = DocpipeFlowManager(flow_def=flow_def)
         result = manager.execute()
-        
+
         logger.info("Pipeline completed successfully")
         return 0
-        
+
     except Exception as e:
         logger.error(f"Pipeline failed: {e}", exc_info=True)
         return 1
@@ -263,7 +263,7 @@ if __name__ == "__main__":
       "type": "ingest_local",
       "name": "ingest",
       "config": {
-        "input_folder": "./sample_data",
+        "paths": ["./sample_data"],
         "file_pattern": "*.txt"
       }
     },
@@ -311,21 +311,21 @@ def reset_providers():
 
 def test_operator_registration():
     """Test that custom operators are registered correctly."""
-    
+
     def test_provider(orchestrator=None):
         return APP_OPERATORS
-    
+
     register_operator_provider(test_provider)
-    
+
     assert get_registered_provider_count() == 1
-    
+
     operators = get_docpipe_operators()
     short_names = {op.short_name for op in operators}
-    
+
     # Check custom operators are present
     assert "uppercase" in short_names
     assert "reverse" in short_names
-    
+
     # Check docpipe operators are still present
     assert "ingest_local" in short_names
     assert "noop" in short_names
@@ -345,21 +345,21 @@ def test_operator_short_names():
 
 def test_multiple_providers():
     """Test registering multiple providers."""
-    
+
     def provider1(orchestrator=None):
         return frozenset({UppercaseOperator})
-    
+
     def provider2(orchestrator=None):
         return frozenset({ReverseOperator})
-    
+
     register_operator_provider(provider1)
     register_operator_provider(provider2)
-    
+
     assert get_registered_provider_count() == 2
-    
+
     operators = get_docpipe_operators()
     short_names = {op.short_name for op in operators}
-    
+
     assert "uppercase" in short_names
     assert "reverse" in short_names
 ```

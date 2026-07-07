@@ -120,7 +120,7 @@ Create a flow JSON file (`hello_flow.json`):
       "name": "ingest_1",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./sample_documents"
+        "paths": ["./sample_documents"]
       }
     },
     {
@@ -209,10 +209,10 @@ Custom operators must:
 class MyCustomOperator(AbstractOperator):
     # Unique identifier used in flow JSON files
     short_name: str = "my_custom"
-    
+
     # Operator category: Extract, Ingest, Functional, Quality, VectorDB, Storage
     category: OperatorCategory = OperatorCategory.Functional
-    
+
     # Identifies as custom operator (always use this constant)
     owner: str | None = DocpipeConstants.OWNER_CUSTOM
 ```
@@ -241,11 +241,11 @@ The `transform()` method processes PyArrow tables and returns results with metad
 def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
     """
     Process the input table and return transformed results.
-    
+
     Args:
         table: Input PyArrow table with data to process
         file_name: Optional filename for context (e.g., for logging)
-    
+
     Returns:
         Tuple of (list of output tables, metadata dictionary)
     """
@@ -256,12 +256,12 @@ def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list
 def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
     # 1. Process the table (your custom logic here)
     result_table = table  # Replace with your transformation
-    
+
     # 2. Create metadata
     metadata = self.create_base_metadata(total_docs_count=table.num_rows)
     metadata["processed_docs"] = table.num_rows
     metadata["custom_metric"] = 42  # Add your custom metrics
-    
+
     # 3. Return results
     return [result_table], metadata
 ```
@@ -273,10 +273,10 @@ def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list
 def transform(self, table: pa.Table, file_name: str | None = None):
     # Create new column data
     new_values = [compute_value(row) for row in range(table.num_rows)]
-    
+
     # Add column to table
     table = table.append_column("new_column", pa.array(new_values))
-    
+
     return [table], self.create_base_metadata(total_docs_count=table.num_rows)
 ```
 
@@ -286,10 +286,10 @@ def transform(self, table: pa.Table, file_name: str | None = None):
     # Filter based on condition
     mask = pc.greater(table["score"], 0.5)
     filtered_table = table.filter(mask)
-    
+
     metadata = self.create_base_metadata(total_docs_count=filtered_table.num_rows)
     metadata["filtered_out"] = table.num_rows - filtered_table.num_rows
-    
+
     return [filtered_table], metadata
 ```
 
@@ -299,7 +299,7 @@ def transform(self, table: pa.Table, file_name: str | None = None):
     # Split based on condition
     high_quality = table.filter(pc.greater(table["score"], 0.8))
     low_quality = table.filter(pc.less_equal(table["score"], 0.8))
-    
+
     metadata = self.create_base_metadata(total_docs_count=table.num_rows)
     return [high_quality, low_quality], metadata
 ```
@@ -315,16 +315,16 @@ def get_metadata() -> dict[str, Any]:
     return {
         # Operator category
         OperatorConstants.Misc.CATEGORY: MyCustomOperator.category.value,
-        
+
         # Availability flag
         OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
-        
+
         # Display name for UI
         OperatorConstants.Misc.LABEL: "My Custom Operator",
-        
+
         # Output columns this operator produces (see Advanced Topics)
         OperatorConstants.Config.FEATURES: {},
-        
+
         # Input parameters for configuration (see Advanced Topics)
         OperatorConstants.Config.ATTRIBUTES: {},
     }
@@ -341,7 +341,7 @@ This method declares which columns must exist in the input table.
 def get_required_features() -> list[str]:
     """
     Return list of required input columns.
-    
+
     These are columns that must be present in the PyArrow table
     coming from upstream operators.
     """
@@ -478,7 +478,7 @@ Reference custom operators by their `short_name` in flow JSON files:
       "name": "ingest_1",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./documents"
+        "paths": ["./documents"]
       }
     },
     {
@@ -590,7 +590,7 @@ OperatorConstants.Config.ATTRIBUTES: {
         OperatorConstants.Config.VALID_VALUES: ["standard", "advanced", "custom"],
         OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
     },
-    
+
     # Integer parameter with range validation
     "batch_size": {
         OperatorConstants.Misc.NAME: "Batch Size",
@@ -601,7 +601,7 @@ OperatorConstants.Config.ATTRIBUTES: {
         OperatorConstants.Filtering.MAX_VALUE: 1000,
         OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
     },
-    
+
     # Float parameter with range validation
     "threshold": {
         OperatorConstants.Misc.NAME: "Confidence Threshold",
@@ -612,7 +612,7 @@ OperatorConstants.Config.ATTRIBUTES: {
         OperatorConstants.Filtering.MAX_VALUE: 1.0,
         OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
     },
-    
+
     # Boolean parameter (no validation needed)
     "enable_feature": {
         OperatorConstants.Misc.NAME: "Enable Feature",
@@ -621,7 +621,7 @@ OperatorConstants.Config.ATTRIBUTES: {
         OperatorConstants.Config.DEFAULT: False,
         OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
     },
-    
+
     # JSON parameter for complex configuration
     "custom_config": {
         OperatorConstants.Misc.NAME: "Custom Configuration",
@@ -635,22 +635,25 @@ OperatorConstants.Config.ATTRIBUTES: {
 
 **Accessing Parameters in transform():**
 
-Parameters defined in `ATTRIBUTES` become instance variables:
+Parameters defined in `ATTRIBUTES` are injected as instance variables at runtime. Access them using `getattr()` with a default value — direct attribute access (e.g. `self.batch_size`) will raise an `AttributeError` if the attribute is not present.
 
 ```python
 def transform(self, table: pa.Table, file_name: str | None = None):
-    # Access parameters as instance variables
-    if self.mode == "advanced":
+    mode = getattr(self, "mode", "standard")
+    enable_feature = getattr(self, "enable_feature", False)
+    batch_size = getattr(self, "batch_size", 100)
+
+    if mode == "advanced":
         # Use advanced processing
         pass
-    
-    if self.enable_feature:
+
+    if enable_feature:
         # Feature is enabled
         pass
-    
+
     # Use numeric parameters
-    for i in range(0, table.num_rows, self.batch_size):
-        batch = table.slice(i, self.batch_size)
+    for i in range(0, table.num_rows, batch_size):
+        batch = table.slice(i, batch_size)
         # Process batch
 ```
 
@@ -663,7 +666,7 @@ The `validate()` method performs runtime validation before operator execution. T
 def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
     """
     Validate operator configuration at runtime.
-    
+
     Args:
         errors: List to append blocking errors (prevent execution)
         warnings: List to append non-critical warnings (allow execution)
@@ -683,19 +686,19 @@ def validate(self, errors: list[str], warnings: list[str], available_features: l
 def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
     # 1. ALWAYS call parent first to validate required features
     super().validate(errors, warnings, available_features)
-    
+
     # 2. Validate required fields
     if not self.mode:
         errors.append("mode is required for MyCustomOperator")
-    
+
     # 3. Validate value ranges
     if self.batch_size < 1 or self.batch_size > 1000:
         errors.append("batch_size must be between 1 and 1000")
-    
+
     # 4. Check feature availability
     if "content" not in available_features:
         errors.append("'content' column must be available from upstream operators")
-    
+
     # 5. Warn about potential conflicts
     if "custom_score" in available_features:
         warnings.append("'custom_score' column already exists and will be overwritten")
@@ -821,15 +824,15 @@ class MyOperator(AbstractOperator):
     short_name: str = "my_operator"
     category: OperatorCategory = OperatorCategory.Functional
     owner: str | None = DocpipeConstants.OWNER_CUSTOM
-    
+
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         # Your initialization
-    
+
     def transform(self, table: pa.Table, file_name: str | None = None):
         # Your transformation logic
         return [table], self.create_base_metadata(total_docs_count=table.num_rows)
-    
+
     @staticmethod
     def get_metadata() -> dict[str, Any]:
         return {
@@ -1095,7 +1098,7 @@ docling-pipelines --list-operators
    from docpipe.core.orchestration.operator_factory import OperatorFactory
    factory = OperatorFactory()
    factory.register_custom_operators(packages=["my_custom_operators"])
-   
+
    # Try to get your operator
    operator = factory.get_operator("my_operator_id")
    ```
@@ -1266,6 +1269,8 @@ export DOCPIPE_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
 
 8. **Logging**: Use the logging module for debugging and monitoring
 
+9. **Safe attribute access**: Always use `getattr(self, "param_name", default)` to access configuration attributes in `transform()` — direct attribute access will raise `AttributeError` at runtime
+
 ---
 
 ## Troubleshooting
@@ -1299,6 +1304,10 @@ export DOCPIPE_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
 - ✅ Run `docling-pipelines --list-operators` to verify registration
 - ✅ Check for Python syntax errors in your operator file
 - ✅ Ensure class attributes (`short_name`, `category`, `owner`) are defined
+
+**`AttributeError: 'MyOperator' object has no attribute '...'`:**
+- ✅ Replace direct attribute access (e.g. `self.param`) with `getattr(self, "param", default_value)`
+- ✅ Configuration attributes are injected at runtime and may not always be present on `self` — `getattr()` provides a safe fallback
 
 ---
 

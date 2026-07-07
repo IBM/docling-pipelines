@@ -28,18 +28,18 @@ import pyarrow as pa
 
 class MyCustomOperator(AbstractOperator):
     """Custom operator for external application."""
-    
+
     short_name = "my_custom_op"
-    
+
     def __init__(self, *, config: dict):
         super().__init__(config=config)
         # Your initialization
-    
+
     def transform(self, table: pa.Table) -> pa.Table:
         """Transform logic."""
         # Your transformation logic
         return table
-    
+
     @classmethod
     def is_available(cls) -> bool:
         """Check if operator dependencies are available."""
@@ -69,20 +69,20 @@ from external_app.operators import APP_OPERATORS
 def get_app_operators(orchestrator=None):
     """
     Provider function that returns application operators.
-    
+
     Args:
         orchestrator: Optional orchestrator type ("python", "spark")
-    
+
     Returns:
         frozenset: Set of operator classes
     """
     # Optional: Filter by orchestrator
     if orchestrator == "spark":
         return frozenset({
-            op for op in APP_OPERATORS 
+            op for op in APP_OPERATORS
             if hasattr(op, 'supports_spark') and op.supports_spark
         })
-    
+
     return APP_OPERATORS
 
 # Register at application startup (before using docpipe)
@@ -102,7 +102,7 @@ flow_def = {
         {
             "type": "ingest_local",
             "name": "ingest",
-            "config": {"input_folder": "./data"}
+            "config": {"paths": ["./data"]}
         },
         {
             "type": "my_custom_op",  # Your custom operator!
@@ -126,7 +126,7 @@ Filter operators based on orchestrator type:
 ```python
 def get_app_operators(orchestrator=None):
     """Return operators filtered by orchestrator."""
-    
+
     if orchestrator == "python":
         return frozenset({
             PythonOnlyOperator,
@@ -137,7 +137,7 @@ def get_app_operators(orchestrator=None):
             SparkOnlyOperator,
             SharedOperator,
         })
-    
+
     # Return all if orchestrator not specified
     return APP_OPERATORS
 ```
@@ -175,10 +175,10 @@ from docpipe.core.constants.constants import DocpipeConstants
 
 class CustomExtractOperator(AbstractOperator):
     """Custom extract operator with priority."""
-    
+
     short_name = "extract"  # Same as docpipe's ExtractOperator
     owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1
-    
+
     def transform(self, table: pa.Table) -> pa.Table:
         # Custom extraction logic
         return table
@@ -198,7 +198,7 @@ class CustomExtractOperator(AbstractOperator):
 class MyExtractOperator(AbstractOperator):
     short_name = "extract"
     owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 beats OSS priority 2
-    
+
     def transform(self, table: pa.Table) -> pa.Table:
         # Your custom logic replaces docpipe's extract
         return table
@@ -211,7 +211,7 @@ class MyExtractOperator(AbstractOperator):
 class EnterpriseExtractOperator(AbstractOperator):
     short_name = "extract"
     owner = DocpipeConstants.OWNER_ENTERPRISE  # Priority 0 (highest)
-    
+
     def transform(self, table: pa.Table) -> pa.Table:
         # This will override both custom and OSS operators
         return table
@@ -228,12 +228,12 @@ def get_app_operators(orchestrator=None):
     """Dynamically load operators based on config."""
     import os
     from importlib import import_module
-    
+
     operators = set()
-    
+
     # Load from environment variable
     operator_modules = os.getenv("APP_OPERATOR_MODULES", "").split(",")
-    
+
     for module_name in operator_modules:
         if module_name.strip():
             try:
@@ -242,7 +242,7 @@ def get_app_operators(orchestrator=None):
                     operators.update(module.OPERATORS)
             except ImportError as e:
                 print(f"Failed to load operators from {module_name}: {e}")
-    
+
     return frozenset(operators)
 ```
 
@@ -338,15 +338,15 @@ def reset_providers():
 
 def test_custom_operator_registration():
     """Test that custom operators are registered correctly."""
-    
+
     def test_provider(orchestrator=None):
         return frozenset({MyTestOperator})
-    
+
     register_operator_provider(test_provider)
-    
+
     operators = get_docpipe_operators()
     short_names = {op.short_name for op in operators}
-    
+
     assert "my_test_op" in short_names
 ```
 

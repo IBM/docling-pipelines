@@ -235,7 +235,7 @@ class FlowEnrichmentService:
             # TODO: available_features for vectordb should also include adapter-level
             # metadata: available_resources (index/collection names), selected_resource_schema
             # (field-level schema for the configured resource), feature_mappings, and
-            # is_datasift_supported_resource. These require a live OpenSearch/Milvus
+            # is_docpipe_supported_resource. These require a live OpenSearch/Milvus
             # connection and are not yet populated.
             available_features = _normalise_feature_map(available_feature_map, node_id)
         elif operator_type == OperatorConstants.Operators.MERGE:

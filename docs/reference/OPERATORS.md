@@ -1615,9 +1615,12 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 ```json
 {
-  "id": "merge-node",
   "name": "merge_branches",
-  "operator": "merge",
+  "type": "merge",
+  "depends_on": [
+    "branch_node.branch1",
+    "branch_node.branch2"
+  ],
   "config": {
     "merge_type": "columns",
     "column_option": "inner_join",
@@ -1625,11 +1628,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
       {"link_name": "branch1"},
       {"link_name": "branch2"}
     ]
-  },
-  "input_edges": [
-    {"node_id_ref": "branch1-node", "link_name": "branch1"},
-    {"node_id_ref": "branch2-node", "link_name": "branch2"}
-  ]
+  }
 }
 ```
 
@@ -2152,25 +2151,19 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
 
 ```json
 {
-  "name": "ingest-extract-documentset",
-  "flow_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+  "flow_name": "ingest-extract-documentset",
   "description": "Integration test flow for document set hexagonal architecture: Ingest -> Extract -> DocumentSet",
-  "global_config": {
-    "storage_type": "duckdb",
-    "database_path": "data/integration_test.db"
-  },
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
-    "force_ingest": true
+    "force_ingest": true,
+    "storage_type": "duckdb",
+    "database_path": "data/integration_test.db"
   },
-  "dag": [
+  "flow": [
     {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
       "name": "ingest_local_folder",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "paths": "tests/fixtures/invoices",
         "include_filter": "pdf,txt,md",
@@ -2178,18 +2171,18 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
       }
     },
     {
-      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
       "name": "extract_documents",
-      "operator": "extract_operator",
+      "type": "extract_operator",
+      "depends_on": ["ingest_local_folder"],
       "config": {
         "text_extraction": {"provider": "docling_library", "doc_column": "content"},
         "entity_extraction": {"provider": "none"}
       }
     },
     {
-      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
       "name": "store_in_document_set",
-      "operator": "document_set",
+      "type": "document_set",
+      "depends_on": ["extract_documents"],
       "config": {
         "document_set_name": "integration_test_documents",
         "description": "Integration test for hexagonal architecture",
