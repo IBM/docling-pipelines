@@ -15,6 +15,9 @@ The Ededup (Exact Deduplication) operator removes duplicate documents from a dat
 3. **Removal**: Removes duplicate documents, keeping only the first occurrence
 4. **Statistics**: Tracks number of duplicates removed
 
+### Cross-Batch Deduplication
+The operator maintains its hash state across all `transform()` calls for the lifetime of the operator instance. This means duplicates are detected globally across all batches processed by the same operator — not just within a single batch. A document seen in batch 1 will be correctly identified as a duplicate if it appears again in batch 2, 3, or any subsequent batch.
+
 ## Complete Flow Example
 
 ```json
