@@ -295,7 +295,7 @@ class MergeOperator(AbstractOperator):
             logger.error(msg=err_msg, extra=self.common_log_arguments)
             raise FlowExecutionFailedException(message=err_msg, status_code=400)
 
-        merged_table: pa.Table = pa.concat_tables(list(tables.values()), promote=True)
+        merged_table: pa.Table = pa.concat_tables(list(tables.values()), promote_options="default")
         logger.info(
             f"Merged {len(tables)} tables with row counts: {[t.num_rows for t in tables.values()]}",
             extra=self.common_log_arguments,

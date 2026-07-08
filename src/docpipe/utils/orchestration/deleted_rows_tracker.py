@@ -37,7 +37,7 @@ def combine_cumulative_deleted_rows(deleted_rows: Queue[pa.Table]) -> pa.Table:
             aligned_tables.append(align_table_schema(tbl, all_cols))
 
         # Concatenate aligned tables
-        combined = pa.concat_tables(aligned_tables, promote=True)
+        combined = pa.concat_tables(aligned_tables, promote_options="default")
         logger.info(f"Combined cumulative deleted rows: {combined.num_rows} rows, {len(all_cols)} columns.")
         return combined
 
@@ -104,8 +104,8 @@ def update_deleted_rows(
 
     # ---- Detect deleted rows ----
     try:
-        deleted_mask = pc.invert(
-            pc.is_in(
+        deleted_mask = pc.invert(  # type: ignore[attr-defined]
+            pc.is_in(  # type: ignore[attr-defined]
                 previous_combined[OperatorConstants.Columns.ID],
                 value_set=current_combined[OperatorConstants.Columns.ID],
             )

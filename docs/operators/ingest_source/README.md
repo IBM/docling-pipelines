@@ -347,7 +347,7 @@ for i in range(result_table.num_rows):
     text = result_table['text'][i].as_py()
     metadata = json.loads(result_table['metadata'][i].as_py())
     source = result_table['source_id'][i].as_py()
-    
+
     print(f"Document {i+1}:")
     print(f"  Source: {source}")
     print(f"  Text length: {len(text)}")
@@ -580,7 +580,7 @@ print(f"Connection successful: {response['ResponseMetadata']['HTTPStatusCode'] =
 ```
 langchain==1.2.10
 langchain-core==1.2.14
-pyarrow==17.0.0
+pyarrow==24.0.0
 pandas==2.3.3
 botocore==1.42.55
 ```
@@ -624,7 +624,7 @@ uv sync --extra dev
 Using pip:
 ```bash
 # Core installation
-pip install langchain==1.2.10 langchain-core==1.2.14 pyarrow==17.0.0 pandas==2.3.3
+pip install langchain==1.2.10 langchain-core==1.2.14 pyarrow==24.0.0 pandas==2.3.3
 
 # AWS/S3 support
 pip install boto3==1.42.55 langchain-community==0.4.1

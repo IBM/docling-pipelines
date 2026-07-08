@@ -148,7 +148,7 @@ cyclopts==4.20.0
     # via prefect
 data-prep-toolkit==1.1.8
     # via data-prep-toolkit-transforms
-data-prep-toolkit-transforms==1.1.7
+data-prep-toolkit-transforms==1.1.8
     # via docling-pipelines
 dataclasses-json==0.6.7
     # via langchain-community
@@ -162,6 +162,7 @@ defusedxml==0.7.1
     # via
     #   docling-core
     #   docling-slim
+    #   nltk
 dill==0.3.8
     # via
     #   datatrove
@@ -504,7 +505,7 @@ narwhals==2.23.0
     # via scikit-learn
 networkx==3.6.1
     # via torch
-nltk==3.9.4
+nltk==3.10.0
     # via docling-pipelines
 numpy==1.26.4
     # via
@@ -518,7 +519,6 @@ numpy==1.26.4
     #   onnxruntime
     #   opencv-python
     #   pandas
-    #   pyarrow
     #   pymilvus
     #   rapidocr
     #   safetensors
@@ -673,7 +673,7 @@ psycopg2-binary==2.9.12
     # via docling-pipelines
 py-key-value-aio==0.4.5
     # via pydocket
-pyarrow==17.0.0
+pyarrow==24.0.0
     # via
     #   data-prep-toolkit
     #   docling-pipelines

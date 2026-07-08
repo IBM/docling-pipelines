@@ -52,10 +52,10 @@ def _combine_tables(tables: list[pa.Table], table_type: str) -> pa.Table | None:
         return None
 
     try:
-        combined = pa.concat_tables(valid_tables, promote=True)
+        combined = pa.concat_tables(valid_tables, promote_options="default")
         # Warn if duplicate IDs
         if OperatorConstants.Columns.ID in combined.column_names:
-            unique_ids = pc.count_distinct(combined[OperatorConstants.Columns.ID]).as_py()
+            unique_ids = pc.count_distinct(combined[OperatorConstants.Columns.ID]).as_py()  # type: ignore[attr-defined]
             total_rows = combined.num_rows
             if unique_ids < total_rows:
                 logger.warning(f"{table_type} contains {total_rows - unique_ids} duplicate IDs.")
