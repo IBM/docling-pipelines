@@ -9,9 +9,10 @@ from functools import lru_cache
 
 from fastapi import Depends
 
-from docpipe.core.assets.flows.adapters.config import RepositoryFactory
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
+from docpipe.core.assets.common.factories.repository_factory import RepositoryFactory
 from docpipe.core.assets.flows.application.services import FlowService
-from docpipe.core.assets.flows.domain.ports import FlowRepository
+from docpipe.core.assets.flows.domain.models.flow import Flow
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.core.job_management.application.services import JobManagementService
 from docpipe.core.job_management.domain.ports import JobStatsService
@@ -30,17 +31,21 @@ def get_job_stats_service() -> JobStatsService:
 
 
 @lru_cache(maxsize=1)
-def get_flow_repository() -> FlowRepository:
+def get_flow_repository() -> AssetRepository[Flow]:
     """
     Dependency provider for Flow Repository (singleton).
 
+    Uses RepositoryFactory to create repository based on configuration from
+    docling-pipelines-config.yaml. This enables:
+    - OSS: LocalAssetRepository[Flow] (filesystem-based)
+
     Returns:
-        FlowRepository: Configured flow repository instance (cached singleton)
+        AssetRepository[Flow]: Configured flow repository instance (cached singleton)
     """
-    return RepositoryFactory.create_flow_repository()
+    return RepositoryFactory.create_repository(asset_type=Flow)
 
 
-def get_flow_service(repository: FlowRepository = Depends(get_flow_repository)) -> FlowService:  # noqa: B008
+def get_flow_service(repository: AssetRepository[Flow] = Depends(get_flow_repository)) -> FlowService:  # noqa: B008
     """Dependency provider for flow service.
 
     Args:

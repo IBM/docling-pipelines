@@ -69,7 +69,7 @@ def sample_flow_data(sample_flow_data_authoring) -> dict[str, Any]:
 def sample_flow_with_id_elyra(sample_flow_data_elyra) -> Flow:
     """Sample Flow domain object with Elyra format definition for testing."""
     flow = Flow(
-        flow_id="12345678-1234-1234-1234-123456789abc",
+        asset_id="12345678-1234-1234-1234-123456789abc",
         name="Test Flow",
         description="A test flow for unit testing",
         definition=sample_flow_data_elyra,  # Elyra format definition
@@ -116,7 +116,7 @@ def sample_authoring_flow_with_id() -> Flow:
         "tags": ["test", "unit-test"],
     }
     flow = Flow(
-        flow_id="12345678-1234-1234-1234-123456789abc",
+        asset_id="12345678-1234-1234-1234-123456789abc",
         name="Test Flow",
         description="A test flow for unit testing",
         definition=authoring_definition,
@@ -147,7 +147,7 @@ def multiple_sample_flows() -> list[Flow]:
     ]
     for i in range(5):
         flow = Flow(
-            flow_id=flow_ids[i],
+            asset_id=flow_ids[i],
             name=f"Test Flow {i}",
             description=f"Description for flow {i}",
             definition={"doc_type": "pipeline", "pipelines": []},

@@ -15,6 +15,7 @@ All endpoints delegate to service layer which raises custom DocpipeException sub
 """
 
 import logging
+from functools import lru_cache
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -45,8 +46,11 @@ from docpipe.api.dto.flow_dto import (
     PaginatedFlowResponse,
 )
 from docpipe.api.dto.mappers.flow_mapper import FlowMapper
+from docpipe.core.assets.common.adapters.repositories.local_asset_repository import LocalAssetRepository
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
+from docpipe.core.assets.flows.domain.models.flow import Flow
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -204,6 +208,24 @@ def get_filter_params(
     }
 
 
+# Dependency providers (Unified Architecture)
+@lru_cache(maxsize=1)
+def get_flow_repository() -> AssetRepository[Flow]:
+    """Dependency provider for flow repository (singleton).
+
+    Creates a single repository instance using the unified architecture.
+    Uses LocalAssetRepository[Flow] for filesystem storage.
+
+    Returns:
+        AssetRepository[Flow]: Configured repository instance (cached singleton)
+
+    Note:
+        Uses LocalAssetRepository[Flow] which stores flows in the configured
+        directory (from environment or config: ~/Documents/pipeline/assets)
+    """
+    return LocalAssetRepository[Flow](asset_type=Flow)
+
+
 # Type alias for dependency injection
 PaginationDep = Annotated[tuple[int, int], Depends(get_pagination_params)]
 FiltersDep = Annotated[dict, Depends(get_filter_params)]
@@ -345,7 +367,7 @@ async def create_flow(
         from docpipe.core.assets.flows.domain.models.flow import Flow
 
         domain_flow = Flow(
-            flow_id=None,  # Will be generated
+            asset_id=None,  # Will be generated
             name=authoring_flow.flow_name,
             description=authoring_dto.description,
             definition=authoring_dto.model_dump(),  # Store validated authoring format
@@ -793,7 +815,7 @@ async def update_flow(
         from docpipe.core.assets.flows.domain.models.flow import Flow
 
         domain_flow = Flow(
-            flow_id=None,  # Will be set below
+            asset_id=None,  # Will be set below
             name=authoring_flow.flow_name,
             description=flow.description,
             definition=flow.model_dump(),  # Store complete authoring format

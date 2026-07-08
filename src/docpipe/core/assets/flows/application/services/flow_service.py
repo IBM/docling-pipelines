@@ -12,8 +12,9 @@ Exception Handling:
 import logging
 from typing import Any, ClassVar
 
+from docpipe.core.assets.common.application.services.asset_service import AssetService
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.flows.domain.models.flow import Flow
-from docpipe.core.assets.flows.domain.ports.flow_repository import FlowRepository
 from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.exceptions.docpipe_exceptions import (
@@ -25,10 +26,11 @@ from docpipe.exceptions.docpipe_exceptions import (
 logger = logging.getLogger(__name__)
 
 
-class FlowService:
+class FlowService(AssetService[Flow]):
     """Application service for creating, retrieving, updating, and deleting flows.
 
-    Uses dependency injection to receive a repository implementation.
+    Extends AssetService[Flow] to inherit common operations (get, delete, exists, list, count).
+    Implements Flow-specific operations (create, update, validate, partial_update).
     """
 
     # Fields that can be updated via partial_update_flow()
@@ -52,9 +54,13 @@ class FlowService:
     # Fields that cannot be modified after creation
     PROTECTED_FIELDS: ClassVar[set[str]] = {"flow_id", "created_on", "created_by"}
 
-    def __init__(self, repository: FlowRepository):
-        """Initialize the service with a flow repository."""
-        self.repository = repository
+    def __init__(self, *, repository: AssetRepository[Flow]):
+        """Initialize the service with a flow repository.
+
+        Args:
+            repository: Flow repository implementation (LocalFlowRepository or CamsFlowRepository)
+        """
+        super().__init__(repository=repository)
         logger.debug("FlowService initialized with repository: %s", type(repository).__name__)
 
     def _transform_authoring_updates(self, *, updates: dict[str, Any], existing_flow: Flow) -> dict[str, Any]:
@@ -218,11 +224,11 @@ class FlowService:
 
         logger.info(f"Creating flow with name: {flow.name} (format: {'Elyra' if is_elyra else 'Authoring'})")
 
-        if self.repository.exists_by_name(flow.name):
+        if self._repository.exists_by_name(name=flow.name):
             logger.warning("Attempted to create flow with existing name: %s", flow.name)
             raise FlowAlreadyExistsException(f"Flow with name '{flow.name}' already exists", flow_name=flow.name)
 
-        saved_flow = self.repository.save(flow)
+        saved_flow = self._repository.save(asset=flow)
 
         logger.info("Successfully created flow %s with name %s", saved_flow.flow_id, saved_flow.name)
         return saved_flow
@@ -269,19 +275,8 @@ class FlowService:
             - This method loads the complete flow object from storage
             - Flow validation is performed during loading
         """
-        self._validate_flow_id(flow_id)
-
-        flow = self.repository.find_by_id(flow_id)
-
-        if flow is None:
-            raise FlowNotFoundException(f"Flow {flow_id} not found", flow_id=flow_id)
-
-        # Backward compatibility: migrate legacy root_path (str) → paths (list) for
-        # flows persisted before the multi-path filesystem change.
-        flow.definition = self._migrate_root_path(flow.definition)
-
-        logger.info("Successfully retrieved flow %s", flow_id)
-        return flow
+        # Delegate to inherited get_by_id() from AssetService
+        return self.get_by_id(asset_id=flow_id)
 
     def _migrate_root_path(self, definition: Any) -> Any:
         """Migrate legacy ``root_path`` string to ``paths`` list in-memory.
@@ -366,12 +361,12 @@ class FlowService:
             logger.error("Flow validation failed: %s", exc)
             raise FlowInvalidDataException(f"Invalid flow data: {exc!s}") from exc
 
-        if not self.repository.exists(flow.flow_id):
+        if not self._repository.exists(asset_id=flow.flow_id):
             raise FlowNotFoundException(f"Flow {flow.flow_id} not found", flow_id=flow.flow_id)
 
         flow.update_timestamp()
 
-        updated_flow = self.repository.update(flow)
+        updated_flow = self._repository.update(asset=flow)
 
         logger.info("Successfully updated flow %s", updated_flow.flow_id)
         return updated_flow
@@ -405,16 +400,8 @@ class FlowService:
             - Deletion is permanent and cannot be undone
             - Now raises FlowNotFoundException instead of returning False for missing flows
         """
-        self._validate_flow_id(flow_id)
-
-        deleted = self.repository.delete(flow_id)
-
-        if deleted:
-            logger.info("Successfully deleted flow %s", flow_id)
-            return deleted
-        else:
-            logger.error("Flow %s not found for deletion", flow_id)
-            raise FlowNotFoundException(f"Flow {flow_id} not found", flow_id=flow_id)
+        # Delegate to inherited delete() from AssetService
+        return self.delete(asset_id=flow_id)
 
     def bulk_delete_flows(self, flow_ids: list[str]) -> dict[str, Any]:
         """Delete multiple flows by their IDs in a single operation.
@@ -468,7 +455,8 @@ class FlowService:
 
         logger.info("Starting bulk delete for %d flows", len(flow_ids))
 
-        result = self.repository.bulk_delete(flow_ids)
+        # Delegate to repository's bulk_delete
+        result = self._repository.bulk_delete(asset_ids=flow_ids)
 
         logger.info(
             "Bulk delete completed: %d deleted, %d failed out of %d requested",
@@ -554,7 +542,7 @@ class FlowService:
         if limit <= 0:
             raise FlowInvalidDataException("limit must be > 0", field_name="limit")
 
-        all_flows = self.repository.find_all()
+        all_flows = self._repository.find_all()
         filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden)
         paginated_flows = filtered_flows[skip : skip + limit]
 
@@ -620,7 +608,7 @@ class FlowService:
             - Returns 0 for no matches, never raises FileNotFoundError
             - Useful for pagination UI (total pages, showing X of Y, etc.)
         """
-        all_flows = self.repository.find_all()
+        all_flows = self._repository.find_all()
         filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden)
 
         logger.info("Counted %d flows (filtered from %d)", len(filtered_flows), len(all_flows))
@@ -730,8 +718,14 @@ class FlowService:
             logger.info("No valid fields to update for flow %s", flow_id)
             return existing_flow
 
-        # Delegate to repository for actual update (applies updates, validates, updates timestamp, persists)
-        updated_flow = self.repository.partial_update(existing_flow, validated_updates)
+        # Apply updates manually since partial_update is Flow-specific
+        for field, value in validated_updates.items():
+            setattr(existing_flow, field, value)
+
+        existing_flow.update_timestamp()
+        existing_flow.validate()
+
+        updated_flow = self._repository.update(asset=existing_flow)
 
         logger.info("Updated fields for flow %s: %s", flow_id, list(validated_updates.keys()))
 
@@ -782,8 +776,5 @@ class FlowService:
             - Use before operations to avoid FileNotFoundError
             - Useful for conditional logic and validation
         """
-        self._validate_flow_id(flow_id)
-
-        result = self.repository.exists(flow_id)
-        logger.debug("Flow existence check for %s: %s", flow_id, result)
-        return result
+        # Delegate to inherited exists() from AssetService
+        return self.exists(asset_id=flow_id)

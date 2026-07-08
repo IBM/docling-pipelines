@@ -227,6 +227,81 @@ class ExternalServiceError(DocpipeException):
         )
 
 
+class AssetNotFoundException(DocpipeException):
+    """
+    Generic exception raised when an asset is not found.
+
+    Used in asset CRUD operations when attempting to retrieve, update,
+    or delete an asset that does not exist. Works for Flow, DocumentSet,
+    DocumentLibrary, and other asset types.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        asset_id: str | None = None,
+        asset_type: str | None = None,
+    ):
+        if asset_id and asset_type and not message:
+            message = f"{asset_type.capitalize()} {asset_id} not found"
+        super().__init__(
+            message,
+            status_code=404,
+            error_code=ErrorCode.FLOW_NOT_FOUND,  # Reuse existing error code
+        )
+        self.asset_id = asset_id
+        self.asset_type = asset_type
+
+
+class AssetAlreadyExistsException(DocpipeException):
+    """
+    Generic exception raised when attempting to create an asset that already exists.
+
+    Used in asset creation when an asset with the same name or ID already exists.
+    Works for Flow, DocumentSet, DocumentLibrary, and other asset types.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        asset_id: str | None = None,
+        asset_name: str | None = None,
+        asset_type: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=409,
+            error_code=ErrorCode.FLOW_ALREADY_EXISTS,  # Reuse existing error code
+        )
+        self.asset_id = asset_id
+        self.asset_name = asset_name
+        self.asset_type = asset_type
+
+
+class AssetInvalidDataException(DocpipeException):
+    """
+    Generic exception raised when asset data is invalid.
+
+    Used in asset CRUD operations when validation fails due to invalid
+    asset data, empty names, invalid field values, or malformed data.
+    Works for Flow, DocumentSet, DocumentLibrary, and other asset types.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        field_name: str | None = None,
+        asset_type: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=400,
+            error_code=ErrorCode.FLOW_INVALID_DATA,  # Reuse existing error code
+        )
+        self.field_name = field_name
+        self.asset_type = asset_type
+
+
 class FlowNotFoundException(DocpipeException):
     """
     Exception raised when a flow is not found.

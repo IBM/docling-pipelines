@@ -1,0 +1,275 @@
+"""Generic LocalAssetRepository for filesystem-based asset storage.
+
+This implementation provides a unified AssetRepository[T] interface for
+storing assets as JSON files in the local filesystem.
+"""
+
+import json
+import logging
+import os
+import uuid
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, TypeVar
+
+from docpipe.core.assets.common.domain.models.asset import Asset
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
+from docpipe.core.assets.flows.domain.models.flow import Flow
+from docpipe.exceptions.docpipe_exceptions import (
+    AssetAlreadyExistsException,
+    AssetInvalidDataException,
+    AssetNotFoundException,
+)
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=Asset)
+
+
+class LocalAssetRepository(AssetRepository[T]):
+    """Generic filesystem-based repository for all asset types.
+
+    Stores assets as JSON files in configured directories.
+    Currently supports Flow assets, with DocumentSet and DocumentLibrary planned.
+
+    Usage:
+        flow_repo = LocalAssetRepository[Flow](asset_type=Flow, storage_path="/path/to/flows")
+        flow = Flow(name="my_flow", definition={...})
+        saved_flow = flow_repo.save(asset=flow)
+    """
+
+    def __init__(self, *, asset_type: type[T], storage_path: str | None = None):
+        """Initialize repository with explicit asset type.
+
+        Args:
+            asset_type: The asset type class (Flow, DocumentSet, etc.)
+            storage_path: Optional custom storage path (defaults to ~/Documents/pipeline/assets)
+        """
+        self._asset_type = asset_type
+
+        # Determine storage path
+        if storage_path:
+            self._storage_path = Path(storage_path)
+        else:
+            # Default path for flows
+            self._storage_path = Path.home() / "Documents" / "pipeline" / "assets"
+
+        self._storage_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Initialized LocalAssetRepository for {asset_type.__name__} at {self._storage_path}")
+
+    def _get_file_path(self, *, asset_id: str) -> Path:
+        """Get file path for an asset.
+
+        Args:
+            asset_id: Asset ID
+
+        Returns:
+            Path to asset file
+        """
+        return self._storage_path / f"{asset_id}.json"
+
+    def save(self, *, asset: T) -> T:
+        """Save an asset.
+
+        Args:
+            asset: Asset to save
+
+        Returns:
+            Saved asset with generated ID and timestamps
+        """
+        # Generate ID if not present
+        if not asset.asset_id:
+            asset.asset_id = str(uuid.uuid4())
+
+        # Set timestamps for Flow
+        if isinstance(asset, Flow):
+            now = datetime.now(UTC)
+            if not asset.created_on:
+                asset.created_on = now
+            asset.modified_on = now
+
+        # Check for duplicate name
+        if self.exists_by_name(name=asset.name):
+            raise AssetAlreadyExistsException(f"Asset with name '{asset.name}' already exists")
+
+        # Save to file
+        file_path = self._get_file_path(asset_id=asset.asset_id)
+        with open(file_path, "w") as f:
+            json.dump(asset.to_dict(), f, indent=2)
+
+        logger.info(f"Saved {self._asset_type.__name__} {asset.asset_id}")
+        return asset
+
+    def find_by_id(self, *, asset_id: str) -> T | None:
+        """Find asset by ID.
+
+        Args:
+            asset_id: Asset ID
+
+        Returns:
+            Asset if found, None otherwise
+        """
+        file_path = self._get_file_path(asset_id=asset_id)
+        if not file_path.exists():
+            return None
+
+        with open(file_path) as f:
+            data = json.load(f)
+
+        # Use Flow.from_dict for Flow type
+        if self._asset_type == Flow:
+            return Flow.from_dict(data=data)  # type: ignore
+        return self._asset_type.from_dict(data=data)  # type: ignore
+
+    def find_by_name(self, *, name: str) -> T | None:
+        """Find asset by name.
+
+        Args:
+            name: Asset name
+
+        Returns:
+            Asset if found, None otherwise
+        """
+        for asset in self.find_all():
+            if asset.name == name:
+                return asset
+        return None
+
+    def find_all(self) -> list[T]:
+        """Find all assets.
+
+        Returns:
+            List of all assets
+        """
+        assets = []
+        for file_path in self._storage_path.glob("*.json"):
+            try:
+                with open(file_path) as f:
+                    data = json.load(f)
+                # Use Flow.from_dict for Flow type
+                if self._asset_type == Flow:
+                    asset = Flow.from_dict(data=data)  # type: ignore
+                else:
+                    asset = self._asset_type.from_dict(data=data)  # type: ignore
+                assets.append(asset)
+            except Exception as e:
+                logger.warning(f"Failed to load asset from {file_path}: {e}")
+        return assets
+
+    def update(self, *, asset: T) -> T:
+        """Update an asset.
+
+        Args:
+            asset: Asset to update
+
+        Returns:
+            Updated asset
+        """
+        if not asset.asset_id:
+            raise AssetInvalidDataException("Asset ID is required for update")
+
+        if not self.exists(asset_id=asset.asset_id):
+            raise AssetNotFoundException(f"Asset {asset.asset_id} not found")
+
+        # Update timestamp for Flow
+        if isinstance(asset, Flow):
+            asset.modified_on = datetime.now(UTC)
+
+        # Save to file
+        file_path = self._get_file_path(asset_id=asset.asset_id)
+        with open(file_path, "w") as f:
+            json.dump(asset.to_dict(), f, indent=2)
+
+        logger.info(f"Updated {self._asset_type.__name__} {asset.asset_id}")
+        return asset
+
+    def delete(self, *, asset_id: str) -> bool:
+        """Delete an asset.
+
+        Args:
+            asset_id: Asset ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        file_path = self._get_file_path(asset_id=asset_id)
+        if not file_path.exists():
+            return False
+
+        file_path.unlink()
+        logger.info(f"Deleted {self._asset_type.__name__} {asset_id}")
+        return True
+
+    def bulk_delete(self, *, asset_ids: list[str]) -> dict[str, Any]:
+        """Delete multiple assets in a batch operation.
+
+        Args:
+            asset_ids: List of asset IDs to delete
+
+        Returns:
+            Dictionary with deletion results
+        """
+        deleted = []
+        failed = []
+
+        for asset_id in asset_ids:
+            try:
+                if self.delete(asset_id=asset_id):
+                    deleted.append(asset_id)
+                else:
+                    failed.append({"asset_id": asset_id, "error": "Asset not found"})
+            except Exception as e:
+                failed.append({"asset_id": asset_id, "error": str(e)})
+                logger.warning(f"Failed to delete {self._asset_type.__name__} {asset_id}: {e}")
+
+        result = {
+            "total_requested": len(asset_ids),
+            "total_deleted": len(deleted),
+            "total_failed": len(failed),
+            "deleted": deleted,
+            "failed": failed,
+        }
+
+        logger.info(
+            f"Bulk delete completed for {self._asset_type.__name__}: "
+            f"{result['total_deleted']} deleted, {result['total_failed']} failed"
+        )
+
+        return result
+
+    def exists(self, *, asset_id: str) -> bool:
+        """Check if asset exists.
+
+        Args:
+            asset_id: Asset ID
+
+        Returns:
+            True if exists
+        """
+        file_path = self._get_file_path(asset_id=asset_id)
+        return file_path.exists()
+
+    def exists_by_name(self, *, name: str) -> bool:
+        """Check if asset exists by name.
+
+        Args:
+            name: Asset name
+
+        Returns:
+            True if exists
+        """
+        return self.find_by_name(name=name) is not None
+
+    def health_check(self) -> dict[str, Any]:
+        """Check repository health.
+
+        Returns:
+            Health status dictionary
+        """
+        return {
+            "status": "healthy",
+            "storage_path": str(self._storage_path),
+            "storage_exists": self._storage_path.exists(),
+            "storage_writable": os.access(self._storage_path, os.W_OK),
+            "asset_count": len(list(self._storage_path.glob("*.json"))),
+        }
