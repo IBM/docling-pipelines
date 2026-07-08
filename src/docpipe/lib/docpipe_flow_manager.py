@@ -20,7 +20,7 @@ from docpipe.core.orchestration.flow_validator import FlowValidator
 from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException, FlowInvalidDataException, FlowValidationException
 from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
-from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
+from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level, setup_logging
 from docpipe.utils.operators.display import list_operators as _list_operators
 
 
@@ -65,6 +65,7 @@ class DocpipeFlowManager:
         flow_id: str | None = None,
         enable_custom_operators: bool | None = None,
         enable_execution_reporter: bool = True,
+        configure_logging: bool = True,
     ):
         """
         Initialize DocpipeFlowManager.
@@ -77,6 +78,9 @@ class DocpipeFlowManager:
             flow_id: Flow identifier (priority: parameter > flow_def > job_id)
             enable_custom_operators: Whether to enable custom operators (default: from env or True)
             enable_execution_reporter: Whether to enable user-friendly console output (default: True)
+            configure_logging: When True (default), installs handlers and formatters on the
+                               root docpipe logger. Set to False when the calling application
+                               manages its own logging configuration.
 
         Raises:
             DocpipeException: If neither flow_file nor flow_def is provided
@@ -99,7 +103,10 @@ class DocpipeFlowManager:
         # Configure DPK log level to match DS_LOG_LEVEL
         set_dpk_log_level_from_ds_log_level()
 
-        # Set up logging
+        # Install handlers only when this instance owns the process output
+        if configure_logging:
+            setup_logging()
+
         self.logger: Logger = get_logger()
 
         # Initialize original_flow_def with proper type annotation

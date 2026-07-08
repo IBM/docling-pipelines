@@ -41,9 +41,9 @@ from docpipe.core.constants.constants import EnvironmentVariables
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.logging import (
-    ConditionalFormatter,
     configure_third_party_loggers,
     set_dpk_log_level_from_ds_log_level,
+    setup_logging,
 )
 
 
@@ -74,27 +74,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 # Configure DPK log level to match DS_LOG_LEVEL
 set_dpk_log_level_from_ds_log_level()
 
-# Get log level from environment variable, default to INFO
-log_level_name = os.getenv(EnvironmentVariables.DS_LOG_LEVEL, "INFO").upper()
-log_level = logging.getLevelName(log_level_name)
-
-# Configure logging with ConditionalFormatter for structured JSON logging
-# ConditionalFormatter retrieves transaction IDs from session_info context
-# and includes them in all log entries for request tracing
-formatter = ConditionalFormatter(datefmt="%H:%M:%S")
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(formatter)
-
-# Configure root logger with environment-specified level
-logging.basicConfig(level=log_level, handlers=[handler])
-
-# Ensure all loggers use the formatter
-root_logger = logging.getLogger()
-root_logger.handlers = [handler]
+# Install handlers on the root docpipe logger
+setup_logging()
 
 # Configure third-party loggers (uvicorn, prefect, etc.) to respect DS_LOG_LEVEL
-configure_third_party_loggers(log_level=log_level, handler=handler)
+log_level_name = os.getenv(EnvironmentVariables.DS_LOG_LEVEL, "INFO").upper()
+log_level = logging.getLevelName(log_level_name)
+_handler = logging.StreamHandler(sys.stdout)
+configure_third_party_loggers(log_level=log_level, handler=_handler)
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,8 @@
 
 This module provides:
 - ConditionalFormatter: JSON formatter with transaction ID injection
-- get_logger: Factory function for creating configured loggers
+- setup_logging: Configures handlers and formatters for process-owning entry points
+- get_logger: Library-safe factory that attaches only a NullHandler
 - get_log_level: Utility for resolving log levels from environment
 """
 
@@ -325,68 +326,111 @@ def set_dpk_log_level_from_ds_log_level() -> None:
     os.environ[EnvironmentVariables.DPK_LOG_LEVEL] = log_level_name
 
 
+def setup_logging(
+    level: int | str | None = None,
+    file: str | None = None,
+) -> None:
+    """Configure handlers and formatters on the root docpipe logger.
+
+    Must be called only from process-owning entry points (e.g. the CLI or
+    standalone programmatic usage). Embedders that control their own logging
+    infrastructure should not call this.
+
+    Args:
+        level: Log level string or int. Defaults to DS_LOG_LEVEL env var or INFO.
+        file: Optional file path to also write logs to.
+    """
+    root = logging.getLogger(DocpipeConstants.LOGGER_NAME)
+
+    # Resolve level
+    if isinstance(level, int):
+        resolved_level = level
+    else:
+        level_name = level.upper() if isinstance(level, str) else get_log_level()
+        resolved_level = logging.getLevelName(level_name)
+
+    root.setLevel(resolved_level)
+
+    use_json_format: bool = os.environ.get("DS_LOG_JSON", "False") == "True"
+    timefmt = "%H:%M:%S"
+
+    # Console handler — add only once
+    if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) for h in root.handlers):
+        console_handler = logging.StreamHandler(sys.stdout)
+        if use_json_format:
+            console_handler.setFormatter(ConditionalFormatter(datefmt=timefmt))
+        else:
+            console_handler.setFormatter(
+                ColoredFormatter(
+                    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                    datefmt=timefmt,
+                )
+            )
+        root.addHandler(console_handler)
+
+    # Optional file handler — add only once per path
+    if file:
+        existing_paths = {h.baseFilename for h in root.handlers if isinstance(h, logging.FileHandler)}
+        if file not in existing_paths:
+            file_handler = logging.FileHandler(file)
+            if use_json_format:
+                file_handler.setFormatter(ConditionalFormatter(datefmt=timefmt))
+            else:
+                file_handler.setFormatter(
+                    logging.Formatter(
+                        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                        datefmt=timefmt,
+                    )
+                )
+            root.addHandler(file_handler)
+
+    # Stop propagation to root — the entry point owns its output
+    root.propagate = False
+
+
 def get_logger(
     name: str = DocpipeConstants.LOGGER_NAME,
     level: int | str | None = None,
     file: str | None = None,
 ) -> logging.Logger:
-    """
-    Returns a logger configured with stdout and optional file output.
+    """Return a library-safe logger for the given name.
+
+    Attaches a NullHandler if no handlers are present and enables propagation
+    so that host applications can control all output via their own logging
+    configuration. When setup_logging() has already been called (e.g. from
+    the CLI), the existing handler configuration on the root docpipe logger
+    is preserved and the NullHandler is not duplicated.
 
     Args:
-        name: Logger name.
+        name: Logger name. Defaults to DocpipeConstants.LOGGER_NAME ("docpipe").
         level: Log level string or int (e.g., "INFO" or logging.INFO).
-        file: Optional file path for logs.
+               When omitted, defaults to DS_LOG_LEVEL env var or INFO.
+        file: Kept for backward compatibility. Ignored — attach file handlers
+              at the entry-point level via setup_logging().
 
     Returns:
         logging.Logger
     """
     logger = logging.getLogger(name)
 
-    # Set log level
-    if isinstance(level, int):
-        logger.setLevel(level)
-    else:
-        level = level.upper() if isinstance(level, str) else get_log_level()
-        logger.setLevel(logging.getLevelName(level))
-
-    # Use JSON format only if explicitly enabled via environment variable
-    use_json_format: bool = os.environ.get("DS_LOG_JSON", "False") == "True"
-
-    # --- Console & file handlers (only add once) ---
-    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
-        # Console handler
-        console_handler = logging.StreamHandler(sys.stdout)
-        timefmt = "%H:%M:%S"
-
-        if use_json_format:
-            # Use JSON format when explicitly enabled
-            console_format: logging.Formatter = ConditionalFormatter(datefmt=timefmt)
+    # Set level when explicitly requested; otherwise apply default only if unset
+    if level is not None:
+        if isinstance(level, int):
+            logger.setLevel(level)
         else:
-            # Use colored logging format by default for console
-            console_format = ColoredFormatter(
-                fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                datefmt=timefmt,
-            )
+            logger.setLevel(logging.getLevelName(level.upper()))
+    elif not logger.level:
+        logger.setLevel(logging.getLevelName(get_log_level()))
 
-        console_handler.setFormatter(console_format)
-        logger.addHandler(console_handler)
+    # Attach NullHandler once to suppress "No handlers found" warnings when
+    # no entry-point has called setup_logging() yet.
+    if not logger.handlers:
+        logger.addHandler(logging.NullHandler())
 
-        # Optional file handler
-        if file:
-            file_handler = logging.FileHandler(file)
+    # Only enable propagation when setup_logging() has not yet installed real
+    # handlers — avoids double-emission when the entry point owns the output.
+    has_real_handler = any(not isinstance(h, logging.NullHandler) for h in logger.handlers)
+    if not has_real_handler:
+        logger.propagate = True
 
-            if use_json_format:
-                file_log_format: logging.Formatter = ConditionalFormatter(datefmt=timefmt)
-            else:
-                # Use plain format for file (no colors)
-                file_log_format = logging.Formatter(
-                    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                    datefmt=timefmt,
-                )
-
-            file_handler.setFormatter(file_log_format)
-            logger.addHandler(file_handler)
-
-    logger.propagate = False
     return logger

@@ -38,7 +38,7 @@ class DocpipeConstants:
     INPUT_EDGES = "input_edges"
     OUTPUT_EDGES = "output_edges"
     INPUT = "input"
-    LOGGER_NAME = "DOCPIPE"
+    LOGGER_NAME = "docpipe"
     SESSION_INFO = "session_info"
     CONTEXT_ID = "context_id"
     FORCE_INGEST = "force_ingest"

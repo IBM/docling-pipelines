@@ -408,6 +408,10 @@ print(f"Handlers: {logger.handlers}")
 print(f"JSON enabled: {os.getenv('DS_LOG_JSON')}")
 ```
 
+**Note:** When docpipe is used as an embedded library (i.e. `configure_logging=False` was
+passed to `DocpipeFlowManager`), `logger.handlers` will show only a `NullHandler`. This is
+expected — the calling application controls all output through its own logging infrastructure.
+
 ## Reference
 
 ### Environment Variables

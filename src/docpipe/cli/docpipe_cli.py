@@ -8,7 +8,7 @@ import uuid
 from typing import Any
 
 from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
-from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
+from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level, setup_logging
 
 logger = get_logger()
 
@@ -348,7 +348,10 @@ Examples:
     # Configure DPK log level to match DS_LOG_LEVEL
     set_dpk_log_level_from_ds_log_level()
 
-    # Setup logger early
+    # Install handlers on the root docpipe logger for CLI output
+    setup_logging()
+
+    # Re-fetch logger now that setup_logging() has installed handlers
     global logger
     logger = get_logger()
 

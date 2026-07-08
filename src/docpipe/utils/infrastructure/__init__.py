@@ -8,7 +8,7 @@ from .concurrency import (
 )
 from .config import get_opensearch_config
 from .filesystem import DEFAULT_DATA_ROOT_FOLDER, delete_folders, get_data_path
-from .logging import get_logger
+from .logging import get_logger, setup_logging
 from .performance import (
     get_process_memory_mb,
     get_pyarrow_table_size_mb,
@@ -19,27 +19,20 @@ from .telemetry_service import TelemetryConfig, get_telemetry_service
 
 __all__ = [
     "DEFAULT_DATA_ROOT_FOLDER",
-    # Caching
     "LRUCache",
     "TelemetryConfig",
     "delete_folders",
-    # Filesystem
     "get_data_path",
-    # Logging
     "get_logger",
-    # Config
     "get_opensearch_config",
     "get_process_memory_mb",
     "get_pyarrow_table_size_mb",
-    # Telemetry
     "get_telemetry_service",
-    # Performance
     "log_elapsed_time",
-    # Concurrency
     "process_batches_in_parallel",
-    # Retry
     "retry_with_exponential_backoff",
     "run_with_session_info",
+    "setup_logging",
     "should_retry_on_result",
     "submit_task_with_context_propagation",
 ]

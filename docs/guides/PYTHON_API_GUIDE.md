@@ -527,6 +527,38 @@ manager = DocpipeFlowManager(flow_file="flow.json")
 
 **Note:** The `log_level` parameter has been removed from `DocpipeFlowManager`. Use the `DS_LOG_LEVEL` environment variable instead for consistent logging across all components.
 
+### Embedded Usage: Disabling docpipe Log Configuration
+
+When docpipe is used as a library inside an application that manages its own logging
+infrastructure, pass `configure_logging=False` to prevent docpipe from installing its
+own handlers. All docpipe log records will then propagate to the calling application's
+root logger.
+
+```python
+# Application manages its own logging — docpipe defers entirely
+manager = DocpipeFlowManager(
+    flow_file="flow.json",
+    configure_logging=False,
+)
+```
+
+To rename the logger prefix in the output, attach a `Filter` to the handler that
+receives docpipe records:
+
+```python
+import logging
+
+class RenamingFilter(logging.Filter):
+    def filter(self, record):
+        record.name = record.name.replace("docpipe", "my_app")
+        return True
+
+# Attach filter to the handler on the "docpipe" root logger
+docpipe_logger = logging.getLogger("docpipe")
+for handler in docpipe_logger.handlers:
+    handler.addFilter(RenamingFilter())
+```
+
 ### Debugging Failed Executions
 
 ```python
