@@ -132,7 +132,7 @@ Important behavior:
 
 This makes it possible to configure job management via environment variables per environment or per deployment.
 
-For full distributed execution examples and work-pool-specific configuration, see [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](../prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
+For full distributed execution examples and work-pool-specific configuration, see [`docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
 
 ---
 
@@ -275,7 +275,7 @@ By default, Docpipe runs Prefect in **ephemeral mode** with a temporary in-memor
 
 ```bash
 # Simply run your flow - Prefect ephemeral mode is automatic
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 ```
 
 ### Distributed Execution with Prefect Work Pools (Optional)
@@ -296,7 +296,7 @@ For production workloads and large-scale processing, Docpipe supports **Prefect'
 
 For complete setup instructions, work pool configuration, and deployment guides, see:
 
-**[Prefect Distributed Execution Guide](../prefect/DISTRIBUTED_EXECUTION_GUIDE.md)**
+**[Prefect Distributed Execution Guide](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)**
 
 This guide covers:
 
@@ -311,5 +311,5 @@ This guide covers:
 ## Related Documentation
 
 - **[User Guide: Pipeline Setup](../../USER_GUIDE_PIPELINE_SETUP.md)** - Basic setup and first pipeline
-- **[Prefect Distributed Execution Guide](../prefect/DISTRIBUTED_EXECUTION_GUIDE.md)** - Detailed distributed execution setup
+- **[Prefect Distributed Execution Guide](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)** - Detailed distributed execution setup
 - **[Job Stats Management](../internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer guide for metadata aggregation

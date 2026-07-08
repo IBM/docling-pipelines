@@ -392,7 +392,7 @@ If you have existing flows with flow-level incremental metadata configuration, f
 - **Multi-flow coordination**: Share incremental metadata across multiple flows using the same base directory
 
 **Related Documentation** :
-- [Incremental Metadata Configuration](docs/guides/ADVANCED_CONFIGURATION.md)
+- [Incremental Metadata Configuration](../guides/ADVANCED_CONFIGURATION.md)
 
 ---
 
@@ -632,7 +632,7 @@ The `batch_storage` section controls where batch data is stored during distribut
 
 ---
 
-**Related Documentation**: [Prefect Documentation](docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
+**Related Documentation**: [Prefect Documentation](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
 
 ---
 

@@ -315,7 +315,5 @@ docling-pipelines --flow-file flow.json --log-level debug
 
 ## References
 
-- [ACL Operator Architecture](docs/operators/acl/ACL_OPERATOR_ARCHITECTURE.md)
-- [Implementation Plan Phase 1](docs/operators/acl/ACL_IMPLEMENTATION_PLAN_PHASE1_REVISED.md)
-- [Operator Reference](../../../../../docs/reference/OPERATORS.md)
-- [User Guide: Pipeline Setup](../../../../../USER_GUIDE_PIPELINE_SETUP.md)
+- [Operator Reference](../../reference/OPERATORS.md)
+- [User Guide: Pipeline Setup](../../../USER_GUIDE_PIPELINE_SETUP.md)

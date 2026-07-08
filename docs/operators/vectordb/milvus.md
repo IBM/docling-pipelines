@@ -392,7 +392,7 @@ config = {
 
 ### Multi-Model Flow Example
 
-See [`sample_flows/milvus_dual_embeddings_flow.json`](../../../sample_flows/milvus_dual_embeddings_flow.json) for a complete example with two embedding models.
+See [`sample_flows/vectordb/milvus_integration.json`](../../../sample_flows/vectordb/milvus_integration.json) for a complete Milvus pipeline example.
 
 ## Performance Tuning
 

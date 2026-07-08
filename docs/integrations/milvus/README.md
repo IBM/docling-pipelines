@@ -363,7 +363,7 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
 Docpipe provides two example pipeline flows demonstrating different Milvus deployment scenarios:
 
 ### 1. Standalone Milvus (Local/Docker) - Sparse Vectors
-**Example Flow**: [`sample_flows/milvus_sparse_localhost_flow.json`](../../sample_flows/milvus_sparse_localhost_flow.json)
+**Example Flow**: [`sample_flows/vectordb/milvus_integration.json`](../../../sample_flows/vectordb/milvus_integration.json)
 
 **Use Case**: Local development, testing, or self-hosted Milvus
 
@@ -395,7 +395,7 @@ Docpipe provides two example pipeline flows demonstrating different Milvus deplo
 - Demonstrates sparse + dense vector storage with BM25
 
 ### 2. IBM watsonx.data Milvus (Cloud) - Dense Vectors
-**Example Flow**: [`sample_flows/milvus_dense_watsonx_flow.json`](../../sample_flows/milvus_dense_watsonx_flow.json)
+**Example Flow**: [`sample_flows/vectordb/milvus_integration.json`](../../../sample_flows/vectordb/milvus_integration.json)
 
 **Use Case**: Enterprise deployment with IBM watsonx.data managed Milvus
 
@@ -505,7 +505,7 @@ Sparse vectors are automatically generated from text content using Milvus's buil
 
 ### Basic Pipeline with Milvus (Dense Vectors)
 
-For a complete working example, see [`sample_flows/milvus_dense_watsonx_flow.json`](../../sample_flows/milvus_dense_watsonx_flow.json).
+For a complete working example, see [`sample_flows/vectordb/milvus_integration.json`](../../../sample_flows/vectordb/milvus_integration.json).
 
 **Key Configuration:**
 ```json
@@ -549,7 +549,7 @@ For a complete working example, see [`sample_flows/milvus_dense_watsonx_flow.jso
 
 ### Sparse Vector Pipeline (BM25)
 
-For a complete working example, see [`sample_flows/milvus_sparse_localhost_flow.json`](../../sample_flows/milvus_sparse_localhost_flow.json).
+For a complete working example, see [`sample_flows/vectordb/milvus_integration.json`](../../../sample_flows/vectordb/milvus_integration.json).
 
 **Key Configuration:**
 ```json
@@ -591,7 +591,7 @@ For a complete working example, see [`sample_flows/milvus_sparse_localhost_flow.
 
 ### Python Integration Example
 
-For a comprehensive Python example demonstrating Milvus operator usage, see [`examples/milvus_integration_example.py`](../../examples/milvus_integration_example.py). This example includes:
+For a comprehensive Python example demonstrating Milvus operator usage, see [`examples/milvus_integration_example.py`](../../../examples/milvus_integration_example.py). This example includes:
 
 1. **Basic Document Indexing** - HNSW index with metadata fields
 2. **IVF_FLAT Index** - Optimized for large datasets
@@ -857,7 +857,7 @@ To migrate from OpenSearch to Milvus:
 - [Milvus Documentation](https://milvus.io/docs)
 - [PyMilvus SDK](https://github.com/milvus-io/pymilvus)
 - [IBM watsonx.data](https://www.ibm.com/products/watsonx-data)
-- [Docpipe Architecture](../../ARCHITECTURE.md)
+- [Docpipe Architecture](../../../ARCHITECTURE.md)
 
 ## Support
 

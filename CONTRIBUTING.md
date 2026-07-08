@@ -239,14 +239,14 @@ def process_documents(
 ```python
 def extract_text(file_path: str, use_ocr: bool = False) -> str:
     """Extract text content from a document.
-    
+
     Args:
         file_path: Path to the document file
         use_ocr: Whether to use OCR for image-based documents
-        
+
     Returns:
         Extracted text content
-        
+
     Raises:
         FileNotFoundError: If the file does not exist
         ValueError: If the file format is not supported
@@ -350,21 +350,21 @@ from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorC
 
 class MyCustomOperator(AbstractOperator):
     """Custom operator that processes documents."""
-    
+
     short_name: str = OperatorConstants.Operators.MY_CUSTOM
     category: OperatorCategory = OperatorCategory.Functional
     owner: str = "custom"  # REQUIRED: Identifies this as a custom operator
-    
+
     def __init__(self, *, config: dict[str, Any]) -> None:
         """Initialize with runtime configuration."""
         super().__init__(config=config)
         # Instance-level configuration from flow JSON
         self.param1 = config.get("param1")
-    
+
     @staticmethod
     def get_metadata() -> dict[str, Any]:
         """Provide metadata for OperatorMetadata discovery.
-        
+
         This static method is called by OperatorMetadata.get_operator_metadata()
         to collect information about this operator without instantiation.
         """
@@ -383,16 +383,16 @@ class MyCustomOperator(AbstractOperator):
                 }
             }
         }
-    
+
     @staticmethod
     def get_required_features() -> list[str]:
         """Specify required input features.
-        
+
         This static method is called by OperatorMetadata to determine
         what features this operator needs from previous operators.
         """
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
-    
+
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """Process PyArrow table using instance configuration."""
         # Implementation using self.param1 and other instance attributes
@@ -405,7 +405,7 @@ When creating built-in docpipe operators (operators that ship with the docpipe p
 1. **Set the owner attribute explicitly:**
    ```python
    from docpipe.core.constants.constants import DocpipeConstants
-   
+
    class MyDocpipeOperator(AbstractOperator):
        short_name: str = "my_docpipe_operator"
        category: OperatorCategory = OperatorCategory.Functional
@@ -421,16 +421,16 @@ When creating built-in docpipe operators (operators that ship with the docpipe p
 3. **Follow all other operator requirements** (implement `get_metadata()`, `get_required_features()`, etc.)
 
 4. **Register the operator in the operator registry:**
-   
+
    All built-in docpipe operators must be registered in the operator registry frozenset to be discoverable by the operator factory.
-   
+
    **Steps to register:**
-   
+
    a. Add the import in [`src/docpipe/core/operators/operator_registry.py`](src/docpipe/core/operators/operator_registry.py):
    ```python
    from docpipe.core.operators.quality.my_operator import MyOperator
    ```
-   
+
    b. Add the operator class to the `DOCPIPE_OPERATORS` frozenset in the appropriate category section:
    ```python
    DOCPIPE_OPERATORS = frozenset(
@@ -442,9 +442,9 @@ When creating built-in docpipe operators (operators that ship with the docpipe p
        }
    )
    ```
-   
+
    **Important:** Without registration in the frozenset, the operator will not be loaded by the operator factory and will fail with "Failed to get operator" errors when used in flows.
-   
+
    **Verification:** After registration, verify the operator appears in the list:
    ```bash
    docling-pipelines --list-operators
@@ -455,37 +455,37 @@ When creating built-in docpipe operators (operators that ship with the docpipe p
 When creating custom operators, you **must**:
 
 1. **Set the owner attribute as a class variable:**
-   
+
    The `owner` attribute must be declared at the class level, alongside `short_name` and `category`.
-   
+
    **To override an existing docpipe operator**, use the **same `short_name`** as the docpipe operator:
-   
+
    ```python
    class CustomChunkerOperator(AbstractOperator):
        """Custom chunker that overrides docpipe's chunker."""
-       
+
        short_name: str = OperatorConstants.Operators.CHUNKER  # Same as docpipe!
        category: OperatorCategory = OperatorCategory.Functional
        owner: str = "custom"  # REQUIRED: Gives priority 1 (overrides docpipe)
-       
+
        def __init__(self, *, config: dict[str, Any]) -> None:
            super().__init__(config=config)
    ```
-   
+
    **To create a new custom operator**, use a unique `short_name`:
-   
+
    ```python
    class MyNewOperator(AbstractOperator):
        """Completely new custom operator."""
-       
+
        short_name: str = "my_new_operator"  # Unique name
        category: OperatorCategory = OperatorCategory.Functional
        owner: str = "custom"  # REQUIRED: Must be set to "custom"
-       
+
        def __init__(self, *, config: dict[str, Any]) -> None:
            super().__init__(config=config)
    ```
-   
+
    **Why This Matters:**
    - Custom operators with `owner="custom"` receive **priority 1** (highest)
    - Docpipe operators with `owner="docpipe"` receive **priority 2**
@@ -966,7 +966,7 @@ Update documentation when you:
 
 ### Resources
 
-- **[Complete Pipeline Setup Guide](docs/USER_GUIDE_PIPELINE_SETUP.md)**: Comprehensive setup and usage
+- **[Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)**: Comprehensive setup and usage
 - **[Architecture Documentation](ARCHITECTURE.md)**: System design details
 - **[Operator Reference](docs/reference/OPERATORS.md)**: Detailed operator and API documentation
 - **[Examples](examples/)**: Sample flows and code examples

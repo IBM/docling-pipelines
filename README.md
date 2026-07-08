@@ -118,7 +118,7 @@ This repository contains the docpipe operators with FastAPI server, CLI orchestr
 
 ### Operator Documentation
 
-- **[OpenSearch Documentation](docs/opensearch/)** - Complete setup and usage guide for vector search
+- **[OpenSearch Documentation](docs/integrations/opensearch/README.md)** - Complete setup and usage guide for vector search
 - **[OpenSearch Operator Reference](docs/operators/vectordb/opensearch.md)** - Technical API documentation
 - **[Integration Examples](examples/opensearch_example_README.md)** - Code examples and patterns
 
@@ -166,7 +166,7 @@ This repository contains the docpipe operators with FastAPI server, CLI orchestr
 ### Vector Database Operators
 
 - **OpenSearch** - Vector similarity search with multiple KNN engines (FAISS, Lucene, nmslib, jVector)
-  - See [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
+  - See [OpenSearch Documentation](docs/integrations/opensearch/README.md) - Complete setup and usage guide
   - See [Operator Reference](docs/operators/vectordb/opensearch.md) - Technical API documentation
   - See [Integration Example](examples/opensearch_example_README.md) - Code examples
 - **Milvus** - High-performance vector database with multiple index types (HNSW, IVF_FLAT, FLAT)
@@ -176,7 +176,7 @@ This repository contains the docpipe operators with FastAPI server, CLI orchestr
 ### Ingest Operators
 
 - **Local Folder** - Ingest documents from local filesystem
-- **Cloud/Object Storage** - Ingest documents from multiple cloud providers ([see full list](docs/operators/ingest_source/ingest_source.md#supported-providers)):
+- **Cloud/Object Storage** - Ingest documents from multiple cloud providers ([see full list](docs/operators/ingest_source/README.md#supported-providers)):
   - Amazon S3 (supports both folder and file-level ingestion)
   - IBM Cloud Object Storage (COS)
   - Microsoft SharePoint
@@ -189,7 +189,7 @@ This repository contains the docpipe operators with FastAPI server, CLI orchestr
 
 **Note:** Amazon S3 is the only provider that supports file-level ingestion (e.g., `prefix: "documents/report.pdf"`). Other providers only support folder-level ingestion.
 
-For detailed configuration and usage of each provider, see the [Ingest Source Operator documentation](docs/operators/ingest_source/ingest_source.md).
+For detailed configuration and usage of each provider, see the [Ingest Source Operator documentation](docs/operators/ingest_source/README.md).
 
 ### Extract Operators
 
@@ -220,7 +220,7 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
 ### Quality Operators
 
 - **PII and HAP Detection** - Detect Personally Identifiable Information and Hate/Abuse/Profanity content
-  - See [PII and HAP Documentation](docs/operators/pii_and_hap/pii_and_hap.md) - Complete setup and usage guide
+  - See [PII and HAP Documentation](docs/operators/pii_and_hap/README.md) - Complete setup and usage guide
   - Multiple provider support: Ollama (local), WatsonX.ai (enterprise), LiteLLM (100+ providers)
   - Hexagonal architecture with pluggable adapters
 

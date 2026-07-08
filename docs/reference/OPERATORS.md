@@ -96,7 +96,7 @@ This document centralizes the public APIs that are visible to pipeline authors, 
 
 This reference is organized around four entry points:
 
-- **Operators**: flow node implementations under [`src/docpipe/core/operators`](src/docpipe/core/operators)
+- **Operators**: flow node implementations under [`src/docpipe/core/operators`](../../src/docpipe/core/operators)
 - **Programmatic execution**: [`DocpipeFlowManager`](src/docpipe/lib/docpipe_flow_manager.py:24)
 - **CLI execution**: [`docling-pipelines`](src/docpipe/cli/docpipe_cli.py:147)
 - **Flow JSON definitions**: DAG configuration consumed by the orchestrator
@@ -106,12 +106,12 @@ This reference is organized around four entry points:
 - Use the operator sections when authoring flow JSON.
 - Use the flow manager section when embedding docpipe in Python code.
 - Use the CLI section when running or validating flows from the shell.
-- For classification-specific architecture details, see [`docs/operators/document_classifier.md`](docs/operators/document_classifier.md), which documents the simplified service-based architecture used by [`DocumentClassifierOperator`](src/docpipe/core/operators/quality/document_classifier.py:26).
+- For classification-specific architecture details, see [`docs/operators/document_classifier/README.md`](../operators/document_classifier/README.md), which documents the simplified service-based architecture used by `DocumentClassifierOperator`.
 
 ---
 ### File Extension Constants
 
-Docpipe uses centralized file extension constants defined in [`OperatorConstants.FileExtensions`](../src/docpipe/core/constants/operator_constants.py) for consistent file type handling across all operators.
+Docpipe uses centralized file extension constants defined in [`OperatorConstants.FileExtensions`](../../src/docpipe/core/constants/operator_constants.py) for consistent file type handling across all operators.
 
 **Supported File Formats:**
 
@@ -265,7 +265,7 @@ See [`OperatorFactory`](src/docpipe/core/orchestration/operator_factory.py:97) f
 
 **Extension Validation**
 
-The operator validates file extensions against supported formats from [`OperatorConstants.FileExtensions`](../src/docpipe/core/constants/operator_constants.py):
+The operator validates file extensions against supported formats from [`OperatorConstants.FileExtensions`](../../src/docpipe/core/constants/operator_constants.py):
 - If `include_filter` is not specified, defaults to all supported extensions
 - Both `include_filter` and `exclude_filter` must contain only supported extensions
 - Unsupported extensions raise `ValueError` with details about which extensions are invalid
@@ -328,11 +328,11 @@ The operator validates file extensions against supported formats from [`Operator
 
 **Extension Validation**
 
-The operator validates file extensions against supported formats from [`OperatorConstants.FileExtensions`](../src/docpipe/core/constants/operator_constants.py):
+The operator validates file extensions against supported formats from [`OperatorConstants.FileExtensions`](../../src/docpipe/core/constants/operator_constants.py):
 - If `include_filter` is not specified, defaults to all supported extensions
 - Both `include_filter` and `exclude_filter` must contain only supported extensions
 - Unsupported extensions raise `ValueError` with details about which extensions are invalid
-- See [IngestSourceOperator documentation](operators/ingest/ingest_source.md) for complete list of supported extensions
+- See [IngestSourceOperator documentation](../operators/ingest_source/README.md) for complete list of supported extensions
 
 **Example**
 
@@ -454,7 +454,7 @@ The operator provides the following metadata after execution:
 
 **Exceptions**
 
-- [`FlowExecutionFailedException`](src/docpipe/exceptions/docpipe_exceptions.py)
+- [`FlowExecutionFailedException`](../../src/docpipe/exceptions/docpipe_exceptions.py)
 - `ValueError` for invalid configuration
 - Provider-specific exceptions (Ollama, LiteLLM, Docling)
 
@@ -784,7 +784,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
   - `docling_serve`: Same as docling_library except NO audio/video support
   - `docling` entity extraction: PDF, DOCX, PPTX, HTML, images (excludes XLSX, TXT, MD, WEBP)
 - Audio/Video Support: Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats
-- See [ExtractOperator Configuration Guide](docs/operators/extract/extract_operator_config.md) for complete documentation including detailed extension support
+- See [ExtractOperator Configuration Guide](../operators/extract/extract_operator_config.md) for complete documentation including detailed extension support
 
 ---
 
@@ -977,8 +977,8 @@ This simplified design removes the port/adapter overhead while maintaining clean
 
 **Related Documentation**
 
-- [Classification Operator Guide](docs/operators/document_classifier.md)
-- [Extract Operator](docs/operators/extract_operator.md)
+- [Classification Operator Guide](../operators/document_classifier/README.md)
+- [Extract Operator](../operators/extract/extract_operator_config.md)
 
 ---
 
@@ -1070,7 +1070,7 @@ This simplified design removes the port/adapter overhead while maintaining clean
 - `{prefix}hap_types` (list)
 - Optional confidence and reasoning columns
 
-**See Also:** [PII and HAP Documentation](docs/operators/pii_and_hap/pii_and_hap.md)
+**See Also:** [PII and HAP Documentation](../operators/pii_and_hap/README.md)
 
 ---
 
@@ -1223,7 +1223,7 @@ The flat configuration structure is still supported:
 
 **Exceptions**
 
-- [`DocpipeException`](src/docpipe/exceptions/docpipe_exceptions.py)
+- [`DocpipeException`](../../src/docpipe/exceptions/docpipe_exceptions.py)
 - validation messages
 - Ollama errors for semantic chunking
 - LLM provider errors for summarization (handled gracefully)
@@ -1338,7 +1338,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Exceptions**
 
-- [`ValidationError`](src/docpipe/exceptions/docpipe_exceptions.py) - Missing required columns
+- [`ValidationError`](../../src/docpipe/exceptions/docpipe_exceptions.py) - Missing required columns
 - Transformation errors are logged but don't stop processing (graceful degradation)
 
 **Example**
@@ -1360,7 +1360,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 - Should be placed after `ExtractOperator` in the pipeline when entity extraction is enabled
 - Requires document class schemas for transformation (returns empty dict for unknown document types)
 - Output is always in JSON format with nested structure matching schema's target tables
-- See [Entity Curation README](src/docpipe/core/operators/functional/entity_curation/README.md) for detailed documentation
+- See [Entity Curation configuration guide](../operators/entity_curation/entity_curation_config.md) for detailed documentation
 
 ---
 
@@ -1425,7 +1425,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Exceptions**
 
-- [`DocpipeException`](src/docpipe/exceptions/docpipe_exceptions.py)
+- [`DocpipeException`](../../src/docpipe/exceptions/docpipe_exceptions.py)
 - provider authentication/network failures
 
 **Example 1: LiteLLM with Ollama (local)**
@@ -1915,14 +1915,14 @@ When `add_sparse_vector: true` is set:
   - `sparse_embeddings` → `sparse_vector` (BM25-generated)
   - `content` → `text` (source text for BM25)
 - Index type auto-set to `SPARSE_INVERTED_INDEX` if not specified
-- See [`sample_flows/milvus_sparse_localhost_flow.json`](sample_flows/milvus_sparse_localhost_flow.json) for complete example
+- See [`sample_flows/vectordb/milvus_integration.json`](../../sample_flows/vectordb/milvus_integration.json) for a Milvus integration example
 
 **Notes:**
 - Vector dimensions are auto-detected from actual embedding data for each vector column
 - OpenSearch supports multiple vector columns with different dimensions in a single index
 - Milvus currently supports single vector column (multi-model support planned for future update)
 - See [`docs/integrations/milvus/README.md`](../integrations/milvus/README.md) for detailed Milvus configuration
-- See [`PROVIDER_CONFIG_GUIDE.md`](../../src/docpipe/core/operators/vectordb/PROVIDER_CONFIG_GUIDE.md) for provider configuration patterns
+- See [`docs/guides/FLOW_CONFIGURATION_GUIDE.md`](../guides/FLOW_CONFIGURATION_GUIDE.md) for provider configuration patterns
 
 **Provider Config (OpenSearch)**
 
@@ -1984,7 +1984,7 @@ The VectorDBOperator automatically normalizes and aggregates metadata columns:
 
 **Exceptions**
 
-- [`DocpipeException`](src/docpipe/exceptions/docpipe_exceptions.py)
+- [`DocpipeException`](../../src/docpipe/exceptions/docpipe_exceptions.py)
 
 **Example Configuration**
 
@@ -2107,9 +2107,9 @@ Common upstream fields from the sample flow:
 
 **Exceptions**
 
-- [`FlowValidationException`](src/docpipe/exceptions/docpipe_exceptions.py): Invalid operator configuration
-- [`FlowExecutionFailedException`](src/docpipe/exceptions/docpipe_exceptions.py): Storage execution failed
-- [`DocpipeException`](src/docpipe/exceptions/docpipe_exceptions.py): Adapter, validation, or persistence error
+- [`FlowValidationException`](../../src/docpipe/exceptions/docpipe_exceptions.py): Invalid operator configuration
+- [`FlowExecutionFailedException`](../../src/docpipe/exceptions/docpipe_exceptions.py): Storage execution failed
+- [`DocpipeException`](../../src/docpipe/exceptions/docpipe_exceptions.py): Adapter, validation, or persistence error
 
 **Sample Flow Configuration**
 
@@ -2225,7 +2225,7 @@ uv run pytest tests/integration/api/test_document_sets_api.py -v
 
 **Extension**
 
-For new backends, implement the document set ports, register adapters with the factories, and configure `metadata_backend` and `data_backend`. See [`ARCHITECTURE.md`](ARCHITECTURE.md).
+For new backends, implement the document set ports, register adapters with the factories, and configure `metadata_backend` and `data_backend`. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 
 ---
 
@@ -2274,7 +2274,7 @@ Returns `list[str]`.
 
 Defined at [`list_operators()`](src/docpipe/lib/docpipe_flow_manager.py:308).
 
-Returns a formatted operator listing via [`docpipe.utils.operators.display.list_operators()`](src/docpipe/utils/operators/display.py).
+Returns a formatted operator listing via [`docpipe.utils.operators.display.list_operators()`](../../src/docpipe/utils/operators/display.py).
 
 **Display Modes:**
 
@@ -2327,7 +2327,7 @@ docling-pipelines --list-operators --verbose    # Detailed view
 
 ## Flow Configuration API
 
-Docpipe uses a simplified authoring format for creating flows. See [`sample_flows/complete_pipeline_flow.json`](sample_flows/complete_pipeline_flow.json) for a complete example.
+Docpipe uses a simplified authoring format for creating flows. See [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../sample_flows/quickstart/complete_pipeline_ollama.json) for a complete example.
 
 ### Root structure
 
@@ -2404,7 +2404,7 @@ Practical rules from the reviewed code:
 
 ## Exception Reference
 
-All custom exception types reviewed here come from [`docpipe_exceptions.py`](src/docpipe/exceptions/docpipe_exceptions.py).
+All custom exception types reviewed here come from [`docpipe_exceptions.py`](../../src/docpipe/exceptions/docpipe_exceptions.py).
 
 ### `DocpipeException`
 
@@ -2490,7 +2490,7 @@ JSON encoder for validation alerts.
 
 ### PyArrow handler utilities
 
-Defined in [`pyarrow_handler.py`](src/docpipe/utils/data/pyarrow_handler.py)
+Defined in [`pyarrow_handler.py`](../../src/docpipe/utils/data/pyarrow_handler.py)
 
 #### `BaseParquetTableHandler`
 
@@ -2509,51 +2509,51 @@ Concrete local-file implementation.
 
 #### `get_parquet_table_handler()`
 
-Defined at [`get_parquet_table_handler()`](src/docpipe/utils/data/pyarrow_handler.py) in docpipe utilities
+Defined at [`get_parquet_table_handler()`](../../src/docpipe/utils/data/pyarrow_handler.py) in docpipe utilities
 
 Returns the default parquet handler implementation.
 
 ### Schema utilities
 
-Defined in [`schema_utils.py`](src/docpipe/utils/data/schema_utils.py)
+Defined in [`schema_utils.py`](../../src/docpipe/utils/data/schema_utils.py)
 
 #### `align_table_schema(table, all_cols)`
 
-Defined at [`align_table_schema()`](src/docpipe/utils/data/schema_utils.py) in schema utilities
+Defined at [`align_table_schema()`](../../src/docpipe/utils/data/schema_utils.py) in schema utilities
 
 Adds missing columns with null values and aligns ordering.
 
 #### `_combine_tables(tables, table_type)`
 
-Defined at [`_combine_tables()`](src/docpipe/utils/data/schema_utils.py) in schema utilities
+Defined at [`_combine_tables()`](../../src/docpipe/utils/data/schema_utils.py) in schema utilities
 
 Safely concatenates tables and warns on duplicate IDs.
 
 #### `_total_rows(tables)`
 
-Defined at [`_total_rows()`](src/docpipe/utils/data/schema_utils.py) in schema utilities
+Defined at [`_total_rows()`](../../src/docpipe/utils/data/schema_utils.py) in schema utilities
 
 Computes total row counts across a table, list, dict, or `None`.
 
 ### Document class utilities
 
-Defined in [`document_class_utils.py`](src/docpipe/utils/document_class_utils.py)
+Defined in [`document_class_utils.py`](../../src/docpipe/utils/document_class_utils.py)
 
 #### `DocumentClassUtils.normalize_filename(name)`
 
-Defined at [`normalize_filename()`](src/docpipe/utils/document_class_utils.py) in document class utilities
+Defined at [`normalize_filename()`](../../src/docpipe/utils/document_class_utils.py) in document class utilities
 
 Normalizes human labels into stable filenames.
 
 #### `DocumentClassUtils.load_document_class(doc_class_path)`
 
-Defined at [`load_document_class()`](src/docpipe/utils/document_class_utils.py) in document class utilities
+Defined at [`load_document_class()`](../../src/docpipe/utils/document_class_utils.py) in document class utilities
 
 Loads a document class JSON definition.
 
 #### `DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)`
 
-Defined at [`generate_docling_template()`](src/docpipe/utils/document_class_utils.py) in document class utilities
+Defined at [`generate_docling_template()`](../../src/docpipe/utils/document_class_utils.py) in document class utilities
 
 Builds a Docling extraction template from a document class schema.
 
@@ -2564,13 +2564,13 @@ Builds a Docling extraction template from a document class schema.
 
 ### Operator display utility
 
-Defined in [`display.py`](src/docpipe/utils/operators/display.py)
+Defined in [`display.py`](../../src/docpipe/utils/operators/display.py)
 
 #### `list_operators(verbose=False)`
 
-Defined at [`list_operators()`](src/docpipe/utils/operators/display.py)
+Defined at [`list_operators()`](../../src/docpipe/utils/operators/display.py)
 
-Generates the same operator catalog used by the CLI and [`DocpipeFlowManager.list_operators()`](src/docpipe/lib/docpipe_flow_manager.py).
+Generates the same operator catalog used by the CLI and [`DocpipeFlowManager.list_operators()`](../../src/docpipe/lib/docpipe_flow_manager.py).
 
 **Parameters:**
 

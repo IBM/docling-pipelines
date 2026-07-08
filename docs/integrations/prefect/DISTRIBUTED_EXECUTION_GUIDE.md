@@ -78,7 +78,7 @@ Distributed execution allows Docpipe pipelines to process data across multiple m
 
 - Docpipe installed and configured
 - Python 3.12+ with virtual environment activated
-- PYTHONPATH set correctly (see [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md))
+- PYTHONPATH set correctly (see [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md))
 - Ollama and OpenSearch running (for operators that require them)
 
 ---
@@ -98,7 +98,7 @@ By default, Docpipe runs in **ephemeral mode** with zero infrastructure setup.
 
 ```bash
 # Just run - no setup needed
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 ```
 
 **Under the hood:**
@@ -116,7 +116,7 @@ docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
 Run distributed execution on a single machine to understand work pools before moving to Docker.
 
 **When to use:**
-- Testing distributed execution locally 
+- Testing distributed execution locally
 - Understanding work pools and workers (see [Work Pools](https://docs.prefect.io/latest/concepts/work-pools/) and [Workers](https://docs.prefect.io/latest/concepts/workers/))
 - Validating flow configurations (see [Deployments](https://docs.prefect.io/latest/concepts/deployments/))
 
@@ -561,7 +561,7 @@ services:
   docpipe-submitter:
     volumes:
       - batch-data:/data/batches
-  
+
   docpipe-worker:
     volumes:
       - batch-data:/data/batches
@@ -1261,11 +1261,11 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 ### 7.3 Links to Examples
 
-- **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
+- **Sample Flow**: [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../../sample_flows/quickstart/complete_pipeline_ollama.json)
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
 ### 7.4 Related Documentation
 
-- **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md)
+- **User Guide**: [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md)
 - **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
 - **Docker Documentation**: https://docs.docker.com/
@@ -1627,11 +1627,11 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 ### 7.3 Links to Examples
 
-- **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
+- **Sample Flow**: [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../../sample_flows/quickstart/complete_pipeline_ollama.json)
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
 ### 7.4 Related Documentation
 
-- **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md)
+- **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../../../USER_GUIDE_PIPELINE_SETUP.md)
 - **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
 - **Docker Documentation**: https://docs.docker.com/
@@ -1687,5 +1687,5 @@ Distributed execution in Docpipe enables horizontal scaling and improved through
 5. **Follow Best Practices**: Use descriptive names, set resource limits, secure credentials
 
 For additional help, consult:
-- [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
+- [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
 - [Prefect Documentation](https://docs.prefect.io/concepts/work-pools/) - Official Prefect docs

@@ -456,6 +456,6 @@ embeddings_tables, _ = embeddings_operator.transform(chunk_tables[0])
 
 ## Additional Resources
 
-- [OpenSearch Quick Start](../docs/opensearch/OPENSEARCH_QUICKSTART.md)
-- [Environment Setup Guide](../docs/opensearch/ENVIRONMENT_SETUP.md)
+- [OpenSearch Quick Start](../docs/integrations/opensearch/OPENSEARCH_QUICKSTART.md)
+- [Environment Setup Guide](../docs/integrations/opensearch/ENVIRONMENT_SETUP.md)
 - [Operator Documentation](../docs/operators/)

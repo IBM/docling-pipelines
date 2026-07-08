@@ -1,6 +1,6 @@
 # OpenSearch Documentation
 
-> For setup and first-run instructions, start with [`USER_GUIDE_PIPELINE_SETUP.md`](../USER_GUIDE_PIPELINE_SETUP.md). It covers prerequisites, dependency installation, OpenSearch startup, pipeline creation, execution, verification, and troubleshooting.
+> For setup and first-run instructions, start with [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md). It covers prerequisites, dependency installation, OpenSearch startup, pipeline creation, execution, verification, and troubleshooting.
 
 This directory is a technical reference index for OpenSearch-related documentation in docpipe.
 
@@ -15,6 +15,6 @@ The [`VectorDBOperator`](../../src/docpipe/core/operators/vectordb/vectordb_oper
 
 ## Additional References
 
-- Main user guide for setup and execution: [`../USER_GUIDE_PIPELINE_SETUP.md`](../USER_GUIDE_PIPELINE_SETUP.md)
-- Operator API reference: [`../operators/opensearch.md`](../operators/vectordb/opensearch.md)
-- Example flow configuration: [`../../sample_flows/vectordb/opensearch_dense_ollama.json`](../../sample_flows/vectordb/opensearch_dense_ollama.json)
+- Main user guide for setup and execution: [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md)
+- Operator API reference: [`docs/operators/vectordb/opensearch.md`](../../operators/vectordb/opensearch.md)
+- Example flow configuration: [`sample_flows/vectordb/opensearch_integration.json`](../../../sample_flows/vectordb/opensearch_integration.json)

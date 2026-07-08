@@ -657,7 +657,7 @@ This creates a dependency where the `extract` operator will only run after the `
 
 ## Related Documentation
 
-- **[User Guide: Pipeline Setup](../USER_GUIDE_PIPELINE_SETUP.md)** - Basic setup and first pipeline
+- **[User Guide: Pipeline Setup](../../USER_GUIDE_PIPELINE_SETUP.md)** - Basic setup and first pipeline
 - **[Operator Reference](../reference/OPERATORS.md)** - Complete operator parameter specifications
 - **[Flow Authoring Format](FLOW_AUTHORING_FORMAT.md)** - Detailed flow authoring guide
 - **[Sample Flows](../../sample_flows/)** - Example flow configurations

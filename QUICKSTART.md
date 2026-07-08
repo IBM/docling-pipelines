@@ -2,7 +2,7 @@
 
 **Get your first pipeline running in under 5 minutes!**
 
-This guide provides the fastest path from installation to a working document processing pipeline. For detailed setup and advanced features, see [`USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md).
+This guide provides the fastest path from installation to a working document processing pipeline. For detailed setup and advanced features, see [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
 
 ---
 
@@ -90,7 +90,7 @@ The repository includes sample text files ready to process:
 ```bash
 # View existing sample documents
 ls -la sample_documents/
-# Output: hello.txt, 1kb_file.txt
+# Output includes: hello.txt, 1kb_file.txt samples
 ```
 
 **Note:** The sample flow processes these .txt files. You can add your own PDF, TXT, or DOCX files to this directory if desired.
@@ -101,9 +101,9 @@ ls -la sample_documents/
 # Set PYTHONPATH (from project root)
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
-# Activate the shell configuration file. 
+# Activate the shell configuration file.
 source ~/.zshrc # if ~/.zshrc exists.
-source ~./bashrc # if ~/.bashrc exists.
+source ~/.bashrc # if ~/.bashrc exists.
 
 # Activate virtual environment (from project root)
 source .venv/bin/activate
@@ -254,7 +254,7 @@ docling-pipelines --list-operators --verbose
 - **[Architecture Overview](ARCHITECTURE.md)** - System design and operator details
 - **[README](README.md)** - Full operator reference and examples
 - **[Job Stats Metadata Aggregation Guide](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer rules for micro-batch metadata aggregation
-- **[Examples Directory](examples/)** - More complex pipeline examples
+- **[Sample Flows Directory](sample_flows/README.md)** - More pipeline examples by category and use case
 
 ---
 
@@ -359,10 +359,10 @@ ls -la sample_flows/quickstart/complete_pipeline_ollama.json
    # Stop services
    podman-compose -f docker/docker-compose.opensearch.yml down
    pkill -f "ollama serve"
-   
+
    # Remove config
    rm .docpipe_setup_config docpipe_setup.log
-   
+
    # Re-run setup
    ./scripts/setup_docpipe_environment.sh
    ```
@@ -398,9 +398,9 @@ pkill -f "ollama serve"
 
 ## Need Help?
 
-- 📖 **Full Documentation**: [`docs/USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md)
+- 📖 **Full Documentation**: [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md)
 - 🏗️ **Architecture**: [`ARCHITECTURE.md`](ARCHITECTURE.md)
-- 💡 **Examples**: [`examples/`](examples/) directory
+- 💡 **Examples**: [`sample_flows/README.md`](sample_flows/README.md)
 - 🐛 **Issues**: Check existing issues or create a new one
 
 **Happy data processing! 🚀**

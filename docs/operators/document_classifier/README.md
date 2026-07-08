@@ -60,34 +60,22 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 
 ### Component Responsibilities
 
-<<<<<<<< HEAD:src/docpipe/core/operators/quality/classification/README.md
-#### 1. **Operator Layer** ([`document_classifier.py`](../../src/docpipe/core/operators/quality/classification/document_classifier.py))
-========
-#### 1. **Operator Layer** ([`document_classifier.py`](document_classifier.py))
->>>>>>>> origin/main:docs/operators/document_classifier/README.md
+#### 1. **Operator Layer** ([`document_classifier.py`](../../../src/docpipe/core/operators/quality/classification/document_classifier.py))
 - Handles PyArrow table processing and orchestration
 - Manages parallel document classification
 - Integrates with job tracking and progress reporting
 
-<<<<<<<< HEAD:src/docpipe/core/operators/quality/classification/README.md
-#### 2. **Service Layer** ([`classification_service.py`](../../src/docpipe/core/operators/quality/classification/classification_service.py))
-========
-#### 2. **Service Layer** ([`classification_service.py`](classification_service.py))
->>>>>>>> origin/main:docs/operators/document_classifier/README.md
+#### 2. **Service Layer** ([`classification_service.py`](../../../src/docpipe/core/operators/quality/classification/classification_service.py))
 - Contains business logic for document classification
 - Validates configuration parameters
 - Manages LLM adapter lifecycle
 
-<<<<<<<< HEAD:src/docpipe/core/operators/quality/classification/README.md
-#### 3. **Domain Layer** ([`domain/models.py`](../../src/docpipe/core/operators/quality/classification/domain/models.py))
-========
-#### 3. **Domain Layer** ([`domain/models.py`](domain/models.py))
->>>>>>>> origin/main:docs/operators/document_classifier/README.md
+#### 3. **Domain Layer** ([`domain/models.py`](../../../src/docpipe/core/operators/quality/classification/domain/models.py))
 - Pure domain models: `ClassificationRequest`, `ClassificationResponse`
 - Provider-agnostic prompt building logic
 - No infrastructure dependencies
 
-#### 4. **Infrastructure Layer** (Shared [`LLMAdapterFactory`](../../../adapters/llm_adapter_factory.py))
+#### 4. **Infrastructure Layer** (Shared [`LLMAdapterFactory`](../../../src/docpipe/core/adapters/llm_adapter_factory.py))
 - Creates provider-specific LLM adapters (LiteLLM, Watsonx)
 - Manages adapter configuration and initialization
 - Provides unified `LLMInferencePort` interface
@@ -301,7 +289,7 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 
 ### Supported File Extensions
 
-The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../src/docpipe/core/constants/operator_constants.py) and only processes documents with the following formats:
+The operator validates file extensions using [`OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS`](../../../src/docpipe/core/constants/operator_constants.py) and only processes documents with the following formats:
 - **PDF**: `.pdf`
 - **Microsoft Word**: `.docx`
 - **Microsoft PowerPoint**: `.pptx`
@@ -614,7 +602,7 @@ Sample flows demonstrating document classification are available in `sample_flow
 ```python
 class ClassificationService:
     """Simplified classification service using LLM adapters directly."""
-    
+
     def __init__(
         self,
         *,
@@ -626,26 +614,26 @@ class ClassificationService:
     ) -> None:
         """Initialize classification service."""
         pass
-    
+
     def classify_document(self, *, request: ClassificationRequest) -> ClassificationResponse:
         """Classify a document using the LLM adapter.
-        
+
         Args:
             request: Classification request with content and document types
-            
+
         Returns:
             Classification response with type, confidence, and reasoning
         """
         pass
-    
+
     def get_model_info(self) -> dict[str, Any]:
         """Get model information.
-        
+
         Returns:
             Dictionary with model_id, provider, temperature, and max_tokens
         """
         pass
-    
+
     @staticmethod
     def validate_config(
         *,
@@ -656,14 +644,14 @@ class ClassificationService:
         confidence_threshold: float | None = None,
     ) -> tuple[list[str], list[str]]:
         """Validate classification configuration parameters.
-        
+
         Validates:
         - Provider is 'litellm' or 'watsonx' (rejects 'ollama')
         - provider_config is present for both litellm and watsonx providers
         - model_id is not empty
         - document_types is valid list or dict
         - confidence_threshold is between 1.0 and 10.0
-        
+
         Returns:
             Tuple of (errors, warnings) lists
         """

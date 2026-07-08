@@ -14,7 +14,7 @@ The docpipe project is a modular, operator-based data processing framework desig
 - **Multi-Provider Support**: Flexible ingest operators supporting local files, S3, CSV, and multi-provider sources
 
 ### User Guide Reference
-For new user setup and complete pipeline execution instructions, refer to [`USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md). This comprehensive guide covers:
+For new user setup and complete pipeline execution instructions, refer to [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md). This comprehensive guide covers:
 - Prerequisites and installation (Python 3.12, uv, dependencies)
 - Ollama setup for LLM operations and embeddings
 - OpenSearch setup with Podman/Docker for vector storage
@@ -114,7 +114,7 @@ Orchestrator should recognize these standard pipeline patterns:
 - **Quality-Enhanced**: Ingest → Extract → Quality Checks → Chunk → Embed
 - **Branching**: Conditional processing based on data characteristics
 
-For detailed flow examples, see [`sample_flows/`](sample_flows/) and [docs/USER_GUIDE_PIPELINE_SETUP.md](docs/USER_GUIDE_PIPELINE_SETUP.md).
+For detailed flow examples, see [`sample_flows/`](sample_flows/) and [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## When to Use
 - Complex, multi-step projects requiring coordination across different domains
@@ -152,7 +152,7 @@ Orchestrator should be aware of external service dependencies:
 - **OpenSearch** (`localhost:9200`): Required for vector storage operations
 - **PYTHONPATH**: Must include `src` directory
 
-When users report integration issues, delegate troubleshooting to Code mode or reference [docs/USER_GUIDE_PIPELINE_SETUP.md](docs/USER_GUIDE_PIPELINE_SETUP.md).
+When users report integration issues, delegate troubleshooting to Code mode or reference [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## Flow Execution
 
@@ -163,7 +163,7 @@ When coordinating flow-related tasks, delegate to Code mode for:
 - **Test execution**: Run pytest with proper environment setup
 - **Flow structure**: JSON files with nodes (operators) and edges (data flow)
 
-For detailed execution instructions, see [docs/USER_GUIDE_PIPELINE_SETUP.md](docs/USER_GUIDE_PIPELINE_SETUP.md).
+For detailed execution instructions, see [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## Limitations
 - Cannot directly edit files (must delegate to code/advanced modes)

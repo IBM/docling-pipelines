@@ -216,7 +216,7 @@ print(f"Detections: {response.detections}")
 2. **Update model_name** to use OpenAI-compatible format: `"openai/your-model-name"`
 3. **Add provider_config** with:
    - `api_base`: `"http://localhost:11434/v1"` (Ollama's OpenAI-compatible endpoint)
-   - `api_key`: Any non-empty string (e.g., `"ollama"`) 
+   - `api_key`: Any non-empty string (e.g., `"ollama"`)
 
 ### Code Migration Example
 
@@ -310,7 +310,7 @@ src/docpipe/core/adapters/
 
 ## References
 
-- [Common Infrastructure Documentation](../../../../adapters/README.md)
-- [Phase 2 Refactoring Guide](../../../../../PHASE2_PII_HAP_REFACTORING.md)
+- [PII and HAP Configuration Guide](pii_and_hap_config.md)
+- [Operator Reference](../../reference/OPERATORS.md#piiandhapannotator)
 - [Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/)
 - [Ports and Adapters Pattern](https://herbertograca.com/2017/09/14/ports-adapters-architecture/)

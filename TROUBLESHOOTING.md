@@ -217,7 +217,7 @@ Job run exists on the submitter but worker updates do not appear in job status A
 3. If using filesystem storage, configure a shared filesystem path visible to both submitter and workers.
 4. Ensure worker environments inherit the same effective backend configuration and connection settings.
 5. If needed, override config explicitly with `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, `DOCPIPE_JOB_STATS_BASE_DIR`, and PostgreSQL env variables.
-6. Review [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
+6. Review [`docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
 
 ---
 
@@ -821,7 +821,7 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
    ```bash
    # Docker
    docker ps | grep milvus
-   
+
    # Podman
    podman ps | grep milvus
    ```
@@ -1902,7 +1902,6 @@ HTTP 500: Internal server error when creating document set
 4. Check API authentication if enabled
 5. Verify request payload matches expected schema
 
-````
 
 ---
 
@@ -2680,7 +2679,7 @@ A: The Python import path is not configured. Set PYTHONPATH from the project roo
 1. **Check this troubleshooting guide**
 2. **Review the documentation:**
    - [`README.md`](README.md) - Overview and operator reference
-   - [`docs/USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
+   - [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
    - [`QUICKSTART.md`](QUICKSTART.md) - Quick start guide
    - [`ARCHITECTURE.md`](ARCHITECTURE.md) - System architecture
 
@@ -2743,7 +2742,6 @@ cat my_flow.json
 
 5. **Service status:**
 
-```bash
 # Ollama
 curl http://localhost:11434/api/tags
 
@@ -2763,7 +2761,7 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 **Documentation:**
 
 - Main README: [`README.md`](README.md)
-- User Guide: [`docs/USER_GUIDE_PIPELINE_SETUP.md`](docs/USER_GUIDE_PIPELINE_SETUP.md)
+- User Guide: [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md)
 - Quick Start: [`QUICKSTART.md`](QUICKSTART.md)
 - Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
@@ -2819,17 +2817,17 @@ podman-compose -f docker/docker-compose.opensearch.yml down -v
 pkill -f "ollama serve"
 ```
 
+**Last Updated:** 2024-01-15
+**Version:** 1.0.0
+
 ---
 
 ### Quick Links
 
-- **Installation Guide**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation`](docs/USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation)
-- **Ollama Setup**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup`](docs/USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup)
-- **OpenSearch Setup**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman`](docs/USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman)
-- **Flow Configuration**: [`docs/USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration`](docs/USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration)
-- **Operator Reference**: [`README.md#operators`](README.md#operators)
+- **Installation Guide**: [`USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation`](USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation)
+- **Ollama Setup**: [`USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup`](USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup)
+- **OpenSearch Setup**: [`USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman`](USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman)
+- **Flow Configuration**: [`USER_GUIDE_PIPELINE_SETUP.md#5-creating-your-first-flow`](USER_GUIDE_PIPELINE_SETUP.md#5-creating-your-first-flow)
+- **Operator Reference**: [`README.md#available-operators`](README.md#available-operators)
 
 ---
-
-**Last Updated:** 2024-01-15  
-**Version:** 1.0.0

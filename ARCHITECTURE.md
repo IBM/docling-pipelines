@@ -2094,12 +2094,12 @@ graph TB
     subgraph "Docling-pipelines Layer"
         VDB[VectorDBOperator]
     end
-    
+
     subgraph "Adapter Layer (Hexagonal)"
         PORT[VectorDB Port<br/>Interface]
         MA[Milvus Adapter]
     end
-    
+
     subgraph "Milvus Service"
         MS[Milvus Server<br/>localhost:19530]
         COLL[Collections]
@@ -2107,7 +2107,7 @@ graph TB
         IDX2[IVF_FLAT Index]
         IDX3[FLAT Index]
     end
-    
+
     VDB --> PORT
     PORT --> MA
     MA --> MS
@@ -2115,7 +2115,7 @@ graph TB
     COLL --> IDX1
     COLL --> IDX2
     COLL --> IDX3
-    
+
     style VDB fill:#ffe1e1
     style PORT fill:#fff4e1
     style MA fill:#e1ffe1
@@ -2829,7 +2829,7 @@ graph LR
 6. **EmbeddingsOperator**: Generate vector embeddings
 7. **VectorDBOperator**: Store embeddings in vector database
 
-See [PII and HAP Operator Documentation](docs/operators/pii_and_hap/pii_and_hap.md) for detailed usage guide.
+See [PII and HAP Operator Documentation](docs/operators/pii_and_hap/README.md) for detailed usage guide.
 
 ---
 
