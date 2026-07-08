@@ -1,7 +1,7 @@
-import re
 from typing import Any, Pattern
 
 import pyarrow as pa
+import re2 as re
 
 from docpipe.core.constants.constants import (
     AttributeDataTypes,
@@ -49,11 +49,14 @@ class RedactionOperator(AbstractOperator):
         )
 
         regex = config.get(OperatorConstants.PIIHAP.REDACTION_REGEX_KEY)
-        if regex and len(regex):
+        self.raw_regex: str | None = regex if regex and len(regex) else None
+        self.pattern_compile_error: str | None = None
+        if self.raw_regex:
             try:
-                compiled_regex: Pattern[str] = re.compile(regex)
-            except re.error:
-                compiled_regex = re.compile(re.escape(regex))
+                compiled_regex: Pattern[str] = re.compile(self.raw_regex)
+            except re.error as e:
+                self.pattern_compile_error = str(e)
+                compiled_regex = re.compile(re.escape(self.raw_regex))
 
             self.pattern: Pattern[Any] | None = compiled_regex
         else:
@@ -103,14 +106,15 @@ class RedactionOperator(AbstractOperator):
     def validate(self, errors: list, warnings: list, available_features: list):
         super().validate(errors, warnings, available_features)
 
-        if self.should_validate_field(field_value=self.pattern):
-            if not self.pattern:
+        if self.should_validate_field(field_value=self.raw_regex):
+            if not self.raw_regex:
                 warnings.append("Redaction pattern is empty. Operator will perform no action.")
                 return
-            try:
-                re.compile(self.pattern)
-            except re.error:
-                errors.append("Invalid Regex input. Verify the pattern.")
+            if self.pattern_compile_error:
+                errors.append(
+                    f"Invalid or unsupported regex pattern: {self.pattern_compile_error}. "
+                    "Verify the pattern is valid and does not use unsupported constructs such as lookaheads or backreferences."
+                )
 
     def redact(self, matches: list, content: str):
         """
@@ -119,7 +123,7 @@ class RedactionOperator(AbstractOperator):
         if not matches:
             return content
 
-        pattern = re.compile(r"|".join(map(re.escape, matches)), re.IGNORECASE)
+        pattern = re.compile(r"(?i)" + r"|".join(map(re.escape, matches)))
 
         return pattern.sub(lambda m: self.masking_character * len(m.group()), content)
 

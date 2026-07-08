@@ -1,3 +1,5 @@
+import time
+
 import pyarrow as pa
 
 from docpipe.core.constants.constants import Metrics
@@ -136,11 +138,70 @@ class TestRedactionOperator:
         config = {"doc_column": "content", "redaction_regex": ""}
         operator = RedactionOperator(config=config)
 
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["content"]
 
         operator.validate(errors, warnings, available_features)
 
         assert len(warnings) == 1
         assert "empty" in warnings[0].lower()
+
+    def test_validate_with_unsupported_pattern(self):
+        """Test validation errors when pattern uses RE2-unsupported constructs (e.g. lookaheads)."""
+        config = {"doc_column": "content", "redaction_regex": r"(?<=\s)\w+"}
+        operator = RedactionOperator(config=config)
+
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features = ["content"]
+
+        operator.validate(errors, warnings, available_features)
+
+        assert len(errors) == 1
+        assert "unsupported" in errors[0].lower()
+
+    def test_unsupported_pattern_falls_back_to_literal_match(self):
+        """When RE2 rejects a pattern (e.g. lookbehind), it falls back to literal string matching."""
+        config = {
+            "doc_column": "content",
+            "stats_column": "redaction_stats",
+            "redaction_masking_character": "*",
+            "redaction_regex": r"(?<=\s)\w+",  # lookbehind — unsupported by RE2
+        }
+        operator = RedactionOperator(config=config)
+
+        # The literal string r"(?<=\s)\w+" should not match anything in normal text
+        content = pa.array(["hello world", "no match here"])
+        names = pa.array(["doc1", "doc2"])
+        ids = pa.array([1, 2])
+        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
+
+        table_list, metadata = operator.transform(input_table)
+
+        assert len(table_list) == 1
+        # No matches expected — content is unchanged
+        assert table_list[0]["content"].to_pylist() == ["hello world", "no match here"]
+        assert metadata["total_redactions"] == 0
+
+    def test_catastrophic_pattern_completes_in_linear_time(self):
+        """Patterns that cause catastrophic backtracking in stdlib re must complete quickly under re2."""
+        large_doc = "a" * 100_000
+        for pattern in ["(a+)+b", "([a-zA-Z]+)*\\d"]:
+            config = {
+                "doc_column": "content",
+                "stats_column": "redaction_stats",
+                "redaction_regex": pattern,
+            }
+            operator = RedactionOperator(config=config)
+            content = pa.array([large_doc])
+            names = pa.array(["doc1"])
+            ids = pa.array([1])
+            input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
+
+            t0 = time.perf_counter()
+            table_list, _ = operator.transform(input_table)
+            elapsed = time.perf_counter() - t0
+
+            assert elapsed < 1.0, f"Pattern '{pattern}' took {elapsed:.2f}s on 100KB input — ReDoS regression"
+            assert len(table_list) == 1
