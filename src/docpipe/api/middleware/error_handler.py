@@ -105,6 +105,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         405: "method_not_allowed",
         409: "conflict",
         422: "validation_error",
+        425: "too_early",
         429: "too_many_requests",
         500: "internal_error",
         503: "service_unavailable",
@@ -191,9 +192,14 @@ async def docpipe_exception_handler(request: Request, exc: DocpipeException) -> 
     """
     trace_id = get_trace_id(request)
 
-    # Use domain error code directly as API error code (1:1 mapping)
+    # Map specific HTTP status codes to their standard API error codes.
+    # This takes precedence over the domain error code so the response body
+    # matches the REST API contract (e.g. 425 → "too_early").
+    status_code_error_map: dict[int, str] = {
+        425: "too_early",
+    }
     domain_error_code = str(exc.error_code.value) if exc.error_code else None
-    api_error_code = domain_error_code if domain_error_code else "internal_error"
+    api_error_code = status_code_error_map.get(exc.status_code) or domain_error_code or "internal_error"
 
     # Extract target information if available (for flow-specific exceptions)
     target = None

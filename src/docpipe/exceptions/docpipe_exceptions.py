@@ -392,10 +392,11 @@ class JobRunInvalidStateException(DocpipeException):
         message: str,
         job_run_id: str | None = None,
         current_state: str | None = None,
+        status_code: int = 400,
     ):
         super().__init__(
             message,
-            status_code=400,
+            status_code=status_code,
             error_code=ErrorCode.JOB_RUN_INVALID_STATE,
         )
         self.job_run_id = job_run_id

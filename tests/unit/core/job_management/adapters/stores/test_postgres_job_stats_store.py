@@ -185,6 +185,9 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None
+            mock_job_run_stats.report_status = None
+            mock_job_run_stats.report_started_at = None
+            mock_job_run_stats.report_completed_at = None
 
             store._job_stats_dal.get_by_job_run_id.return_value = mock_job_run_stats
 
@@ -321,6 +324,9 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None
+            mock_job_run_stats.report_status = None
+            mock_job_run_stats.report_started_at = None
+            mock_job_run_stats.report_completed_at = None
 
             store._job_stats_dal.list_job_runs.return_value = [mock_job_run_stats]
 

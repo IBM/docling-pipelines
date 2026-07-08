@@ -195,8 +195,15 @@ class JobTrackerService(JobStatsService):
         job_stats.end_time = round(number=datetime.now().timestamp())
         job_stats.duration = job_stats.end_time - job_stats.start_time
 
-        if job_run_stats and "message" in job_run_stats:
-            job_stats.message = job_run_stats["message"]
+        if job_run_stats:
+            if "message" in job_run_stats:
+                job_stats.message = job_run_stats["message"]
+            if "report_status" in job_run_stats:
+                job_stats.report_status = job_run_stats["report_status"]
+            if "report_started_at" in job_run_stats:
+                job_stats.report_started_at = job_run_stats["report_started_at"]
+            if "report_completed_at" in job_run_stats:
+                job_stats.report_completed_at = job_run_stats["report_completed_at"]
 
         self.job_stats_store.store_job_stats(job_stats)
         logger.info(f"Ended job: job_run_id={job_run_id}, status={normalized_status.value}")

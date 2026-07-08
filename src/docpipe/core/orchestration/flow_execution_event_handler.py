@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from docpipe.core.constants import TERMINAL_NODE_STATES, DocpipeConstants, ExecutionStatus
+from docpipe.core.constants import TERMINAL_JOB_STATUSES, TERMINAL_NODE_STATES, DocpipeConstants, ExecutionStatus
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
 from docpipe.core.models.session_info import get_session_info
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -81,50 +81,59 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 job_id=self.job_id, job_run_id=self.job_run_id, flow_name=self.flow_id or "unknown"
             )
 
+    def _log_node_stats_debug(self, job_stats):
+        """Log node stats for debugging."""
+        logger.debug(
+            f"Node stats count: {len(job_stats.node_stats) if job_stats.node_stats else 0}",
+            extra=self.common_log_arguments,
+        )
+        if job_stats.node_stats:
+            for node_id, node_stat in job_stats.node_stats.items():
+                node_status_val = (
+                    node_stat.node_status
+                    if hasattr(node_stat, "node_status")
+                    else node_stat.get("node_status", "Unknown")
+                )
+                logger.debug(f"Node {node_id}: status={node_status_val}", extra=self.common_log_arguments)
+        else:
+            logger.warning("No node stats found when determining final job status", extra=self.common_log_arguments)
+
+    def _determine_job_status_from_stats(self, op_flow) -> ExecutionStatus:
+        """Determine final job status from job stats."""
+        if not self.job_stats_service:
+            return ExecutionStatus.FAILED
+
+        job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+        if job_stats and job_stats.node_stats:
+            self.job_stats_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
+            self._log_node_stats_debug(job_stats)
+
+            node_stats_for_status = job_stats.node_stats if job_stats.node_stats else {}
+            logger.debug(
+                f"About to determine status. node_stats_for_status type: {type(node_stats_for_status)}, len: {len(node_stats_for_status) if node_stats_for_status else 0}",
+                extra=self.common_log_arguments,
+            )
+            return OperatorUtils.determine_final_job_status(node_stats_list=node_stats_for_status)
+        else:
+            logger.warning("Job stats not found when determining final status", extra=self.common_log_arguments)
+            return ExecutionStatus.FAILED
+
+    def _determine_final_status(self, op_flow, present_job_status: ExecutionStatus) -> ExecutionStatus:
+        """Determine final job status based on present status."""
+        if present_job_status == ExecutionStatus.CANCELING:
+            return ExecutionStatus.CANCELED
+        elif present_job_status == ExecutionStatus.FAILING:
+            return ExecutionStatus.FAILED
+        else:
+            return self._determine_job_status_from_stats(op_flow)
+
     def after_flow_execution_complete(self, op_flow, present_job_status: ExecutionStatus, message):
         """Finalize internal job stats and push final framework status with complete statistics."""
         if not self.job_stats_service or not self.job_run_id:
             logger.warning("Job stats service or job_run_id not available", extra=self.common_log_arguments)
             return
 
-        if present_job_status == ExecutionStatus.CANCELING:
-            job_status = ExecutionStatus.CANCELED
-        elif present_job_status == ExecutionStatus.FAILING:
-            job_status = ExecutionStatus.FAILED
-        else:
-            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
-            if job_stats and job_stats.node_stats:
-                self.job_stats_service.determine_and_update_final_documents_count(
-                    job_stats=job_stats, dag_nodes=op_flow
-                )
-                # Debug: Log node stats before determining status
-                logger.debug(
-                    f"Node stats count: {len(job_stats.node_stats) if job_stats.node_stats else 0}",
-                    extra=self.common_log_arguments,
-                )
-                if job_stats.node_stats:
-                    for node_id, node_stat in job_stats.node_stats.items():
-                        node_status_val = (
-                            node_stat.node_status
-                            if hasattr(node_stat, "node_status")
-                            else node_stat.get("node_status", "Unknown")
-                        )
-                        logger.debug(f"Node {node_id}: status={node_status_val}", extra=self.common_log_arguments)
-                else:
-                    logger.warning(
-                        "No node stats found when determining final job status", extra=self.common_log_arguments
-                    )
-
-                # Ensure node_stats is not None before passing to determine_final_job_status
-                node_stats_for_status = job_stats.node_stats if job_stats.node_stats else {}
-                logger.debug(
-                    f"About to determine status. node_stats_for_status type: {type(node_stats_for_status)}, len: {len(node_stats_for_status) if node_stats_for_status else 0}",
-                    extra=self.common_log_arguments,
-                )
-                job_status = OperatorUtils.determine_final_job_status(node_stats_list=node_stats_for_status)
-            else:
-                logger.warning("Job stats not found when determining final status", extra=self.common_log_arguments)
-                job_status = ExecutionStatus.FAILED
+        job_status = self._determine_final_status(op_flow, present_job_status)
 
         self.job_stats_service.end_job(
             job_run_id=self.job_run_id,
@@ -132,7 +141,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             job_run_stats={"message": message} if message else None,
         )
 
-        job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+        job_stats = self.job_stats_service.get_job(
+            job_run_id=self.job_run_id, include_node_stats=True, include_batch_stats=True
+        )
         if job_stats and self.job_log_path:
             self.job_stats_service.write_job_logs(job_stats=job_stats, job_log_path=self.job_log_path)
 
@@ -142,6 +153,10 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         )
 
         logger.info(f"Job status is {job_status.value}.", extra=self.common_log_arguments)
+
+        # Generate job report in background for all terminal statuses
+        if job_stats and job_status in TERMINAL_JOB_STATUSES:
+            self._start_background_report_generation(job_stats=job_stats, op_flow=op_flow)
 
         # Print flow summary if output formatter is available
         if self.execution_reporter and job_stats:
@@ -297,7 +312,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 batch_num=batch_num,
             )
 
-            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+            job_stats = self.job_stats_service.get_job(
+                job_run_id=self.job_run_id, include_node_stats=True, include_batch_stats=True
+            )
             if job_stats and self.job_log_path:
                 self.job_stats_service.write_job_logs(job_stats=job_stats, job_log_path=self.job_log_path)
 
@@ -402,6 +419,206 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                     "status": status,
                     "error": str(exc),
                 },
+            )
+
+    def _set_report_generating_status(self, started_at: int):
+        """Set report status to GENERATING with start timestamp."""
+        if not self.job_stats_service or not self.job_run_id:
+            return
+
+        current_job = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=False)
+        if not current_job:
+            logger.warning("Cannot update report status: job not found", extra=self.common_log_arguments)
+            return
+
+        self.job_stats_service.end_job(
+            job_run_id=self.job_run_id,
+            status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
+            job_run_stats={"report_status": "GENERATING", "report_started_at": started_at},
+        )
+
+    def _mark_report_failed(self, elapsed_time: float, exception: Exception):
+        """Mark report generation as failed."""
+        from docpipe.utils.core.datetime import get_current_timestamp
+
+        if not self.job_stats_service or not self.job_run_id:
+            return
+
+        completed_at = get_current_timestamp()
+        current_job = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=False)
+        if current_job:
+            self.job_stats_service.end_job(
+                job_run_id=self.job_run_id,
+                status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
+                job_run_stats={"report_status": "FAILED", "report_completed_at": completed_at},
+            )
+
+        logger.error(
+            f"Report generation failed after {elapsed_time:.2f}s: {exception}",
+            extra=self.common_log_arguments,
+            exc_info=True,
+        )
+
+    @staticmethod
+    def _extract_node_metadata_list_from_job_stats(job_stats) -> list:
+        """
+        Extract node_metadata_list in-memory from job_stats.node_stats before the background
+        thread starts.
+
+        node_stats already has node_metadata populated on each NodeStats object. capturing it here while it still exists
+        in memory, before the thread starts, so report generation has detailed failure/skip
+        reasons without needing to re-fetch from storage.
+        """
+        node_metadata_list = []
+        for node_stat in (job_stats.node_stats or {}).values():
+            node_metadata = (
+                node_stat.get("node_metadata")
+                if isinstance(node_stat, dict)
+                else getattr(node_stat, "node_metadata", None)
+            )
+            if node_metadata:
+                node_metadata_list.append(node_metadata)
+        return node_metadata_list
+
+    def _generate_report_async(
+        self,
+        job_run_id: str,
+        job_id: str,
+        dag_nodes_ref: list,
+        batch_node_stats_ref: dict,
+        node_metadata_list_ref: list,
+    ):
+        """
+        Generate report in background thread.
+
+        Args:
+            job_run_id: Job run identifier
+            job_id: Job identifier
+            dag_nodes_ref: Reference to DAG nodes from flow definition
+            batch_node_stats_ref: Reference to batch node statistics (or None for non-batched flows)
+            node_metadata_list_ref: Pre-extracted node metadata list for failure/skip reasons
+        """
+        import time
+
+        from docpipe.core.job_management.application.services.report_generator import JobReportGenerator
+        from docpipe.core.job_management.application.services.report_utils import get_report_path
+        from docpipe.utils.core.datetime import get_current_timestamp
+
+        start_time = time.time()
+        started_at = get_current_timestamp()
+
+        try:
+            # Set status to GENERATING
+            self._set_report_generating_status(started_at)
+
+            # Check if job_stats_service is available
+            if not self.job_stats_service:
+                logger.warning("Job stats service not available for report generation", extra=self.common_log_arguments)
+                elapsed_time = time.time() - start_time
+                self._mark_report_failed(elapsed_time, Exception("Job stats service not available"))
+                return
+
+            # Fetch fresh job stats
+            job_stats_fresh = self.job_stats_service.get_job(job_run_id=job_run_id, include_node_stats=True)
+
+            if not job_stats_fresh:
+                logger.warning("Could not fetch job stats for report generation", extra=self.common_log_arguments)
+                elapsed_time = time.time() - start_time
+                self._mark_report_failed(elapsed_time, Exception("Job stats not found"))
+                return
+
+            # Restore pre-fetched batch_node_stats
+            job_stats_fresh.batch_node_stats = batch_node_stats_ref
+            if batch_node_stats_ref:
+                logger.info(
+                    f"Using pre-fetched batch_node_stats with {len(batch_node_stats_ref)} node(s)",
+                    extra=self.common_log_arguments,
+                )
+
+            if node_metadata_list_ref:
+                logger.info(
+                    "Using pre-extracted node_metadata with %d entries - detailed failure/skip reasons will be included in report",
+                    len(node_metadata_list_ref),
+                    extra=self.common_log_arguments,
+                )
+            else:
+                logger.warning(
+                    "node_metadata not available - report will use generic failure/skip messages",
+                    extra=self.common_log_arguments,
+                )
+
+            # Generate report
+            generator = JobReportGenerator(
+                job_stats=job_stats_fresh, dag_nodes=dag_nodes_ref, node_metadata_list=node_metadata_list_ref
+            )
+            report_path = get_report_path(job_run_id=job_run_id, job_id=job_id)
+            generator.save_report_to_file(report_path)
+
+            # Update status to COMPLETED
+            completed_at = get_current_timestamp()
+            current_job = self.job_stats_service.get_job(job_run_id=job_run_id, include_node_stats=False)
+            if current_job:
+                self.job_stats_service.end_job(
+                    job_run_id=job_run_id,
+                    status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
+                    job_run_stats={"report_status": "COMPLETED", "report_completed_at": completed_at},
+                )
+
+            elapsed_time = time.time() - start_time
+            logger.info(
+                f"Job report generated successfully in background: {report_path} (took {elapsed_time:.2f}s)",
+                extra=self.common_log_arguments,
+            )
+
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            self._mark_report_failed(elapsed_time, e)
+
+    def _start_background_report_generation(self, *, job_stats, op_flow) -> None:
+        """
+        Start background thread for report generation.
+
+        Args:
+            job_stats: JobStats object with complete statistics
+            op_flow: Flow definition DAG nodes
+        """
+        import threading
+
+        if not self.job_stats_service or not self.job_run_id:
+            logger.warning(
+                "Cannot generate report: job_stats_service or job_run_id not available", extra=self.common_log_arguments
+            )
+            return
+
+        try:
+            # Extract all data needed before the thread starts.
+            # node_metadata_list must be captured here while it still exists in node_stats
+            # (it may not be available after the thread starts if node_stats is cleared).
+            job_run_id = job_stats.job_run_id
+            job_id = job_stats.job_id
+            dag_nodes_ref = op_flow
+            batch_node_stats_ref = job_stats.batch_node_stats
+            node_metadata_list_ref = self._extract_node_metadata_list_from_job_stats(job_stats)
+
+            logger.info(
+                "Pre-extracted %d node_metadata entries for background report",
+                len(node_metadata_list_ref),
+                extra=self.common_log_arguments,
+            )
+
+            # Start background thread
+            report_thread = threading.Thread(
+                target=lambda: self._generate_report_async(
+                    job_run_id, job_id, dag_nodes_ref, batch_node_stats_ref, node_metadata_list_ref
+                ),
+                name=f"ReportGen-{self.job_run_id}",
+                daemon=False,
+            )
+            report_thread.start()
+            logger.info("Job report generation started in background thread", extra=self.common_log_arguments)
+        except Exception as e:
+            logger.warning(
+                f"Failed to start background report generation: {e}", extra=self.common_log_arguments, exc_info=True
             )
 
     @staticmethod

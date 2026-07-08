@@ -7,7 +7,7 @@ create, list, get status, cancel, and delete job runs.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from docpipe.api.dependencies import get_job_management_service, get_job_stats_service
 from docpipe.api.dto.error_dto import ErrorResponse
@@ -507,6 +507,96 @@ async def delete_job_run(
 
     logger.info(f"Successfully deleted job run: {job_run_id}")
     return None
+
+
+@job_runs_router.get(
+    "/{job_run_id}/report",
+    response_class=Response,
+    operation_id="download_job_report",
+    summary="Download job run report",
+    description="Download a CSV report containing document processing details for a completed job run",
+    responses={
+        200: {
+            "description": "CSV report file",
+            "content": {
+                "text/csv": {
+                    "example": "GUID,File name,Status,Status reason,Time stamp,Pages,Processing time (in seconds)\n..."
+                }
+            },
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Job run not found",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "errors": [{"code": "not_found", "message": "Job run not found"}],
+                        "trace": "12345678-1234-4234-9234-123456789012",
+                        "status_code": 404,
+                    }
+                }
+            },
+        },
+        425: {
+            "model": ErrorResponse,
+            "description": "Job not yet completed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "errors": [{"code": "too_early", "message": "Job run is not yet completed"}],
+                        "trace": "12345678-1234-4234-9234-123456789012",
+                        "status_code": 425,
+                    }
+                }
+            },
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "errors": [{"code": "internal_error", "message": "Failed to generate report"}],
+                        "trace": "12345678-1234-4234-9234-123456789012",
+                        "status_code": 500,
+                    }
+                }
+            },
+        },
+    },
+)
+async def download_job_report(
+    request: Request,
+    job_run_id: JobRunIdPath,
+    job_stats_service: Annotated[JobStatsService, Depends(get_job_stats_service)],
+):
+    """Download the job run report as a CSV file.
+
+    The report includes document-level details:
+    - GUID: Document identifier
+    - File name: Document name
+    - Status: Ingested/Failed/Skipped
+    - Status reason: Reason for failure or skipping
+    - Time stamp: Processing timestamp
+    - Pages: Number of pages processed
+    - Processing time: Time taken to process (in seconds)
+
+    Args:
+        request: FastAPI request object
+        job_run_id: Job run identifier
+        job_stats_service: Injected job stats service
+
+    Returns:
+        StreamingResponse: CSV file download
+
+    Raises:
+        HTTPException: If job run not found (404), not completed (425), or report generation fails (500)
+    """
+    from docpipe.core.job_management.application.services.report_generator import JobReportGenerator
+
+    logger.debug(f"Downloading job report for job run: {job_run_id}")
+
+    return JobReportGenerator.download_report(job_run_id=job_run_id, job_stats_service=job_stats_service)
 
 
 @job_runs_router.get(

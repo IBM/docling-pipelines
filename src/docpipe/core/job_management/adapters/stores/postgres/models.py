@@ -187,6 +187,23 @@ class JobStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
         description="User entitlements and metadata",
     )
 
+    # Report Generation Status
+    report_status: str | None = Field(
+        default=None,
+        title="Report Status",
+        description="Status of background report generation: GENERATING, COMPLETED, FAILED",
+    )
+    report_started_at: int | None = Field(
+        default=None,
+        title="Report Started At",
+        description="Epoch timestamp when report generation started",
+    )
+    report_completed_at: int | None = Field(
+        default=None,
+        title="Report Completed At",
+        description="Epoch timestamp when report generation completed or failed",
+    )
+
 
 class NodeStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
     """

@@ -36,6 +36,7 @@ ErrorCode = Literal[
     "method_not_allowed",
     "conflict",
     "validation_error",
+    "too_early",
     "too_many_requests",
     "internal_error",
     "service_unavailable",

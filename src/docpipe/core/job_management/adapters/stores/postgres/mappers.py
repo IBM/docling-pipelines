@@ -43,6 +43,9 @@ class PostgresModelMapper:
             user_id=domain_model.user_id,
             account_id=domain_model.account_id,
             user_entitlements=domain_model.user_entitlements,
+            report_status=domain_model.report_status,
+            report_started_at=domain_model.report_started_at,
+            report_completed_at=domain_model.report_completed_at,
         )
 
     @staticmethod
@@ -102,6 +105,9 @@ class PostgresModelMapper:
             user_id=db_model.user_id,
             account_id=db_model.account_id,
             user_entitlements=db_model.user_entitlements,
+            report_status=db_model.report_status,
+            report_started_at=db_model.report_started_at,
+            report_completed_at=db_model.report_completed_at,
         )
 
     @staticmethod
