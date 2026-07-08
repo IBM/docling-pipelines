@@ -154,7 +154,11 @@ class DoclingServeAdapter(TextExtractionPort):
 
             # Handle .txt specially (Docling cannot process them)
             if file_suffix in [OperatorConstants.FileExtensions.EXT_TXT]:
-                return OperatorUtils.extract_text_file(file_path, binary_content)
+                return OperatorUtils.extract_text_file(
+                    file_path=file_path,
+                    binary_content=binary_content,
+                    additional_formats=self.additional_formats,
+                )
 
             # Extract filename from path to preserve extension for remote processing
             filename = Path(file_path).name
@@ -191,9 +195,9 @@ class DoclingServeAdapter(TextExtractionPort):
             formats_generated = [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN]
 
             for fmt in self.additional_formats:
-                if fmt in self.FORMAT_API_FIELD_MAPPING and fmt in self.FORMAT_COLUMN_MAPPING:
+                if fmt in self.FORMAT_API_FIELD_MAPPING and fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
                     api_field = self.FORMAT_API_FIELD_MAPPING[fmt]
-                    output_column = self.FORMAT_COLUMN_MAPPING[fmt]
+                    output_column = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
                     if api_field in document:
                         content = document.get(api_field, "")
                         # Special handling for JSON format: serialise the dict response to a string

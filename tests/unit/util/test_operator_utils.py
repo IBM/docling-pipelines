@@ -209,8 +209,8 @@ def test_find_doc_count_from_tables_with_empty_table():
 
 def test_validate_link_name_valid():
     """Valid link name passes validation."""
-    existing = set()
-    errors = []
+    existing: set[str] = set()
+    errors: list[str] = []
     OperatorUtils.validate_link_name(link_name="link1", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 0
@@ -219,8 +219,8 @@ def test_validate_link_name_valid():
 
 def test_validate_link_name_duplicate():
     """Duplicate link name adds error."""
-    existing = {"link1"}
-    errors = []
+    existing: set[str] = {"link1"}
+    errors: list[str] = []
     OperatorUtils.validate_link_name(link_name="Link1", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
@@ -229,8 +229,8 @@ def test_validate_link_name_duplicate():
 
 def test_validate_link_name_case_insensitive():
     """Link name validation is case-insensitive."""
-    existing = {"link1"}
-    errors = []
+    existing: set[str] = {"link1"}
+    errors: list[str] = []
     OperatorUtils.validate_link_name(link_name="LINK1", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
@@ -238,8 +238,8 @@ def test_validate_link_name_case_insensitive():
 
 def test_validate_link_name_empty():
     """Empty link name adds error."""
-    existing = set()
-    errors = []
+    existing: set[str] = set()
+    errors: list[str] = []
     OperatorUtils.validate_link_name(link_name="", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
@@ -248,8 +248,8 @@ def test_validate_link_name_empty():
 
 def test_validate_link_name_none():
     """None link name adds error."""
-    existing = set()
-    errors = []
+    existing: set[str] = set()
+    errors: list[str] = []
     OperatorUtils.validate_link_name(link_name=None, existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
@@ -438,7 +438,7 @@ def test_remove_internal_metrics_from_metadata_basic():
 
 def test_remove_internal_metrics_from_metadata_empty():
     """Handle empty metadata dict."""
-    metadata = {}
+    metadata: dict[str, object] = {}
     result = OperatorUtils.remove_internal_metrics_from_metadata(metadata)
 
     assert result == {}
@@ -536,7 +536,7 @@ def test_get_mandatory_features_basic():
 
 def test_get_mandatory_features_none():
     """No mandatory features returns empty list."""
-    input_features = {
+    input_features: dict[str, dict] = {
         "field1": {OperatorConstants.Misc.TAGS: []},
         "field2": {OperatorConstants.Misc.TAGS: []},
     }
@@ -623,7 +623,7 @@ def test_validate_filter_criteria_valid_json_group():
 
 def test_validate_filter_criteria_empty_list():
     """Empty criteria_list returns False."""
-    criteria_list = []
+    criteria_list: list[str] = []
     criteria_json = None
 
     criteria_valid, _ = OperatorUtils.validate_filter_criteria(criteria_list=criteria_list, criteria_json=criteria_json)
@@ -720,7 +720,7 @@ def test_validate_criteria_json_group_with_invalid_item():
 
 def test_validate_criteria_json_group_empty_list():
     """Group with empty criteria_list is invalid."""
-    criteria = {"criteria_list": []}
+    criteria: dict[str, list] = {"criteria_list": []}
 
     assert OperatorUtils._validate_criteria_json(criteria_json=criteria) is False
 
@@ -967,7 +967,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/document.txt"
         binary_content = b"This is a test document.\nWith multiple lines."
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "This is a test document.\nWith multiple lines."
@@ -980,7 +980,7 @@ class TestOperatorUtilsExtractTextFile:
         # Create content with latin-1 specific characters that aren't valid UTF-8
         binary_content = b"Text with special chars: \xe9\xe0\xf1"
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         # latin-1 should decode these characters
@@ -991,7 +991,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/empty.txt"
         binary_content = b""
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
@@ -1002,7 +1002,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/multiline.txt"
         binary_content = b"Line 1\nLine 2\nLine 3\n"
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Line 1\nLine 2\nLine 3\n"
@@ -1013,7 +1013,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/unicode.txt"
         binary_content = "Hello 世界 🌍".encode()
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Hello 世界 🌍"
@@ -1023,7 +1023,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/document.txt"
         binary_content = b"Test content"
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         metadata = result[OperatorConstants.Metadata.METADATA]
         assert "char_count" in metadata
@@ -1036,7 +1036,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/notes.txt"
         binary_content = b"Plain text notes"
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Plain text notes"
@@ -1047,7 +1047,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/readme.md"
         binary_content = b"# Markdown Header\n\nContent"
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         # extract_text_file will process any text content given to it
         assert result[OperatorConstants.Extraction.SUCCESS] is True
@@ -1059,7 +1059,7 @@ class TestOperatorUtilsExtractTextFile:
         # Create large content (10KB)
         binary_content = b"A" * 10000
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert len(result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]) == 10000
@@ -1070,7 +1070,7 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/whitespace.txt"
         binary_content = b"  \t\n  Text with spaces  \t\n  "
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         # Whitespace should be preserved
@@ -1081,10 +1081,111 @@ class TestOperatorUtilsExtractTextFile:
         file_path = "/path/to/special.txt"
         binary_content = b"Special chars: @#$%^&*()_+-=[]{}|;:',.<>?/~`"
 
-        result = OperatorUtils.extract_text_file(file_path, binary_content)
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Special chars: @#$%^&*()_+-=[]{}|;:',.<>?/~`"
+
+    def test_extract_text_file_additional_format_text(self):
+        """Test that 'text' additional format populates content_text column."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Hello world"
+
+        result = OperatorUtils.extract_text_file(
+            file_path=file_path, binary_content=binary_content, additional_formats=["text"]
+        )
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Hello world"
+        assert result[OperatorConstants.Columns.CONTENT_TEXT] == "Hello world"
+
+    def test_extract_text_file_additional_format_html(self):
+        """Test that 'html' additional format produces valid HTML via native Docling export."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Hello world"
+
+        result = OperatorUtils.extract_text_file(
+            file_path=file_path, binary_content=binary_content, additional_formats=["html"]
+        )
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        html = result[OperatorConstants.Columns.CONTENT_HTML]
+        assert html is not None
+        assert "Hello world" in html
+        assert "<html" in html.lower()
+
+    def test_extract_text_file_additional_format_json(self):
+        """Test that 'json' additional format produces a valid Docling JSON dict."""
+        import json
+
+        file_path = "/path/to/document.txt"
+        binary_content = b"Hello world"
+
+        result = OperatorUtils.extract_text_file(
+            file_path=file_path, binary_content=binary_content, additional_formats=["json"]
+        )
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        parsed = json.loads(result[OperatorConstants.Columns.CONTENT_JSON])
+        # Docling export_to_dict() returns a structured document — verify it's a non-empty dict
+        assert isinstance(parsed, dict)
+        assert len(parsed) > 0
+
+    def test_extract_text_file_additional_formats_multiple(self):
+        """Test multiple additional formats are all populated."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Sample text"
+
+        result = OperatorUtils.extract_text_file(
+            file_path=file_path, binary_content=binary_content, additional_formats=["text", "html", "json"]
+        )
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.CONTENT_TEXT] == "Sample text"
+        assert OperatorConstants.Columns.CONTENT_HTML in result
+        assert OperatorConstants.Columns.CONTENT_JSON in result
+
+    def test_extract_text_file_additional_format_doctags(self):
+        """Test that doctags format is populated for plain text files."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Sample text"
+
+        result = OperatorUtils.extract_text_file(
+            file_path=file_path, binary_content=binary_content, additional_formats=["doctags"]
+        )
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Columns.CONTENT_DOCTAGS in result
+        doctags = result[OperatorConstants.Columns.CONTENT_DOCTAGS]
+        assert doctags is not None
+        assert "Sample text" in doctags
+
+    def test_extract_text_file_additional_format_doclang(self):
+        """Test that doclang format is populated for plain text files."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Sample text"
+
+        result = OperatorUtils.extract_text_file(
+            file_path=file_path, binary_content=binary_content, additional_formats=["doclang"]
+        )
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Columns.CONTENT_DOCLANG in result
+        doclang = result[OperatorConstants.Columns.CONTENT_DOCLANG]
+        assert doclang is not None
+        assert "Sample text" in doclang
+
+    def test_extract_text_file_no_additional_formats_unchanged(self):
+        """Test that omitting additional_formats keeps original behaviour."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Hello world"
+
+        result = OperatorUtils.extract_text_file(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Columns.CONTENT_TEXT not in result
+        assert OperatorConstants.Columns.CONTENT_HTML not in result
+        assert OperatorConstants.Columns.CONTENT_JSON not in result
 
 
 # ---------------------------------------------------------------------------

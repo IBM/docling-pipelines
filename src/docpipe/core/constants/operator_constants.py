@@ -645,6 +645,15 @@ class OperatorConstants:
             OUTPUT_FORMAT_DOCLANG,
         ]
 
+        # Mapping from format name to output column name
+        FORMAT_COLUMN_MAPPING: Final[dict[str, str]] = {
+            OUTPUT_FORMAT_HTML: "content_html",
+            OUTPUT_FORMAT_JSON: "content_json",
+            OUTPUT_FORMAT_TEXT: "content_text",
+            OUTPUT_FORMAT_DOCTAGS: "content_doctags",
+            OUTPUT_FORMAT_DOCLANG: "content_doclang",
+        }
+
         # Default Filenames
         DEFAULT_FALLBACK_FILENAME: Final[str] = "document.pdf"
 

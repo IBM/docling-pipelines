@@ -1007,17 +1007,72 @@ class OperatorUtils:
         return ""
 
     @staticmethod
-    def extract_text_file(file_path: str, binary_content: bytes) -> dict[str, Any]:
+    def _export_docling_formats(
+        *,
+        doc: Any,
+        additional_formats: list[str],
+        file_path: str,
+    ) -> dict[str, str | None]:
+        """Export a DoclingDocument into the requested additional format columns.
+
+        Args:
+            doc: A DoclingDocument instance to export from.
+            additional_formats: List of format names to generate.
+                Supported: 'html', 'json', 'text', 'doctags', 'doclang'.
+            file_path: File path used only for log messages.
+
+        Returns:
+            Dict mapping column names to their exported string values.
+        """
+        export_fns: dict[str, Any] = {
+            OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT: doc.export_to_text,
+            OperatorConstants.Extraction.OUTPUT_FORMAT_HTML: doc.export_to_html,
+            OperatorConstants.Extraction.OUTPUT_FORMAT_JSON: lambda: json.dumps(doc.export_to_dict()),
+            OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS: doc.export_to_doctags,
+            OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG: doc.export_to_doclang,
+        }
+
+        exported: dict[str, str | None] = {}
+        for fmt in additional_formats:
+            fmt_lower = fmt.lower()
+            column_name = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING.get(fmt_lower)
+            if column_name is None:
+                logger.warning("Unknown format '%s' requested for %s, skipping", fmt, file_path)
+                continue
+            try:
+                exported[column_name] = export_fns[fmt_lower]()
+                logger.info("Generated %s format for %s", fmt_lower, file_path)
+            except Exception as fmt_err:
+                logger.warning("Failed to generate %s format for %s: %s", fmt_lower, file_path, fmt_err)
+                exported[column_name] = None
+        return exported
+
+    @staticmethod
+    def extract_text_file(
+        *,
+        file_path: str,
+        binary_content: bytes,
+        additional_formats: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Extract content from plain text files (.txt, .md).
+
+        When additional_formats is provided, builds a minimal DoclingDocument
+        from the raw text to generate the requested format columns using native export_to_*() methods.
 
         Args:
             file_path: Path to the text file
             binary_content: Binary content of the file
+            additional_formats: Optional list of additional formats to populate
+                beyond the mandatory markdown/content column.
+                Supported: 'html', 'json', 'text', 'doctags', 'doclang'.
 
         Returns:
             Dictionary with extraction results
         """
+        if additional_formats is None:
+            additional_formats = []
+
         try:
             # Decode text content
             try:
@@ -1036,7 +1091,7 @@ class OperatorUtils:
 
             logger.info("Completed extraction for text file: %s", file_path)
 
-            return {
+            result: dict[str, Any] = {
                 OperatorConstants.Extraction.SUCCESS: True,
                 OperatorConstants.Columns.DOC_COLUMN_DEFAULT: raw_text,
                 OperatorConstants.Metadata.METADATA: {
@@ -1044,6 +1099,22 @@ class OperatorUtils:
                     "is_text_file": True,
                 },
             }
+
+            if additional_formats:
+                from docling_core.types.doc import DoclingDocument
+                from docling_core.types.doc.labels import DocItemLabel
+
+                doc = DoclingDocument(name=Path(file_path).name)
+                doc.add_text(label=DocItemLabel.TEXT, text=raw_text)
+                result.update(
+                    OperatorUtils._export_docling_formats(
+                        doc=doc,
+                        additional_formats=additional_formats,
+                        file_path=file_path,
+                    )
+                )
+
+            return result
         except Exception as e:
             logger.error("Error processing text file %s: %s", file_path, str(e))
             return {
@@ -1113,7 +1184,11 @@ class OperatorUtils:
 
             # Handle .txt files specially (Docling cannot process them)
             if file_suffix in [OperatorConstants.FileExtensions.EXT_TXT]:
-                return OperatorUtils.extract_text_file(file_path, binary_content)
+                return OperatorUtils.extract_text_file(
+                    file_path=file_path,
+                    binary_content=binary_content,
+                    additional_formats=additional_formats,
+                )
 
             # Initialize converter with optional configuration
             if converter_config and "format_options" in converter_config:
@@ -1157,44 +1232,19 @@ class OperatorUtils:
                     OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
                 }
 
-            # Generate additional formats if requested
-            for fmt in additional_formats:
-                try:
-                    if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_HTML:
-                        content_dict[OperatorConstants.Columns.CONTENT_HTML] = result.document.export_to_html()
-                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_HTML)
-                        logger.info(f"Generated HTML format for {file_path}")
-                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_JSON:
-                        import json
-
-                        content_dict[OperatorConstants.Columns.CONTENT_JSON] = json.dumps(
-                            result.document.export_to_dict(), indent=2
-                        )
-                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_JSON)
-                        logger.info(f"Generated JSON format for {file_path}")
-                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT:
-                        content_dict[OperatorConstants.Columns.CONTENT_TEXT] = result.document.export_to_text()
-                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT)
-                        logger.info(f"Generated text format for {file_path}")
-                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS:
-                        content_dict[OperatorConstants.Columns.CONTENT_DOCTAGS] = result.document.export_to_doctags()
-                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS)
-                        logger.info(f"Generated doctags format for {file_path}")
-                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG:
-                        content_dict[OperatorConstants.Columns.CONTENT_DOCLANG] = result.document.export_to_doclang()
-                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG)
-                        logger.info(f"Generated doclang format for {file_path}")
+            if additional_formats:
+                exported = OperatorUtils._export_docling_formats(
+                    doc=result.document,
+                    additional_formats=additional_formats,
+                    file_path=file_path,
+                )
+                content_dict.update(exported)
+                for fmt in additional_formats:
+                    col = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING.get(fmt)
+                    if col and exported.get(col) is not None:
+                        formats_generated.append(fmt)
                     else:
-                        logger.warning(f"Unknown format '{fmt}' requested for {file_path}, skipping")
                         formats_failed.append(fmt)
-                except Exception as e:
-                    logger.error(f"Failed to generate {fmt} format for {file_path}: {e}")
-                    content_dict[
-                        f"content_{fmt}"
-                        if fmt != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
-                        else OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-                    ] = None
-                    formats_failed.append(fmt)
 
             # Get character count from markdown (default format)
             markdown_content = content_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT, "")

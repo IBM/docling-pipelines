@@ -9,7 +9,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-from typing import Any, ClassVar
+from typing import Any
 
 import pyarrow as pa
 
@@ -57,15 +57,6 @@ class TextExtractionPort(ABC):
 
     ADAPTER_NAME: str = "base"
     ADAPTER_DISPLAY_NAME: str = "Base Adapter"
-
-    # Format to column name mapping for additional formats (class-level constant)
-    FORMAT_COLUMN_MAPPING: ClassVar[dict[str, str]] = {
-        OperatorConstants.Extraction.OUTPUT_FORMAT_HTML: OperatorConstants.Columns.CONTENT_HTML,
-        OperatorConstants.Extraction.OUTPUT_FORMAT_JSON: OperatorConstants.Columns.CONTENT_JSON,
-        OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT: OperatorConstants.Columns.CONTENT_TEXT,
-        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS: OperatorConstants.Columns.CONTENT_DOCTAGS,
-        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG: OperatorConstants.Columns.CONTENT_DOCLANG,
-    }
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         """Initialize the text extraction port with configuration.
@@ -234,7 +225,7 @@ class TextExtractionPort(ABC):
         # Initialize format lists only for requested additional formats
         format_lists: dict[str, list[str | None]] = {}
         for fmt in self.additional_formats:
-            if fmt in self.FORMAT_COLUMN_MAPPING:
+            if fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
                 format_lists[fmt] = [None] * table.num_rows
 
         doc_pages_processed: list[int] = [0] * table.num_rows
@@ -366,8 +357,8 @@ class TextExtractionPort(ABC):
 
             # Add additional format columns dynamically based on requested formats
             for fmt, content_list in format_lists.items():
-                if fmt in self.FORMAT_COLUMN_MAPPING:
-                    column_name = self.FORMAT_COLUMN_MAPPING[fmt]
+                if fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
+                    column_name = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
                     # Only add column if it contains at least one non-None value
                     if any(content is not None for content in content_list):
                         table = TransformUtils.add_column(table=table, name=column_name, content=content_list)
@@ -484,7 +475,7 @@ class TextExtractionPort(ABC):
 
             # Extract additional format columns if present in result and requested
             for fmt, content_list in format_lists.items():
-                column_name = self.FORMAT_COLUMN_MAPPING.get(fmt)
+                column_name = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING.get(fmt)
                 if column_name and column_name in result:
                     content_list[idx] = result[column_name]
 
