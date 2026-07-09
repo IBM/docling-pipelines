@@ -151,26 +151,6 @@ Parameters that control how the flow executes and processes data.
 
 ---
 
-### `storage_type`
-
-**Type**: `string`  
-**Default**: `"duckdb"`  
-**Description**: Controls the global storage backend for orchestrator-managed storage-backed components. We can also use this when you want one shared backend choice for metadata/storage-backed assets handled through that path.  
-**Valid Values**:  
-- `"duckdb"`: Use DuckDB-backed storage
-- `"filesystem"`: Use filesystem-backed storage
-
-**Example**:
-```json
-{
-  "global_config": {
-    "storage_type": "duckdb"
-  }
-}
-```
-
----
-
 ### `memmap_threshold`
 
 **Type**: `integer`  

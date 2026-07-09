@@ -51,27 +51,20 @@ Docpipe pipelines are defined using JSON configuration files. Here's the basic s
 
 The `global_config` object supports the following options:
 
-| Field                | Type    | Description                      | Default            | Example                      |
-| -------------------- | ------- | -------------------------------- | ------------------ | ---------------------------- |
-| `doc_column`         | string  | Column name for document content | `"content"`        | `"content"`                  |
-| `force_ingest`       | boolean | Force re-ingestion of documents  | `false`            | `true`                       |
-| `disable_validation` | string  | Disable flow validation          | `false`          | `true`                     |
-| `storage_type`       | string  | Storage backend for metadata     | `"duckdb"`         | `"duckdb"` or `"filesystem"` |
+| Field                | Type     | Description                      | Default         | Example                 |
+| -------------------- |----------| -------------------------------- |-----------------|-------------------------|
+| `doc_column`         | string   | Column name for document content | `"content"`     | `"content"`             |
+| `force_ingest`       | boolean  | Force re-ingestion of documents  | `false`         | `true`                  |
+| `disable_validation` | boolean  | Disable flow validation          | `false`         | `true`                  |
 
-### Storage Configuration
-
-- `storage_type`: Controls the storage backend for flow and document set metadata
-  - `"duckdb"` (default): Uses DuckDB for metadata storage
-  - `"filesystem"`: Uses filesystem with JSON files for metadata storage
-
-**Example with storage configuration:**
+**Example with global configuration**
 
 ```json
 {
   "global_config": {
     "doc_column": "content",
     "force_ingest": true,
-    "storage_type": "duckdb"
+    "disable_validation": true
   }
 }
 ```
@@ -563,8 +556,7 @@ This creates a dependency where the `extract` operator will only run after the `
   "description": "Complete pipeline for RAG system",
   "global_config": {
     "doc_column": "content",
-    "force_ingest": true,
-    "storage_type": "duckdb"
+    "force_ingest": true
   },
   "flow": [
     {
