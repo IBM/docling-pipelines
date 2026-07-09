@@ -1,8 +1,10 @@
 import re
 
 
-def to_number(*, number_str: str) -> float | None:
+def to_number(*, number_str: str | None) -> float | None:
     """Convert a human-readable number represented as a string to a machine-readable number.
+
+    If number_str is None, returns None without attempting conversion.
 
     Supports multi-language number suffixes including:
     - English: K, M, B, T, thousand, million, billion, trillion
@@ -39,6 +41,10 @@ def to_number(*, number_str: str) -> float | None:
         >>> to_number(number_str="3 millón")  # Spanish
         3000000.0
     """
+    # Handle None input gracefully
+    if number_str is None:
+        return None
+
     # Remove commas and spaces from the input string
     number_str = number_str.replace(",", "").strip()
 

@@ -1,9 +1,11 @@
 import re
 
 
-def weight_to_numeric(*, weight: str, locale: str = "en_US") -> float | None:
+def weight_to_numeric(*, weight: str | None, locale: str = "en_US") -> float | None:
     """
     Convert a numeric weight into kilograms with locale-aware multi-language unit support.
+
+    If weight is None, returns None without attempting conversion.
 
     This function uses the locale parameter to determine which weight units to prioritize,
     similar to how currency_to_numeric() handles locale-specific formatting. This is
@@ -50,6 +52,9 @@ def weight_to_numeric(*, weight: str, locale: str = "en_US") -> float | None:
         character 斤 means different things in Chinese (500g) vs Japanese (600g).
         By specifying the locale, the function can correctly interpret the unit.
     """
+    # Handle None input gracefully
+    if weight is None:
+        return None
 
     # Define locale-specific weight unit mappings
     # Each locale has its own dictionary to handle locale-specific variations

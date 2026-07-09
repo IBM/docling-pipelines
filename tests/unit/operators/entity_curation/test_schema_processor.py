@@ -96,7 +96,7 @@ class TestSchemaProcessor(unittest.TestCase):
             }
         }
 
-        entities = {}  # Missing invoice_number
+        entities: dict[str, str] = {}  # Missing invoice_number
         result = self.processor.process_with_schema(entities=entities, document_type="invoice")
 
         # Should still return structure but with None value
@@ -134,19 +134,20 @@ class TestSchemaProcessor(unittest.TestCase):
         mock_transforms.get.return_value = mock_transform_fn
 
         entities = {"field1": "original_value"}
-        # Arguments should be list of dicts with arg_name and arg_value
-        arguments = [{"arg_name": "input", "arg_value": {"field": "field1"}}]
+        # Field paths must be lists for _get_nested_value
+        arguments = [{"name": "input", "value": {"field": ["field1"]}}]
         result = self.processor._apply_transformation(
             transform_name="test_transform", arguments=arguments, entities=entities
         )
 
         self.assertEqual(result, "transformed_value")
-        mock_transform_fn.assert_called_once()
+        mock_transform_fn.assert_called_once_with(input="original_value")
 
     def test_apply_transformation_unknown_transform(self):
         """Test transformation with unknown transform name"""
         entities = {"field1": "value"}
-        arguments = [{"arg_name": "input", "arg_value": {"field": "field1"}}]
+        # Use correct constant keys and field as list
+        arguments = [{"name": "input", "value": {"field": ["field1"]}}]
         result = self.processor._apply_transformation(
             transform_name="unknown_transform", arguments=arguments, entities=entities
         )
@@ -174,6 +175,99 @@ class TestSchemaProcessor(unittest.TestCase):
         result = self.processor._get_nested_value(obj=entities, path=["missing", "field"])
 
         self.assertIsNone(result)
+
+    def test_process_array_field_detection(self):
+        """Test detection of array fields in schema"""
+        self.processor.schema_cache = {
+            "invoice": {
+                "target_tables": [
+                    {
+                        "name": "Invoice_line_items",
+                        "columns": [
+                            {
+                                "name": "amount",
+                                "source": {
+                                    "transform": {
+                                        "transform_name": "currency_to_numeric",
+                                        "arguments": [{"name": "amount", "value": {"field": ["line_items", "amount"]}}],
+                                    }
+                                },
+                            },
+                            {"name": "description", "source": {"field": ["line_items", "description"]}},
+                        ],
+                    }
+                ]
+            }
+        }
+
+        entities = {
+            "line_items": [
+                {"amount": "$100.00", "description": "Item 1"},
+                {"amount": "$200.00", "description": "Item 2"},
+            ]
+        }
+
+        result = self.processor.process_with_schema(entities=entities, document_type="invoice")
+
+        # Should return array of objects
+        self.assertIn("Invoice_line_items", result)
+        self.assertIsInstance(result["Invoice_line_items"], list)
+        self.assertEqual(len(result["Invoice_line_items"]), 2)
+        self.assertEqual(result["Invoice_line_items"][0]["description"], "Item 1")
+        self.assertEqual(result["Invoice_line_items"][1]["description"], "Item 2")
+
+    def test_process_mixed_tables_array_and_single(self):
+        """Test processing with both array-based and single-object tables"""
+        self.processor.schema_cache = {
+            "invoice": {
+                "target_tables": [
+                    {
+                        "name": "Invoice",
+                        "columns": [{"name": "invoice_number", "source": {"field": ["invoice_number"]}}],
+                    },
+                    {
+                        "name": "Invoice_line_items",
+                        "columns": [{"name": "description", "source": {"field": ["line_items", "description"]}}],
+                    },
+                ]
+            }
+        }
+
+        entities = {"invoice_number": "INV-001", "line_items": [{"description": "Item 1"}, {"description": "Item 2"}]}
+
+        result = self.processor.process_with_schema(entities=entities, document_type="invoice")
+
+        # Invoice should be single object
+        self.assertIn("Invoice", result)
+        self.assertIsInstance(result["Invoice"], dict)
+        self.assertEqual(result["Invoice"]["invoice_number"], "INV-001")
+
+        # Invoice_line_items should be array
+        self.assertIn("Invoice_line_items", result)
+        self.assertIsInstance(result["Invoice_line_items"], list)
+        self.assertEqual(len(result["Invoice_line_items"]), 2)
+
+    def test_process_empty_array_field(self):
+        """Test processing when array field is empty"""
+        self.processor.schema_cache = {
+            "invoice": {
+                "target_tables": [
+                    {
+                        "name": "Invoice_line_items",
+                        "columns": [{"name": "description", "source": {"field": ["line_items", "description"]}}],
+                    }
+                ]
+            }
+        }
+
+        entities: dict[str, list] = {"line_items": []}
+
+        result = self.processor.process_with_schema(entities=entities, document_type="invoice")
+
+        # Should return empty array
+        self.assertIn("Invoice_line_items", result)
+        self.assertIsInstance(result["Invoice_line_items"], list)
+        self.assertEqual(len(result["Invoice_line_items"]), 0)
 
 
 if __name__ == "__main__":

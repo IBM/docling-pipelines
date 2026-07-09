@@ -64,7 +64,8 @@ class SchemaProcessor:
             document_type: Document type name
 
         Returns:
-            Curated entities with transformations applied
+            Curated entities with transformations applied.
+            Values can be either dict (single object) or list[dict] (array of objects).
         """
         schema = self.schema_cache.get(document_type)
         if not schema:
@@ -78,24 +79,135 @@ class SchemaProcessor:
             return {}
 
         # Process each target table
-        result = {}
+        result: dict[str, Any] = {}
         for table in target_tables:
             table_name = table.get(DocumentConstants.TABLE_NAME)
             columns = table.get(DocumentConstants.COLUMNS, [])
 
             logger.debug(f"Processing table '{table_name}' with {len(columns)} columns")
 
-            # Create nested structure for table
-            table_result = {}
+            # Detect if this is an array-based table
+            array_field = self._detect_array_field(columns=columns, entities=entities)
+
+            if array_field:
+                # Process as array table - returns list[dict]
+                result[table_name] = self._process_array_table(
+                    columns=columns, entities=entities, array_field=array_field
+                )
+            else:
+                # Process as single object table - returns dict
+                result[table_name] = self._process_single_table(columns=columns, entities=entities)
+
+        return result
+
+    def _detect_array_field(self, *, columns: list[dict], entities: dict[str, Any]) -> str | None:
+        """
+        Detect if all columns reference the same array field.
+
+        Args:
+            columns: List of column definitions from schema
+            entities: Extracted entities dictionary
+
+        Returns:
+            The array field name if detected, None otherwise
+        """
+        array_fields: set[str] = set()
+
+        for column in columns:
+            source = column.get(DocumentConstants.SOURCE, {})
+
+            # Check field reference
+            if DocumentConstants.FIELD in source:
+                field_path = source[DocumentConstants.FIELD]
+                self._check_and_add_array_field(field_path=field_path, entities=entities, array_fields=array_fields)
+
+            # Check transform arguments
+            elif DocumentConstants.TRANSFORM in source:
+                transform = source[DocumentConstants.TRANSFORM]
+                arguments = transform.get(DocumentConstants.ARGUMENTS, [])
+
+                for arg in arguments:
+                    arg_value = arg.get(DocumentConstants.ARG_VALUE, {})
+                    if DocumentConstants.FIELD in arg_value:
+                        field_path = arg_value[DocumentConstants.FIELD]
+                        self._check_and_add_array_field(
+                            field_path=field_path, entities=entities, array_fields=array_fields
+                        )
+
+        # If all columns reference the same array field, return it
+        if len(array_fields) == 1:
+            return array_fields.pop()
+
+        # Warn if multiple array fields detected - will cause silent data loss
+        if len(array_fields) > 1:
+            logger.warning(
+                "Columns reference multiple array fields %s; falling back to single-table mode",
+                sorted(array_fields),
+            )
+
+        return None
+
+    def _check_and_add_array_field(
+        self, *, field_path: list[str] | None, entities: dict[str, Any], array_fields: set[str]
+    ) -> None:
+        """
+        Check if a field path references an array and add it to the set.
+
+        Args:
+            field_path: Field path from schema (e.g., ["line_items", "amount"])
+            entities: Extracted entities dictionary
+            array_fields: Set to add array field names to (modified in place)
+        """
+        if field_path and len(field_path) > 0:
+            first_field = field_path[0]
+            if isinstance(entities.get(first_field), list):
+                array_fields.add(first_field)
+
+    def _process_array_table(
+        self, *, columns: list[dict], entities: dict[str, Any], array_field: str
+    ) -> list[dict[str, Any]]:
+        """
+        Process a table where all columns reference elements of an array.
+
+        Args:
+            columns: List of column definitions from schema
+            entities: Extracted entities dictionary
+            array_field: Name of the array field in entities
+
+        Returns:
+            List of processed objects, one per array element
+        """
+        array_data = entities.get(array_field, [])
+        if not isinstance(array_data, list):
+            logger.warning(f"Expected array for field '{array_field}', got {type(array_data)}")
+            return []
+
+        result = []
+
+        for idx, item in enumerate(array_data):
+            logger.debug(f"Processing array item {idx} from '{array_field}'")
+
+            # Create a temporary entities dict with the array item at the root
+            temp_entities = {**entities, array_field: item}
+
+            item_result: dict[str, Any] = {}
             for column in columns:
                 col_name = column.get(DocumentConstants.COLUMN_NAME)
+                if not col_name:
+                    continue
+
                 source = column.get(DocumentConstants.SOURCE, {})
 
                 # Handle direct field reference
                 if DocumentConstants.FIELD in source:
                     field_path = source[DocumentConstants.FIELD]
-                    value = self._get_nested_value(obj=entities, path=field_path)
-                    table_result[col_name] = value
+                    # Skip the array field name in the path
+                    if field_path and field_path[0] == array_field:
+                        adjusted_path = field_path[1:]
+                        value = self._get_nested_value(obj=item, path=adjusted_path)
+                    else:
+                        value = self._get_nested_value(obj=temp_entities, path=field_path)
+                    item_result[col_name] = value
 
                 # Handle transformation
                 elif DocumentConstants.TRANSFORM in source:
@@ -103,16 +215,57 @@ class SchemaProcessor:
                     transform_name = transform.get(DocumentConstants.TRANSFORM_NAME)
                     arguments = transform.get(DocumentConstants.ARGUMENTS, [])
 
-                    value = self._apply_transformation(
-                        transform_name=transform_name, arguments=arguments, entities=entities
+                    value = self._apply_transformation_for_array_item(
+                        transform_name=transform_name,
+                        arguments=arguments,
+                        entities=temp_entities,
+                        array_field=array_field,
+                        array_item=item,
                     )
-                    table_result[col_name] = value
+                    item_result[col_name] = value
 
-            # Add table to result
-            if table_name:
-                result[table_name] = table_result
+            result.append(item_result)
 
+        logger.debug(f"Processed {len(result)} items for array field '{array_field}'")
         return result
+
+    def _process_single_table(self, *, columns: list[dict], entities: dict[str, Any]) -> dict[str, Any]:
+        """
+        Process a table as a single object (non-array table).
+
+        Args:
+            columns: List of column definitions from schema
+            entities: Extracted entities dictionary
+
+        Returns:
+            Processed object with column values
+        """
+        table_result: dict[str, Any] = {}
+        for column in columns:
+            col_name = column.get(DocumentConstants.COLUMN_NAME)
+            if not col_name:
+                continue
+
+            source = column.get(DocumentConstants.SOURCE, {})
+
+            # Handle direct field reference
+            if DocumentConstants.FIELD in source:
+                field_path = source[DocumentConstants.FIELD]
+                value = self._get_nested_value(obj=entities, path=field_path)
+                table_result[col_name] = value
+
+            # Handle transformation
+            elif DocumentConstants.TRANSFORM in source:
+                transform = source[DocumentConstants.TRANSFORM]
+                transform_name = transform.get(DocumentConstants.TRANSFORM_NAME)
+                arguments = transform.get(DocumentConstants.ARGUMENTS, [])
+
+                value = self._apply_transformation(
+                    transform_name=transform_name, arguments=arguments, entities=entities
+                )
+                table_result[col_name] = value
+
+        return table_result
 
     def _apply_transformation(
         self, *, transform_name: str, arguments: list[dict[str, Any]], entities: dict[str, Any]
@@ -133,7 +286,93 @@ class SchemaProcessor:
             logger.warning(f"Unknown transformation: {transform_name}")
             return None
 
-        # Extract argument values from entities
+        # Resolve argument values
+        kwargs = self._resolve_transformation_arguments(
+            arguments=arguments, entities=entities, array_field=None, array_item=None
+        )
+
+        # Debug log to inspect transformation inputs
+        logger.debug(
+            f"Applying transformation '{transform_name}' with arguments: "
+            f"{', '.join(f'{k}={v!r} (type={type(v).__name__})' for k, v in kwargs.items())}"
+        )
+
+        try:
+            return func(**kwargs)
+        except Exception as e:
+            logger.warning(
+                f"Transformation {transform_name} failed: {e}. "
+                f"Arguments were: {', '.join(f'{k}={v!r}' for k, v in kwargs.items())}"
+            )
+            return None
+
+    def _apply_transformation_for_array_item(
+        self,
+        *,
+        transform_name: str,
+        arguments: list[dict[str, Any]],
+        entities: dict[str, Any],
+        array_field: str,
+        array_item: dict[str, Any],
+    ) -> Any:
+        """
+        Apply transformation for an array item, adjusting field paths.
+
+        Args:
+            transform_name: Name of the transformation function
+            arguments: List of argument definitions from schema
+            entities: Extracted entities dictionary
+            array_field: Name of the array field
+            array_item: Current array item being processed
+
+        Returns:
+            Transformed value or None if transformation fails
+        """
+        func = TRANSFORMS.get(transform_name)
+        if not func:
+            logger.warning(f"Unknown transformation: {transform_name}")
+            return None
+
+        # Resolve argument values with array path adjustment
+        kwargs = self._resolve_transformation_arguments(
+            arguments=arguments, entities=entities, array_field=array_field, array_item=array_item
+        )
+
+        # Debug log
+        logger.debug(
+            f"Applying transformation '{transform_name}' with arguments: "
+            f"{', '.join(f'{k}={v!r} (type={type(v).__name__})' for k, v in kwargs.items())}"
+        )
+
+        try:
+            return func(**kwargs)
+        except Exception as e:
+            logger.warning(
+                f"Transformation {transform_name} failed: {e}. "
+                f"Arguments were: {', '.join(f'{k}={v!r}' for k, v in kwargs.items())}"
+            )
+            return None
+
+    def _resolve_transformation_arguments(
+        self,
+        *,
+        arguments: list[dict[str, Any]],
+        entities: dict[str, Any],
+        array_field: str | None,
+        array_item: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """
+        Resolve transformation arguments to kwargs.
+
+        Args:
+            arguments: List of argument definitions from schema
+            entities: Extracted entities dictionary
+            array_field: Name of array field (None for non-array processing)
+            array_item: Current array item (None for non-array processing)
+
+        Returns:
+            Dictionary of resolved argument name -> value pairs
+        """
         kwargs = {}
         for arg in arguments:
             arg_name = arg.get(DocumentConstants.ARG_NAME)
@@ -146,16 +385,19 @@ class SchemaProcessor:
 
             if DocumentConstants.FIELD in arg_value:
                 field_path = arg_value[DocumentConstants.FIELD]
-                value = self._get_nested_value(obj=entities, path=field_path)
+
+                # Handle array item path adjustment
+                if array_field and array_item and field_path and field_path[0] == array_field:
+                    adjusted_path = field_path[1:]
+                    value = self._get_nested_value(obj=array_item, path=adjusted_path)
+                else:
+                    value = self._get_nested_value(obj=entities, path=field_path)
+
                 kwargs[arg_name] = value
             else:
                 kwargs[arg_name] = arg_value
 
-        try:
-            return func(**kwargs)
-        except Exception as e:
-            logger.warning(f"Transformation {transform_name} failed: {e}")
-            return None
+        return kwargs
 
     @staticmethod
     def _get_nested_value(*, obj: dict, path: list[str]) -> Any:

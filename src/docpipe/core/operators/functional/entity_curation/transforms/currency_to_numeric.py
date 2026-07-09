@@ -2,8 +2,10 @@ import re
 from decimal import Decimal
 
 
-def currency_to_numeric(*, amount: str, locale: str = "en_US") -> str | None:
+def currency_to_numeric(*, amount: str | None, locale: str = "en_US") -> str | None:
     """Converts a locale-formatted monetary string to a plain numeric string.
+
+    If amount is None, returns None without attempting conversion.
 
     This function parses a monetary value that may contain locale-specific
     grouping and decimal symbols (e.g., "$1 234,56" for fr_FR) and
@@ -49,6 +51,10 @@ def currency_to_numeric(*, amount: str, locale: str = "en_US") -> str | None:
         >>> currency_to_numeric(amount="¥100万")  # Japanese: 100 man = 1,000,000
         '1000000.000000'
     """
+    # Handle None input gracefully
+    if amount is None:
+        return None
+
     # Lazy import of Babel components. This raises a clear error if Babel is
     # missing, while keeping module import safe.
     try:

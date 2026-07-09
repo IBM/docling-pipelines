@@ -72,10 +72,28 @@ class TestEntityCurationIntegration(unittest.TestCase):
         self.assertIsNotNone(transformed_json)
         transformed_data = json.loads(transformed_json)
         self.assertIsInstance(transformed_data, dict)
+
         # Invoice schema has tables named "Invoice" and "Invoice_line_items"
         self.assertIn("Invoice", transformed_data)
+        self.assertIsInstance(transformed_data["Invoice"], dict)
         self.assertIn("vendor_name", transformed_data["Invoice"])
         self.assertEqual(transformed_data["Invoice"]["vendor_name"], "Acme Corp")
+
+        # Invoice_line_items should be an array
+        self.assertIn("Invoice_line_items", transformed_data)
+        self.assertIsInstance(transformed_data["Invoice_line_items"], list)
+        self.assertEqual(len(transformed_data["Invoice_line_items"]), 2)
+
+        # Verify first line item
+        self.assertEqual(transformed_data["Invoice_line_items"][0]["description"], "Product A")
+        # Quantity should be numeric after transformation
+        self.assertIsInstance(transformed_data["Invoice_line_items"][0]["quantity"], (int, float))
+        self.assertEqual(transformed_data["Invoice_line_items"][0]["quantity"], 10)
+
+        # Verify second line item
+        self.assertEqual(transformed_data["Invoice_line_items"][1]["description"], "Product B")
+        self.assertIsInstance(transformed_data["Invoice_line_items"][1]["quantity"], (int, float))
+        self.assertEqual(transformed_data["Invoice_line_items"][1]["quantity"], 5)
 
     def test_purchase_order_processing_with_schema(self):
         """Test processing purchase order entities with purchase_order schema"""
@@ -281,8 +299,8 @@ class TestEntityCurationIntegration(unittest.TestCase):
             }
         )
 
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = input_table.column_names
 
         self.operator.validate(errors=errors, warnings=warnings, available_features=available_features)
