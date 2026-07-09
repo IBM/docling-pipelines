@@ -80,7 +80,7 @@ def sample_table_multiple_docs():
 @pytest.fixture
 def sample_table_empty():
     """Empty PyArrow table."""
-    data = {
+    data: dict[str, list[str]] = {
         "id": [],
         "name": [],
         "content": [],
@@ -287,8 +287,8 @@ class TestEmbeddingsOperatorValidation:
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["content"]
 
         operator.validate(errors, warnings, available_features)
@@ -301,9 +301,9 @@ class TestEmbeddingsOperatorValidation:
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
-        errors = []
-        warnings = []
-        available_features = []  # No content or chunked_content
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features: list[str] = []  # No content or chunked_content
 
         operator.validate(errors, warnings, available_features)
 
@@ -317,8 +317,8 @@ class TestEmbeddingsOperatorValidation:
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["chunked_content"]  # Only chunked_content
 
         operator.validate(errors, warnings, available_features)
@@ -332,8 +332,8 @@ class TestEmbeddingsOperatorValidation:
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["content"]  # Only content
 
         operator.validate(errors, warnings, available_features)
@@ -354,8 +354,8 @@ class TestEmbeddingsOperatorValidation:
                 },
             }
             operator = EmbeddingsOperator(config)
-            errors = []
-            warnings = []
+            errors: list[str] = []
+            warnings: list[str] = []
 
             operator.validate(errors, warnings, ["content"])
 
@@ -368,8 +368,8 @@ class TestEmbeddingsOperatorValidation:
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["content", "id", "name"]  # No chunked_content feature
 
         operator.validate(errors, warnings, available_features)
@@ -387,8 +387,8 @@ class TestEmbeddingsOperatorValidation:
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["content", "id", "name", "chunked_content"]  # Has chunked_content
 
         operator.validate(errors, warnings, available_features)
@@ -864,6 +864,141 @@ class TestEmbeddingsOperatorIntegration:
         assert result_table.num_rows == 2
         assert metadata[Metrics.External.PROCESSED_DOCS] == 2
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 2
+
+
+class TestEmbeddingsOperatorDimAndCaching:
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_doc_id_op_is_cached_at_init(self, mock_factory, litellm_config, mock_llm_adapter):
+        """_doc_id_op must be set on the instance during __init__, not lazily in transform()."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+
+        assert hasattr(operator, "_doc_id_op"), "_doc_id_op should be set in __init__"
+        from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
+
+        assert isinstance(operator._doc_id_op, DocIdHashOperator)
+
+    @patch("docpipe.core.operators.functional.doc_id_hash.DocIdHashOperator.__init__")
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_doc_id_op_instantiated_once_across_multiple_transforms(
+        self, mock_factory, mock_doc_id_init, litellm_config, mock_llm_adapter
+    ):
+        """DocIdHashOperator.__init__ must be called exactly once (at operator init),
+        not on every transform() call."""
+        mock_doc_id_init.return_value = None  # __init__ returns None
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+
+        # __init__ called once during EmbeddingsOperator.__init__
+        assert mock_doc_id_init.call_count == 1
+
+        # Patch transform on the cached instance to avoid real execution
+        with patch.object(operator._doc_id_op, "transform") as mock_transform:
+            table_with_hash = pa.table(
+                {
+                    "id": ["doc1"],
+                    "name": ["Document 1"],
+                    "content": ["Test content"],
+                    "doc_id_hash": ["hash1"],
+                }
+            )
+            mock_transform.return_value = ([table_with_hash], {})
+            mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
+
+            table_without_hash = pa.table(
+                {
+                    "id": ["doc1"],
+                    "name": ["Document 1"],
+                    "content": ["Test content"],
+                }
+            )
+
+            operator.transform(table_without_hash)
+            operator.transform(table_without_hash)
+
+        # __init__ must still be exactly 1 — not called again per transform
+        assert mock_doc_id_init.call_count == 1
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_embedding_dim_cached_after_first_successful_call(self, mock_factory, litellm_config, mock_llm_adapter):
+        """_embedding_dim starts as None and is set after the first successful embedding."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+
+        assert operator._embedding_dim is None, "_embedding_dim should be None before any embedding call"
+
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.5] * 768]
+
+        table = pa.table(
+            {
+                "id": ["doc1"],
+                "name": ["Document 1"],
+                "content": ["Some text"],
+                "doc_id_hash": ["hash1"],
+            }
+        )
+        operator.transform(table)
+
+        assert operator._embedding_dim == 768, "_embedding_dim should reflect the model's actual output dimension"
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_zero_vector_uses_model_dimension_not_hardcoded_384(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Empty-text zero-vector inside _create_embeddings must use the model's actual output dimension.
+
+        The zero-vector path is reached when a text entry is empty/whitespace inside the
+        text list passed to _create_embeddings (not at the document level).  We test
+        _create_embeddings directly so we can control which slot is empty.
+        """
+        mock_factory.return_value = mock_llm_adapter
+
+        # Simulate a 1536-d model (e.g. text-embedding-3-large)
+        model_dim = 1536
+        # Only the non-empty text produces an embedding
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * model_dim]
+
+        operator = EmbeddingsOperator(litellm_config)
+        # Pre-seed the dimension as if a prior call already established it
+        operator._embedding_dim = model_dim
+
+        # Pass two texts: one real, one whitespace-only (triggers the zero-vector branch)
+        result = operator._create_embeddings(
+            text=["Real content", "   "],
+            model_name=operator.model_id,
+            overlap_ratio=operator.overlap_ratio,
+        )
+
+        assert len(result) == 2
+        zero_vec = result[1]
+        assert len(zero_vec) == model_dim, (
+            f"Zero-vector should be {model_dim}-d (matching model output), got {len(zero_vec)}-d"
+        )
+        assert all(v == 0.0 for v in zero_vec)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_zero_vector_falls_back_to_384_when_no_successful_embedding(
+        self, mock_factory, litellm_config, mock_llm_adapter
+    ):
+        """When _embedding_dim has not been set yet, zero-vector falls back to dimension 384."""
+        mock_factory.return_value = mock_llm_adapter
+        # No embeddings returned — nothing to seed _embedding_dim from
+        mock_llm_adapter.generate_embeddings_batch.return_value = []
+
+        operator = EmbeddingsOperator(litellm_config)
+        assert operator._embedding_dim is None
+
+        # All-whitespace list: every entry hits the zero-vector branch, nothing seeds _embedding_dim
+        result = operator._create_embeddings(
+            text=["   "],
+            model_name=operator.model_id,
+            overlap_ratio=operator.overlap_ratio,
+        )
+
+        assert len(result) == 1
+        assert len(result[0]) == 384, "Should fall back to 384 when no model dimension is known yet"
+        assert all(v == 0.0 for v in result[0])
 
 
 if __name__ == "__main__":

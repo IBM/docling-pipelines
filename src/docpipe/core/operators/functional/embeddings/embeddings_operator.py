@@ -48,6 +48,9 @@ TOKEN_LIMIT_DEFAULT: int = 8192
 PROVIDER_KEY: str = "provider"
 PROVIDER_DEFAULT: str = "litellm"
 
+# Fallback zero-vector dimension when no successful embedding has been produced yet
+EMBEDDING_DIM_FALLBACK: int = 384
+
 
 class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
     """
@@ -140,8 +143,21 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         # Initialize embedding adapter using unified factory
         self.embedding_adapter: LLMEmbeddingPort = self._initialize_embedding_adapter()
 
+        # Cache DocIdHashOperator instance to avoid re-instantiation on every transform() call
+        self._doc_id_op: DocIdHashOperator = DocIdHashOperator(
+            config={
+                OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
+                OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
+            }
+        )
+
+        # Cached embedding dimension — determined on first successful embedding call
+        self._embedding_dim: int | None = None
+
         logger.info(
-            f"Initialized EmbeddingsOperator with provider: {self.provider}, model: {self.model_id}",
+            "Initialized EmbeddingsOperator with provider: %s, model: %s",
+            self.provider,
+            self.model_id,
             extra=self.common_log_arguments,
         )
 
@@ -543,16 +559,23 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             except Exception as e:
                 self._handle_embedding_error(error=e, model_name=model_name, context=f"for chunked text at index {idx}")
 
+        # Cache embedding dimension from the first result available
+        if self._embedding_dim is None and embeddings_map:
+            self._embedding_dim = len(next(iter(embeddings_map.values())))
+
         # Build final embeddings list in original order
         embeddings: list[list[float]] = []
         for idx, text_item in enumerate(text):
             if not text_item or not text_item.strip():
-                # Empty text - return zero vector
+                # Empty text — use a zero vector matching the model's actual output dimension.
+                # Fall back to 384 only if no successful embedding has been produced yet.
+                dim = self._embedding_dim if self._embedding_dim is not None else EMBEDDING_DIM_FALLBACK
                 logger.warning(
-                    f"Empty text at index {idx} provided for embedding generation",
+                    "Empty text at index %d provided for embedding generation",
+                    idx,
                     extra=self.common_log_arguments,
                 )
-                embeddings.append([0.0] * 384)  # Default embedding size
+                embeddings.append([0.0] * dim)
             else:
                 embeddings.append(embeddings_map[idx])
 
@@ -829,16 +852,10 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 )
                 return self._handle_doc_hash_generation_failure(table, error, metadata)
 
-            # Generate doc_id_hash using DocIdHashOperator
+            # Generate doc_id_hash using the cached DocIdHashOperator instance
             try:
-                doc_id_op: DocIdHashOperator = DocIdHashOperator(
-                    config={
-                        OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
-                        OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
-                    }
-                )
                 result_tables: list[pa.Table]
-                result_tables, _ = doc_id_op.transform(table)
+                result_tables, _ = self._doc_id_op.transform(table)
                 table = result_tables[0]
             except Exception as e:
                 return self._handle_doc_hash_generation_failure(table, e, metadata)
@@ -860,7 +877,11 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             slice_table = table.slice(start_idx, end_idx - start_idx)
 
             logger.info(
-                f"Processing slice {slice_num}/{total_slices} (rows {start_idx}-{end_idx - 1})",
+                "Processing slice %d/%d (rows %d-%d)",
+                slice_num,
+                total_slices,
+                start_idx,
+                end_idx - 1,
                 extra=self.common_log_arguments,
             )
 
@@ -979,16 +1000,13 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
 
                 # Log memory-efficient completion
                 logger.info(
-                    f"Slice {slice_num}/{total_slices} complete: "
-                    f"processed {len(slice_embeddings)} docs, "
-                    f"failed {len(slice_remove_idx)} docs",
+                    "Slice %d/%d complete: processed %d docs, failed %d docs",
+                    slice_num,
+                    total_slices,
+                    len(slice_embeddings),
+                    len(slice_remove_idx),
                     extra=self.common_log_arguments,
                 )
-
-            # CRITICAL: These lists are now eligible for GC before the next slice starts
-            del slice_embeddings
-            del slice_doc_id_hashes
-            del slice_remove_idx
 
         # Final assembly
         final_table = pa.concat_tables(processed_tables) if processed_tables else table.slice(0, 0)
