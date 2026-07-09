@@ -248,8 +248,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertEqual(len(errors), 0, "Valid chunk size should not produce errors")
@@ -262,8 +262,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size below minimum should produce errors")
@@ -276,8 +276,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size above maximum should produce errors")
@@ -290,8 +290,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk overlap above maximum should produce errors")
@@ -303,8 +303,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Invalid chunk type should produce errors")
@@ -317,8 +317,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "String type for chunk_size should produce errors")
@@ -338,8 +338,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "String type for chunk_overlap should produce errors")
@@ -360,8 +360,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "String type for retain_original_content should produce errors")
@@ -381,8 +381,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         # Should have at least 2 errors: one for chunk_overlap and one for chunk_type
@@ -403,8 +403,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Invalid percentile should produce errors")
@@ -419,8 +419,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Negative std dev should produce errors")
@@ -433,8 +433,8 @@ class TestChunkerValidation(unittest.TestCase):
             # Missing semantic_embeddings_model
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Semantic chunking without embeddings model should produce errors")
@@ -452,8 +452,8 @@ class TestChunkerValidation(unittest.TestCase):
             "breakpoint_threshold_amount": 150,  # Invalid: must be 0-100 for percentile
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         # Should catch both errors: missing model AND invalid threshold
@@ -468,7 +468,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
 
     def test_empty_table(self):
         """Test chunking with an empty table"""
-        data = {
+        data: dict[str, list] = {
             OperatorConstants.Columns.ID: [],
             OperatorConstants.Columns.NAME: [],
             "content": [],
@@ -619,6 +619,118 @@ class TestChunkerEdgeCases(unittest.TestCase):
         self.assertEqual(mock_semantic_chunker_class.call_count, len(breakpoint_types))
 
 
+class TestSplitterLazyInit(unittest.TestCase):
+    """Test lazy initialisation and caching of simple and semantic splitters"""
+
+    def test_simple_splitter_is_cached(self):
+        """_get_simple_splitter returns the same instance on repeated calls"""
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 500,
+            "chunk_overlap": 50,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        splitter_first = operator._get_simple_splitter()
+        splitter_second = operator._get_simple_splitter()
+
+        self.assertIs(splitter_first, splitter_second, "_get_simple_splitter must return the cached instance")
+
+    def test_simple_splitter_none_before_first_call(self):
+        """_simple_splitter attribute is None until _get_simple_splitter is called"""
+        config = {"chunk_type": ChunkType.SIMPLE.value, "doc_column": "content"}
+        operator = ChunkerOperator(config)
+
+        self.assertIsNone(operator._simple_splitter)
+        operator._get_simple_splitter()
+        self.assertIsNotNone(operator._simple_splitter)
+
+    @patch("langchain_experimental.text_splitter.SemanticChunker")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_is_cached(self, mock_ollama_client_class, mock_semantic_chunker_class):
+        """_get_semantic_splitter returns the same instance on repeated calls"""
+        mock_ollama_client_class.return_value = MagicMock()
+        mock_chunker_instance = MagicMock()
+        mock_semantic_chunker_class.return_value = mock_chunker_instance
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        splitter_first = operator._get_semantic_splitter()
+        splitter_second = operator._get_semantic_splitter()
+
+        self.assertIs(splitter_first, splitter_second, "_get_semantic_splitter must return the cached instance")
+        # SemanticChunker constructor called exactly once, not twice
+        mock_semantic_chunker_class.assert_called_once()
+
+    @patch("langchain_experimental.text_splitter.SemanticChunker")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_none_before_first_call(self, mock_ollama_client_class, mock_semantic_chunker_class):
+        """_semantic_splitter attribute is None until _get_semantic_splitter is called"""
+        mock_ollama_client_class.return_value = MagicMock()
+        mock_semantic_chunker_class.return_value = MagicMock()
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        self.assertIsNone(operator._semantic_splitter)
+        operator._get_semantic_splitter()
+        self.assertIsNotNone(operator._semantic_splitter)
+
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_wraps_generic_exception(self, mock_ollama_client_class):
+        """Non-DocpipeException errors during SemanticChunker init are wrapped in DocpipeException"""
+        mock_ollama_client_class.return_value = MagicMock()
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        with patch(
+            "langchain_experimental.text_splitter.SemanticChunker", side_effect=RuntimeError("model load failed")
+        ):
+            with self.assertRaises(DocpipeException) as ctx:
+                operator._get_semantic_splitter()
+
+        self.assertIn("Failed to initialize SemanticChunker", str(ctx.exception))
+        self.assertIn("model load failed", str(ctx.exception))
+
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_passes_through_docpipe_exception(self, mock_ollama_client_class):
+        """DocpipeException from _get_ollama_client is re-raised unchanged"""
+        mock_ollama_client_class.side_effect = DocpipeException("Ollama unavailable")
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        with self.assertRaises(DocpipeException) as ctx:
+            operator._get_semantic_splitter()
+
+        # Must preserve the original message, not double-wrap it
+        self.assertIn("Ollama unavailable", str(ctx.exception))
+        self.assertNotIn("Failed to initialize SemanticChunker", str(ctx.exception))
+
+
 class TestDoclingChunking(unittest.TestCase):
     """Test Docling chunking functionality integrated into ChunkerOperator"""
 
@@ -699,8 +811,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertEqual(len(errors), 0, "Valid chunk size should not produce errors")
@@ -713,8 +825,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size below minimum should produce errors")
@@ -727,8 +839,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size above maximum should produce errors")
@@ -1027,6 +1139,69 @@ class TestDoclingChunking(unittest.TestCase):
         # Should process successfully
         self.assertEqual(metadata["total_docs_count"], 1)
 
+    @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
+    def test_docling_markdown_produces_structured_document(self, mock_hybrid_chunker_class):
+        """Verifies that _create_docling_document_from_markdown uses MarkdownDocumentBackend
+        so the DoclingDocument passed to HybridChunker.chunk() contains typed heading nodes
+        (title / section_header), not a flat list of plain TEXT nodes.
+        """
+        captured_docs: list = []
+
+        def capture_and_return_chunks(dl_doc):
+            captured_docs.append(dl_doc)
+            # Return one mock chunk so the operator produces output
+            mock_chunk = MagicMock()
+            mock_chunk.text = "chunk text"
+            mock_chunk.start_index = 0
+            return iter([mock_chunk])
+
+        mock_chunker = MagicMock()
+        mock_chunker.chunk.side_effect = capture_and_return_chunks
+        mock_hybrid_chunker_class.return_value = mock_chunker
+
+        markdown_content = (
+            "# Introduction\n\n"
+            "First paragraph of the document.\n\n"
+            "## Section One\n\n"
+            "Content of section one.\n\n"
+            "## Section Two\n\n"
+            "Content of section two.\n"
+        )
+        data: dict[str, list] = {
+            OperatorConstants.Columns.ID: ["doc1"],
+            OperatorConstants.Columns.NAME: ["structured.md"],
+            "content": [markdown_content],
+        }
+        input_table = pa.table(data)
+
+        config = {
+            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_size": 512,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+        operator.transform(input_table)
+
+        # HybridChunker.chunk must have been called with a DoclingDocument
+        self.assertEqual(len(captured_docs), 1, "HybridChunker.chunk should be called once")
+        docling_doc = captured_docs[0]
+
+        # Collect all item labels from the DoclingDocument
+        labels = [str(item.label) for item, _ in docling_doc.iterate_items()]
+
+        # The document must contain at least one heading node (title or section_header).
+        # A flat TEXT-only document would have no such labels — that was the pre-fix behaviour.
+        heading_labels = {"title", "section_header"}
+        found_headings = [lbl for lbl in labels if lbl in heading_labels]
+        self.assertGreater(
+            len(found_headings),
+            0,
+            f"Expected heading nodes in DoclingDocument but only found: {labels}",
+        )
+
+        # Must also contain text body nodes (not just headings)
+        self.assertIn("text", labels, "Expected text body nodes in DoclingDocument")
+
     def test_docling_validation_chunk_overlap_negative(self):
         """Test validation rejects negative chunk overlap for docling"""
         config = {
@@ -1036,8 +1211,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Negative chunk overlap should produce errors")
@@ -1051,8 +1226,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk overlap >= chunk_size should produce errors")
@@ -1067,8 +1242,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         # Should have exactly 2 errors:
@@ -1320,8 +1495,8 @@ class TestChunkerSummarization(unittest.TestCase):
             "summarization": {"provider": "litellm", "max_input_tokens": 8000},
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
         self.assertEqual(len(errors), 0)
 
@@ -1350,8 +1525,8 @@ class TestChunkerSummarization(unittest.TestCase):
             "summarization": {"provider": "litellm", "summary_sentences": 3},
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
         self.assertEqual(len(errors), 0)
 
@@ -1380,8 +1555,8 @@ class TestChunkerSummarization(unittest.TestCase):
             "summarization": {"provider": "litellm", "summary_max_words": 50},
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
         self.assertEqual(len(errors), 0)
 

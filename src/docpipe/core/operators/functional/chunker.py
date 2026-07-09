@@ -284,6 +284,10 @@ class ChunkerOperator(AbstractOperator):
         # Docling HybridChunker will be lazily initialized when needed
         self._docling_chunker: object | None = None
 
+        # Simple and semantic splitters will be lazily initialized when needed
+        self._simple_splitter: object | None = None
+        self._semantic_splitter: object | None = None
+
         # Summarization service (lazy initialization)
         self._summarization_service = None
 
@@ -785,6 +789,27 @@ class ChunkerOperator(AbstractOperator):
         except Exception as e:
             raise DocpipeException(f"Docling-serve chunking failed: {e!s}") from e
 
+    def _get_simple_splitter(self):
+        """
+        Lazy initialization of RecursiveCharacterTextSplitter for simple chunking.
+
+        Creates and caches a splitter instance configured with the fixed chunk_size
+        and chunk_overlap. The splitter is reused across all documents for efficiency.
+
+        Returns:
+            RecursiveCharacterTextSplitter: Configured splitter for simple chunking
+        """
+        if self._simple_splitter is None:
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+            self._simple_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                separators=[".", "\n\n", "\n", " ", ""],
+                add_start_index=True,
+            )
+        return self._simple_splitter
+
     def _simple_split_text(self, content: str) -> list[Document]:
         """
         Perform simple fixed-size chunking with overlap using LangChain's CharacterTextSplitter.
@@ -803,16 +828,8 @@ class ChunkerOperator(AbstractOperator):
             Uses self.chunk_size and self.chunk_overlap configuration parameters.
             This method is called internally by _split_text() and should not be called directly.
         """
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-
         doc: Document = Document(page_content=content, metadata={"source": "parameter"})
-        text_splitter: RecursiveCharacterTextSplitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap,
-            separators=[".", "\n\n", "\n", " ", ""],  # plural, list
-            add_start_index=True,
-        )
-        return text_splitter.split_documents([doc])
+        return self._get_simple_splitter().split_documents([doc])
 
     def _get_ollama_client(self) -> OllamaClient:
         """
@@ -879,8 +896,6 @@ class ChunkerOperator(AbstractOperator):
             - self.breakpoint_threshold_amount: Threshold value for the method
             This method is called internally by _split_text() and should not be called directly.
         """
-        from langchain_experimental.text_splitter import SemanticChunker
-
         # Validate that semantic_embeddings_model is configured for semantic chunking
         if not self.semantic_embeddings_model:
             raise DocpipeException(
@@ -888,30 +903,7 @@ class ChunkerOperator(AbstractOperator):
                 "Please add 'semantic_embeddings_model' to your chunker configuration with a valid Ollama model name."
             )
 
-        # Get OllamaClient instance (reuses existing pattern from EmbeddingsOperator)
-        ollama_client = self._get_ollama_client()
-
-        # Use the OllamaClientEmbeddings adapter to make OllamaClient compatible with LangChain
-        embeddings = OllamaClientEmbeddings(ollama_client)
-
-        # Create semantic chunker with configured parameters
-        # Use explicit parameters instead of **kwargs to satisfy mypy type checking
-        # Cast breakpoint_threshold_type to the expected Literal type for mypy
-        threshold_type = cast(
-            Literal["percentile", "standard_deviation", "interquartile", "gradient"], self.breakpoint_threshold_type
-        )
-
-        if self.breakpoint_threshold_amount is not None:
-            text_splitter = SemanticChunker(
-                embeddings=embeddings,
-                breakpoint_threshold_type=threshold_type,
-                breakpoint_threshold_amount=self.breakpoint_threshold_amount,
-            )
-        else:
-            text_splitter = SemanticChunker(
-                embeddings=embeddings,
-                breakpoint_threshold_type=threshold_type,
-            )
+        text_splitter = self._get_semantic_splitter()
 
         # Split the text semantically
         docs = text_splitter.create_documents([content])
@@ -923,6 +915,53 @@ class ChunkerOperator(AbstractOperator):
         )
 
         return docs
+
+    def _get_semantic_splitter(self):
+        """
+        Lazy initialization of SemanticChunker for semantic chunking.
+
+        Creates and caches a SemanticChunker instance configured with the Ollama
+        embeddings model and breakpoint threshold settings. The splitter is reused
+        across all documents for efficiency.
+
+        Returns:
+            SemanticChunker: Configured chunker for semantic chunking
+
+        Raises:
+            DocpipeException: If OllamaClient initialization fails
+        """
+        if self._semantic_splitter is None:
+            try:
+                from langchain_experimental.text_splitter import SemanticChunker
+
+                # Get OllamaClient instance (reuses existing pattern from EmbeddingsOperator)
+                ollama_client = self._get_ollama_client()
+
+                # Use the OllamaClientEmbeddings adapter to make OllamaClient compatible with LangChain
+                embeddings = OllamaClientEmbeddings(ollama_client)
+
+                # Cast breakpoint_threshold_type to the expected Literal type for mypy
+                threshold_type = cast(
+                    Literal["percentile", "standard_deviation", "interquartile", "gradient"],
+                    self.breakpoint_threshold_type,
+                )
+
+                if self.breakpoint_threshold_amount is not None:
+                    self._semantic_splitter = SemanticChunker(
+                        embeddings=embeddings,
+                        breakpoint_threshold_type=threshold_type,
+                        breakpoint_threshold_amount=self.breakpoint_threshold_amount,
+                    )
+                else:
+                    self._semantic_splitter = SemanticChunker(
+                        embeddings=embeddings,
+                        breakpoint_threshold_type=threshold_type,
+                    )
+            except DocpipeException:
+                raise
+            except Exception as e:
+                raise DocpipeException(f"Failed to initialize SemanticChunker: {e!s}") from e
+        return self._semantic_splitter
 
     def _get_docling_chunker(self):
         """
@@ -965,30 +1004,36 @@ class ChunkerOperator(AbstractOperator):
 
     def _create_docling_document_from_markdown(self, markdown_content: str, doc_name: str | None = None):
         """
-        Create a DoclingDocument from markdown content.
+        Create a structure-preserving DoclingDocument from markdown content.
+
+        Uses MarkdownDocumentBackend to parse the markdown so that headings,
+        tables, and code blocks are represented as typed nodes in the resulting
+        DoclingDocument. This is required for HybridChunker to exploit document
+        structure; without it, hybrid chunking degrades to simple chunking.
 
         Args:
             markdown_content: Markdown text content
-            doc_name: Document name
+            doc_name: Document name used as the filename hint for the backend
 
         Returns:
-            DoclingDocument instance
+            DoclingDocument instance with full structural metadata
         """
-        from docling_core.types.doc.document import DoclingDocument
-        from docling_core.types.doc.labels import DocItemLabel
+        import io
 
-        # Create a basic DoclingDocument
-        doc: DoclingDocument = DoclingDocument(name=doc_name or "document")
+        from docling.backend.md_backend import MarkdownDocumentBackend
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.document import InputDocument
 
-        # Split markdown into paragraphs and add as text items
-        paragraphs: list[str] = [p.strip() for p in markdown_content.split("\n\n") if p.strip()]
-
-        for para in paragraphs:
-            if para:
-                # add_text expects text string and label
-                doc.add_text(text=para, label=DocItemLabel.TEXT)
-
-        return doc
+        filename = doc_name or "document.md"
+        stream = io.BytesIO(markdown_content.encode("utf-8"))
+        in_doc = InputDocument(
+            path_or_stream=stream,
+            format=InputFormat.MD,
+            backend=MarkdownDocumentBackend,
+            filename=filename,
+        )
+        backend = MarkdownDocumentBackend(in_doc=in_doc, path_or_stream=stream)
+        return backend.convert()
 
     def _docling_split_text(self, content: str, doc_name: str | None = None) -> list[Document]:
         """
