@@ -1,6 +1,6 @@
 {
   "flow_name": "Quality Pipeline with Branching",
-  "description": "Comprehensive quality operators showcase: Ingest → Extract → Language Detection → Dedup (removes 2 duplicate documents) → Doc Quality → Readability → Branching (on flesch_ease) → [High Quality: ML Enrichment → Embeddings → OpenSearch] | [Low Quality: SQLFilter → Embeddings → OpenSearch]. Demonstrates DocQuality, Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
+  "description": "Comprehensive quality operators showcase: Ingest → Extract → Language Detection → Dedup (removes 2 duplicate documents) → Doc Quality → Readability → Branching (on flesch_reading_ease) → [High Quality: ML Enrichment → Embeddings → OpenSearch] | [Low Quality: SQLFilter → Embeddings → OpenSearch]. Demonstrates DocQuality, Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,

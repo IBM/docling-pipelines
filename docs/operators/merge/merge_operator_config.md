@@ -210,7 +210,7 @@ Merge optional enrichments, keeping all documents:
       "type": "readability",
       "depends_on": ["ingest_documents"],
       "config": {
-        "readability_score_list": ["flesch_ease", "flesch_kincaid"]
+        "readability_score_list": ["flesch_reading_ease", "flesch_kincaid_grade"]
       }
     },
     {

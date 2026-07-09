@@ -1018,7 +1018,8 @@ This simplified design removes the port/adapter overhead while maintaining clean
 
 **Output Schema**
 
-- selected readability columns
+All requested scores are appended as float columns. Available column names:
+`flesch_reading_ease`, `flesch_kincaid_grade`, `gunning_fog`, `smog_index`, `coleman_liau_index`, `automated_readability_index`, `dale_chall_readability_score`, `difficult_words`, `linsear_write_formula`, `text_standard`, `spache_readability`, `mcalpine_eflaw`, `reading_time`
 
 ---
 

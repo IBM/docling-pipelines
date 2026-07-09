@@ -15,7 +15,7 @@ from docpipe.core.operators.quality.readability.readability_operator import (
 class TestReadabilityOperator(unittest.TestCase):
     def test_init(self):
         config = {
-            "readability_contents_column_name": "content",
+            "doc_column": "content",
             "readability_score_list": ["flesch_reading_ease", "flesch_kincaid_grade"],
         }
         operator = ReadabilityOperator(config=config)
@@ -37,7 +37,7 @@ class TestReadabilityOperator(unittest.TestCase):
 
     def test_readability_transform(self):
         config = {
-            "readability_contents_column_name": "content",
+            "doc_column": "content",
             "readability_score_list": ["flesch_reading_ease", "flesch_kincaid_grade"],
         }
         operator = ReadabilityOperator(config=config)
@@ -64,7 +64,7 @@ class TestReadabilityOperator(unittest.TestCase):
 
     def test_readability_required_features(self):
         config = {
-            "readability_contents_column_name": "content",
+            "doc_column": "content",
             "readability_score_list": ["flesch_reading_ease", "flesch_kincaid_grade"],
         }
         operator = ReadabilityOperator(config=config)
@@ -75,8 +75,8 @@ class TestReadabilityOperator(unittest.TestCase):
 
     def test_readability_validation_warning(self):
         operator = ReadabilityOperator(config={"readability_score_list": []})
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=["content"])
 
@@ -86,7 +86,7 @@ class TestReadabilityOperator(unittest.TestCase):
 
     def test_readability_all_scores(self):
         config = {
-            "readability_contents_column_name": "content",
+            "doc_column": "content",
             "readability_score_list": DEFAULT_READABILITY_SCORES,
         }
 
@@ -102,12 +102,12 @@ class TestReadabilityOperator(unittest.TestCase):
 
 class TestReadabilityOperatorEdgeCases(unittest.TestCase):
     def test_empty_table(self):
-        data = {"content": []}
+        data: dict[str, list[str]] = {"content": []}
         empty_table = pa.table(data)
 
         operator = ReadabilityOperator(
             config={
-                "readability_contents_column_name": "content",
+                "doc_column": "content",
                 "readability_score_list": ["flesch_reading_ease"],
             }
         )
@@ -123,7 +123,7 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
 
         operator = ReadabilityOperator(
             config={
-                "readability_contents_column_name": custom_col,
+                "doc_column": custom_col,
                 "readability_score_list": ["flesch_reading_ease"],
             }
         )
@@ -135,8 +135,8 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
 
     def test_validation_invalid_scores(self):
         operator = ReadabilityOperator(config={"readability_score_list": ["invalid_score", "another_invalid"]})
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=["content"])
         self.assertEqual(len(warnings), 1)
@@ -155,7 +155,7 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
 
         operator = ReadabilityOperator(
             config={
-                "readability_contents_column_name": "content",
+                "doc_column": "content",
                 "readability_score_list": [
                     "flesch_reading_ease",
                     "flesch_kincaid_grade",

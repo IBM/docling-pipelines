@@ -31,7 +31,7 @@ Simple branching with criteria_list:
     "link_id": "high-quality",
     "link_name": "High Quality Documents",
     "criteria_list": [
-      "flesch_ease > 60",
+      "flesch_reading_ease > 60",
       "num_words > 100"
     ],
     "logical_operator": "AND"
@@ -40,7 +40,7 @@ Simple branching with criteria_list:
     "link_id": "low-quality",
     "link_name": "Low Quality Documents",
     "criteria_list": [
-      "flesch_ease <= 60"
+      "flesch_reading_ease <= 60"
     ]
   }
 ]
@@ -136,7 +136,7 @@ SQL-like expressions using column names and operators:
 ```json
 "criteria_list": [
   "num_words > 100",
-  "flesch_ease >= 60",
+  "flesch_reading_ease >= 60",
   "lang_name == 'en'",
   "document_type IN ('invoice', 'receipt')"
 ]
@@ -175,7 +175,7 @@ Structured JSON format for complex conditions:
         "link_id": "high-quality",
         "link_name": "High Quality",
         "criteria_list": [
-          "flesch_ease > 60",
+          "flesch_reading_ease > 60",
           "num_words > 200"
         ],
         "logical_operator": "AND"
@@ -184,8 +184,8 @@ Structured JSON format for complex conditions:
         "link_id": "medium-quality",
         "link_name": "Medium Quality",
         "criteria_list": [
-          "flesch_ease > 40",
-          "flesch_ease <= 60"
+          "flesch_reading_ease > 40",
+          "flesch_reading_ease <= 60"
         ],
         "logical_operator": "AND"
       },
@@ -193,7 +193,7 @@ Structured JSON format for complex conditions:
         "link_id": "low-quality",
         "link_name": "Low Quality",
         "criteria_list": [
-          "flesch_ease <= 40"
+          "flesch_reading_ease <= 40"
         ]
       }
     ]

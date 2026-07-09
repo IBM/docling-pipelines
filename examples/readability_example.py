@@ -24,7 +24,7 @@ from docpipe.core.operators.quality.readability import (
 def main() -> None:  # pragma: no cover
     """Test the readability operator with sample texts of varying complexity."""
     config: dict[str, Any] = {
-        "readability_contents_column_name": "content",
+        "doc_column": "content",
         "readability_score_list": DEFAULT_READABILITY_SCORES,
     }
     operator: ReadabilityOperator = ReadabilityOperator(config=config)

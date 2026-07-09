@@ -33,7 +33,6 @@ DEFAULT_READABILITY_SCORES = [
     OperatorConstants.Columns.READING_TIME,
 ]
 
-CONTENTS_COLUMN_NAME_PARAM = "readability_contents_column_name"
 SCORE_LIST_PARAM = "readability_score_list"
 
 
@@ -50,7 +49,7 @@ class ReadabilityOperator(AbstractOperator):
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         self.contents_column_name: str = config.get(
-            CONTENTS_COLUMN_NAME_PARAM, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
         self.score_list: list[str] = config.get(SCORE_LIST_PARAM, DEFAULT_READABILITY_SCORES)
         if isinstance(self.score_list, str):
