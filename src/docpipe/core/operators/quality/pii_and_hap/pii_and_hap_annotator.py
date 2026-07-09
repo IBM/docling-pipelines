@@ -428,10 +428,6 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         }
 
     @staticmethod
-    def get_static_required_features() -> list[str]:
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
-
-    @staticmethod
     def get_required_features() -> list[str]:
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
@@ -553,7 +549,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         OperatorUtils.validate_columns(
             table=table,
-            required=self.get_required_features(),
+            required=PIIAndHAPAnnotator.get_required_features(),
             operator_name=self.short_name,
         )
 

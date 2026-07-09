@@ -162,10 +162,6 @@ class ReadabilityOperator(AbstractOperator):
         }
 
     @staticmethod
-    def get_static_required_features() -> list[str]:
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
-
-    @staticmethod
     def get_required_features() -> list[str]:
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
