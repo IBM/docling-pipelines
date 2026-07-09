@@ -2166,8 +2166,7 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
       "type": "ingest_local",
       "config": {
         "paths": "tests/fixtures/invoices",
-        "include_filter": "pdf,txt,md",
-        "store_binary_content": true
+        "include_filter": "pdf,txt,md"
       }
     },
     {
