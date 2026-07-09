@@ -161,6 +161,44 @@ class TestIngestSourceOperatorInitialization:
         assert operator.connection_params["loader_class_path"] == "my_package.loaders.CustomLoader"
 
 
+class TestGetMetadata:
+    """Test cases for get_metadata method."""
+
+    def test_get_metadata_declares_all_output_columns(self):
+        """Operator metadata must declare every column produced at runtime.
+
+        The validator uses declared features to check downstream operator compatibility
+        (e.g. document_set requires 'id'). A missing declaration causes a false
+        FLOW VALIDATION FAILED even when the column is present in the actual output.
+        """
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        metadata = IngestSourceOperator.get_metadata()
+        declared = set(metadata["features"].keys())
+        runtime_columns = {
+            "id",
+            "name",
+            "path",
+            "document_format",
+            "metadata",
+            "source_id",
+            "modified_time",
+            "doc_id_hash",
+        }
+
+        assert runtime_columns.issubset(declared), (
+            f"Columns produced at runtime but missing from metadata: {runtime_columns - declared}"
+        )
+
+    def test_get_metadata_document_id_is_filterable(self):
+        """Document ID must be marked available_for_filter so it can be used as a join/filter key downstream."""
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        metadata = IngestSourceOperator.get_metadata()
+
+        assert metadata["features"]["id"]["available_for_filter"] is True
+
+
 class TestGetLoader:
     """Test cases for _get_loader method."""
 

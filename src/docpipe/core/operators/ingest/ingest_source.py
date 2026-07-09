@@ -858,6 +858,20 @@ class IngestSourceOperator(AbstractOperator):
         Returns operator metadata for the LangChain loader ingest mode.
         """
         metadata_features: dict[str, dict[str, Any]] = {
+            OperatorConstants.Columns.ID: {
+                OperatorConstants.Columns.NAME: "Document ID",
+                OperatorConstants.Config.DESCRIPTION: "Document identifier",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+            },
+            OperatorConstants.Columns.NAME: {
+                OperatorConstants.Columns.NAME: "Document Name",
+                OperatorConstants.Config.DESCRIPTION: "The source name or file name of the document",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+            },
             "path": {
                 OperatorConstants.Columns.NAME: "Source Path",
                 OperatorConstants.Config.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
@@ -885,6 +899,13 @@ class IngestSourceOperator(AbstractOperator):
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+            },
+            OperatorConstants.Metadata.MODIFIED_TIME: {
+                OperatorConstants.Columns.NAME: "Modified Time",
+                OperatorConstants.Config.DESCRIPTION: "Last modified timestamp of the source document (Unix epoch time)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_INT64,
             },
             OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                 OperatorConstants.Columns.NAME: "Hash ID",
