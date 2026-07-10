@@ -12,7 +12,7 @@ class AbstractFlowExecutionEventHandler(ABC):
         pass
 
     @abstractmethod
-    def after_flow_execution_complete(self, op_flow, present_job_status: str, message):
+    def after_flow_execution_complete(self, op_flow, present_job_status: str, message, global_config=None):
         pass
 
     @abstractmethod

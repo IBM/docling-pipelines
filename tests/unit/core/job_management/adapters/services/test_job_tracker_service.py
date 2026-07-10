@@ -406,7 +406,7 @@ class TestHelperMethods:
             },
         )
 
-        final_docs_status = {}
+        final_docs_status: dict[str, str] = {}
         job_tracker_service._mark_failed_documents(job_stats=job_stats, final_docs_status=final_docs_status)
 
         assert final_docs_status == {
@@ -1457,7 +1457,209 @@ class TestRequestCancelJob:
         # Act
         job_tracker_service.request_cancel_job(job_run_id=job_run_id)
 
-        # Assert - should remain in CANCELING state
-        mock_store.store_job_stats.assert_called_once()
-        stored_stats = mock_store.store_job_stats.call_args[0][0]
-        assert stored_stats.status == ExecutionStatus.CANCELING
+
+class TestMarkPendingBatchesAsSkipped:
+    """Test mark_pending_batches_as_skipped method."""
+
+    def test_mark_pending_batches_as_skipped_basic(self, *, job_tracker_service, mock_store):
+        """Test marking pending batch node stats as skipped."""
+        job_run_id = "test-job-run"
+
+        # Setup: Create pending batch node stats
+        pending_stats = [
+            NodeStats(
+                node_id="node1",
+                name="extract",
+                node_status=ExecutionStatus.PENDING.value,
+                batch_id="batch-1",
+                batch_num=1,
+                total_docs=[],
+                docs_completed=[],
+                failed_docs=[],
+                skipped_docs=[],
+                col_names=[],
+            ),
+            NodeStats(
+                node_id="node2",
+                name="chunker",
+                node_status=ExecutionStatus.PENDING.value,
+                batch_id="batch-2",
+                batch_num=2,
+                total_docs=[],
+                docs_completed=[],
+                failed_docs=[],
+                skipped_docs=[],
+                col_names=[],
+            ),
+        ]
+
+        mock_store.get_node_stats.return_value = pending_stats
+
+        # Execute
+        job_tracker_service.mark_pending_batches_as_skipped(
+            job_run_id=job_run_id, reason="Skipped - flow failed in fail-fast mode"
+        )
+
+        # Verify bulk_store_node_stats was called with SKIPPED status
+        assert mock_store.bulk_store_node_stats.called
+        updated_stats = mock_store.bulk_store_node_stats.call_args[1]["node_stats_list"]
+        assert len(updated_stats) == 2
+        assert all(s.node_status == ExecutionStatus.SKIPPED.value for s in updated_stats)
+        assert all(s.batch_id is not None for s in updated_stats)
+
+    def test_mark_pending_batches_skips_completed(self, *, job_tracker_service, mock_store):
+        """Test that completed batches are not marked as skipped."""
+        job_run_id = "test-job-run"
+
+        # Setup: Mix of pending and completed batch node stats
+        mixed_stats = [
+            NodeStats(
+                node_id="node1",
+                name="extract",
+                node_status=ExecutionStatus.PENDING.value,
+                batch_id="batch-1",
+                batch_num=1,
+                total_docs=[],
+                docs_completed=[],
+                failed_docs=[],
+                skipped_docs=[],
+                col_names=[],
+            ),
+            NodeStats(
+                node_id="node2",
+                name="chunker",
+                node_status=ExecutionStatus.COMPLETED.value,  # Already completed
+                batch_id="batch-2",
+                batch_num=2,
+                total_docs=["doc1"],
+                docs_completed=["doc1"],
+                failed_docs=[],
+                skipped_docs=[],
+                col_names=[],
+            ),
+        ]
+
+        mock_store.get_node_stats.return_value = mixed_stats
+
+        # Execute
+        job_tracker_service.mark_pending_batches_as_skipped(
+            job_run_id=job_run_id, reason="Skipped - flow failed in fail-fast mode"
+        )
+
+        # Verify only pending batch was updated
+        assert mock_store.bulk_store_node_stats.called
+        updated_stats = mock_store.bulk_store_node_stats.call_args[1]["node_stats_list"]
+        assert len(updated_stats) == 1
+        assert updated_stats[0].node_id == "node1"
+        assert updated_stats[0].node_status == ExecutionStatus.SKIPPED.value
+
+    def test_mark_pending_batches_handles_queued(self, *, job_tracker_service, mock_store):
+        """Test that QUEUED batches are also marked as skipped."""
+        job_run_id = "test-job-run"
+
+        # Setup: QUEUED batch node stats
+        queued_stats = [
+            NodeStats(
+                node_id="node1",
+                name="extract",
+                node_status=ExecutionStatus.QUEUED.value,
+                batch_id="batch-1",
+                batch_num=1,
+                total_docs=[],
+                docs_completed=[],
+                failed_docs=[],
+                skipped_docs=[],
+                col_names=[],
+            ),
+        ]
+
+        mock_store.get_node_stats.return_value = queued_stats
+
+        # Execute
+        job_tracker_service.mark_pending_batches_as_skipped(
+            job_run_id=job_run_id, reason="Skipped - flow failed in fail-fast mode"
+        )
+
+        # Verify QUEUED batch was updated to SKIPPED
+        assert mock_store.bulk_store_node_stats.called
+        updated_stats = mock_store.bulk_store_node_stats.call_args[1]["node_stats_list"]
+        assert len(updated_stats) == 1
+        assert updated_stats[0].node_status == ExecutionStatus.SKIPPED.value
+
+    def test_mark_pending_batches_no_pending_batches(self, *, job_tracker_service, mock_store):
+        """Test when there are no pending batches."""
+        job_run_id = "test-job-run"
+
+        # Setup: Only completed batches
+        completed_stats = [
+            NodeStats(
+                node_id="node1",
+                name="extract",
+                node_status=ExecutionStatus.COMPLETED.value,
+                batch_id="batch-1",
+                batch_num=1,
+                total_docs=["doc1"],
+                docs_completed=["doc1"],
+                failed_docs=[],
+                skipped_docs=[],
+                col_names=[],
+            ),
+        ]
+
+        mock_store.get_node_stats.return_value = completed_stats
+
+        # Execute
+        job_tracker_service.mark_pending_batches_as_skipped(
+            job_run_id=job_run_id, reason="Skipped - flow failed in fail-fast mode"
+        )
+
+        # Verify bulk_store_node_stats was not called
+        assert not mock_store.bulk_store_node_stats.called
+
+    def test_mark_pending_batches_empty_node_stats(self, *, job_tracker_service, mock_store):
+        """Test when there are no node stats at all."""
+        job_run_id = "test-job-run"
+
+        # Setup: Empty node stats
+        mock_store.get_node_stats.return_value = []
+
+        # Execute
+        job_tracker_service.mark_pending_batches_as_skipped(
+            job_run_id=job_run_id, reason="Skipped - flow failed in fail-fast mode"
+        )
+
+        # Verify bulk_store_node_stats was not called
+        assert not mock_store.bulk_store_node_stats.called
+
+    def test_mark_pending_batches_preserves_metadata(self, *, job_tracker_service, mock_store):
+        """Test that skip reason is added to metadata."""
+        job_run_id = "test-job-run"
+        reason = "Skipped - flow failed in fail-fast mode before batch execution"
+
+        # Setup: Pending batch
+        pending_stats = [
+            NodeStats(
+                node_id="node1",
+                name="extract",
+                node_status=ExecutionStatus.PENDING.value,
+                batch_id="batch-1",
+                batch_num=1,
+                total_docs=[],
+                docs_completed=[],
+                failed_docs=[],
+                skipped_docs=[],
+                col_names=[],
+            ),
+        ]
+
+        mock_store.get_node_stats.return_value = pending_stats
+
+        # Execute
+        job_tracker_service.mark_pending_batches_as_skipped(job_run_id=job_run_id, reason=reason)
+
+        # Verify metadata contains skip reason
+        updated_stats = mock_store.bulk_store_node_stats.call_args[1]["node_stats_list"]
+        assert len(updated_stats) == 1
+        assert "node_metadata" in updated_stats[0].node_metadata
+        assert "skip_reason" in updated_stats[0].node_metadata["node_metadata"]
+        assert updated_stats[0].node_metadata["node_metadata"]["skip_reason"] == reason

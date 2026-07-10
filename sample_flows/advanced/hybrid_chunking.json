@@ -8,6 +8,7 @@
     "force_ingest": true,
     "enable_micro_batching": true,
     "micro_batch_size": 10,
+    "continue_on_batch_failure": true,
     "storage": "in-memory",
     "execute_type": "local"
   },

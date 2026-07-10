@@ -145,6 +145,8 @@ class DocpipeConstants:
     BATCH_NUM = "batch_num"
     BATCH_ID = "batch_id"
     BATCH_COUNT = "batch_count"
+    CONTINUE_ON_BATCH_FAILURE = "continue_on_batch_failure"
+    CONTINUE_ON_BATCH_FAILURE_DEFAULT = False
     INGEST_NODE_ID = "ingest_node_id"
     # Batch-level concurrency control
     MAX_CONCURRENT_BATCHES = "max_concurrent_batches"

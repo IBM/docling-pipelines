@@ -11,6 +11,7 @@ Consolidated test suite covering:
 
 import threading
 import time
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
@@ -202,7 +203,7 @@ class TestBatchConfiguration:
     def test_configure_batching_default(self):
         """Verify batching configuration with defaults."""
         batch_manager = BatchManager()
-        global_config = {}
+        global_config: dict[str, Any] = {}
 
         enabled, size = batch_manager.configure_batching(global_config=global_config)
 
@@ -478,7 +479,7 @@ class TestIngestExclusionFromMicroBatching:
         # Simulate batch execution config (has batch context)
         batch_config = ingest_config.copy()
         batch_config[DocpipeConstants.BATCH_ID] = "batch-uuid-123"
-        batch_config[DocpipeConstants.BATCH_NUM] = 0
+        batch_config[DocpipeConstants.BATCH_NUM] = "0"
 
         assert DocpipeConstants.BATCH_ID in batch_config
         assert DocpipeConstants.BATCH_NUM in batch_config
@@ -571,7 +572,8 @@ class TestPrefectEngineCleanup:
                 batch_futures=[
                     BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
                     BatchFuture(batch_id="batch-1", batch_num=1, future=cancelled_future),
-                ]
+                ],
+                global_config={},
             )
 
         assert call_order == ["cancel", "wait"]
@@ -612,10 +614,357 @@ class TestPrefectEngineCleanup:
                 batch_futures=[
                     BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
                     BatchFuture(batch_id="batch-1", batch_num=1, future=cancelled_future),
-                ]
+                ],
+                global_config={},
             )
 
         assert engine.batch_manager.get_batch_semaphore() is None
+
+    def test_wait_for_sub_flows_fail_fast_mode_default(self):
+        """Verify fail-fast mode (default) cancels remaining batches on first failure."""
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        failed_future = MagicMock()
+        failed_future.result.side_effect = RuntimeError("batch 0 failed")
+
+        remaining_future_1 = MagicMock()
+        remaining_future_2 = MagicMock()
+
+        # Default behavior: continue_on_batch_failure=False (fail-fast)
+        global_config: dict[str, Any] = {}
+
+        with pytest.raises(
+            FlowExecutionFailedException,
+            match=r"Batch 0 \(ID: batch-0\) failed during sub-flow execution: RuntimeError: batch 0 failed",
+        ):
+            engine._wait_for_sub_flows(
+                batch_futures=[
+                    BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
+                    BatchFuture(batch_id="batch-1", batch_num=1, future=remaining_future_1),
+                    BatchFuture(batch_id="batch-2", batch_num=2, future=remaining_future_2),
+                ],
+                global_config=global_config,
+            )
+
+        # Verify remaining batches were cancelled
+        remaining_future_1.cancel.assert_called_once()
+        remaining_future_2.cancel.assert_called_once()
+
+    def test_wait_for_sub_flows_continue_on_failure_mode_partial_failure(self):
+        """Verify continue_on_batch_failure=True with partial failures does not fail the flow."""
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        failed_future_1 = MagicMock()
+        failed_future_1.result.side_effect = RuntimeError("batch 0 failed")
+
+        success_future = MagicMock()
+        success_future.result.return_value = MagicMock()
+
+        failed_future_2 = MagicMock()
+        failed_future_2.result.side_effect = RuntimeError("batch 2 failed")
+
+        # Enable continue_on_batch_failure
+        global_config = {DocpipeConstants.CONTINUE_ON_BATCH_FAILURE: True}
+
+        # Should NOT raise exception when at least one batch succeeds
+        engine._wait_for_sub_flows(
+            batch_futures=[
+                BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future_1),
+                BatchFuture(batch_id="batch-1", batch_num=1, future=success_future),
+                BatchFuture(batch_id="batch-2", batch_num=2, future=failed_future_2),
+            ],
+            global_config=global_config,
+        )
+
+        # Verify all batches were executed (result() called on all)
+        failed_future_1.result.assert_called_once()
+        success_future.result.assert_called_once()
+        failed_future_2.result.assert_called_once()
+
+        # Verify no batches were cancelled (continue_on_batch_failure mode)
+        failed_future_1.cancel.assert_not_called()
+        success_future.cancel.assert_not_called()
+        failed_future_2.cancel.assert_not_called()
+
+    def test_wait_for_sub_flows_continue_on_failure_mode_all_fail(self):
+        """Verify continue_on_batch_failure=True tolerates all batch failures."""
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        failed_future_1 = MagicMock()
+        failed_future_1.result.side_effect = RuntimeError("batch 0 failed")
+
+        failed_future_2 = MagicMock()
+        failed_future_2.result.side_effect = RuntimeError("batch 1 failed")
+
+        failed_future_3 = MagicMock()
+        failed_future_3.result.side_effect = RuntimeError("batch 2 failed")
+
+        # Enable continue_on_batch_failure
+        global_config = {DocpipeConstants.CONTINUE_ON_BATCH_FAILURE: True}
+
+        # Should not raise; current behavior logs all-batches-failed but continues in continue_on_batch_failure mode
+        engine._wait_for_sub_flows(
+            batch_futures=[
+                BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future_1),
+                BatchFuture(batch_id="batch-1", batch_num=1, future=failed_future_2),
+                BatchFuture(batch_id="batch-2", batch_num=2, future=failed_future_3),
+            ],
+            global_config=global_config,
+        )
+
+        # Verify all batches were executed (result() called on all)
+        failed_future_1.result.assert_called_once()
+        failed_future_2.result.assert_called_once()
+        failed_future_3.result.assert_called_once()
+
+        # Verify no batches were cancelled
+        failed_future_1.cancel.assert_not_called()
+        failed_future_2.cancel.assert_not_called()
+        failed_future_3.cancel.assert_not_called()
+
+    def test_wait_for_sub_flows_continue_on_failure_all_batches_succeed(self):
+        """Verify continue_on_batch_failure=True with all batches succeeding."""
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        success_future_1 = MagicMock()
+        success_future_1.result.return_value = MagicMock()
+
+        success_future_2 = MagicMock()
+        success_future_2.result.return_value = MagicMock()
+
+        # Enable continue_on_batch_failure
+        global_config = {DocpipeConstants.CONTINUE_ON_BATCH_FAILURE: True}
+
+        # Should not raise any exception when all batches succeed
+        engine._wait_for_sub_flows(
+            batch_futures=[
+                BatchFuture(batch_id="batch-0", batch_num=0, future=success_future_1),
+                BatchFuture(batch_id="batch-1", batch_num=1, future=success_future_2),
+            ],
+            global_config=global_config,
+        )
+
+        # Verify all batches were executed
+        success_future_1.result.assert_called_once()
+        success_future_2.result.assert_called_once()
+
+    def test_wait_for_sub_flows_continue_on_failure_single_batch_fails(self):
+        """Verify continue_on_batch_failure=True with single batch that fails is tolerated."""
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        failed_future = MagicMock()
+        failed_future.result.side_effect = RuntimeError("single batch failed")
+
+        # Enable continue_on_batch_failure
+        global_config = {DocpipeConstants.CONTINUE_ON_BATCH_FAILURE: True}
+
+        # Should not raise; current behavior logs all-batches-failed but continues in continue_on_batch_failure mode
+        engine._wait_for_sub_flows(
+            batch_futures=[
+                BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
+            ],
+            global_config=global_config,
+        )
+
+        # Verify batch was executed
+        failed_future.result.assert_called_once()
+        # Verify no cancellation attempted (only one batch)
+        failed_future.cancel.assert_not_called()
+
+    def test_wait_for_sub_flows_continue_on_failure_first_succeeds_rest_fail(self):
+        """Verify continue_on_batch_failure=True when first batch succeeds but remaining fail."""
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        success_future = MagicMock()
+        success_future.result.return_value = MagicMock()
+
+        failed_future_1 = MagicMock()
+        failed_future_1.result.side_effect = RuntimeError("batch 1 failed")
+
+        failed_future_2 = MagicMock()
+        failed_future_2.result.side_effect = RuntimeError("batch 2 failed")
+
+        # Enable continue_on_batch_failure
+        global_config = {DocpipeConstants.CONTINUE_ON_BATCH_FAILURE: True}
+
+        # Should NOT raise exception when at least one batch succeeds (even if it's the first)
+        engine._wait_for_sub_flows(
+            batch_futures=[
+                BatchFuture(batch_id="batch-0", batch_num=0, future=success_future),
+                BatchFuture(batch_id="batch-1", batch_num=1, future=failed_future_1),
+                BatchFuture(batch_id="batch-2", batch_num=2, future=failed_future_2),
+            ],
+            global_config=global_config,
+        )
+
+        # Verify all batches were executed
+        success_future.result.assert_called_once()
+        failed_future_1.result.assert_called_once()
+        failed_future_2.result.assert_called_once()
+
+        # Verify no batches were cancelled
+        success_future.cancel.assert_not_called()
+        failed_future_1.cancel.assert_not_called()
+        failed_future_2.cancel.assert_not_called()
+
+    def test_wait_for_sub_flows_explicit_fail_fast_false(self):
+        """Verify explicit continue_on_batch_failure=False behaves same as default."""
+        from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        failed_future = MagicMock()
+        failed_future.result.side_effect = RuntimeError("batch 0 failed")
+
+        remaining_future = MagicMock()
+
+        # Explicitly set continue_on_batch_failure=False
+        global_config = {DocpipeConstants.CONTINUE_ON_BATCH_FAILURE: False}
+
+        with pytest.raises(
+            FlowExecutionFailedException,
+            match=r"Batch 0 \(ID: batch-0\) failed during sub-flow execution: RuntimeError: batch 0 failed",
+        ):
+            engine._wait_for_sub_flows(
+                batch_futures=[
+                    BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
+                    BatchFuture(batch_id="batch-1", batch_num=1, future=remaining_future),
+                ],
+                global_config=global_config,
+            )
+
+        # Verify remaining batch was cancelled
+        remaining_future.cancel.assert_called_once()
+
+    def test_wait_for_sub_flows_empty_batch_list(self):
+        """Verify handling of empty batch list."""
+        from docpipe.core.orchestration.prefect.prefect_engine import PrefectEngine
+
+        orchestrator = MagicMock()
+        orchestrator.logger = MagicMock()
+        orchestrator.common_log_arguments = {
+            DocpipeConstants.JOB_ID: "job-1",
+            DocpipeConstants.JOB_RUN_ID: "run-1",
+        }
+
+        engine = PrefectEngine(
+            orchestrator=orchestrator,
+            batch_manager=BatchManager(),
+            job_id="job-1",
+            job_run_id="run-1",
+            job_log_path="job.log",
+        )
+
+        # Should not raise any exception with empty batch list
+        engine._wait_for_sub_flows(
+            batch_futures=[],
+            global_config={},
+        )
+
+        # Should complete without errors (no batches to process)
 
 
 if __name__ == "__main__":

@@ -546,6 +546,24 @@ class JobStatsService(ABC):
         pass
 
     @abstractmethod
+    def mark_pending_batches_as_skipped(self, *, job_run_id: str, reason: str) -> None:
+        """
+        Mark all PENDING/QUEUED batch node stats as SKIPPED.
+
+        Used in fail-fast mode when flow fails before all batches execute.
+        This ensures proper status aggregation - without this, pending batches
+        cause operators to show as "Running" instead of their actual terminal status.
+
+        Args:
+            job_run_id: Job run identifier
+            reason: Reason for skipping (e.g., "Skipped - flow failed in fail-fast mode")
+
+        Raises:
+            JobRunNotFoundException: If job_run_id not found
+        """
+        pass
+
+    @abstractmethod
     def get_formatted_job_stats(self, *, job_run_id: str, include_logs: bool = False) -> Any:
         """
         Get job statistics with detailed formatting for API responses.
@@ -594,5 +612,24 @@ class JobStatsService(ABC):
 
         Raises:
             DocpipeException: If flow definition cannot be saved
+        """
+        pass
+
+    @abstractmethod
+    def detect_partial_batch_failure(self, *, job_stats: "JobStats", global_config: dict) -> bool:
+        """
+        Detect if this is a partial batch failure scenario.
+
+        Returns True if:
+        - Micro-batching is enabled
+        - continue_on_batch_failure is True
+        - Some (but not all) batch node stats have FAILED status
+
+        Args:
+            job_stats: Job statistics including batch_node_stats
+            global_config: Global configuration dictionary (required)
+
+        Returns:
+            True if partial batch failure detected, False otherwise
         """
         pass

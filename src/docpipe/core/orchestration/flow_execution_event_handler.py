@@ -98,7 +98,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         else:
             logger.warning("No node stats found when determining final job status", extra=self.common_log_arguments)
 
-    def _determine_job_status_from_stats(self, op_flow) -> ExecutionStatus:
+    def _determine_job_status_from_stats(self, op_flow, global_config=None) -> ExecutionStatus:
         """Determine final job status from job stats."""
         if not self.job_stats_service:
             return ExecutionStatus.FAILED
@@ -108,6 +108,25 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             self.job_stats_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
             self._log_node_stats_debug(job_stats)
 
+            # Check for partial batch failure in continue_on_batch_failure mode
+            # Delegate to JobStatsService for batch failure detection logic
+            # Use empty dict if global_config is None
+            is_partial_batch_failure = self.job_stats_service.detect_partial_batch_failure(
+                job_stats=job_stats, global_config=global_config or {}
+            )
+
+            if is_partial_batch_failure:
+                # Partial batch failure: some batches succeeded, some failed
+                # Override status to COMPLETED_WITH_ERRORS regardless of node stats
+                job_status = ExecutionStatus.COMPLETED_WITH_ERRORS
+                logger.info(
+                    "Partial batch failure detected: setting job status to COMPLETED_WITH_ERRORS",
+                    extra=self.common_log_arguments,
+                )
+                return job_status
+
+            # Normal status determination based on node stats
+            # Ensure node_stats is not None before passing to determine_final_job_status
             node_stats_for_status = job_stats.node_stats if job_stats.node_stats else {}
             logger.debug(
                 f"About to determine status. node_stats_for_status type: {type(node_stats_for_status)}, len: {len(node_stats_for_status) if node_stats_for_status else 0}",
@@ -118,22 +137,24 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             logger.warning("Job stats not found when determining final status", extra=self.common_log_arguments)
             return ExecutionStatus.FAILED
 
-    def _determine_final_status(self, op_flow, present_job_status: ExecutionStatus) -> ExecutionStatus:
+    def _determine_final_status(
+        self, op_flow, present_job_status: ExecutionStatus, global_config=None
+    ) -> ExecutionStatus:
         """Determine final job status based on present status."""
         if present_job_status == ExecutionStatus.CANCELING:
             return ExecutionStatus.CANCELED
         elif present_job_status == ExecutionStatus.FAILING:
             return ExecutionStatus.FAILED
         else:
-            return self._determine_job_status_from_stats(op_flow)
+            return self._determine_job_status_from_stats(op_flow, global_config)
 
-    def after_flow_execution_complete(self, op_flow, present_job_status: ExecutionStatus, message):
+    def after_flow_execution_complete(self, op_flow, present_job_status: str, message, global_config=None):
         """Finalize internal job stats and push final framework status with complete statistics."""
         if not self.job_stats_service or not self.job_run_id:
             logger.warning("Job stats service or job_run_id not available", extra=self.common_log_arguments)
             return
 
-        job_status = self._determine_final_status(op_flow, present_job_status)
+        job_status = self._determine_final_status(op_flow, present_job_status, global_config)
 
         self.job_stats_service.end_job(
             job_run_id=self.job_run_id,

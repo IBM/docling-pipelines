@@ -1348,6 +1348,51 @@ class JobTrackerService(JobStatsService):
                 error_code=ErrorCode.STORAGE_ERROR,
             ) from e
 
+    def detect_partial_batch_failure(self, *, job_stats: JobStats, global_config: dict) -> bool:
+        """
+        Detect if this is a partial batch failure scenario.
+
+        Returns True if:
+        - Micro-batching is enabled
+        - continue_on_batch_failure is True
+        - Some (but not all) batch node stats have FAILED status
+
+        Args:
+            job_stats: Job statistics including batch_node_stats
+            global_config: Global configuration dictionary (required)
+
+        Returns:
+            True if partial batch failure detected, False otherwise
+        """
+        from docpipe.core.constants.constants import DocpipeConstants
+
+        # Check if micro-batching and continue_on_batch_failure are enabled
+        is_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+        continue_on_failure = global_config.get(
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE, DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT
+        )
+
+        if not (is_batching_enabled and continue_on_failure):
+            return False
+
+        # Check batch_node_stats for mixed success/failure
+        if not job_stats.batch_node_stats:
+            return False
+
+        # Count failed and total batches across all nodes
+        failed_batch_count = 0
+        total_batch_count = 0
+
+        for _node_id, batch_records in job_stats.batch_node_stats.items():
+            for _batch_id, batch_stat in batch_records.items():
+                total_batch_count += 1
+                batch_status = batch_stat.node_status
+                if batch_status == ExecutionStatus.FAILED.value:
+                    failed_batch_count += 1
+
+        # Partial failure: some failed but not all
+        return 0 < failed_batch_count < total_batch_count
+
     @staticmethod
     def _calculate_node_sequence(*, node_stats: dict) -> list[str]:
         """Calculate node execution sequence based on start_time."""
@@ -1506,3 +1551,75 @@ class JobTrackerService(JobStatsService):
                 f"Created {len(pending_stats_list)} pending batch node stats: "
                 f"{len(batch_ids)} batches x {len(downstream_node_ids)} nodes"
             )
+
+    def mark_pending_batches_as_skipped(self, *, job_run_id: str, reason: str) -> None:
+        """
+        Mark all PENDING/QUEUED batch node stats as SKIPPED.
+
+        Used in fail-fast mode when flow fails before all batches execute.
+        This ensures proper status aggregation - without this, pending batches
+        cause operators to show as "Running" instead of their actual terminal status.
+
+        Args:
+            job_run_id: Job run identifier
+            reason: Reason for skipping (e.g., "Skipped - flow failed in fail-fast mode")
+
+        Raises:
+            JobRunNotFoundException: If job_run_id not found
+        """
+        # Get all node stats for this job run
+        all_node_stats = self.job_stats_store.get_node_stats(job_run_id=job_run_id)
+
+        if not all_node_stats:
+            logger.warning(f"No node stats found for job_run_id={job_run_id}")
+            return
+
+        # Handle both dict and list return types
+        if isinstance(all_node_stats, dict):
+            records_list = list(all_node_stats.values())
+        elif isinstance(all_node_stats, list):
+            records_list = all_node_stats
+        else:
+            logger.error(f"Unexpected return type from get_node_stats: {type(all_node_stats)}")
+            return
+
+        # Filter for PENDING/QUEUED batch records
+        pending_records = [
+            r
+            for r in records_list
+            if getattr(r, "batch_id", None) is not None
+            and getattr(r, "node_status", None) in (ExecutionStatus.PENDING.value, ExecutionStatus.QUEUED.value)
+        ]
+
+        if not pending_records:
+            logger.debug(f"No pending batch node stats found for job_run_id={job_run_id}")
+            return
+
+        # Update each pending record to SKIPPED
+        updated_stats = []
+        for record in pending_records:
+            # Create updated NodeStats with SKIPPED status
+            updated_record = NodeStats(
+                node_id=record.node_id,
+                name=record.name,
+                node_status=ExecutionStatus.SKIPPED.value,
+                batch_id=record.batch_id,
+                batch_num=getattr(record, "batch_num", None),
+                start_time=record.start_time if hasattr(record, "start_time") else 0,
+                end_time=record.end_time if hasattr(record, "end_time") else 0,
+                time_taken=record.time_taken if hasattr(record, "time_taken") else 0,
+                total_docs=record.total_docs if hasattr(record, "total_docs") else [],
+                docs_completed=record.docs_completed if hasattr(record, "docs_completed") else [],
+                docs_completed_count=record.docs_completed_count if hasattr(record, "docs_completed_count") else 0,
+                failed_docs=record.failed_docs if hasattr(record, "failed_docs") else [],
+                skipped_docs=record.skipped_docs if hasattr(record, "skipped_docs") else [],
+                col_names=record.col_names if hasattr(record, "col_names") else [],
+                node_metadata={OperatorConstants.Metadata.NODE_METADATA: {"skip_reason": reason}},
+                error="",
+            )
+            updated_stats.append(updated_record)
+
+        # Bulk update all pending stats to SKIPPED
+        if updated_stats:
+            self.job_stats_store.bulk_store_node_stats(job_run_id=job_run_id, node_stats_list=updated_stats)
+            logger.info(f"Marked {len(updated_stats)} pending batch node stats as SKIPPED for job_run_id={job_run_id}")

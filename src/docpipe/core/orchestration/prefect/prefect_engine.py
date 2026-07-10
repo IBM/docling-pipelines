@@ -20,7 +20,7 @@ from prefect.runtime import task_run  # noqa: E402
 from prefect.states import Completed  # noqa: E402
 from prefect.task_runners import TaskRunner, ThreadPoolTaskRunner  # noqa: E402
 
-from docpipe.core.constants.constants import DocpipeConstants, TaskType  # noqa: E402
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, TaskType  # noqa: E402
 from docpipe.core.constants.operator_constants import OperatorConstants  # noqa: E402
 from docpipe.core.incremental_metadata import IncrementalUpdateService  # noqa: E402
 from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store  # noqa: E402
@@ -285,20 +285,31 @@ class PrefectEngine(FlowEnginePort):
         # calls ThreadPoolTaskRunner.__exit__ → cancel_all() → executor.shutdown(cancel_futures=True).
         # Any tasks still running at that point get cancelled with CancelledError → Crashed state.
         # By resolving all futures here, we ensure the ThreadPoolTaskRunner is still active.
-        self._wait_for_sub_flows(batch_futures=batch_futures)
+        self._wait_for_sub_flows(batch_futures=batch_futures, global_config=global_config)
 
         return batch_futures
 
-    def _wait_for_sub_flows(self, *, batch_futures: list[BatchFuture]):
+    def _wait_for_sub_flows(self, *, batch_futures: list[BatchFuture], global_config: dict):
         """
         Wait for all sub-flows (batches) to complete with fail-fast cancellation.
+
+        Behavior is controlled by the continue_on_batch_failure flag:
+        - False (default): Fail-fast - cancel remaining batches on first failure
+        - True: Continue execution - allow all batches to complete even if some fail,
+                but raise exception if ALL batches fail
 
         Note: This method does not return batch results to avoid loading all PyArrow tables
         into memory. Each sub-flow saves its metadata incrementally.
         """
+        continue_on_batch_failure = global_config.get(
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE,
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT,
+        )
+
         failed_batch = None
         cancellation_event = threading.Event()
         cancelled_batch_futures: list[BatchFuture] = []
+        failed_batch_nums: list[int] = []
 
         try:
             for future_index, batch_future in enumerate(batch_futures):
@@ -307,7 +318,7 @@ class PrefectEngine(FlowEnginePort):
                     extra=self.common_log_arguments,
                 )
 
-                # Check if another batch already failed
+                # Check if another batch already failed (only in fail-fast mode)
                 if cancellation_event.is_set():
                     try:
                         # PrefectFuture.cancel() exists at runtime in Prefect 2.x
@@ -332,7 +343,16 @@ class PrefectEngine(FlowEnginePort):
                     )
 
                 except Exception as e:
-                    # Batch failed - trigger cancellation
+                    if continue_on_batch_failure:
+                        # Track failed batch and continue
+                        failed_batch_nums.append(batch_future.batch_num)
+                        self.logger.warning(
+                            f"Batch {batch_future.batch_num} failed but continuing with remaining batches due to continue_on_batch_failure=True: {e}",
+                            extra=self.common_log_arguments,
+                        )
+                        continue
+
+                    # Fail-fast mode: Batch failed - trigger cancellation
                     failed_batch = batch_future.batch_num
                     cancellation_event.set()
 
@@ -361,6 +381,25 @@ class PrefectEngine(FlowEnginePort):
                     raise FlowExecutionFailedException(
                         f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed during sub-flow execution: {type(e).__name__}: {e}"
                     ) from e
+
+            # After all batches complete, check failure scenarios in continue_on_batch_failure mode
+            if continue_on_batch_failure and failed_batch_nums:
+                if len(failed_batch_nums) == len(batch_futures):
+                    # All batches failed - set job status to FAILING
+                    # after_flow_execution_complete will convert FAILING → FAILED
+                    self.orchestrator.job_status = ExecutionStatus.FAILING
+                    self.orchestrator.message = f"All {len(batch_futures)} batches failed: {failed_batch_nums}"
+                    self.logger.error(
+                        f"All {len(batch_futures)} batches failed: {failed_batch_nums}",
+                        extra=self.common_log_arguments,
+                    )
+                else:
+                    # Some batches failed but not all - log warning
+                    # Status will be determined by after_flow_execution_complete based on node stats
+                    self.logger.warning(
+                        f"Partial batch failure: {len(failed_batch_nums)} out of {len(batch_futures)} batches failed: {failed_batch_nums}",
+                        extra=self.common_log_arguments,
+                    )
         finally:
             for cancelled_batch_future in cancelled_batch_futures:
                 try:
@@ -541,6 +580,11 @@ class PrefectEngine(FlowEnginePort):
         initial_batch_result = ExecuteStepResults([data_access], [batch_table], {})
 
         for op_def in op_flow:
+            # In fail-fast mode, stop submitting new tasks if a failure has occurred
+            if self.orchestrator.job_status == ExecutionStatus.FAILING:
+                # Skip remaining operators - they will be recorded as skipped by _inner_task
+                continue
+
             index = node_id_to_index_map[op_def[OperatorConstants.Columns.ID]]
             try:
                 link_id = op_def.get(OperatorConstants.Misc.LINK_ID, None)
@@ -575,6 +619,22 @@ class PrefectEngine(FlowEnginePort):
                 self.orchestrator._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
 
         self.__wait_for_tasks(destinations=destinations)
+
+        # Check if batch failed in fail-fast mode and raise exception immediately
+        # This prevents unnecessary result collection and metadata saving
+        # Exception is caught by _wait_for_sub_flows() which cancels remaining batches
+        continue_on_batch_failure = global_config.get(
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE, DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT
+        )
+        if self.orchestrator.job_status == ExecutionStatus.FAILING and not continue_on_batch_failure:
+            batch_num = global_config.get(DocpipeConstants.BATCH_NUM, "unknown")
+            micro_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+            raise FlowExecutionFailedException(
+                f"Batch {batch_num}: One or more operators failed "
+                f"(micro_batching_enabled={micro_batching_enabled}, continue_on_batch_failure={continue_on_batch_failure})"
+            )
+
+        # Only collect results and save metadata if batch succeeded
         failed_doc_ids = self._collect_failed_doc_ids()
 
         tables = [

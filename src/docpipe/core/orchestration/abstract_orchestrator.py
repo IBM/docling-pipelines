@@ -181,9 +181,20 @@ class AbstractOrchestrator(ABC):
         return None
 
     def _handle_node_failure(self, *, e, op_def, global_config):
-        self.job_status = ExecutionStatus.FAILING
-        # Capture error message for job-level message field
-        self.message = str(e)
+        # Check if continue_on_batch_failure is enabled
+        is_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+        continue_on_batch_failure = global_config.get(
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE,
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT,
+        )
+
+        # Only set job_status to FAILING if not in continue_on_batch_failure mode
+        # In continue_on_batch_failure mode, status will be determined by after_flow_execution_complete
+        if not (is_batching_enabled and continue_on_batch_failure):
+            self.job_status = ExecutionStatus.FAILING
+            # Capture error message for job-level message field
+            self.message = str(e)
+
         self.flow_execution_event_handler.after_node_failure(
             node_id=op_def[OperatorConstants.Columns.ID],
             node_name=op_def[OperatorConstants.Columns.NAME],
@@ -273,6 +284,18 @@ class AbstractOrchestrator(ABC):
         deleted_docs_count,
     ):
         start = get_current_timestamp()
+
+        # CRITICAL FIX: Check job_status BEFORE creating executor to prevent downstream
+        # operators from executing when an upstream operator fails in fail-fast mode.
+        # This prevents resource waste and potential side effects.
+        if self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
+            self.logger.info(
+                f"Skipping operator {op_def[OperatorConstants.Columns.NAME]} - job is in {self.job_status.value} state",
+                extra=self.common_log_arguments,
+            )
+            # Return empty result to signal skip to downstream operators
+            return ExecuteStepResults([], [], {})
+
         executor = self.create_executor(op_def=op_def, global_config=global_config)
 
         if isinstance(prev_results, ExecuteStepResults):
@@ -370,6 +393,26 @@ class AbstractOrchestrator(ABC):
                 self.logger.info(f"Successfully captured {cumulative_deleted_rows.num_rows} deleted documents.")
             except Exception as e:
                 self.logger.warning(f"Failed to save unprocessed docs table — skipping it. Error: {e}")
+
+    def _mark_pending_batches_as_skipped(self) -> None:
+        """
+        Mark all PENDING/QUEUED batch node stats as SKIPPED when flow fails in fail-fast mode.
+
+        This ensures proper status aggregation - without this, pending batches cause
+        operators to show as "Running" instead of their actual terminal status.
+        """
+        if not self.job_stats_service or not self.job_run_id:
+            return
+
+        try:
+            self.job_stats_service.mark_pending_batches_as_skipped(
+                job_run_id=self.job_run_id, reason="Skipped - flow failed in fail-fast mode before batch execution"
+            )
+            self.logger.info(
+                "Marked pending batches as skipped due to fail-fast mode failure", extra=self.common_log_arguments
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to mark pending batches as skipped: {e}", extra=self.common_log_arguments)
 
     def _cleanup_memmap_files(self):
         """Clean up temporary memmap files after flow execution if memmap storage was used."""
@@ -547,9 +590,9 @@ class AbstractOrchestrator(ABC):
             # steps in output edges will exit early
             return None
 
-    def _finalize_dag_flow(self, *, op_flow):
+    def _finalize_dag_flow(self, *, op_flow, global_config=None):
         self.flow_execution_event_handler.after_flow_execution_complete(
-            op_flow=op_flow, present_job_status=self.job_status, message=self.message
+            op_flow=op_flow, present_job_status=self.job_status, message=self.message, global_config=global_config
         )
 
     def _populate_ingest_source_config(self, *, ingest_operator, global_config):
@@ -642,7 +685,7 @@ class AbstractOrchestrator(ABC):
         if ingested_table.num_rows == 0:
             self.logger.info(">>> No data to process - skipping flow execution", extra=self.common_log_arguments)
             clean_up_prefect_home()
-            self._finalize_dag_flow(op_flow=op_flow)
+            self._finalize_dag_flow(op_flow=op_flow, global_config=global_config)
             return
 
         # Prepare batches using batch manager
@@ -668,11 +711,34 @@ class AbstractOrchestrator(ABC):
         )
 
         # Build and execute batch flow (works for both single and multiple batches)
-        if self.flow_engine:
-            self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
+        # Batch failures are handled in _wait_for_sub_flows() in prefect_engine.py
+        batch_execution_failed = False
+        try:
+            if self.flow_engine:
+                self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
+        except Exception:
+            # Mark that batch execution failed so we can clean up pending batches
+            batch_execution_failed = True
+            raise
+        finally:
+            # Mark any remaining PENDING/QUEUED batch node stats as SKIPPED when batch execution fails
+            # This ensures proper status aggregation in fail-fast mode
+            # Check both job_status and batch_execution_failed because in fail-fast mode,
+            # the exception may be raised before job_status is updated to FAILING
+            is_fail_fast = not global_config.get(
+                DocpipeConstants.CONTINUE_ON_BATCH_FAILURE, DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT
+            )
+            if (
+                (batch_execution_failed or self.job_status == ExecutionStatus.FAILING)
+                and global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+                and is_fail_fast
+            ):
+                self._mark_pending_batches_as_skipped()
 
-        clean_up_prefect_home()
-        self._finalize_dag_flow(op_flow=op_flow)
+            # Always finalize flow execution to ensure proper status reporting and cleanup
+            # This ensures operator summary is printed even when batches fail in fail-fast mode
+            clean_up_prefect_home()
+            self._finalize_dag_flow(op_flow=op_flow, global_config=global_config)
 
     def _create_empty_result(self):
         data_access_factory = DataAccessFactory()
