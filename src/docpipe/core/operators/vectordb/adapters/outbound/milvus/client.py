@@ -175,9 +175,8 @@ class MilvusClient:
         """
         self._validate_parameters()
 
-        logger.info(f"Connecting to Milvus using auth_type: {self.auth_type}")
-
         try:
+            # Ref: https://milvus.io/api-reference/pymilvus/v2.6.x/MilvusClient/Client/MilvusClient.md
             client_params: dict[str, Any] = {
                 "db_name": self.database,
                 "timeout": self.timeout,
@@ -188,54 +187,38 @@ class MilvusClient:
                 # Format: https://ibmlhapikey_<username>:<api-key>@<host>:<port>
                 client_params["uri"] = self.uri
                 client_params["secure"] = self.secure
-                logger.info(f"Connecting to Milvus via URI (api-key based, secure={self.secure})")
 
             elif self.auth_type == "token":
                 # Token-based connection - construct URI with IAM token
                 # Format: https://ibmlhtoken_<username>:<token>@<host>:<port>
-                constructed_uri = f"https://ibmlhtoken_{self.username}:{self.token}@{self.host}:{self.port}"
-                client_params["uri"] = constructed_uri
+                client_params["uri"] = f"https://{self.host}:{self.port}"
                 client_params["secure"] = self.secure
-                logger.info(
-                    f"Connecting to Milvus via constructed URI (IAM token based) at {self.host}:{self.port} (secure={self.secure})"
-                )
+                client_params["token"] = f"ibmlhtoken_{self.username}:{self.token}"
+
+            elif self.auth_type == "grpc":
+                # IBM wx.data with gRPC — construct https URI, pass credentials as token
+                host = self.host if self.host and self.host.startswith("https://") else f"https://{self.host}"
+                client_params["uri"] = f"{host}:{self.port}"
+                client_params["secure"] = self.secure
+                client_params["token"] = f"{self.username}:{self.password}"
 
             else:
-                # Host-based connection (standalone or grpc)
-                client_params["host"] = self.host
-                client_params["port"] = self.port
+                # Standalone — construct http URI from host/port
+                client_params["uri"] = f"http://{self.host}:{self.port}"
+                if self.username and self.password:
+                    client_params["token"] = f"{self.username}:{self.password}"
 
-                if self.auth_type == "grpc":
-                    # IBM wx.data with gRPC - construct URI
-                    # Check if host already has protocol, if not add https://
-                    if self.host and self.host.startswith("https://"):
-                        constructed_uri = f"{self.host}:{self.port}"
-                    else:
-                        constructed_uri = f"https://{self.host}:{self.port}"
-                    client_params["uri"] = constructed_uri
-                    client_params["user"] = self.username
-                    client_params["password"] = self.password
-                    logger.info(f"Connecting to Milvus (wx.data gRPC) via URI: {constructed_uri}")
-                else:
-                    # Standalone
-                    if self.username and self.password:
-                        constructed_uri = f"http://{self.host}:{self.port}"
-                        client_params["uri"] = constructed_uri
-                        client_params["user"] = self.username
-                        client_params["password"] = self.password
-                    logger.info(f"Connecting to Milvus (standalone) at {self.host}:{self.port}")
-
+            logger.info(f"Connecting to Milvus [{self.auth_type}]")
             self._client = PyMilvusClient(**client_params)
 
             # Test connection
             _ = self._client.list_collections()
-            logger.info(f"Successfully connected to Milvus using {self.auth_type} auth_type")
+            logger.info(f"Successfully connected to Milvus using {self.auth_type} authentication type")
             return self._client
 
         except Exception as exc:
-            error_location = self.uri if self.uri else f"{self.host}:{self.port}"
             raise DocpipeException(
-                message=f"MilvusDB Error: Failed to connect at {error_location} using {self.auth_type} auth_type: {exc}",
+                message=f"MilvusDB Error: Failed to connect using {self.auth_type} auth_type: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OPERATOR_EXECUTION_FAILED,
             ) from exc

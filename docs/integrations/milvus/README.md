@@ -29,8 +29,8 @@ MilvusAdapter (VectorStorePort)
 
 1. **MilvusClient** (`adapters/outbound/milvus/client.py`)
    - Manages connections to Milvus
-   - Supports both host/port and URI-based connections
-   - Handles authentication (token or user/password)
+   - Always constructs a URI internally from host/port (PyMilvusClient only accepts `uri`, not `host`/`port` directly)
+   - Handles authentication via `token="user:password"`
 
 2. **MilvusIndexManager** (`adapters/outbound/milvus/index_manager.py`)
    - Creates and manages collections
@@ -712,14 +712,15 @@ Feature mappings define which PyArrow table columns are stored in Milvus:
 
 **Problem**: Cannot connect to Milvus
 ```
-Failed to connect to Milvus at localhost:19530
+MilvusDB Error: Failed to connect using standalone auth_type: Fail connecting to server on localhost:19530, illegal connection params or server unavailable
 ```
 
 **Solutions**:
-1. Verify Milvus is running: `docker ps | grep milvus`
-2. Check port accessibility: `telnet localhost 19530`
-3. Verify credentials (if using authentication)
-4. For wx.data, check token validity
+1. Verify Milvus is running: `curl http://localhost:9091/healthz` (should return `OK`)
+2. Start with Docker: `docker compose -f docker/docker-compose.milvus.yml up -d`
+3. Check port accessibility: `telnet localhost 19530`
+4. Verify credentials match your Milvus setup (default: `root` / `Milvus`)
+5. For wx.data, check token validity
 
 ### macOS gRPC DNS Resolution Issue
 

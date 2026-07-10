@@ -484,13 +484,6 @@ for failed_doc in metadata['failed_docs']:
 
 ## Troubleshooting
 
-### Connection Issues
-```python
-# Verify Milvus is running
-# Default: localhost:19530
-# Check credentials match your Milvus setup
-```
-
 ### Schema Mismatch
 ```python
 # Ensure vector dimensions match your embedding model

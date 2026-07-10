@@ -53,36 +53,38 @@ class TestMilvusClient:
 
     @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_connect_with_host(self, mock_pymilvus_client):
-        """Test connection with host-based configuration."""
+        """Test connection with host-based configuration (standalone).
+        PyMilvusClient only accepts uri, not host/port — client constructs uri from host/port.
+        """
         mock_client_instance = Mock()
         mock_client_instance.list_collections.return_value = []
         mock_pymilvus_client.return_value = mock_client_instance
 
-        client = MilvusClient(host="localhost", port=19530, auth_type="standalone")
+        client = MilvusClient(host="localhost", port=19530, auth_type="standalone")  # pragma: allowlist secret
         result = client.connect()
 
         assert result == mock_client_instance
         mock_pymilvus_client.assert_called_once()
         call_kwargs = mock_pymilvus_client.call_args[1]
-        assert call_kwargs["host"] == "localhost"
-        assert call_kwargs["port"] == 19530
+        assert "host" not in call_kwargs
+        assert "port" not in call_kwargs
+        assert call_kwargs["uri"] == "http://localhost:19530"
 
     @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_connect_with_uri(self, mock_pymilvus_client):
-        """Test connection with URI-based configuration."""
+        """Test connection with pre-constructed URI configuration."""
         mock_client_instance = Mock()
         mock_client_instance.list_collections.return_value = []
         mock_pymilvus_client.return_value = mock_client_instance
 
-        client = MilvusClient(uri="http://localhost:19530", token="test-token", auth_type="uri")
+        client = MilvusClient(uri="http://localhost:19530", auth_type="uri")
         result = client.connect()
 
         assert result == mock_client_instance
         mock_pymilvus_client.assert_called_once()
         call_kwargs = mock_pymilvus_client.call_args[1]
         assert call_kwargs["uri"] == "http://localhost:19530"
-        # URI auth embeds token in URI, not passed separately
-        assert "token" not in call_kwargs or call_kwargs.get("token") == "test-token"
+        assert "token" not in call_kwargs
 
     @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_connect_failure(self, mock_pymilvus_client):

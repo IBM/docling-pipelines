@@ -129,9 +129,12 @@ class VectorStoreFactory:
             module = importlib.import_module(module_path)
             adapter_class = getattr(module, class_name)
 
-            # Move to eager registry after successful load
+            # Move to eager registry after successful load.
+            # Use pop() instead of del — the @register_vector_store decorator on the adapter
+            # class calls register() during import, which already removes the entry from
+            # _lazy_adapters via pop(). A second del here raises KeyError: 'milvus'.
             cls._adapters[adapter_name] = adapter_class
-            del cls._lazy_adapters[adapter_name]
+            cls._lazy_adapters.pop(adapter_name, None)
 
             logger.info(f"Successfully loaded lazy adapter: {adapter_name}")
             return adapter_class
