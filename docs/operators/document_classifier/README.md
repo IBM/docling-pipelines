@@ -591,7 +591,7 @@ curl http://localhost:11434/api/tags
 
 Sample flows demonstrating document classification are available in `sample_flows/operators/`:
 
-- [`classification_ollama.json`](../../../../../../sample_flows/operators/classification_ollama.json): Document classification using Ollama provider
+- [`classification_ollama.json`](../../../sample_flows/operators/classification_ollama.json): Document classification using Ollama provider
 
 ---
 
@@ -688,10 +688,10 @@ class ModelInfo:
 
 ## Related Documentation
 
-- [Extract Operator](../../../../../../docs/operators/extract/extract_operator_config.md) - Document content extraction
-- [Embeddings Operator](../../../../../../docs/operators/embeddings/embeddings_config.md) - Vector embeddings generation
-- [Architecture Guide](../../../../../../ARCHITECTURE.md) - System architecture overview
-- [Operator Reference](../../../../../../docs/reference/OPERATORS.md) - Complete operator API reference
+- [Extract Operator](../extract/extract_operator_config.md) - Document content extraction
+- [Embeddings Operator](../embeddings/embeddings_config.md) - Vector embeddings generation
+- [Architecture Guide](../../../ARCHITECTURE.md) - System architecture overview
+- [Operator Reference](../../reference/OPERATORS.md) - Complete operator API reference
 
 ---
 

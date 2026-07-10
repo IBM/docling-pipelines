@@ -353,4 +353,4 @@ The operator provides metadata about chunking operations:
 
 - [Docling Documentation](https://github.com/DS4SD/docling)
 - [Docling-serve API](https://github.com/DS4SD/docling-serve)
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) - System architecture overview
+- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture overview

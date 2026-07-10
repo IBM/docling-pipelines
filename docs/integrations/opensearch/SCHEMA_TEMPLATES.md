@@ -830,7 +830,7 @@ These fields are automatically collected into a `metadata` object:
 
 ## Additional Resources
 
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) - System architecture and design patterns
+- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture and design patterns
 - [OPERATOR_REFERENCE.md](../../reference/OPERATORS.md) - VectorDBOperator documentation
-- [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md) - Complete pipeline setup guide
+- [USER_GUIDE_PIPELINE_SETUP.md](../../../USER_GUIDE_PIPELINE_SETUP.md) - Complete pipeline setup guide
 - [OpenSearch KNN Documentation](https://opensearch.org/docs/latest/search-plugins/knn/index/) - Official OpenSearch KNN guide

@@ -139,25 +139,25 @@ Group your configuration fields logically:
 ```python
 class ConnectorConfig(BaseModel):
     """Configuration for Connector."""
-    
+
     # 1. Connection Parameters (how to reach the service)
     host: str = Field(..., description="Service hostname")
     port: int = Field(443, description="Service port")
-    
+
     # 2. Authentication (how to authenticate)
     api_key: str = Field(..., description="API key")
     # OR
     username: str = Field(..., description="Username")
     password: str = Field(..., description="Password")
-    
+
     # 3. Data Location (what data to fetch)
     folder_path: str = Field("/", description="Folder to ingest")
     database: str = Field(..., description="Database name")
-    
+
     # 4. Behavior (how to fetch)
     recursive: bool = Field(True, description="Recursive traversal")
     batch_size: int = Field(100, description="Batch size")
-    
+
     # 5. Filters (what to include/exclude)
     file_extensions: List[str] = Field(default_factory=list)
     max_file_size_mb: Optional[int] = None
@@ -188,18 +188,18 @@ from typing import Optional, List
 
 class YourConnectorConfig(BaseModel):
     """Configuration for Your Connector source."""
-    
+
     # Connection parameters
     api_endpoint: str = Field(..., description="API endpoint URL")
     folder_path: str = Field("/", description="Folder path to start from")
-    
+
     # Credentials
     access_token: str = Field(..., description="Access token for authentication")
-    
+
     # Optional parameters
     recursive: bool = Field(True, description="Recursively list folders")
     file_types: Optional[List[str]] = Field(None, description="File types to include")
-    
+
     @field_validator("access_token")
     @classmethod
     def validate_token(cls, v: str) -> str:
@@ -230,29 +230,29 @@ from .config import YourConnectorConfig
 @register_source_adapter
 class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
     """Adapter for Your Connector data source."""
-    
+
     # Metadata for connector discovery
     SOURCE_NAME = "your_connector"
     SOURCE_DISPLAY_NAME = "Your Connector"
     SOURCE_DESCRIPTION = "Ingest documents from Your Connector"
     SOURCE_VERSION = "1.0.0"
-    
+
     async def fetch_documents(
         self, *, config: YourConnectorConfig
     ) -> AsyncGenerator[Document, None]:
         """
         Fetch documents from Your Connector.
-        
+
         Args:
             config: Configuration for the connector
-            
+
         Yields:
             Document: Domain document with content and metadata
         """
         async with aiohttp.ClientSession() as session:
             # List files from API
             files = await self._list_files(session=session, config=config)
-            
+
             # Download and yield each file
             for file_metadata in files:
                 try:
@@ -262,7 +262,7 @@ class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
                         config=config,
                         file_metadata=file_metadata,
                     )
-                    
+
                     # Create domain Document
                     doc = Document(
                         id=file_metadata["id"],
@@ -279,14 +279,14 @@ class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
                             # Add any connector-specific metadata
                         }
                     )
-                    
+
                     yield doc
-                    
+
                 except Exception as e:
                     # Log error but continue processing other files
                     print(f"Error processing {file_metadata['name']}: {e}")
                     continue
-    
+
     async def _list_files(
         self,
         *,
@@ -300,12 +300,12 @@ class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
             "path": config.folder_path,
             "recursive": config.recursive
         }
-        
+
         async with session.post(url, headers=headers, json=data) as response:
             response.raise_for_status()
             result = await response.json()
             return [entry for entry in result["entries"] if entry["type"] == "file"]
-    
+
     async def _download_file(
         self,
         *,
@@ -319,22 +319,22 @@ class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
             "Authorization": f"Bearer {config.access_token}",
             "File-Path": file_metadata["path"]
         }
-        
+
         async with session.get(url, headers=headers) as response:
             response.raise_for_status()
             return await response.read()
-    
+
     def _get_extension(self, *, filename: str) -> str:
         """Extract file extension."""
         return filename.split(".")[-1] if "." in filename else ""
-    
+
     async def test_connection(self, *, config: YourConnectorConfig) -> tuple[bool, str]:
         """
         Test connection to Your Connector API.
-        
+
         Args:
             config: Configuration for the connector
-            
+
         Returns:
             Tuple[bool, str]: (success, message)
         """
@@ -348,11 +348,11 @@ class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
                     return False, f"Connection failed with status {response.status}"
         except Exception as e:
             return False, f"Connection error: {str(e)}"
-    
+
     def get_config_schema(self) -> type[YourConnectorConfig]:
         """Get the Pydantic configuration model for this source."""
         return YourConnectorConfig
-    
+
     def build_config_from_operator_params(
         self,
         *,
@@ -363,13 +363,13 @@ class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
     ) -> YourConnectorConfig:
         """
         Build adapter-specific configuration from operator parameters.
-        
+
         Args:
             connection_params: Connection parameters from operator config
             credentials: Credentials from operator config
             included_extensions: File extensions to include (optional)
             max_files: Maximum number of files to fetch (optional)
-            
+
         Returns:
             YourConnectorConfig: Adapter-specific configuration object
         """
@@ -491,12 +491,12 @@ from typing import Optional, List
 
 class DropboxConfig(BaseModel):
     """Configuration for Dropbox connector."""
-    
+
     access_token: str = Field(..., description="Dropbox access token")
     folder_path: str = Field("/", description="Folder path to start from")
     recursive: bool = Field(True, description="Recursively list folders")
     file_types: Optional[List[str]] = Field(None, description="File types to include")
-    
+
     @field_validator("access_token")
     @classmethod
     def validate_token(cls, v: str) -> str:
@@ -520,22 +520,22 @@ from .config import DropboxConfig
 @register_source_adapter
 class DropboxSourceAdapter(DocumentSourcePort[DropboxConfig]):
     """Adapter for Dropbox."""
-    
+
     SOURCE_NAME = "dropbox"
     SOURCE_DISPLAY_NAME = "Dropbox"
     SOURCE_DESCRIPTION = "Ingest documents from Dropbox"
     SOURCE_VERSION = "1.0.0"
-    
+
     async def fetch_documents(self, *, config: DropboxConfig) -> AsyncGenerator[Document, None]:
         """Fetch documents from Dropbox."""
         async with aiohttp.ClientSession() as session:
             # List files
             files = await self._list_files(session, config)
-            
+
             # Download and yield each file
             for file_metadata in files:
                 content = await self._download_file(session, config, file_metadata)
-                
+
                 doc = Document(
                     id=file_metadata["id"],
                     name=file_metadata["name"],
@@ -547,9 +547,9 @@ class DropboxSourceAdapter(DocumentSourcePort[DropboxConfig]):
                     extension=file_metadata["name"].split(".")[-1] if "." in file_metadata["name"] else "",
                     metadata={}
                 )
-                
+
                 yield doc
-    
+
     async def _list_files(
         self,
         *,
@@ -560,12 +560,12 @@ class DropboxSourceAdapter(DocumentSourcePort[DropboxConfig]):
         url = "https://api.dropboxapi.com/2/files/list_folder"
         headers = {"Authorization": f"Bearer {config.access_token}"}
         data = {"path": config.folder_path, "recursive": config.recursive}
-        
+
         async with session.post(url, headers=headers, json=data) as response:
             response.raise_for_status()
             result = await response.json()
             return [entry for entry in result["entries"] if entry[".tag"] == "file"]
-    
+
     async def _download_file(
         self,
         *,
@@ -579,11 +579,11 @@ class DropboxSourceAdapter(DocumentSourcePort[DropboxConfig]):
             "Authorization": f"Bearer {config.access_token}",
             "Dropbox-API-Arg": json.dumps({"path": file_metadata["path_lower"]})
         }
-        
+
         async with session.post(url, headers=headers) as response:
             response.raise_for_status()
             return await response.read()
-    
+
     async def test_connection(self, *, config: DropboxConfig) -> tuple[bool, str]:
         """Test connection to Dropbox."""
         try:
@@ -596,11 +596,11 @@ class DropboxSourceAdapter(DocumentSourcePort[DropboxConfig]):
                     return False, f"Connection failed with status {response.status}"
         except Exception as e:
             return False, f"Connection error: {str(e)}"
-    
+
     def get_config_schema(self) -> type[DropboxConfig]:
         """Get the Pydantic configuration model."""
         return DropboxConfig
-    
+
     def build_config_from_operator_params(
         self,
         *,
@@ -637,9 +637,9 @@ async def test_your_connector_fetch_documents():
         access_token="test_token_1234567890",
         folder_path="/test"
     )
-    
+
     adapter = YourConnectorSourceAdapter()
-    
+
     with patch.object(adapter, '_list_files', new_callable=AsyncMock) as mock_list:
         with patch.object(adapter, '_download_file', new_callable=AsyncMock) as mock_download:
             # Mock API responses
@@ -652,12 +652,12 @@ async def test_your_connector_fetch_documents():
                 }
             ]
             mock_download.return_value = b"test content"
-            
+
             # Fetch documents
             documents = []
             async for doc in adapter.fetch_documents(config=config):
                 documents.append(doc)
-            
+
             # Assertions
             assert len(documents) == 1
             assert documents[0].name == "test.txt"
@@ -673,7 +673,7 @@ def test_config_validation():
         folder_path="/test"
     )
     assert config.access_token == "valid_token_1234567890"
-    
+
     # Invalid token (too short)
     with pytest.raises(ValueError, match="Invalid access token"):
         YourConnectorConfig(
@@ -690,7 +690,7 @@ def test_config_validation():
 async def test_your_connector_integration():
     """Integration test with IngestSourceOperator."""
     from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
-    
+
     config = {
         "provider": "your_connector",
         "connection_params": {
@@ -704,15 +704,15 @@ async def test_your_connector_integration():
         "job_id": "test-job-123",
         "job_run_id": "test-run-456"
     }
-    
+
     operator = IngestSourceOperator(config)
-    
+
     # Mock the adapter
     with patch(
         "docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.create"
     ) as mock_create:
         mock_adapter = Mock()
-        
+
         async def mock_fetch(config):
             yield Mock(
                 id="1",
@@ -725,13 +725,13 @@ async def test_your_connector_integration():
                 modified_time=None,
                 metadata={}
             )
-        
+
         mock_adapter.fetch_documents = mock_fetch
         mock_create.return_value = mock_adapter
-        
+
         # Execute
         result_tables, metadata = operator.transform(empty_input_table)
-        
+
         assert len(result_tables) == 1
         assert result_tables[0].num_rows > 0
 ```
@@ -820,4 +820,4 @@ uv run pytest tests/unit/operators/ingest/test_your_connector.py -v
 6. Add integration tests
 7. Document usage, dependencies, and examples
 
-For questions or issues, refer to existing adapters and the [Ingest Source Operator documentation](../../../../../../docs/operators/ingest/ingest_source.md).
+For questions or issues, refer to existing adapters and the [Ingest Source Operator documentation](../operators/ingest_source/README.md).

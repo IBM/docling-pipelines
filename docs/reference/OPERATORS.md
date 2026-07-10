@@ -54,9 +54,9 @@ title: Operator Reference
   - [Flow Configuration API](#flow-configuration-api)
     - [Root structure](#root-structure)
     - [Flow fields](#flow-fields)
-    - [Node structure](#node-structure)
-    - [Node fields](#node-fields)
-    - [Edge structure](#edge-structure)
+    - [Node structure](#operator-structure)
+    - [Node fields](#operator-fields)
+    - [Edge structure](#dependency-declaration)
     - [Validation rules](#validation-rules)
   - [Exception Reference](#exception-reference)
     - [`DocpipeException`](#docpipeexception)
@@ -88,7 +88,7 @@ title: Operator Reference
       - [`DocumentClassUtils.load_document_class(doc_class_path)`](#documentclassutilsload_document_classdoc_class_path)
       - [`DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)`](#documentclassutilsgenerate_docling_templatedoc_class_path-include_nestedtrue-max_fieldsnone)
     - [Operator display utility](#operator-display-utility)
-      - [`list_operators(verbose=False, summary_only=False)`](#list_operatorsverbosefalse-summary_onlyfalse)
+      - [`list_operators(verbose=False, summary_only=False)`](#list_operatorsverbosefalse)
 
 ## Overview
 
@@ -97,8 +97,8 @@ This document centralizes the public APIs that are visible to pipeline authors, 
 This reference is organized around four entry points:
 
 - **Operators**: flow node implementations under [`src/docpipe/core/operators`](../../src/docpipe/core/operators)
-- **Programmatic execution**: [`DocpipeFlowManager`](src/docpipe/lib/docpipe_flow_manager.py:24)
-- **CLI execution**: [`docling-pipelines`](src/docpipe/cli/docpipe_cli.py:147)
+- **Programmatic execution**: [`DocpipeFlowManager`](../../src/docpipe/lib/docpipe_flow_manager.py)
+- **CLI execution**: [`docling-pipelines`](../../src/docpipe/cli/docpipe_cli.py)
 - **Flow JSON definitions**: DAG configuration consumed by the orchestrator
 
 ### How to use this reference
@@ -140,14 +140,14 @@ Docpipe uses centralized file extension constants defined in [`OperatorConstants
 
 ### Common Operator Contract
 
-All operators ultimately inherit from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py:28).
+All operators ultimately inherit from [`AbstractOperator`](../../src/docpipe/core/operators/abstract_operator.py).
 
 **Shared behavior**
 
 - Operators receive a `config` dictionary during initialization.
-- Operators expose metadata through the static method [`get_metadata()`](src/docpipe/core/operators/abstract_operator.py:59), which can be called on the class without instantiation (e.g., `OperatorClass.get_metadata()`).
-- Input column requirements are expressed with [`get_required_features()`](src/docpipe/core/operators/abstract_operator.py:55).
-- Validation hooks are implemented via [`validate()`](src/docpipe/core/operators/abstract_operator.py:51).
+- Operators expose metadata through the static method [`get_metadata()`](../../src/docpipe/core/operators/abstract_operator.py), which can be called on the class without instantiation (e.g., `OperatorClass.get_metadata()`).
+- Input column requirements are expressed with [`get_required_features()`](../../src/docpipe/core/operators/abstract_operator.py).
+- Validation hooks are implemented via [`validate()`](../../src/docpipe/core/operators/abstract_operator.py).
 - Runtime work is usually performed by `transform()` or `runner()` methods depending on the operator.
 
 **Common input shape**
@@ -210,7 +210,7 @@ owner: str = "custom"  # MUST be explicitly set as shown above
 
 - Custom operators with `owner="custom"` receive **priority 1** (highest)
 - Docpipe operators with `owner="docpipe"` receive **priority 2**
-- Operators without an explicit `owner` attribute inherit `owner=None` from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py:32), which are treated as custom operators
+- Operators without an explicit `owner` attribute inherit `owner=None` from [`AbstractOperator`](../../src/docpipe/core/operators/abstract_operator.py), which are treated as custom operators
 - During operator loading, the factory validates that custom operators (not in DOCPIPE_OPERATORS frozenset) have `owner="custom"` and **rejects** those with `owner="docpipe"`
 - **All built-in docpipe operators must explicitly set** `owner = DocpipeConstants.OWNER_DOCPIPE`
 - The `owner` attribute is included in operator metadata and can be queried via `OperatorMetadata.get_operator_metadata()`
@@ -222,7 +222,7 @@ If both a docpipe operator and custom operator have `short_name="chunker"`:
 - Custom operator with `owner="custom"` → **Selected** (priority 1, highest)
 - Docpipe operator with `owner="docpipe"` → Overridden (priority 2)
 
-See [`OperatorFactory`](src/docpipe/core/orchestration/operator_factory.py:97) for implementation details.
+See [`OperatorFactory`](../../src/docpipe/core/orchestration/operator_factory.py) for implementation details.
 
 ### Ingest Operators
 
@@ -1398,7 +1398,8 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | **LiteLLM**      | `model_id`         | string                    | Yes      | -       | Model identifier with provider prefix (e.g., `openai/nomic-embed-text`, `huggingface/sentence-transformers/all-MiniLM-L6-v2`) |
 |                  | `api_base`         | string                    | No       | -       | Custom API endpoint URL (e.g., `http://localhost:11434` for Ollama) |
 |                  | `api_key`          | string                    | No       | -       | Provider API key (required for most providers, not needed for Ollama) |
-|                  | `batch_size`       | int                       | No       | `32`    | Number of texts to process in each batch              |
+|                  | `batch_size`       | int                       | No       | `32`    | Number of texts to process in each batch (not applicable when using Ollama via `openai/` prefix) |
+|                  | `max_concurrent_requests` | int              | No       | `8`     | Maximum concurrent requests when using Ollama (i.e., `openai/` model prefix). Ignored for other providers. |
 |                  | `timeout`          | int                       | No       | `120`   | Request timeout in seconds                            |
 | **Watsonx**      | `model_id`         | string                    | Yes      | -       | Model identifier (e.g., `ibm/slate-125m-english-rtrvr`) |
 |                  | `api_key`          | string                    | Yes      | -       | IBM Cloud API key                                     |
@@ -1414,7 +1415,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 |                  | `api_token`        | string                    | No       | -       | HuggingFace API token (required for API mode)         |
 |                  | `batch_size`       | int                       | No       | `32`    | Number of texts to process in each batch              |
 
-**Note:** For Ollama models via LiteLLM, use `openai/` prefix (e.g., `openai/nomic-embed-text`). For HuggingFace API via LiteLLM, use `huggingface/` prefix (e.g., `huggingface/sentence-transformers/all-MiniLM-L6-v2`). For native HuggingFace local inference, use `provider: "huggingface"` with the model name directly.
+**Note:** For Ollama models via LiteLLM, use `openai/` prefix (e.g., `openai/nomic-embed-text`). Ollama does not support batching natively — `batch_size` is not applicable for Ollama; use `max_concurrent_requests` to control throughput instead. For HuggingFace API via LiteLLM, use `huggingface/` prefix (e.g., `huggingface/sentence-transformers/all-MiniLM-L6-v2`). For native HuggingFace local inference, use `provider: "huggingface"` with the model name directly.
 
 **Input Schema**
 
@@ -1441,11 +1442,11 @@ Schemas are defined with `target_tables` specifying field mappings and transform
     "provider_config": {
       "model_id": "openai/nomic-embed-text",
       "api_base": "http://localhost:11434",
-      "batch_size": 32,
+      "max_concurrent_requests": 8,
       "timeout": 120
     },
     "embeddings_column": "embeddings",
-    "text_column": "content"
+    "doc_column": "content"
   }
 }
 ```
@@ -1465,7 +1466,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
       "batch_size": 16
     },
     "embeddings_column": "embeddings",
-    "text_column": "content"
+    "doc_column": "content"
   }
 }
 ```
@@ -1486,7 +1487,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
       "batch_size": 16
     },
     "embeddings_column": "embeddings",
-    "text_column": "content"
+    "doc_column": "content"
   }
 }
 ```
@@ -1509,7 +1510,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
       "batch_size": 32
     },
     "embeddings_column": "embeddings",
-    "text_column": "content"
+    "doc_column": "content"
   }
 }
 ```
@@ -1529,7 +1530,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
       "batch_size": 32
     },
     "embeddings_column": "embeddings",
-    "text_column": "content"
+    "doc_column": "content"
   }
 }
 ```
@@ -2231,7 +2232,7 @@ For new backends, implement the document set ports, register adapters with the f
 
 ## DocpipeFlowManager API
 
-**Class:** [`DocpipeFlowManager`](src/docpipe/lib/docpipe_flow_manager.py:24)
+**Class:** [`DocpipeFlowManager`](../../src/docpipe/lib/docpipe_flow_manager.py)
 
 ### Constructor
 - `DocpipeFlowManager(flow_file=None, flow_def=None, job_id=None, job_run_id=None, flow_id=None, enable_custom_operators=None)`
@@ -2240,7 +2241,7 @@ Exactly one of `flow_file` or `flow_def` must be provided.
 
 ### `validate()`
 
-Defined at [`validate()`](src/docpipe/lib/docpipe_flow_manager.py:165).
+Defined at [`validate()`](../../src/docpipe/lib/docpipe_flow_manager.py).
 
 Returns:
 
@@ -2254,25 +2255,25 @@ Returns:
 
 ### `execute()`
 
-Defined at [`execute()`](src/docpipe/lib/docpipe_flow_manager.py:213).
+Defined at [`execute()`](../../src/docpipe/lib/docpipe_flow_manager.py).
 
 Returns the result of flow execution from the executor.
 
 ### `get_execution_metadata()`
 
-Defined at [`get_execution_metadata()`](src/docpipe/lib/docpipe_flow_manager.py:245).
+Defined at [`get_execution_metadata()`](../../src/docpipe/lib/docpipe_flow_manager.py).
 
 Returns job and flow metadata.
 
 ### `get_execution_logs()`
 
-Defined at [`get_execution_logs()`](src/docpipe/lib/docpipe_flow_manager.py:272).
+Defined at [`get_execution_logs()`](../../src/docpipe/lib/docpipe_flow_manager.py).
 
 Returns `list[str]`.
 
 ### `list_operators(verbose=False)`
 
-Defined at [`list_operators()`](src/docpipe/lib/docpipe_flow_manager.py:308).
+Defined at [`list_operators()`](../../src/docpipe/lib/docpipe_flow_manager.py).
 
 Returns a formatted operator listing via [`docpipe.utils.operators.display.list_operators()`](../../src/docpipe/utils/operators/display.py).
 
@@ -2288,14 +2289,14 @@ Operators are sorted by category: Ingest, Extract, Quality, Functional, VectorDB
 
 The current class does **not** expose `execute_flow()` or `validate_flow()` methods. Use:
 
-- [`execute()`](src/docpipe/lib/docpipe_flow_manager.py:213)
-- [`validate()`](src/docpipe/lib/docpipe_flow_manager.py:165)
+- [`execute()`](../../src/docpipe/lib/docpipe_flow_manager.py)
+- [`validate()`](../../src/docpipe/lib/docpipe_flow_manager.py)
 
 ---
 
 ## CLI API Reference
 
-**Entry point:** [`main()`](src/docpipe/cli/docpipe_cli.py:147)
+**Entry point:** [`main()`](../../src/docpipe/cli/docpipe_cli.py)
 
 ### Command forms
 
@@ -2342,7 +2343,7 @@ Docpipe uses a simplified authoring format for creating flows. See [`sample_flow
   }
 }
 ```
-[`DocpipeFlowManager`](src/docpipe/lib/docpipe_flow_manager.py:140) also accepts root-level flow definitions without a wrapping `flow` key.
+[`DocpipeFlowManager`](../../src/docpipe/lib/docpipe_flow_manager.py) also accepts root-level flow definitions without a wrapping `flow` key.
 
 ### Flow fields
 
@@ -2390,7 +2391,7 @@ The system automatically generates the execution DAG from these dependencies.
 
 ### Validation rules
 
-Validation is performed by [`FlowValidator`](src/docpipe/lib/docpipe_flow_manager.py:20) and CLI validation helpers.
+Validation is performed by [`FlowValidator`](../../src/docpipe/lib/docpipe_flow_manager.py) and CLI validation helpers.
 
 Practical rules from the reviewed code:
 

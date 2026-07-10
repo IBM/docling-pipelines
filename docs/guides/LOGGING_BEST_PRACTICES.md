@@ -145,7 +145,7 @@ When exceptions occur, JSON logs include formatted stack traces:
 
 ### Automatic Sanitization
 
-Docpipe automatically sanitizes sensitive data in HTTP requests and responses using the [`sanitize_sensitive_data()`](../src/docpipe/integrations/rest_client.py:73) function.
+Docpipe automatically sanitizes sensitive data in HTTP requests and responses using the [`sanitize_sensitive_data()`](../../src/docpipe/integrations/rest_client.py) function.
 
 **Protected patterns:**
 - API keys and tokens
@@ -305,7 +305,7 @@ logger.info(
 )
 ```
 
-These extra fields automatically appear in JSON logs when using [`ConditionalFormatter`](../src/docpipe/utils/infrastructure/logging.py:126).
+These extra fields automatically appear in JSON logs when using [`ConditionalFormatter`](../../src/docpipe/utils/infrastructure/logging.py).
 
 ## Examples
 
@@ -425,9 +425,9 @@ expected — the calling application controls all output through its own logging
 
 ### Related Documentation
 
-- [Logging Implementation](../src/docpipe/utils/infrastructure/logging.py) - Source code reference
-- [REST Client Sanitization](../src/docpipe/integrations/rest_client.py) - Sensitive data handling
-- [API Middleware](../src/docpipe/api/middleware/transaction_middleware.py) - Transaction ID management
+- [Logging Implementation](../../src/docpipe/utils/infrastructure/logging.py) - Source code reference
+- [REST Client Sanitization](../../src/docpipe/integrations/rest_client.py) - Sensitive data handling
+- [API Middleware](../../src/docpipe/api/middleware/transaction_middleware.py) - Transaction ID management
 
 ### Additional Resources
 

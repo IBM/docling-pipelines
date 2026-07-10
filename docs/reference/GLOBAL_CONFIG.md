@@ -612,7 +612,7 @@ The `batch_storage` section controls where batch data is stored during distribut
 
 ---
 
-**Related Documentation**: [Prefect Documentation](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
+**Related Documentation**: [Prefect Distributed Execution Guide](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
 
 ---
 

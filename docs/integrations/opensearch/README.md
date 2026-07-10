@@ -4,7 +4,7 @@
 
 This directory is a technical reference index for OpenSearch-related documentation in docpipe.
 
-The [`VectorDBOperator`](../../src/docpipe/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter stores document embeddings in OpenSearch for vector similarity search within docpipe pipelines.
+The [`VectorDBOperator`](../../../src/docpipe/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter stores document embeddings in OpenSearch for vector similarity search within docpipe pipelines.
 
 ## Reference Index
 

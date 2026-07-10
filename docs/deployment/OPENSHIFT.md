@@ -47,7 +47,7 @@ cd docling-pipelines
 
 ### 2. Configure Git Credentials for Private Repositories
 
-If the repository is private, export the Git username and personal access token before starting the deployment script. The script uses these values to create the OpenShift secret [`docpipe-git-auth`](docs/deploy/OPENSHIFT_DEPLOYMENT.md:58) and attach it to the build source.
+If the repository is private, export the Git username and personal access token before starting the deployment script. The script uses these values to create the OpenShift secret [`docpipe-git-auth`](../../README.md) and attach it to the build source.
 
 ```bash
 export GIT_USERNAME="your-git-username"

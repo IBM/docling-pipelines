@@ -217,7 +217,7 @@ Job run exists on the submitter but worker updates do not appear in job status A
 3. If using filesystem storage, configure a shared filesystem path visible to both submitter and workers.
 4. Ensure worker environments inherit the same effective backend configuration and connection settings.
 5. If needed, override config explicitly with `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, `DOCPIPE_JOB_STATS_BASE_DIR`, and PostgreSQL env variables.
-6. Review [`docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
+6. Review [`DISTRIBUTED_EXECUTION_GUIDE.md`](docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
 
 ---
 

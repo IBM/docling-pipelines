@@ -421,9 +421,9 @@ Consider implementing caching at the service layer for frequently accessed libra
 
 ## Related Documentation
 
-- [USER_GUIDE_DOCUMENT_LIBRARIES.md](../../../../docs/guides/USER_GUIDE_DOCUMENT_LIBRARIES.md) - User guide with API examples
-- [ARCHITECTURE.md](../../../../ARCHITECTURE.md) - System architecture overview
-- [OPERATOR_REFERENCE.md](../../../../docs/reference/OPERATORS.md) - Operator documentation
+- [USER_GUIDE_DOCUMENT_LIBRARIES.md](../guides/USER_GUIDE_DOCUMENT_LIBRARIES.md) - User guide with API examples
+- [ARCHITECTURE.md](../../ARCHITECTURE.md) - System architecture overview
+- [OPERATOR_REFERENCE.md](../reference/OPERATORS.md) - Operator documentation
 
 ## Contributing
 

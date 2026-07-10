@@ -92,6 +92,8 @@ For per-operator configuration guides, see [Operator Configuration Guides](docs/
 
 Explore [sample flows](examples/) and [DocpipeFlowManager examples](examples/docpipe_flow_manager/) for common pipeline patterns.
 
+For interactive, hands-on tutorials, see the [Jupyter notebook examples](examples/notebooks/README.md).
+
 ## Contributing
 
 Please read [Contributing to Docling pipelines](CONTRIBUTING.md) for development setup, code standards, testing requirements, and the pull request process.

@@ -31,7 +31,7 @@ This architecture enables:
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 4,
     "text_extraction": {
@@ -175,8 +175,8 @@ Enable ASR pipeline for audio and video file transcription:
 - Quick prototyping and testing
 
 **Sample Flows:**
-- Complete pipeline: [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../../../../sample_flows/quickstart/complete_pipeline_ollama.json)
-- Audio/Video transcription: [`sample_flows/use_cases/audio_video_extraction.json`](../../../../../sample_flows/use_cases/audio_video_extraction.json)
+- Complete pipeline: [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../../sample_flows/quickstart/complete_pipeline_ollama.json)
+- Audio/Video transcription: [`sample_flows/use_cases/audio_video_extraction.json`](../../../sample_flows/use_cases/audio_video_extraction.json)
 
 ### 2. Docling Serve Provider
 
@@ -257,7 +257,7 @@ docker-compose -f docker-compose.docling-serve.yml up -d
 - Multi-language document processing
 - Distributed processing architectures
 
-**Sample Flow:** See complete pipeline examples in [`sample_flows/quickstart/`](../../../../../sample_flows/quickstart/)
+**Sample Flow:** See complete pipeline examples in [`sample_flows/quickstart/`](../../../sample_flows/quickstart/)
 
 ## Entity Extraction Providers
 
@@ -359,7 +359,7 @@ Users can configure custom inline VLM models for entity extraction using the `vl
 - Custom model integration for specialized domains
 - Template-driven workflows with VLM enhancement
 
-**Sample Flow:** See complete pipeline examples in [`sample_flows/quickstart/`](../../../../../sample_flows/quickstart/)
+**Sample Flow:** See complete pipeline examples in [`sample_flows/quickstart/`](../../../sample_flows/quickstart/)
 
 ### 3. LiteLLM Provider
 
@@ -477,7 +477,7 @@ During high-concurrency scalability testing with remote vLLM clusters, connectio
 - Local LLM processing via Ollama
 
 **Sample Flows:**
-- Entity Extraction: [`sample_flows/operators/entity_extraction_litellm.json`](../../../../../sample_flows/operators/entity_extraction_litellm.json)
+- Entity Extraction: [`sample_flows/operators/entity_extraction_litellm.json`](../../../sample_flows/operators/entity_extraction_litellm.json)
 
 ### 4. WatsonX Provider
 
@@ -521,8 +521,8 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 - Integration with existing IBM Cloud infrastructure
 
 **Sample Flows:**
-- Entity Extraction: [`sample_flows/operators/entity_extraction_watsonx.json`](../../../../../sample_flows/operators/entity_extraction_watsonx.json)
-- Complete Pipeline: [`sample_flows/quickstart/complete_pipeline_watsonx.json`](../../../../../sample_flows/quickstart/complete_pipeline_watsonx.json)
+- Entity Extraction: [`sample_flows/operators/entity_extraction_watsonx.json`](../../../sample_flows/operators/entity_extraction_watsonx.json)
+- Complete Pipeline: [`sample_flows/quickstart/complete_pipeline_watsonx.json`](../../../sample_flows/quickstart/complete_pipeline_watsonx.json)
 
 ## Configuration Parameters
 
@@ -664,7 +664,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 
 ```json
 {
-  
+
   "operator_params": {
     "text_extraction": {
       "provider": "docling_library",
@@ -683,7 +683,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 2,
     "text_extraction": {
@@ -713,7 +713,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 1,
     "text_extraction": {
@@ -763,7 +763,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 2,
     "text_extraction": {
@@ -797,7 +797,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 1,
     "text_extraction": {
@@ -828,7 +828,7 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 2,
     "text_extraction": {
@@ -1037,14 +1037,14 @@ These metrics are available through the operator's metadata and can be used for 
 
 ## Sample Flows
 
-Complete sample flows demonstrating the ExtractOperator are available in [`sample_flows/`](../../../../../sample_flows/):
+Complete sample flows demonstrating the ExtractOperator are available in [`sample_flows/`](../../../sample_flows/):
 
-- [`quickstart/complete_pipeline_ollama.json`](../../../../../sample_flows/quickstart/complete_pipeline_ollama.json) - Complete pipeline with Ollama
-- [`quickstart/complete_pipeline_watsonx.json`](../../../../../sample_flows/quickstart/complete_pipeline_watsonx.json) - Complete pipeline with WatsonX
-- [`operators/entity_extraction_litellm.json`](../../../../../sample_flows/operators/entity_extraction_litellm.json) - Entity extraction using LiteLLM
-- [`operators/entity_extraction_watsonx.json`](../../../../../sample_flows/operators/entity_extraction_watsonx.json) - Entity extraction using WatsonX
-- [`operators/entity_curation_ollama.json`](../../../../../sample_flows/operators/entity_curation_ollama.json) - Classification, extraction, and entity curation
-- [`use_cases/audio_video_extraction.json`](../../../../../sample_flows/use_cases/audio_video_extraction.json) - Audio/video transcription with ASR
+- [`quickstart/complete_pipeline_ollama.json`](../../../sample_flows/quickstart/complete_pipeline_ollama.json) - Complete pipeline with Ollama
+- [`quickstart/complete_pipeline_watsonx.json`](../../../sample_flows/quickstart/complete_pipeline_watsonx.json) - Complete pipeline with WatsonX
+- [`operators/entity_extraction_litellm.json`](../../../sample_flows/operators/entity_extraction_litellm.json) - Entity extraction using LiteLLM
+- [`operators/entity_extraction_watsonx.json`](../../../sample_flows/operators/entity_extraction_watsonx.json) - Entity extraction using WatsonX
+- [`operators/entity_curation_ollama.json`](../../../sample_flows/operators/entity_curation_ollama.json) - Classification, extraction, and entity curation
+- [`use_cases/audio_video_extraction.json`](../../../sample_flows/use_cases/audio_video_extraction.json) - Audio/video transcription with ASR
 
 ## Troubleshooting
 
@@ -1172,4 +1172,4 @@ ExtractOperator (Orchestrator)
 
 - [Docling Documentation](https://github.com/DS4SD/docling)
 - [Ollama Documentation](https://ollama.com/docs)
-- [Sample Flows](../../../../../sample_flows/)
+- [Sample Flows](../../../sample_flows/)

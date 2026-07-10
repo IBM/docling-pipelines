@@ -132,7 +132,7 @@ Important behavior:
 
 This makes it possible to configure job management via environment variables per environment or per deployment.
 
-For full distributed execution examples and work-pool-specific configuration, see [`docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
+For full distributed execution examples and work-pool-specific configuration, see [`DISTRIBUTED_EXECUTION_GUIDE.md`](../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
 
 ---
 

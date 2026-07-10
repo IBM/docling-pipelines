@@ -387,7 +387,7 @@ Log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 4. **Scale Up**
    - Process larger document collections
    - Use distributed execution with Prefect
-   - See `docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`
+   - See [`DISTRIBUTED_EXECUTION_GUIDE.md`](../docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
 
 ---
 

@@ -160,11 +160,11 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 **Job stats store guidance for this setup:**
 - `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, and `DOCPIPE_JOB_STATS_BASE_DIR` can be set explicitly in work-pool env, but if they are omitted the worker inherits the submitter's effective job-management configuration resolved from env
-- [`JsonJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py) can work for `work-pool-process` only when the submitter and worker share the same filesystem semantics
+- [`JsonJobStatsStore`](../../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py) can work for `work-pool-process` only when the submitter and worker share the same filesystem semantics
 - Requirement: the submitter and worker must share the same filesystem and the same absolute path namespace for the job stats directory
 - Relative filesystem `base_dir` paths depend on where the submitter and worker processes are started
 - If filesystem storage is effective for the submitter, `DOCPIPE_JOB_STATS_BASE_DIR` is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
-- For reliable distributed execution across different containers or machines, use [`PostgresJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- For reliable distributed execution across different containers or machines, use [`PostgresJobStatsStore`](../../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 - If PostgreSQL storage is effective for the submitter, the worker inherits `DOCPIPE_POSTGRES_HOST`, `DOCPIPE_POSTGRES_PORT`, `DOCPIPE_POSTGRES_DB`, `DOCPIPE_POSTGRES_USER`, and `DOCPIPE_POSTGRES_PASSWORD` unless explicitly overridden in work-pool env
 
 #### Step 5: Configure Flow
@@ -327,11 +327,11 @@ This matches:
 - The worker job environment can explicitly define `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, and backend-specific settings, but if omitted the worker inherits the submitter's effective job-management configuration
 - Filesystem job stats storage is acceptable only when submitter and worker processes read/write the same filesystem path namespace
 - Requirement: submitter and workers must share the same filesystem and must see the same absolute job stats path
-- If using [`JsonJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py), `DOCPIPE_JOB_STATS_BASE_DIR` should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution
+- If using [`JsonJobStatsStore`](../../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py), `DOCPIPE_JOB_STATS_BASE_DIR` should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution
 - Example shared path choices:
   - local machine process pool: `DOCPIPE_JOB_STATS_BASE_DIR=/absolute/path/to/data/job_stats`
   - Docker shared volume/process pool: `DOCPIPE_JOB_STATS_BASE_DIR=/app/data/job_stats`
-- If workers run on different machines or in isolated runtimes, use [`PostgresJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- If workers run on different machines or in isolated runtimes, use [`PostgresJobStatsStore`](../../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 - For PostgreSQL-backed job stats, workers must resolve the same database connection, typically via inherited or explicit `DOCPIPE_POSTGRES_HOST`, `DOCPIPE_POSTGRES_PORT`, `DOCPIPE_POSTGRES_DB`, `DOCPIPE_POSTGRES_USER`, and `DOCPIPE_POSTGRES_PASSWORD` environment variables
 
 #### Docker Work Pool (`work-pool-docker`)
@@ -478,10 +478,10 @@ Private registries require authentication configured on the worker host machine.
 - Private registry authentication configured on worker host (if applicable)
 
 **Job stats store guidance:**
-- Do not rely on [`JsonJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py) for Docker work pools unless submitter and all worker containers share the same mounted filesystem path for job stats
+- Do not rely on [`JsonJobStatsStore`](../../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py) for Docker work pools unless submitter and all worker containers share the same mounted filesystem path for job stats
 - Requirement: submitter and worker containers must share the same filesystem mount and must use the same in-container absolute path for job stats
 - If you switch Docker worker infrastructure to Prefect `process` execution on a shared volume, set `DOCPIPE_JOB_STATS_BASE_DIR` to the mounted absolute path seen inside that runtime, for example `/app/data/job_stats`
-- For actual distributed Docker execution, use [`PostgresJobStatsStore`](../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- For actual distributed Docker execution, use [`PostgresJobStatsStore`](../../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 
 ### 3.3 Batch Storage Configuration
 
@@ -1262,11 +1262,11 @@ export PREFECT_API_URL=http://localhost:4200/api
 ### 7.3 Links to Examples
 
 - **Sample Flow**: [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../../sample_flows/quickstart/complete_pipeline_ollama.json)
-- **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
+- **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../../docker/docker-compose.distributed.yml)
 ### 7.4 Related Documentation
 
 - **User Guide**: [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md)
-- **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- **Architecture**: [ARCHITECTURE.md](../../../ARCHITECTURE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
 - **Docker Documentation**: https://docs.docker.com/
 
@@ -1628,11 +1628,11 @@ export PREFECT_API_URL=http://localhost:4200/api
 ### 7.3 Links to Examples
 
 - **Sample Flow**: [`sample_flows/quickstart/complete_pipeline_ollama.json`](../../../sample_flows/quickstart/complete_pipeline_ollama.json)
-- **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
+- **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../../docker/docker-compose.distributed.yml)
 ### 7.4 Related Documentation
 
 - **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../../../USER_GUIDE_PIPELINE_SETUP.md)
-- **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- **Architecture**: [ARCHITECTURE.md](../../../ARCHITECTURE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
 - **Docker Documentation**: https://docs.docker.com/
 

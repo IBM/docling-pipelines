@@ -5,7 +5,7 @@
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Quick Start: Your First Custom Operator](#quick-start-your-first-custom-operator)
-  - [Step 1: Create the Operator File](#step-1-create-the-operator-file)
+  - [Step 1: Create the Operator File](#step-1-get-the-example-operator-file)
   - [Step 2: Register the Operator](#step-2-register-the-operator)
   - [Step 3: Use in a Flow](#step-3-use-in-a-flow)
   - [Step 4: Verify Registration](#step-4-verify-registration)
