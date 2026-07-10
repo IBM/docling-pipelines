@@ -107,6 +107,10 @@ class DocIdHashOperator(AbstractOperator):
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
 
         if self._doc_id_transform is not None:
+            # Drop existing hash column before calling DocIDTransform to prevent it
+            # from renaming it to "<hash_column>.original"
+            if self.hash_column in table.column_names:
+                table = table.drop_columns([self.hash_column])
             # Use DocIDTransform from dpk_doc_id
             result: tuple[list[pa.Table], dict[str, Any]] = self._doc_id_transform.transform(table)
             table = result[0][0]
