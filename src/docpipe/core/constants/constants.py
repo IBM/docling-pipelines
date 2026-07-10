@@ -406,10 +406,18 @@ class Metrics:
         COLUMNS_BEFORE_FILTER = "columns_before_filter"
         COLUMNS_AFTER_FILTER = "columns_after_filter"
 
+        # VectorDB / indexing metrics
+        RECORDS_INSERTED = "records_inserted"
+        RECORDS_FAILED = "records_failed"
+
+        # Page type breakdown
+        PAGE_TYPE_STATS = "page_type_stats"
+
     class Internal:
         DELETED_FROM_LAST_RUN = "deleted_from_last_run"
         ALL_DOC_IDS = "all_doc_ids"
         BRANCHES = "branches"
+        NON_RECOVERABLE_DOCS_TABLE = "non_recoverable_docs_table"
 
     # Metrics that require atomic aggregation to prevent race conditions
     AGGREGATION_METRICS = frozenset({External.TOTAL_PAGES_CONVERTED, External.DELETED_DOC_COUNT})
