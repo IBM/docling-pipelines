@@ -458,6 +458,19 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             job_run_stats={"report_status": "GENERATING", "report_started_at": started_at},
         )
 
+    def _mark_report_not_available(self, reason: str):
+        """Mark report status as NOT_AVAILABLE (e.g. parquet files absent for in-memory flows)."""
+        if not self.job_stats_service or not self.job_run_id:
+            return
+
+        current_job = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=False)
+        if current_job:
+            self.job_stats_service.end_job(
+                job_run_id=self.job_run_id,
+                status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
+                job_run_stats={"report_status": "NOT_AVAILABLE"},
+            )
+
     def _mark_report_failed(self, elapsed_time: float, exception: Exception):
         """Mark report generation as failed."""
         from docpipe.utils.core.datetime import get_current_timestamp
@@ -522,11 +535,26 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         import time
 
         from docpipe.core.job_management.application.services.report_generator import JobReportGenerator
-        from docpipe.core.job_management.application.services.report_utils import get_report_path
+        from docpipe.core.job_management.application.services.report_utils import (
+            check_parquet_availability,
+            get_report_path,
+        )
         from docpipe.utils.core.datetime import get_current_timestamp
 
         start_time = time.time()
         started_at = get_current_timestamp()
+
+        # Skip report generation when parquet files are not available
+        parquet_available, reason = check_parquet_availability(job_run_id=job_run_id, job_id=job_id)
+        if not parquet_available:
+            logger.info(
+                "Skipping background report generation for job run %s: %s",
+                job_run_id,
+                reason,
+                extra=self.common_log_arguments,
+            )
+            self._mark_report_not_available(reason)
+            return
 
         try:
             # Set status to GENERATING

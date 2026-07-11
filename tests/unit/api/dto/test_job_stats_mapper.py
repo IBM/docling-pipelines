@@ -198,3 +198,62 @@ class TestJobStatsMapperToStatusResponse:
         response = JobStatsMapper.to_status_response(job_stats)
 
         assert list(response.job_stats.node_stats.keys()) == [NODE_A, NODE_B, NODE_C]
+
+
+class TestJobStatsMapperReportFields:
+    """Report status fields are passed through to_dto()."""
+
+    def test_report_fields_are_none_by_default(self):
+        """When domain model has no report fields set, DTO fields are None."""
+        job_stats = _make_job_stats({})
+
+        dto = JobStatsMapper.to_dto(job_stats)
+
+        assert dto.report_status is None
+        assert dto.report_started_at is None
+        assert dto.report_completed_at is None
+
+    def test_report_status_generating_mapped(self):
+        """GENERATING status and started_at timestamp are preserved in the DTO."""
+        job_stats = _make_job_stats({})
+        job_stats.report_status = "GENERATING"
+        job_stats.report_started_at = 1704067200
+
+        dto = JobStatsMapper.to_dto(job_stats)
+
+        assert dto.report_status == "GENERATING"
+        assert dto.report_started_at == 1704067200
+        assert dto.report_completed_at is None
+
+    def test_report_status_completed_mapped(self):
+        """COMPLETED status with both timestamps is preserved."""
+        job_stats = _make_job_stats({})
+        job_stats.report_status = "COMPLETED"
+        job_stats.report_started_at = 1704067200
+        job_stats.report_completed_at = 1704067260
+
+        dto = JobStatsMapper.to_dto(job_stats)
+
+        assert dto.report_status == "COMPLETED"
+        assert dto.report_started_at == 1704067200
+        assert dto.report_completed_at == 1704067260
+
+    def test_report_status_failed_mapped(self):
+        """FAILED status and completed_at timestamp are preserved."""
+        job_stats = _make_job_stats({})
+        job_stats.report_status = "FAILED"
+        job_stats.report_completed_at = 1704067260
+
+        dto = JobStatsMapper.to_dto(job_stats)
+
+        assert dto.report_status == "FAILED"
+        assert dto.report_completed_at == 1704067260
+
+    def test_report_status_not_available_mapped(self):
+        """NOT_AVAILABLE status is preserved (set when parquet is absent)."""
+        job_stats = _make_job_stats({})
+        job_stats.report_status = "NOT_AVAILABLE"
+
+        dto = JobStatsMapper.to_dto(job_stats)
+
+        assert dto.report_status == "NOT_AVAILABLE"

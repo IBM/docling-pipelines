@@ -49,6 +49,9 @@ class JobStatsMapper:
             user_id=job_stats.user_id,
             account_id=job_stats.account_id,
             user_entitlements=job_stats.user_entitlements,
+            report_status=job_stats.report_status,
+            report_started_at=job_stats.report_started_at,
+            report_completed_at=job_stats.report_completed_at,
             node_stats=node_stats_dto,
             batch_node_stats=batch_node_stats_dto,
         )

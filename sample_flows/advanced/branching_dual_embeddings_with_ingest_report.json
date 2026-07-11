@@ -6,7 +6,8 @@
     "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local"
+    "execute_type": "local",
+    "data_storage_type": "local"
   },
   "flow": [
     {

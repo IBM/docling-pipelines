@@ -491,10 +491,11 @@ class JobRunOperationFailedException(DocpipeException):
         message: str,
         job_run_id: str | None = None,
         operation: str | None = None,
+        status_code: int = 500,
     ):
         super().__init__(
             message,
-            status_code=500,
+            status_code=status_code,
             error_code=ErrorCode.JOB_RUN_OPERATION_FAILED,
         )
         self.job_run_id = job_run_id

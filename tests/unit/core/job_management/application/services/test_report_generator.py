@@ -20,7 +20,11 @@ from unittest.mock import patch
 import pytest
 
 from docpipe.core.constants.constants import ExecutionStatus
-from docpipe.core.job_management.application.services.report_generator import JobReportGenerator
+from docpipe.core.job_management.application.services.report_generator import (
+    GENERIC_FAILURE_MESSAGE,
+    JobReportGenerator,
+    _build_node_metadata_list,
+)
 from docpipe.core.job_management.domain.models import JobStats, NodeStats
 
 # Test constants
@@ -494,6 +498,87 @@ class TestReasonExtraction:
         reason = generator._extract_reason_from_docs_list(docs_list, "doc2")
 
         assert reason is None
+
+
+class TestBuildNodeMetadataList:
+    """Test _build_node_metadata_list used by the on-demand report path."""
+
+    def test_builds_list_from_node_stats_objects(self):
+        """NodeStats objects: node_metadata dict is appended directly."""
+        node_metadata_item = {
+            "id": "uuid-1",
+            "operator": "store_in_opensearch",
+            "node_metadata": {
+                "failed_docs": [{"id": "doc-a", "reason": "Connection timeout"}],
+                "skipped_docs": [],
+            },
+        }
+        node_stats = {
+            "uuid-1": NodeStats(
+                node_id="uuid-1",
+                name="store_in_opensearch",
+                node_metadata=node_metadata_item,
+            )
+        }
+
+        result = _build_node_metadata_list(node_stats=node_stats)
+
+        assert len(result) == 1
+        # Entry IS the NodeMetadataItem dict; failed_docs reachable via ["node_metadata"]
+        assert result[0]["node_metadata"]["failed_docs"][0]["reason"] == "Connection timeout"
+
+    def test_builds_list_from_dict_node_stats(self):
+        """Dict-style node_stats are also handled."""
+        node_metadata_item = {
+            "id": "uuid-1",
+            "operator": "store_in_opensearch",
+            "node_metadata": {
+                "failed_docs": [{"id": "doc-b", "reason": "Index not found"}],
+                "skipped_docs": [],
+            },
+        }
+        node_stats = {
+            "uuid-1": {
+                "name": "store_in_opensearch",
+                "node_metadata": node_metadata_item,
+            }
+        }
+
+        result = _build_node_metadata_list(node_stats=node_stats)
+
+        assert len(result) == 1
+        assert result[0]["node_metadata"]["failed_docs"][0]["reason"] == "Index not found"
+
+    def test_on_demand_path_retrieves_failure_reason_not_generic(self):
+        """On-demand report generator retrieves the real reason, not the generic fallback."""
+        failure_reason = "Failed to create index: ConnectionTimeout"
+
+        node_metadata_item = {
+            "id": "uuid-os",
+            "operator": "store_in_opensearch",
+            "node_metadata": {
+                "failed_docs": [{"id": "doc-1", "reason": failure_reason}],
+                "skipped_docs": [],
+            },
+        }
+        node_stats = {
+            "uuid-os": NodeStats(
+                node_id="uuid-os",
+                name="store_in_opensearch",
+                node_metadata=node_metadata_item,
+            )
+        }
+
+        node_metadata_list = _build_node_metadata_list(node_stats=node_stats)
+        generator = JobReportGenerator(
+            job_stats=JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.FAILED),
+            node_metadata_list=node_metadata_list,
+        )
+
+        reason = generator._find_failure_reason("doc-1")
+
+        assert reason == failure_reason
+        assert reason != GENERIC_FAILURE_MESSAGE
 
 
 if __name__ == "__main__":

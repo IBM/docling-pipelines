@@ -32,6 +32,25 @@ GENERIC_SKIP_MESSAGE = "Document skipped during processing"
 GENERIC_FAILURE_MESSAGE = "Job failed before document reached destination"
 
 
+def _build_node_metadata_list(*, node_stats: dict) -> list[dict]:
+    """Build the node_metadata_list expected by JobReportGenerator from node_stats.
+
+    Each entry is the ``NodeMetadataItem``-shaped dict stored on each NodeStats
+    (i.e. ``{"id": ..., "operator": ..., "node_metadata": {...}}``) — the same
+    shape produced by the on-the-fly path in ``flow_execution_event_handler.py``.
+    ``_extract_reason_from_node_metadata`` then reaches ``failed_docs``/``skipped_docs``
+    via ``entry["node_metadata"]["failed_docs"]``.
+    """
+    result = []
+    for node_stat in node_stats.values():
+        node_metadata = (
+            node_stat.get("node_metadata") if isinstance(node_stat, dict) else getattr(node_stat, "node_metadata", None)
+        )
+        if node_metadata:
+            result.append(node_metadata)
+    return result
+
+
 class JobReportGenerator:
     """
     Generates CSV reports for job runs containing document processing details.
@@ -111,7 +130,7 @@ class JobReportGenerator:
         Raises:
             JobRunNotFoundException: If job run not found (404)
             JobRunInvalidStateException: If job not completed (425)
-            JobRunOperationFailedException: If report generation fails (500)
+            JobRunOperationFailedException: If parquet data unavailable (422) or generation fails (500)
         """
         from docpipe.core.constants import TERMINAL_JOB_STATUSES
         from docpipe.core.job_management.application.services.report_utils import (
@@ -121,6 +140,7 @@ class JobReportGenerator:
             read_report_from_storage,
         )
         from docpipe.exceptions.docpipe_exceptions import JobRunOperationFailedException
+        from docpipe.utils.orchestration.dag_utils import extract_dag_nodes
 
         logger.info("Downloading job report for job run: %s", job_run_id)
 
@@ -145,58 +165,58 @@ class JobReportGenerator:
 
         # If report exists, return it immediately
         if report_exists:
-            logger.info(f"Report found in storage for job run: {job_run_id}")
+            logger.info("Report found in storage for job run: %s", job_run_id)
             return create_csv_streaming_response(content=report_content, job_run_id=job_run_id)
 
         # Step 3: Report doesn't exist - proceed with generation
-        logger.info(f"Report not found, proceeding with generation for {job_run_id}")
+        logger.info("Report not found, proceeding with generation for %s", job_run_id)
 
         # Step 4: Check if parquet files are available before expensive operations
         parquet_available, error_message = check_parquet_availability(job_run_id=job_run_id, job_id=job_stats.job_id)
         if not parquet_available:
-            logger.warning(f"Parquet files not available for job run {job_run_id}: {error_message}")
+            logger.info("Parquet files not available for job run %s: %s", job_run_id, error_message)
             raise JobRunOperationFailedException(
                 message=f"Cannot generate report: {error_message}. "
                 f'Job report is available only when "Intermediate data storage" is set to "Container file system" in "Flow run properties".',
                 job_run_id=job_run_id,
                 operation="generate_report",
+                status_code=422,
             )
 
-        # Step 5: Generate report on-demand (requires full job_stats with node_stats)
-        logger.info(f"Generating report on-demand for job run {job_run_id}")
+        # Step 5: Generate report on-demand (requires full job_stats with node_stats + batch_node_stats)
+        logger.info("Generating report on-demand for job run %s", job_run_id)
         try:
-            # Fetch full job stats with node_stats for report generation
-            job_stats = job_stats_service.get_job(job_run_id=job_run_id, include_node_stats=True)
+            # include_batch_stats=True is required for correct micro-batch parquet path construction
+            job_stats = job_stats_service.get_job(
+                job_run_id=job_run_id, include_node_stats=True, include_batch_stats=True
+            )
 
-            # Fetch flow definition to extract DAG nodes
+            # Fetch flow definition and reconstruct DAG nodes with real node UUIDs
             flow_definition = job_stats_service.get_flow_definition(job_run_id=job_run_id)
-            dag_nodes = flow_definition.get("dag", []) if flow_definition else None
+            dag_nodes = extract_dag_nodes(flow_definition=flow_definition, node_stats=job_stats.node_stats)
+
+            # Build node_metadata_list so failure/skip reasons are available (same as on-the-fly path)
+            node_metadata_list = _build_node_metadata_list(node_stats=job_stats.node_stats)
 
             # Generate report
-            generator = JobReportGenerator(job_stats=job_stats, dag_nodes=dag_nodes)
+            generator = JobReportGenerator(
+                job_stats=job_stats, dag_nodes=dag_nodes, node_metadata_list=node_metadata_list
+            )
             csv_content = generator.generate_csv_content()
 
-            # Save to file for future requests (pass content to avoid generating twice)
+            # Save for future requests
             generator.save_report_to_file(report_path, csv_content=csv_content)
 
-            logger.info(f"On-demand report generated and saved: {report_path}")
+            logger.info("On-demand report generated and saved for job run %s", job_run_id)
 
-        except ValueError as e:
-            # ValueError is raised when parquet files are missing
-            logger.error(f"Parquet files not available for {job_run_id}: {e}")
-            raise JobRunOperationFailedException(
-                message=f"Cannot generate report: {e!s}. Report generation requires parquet files.",
-                job_run_id=job_run_id,
-                operation="generate_report",
-            ) from e
         except Exception as e:
-            logger.error(f"Failed to generate report on-demand for {job_run_id}: {e}", exc_info=True)
+            logger.error("Failed to generate report on-demand for %s: %s", job_run_id, e, exc_info=True)
             raise JobRunOperationFailedException(
                 message=f"Failed to generate report: {e!s}", job_run_id=job_run_id, operation="generate_report"
             ) from e
 
         # Return generated report
-        logger.info(f"Successfully generated report for job run: {job_run_id}")
+        logger.info("Successfully generated report for job run: %s", job_run_id)
         return create_csv_streaming_response(content=csv_content, job_run_id=job_run_id)
 
     def generate_report_data(self) -> list[dict[str, str]]:
@@ -766,7 +786,7 @@ class JobReportGenerator:
                 f"Report generation requires parquet files (data_storage_type='local'). "
                 f"If using in-memory storage, parquet files are not available and reports cannot be generated."
             )
-            logger.error(error_msg)
+            logger.warning(error_msg)
             raise ValueError(error_msg)
 
         # Initialize documents from parquet data
@@ -943,7 +963,7 @@ class JobReportGenerator:
                 continue
 
             # Reasons are stored under nested node_metadata key
-            nested_metadata = node_meta.get("node_metadata", {})
+            nested_metadata = node_meta.get("node_metadata")
             if not isinstance(nested_metadata, dict):
                 continue
 

@@ -32,7 +32,7 @@ sample_flows/
 
 3. **Explore advanced patterns:**
    ```bash
-   docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings.json
+   docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json
    ```
 
 ---
@@ -90,7 +90,7 @@ Complex workflows demonstrating advanced patterns and operator combinations.
 
 | Flow | Pattern | Description |
 |------|---------|-------------|
-| `branching_dual_embeddings.json` | Branching | Parallel processing with dual embedding models |
+| `branching_dual_embeddings_with_ingest_report.json` | Branching | Parallel processing with dual embedding models and ingest report |
 | `branching_quality_routing.json` | Quality Routing | Route documents based on quality metrics |
 | `quality_branching_merge_pipeline.json` | Branching + Merge | 3-way branching with dedup, quality checks, and row-based merging |
 | `multi_stage_enrichment.json` | Multi-Stage | Classification → Entity Extraction → PII Detection → Chunking |
@@ -211,7 +211,7 @@ DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file sample_flows/quickstart/complet
 
 ### Validate Before Running
 ```bash
-docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings.json --validate
+docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json --validate
 ```
 
 ### List Available Operators
@@ -418,7 +418,7 @@ Log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 | Process invoices | `use_cases/invoice_processing.json` |
 | Ingest from S3 | `use_cases/s3_to_opensearch.json` |
 | Route by quality | `advanced/branching_quality_routing.json` |
-| Parallel processing | `advanced/branching_dual_embeddings.json` |
+| Parallel processing | `advanced/branching_dual_embeddings_with_ingest_report.json` |
 | Complex pipeline | `advanced/multi_stage_enrichment.json` |
 | Use OpenSearch | `vectordb/opensearch_integration.json` |
 | Use Milvus | `vectordb/milvus_integration.json` |

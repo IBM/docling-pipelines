@@ -140,6 +140,10 @@ data/{job_id}/{job_run_id}/job_report_{job_run_id}.csv
 - Check node statistics for document counts
 - Review flow definition for filtering operators
 
+## Sample Flow
+
+Use [`sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json`](../../sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json) as a reference flow for report generation. It demonstrates a branching pipeline with dual embedding models where the ingest report is produced on completion.
+
 ## Related Documentation
 
 - [Flow Configuration Guide](FLOW_CONFIGURATION_GUIDE.md)
