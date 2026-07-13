@@ -160,6 +160,10 @@ override-dependencies = [
     "scipy>=1.13.0,<1.18.0",
     # Pin rapidocr to 3.9.0 within docling-slim's >=3.8,<4.0 constraint.
     "rapidocr==3.9.0",
+    # CVE-2026-59939: Security fix for httplib2 vulnerability (transitive via google-auth-httplib2).
+    "httplib2>=0.32.0",
+    # CVE-2026-49476, CVE-2026-49477: Security fix for soupsieve vulnerability (transitive via beautifulsoup4).
+    "soupsieve>=2.8.4",
 ]
 
 [tool.ruff]

@@ -115,7 +115,7 @@ Run any flow normally - telemetry will be automatically enabled:
 
 ```bash
 # CLI
-docling-pipelines --flow-file sample_flows/simple_ingest_and_extract_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/basic_ingest_extract.json
 
 # API
 uvicorn docpipe.api.main:app --reload
@@ -238,7 +238,7 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     command: ["--config=/etc/otel-collector-config.yaml"]
-  
+
   docling-pipelines:
     environment:
       - TELEMETRY_ENABLED=true
@@ -461,7 +461,7 @@ print(f"Metrics enabled:   {telemetry.metrics_enabled}")
 
 ```bash
 # Run a simple flow
-docling-pipelines --flow-file sample_flows/hello_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 
 # Check Jaeger UI for traces
 open http://localhost:16686

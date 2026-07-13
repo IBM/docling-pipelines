@@ -83,7 +83,7 @@ python examples/ingest_source_example.py
 Demonstrates document content extraction using Docling (supports PDFs, DOCX, etc.).
 Supports both basic markdown extraction and template-based structured extraction.
 
-See [`extract_operator_example.py`](extract_operator_example.py) and [`../src/docpipe/core/operators/extract/README.md`](../src/docpipe/core/operators/extract/README.md) for details.
+See [`extract_operator_example.py`](extract_operator_example.py) and [`docs/operators/extract/extract_operator_readme.md`](../docs/operators/extract/extract_operator_readme.md) for details.
 
 ```bash
 python examples/extract_operator_example.py
@@ -288,7 +288,7 @@ Shows basic language detection for documents using the default FastText provider
 python examples/language_detection_example.py
 ```
 
-#### [`language_detection_fasttext_example.py`](language_detection_fasttext_example.py)
+#### `language_detection_fasttext_example.py`
 
 Demonstrates FastText-based language detection supporting 176 languages.
 

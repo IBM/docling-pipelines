@@ -362,11 +362,11 @@ When adding queries, assign appropriate complexity:
 
 ## Related Files
 
-- [`test_purchase_order_queries.py`](test_purchase_order_queries.py) - Direct query testing without NL-to-SQL
-- [`insert_sample_documents.py`](insert_sample_documents.py) - Sample document generator
-- [`examples/retrieval/ollama_nl_to_sql_converter.py`](../../../examples/retrieval/ollama_nl_to_sql_converter.py) - Ollama converter implementation
-- [`examples/retrieval/opensearch_sql.py`](../../../examples/retrieval/opensearch_sql.py) - SQL client implementation
+- `test_purchase_order_queries.py` - Direct query testing without NL-to-SQL
+- `insert_sample_documents.py` - Sample document generator
+- `examples/retrieval/ollama_nl_to_sql_converter.py` - Ollama converter implementation
+- `examples/retrieval/opensearch_sql.py` - SQL client implementation
 
 ## License
 
-Same as parent project. 
+Same as parent project.

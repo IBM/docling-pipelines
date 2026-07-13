@@ -820,4 +820,4 @@ uv run pytest tests/unit/operators/ingest/test_your_connector.py -v
 6. Add integration tests
 7. Document usage, dependencies, and examples
 
-For questions or issues, refer to existing adapters and the [Ingest Source Operator documentation](../operators/ingest_source/README.md).
+For questions or issues, refer to existing adapters and the [Ingest Source Operator documentation](../operators/ingest/ingest_source_readme.md).

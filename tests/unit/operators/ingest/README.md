@@ -6,7 +6,7 @@ This directory contains unit tests for the ingest operators.
 
 ### test_ingest_source.py
 
-Comprehensive test suite for [`IngestSourceOperator`](../../../../src/docpipe/core/operators/universal/ingest/ingest_source.py:37) covering all major functionality.
+Comprehensive test suite for [`IngestSourceOperator`](../../../../src/docpipe/core/operators/ingest/ingest_source.py) covering all major functionality.
 
 ## Test Coverage
 
@@ -22,7 +22,7 @@ Tests for proper operator initialization with different providers:
 - ✅ Custom provider initialization
 
 ### 2. Loader Factory Tests (8 tests)
-Tests for the [`_get_loader()`](../../../../src/docpipe/core/operators/universal/ingest/ingest_source.py:303) method:
+Tests for the [`_get_loader()`](../../../../src/docpipe/core/operators/ingest/ingest_source.py) method:
 - ✅ S3DirectoryLoader creation for S3
 - ✅ S3DirectoryLoader with endpoint for IBM COS
 - ✅ GoogleDriveLoader creation with token directory setup
@@ -33,7 +33,7 @@ Tests for the [`_get_loader()`](../../../../src/docpipe/core/operators/universal
 - ✅ Error handling for unsupported providers
 
 ### 3. S3 File Filtering Tests (5 tests)
-Tests for the [`_get_s3_file_keys()`](../../../../src/docpipe/core/operators/universal/ingest/ingest_source.py:256) method:
+Tests for the [`_get_s3_file_keys()`](../../../../src/docpipe/core/operators/ingest/ingest_source.py) method:
 - ✅ Basic file key retrieval
 - ✅ Filtering hidden files (starting with `.`)
 - ✅ Filtering zero-size files
@@ -41,7 +41,7 @@ Tests for the [`_get_s3_file_keys()`](../../../../src/docpipe/core/operators/uni
 - ✅ Empty bucket handling
 
 ### 4. Transform Method Tests (6 tests)
-Tests for the main [`transform()`](../../../../src/docpipe/core/operators/universal/ingest/ingest_source.py:83) method:
+Tests for the main [`transform()`](../../../../src/docpipe/core/operators/ingest/ingest_source.py) method:
 - ✅ Successful document processing
 - ✅ Empty document list handling
 - ✅ Error handling and graceful degradation

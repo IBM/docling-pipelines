@@ -946,14 +946,48 @@ Update documentation when you:
 - **[`RELEASE_PROCESS.md`](RELEASE_PROCESS.md)**: How to cut a release (versioning, signing, announcements)
 - **[`docs/guides/DEPRECATION_POLICY.md`](docs/guides/DEPRECATION_POLICY.md)**: How deprecated features are handled
 - **[`docs/guides/MIGRATION_GUIDE_TEMPLATE.md`](docs/guides/MIGRATION_GUIDE_TEMPLATE.md)**: Template for writing migration guides
+- **[`docs/guides/DOCUMENTATION_STYLE_GUIDE.md`](docs/guides/DOCUMENTATION_STYLE_GUIDE.md)**: Formatting, Mermaid, and writing conventions for all contributors
 
 ### Documentation Style
 
-- Use clear, concise language
-- Include code examples
-- Use proper Markdown formatting
-- Add links to related documentation
-- Keep examples up-to-date with code changes
+Follow the canonical **[Documentation Style Guide](docs/guides/DOCUMENTATION_STYLE_GUIDE.md)** for all writing, formatting, and Mermaid diagram rules. The key rules that apply to every PR:
+
+**Markdown structure**
+
+- Every file must begin with a single `# Title` heading (H1).
+- Use only `##` / `###` / `####` for section hierarchy — never skip levels.
+- Wrap all prose lines at 120 characters or fewer.
+- Use `-` for unordered lists and `1.` for ordered lists consistently throughout a file.
+
+**Code and diagram fences**
+
+- Always use exactly **three backticks** ` ``` ` to open and close fenced blocks — never four or more.
+- Always specify a language tag: ` ```python `, ` ```bash `, ` ```json `, ` ```mermaid `, etc.
+- Mermaid diagrams must open with ` ```mermaid ` and close with ` ``` ` on its own line.
+- Never nest fenced blocks.
+
+**Mermaid diagrams**
+
+- Prefer `graph TD` (top-down) for component hierarchies; `graph LR` (left-right) for data flows.
+- Test every diagram in a Mermaid live editor before committing ([mermaid.live](https://mermaid.live)).
+- Do not use the `%%` comment syntax inside node labels — place it on its own line.
+
+**Links and references**
+
+- Use relative links for all internal files (e.g., `[guide](docs/guides/FOO.md)`).
+- Do not use bare URLs for internal files.
+- Verify links resolve correctly before submitting a PR.
+
+**Tables**
+
+- Always include a header separator row (`| --- | --- |`).
+- Align column widths consistently within a table for readability.
+
+**Tone and language**
+
+- Use present tense ("The operator returns…") not future tense ("The operator will return…").
+- Avoid first-person ("I", "we") — write for the reader.
+- Write for an intermediate developer audience; do not explain basic Python or git concepts.
 
 ### Code Comments
 

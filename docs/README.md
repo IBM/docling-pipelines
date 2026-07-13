@@ -1,10 +1,10 @@
-# Docpipe Documentation
+# Docling Pipelines Documentation
 
-Welcome to the Docpipe documentation! This guide will help you navigate our comprehensive documentation and find exactly what you need.
+Welcome to the Docling Pipelines documentation! This guide will help you navigate our comprehensive documentation and find exactly what you need.
 
 ## 🚀 Getting Started
 
-**New to Docpipe?** Start here:
+**New to Docling Pipelines?** Start here:
 
 - **[Quick Start Guide](../QUICKSTART.md)** - Get your first pipeline running in 5 minutes
 - **[Complete Setup Guide](../USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
@@ -17,7 +17,7 @@ Task-oriented guides to help you accomplish specific goals:
 ### Core Guides
 - **[Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)** - Learn the simplified flow authoring format
 - **[Flow Configuration Guide](guides/FLOW_CONFIGURATION_GUIDE.md)** - Complete flow configuration reference
-- **[Python API Guide](guides/PYTHON_API_GUIDE.md)** - Use Docpipe programmatically
+- **[Python API Guide](guides/PYTHON_API_GUIDE.md)** - Use Docling Pipelines programmatically
 
 ### Developer Guides
 - **[Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)** - Build custom data source connectors
@@ -39,11 +39,11 @@ Task-oriented guides to help you accomplish specific goals:
 Configuration examples and patterns for all operators:
 
 ### Core Pipeline Operators
-- **[IngestLocal](operators/ingest_local/)** - Ingest documents from local filesystem
-- **[IngestSource](operators/ingest_source/)** - Ingest from external sources (S3, SharePoint, etc.)
-- **[Extract](operators/extract/)** - Extract text and entities from documents
-- **[Chunker](operators/chunker/)** - Split documents into chunks
-- **[Embeddings](operators/embeddings/)** - Generate vector embeddings
+- **[IngestLocal](operators/ingest/ingest_local_readme.md)** - Ingest documents from local filesystem
+- **[IngestSource](operators/ingest/ingest_source_readme.md)** - Ingest from external sources (S3, SharePoint, etc.)
+- **[Extract](operators/extract/extract_operator_readme.md)** - Extract text and entities from documents
+- **[Chunker](operators/functional/chunker_readme.md)** - Split documents into chunks
+- **[Embeddings](operators/functional/embeddings_readme.md)** - Generate vector embeddings
 - **[VectorDB](operators/vectordb/)** - Store vectors in OpenSearch or Milvus
 
 ### All Operator Configurations
@@ -59,7 +59,7 @@ Quick lookup documentation for parameters and APIs:
 
 ## 🌐 REST API
 
-Documentation for the Docpipe REST API server:
+Documentation for the Docling Pipelines REST API server:
 
 - **[REST API Server](api/REST_API_SERVER.md)** - Server setup, all endpoints, authentication, and security overview
 - **[Document Retrieval API](api/ACL_DOCUMENT_RETRIEVAL.md)** - ACL-based document retrieval endpoints
@@ -81,24 +81,25 @@ Integration-specific documentation:
 
 Resources for contributors:
 
-- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to Docpipe
+- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to Docling Pipelines
+- **[Documentation Style Guide](guides/DOCUMENTATION_STYLE_GUIDE.md)** - Formatting, Mermaid, and writing conventions for all contributors
 
 ## 🔬 Internals
 
 Internal documentation for maintainers:
 
-- **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
 - **[Metadata Aggregation Strategy](internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Metadata aggregation in micro-batching
+- **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
 
 ## 🚀 Deployment
 
 Deployment guides for production environments:
 
-- **[OpenShift Deployment](deployment/OPENSHIFT.md)** - Deploy Docpipe on OpenShift
+- **[OpenShift Deployment](deployment/OPENSHIFT.md)** - Deploy Docling Pipelines on OpenShift
 
 ## 💡 Architecture
 
-Understand how Docpipe works:
+Understand how Docling Pipelines works:
 
 - **[Architecture Overview](../ARCHITECTURE.md)** - System design and operator catalog
 
@@ -117,6 +118,8 @@ docs/
 └── deployment/          # Deployment guides
 ```
 
+**Note:** Comprehensive operator documentation (architecture, implementation details) is located in the source code directories at `src/docpipe/core/operators/*/README.md`.
+
 ## 🔍 Finding What You Need
 
 **I want to...**
@@ -126,7 +129,7 @@ docs/
 - **Write my first flow** → [Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)
 - **Look up a parameter** → [Global Config Reference](reference/GLOBAL_CONFIG.md) or [Operator Reference](reference/OPERATORS.md)
 - **See operator config examples** → [Operator Configs Directory](operators/)
-- **Understand operator internals** → Browse [operator documentation](operators/)
+- **Understand operator internals** → Check `src/docpipe/core/operators/*/README.md` in source code
 - **Use the Python API** → [Python API Guide](guides/PYTHON_API_GUIDE.md)
 - **Use the REST API** → [REST API Server](api/REST_API_SERVER.md)
 - **Set up OAuth2 authentication** → [OAuth2 Authentication Guide](api/OAUTH2_AUTHENTICATION.md)

@@ -1,6 +1,6 @@
-# Docpipe Troubleshooting Guide
+# Docling Pipelines Troubleshooting Guide
 
-This comprehensive guide helps you diagnose and resolve common issues when working with Docpipe pipelines.
+This comprehensive guide helps you diagnose and resolve common issues when working with Docling Pipelines pipelines.
 
 ## Table of Contents
 
@@ -24,7 +24,7 @@ This comprehensive guide helps you diagnose and resolve common issues when worki
 
 ## Quick Diagnostics
 
-Run these commands to quickly check your Docpipe environment:
+Run these commands to quickly check your Docling Pipelines environment:
 
 ```bash
 # 1. Check Python version (must be 3.12)
@@ -59,7 +59,7 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 ```bash
 #!/bin/bash
-echo "=== Docpipe Environment Health Check ==="
+echo "=== Docling Pipelines Environment Health Check ==="
 echo ""
 echo "1. Python Version:"
 python3.12 --version || echo "❌ Python 3.12 not found"
@@ -187,14 +187,14 @@ uv sync --extra dev
 **Symptoms:**
 
 ```
-Permission denied: './scripts/setup_docpipe_environment.sh'
+Permission denied: './scripts/setup_docling_pipelines_environment.sh'
 ```
 
 **Solution:**
 
 ```bash
-chmod +x scripts/setup_docpipe_environment.sh
-./scripts/setup_docpipe_environment.sh
+chmod +x scripts/setup_docling_pipelines_environment.sh
+./scripts/setup_docling_pipelines_environment.sh
 ```
 
 ---
@@ -217,7 +217,7 @@ Job run exists on the submitter but worker updates do not appear in job status A
 3. If using filesystem storage, configure a shared filesystem path visible to both submitter and workers.
 4. Ensure worker environments inherit the same effective backend configuration and connection settings.
 5. If needed, override config explicitly with `DOCPIPE_STORAGE_BACKEND`, `DOCPIPE_FRAMEWORK_TYPE`, `DOCPIPE_JOB_STATS_BASE_DIR`, and PostgreSQL env variables.
-6. Review [`DISTRIBUTED_EXECUTION_GUIDE.md`](docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
+6. Review [`docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
 
 ---
 
@@ -1030,7 +1030,7 @@ connections.connect(
 
 ```bash
 export GRPC_DNS_RESOLVER="native"
-docling-pipelines --flow-file sample_flows/milvus_dense_watsonx_flow.json
+docling-pipelines --flow-file sample_flows/vectordb/milvus_integration.json
 ```
 
 **Verification Steps:**
@@ -1434,8 +1434,7 @@ Message code: CHUNKER_INVALID_CHUNK_TYPE
   }
 }
 ```
-
-#### Issue: Semantic Chunking Requires Embeddings
+#### Issue: Semantic Chunking Requires Embeddings Support
 
 **Error Message:**
 
@@ -1443,59 +1442,62 @@ Message code: CHUNKER_INVALID_CHUNK_TYPE
 This server does not support embeddings
 ```
 
-**Symptoms:**
-
-- Error occurs when using `chunk_type: "semantic"` in the Chunker operator
-- Pipeline fails during chunking phase
-- Works fine with `chunk_type: "simple"`
+or chunking operation fails when using `chunk_type: "semantic"`.
 
 **Root Cause:**
 
-Semantic chunking requires embeddings to calculate similarity between text segments. This requires:
-1. Ollama server running with embeddings support enabled
-2. An embedding model loaded in Ollama (e.g., `nomic-embed-text`)
+Semantic chunking requires Ollama embeddings support to calculate semantic similarity between text segments. This error occurs when:
+- Ollama doesn't have an embeddings model installed
+- Ollama version is outdated and lacks embeddings support
+- The embeddings endpoint is not accessible
 
-**Solution 1: Use Simple Chunking (Recommended for Quick Start)**
+**Solutions:**
 
-Change your flow configuration to use simple chunking:
+1. **Install an embeddings model:**
+
+```bash
+ollama pull granite4
+```
+
+2. **Update Ollama to the latest version:**
+
+```bash
+# macOS
+brew upgrade ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+3. **Switch to simple chunking in your flow JSON:**
 
 ```json
 {
   "type": "chunker",
-  "name": "simple_chunker",
+  "name": "chunker_node",
   "config": {
-    "chunk_type": "simple",
+    "chunk_type": "simple",  // Changed from "semantic"
     "chunk_size": 512,
     "chunk_overlap": 50
   }
 }
 ```
 
-**Solution 2: Enable Embeddings in Ollama**
+**Verification:**
 
-If you want to use semantic chunking:
+Test embeddings support:
 
-1. Ensure Ollama is running:
-```bash
-curl http://localhost:11434/api/tags
-```
-
-2. Pull an embedding model:
-```bash
-ollama pull nomic-embed-text
-```
-
-3. Verify embeddings work:
 ```bash
 curl http://localhost:11434/api/embeddings -d '{
-  "model": "nomic-embed-text",
+  "model": "granite4",
   "prompt": "test"
 }'
 ```
 
-4. Update your flow to use semantic chunking with embeddings configuration.
+**See Also:**
+- [QUICKSTART.md](QUICKSTART.md) for Ollama setup instructions
+- [Chunker documentation](docs/operators/functional/chunker_readme.md) for chunking strategies
 
-**Note:** The default `complete_pipeline_flow.json` uses simple chunking for better first-time user experience.
 
 #### Issue: Audio/Video Processing Fails with ffmpeg Error
 
@@ -1689,17 +1691,15 @@ Message code: EXTRACT_OPERATOR_MISSING
 **Problem:** Database file not created or cannot be found
 
 **Symptoms:**
-```
-
+```text
 FileNotFoundError: Database file not found at data/duckdb/document_sets.db
-
-````
+```
 
 **Solutions:**
 1. Verify workspace directory is correct:
    ```bash
    pwd  # Should be at project root
-````
+   ```
 
 2. Check database path configuration:
 
@@ -1901,7 +1901,6 @@ HTTP 500: Internal server error when creating document set
 3. Ensure proper permissions on database directory
 4. Check API authentication if enabled
 5. Verify request payload matches expected schema
-
 
 ---
 
@@ -2742,6 +2741,7 @@ cat my_flow.json
 
 5. **Service status:**
 
+```bash
 # Ollama
 curl http://localhost:11434/api/tags
 
@@ -2767,7 +2767,8 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 **Examples:**
 
-- Sample flows: [`sample_flows/`](sample_flows/) - Organized by use case and operator type
+- Sample flows: [`sample_flows/`](sample_flows/)
+- Test flows: [`sample_flows/`](sample_flows/)
 
 ---
 
@@ -2817,9 +2818,6 @@ podman-compose -f docker/docker-compose.opensearch.yml down -v
 pkill -f "ollama serve"
 ```
 
-**Last Updated:** 2024-01-15
-**Version:** 1.0.0
-
 ---
 
 ### Quick Links
@@ -2827,7 +2825,10 @@ pkill -f "ollama serve"
 - **Installation Guide**: [`USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation`](USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation)
 - **Ollama Setup**: [`USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup`](USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup)
 - **OpenSearch Setup**: [`USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman`](USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman)
-- **Flow Configuration**: [`USER_GUIDE_PIPELINE_SETUP.md#5-creating-your-first-flow`](USER_GUIDE_PIPELINE_SETUP.md#5-creating-your-first-flow)
-- **Operator Reference**: [`README.md#available-operators`](README.md#available-operators)
+- **Flow Configuration**: [`USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration`](USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration)
+- **Operator Reference**: [`README.md#operators`](README.md#operators)
 
 ---
+
+**Last Updated:** 2024-01-15  
+**Version:** 1.0.0

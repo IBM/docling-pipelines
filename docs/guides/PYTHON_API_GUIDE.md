@@ -85,7 +85,7 @@ from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
 def execute_flow():
     """Execute a flow file with basic error handling."""
-    flow_file = Path("sample_flows/complete_pipeline_flow.json")
+    flow_file = Path("sample_flows/quickstart/complete_pipeline_ollama.json")
 
     try:
         # Initialize the manager with a flow file
@@ -288,7 +288,7 @@ uv pip install jupyter
 
 **Step 2: Start Jupyter Notebook Server**
 
-Note: Provide the full path instead of relative path here - https://github.ibm.com/wdp-gov/docling-pipelines/blob/fcbc75fc6ec4ac77307863c95d44b9af3ea106ff/sample_flows/complete_pipeline_flow.json#L16
+Note: Provide the full path instead of relative path here - https://github.ibm.com/wdp-gov/docling-pipelines/blob/fcbc75fc6ec4ac77307863c95d44b9af3ea106ff/sample_flows/quickstart/complete_pipeline_ollama.json#L16
 
 From the project root directory:
 

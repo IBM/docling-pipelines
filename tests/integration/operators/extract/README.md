@@ -302,7 +302,7 @@ Most integration tests are skipped by default. To run them:
    ```bash
    # For Docling Serve tests
    docker run -p 5001:5001 ds4sd/docling-serve:latest
-   
+
    # For Ollama tests
    ollama serve
    ollama pull llama3.2
@@ -368,8 +368,8 @@ Actual times depend on:
 
 ## Related Documentation
 
-- [ExtractOperator README](../../../../README.md) - Complete operator documentation
+- [ExtractOperator README](../../../../docs/operators/extract/extract_operator_readme.md) - Complete operator documentation
 - [ExtractOperator Source](../../../../src/docpipe/core/operators/extract/extract_operator.py) - Operator implementation
-- [Sample Flows](../../sample_test_flows/extract/) - Example flow configurations
+- [Sample Flows](../../../../sample_flows/) - Example flow configurations
 - [Docling Documentation](https://github.com/DS4SD/docling) - Docling library docs
 - [Ollama Documentation](https://ollama.com/docs) - Ollama setup and usage

@@ -291,7 +291,7 @@ Operators are the fundamental building blocks of docpipe. Each operator is a sel
 
 **Operator Categories:**
 
-````mermaid
+```mermaid
 graph LR
     OP[Operator Categories]
     OP --> ING[Ingest]
@@ -303,7 +303,7 @@ graph LR
     ING --> I1[IngestLocalOperator]
     ING --> I2[IngestSourceOperator]
 
-    EXT --> E1[ExtactOperator]
+    EXT --> E1[ExtractOperator]
 
     FUN --> F1[BranchingOperator]
     FUN --> F2[MergeOperator]
@@ -328,6 +328,7 @@ graph LR
     style FUN fill:#fff4e6
     style QUA fill:#e6ffe6
     style VDB fill:#f3e6ff
+```
 
 ### Custom Operator Ownership and Priority
 
@@ -336,7 +337,7 @@ All operators must properly identify themselves using the `owner` attribute to e
 **Owner Attribute:**
 - **Docling-pipelines operators**: `owner = DocpipeConstants.OWNER_DOCPIPE` (must be explicitly set for all built-in operators)
 - **Custom operators**: `owner = "custom"` (must be explicitly set)
-- **Default**: `owner = None` (inherited from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py:32), treated as custom)
+- **Default**: `owner = None` (inherited from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py), treated as custom)
 
 **Priority Resolution:**
 
@@ -360,7 +361,7 @@ class MyDocpipeOperator(AbstractOperator):
     def __init__(self, *, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         # Implementation
-````
+```
 
 **Example - Custom Operator:**
 
@@ -418,8 +419,6 @@ The [`PackageAdapter`](src/docpipe/core/orchestration/operator_loader/adapters/p
 
 See [`CustomOperatorLoader`](src/docpipe/core/orchestration/operator_loader/loader_service.py) for implementation details and [CUSTOM_OPERATORS_GUIDE.md](docs/guides/CUSTOM_OPERATORS_GUIDE.md) for complete usage documentation.
 
-````
-
 ### 2. Operator Metadata Architecture
 
 The [`OperatorMetadata`](src/docpipe/core/operators/operator_metadata.py) class is the **primary API** for accessing metadata from all operators in the system. It provides a unified interface for discovering operators, querying their capabilities, and understanding their requirements.
@@ -449,7 +448,7 @@ required = metadata.required_feature_names(short_name='chunker')
 # Get reverse mapping: which operators produce a feature?
 feature_map = metadata.get_feature_operators_map()
 print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
-````
+```
 
 **Key Capabilities:**
 
@@ -2829,7 +2828,7 @@ graph LR
 6. **EmbeddingsOperator**: Generate vector embeddings
 7. **VectorDBOperator**: Store embeddings in vector database
 
-See [PII and HAP Operator Documentation](docs/operators/pii_and_hap/README.md) for detailed usage guide.
+See [PII and HAP Operator Documentation](docs/operators/quality/pii_and_hap_readme.md) for detailed usage guide.
 
 ---
 

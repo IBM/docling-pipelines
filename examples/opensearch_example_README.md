@@ -11,12 +11,12 @@ This example demonstrates how to use the OpenSearch operator for vector similari
    ```
 
 2. **Configure Environment Variables**
-   
+
    Create a `.env` file in the project root with your OpenSearch configuration:
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` and set your OpenSearch connection details:
    ```bash
    # OpenSearch Connection
@@ -26,18 +26,18 @@ This example demonstrates how to use the OpenSearch operator for vector similari
    OPENSEARCH_VERIFY_CERTS=true
    OPENSEARCH_USERNAME=your-username
    OPENSEARCH_PASSWORD=your-password
-   
+
    # Index Configuration
    OPENSEARCH_INDEX_NAME=docpipe_vectors
    OPENSEARCH_VECTOR_DIMENSION=384
-   
+
    # Engine Configuration
    OPENSEARCH_ENGINE=faiss
    OPENSEARCH_ALGORITHM=hnsw
    OPENSEARCH_SPACE_TYPE=l2
    ```
-   
-   See [Environment Setup Guide](../docs/opensearch/ENVIRONMENT_SETUP.md) for complete configuration details.
+
+   See [Environment Setup Guide](../docs/integrations/opensearch/ENVIRONMENT_SETUP.md) for complete configuration details.
 
 ## Running the Example
 
@@ -291,8 +291,8 @@ config = {
 
 ## Additional Resources
 
-- [Environment Setup Guide](../docs/opensearch/ENVIRONMENT_SETUP.md) - Complete configuration guide
-- [OpenSearch Quick Start](../docs/opensearch/OPENSEARCH_QUICKSTART.md) - Quick start guide
+- [Environment Setup Guide](../docs/integrations/opensearch/ENVIRONMENT_SETUP.md) - Complete configuration guide
+- [OpenSearch Quick Start](../docs/integrations/opensearch/OPENSEARCH_QUICKSTART.md) - Quick start guide
 - [Operator Documentation](../docs/operators/vectordb/opensearch.md) - Full operator reference
 - [OpenSearch Documentation](https://opensearch.org/docs/latest/) - Official OpenSearch docs
 - [OpenSearch k-NN Plugin](https://opensearch.org/docs/latest/search-plugins/knn/index/) - Vector search plugin

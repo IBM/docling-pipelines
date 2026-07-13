@@ -11,9 +11,11 @@ required-markers = [
 
 [manifest]
 overrides = [
+    { name = "httplib2", specifier = ">=0.32.0" },
     { name = "numpy", specifier = ">=1.25.0,<2.0.0" },
     { name = "rapidocr", specifier = "==3.9.0" },
     { name = "scipy", specifier = ">=1.13.0,<1.18.0" },
+    { name = "soupsieve", specifier = ">=2.8.4" },
 ]
 
 [[package]]

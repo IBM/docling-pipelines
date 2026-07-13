@@ -26,7 +26,7 @@ For new user setup and complete pipeline execution instructions, refer to [`USER
 
 ## User Entry Points
 
-Docpipe provides multiple interfaces for interacting with the framework:
+Docling Pipelines provides multiple interfaces for interacting with the framework:
 
 ### 1. CLI Entry Point
 Primary interface using the `docling-pipelines` command:
@@ -95,7 +95,7 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 
 ## Available Operators
 
-Docpipe provides 20+ operators across 5 categories:
+Docling Pipelines provides 20+ operators across 5 categories:
 - **Extract**: Document text and entity extraction (ExtractOperator with multiple modes)
 - **Ingest**: Data source ingestion (IngestLocalOperator, IngestSourceOperator)
 - **Functional**: Data transformation (Chunker, EmbeddingsOperator, BranchingOperator, NoopOperator, etc.)
@@ -114,7 +114,7 @@ Orchestrator should recognize these standard pipeline patterns:
 - **Quality-Enhanced**: Ingest → Extract → Quality Checks → Chunk → Embed
 - **Branching**: Conditional processing based on data characteristics
 
-For detailed flow examples, see [`sample_flows/`](sample_flows/) and [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
+For detailed flow examples, see [`sample_flows/`](sample_flows/) and [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## When to Use
 - Complex, multi-step projects requiring coordination across different domains
@@ -152,7 +152,7 @@ Orchestrator should be aware of external service dependencies:
 - **OpenSearch** (`localhost:9200`): Required for vector storage operations
 - **PYTHONPATH**: Must include `src` directory
 
-When users report integration issues, delegate troubleshooting to Code mode or reference [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
+When users report integration issues, delegate troubleshooting to Code mode or reference [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## Flow Execution
 
@@ -163,7 +163,7 @@ When coordinating flow-related tasks, delegate to Code mode for:
 - **Test execution**: Run pytest with proper environment setup
 - **Flow structure**: JSON files with nodes (operators) and edges (data flow)
 
-For detailed execution instructions, see [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md).
+For detailed execution instructions, see [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## Limitations
 - Cannot directly edit files (must delegate to code/advanced modes)
@@ -172,10 +172,16 @@ For detailed execution instructions, see [`USER_GUIDE_PIPELINE_SETUP.md`](USER_G
 - Focuses on coordination rather than hands-on implementation
 - Adds overhead for simple, single-mode tasks
 
-### Docpipe-Specific Limitations
+### Docling Pipelines-Specific Limitations
 - **Cannot directly create or modify flow JSON files**: Must delegate to Code mode for flow configuration changes
 - **Cannot execute docling-pipelines commands**: Must delegate to Code mode to run flows or test cases
 - **Cannot read operator source code**: Must delegate to Ask mode or Code mode to analyze operator implementations
 - **Cannot verify integration status**: Cannot check if Ollama or OpenSearch services are running (must delegate to Code mode)
 - **Cannot validate flow configurations**: Cannot parse or validate JSON flow files without delegating to Code mode
 - **Cannot access PyArrow table data**: Cannot inspect or manipulate data flowing through pipelines during execution
+
+## Documentation Rules
+
+The following rules apply whenever any agent creates or edits documentation files (`*.md`). They are non-negotiable — a PR that violates them must be corrected before merge.
+
+Operator docs follow the canonical 8-section structure. Every operator file lives at `docs/operators/<category>/<operator_name>_readme.md`. Full conventions — section order, file naming, formatting rules, and common mistakes — are in [`docs/guides/DOCUMENTATION_STYLE_GUIDE.md`](docs/guides/DOCUMENTATION_STYLE_GUIDE.md).
