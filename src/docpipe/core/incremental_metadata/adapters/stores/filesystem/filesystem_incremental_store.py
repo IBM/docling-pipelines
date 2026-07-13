@@ -181,7 +181,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
             # Clean up temp file on error
             if temp_path.exists():
                 temp_path.unlink()
-            raise FlowExecutionFailedException(f"Failed to write parquet file for job_id={job_id}: {exc}") from exc
+            raise FlowExecutionFailedException(f"Failed to write parquet file for job_id = {job_id}: {exc}") from exc
 
     def _records_to_table(self, *, records: list[IncrementalMetadataRecord]) -> pa.Table:
         """Convert list of records to PyArrow table."""
@@ -196,7 +196,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
         return pa.table(data, schema=self.SCHEMA)
 
     def get_processed_docs(self, *, job_id: str) -> dict[str, Any]:
-        """Retrieve processed document IDs with modification times (non-deleted only)."""
+        """Retrieve processed document IDs with modification times and job run IDs (non-deleted only)."""
         lock = FileLock(str(self._get_lock_path(job_id=job_id)), timeout=self._lock_timeout)
 
         try:
@@ -207,7 +207,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                     return {}
 
                 # Filter for non-deleted documents
-                mask = pc.equal(table["deleted"], False)
+                mask = pc.equal(table["deleted"], False)  # type: ignore[attr-defined]
                 filtered_table = table.filter(mask)
 
                 # Build result dictionary
@@ -215,7 +215,8 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                 for i in range(filtered_table.num_rows):
                     doc_id = filtered_table["doc_id"][i].as_py()
                     modified_time = filtered_table["modified_time"][i].as_py()
-                    result[doc_id] = modified_time
+                    job_run_id = filtered_table["job_run_id"][i].as_py()
+                    result[doc_id] = {"modified_time": modified_time, "job_run_id": job_run_id}
 
                 logger.debug(f"Retrieved {len(result)} processed docs for job_id={job_id}")
                 return result
@@ -248,7 +249,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                 new_doc_ids = {r.doc_id for r in records}
 
                 # Filter out existing records that will be updated
-                mask = pc.invert(pc.is_in(existing_table["doc_id"], pa.array(list(new_doc_ids))))
+                mask = pc.invert(pc.is_in(existing_table["doc_id"], pa.array(list(new_doc_ids))))  # type: ignore[attr-defined]
                 filtered_existing = existing_table.filter(mask)
 
                 # Concatenate filtered existing with new records
@@ -272,7 +273,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                     return set()
 
                 # Filter for deleted documents
-                mask = pc.equal(table["deleted"], True)
+                mask = pc.equal(table["deleted"], True)  # type: ignore[attr-defined]
                 deleted_table = table.filter(mask)
 
                 result = set(deleted_table["doc_id"].to_pylist())
@@ -296,9 +297,9 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                 current_doc_ids = set(doc_ids)
 
                 # Find documents not in current list and not already deleted
-                mask_not_deleted = pc.equal(table["deleted"], False)
-                mask_not_in_current = pc.invert(pc.is_in(table["doc_id"], pa.array(list(current_doc_ids))))
-                mask_to_delete = pc.and_(mask_not_deleted, mask_not_in_current)
+                mask_not_deleted = pc.equal(table["deleted"], False)  # type: ignore[attr-defined]
+                mask_not_in_current = pc.invert(pc.is_in(table["doc_id"], pa.array(list(current_doc_ids))))  # type: ignore[attr-defined]
+                mask_to_delete = pc.and_(mask_not_deleted, mask_not_in_current)  # type: ignore[attr-defined]
 
                 # Get doc_ids to mark as deleted
                 to_delete_table = table.filter(mask_to_delete)
@@ -308,7 +309,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                     return set()
 
                 # Update deleted flag
-                deleted_column = pc.if_else(mask_to_delete, pa.array([True] * table.num_rows), table["deleted"])
+                deleted_column = pc.if_else(mask_to_delete, pa.array([True] * table.num_rows), table["deleted"])  # type: ignore[attr-defined]
 
                 updated_table = table.set_column(table.schema.get_field_index("deleted"), "deleted", deleted_column)
 
@@ -334,7 +335,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                     return
 
                 # Filter out documents to delete
-                mask = pc.invert(pc.is_in(table["doc_id"], pa.array(doc_ids)))
+                mask = pc.invert(pc.is_in(table["doc_id"], pa.array(doc_ids)))  # type: ignore[attr-defined]
                 filtered_table = table.filter(mask)
 
                 if filtered_table.num_rows == 0:

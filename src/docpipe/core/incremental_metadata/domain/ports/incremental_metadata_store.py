@@ -23,7 +23,7 @@ class IncrementalMetadataStore(ABC):
     @abstractmethod
     def get_processed_docs(self, *, job_id: str) -> dict[str, Any]:
         """
-        Retrieve processed document IDs with their modification times.
+        Retrieve processed document IDs with their modification times and job run IDs.
 
         Returns only non-deleted documents.
 
@@ -31,7 +31,8 @@ class IncrementalMetadataStore(ABC):
             job_id: Unique identifier for the job
 
         Returns:
-            Dictionary mapping doc_id to modified_time for all processed documents
+            Dictionary mapping doc_id to {"modified_time": ..., "job_run_id": ...}
+            for all processed documents
 
         Raises:
             Exception: If retrieval operation fails

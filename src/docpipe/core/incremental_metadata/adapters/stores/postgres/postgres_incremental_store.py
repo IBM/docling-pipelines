@@ -114,7 +114,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
             ) from e
 
     def get_processed_docs(self, *, job_id: str) -> dict[str, Any]:
-        """Retrieve processed document IDs with modification times (non-deleted only)."""
+        """Retrieve processed document IDs with modification times and job run IDs (non-deleted only)."""
         try:
             with self._session_factory() as session:
                 rows = (
@@ -127,7 +127,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
                     .scalars()
                     .all()
                 )
-                result = {row.doc_id: row.modified_time for row in rows}
+                result = {row.doc_id: {"modified_time": row.modified_time, "job_run_id": row.job_run_id} for row in rows}
                 logger.debug(f"Retrieved {len(result)} processed docs for job_id={job_id}")
                 return result
 

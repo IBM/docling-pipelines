@@ -42,7 +42,10 @@ class TestIncrementalUpdateService:
         service.save_metadata_for_incremental_update(job_id="job-1", job_run_id="run-1", tables=[table])
 
         result = service.get_all_processed_docs(job_id="job-1")
-        assert result == {"doc-1": 1000, "doc-2": 2000}
+        assert result == {
+            "doc-1": {"modified_time": 1000, "job_run_id": "run-1"},
+            "doc-2": {"modified_time": 2000, "job_run_id": "run-1"},
+        }
 
     def test_save_with_failed_doc_ids(self, *, service):
         """Test saving metadata with failed document IDs filtered out."""
@@ -53,7 +56,10 @@ class TestIncrementalUpdateService:
         )
 
         result = service.get_all_processed_docs(job_id="job-1")
-        assert result == {"doc-1": 1000, "doc-3": 3000}
+        assert result == {
+            "doc-1": {"modified_time": 1000, "job_run_id": "run-1"},
+            "doc-3": {"modified_time": 3000, "job_run_id": "run-1"},
+        }
 
     def test_save_empty_tables(self, *, service):
         """Test saving empty tables does nothing."""
@@ -73,7 +79,10 @@ class TestIncrementalUpdateService:
         remaining_ids = service.delete_failed_doc(table=input_table, result_table=result_table, job_id="job-1")
 
         assert remaining_ids == {"doc-1", "doc-2", "doc-3"}
-        assert service.get_all_processed_docs(job_id="job-1") == {"doc-1": 1, "doc-3": 3}
+        assert service.get_all_processed_docs(job_id="job-1") == {
+            "doc-1": {"modified_time": 1, "job_run_id": "run-1"},
+            "doc-3": {"modified_time": 3, "job_run_id": "run-1"},
+        }
 
     def test_concatenate_tables(self, *, service):
         """Test concatenating tables with duplicate handling."""
@@ -138,7 +147,10 @@ class TestIncrementalUpdateService:
 
         assert deleted_ids == {"doc-2"}
         assert service.get_soft_deleted_doc_ids(job_id="job-1") == {"doc-2"}
-        assert service.get_all_processed_docs(job_id="job-1") == {"doc-1": 1, "doc-3": 3}
+        assert service.get_all_processed_docs(job_id="job-1") == {
+            "doc-1": {"modified_time": 1, "job_run_id": "run-1"},
+            "doc-3": {"modified_time": 3, "job_run_id": "run-1"},
+        }
 
     def test_process_ingested_docs_with_force_ingest(self, *, service):
         """Test process_ingested_docs with force_ingest clears metadata."""
@@ -178,7 +190,9 @@ class TestIncrementalUpdateService:
 
         service.delete_docs_for_ids(doc_ids=["doc-2"], job_id="job-1")
 
-        assert service.get_all_processed_docs(job_id="job-1") == {"doc-1": 1}
+        assert service.get_all_processed_docs(job_id="job-1") == {
+            "doc-1": {"modified_time": 1, "job_run_id": "run-1"},
+        }
 
     def test_delete_docs_with_empty_list(self, *, service):
         """Test deleting with empty list does nothing."""
@@ -187,7 +201,9 @@ class TestIncrementalUpdateService:
 
         service.delete_docs_for_ids(doc_ids=[], job_id="job-1")
 
-        assert service.get_all_processed_docs(job_id="job-1") == {"doc-1": 1}
+        assert service.get_all_processed_docs(job_id="job-1") == {
+            "doc-1": {"modified_time": 1, "job_run_id": "run-1"},
+        }
 
     def test_clear_incremental_table(self, *, service):
         """Test clearing all incremental metadata."""
@@ -242,4 +258,7 @@ class TestIncrementalUpdateService:
         service.save_metadata_for_incremental_update(job_id="job-1", job_run_id="run-1", tables=[table1, table2])
 
         result = service.get_all_processed_docs(job_id="job-1")
-        assert result == {"doc-1": 1, "doc-2": 2}
+        assert result == {
+            "doc-1": {"modified_time": 1, "job_run_id": "run-1"},
+            "doc-2": {"modified_time": 2, "job_run_id": "run-1"},
+        }

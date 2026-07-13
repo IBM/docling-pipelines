@@ -44,7 +44,10 @@ def is_doc_previously_processed(
     """Returns True if the doc was processed in the previous job run and the doc is not modified since the last processed time."""
     if not previously_processed_docs_dict:
         return False
-    previous_modified_time: Any | None = previously_processed_docs_dict.get(doc_id)
+    doc_entry: Any | None = previously_processed_docs_dict.get(doc_id)
+    if not doc_entry:
+        return False
+    previous_modified_time: Any | None = doc_entry.get("modified_time")
     if previous_modified_time and previous_modified_time >= modified_time:
         return True
     return False
