@@ -644,11 +644,23 @@ class PrefectEngine(FlowEnginePort):
             and destination[0].result()
             and hasattr(destination[0].result(), "tables")
         ]
+
+        # Get merged non-recoverable docs table from orchestrator
+        non_recoverable_docs_table = self.orchestrator._merge_non_recoverable_docs(
+            global_config=global_config, common_log_arguments=self.common_log_arguments
+        )
+
         incremental_update_util.save_metadata_for_incremental_update(
             job_id=self.orchestrator.context_id,
             job_run_id=self.job_run_id,
             tables=tables,
             failed_doc_ids=failed_doc_ids,
+            non_recoverable_docs_table=non_recoverable_docs_table,
+        )
+
+        # Reset non-recoverable docs for micro-batching support
+        self.orchestrator._reset_non_recoverable_docs_for_batch(
+            global_config=global_config, common_log_arguments=self.common_log_arguments
         )
 
     def __non_execute_inner_flow(

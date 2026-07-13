@@ -68,6 +68,7 @@ class AbstractOrchestrator(ABC):
         self.message: str | None = ""
         self.flow_id = None
         self.deleted_rows_list: Queue[pa.Table] = Queue()
+        self.non_recoverable_docs_tables: list[pa.Table] = []  # Track non-recoverable document tables
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
         self.flow_execution_event_handler = FlowExecutionEventHandler(
@@ -220,6 +221,11 @@ class AbstractOrchestrator(ABC):
 
         # Removing the internal metrics from the operator metadata if any to another dict
         internal_metadata = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata)
+
+        # Collect non-recoverable docs table from this operator's internal metadata
+        self._collect_non_recoverable_docs(
+            internal_metadata=internal_metadata, op_def=op_def, common_log_arguments=self.common_log_arguments or {}
+        )
 
         operator = executor.get_operator()
         retain_deleted = operator.config.get(
@@ -428,6 +434,79 @@ class AbstractOrchestrator(ABC):
         except Exception as e:
             self.logger.warning(f"Failed to cleanup memmap files: {e}")
 
+    def _collect_non_recoverable_docs(self, internal_metadata: dict, op_def: dict, common_log_arguments: dict) -> None:
+        """
+        Collect non-recoverable docs table from operator internal metadata.
+
+        Args:
+            internal_metadata: Internal metadata dict (not shown in UI)
+            op_def: Operator definition
+            common_log_arguments: Common logging arguments
+        """
+        if internal_metadata and Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE in internal_metadata:
+            non_rec_table = internal_metadata[Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE]
+            if non_rec_table and isinstance(non_rec_table, pa.Table) and non_rec_table.num_rows > 0:
+                self.non_recoverable_docs_tables.append(non_rec_table)
+                self.logger.info(
+                    f"Collected {non_rec_table.num_rows} non-recoverable docs from operator '{op_def.get('name', 'unknown')}'. Total tables: {len(self.non_recoverable_docs_tables)}",
+                    extra=common_log_arguments,
+                )
+
+    def _merge_non_recoverable_docs(self, global_config: dict, common_log_arguments: dict) -> pa.Table | None:
+        """
+        Merge accumulated non-recoverable docs tables into a single table.
+
+        Args:
+            global_config: Global configuration
+            common_log_arguments: Common logging arguments
+
+        Returns:
+            Merged PyArrow table or None if no tables to merge
+        """
+        if not self.non_recoverable_docs_tables:
+            return None
+
+        try:
+            merged_table = pa.concat_tables(self.non_recoverable_docs_tables)
+
+            batch_num = global_config.get(DocpipeConstants.BATCH_NUM)
+            if batch_num is not None:
+                self.logger.info(
+                    f"Batch {batch_num}: Merged {len(self.non_recoverable_docs_tables)} tables "
+                    f"with {merged_table.num_rows} total non-recoverable docs",
+                    extra=common_log_arguments,
+                )
+            else:
+                self.logger.info(
+                    f"Merged {len(self.non_recoverable_docs_tables)} tables "
+                    f"with {merged_table.num_rows} total non-recoverable docs",
+                    extra=common_log_arguments,
+                )
+            return merged_table
+        except Exception as e:
+            self.logger.error(
+                f"Failed to merge non-recoverable docs tables: {e}. Proceeding without non-recoverable docs tracking.",
+                extra=common_log_arguments,
+            )
+            return None
+
+    def _reset_non_recoverable_docs_for_batch(self, global_config: dict, common_log_arguments: dict) -> None:
+        """
+        Reset non-recoverable docs tables list for micro-batching.
+        Each batch should start fresh and not accumulate tables from previous batches.
+
+        Args:
+            global_config: Global configuration
+            common_log_arguments: Common logging arguments
+        """
+        batch_num = global_config.get(DocpipeConstants.BATCH_NUM)
+        if batch_num is not None:
+            self.logger.debug(
+                f"Batch {batch_num}: Resetting non_recoverable_docs_tables list after metadata save",
+                extra=common_log_arguments,
+            )
+            self.non_recoverable_docs_tables.clear()
+
     def cancel(self):
         """
         Request for cancelling a running job
@@ -469,6 +548,7 @@ class AbstractOrchestrator(ABC):
                 global_config.get(op_def[OperatorConstants.Misc.OPERATOR], {}),
             ),
         )
+
         operator_name = op_def[OperatorConstants.Columns.NAME]
         operator_id = op_def[OperatorConstants.Columns.ID]
         # 1. Configuration defined for the operator takes precedence over the global configuration in the flow.

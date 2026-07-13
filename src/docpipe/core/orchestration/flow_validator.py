@@ -507,6 +507,7 @@ class FlowValidator:
 
                 if operator_class is not None:
                     config = global_config | op_def.get(OperatorConstants.Config.CONFIG, {})
+
                     operator = operator_class(config=config)
                     operator.name = op_def.get(OperatorConstants.Columns.NAME)
                     operator.id = op_def.get(OperatorConstants.Columns.ID)

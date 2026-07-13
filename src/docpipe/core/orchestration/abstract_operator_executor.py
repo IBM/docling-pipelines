@@ -276,7 +276,11 @@ class AbstractOperatorExecutor:
 
     def _process_table_for_empty_docs(self, *, table: pa.Table, doc_column: str, metadata: dict[str, Any]) -> pa.Table:
         """
-        Process a single table to handle empty documents using PyArrow operations.
+        Process a single table to handle empty documents and zero-byte files.
+
+        This method implements the OUTPUT validation layer that checks for:
+        1. Empty content in doc_column (e.g., empty strings, None values)
+        2. Zero-byte files in SIZE column (files with size = 0)
 
         Args:
             table: PyArrow table to process
@@ -284,43 +288,66 @@ class AbstractOperatorExecutor:
             metadata: Metadata dictionary to update
 
         Returns:
-            Processed PyArrow table with empty documents removed
+            Processed PyArrow table with empty documents and zero-byte files removed
         """
-        import pyarrow.compute as pc
+        import pyarrow.compute as pc  # type: ignore[import-untyped]
 
         # Skip processing if table is empty
         if table.num_rows == 0:
             return table
 
-        # Check if doc_column exists in the table
-        if doc_column not in table.column_names:
+        # Check if either doc_column or SIZE column exists
+        has_doc_column = doc_column in table.column_names
+        has_size_column = OperatorConstants.Misc.SIZE in table.column_names
+
+        # If neither column exists, nothing to validate
+        if not has_doc_column and not has_size_column:
             return table
 
-        doc_col = table[doc_column]
+        # Initialize empty mask
+        is_empty_mask = None
 
-        # Create mask for empty documents: null OR empty/whitespace-only strings
-        is_null = pc.is_null(doc_col)
-        doc_col_filled = pc.fill_null(doc_col, "")
-        stripped = pc.utf8_trim_whitespace(doc_col_filled)
-        is_empty_string = pc.equal(pc.utf8_length(stripped), 0)
-        is_empty_mask = pc.or_(is_null, is_empty_string)
+        # Check for empty content in doc_column
+        if has_doc_column:
+            doc_col = table[doc_column]
+            # Create mask for empty documents: null OR empty/whitespace-only strings
+            is_null = pc.is_null(doc_col)  # type: ignore[attr-defined]
+            doc_col_filled = pc.fill_null(doc_col, "")  # type: ignore[attr-defined]
+            stripped = pc.utf8_trim_whitespace(doc_col_filled)  # type: ignore[attr-defined]
+            is_empty_string = pc.equal(pc.utf8_length(stripped), 0)  # type: ignore[attr-defined]
+            is_empty_mask = pc.or_(is_null, is_empty_string)  # type: ignore[attr-defined]
+
+        # Check for zero-byte files in SIZE column
+        if has_size_column:
+            size_col = table[OperatorConstants.Misc.SIZE]
+            # Create mask for zero-byte files
+            is_zero_byte = pc.equal(size_col, 0)  # type: ignore[attr-defined]
+
+            # Combine masks: empty content OR zero-byte file
+            if is_empty_mask is not None:
+                is_empty_mask = pc.or_(is_empty_mask, is_zero_byte)  # type: ignore[attr-defined]
+            else:
+                is_empty_mask = is_zero_byte
+
+        # If no mask was created (shouldn't happen due to earlier check), return table
+        if is_empty_mask is None:
+            return table
 
         # Get indices of empty documents for metadata tracking
-        empty_doc_indices = pc.indices_nonzero(is_empty_mask).to_pylist()
+        empty_doc_indices = pc.indices_nonzero(is_empty_mask).to_pylist()  # type: ignore[attr-defined]
 
-        # If no empty documents, return table as is
+        # If no empty documents or zero-byte files, return table as is
         if not empty_doc_indices:
             return table
 
         # Save empty documents to incremental metadata
-        empty_docs_table = table.filter(is_empty_mask)
-        self._save_empty_docs_to_incremental_metadata(table=empty_docs_table, empty_doc_indices=empty_doc_indices)
+        self._save_empty_docs_to_incremental_metadata(table=table, empty_doc_indices=empty_doc_indices)
 
         # Add empty documents as skipped in metadata
         self._add_empty_docs_to_skipped_metadata(table=table, empty_doc_indices=empty_doc_indices, metadata=metadata)
 
         # Filter out empty documents using inverted mask
-        non_empty_mask = pc.invert(is_empty_mask)
+        non_empty_mask = pc.invert(is_empty_mask)  # type: ignore[attr-defined]
         filtered_table = table.filter(non_empty_mask)
 
         return filtered_table if filtered_table.num_rows > 0 else table.slice(0, 0)
