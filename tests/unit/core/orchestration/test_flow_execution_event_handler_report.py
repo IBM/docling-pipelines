@@ -39,7 +39,7 @@ class TestMarkReportNotAvailable:
         mock_service.get_job.return_value = _make_job_stats()
         handler = _make_handler(job_stats_service=mock_service)
 
-        handler._mark_report_not_available("no parquet found")
+        handler._mark_report_not_available()
 
         mock_service.end_job.assert_called_once()
         call_kwargs = mock_service.end_job.call_args.kwargs
@@ -51,7 +51,7 @@ class TestMarkReportNotAvailable:
         mock_service.get_job.return_value = _make_job_stats()
         handler = _make_handler(job_stats_service=mock_service)
 
-        handler._mark_report_not_available("reason")
+        handler._mark_report_not_available()
 
         call_kwargs = mock_service.end_job.call_args.kwargs
         assert call_kwargs["job_run_id"] == JOB_RUN_ID
@@ -60,7 +60,7 @@ class TestMarkReportNotAvailable:
         """Does nothing when job_stats_service is None."""
         handler = _make_handler(job_stats_service=None)
         # Must not raise
-        handler._mark_report_not_available("reason")
+        handler._mark_report_not_available()
 
     def test_noop_when_job_run_id_is_none(self):
         """Does nothing when job_run_id is not set."""
@@ -68,7 +68,7 @@ class TestMarkReportNotAvailable:
         handler = _make_handler(job_stats_service=mock_service)
         handler.job_run_id = None
 
-        handler._mark_report_not_available("reason")
+        handler._mark_report_not_available()
 
         mock_service.end_job.assert_not_called()
 
@@ -78,7 +78,7 @@ class TestMarkReportNotAvailable:
         mock_service.get_job.return_value = None
         handler = _make_handler(job_stats_service=mock_service)
 
-        handler._mark_report_not_available("reason")
+        handler._mark_report_not_available()
 
         mock_service.end_job.assert_not_called()
 

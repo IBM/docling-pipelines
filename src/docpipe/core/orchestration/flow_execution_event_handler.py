@@ -458,7 +458,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             job_run_stats={"report_status": "GENERATING", "report_started_at": started_at},
         )
 
-    def _mark_report_not_available(self, reason: str):
+    def _mark_report_not_available(self):
         """Mark report status as NOT_AVAILABLE (e.g. parquet files absent for in-memory flows)."""
         if not self.job_stats_service or not self.job_run_id:
             return
@@ -553,7 +553,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 reason,
                 extra=self.common_log_arguments,
             )
-            self._mark_report_not_available(reason)
+            self._mark_report_not_available()
             return
 
         try:
