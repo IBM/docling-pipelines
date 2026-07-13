@@ -61,7 +61,7 @@ async def test_http_exception_handler_404(mock_request):
     """Test HTTP exception handler for 404 errors."""
     exc = StarletteHTTPException(status_code=404, detail="Flow not found")
 
-    response = await http_exception_handler(mock_request, exc)
+    response = http_exception_handler(mock_request, exc)
 
     assert response.status_code == 404
     content = json.loads(response.body)
@@ -80,7 +80,7 @@ async def test_http_exception_handler_with_flow_id_target(mock_request):
     mock_request.path_params = {"flow_id": "123"}
     exc = StarletteHTTPException(status_code=404, detail="Flow not found")
 
-    response = await http_exception_handler(mock_request, exc)
+    response = http_exception_handler(mock_request, exc)
 
     content = json.loads(response.body)
     assert content["errors"][0]["target"]["type"] == "parameter"
@@ -92,7 +92,7 @@ async def test_http_exception_handler_500(mock_request):
     """Test HTTP exception handler for 500 errors."""
     exc = StarletteHTTPException(status_code=500, detail="Internal server error")
 
-    response = await http_exception_handler(mock_request, exc)
+    response = http_exception_handler(mock_request, exc)
 
     assert response.status_code == 500
     content = json.loads(response.body)
@@ -113,7 +113,7 @@ async def test_validation_exception_handler_single_error(mock_request):
 
     exc = RequestValidationError([validation_error])
 
-    response = await validation_exception_handler(mock_request, exc)
+    response = validation_exception_handler(mock_request, exc)
 
     assert response.status_code == 400
     content = json.loads(response.body)
@@ -138,7 +138,7 @@ async def test_validation_exception_handler_nested_field(mock_request):
 
     exc = RequestValidationError([validation_error])
 
-    response = await validation_exception_handler(mock_request, exc)
+    response = validation_exception_handler(mock_request, exc)
 
     content = json.loads(response.body)
 
@@ -165,7 +165,7 @@ async def test_validation_exception_handler_multiple_errors(mock_request):
 
     exc = RequestValidationError(validation_errors)
 
-    response = await validation_exception_handler(mock_request, exc)
+    response = validation_exception_handler(mock_request, exc)
 
     content = json.loads(response.body)
 
@@ -184,7 +184,7 @@ async def test_validation_exception_handler_query_parameter(mock_request):
 
     exc = RequestValidationError([validation_error])
 
-    response = await validation_exception_handler(mock_request, exc)
+    response = validation_exception_handler(mock_request, exc)
 
     content = json.loads(response.body)
 
@@ -197,7 +197,7 @@ async def test_generic_exception_handler_file_not_found(mock_request):
     """Test generic exception handler for FileNotFoundError."""
     exc = FileNotFoundError("File not found")
 
-    response = await generic_exception_handler(mock_request, exc)
+    response = generic_exception_handler(mock_request, exc)
 
     assert response.status_code == 404
     content = json.loads(response.body)
@@ -212,7 +212,7 @@ async def test_generic_exception_handler_permission_error(mock_request):
     """Test generic exception handler for PermissionError."""
     exc = PermissionError("Access denied")
 
-    response = await generic_exception_handler(mock_request, exc)
+    response = generic_exception_handler(mock_request, exc)
 
     assert response.status_code == 403
     content = json.loads(response.body)
@@ -226,7 +226,7 @@ async def test_generic_exception_handler_value_error(mock_request):
     """Test generic exception handler for ValueError."""
     exc = ValueError("Invalid value")
 
-    response = await generic_exception_handler(mock_request, exc)
+    response = generic_exception_handler(mock_request, exc)
 
     assert response.status_code == 400
     content = json.loads(response.body)
@@ -240,7 +240,7 @@ async def test_generic_exception_handler_unknown_exception(mock_request):
     """Test generic exception handler for unknown exceptions."""
     exc = RuntimeError("Something went wrong")
 
-    response = await generic_exception_handler(mock_request, exc)
+    response = generic_exception_handler(mock_request, exc)
 
     assert response.status_code == 500
     content = json.loads(response.body)
@@ -256,7 +256,7 @@ async def test_exception_handlers_log_errors(mock_request):
     with patch("docpipe.api.middleware.error_handler.logger") as mock_logger:
         exc = StarletteHTTPException(status_code=500, detail="Test error")
 
-        await http_exception_handler(mock_request, exc)
+        http_exception_handler(mock_request, exc)
 
         # Verify logger.error was called with exc_info and stack_info
         assert mock_logger.error.called

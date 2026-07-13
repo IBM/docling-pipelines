@@ -29,7 +29,7 @@ def get_jwt_config() -> JWTConfig:
     return JWTConfig()
 
 
-async def get_current_user(
+def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     jwt_config: Annotated[JWTConfig, Depends(get_jwt_config)],
 ) -> User:
@@ -75,7 +75,7 @@ async def get_current_user(
     return user
 
 
-async def get_current_user_oauth2(
+def get_current_user_oauth2(
     token: Annotated[str | None, Depends(oauth2_scheme)],
     jwt_config: Annotated[JWTConfig, Depends(get_jwt_config)],
 ) -> User | None:
@@ -107,7 +107,7 @@ async def get_current_user_oauth2(
     )
 
 
-async def get_current_user_flexible(
+def get_current_user_flexible(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     oauth2_token: Annotated[str | None, Depends(oauth2_scheme)],
     jwt_config: Annotated[JWTConfig, Depends(get_jwt_config)],

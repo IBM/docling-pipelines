@@ -280,11 +280,9 @@ class TestAuthenticationDependency:
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=valid_token)
 
         # This would normally be called by FastAPI, we're testing the logic
-        import asyncio
-
         from docpipe.api.auth.dependencies import get_current_user
 
-        user = asyncio.run(get_current_user(credentials=credentials, jwt_config=jwt_config))
+        user = get_current_user(credentials=credentials, jwt_config=jwt_config)
 
         assert user.username == "testuser"
         assert user.email == "testuser@example.com"
@@ -295,12 +293,10 @@ class TestAuthenticationDependency:
 
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="invalid.token")
 
-        import asyncio
-
         from docpipe.api.auth.dependencies import get_current_user
 
         with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(get_current_user(credentials=credentials, jwt_config=jwt_config))
+            get_current_user(credentials=credentials, jwt_config=jwt_config)
 
         assert exc_info.value.status_code == 401
         assert "Invalid authentication credentials" in exc_info.value.detail

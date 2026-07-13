@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Generator
 from urllib.parse import unquote, urlparse
 
+from anyio import open_file
 from pydantic import BaseModel
 
 from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
@@ -62,8 +63,8 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                             continue
 
                     # Read file content
-                    with open(root_path, "rb") as f:
-                        content = f.read()
+                    async with await open_file(root_path, "rb") as f:
+                        content = await f.read()
 
                     mimetype, _ = mimetypes.guess_type(str(root_path))
 
@@ -101,8 +102,8 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                                 continue
 
                         # Read file content
-                        with open(file_path, "rb") as f:
-                            content = f.read()
+                        async with await open_file(file_path, "rb") as f:
+                            content = await f.read()
 
                         # Get file metadata
                         stat = file_path.stat()

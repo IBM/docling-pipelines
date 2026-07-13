@@ -84,7 +84,7 @@ def create_error_response(
     )
 
 
-async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Handle HTTP exceptions and convert to REST API standard format.
 
     Args:
@@ -127,7 +127,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
     )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handle validation errors and convert to REST API standard format.
 
     Args:
@@ -180,7 +180,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-async def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONResponse:
+def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONResponse:
     """Handle DocpipeException and convert to REST API standard format.
 
     Args:
@@ -220,7 +220,7 @@ async def docpipe_exception_handler(request: Request, exc: DocpipeException) -> 
     )
 
 
-async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle generic exceptions and convert to REST API standard format.
 
     This handler is a last-resort fallback for exceptions not caught by

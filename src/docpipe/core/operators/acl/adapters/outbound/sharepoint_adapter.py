@@ -591,7 +591,10 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
                 client_credential=config.client_secret,
             )
 
-            result = app.acquire_token_for_client(scopes=[_MICROSOFT_GRAPH_SCOPE])
+            result = await asyncio.to_thread(
+                app.acquire_token_for_client,
+                scopes=[_MICROSOFT_GRAPH_SCOPE],
+            )
 
             if not isinstance(result, dict):
                 raise ExternalServiceError(

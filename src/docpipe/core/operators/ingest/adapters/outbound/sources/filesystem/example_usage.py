@@ -57,7 +57,7 @@ async def example_basic_usage():
         print(f"\nTotal documents fetched: {doc_count}")
 
 
-async def example_factory_usage():
+def example_factory_usage():
     """Example 2: Using the factory pattern."""
     print("\n" + "=" * 80)
     print("Example 2: Factory Pattern Usage")
@@ -81,7 +81,7 @@ async def example_factory_usage():
     print(f"Required fields: {list(config_schema.model_fields.keys())}")
 
 
-async def example_error_handling():
+def example_error_handling():
     """Example 3: Error handling and validation."""
     print("\n" + "=" * 80)
     print("Example 3: Error Handling")
@@ -103,7 +103,7 @@ async def example_error_handling():
     print(f"  ✓ Auto-corrected extensions: {config.file_extensions}")
 
 
-async def example_metadata():
+def example_metadata():
     """Example 4: Adapter metadata."""
     print("\n" + "=" * 80)
     print("Example 4: Adapter Metadata")
