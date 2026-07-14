@@ -227,6 +227,8 @@ def get_operator_metadata(service: OperatorMetadataServiceDep) -> dict[str, Oper
             features=meta.get("features", {}),
             required_features=meta.get("required_features", []),
             attributes=meta.get("attributes", {}),
+            owner=meta.get("owner"),
+            is_operator_available=meta.get("is_operator_available"),
         )
 
     return operators_dict
