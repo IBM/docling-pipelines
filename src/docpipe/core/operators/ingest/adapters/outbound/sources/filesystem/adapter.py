@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Generator
 from urllib.parse import unquote, urlparse
 
-from anyio import open_file
 from pydantic import BaseModel
 
 from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
@@ -50,7 +49,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             # Single file mode - if root_path is a file
             if root_path.is_file():
                 try:
-                    # Get file metadata first to check size
+                    # Get file metadata to check size and populate Document fields
                     stat = root_path.stat()
 
                     # Check file size limit
@@ -62,17 +61,14 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                             )
                             continue
 
-                    # Read file content
-                    async with await open_file(root_path, "rb") as f:
-                        content = await f.read()
-
                     mimetype, _ = mimetypes.guess_type(str(root_path))
 
-                    # Create domain document
+                    # Create domain document with empty content (lazy loading)
+                    # Binary content is fetched on-demand via fetch_binary_content()
                     document = Document(
                         id=str(root_path.absolute()),
                         name=root_path.name,
-                        content=content,
+                        content=b"",
                         source_url=f"file://{root_path.absolute()}",
                         modified_time=datetime.fromtimestamp(stat.st_mtime),
                         created_time=datetime.fromtimestamp(stat.st_ctime),
@@ -95,25 +91,22 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                 # Directory mode - walk through directory tree
                 for file_path in self._walk_directory(root_path, config):
                     try:
+                        # Get file metadata to check size and populate Document fields
+                        stat = file_path.stat()
+
                         # Check file size limit
                         if config.max_file_size_mb:
-                            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+                            file_size_mb = stat.st_size / (1024 * 1024)
                             if file_size_mb > config.max_file_size_mb:
                                 continue
 
-                        # Read file content
-                        async with await open_file(file_path, "rb") as f:
-                            content = await f.read()
-
-                        # Get file metadata
-                        stat = file_path.stat()
                         mimetype, _ = mimetypes.guess_type(str(file_path))
 
-                        # Create domain document
+                        # Create domain document with empty content (lazy loading)
                         document = Document(
                             id=str(file_path.absolute()),
                             name=file_path.name,
-                            content=content,
+                            content=b"",
                             source_url=f"file://{file_path.absolute()}",
                             modified_time=datetime.fromtimestamp(stat.st_mtime),
                             created_time=datetime.fromtimestamp(stat.st_ctime),
@@ -150,16 +143,18 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                 if not root_path.exists():
                     failed.append(f"Path does not exist: {root_path}")
                     continue
-                if not root_path.is_dir():
-                    failed.append(f"Path is not a directory: {root_path}")
-                    continue
                 if not os.access(root_path, os.R_OK):
                     failed.append(f"Path is not readable: {root_path}")
                     continue
-                try:
-                    list(root_path.iterdir())
-                except PermissionError:
-                    failed.append(f"Permission denied: {root_path}")
+                # For directories, verify we can list contents
+                if root_path.is_dir():
+                    try:
+                        list(root_path.iterdir())
+                    except PermissionError:
+                        failed.append(f"Permission denied: {root_path}")
+                # For files, verify it's a regular file
+                elif not root_path.is_file():
+                    failed.append(f"Path is not a directory: {root_path}")
 
             if failed:
                 return False, "; ".join(failed)

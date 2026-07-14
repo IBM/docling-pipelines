@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -157,8 +157,8 @@ class TestFilesystemSourceAdapter:
         assert adapter._is_excluded(str(tmp_path / "ignore.txt"), config) is True
         assert adapter._is_excluded(str(tmp_path / "ok.txt"), config) is False
 
-    def test_fetch_documents_skips_large_files_and_handles_read_errors(self, tmp_path):
-        """Test that large files are skipped and read errors are handled in directory mode."""
+    def test_fetch_documents_skips_large_files(self, tmp_path):
+        """Test that large files are skipped in directory mode."""
         small = tmp_path / "small.txt"
         small.write_text("hello")
         large = tmp_path / "large.txt"
@@ -178,19 +178,13 @@ class TestFilesystemSourceAdapter:
         large_stat = large.stat()
         small_stat = small.stat()
 
-        def fake_open(path, mode="rb", *args, **kwargs):
-            if str(path).endswith("small.txt"):
-                raise OSError("boom")
-            return mock_open(read_data=b"x")()
-
         def fake_stat(self):
             """Return appropriate stat based on path."""
             path_str = str(self)
             if path_str == str(tmp_path):
-                # Return directory stat for root_path
                 return tmp_path_stat
             elif path_str == str(large):
-                # Return large file stat (2MB)
+                # Return large file stat (2MB) — should be skipped
                 return os.stat_result(
                     (
                         large_stat.st_mode,
@@ -206,10 +200,8 @@ class TestFilesystemSourceAdapter:
                     )
                 )
             elif path_str == str(small):
-                # Return small file stat
                 return small_stat
             else:
-                # Call original stat
                 return type(self).stat(self)
 
         with (
@@ -219,17 +211,16 @@ class TestFilesystemSourceAdapter:
                 return_value=iter([small, large]),
             ),
             patch(
-                "builtins.open",
-                side_effect=fake_open,
-            ),
-            patch(
                 "pathlib.Path.stat",
                 fake_stat,
             ),
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
 
-        assert docs == []
+        # small.txt yielded (lazy, no read), large.txt skipped due to size limit
+        assert len(docs) == 1
+        assert docs[0].name == "small.txt"
+        assert docs[0].content == b""
 
     def test_fetch_documents_returns_document(self, tmp_path):
         file_path = tmp_path / "doc.txt"
@@ -247,7 +238,7 @@ class TestFilesystemSourceAdapter:
         assert len(docs) == 1
         doc = docs[0]
         assert doc.name == "doc.txt"
-        assert doc.content == b"hello world"
+        assert doc.content == b""  # lazy loading: content empty until fetch_binary_content() called
         assert doc.extension == ".txt"
         assert doc.metadata["relative_path"] == "doc.txt"
 
