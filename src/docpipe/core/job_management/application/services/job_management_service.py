@@ -10,10 +10,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from docpipe.core.assets.common.adapters.repositories.local_asset_repository import LocalAssetRepository
-from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.flows.application.services import FlowService
-from docpipe.core.assets.flows.domain.models.flow import Flow
 from docpipe.core.constants.constants import (
     DocpipeConstants,
     ExecutionStatus,
@@ -69,7 +66,6 @@ class JobManagementService:
         self.job_run_manager = job_run_manager
         self.flow_service = flow_service
         self.executor = executor or ThreadPoolExecutor(max_workers=10)
-        self.flow_repository: AssetRepository[Flow] = LocalAssetRepository[Flow](asset_type=Flow)
 
     def create_job_run_from_request(self, *, request_body: Any) -> str:
         """
@@ -141,17 +137,15 @@ class JobManagementService:
         """
         from docpipe.utils.orchestration.elyra_converter import ElyraConverter
 
-        flow = self.flow_repository.find_by_id(asset_id=flow_id)
+        flow = self.flow_service.get_flow(flow_id)
         if flow is None:
             raise FlowNotFoundException(f"Flow not found for flow_id: {flow_id}")
-
-        flow = self.flow_service.get_flow(flow_id)
 
         if hasattr(flow, DocpipeConstants.JOB_ID) and flow.job_id:
             flow_config[DocpipeConstants.JOB_ID] = flow.job_id
 
         result = self.job_run_manager.create_job_run(
-            job_id=flow_id,
+            job_id=flow.job_id if hasattr(flow, DocpipeConstants.JOB_ID) and flow.job_id else flow_id,
             job_config=flow_config,
         )
 

@@ -155,7 +155,7 @@ class InMemoryJobStatsStore(JobStatsStore):
 
         with lock:
             try:
-                node_id = node_stats.node_id
+                node_id = node_stats.id
                 batch_id = getattr(node_stats, "batch_id", None)
 
                 # Store in nested structure (None is valid key for non-batch records)
@@ -250,7 +250,7 @@ class InMemoryJobStatsStore(JobStatsStore):
         with lock:
             try:
                 for node_stats in node_stats_list:
-                    node_id = node_stats.node_id
+                    node_id = node_stats.id
                     batch_id = getattr(node_stats, "batch_id", None)
 
                     # Store in nested structure

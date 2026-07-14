@@ -292,7 +292,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     WHERE job_run_id = ? AND node_id = ? AND
                           (batch_id = ? OR (batch_id IS NULL AND ? IS NULL))
                 """,
-                    [job_run_id, data["node_id"], data.get("batch_id"), data.get("batch_id")],
+                    [job_run_id, data["id"], data.get("batch_id"), data.get("batch_id")],
                 ).fetchone()
 
                 if existing:
@@ -338,7 +338,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     """,
                         [
                             job_run_id,
-                            data["node_id"],
+                            data["id"],
                             data["name"],
                             data.get("batch_id"),
                             data.get("batch_num"),
@@ -358,7 +358,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     )
 
                 logger.debug(
-                    f"Stored node stats: job_run_id={job_run_id}, node_id={data['node_id']}, batch_id={data.get('batch_id')}"
+                    f"Stored node stats: job_run_id={job_run_id}, node_id={data['id']}, batch_id={data.get('batch_id')}"
                 )
         except Exception as e:
             logger.error(f"Failed to store node stats: {e}")
@@ -403,9 +403,10 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         if data.get(field):
                             data[field] = json.loads(data[field])
 
-                    # Remove id and job_run_id (not part of domain model)
+                    # Remove auto-increment id and job_run_id; map node_id -> id
                     data.pop("id", None)
                     data.pop("job_run_id", None)
+                    data["id"] = data.pop("node_id")
 
                     node_stats_list.append(NodeStats(**data))
 
@@ -459,9 +460,10 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     node_id = data["node_id"]
                     batch_id = data["batch_id"]
 
-                    # Remove id and job_run_id
+                    # Remove auto-increment id and job_run_id; map node_id -> id
                     data.pop("id", None)
                     data.pop("job_run_id", None)
+                    data["id"] = data.pop("node_id")
 
                     if node_id not in batch_stats:
                         batch_stats[node_id] = {}
@@ -521,7 +523,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         """,
                             [
                                 job_run_id,
-                                data["node_id"],
+                                data["id"],
                                 data["name"],
                                 data.get("batch_id"),
                                 data.get("batch_num"),
@@ -684,9 +686,10 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     if data.get(field):
                         data[field] = json.loads(data[field])
 
-                # Remove id and job_run_id
+                # Remove auto-increment id and job_run_id; map node_id -> id
                 data.pop("id", None)
                 data.pop("job_run_id", None)
+                data["id"] = data.pop("node_id")
 
                 return NodeStats(**data)
         except Exception as e:

@@ -50,8 +50,8 @@ class JobStatsMapper:
             account_id=job_stats.account_id,
             user_entitlements=job_stats.user_entitlements,
             report_status=job_stats.report_status,
-            report_started_at=job_stats.report_started_at,
-            report_completed_at=job_stats.report_completed_at,
+            report_generation_started_at=job_stats.report_generation_started_at,
+            report_generation_completed_at=job_stats.report_generation_completed_at,
             node_stats=node_stats_dto,
             batch_node_stats=batch_node_stats_dto,
         )
@@ -92,7 +92,10 @@ class JobStatsMapper:
             for node_id in node_sequence:
                 if node_id in job_stats.node_stats:
                     node_stat = job_stats.node_stats[node_id]
-                    log_str = NodeStatsMapper.to_log_string(node_id=node_id, node_stat=node_stat)
+                    batch_stats = job_stats.batch_node_stats.get(node_id) if job_stats.batch_node_stats else None
+                    log_str = NodeStatsMapper.to_log_string(
+                        node_id=node_id, node_stat=node_stat, batch_stats=batch_stats
+                    )
                     # Set dynamic attribute on the Pydantic model
                     setattr(response, node_id, log_str)
 

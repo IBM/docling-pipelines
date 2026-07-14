@@ -5,6 +5,7 @@ from queue import Queue
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from data_processing.data_access import DataAccess, DataAccessFactory
 
 from docpipe.core.constants.constants import (
@@ -83,7 +84,7 @@ class AbstractOperatorExecutor:
         data_accesses = []
         for index, table in enumerate(tables):
             data_access_factory = DataAccessFactory()
-            params_copy = copy.deepcopy(self._params)
+            params_copy = self._safely_deep_copy_params(params=self._params)
             # Add node name + index of the branch to the output folder
             DataAccessUtils.add_node_name_to_output_folder(
                 params=params_copy, node_name=f"{params_copy['name']}_{index}"
@@ -98,6 +99,20 @@ class AbstractOperatorExecutor:
             output_data_access.save_table(output_file_path, table)
             data_accesses.append(output_data_access)
         return data_accesses
+
+    @staticmethod
+    def _safely_deep_copy_params(*, params: dict) -> dict:
+        """Deep copy params, shallow-copying any value that cannot be pickled (e.g. thread locks, clients)."""
+        import pickle
+
+        copied = {}
+        for k, v in params.items():
+            try:
+                pickle.dumps(v)
+                copied[k] = copy.deepcopy(v)
+            except Exception:
+                copied[k] = v  # shallow copy — keep original reference
+        return copied
 
     @abstractmethod
     def get_operator(self) -> AbstractOperator:
@@ -290,8 +305,6 @@ class AbstractOperatorExecutor:
         Returns:
             Processed PyArrow table with empty documents and zero-byte files removed
         """
-        import pyarrow.compute as pc  # type: ignore[import-untyped]
-
         # Skip processing if table is empty
         if table.num_rows == 0:
             return table

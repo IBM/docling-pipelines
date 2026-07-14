@@ -269,7 +269,7 @@ class JsonJobStatsStore(JobStatsStore):
 
         try:
             with lock.acquire(timeout=self._lock_timeout):
-                node_id = node_stats.node_id
+                node_id = node_stats.id
                 batch_id = getattr(node_stats, "batch_id", None)
 
                 path = self._get_node_stats_path(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)
@@ -369,7 +369,7 @@ class JsonJobStatsStore(JobStatsStore):
                             batch_id = getattr(node_stats, "batch_id", None)
 
                             if batch_id is not None:
-                                node_id = node_stats.node_id
+                                node_id = node_stats.id
                                 if node_id not in result:
                                     result[node_id] = {}
                                 result[node_id][batch_id] = node_stats
@@ -410,7 +410,7 @@ class JsonJobStatsStore(JobStatsStore):
         try:
             with lock.acquire(timeout=self._lock_timeout):
                 for node_stats in node_stats_list:
-                    node_id = node_stats.node_id
+                    node_id = node_stats.id
                     batch_id = getattr(node_stats, "batch_id", None)
 
                     path = self._get_node_stats_path(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)

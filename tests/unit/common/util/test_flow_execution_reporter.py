@@ -23,7 +23,7 @@ def reporter():
 def sample_node_stats():
     """Create sample NodeStats for testing."""
     return NodeStats(
-        node_id="test-node-123",
+        id="test-node-123",
         name="test_operator",
         node_status=ExecutionStatus.COMPLETED.value,
         time_taken=5,
@@ -379,7 +379,7 @@ class TestFlowSummary:
         """Test operator summary table respects DAG execution order."""
         node_stats = {
             "node2": NodeStats(
-                node_id="node2",
+                id="node2",
                 name="second",
                 node_status=ExecutionStatus.COMPLETED.value,
                 time_taken=2,
@@ -388,7 +388,7 @@ class TestFlowSummary:
                 skipped_docs=[],
             ),
             "node1": NodeStats(
-                node_id="node1",
+                id="node1",
                 name="first",
                 node_status=ExecutionStatus.COMPLETED.value,
                 time_taken=1,
@@ -426,7 +426,7 @@ class TestIntegration:
 
         # Second operator with new columns
         node_stats_2 = NodeStats(
-            node_id="node2",
+            id="node2",
             name="extract",
             node_status=ExecutionStatus.COMPLETED.value,
             time_taken=10,

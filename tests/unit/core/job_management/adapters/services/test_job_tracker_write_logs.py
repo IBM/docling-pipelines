@@ -47,7 +47,7 @@ def service(mock_store, mock_aggregator):
 
 
 def _node(node_id: str, name: str, start_time: int, end_time: int = 0) -> NodeStats:
-    return NodeStats(node_id=node_id, name=name, start_time=start_time, end_time=end_time)
+    return NodeStats(id=node_id, name=name, start_time=start_time, end_time=end_time)
 
 
 def _job_stats_model(node_stats: dict[str, NodeStats]) -> JobStats:

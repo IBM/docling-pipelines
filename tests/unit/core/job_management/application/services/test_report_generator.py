@@ -163,13 +163,13 @@ class TestBatchNumberExtraction:
     def test_get_batch_nums_from_stats(self):
         """Extract batch numbers from batch_node_stats."""
         batch_stats_1 = NodeStats(
-            node_id=EXTRACT_NODE_ID,
+            id=EXTRACT_NODE_ID,
             name="Extract",
             batch_id="batch-1",
             batch_num=0,
         )
         batch_stats_2 = NodeStats(
-            node_id=EXTRACT_NODE_ID,
+            id=EXTRACT_NODE_ID,
             name="Extract",
             batch_id="batch-2",
             batch_num=1,
@@ -196,7 +196,7 @@ class TestBatchNumberExtraction:
     def test_get_actual_batch_nums_with_batch_stats(self):
         """Get actual batch numbers when batch_node_stats exists."""
         batch_stats = NodeStats(
-            node_id=EXTRACT_NODE_ID,
+            id=EXTRACT_NODE_ID,
             name="Extract",
             batch_id="batch-1",
             batch_num=0,
@@ -236,13 +236,13 @@ class TestDocumentStatusDetermination:
     def test_build_status_lookup_sets(self):
         """Build lookup sets for failed, skipped, and destination completed docs."""
         node_stats_1 = NodeStats(
-            node_id=INGEST_NODE_ID,
+            id=INGEST_NODE_ID,
             name="Ingest",
             failed_docs=["doc1"],
             skipped_docs=["doc2"],
         )
         node_stats_2 = NodeStats(
-            node_id=DEST_NODE_ID,
+            id=DEST_NODE_ID,
             name="VectorDB",
             node_status=ExecutionStatus.COMPLETED,
             docs_completed=["doc3", "doc4"],
@@ -434,7 +434,7 @@ class TestBatchAttributeAccess:
         generator = JobReportGenerator(job_stats=job_stats)
 
         batch_stats_obj = NodeStats(
-            node_id=EXTRACT_NODE_ID,
+            id=EXTRACT_NODE_ID,
             name="Extract",
             batch_num=1,
         )
@@ -515,7 +515,7 @@ class TestBuildNodeMetadataList:
         }
         node_stats = {
             "uuid-1": NodeStats(
-                node_id="uuid-1",
+                id="uuid-1",
                 name="store_in_opensearch",
                 node_metadata=node_metadata_item,
             )
@@ -563,7 +563,7 @@ class TestBuildNodeMetadataList:
         }
         node_stats = {
             "uuid-os": NodeStats(
-                node_id="uuid-os",
+                id="uuid-os",
                 name="store_in_opensearch",
                 node_metadata=node_metadata_item,
             )

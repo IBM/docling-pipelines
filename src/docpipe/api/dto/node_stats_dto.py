@@ -71,7 +71,7 @@ class NodeStatsDto(BaseModel):
     """
 
     # Identity Fields
-    node_id: str = Field(
+    id: str = Field(
         ...,
         description=NODE_ID_DESC,
         min_length=UUID_LENGTH,
@@ -194,7 +194,7 @@ class NodeStatsDto(BaseModel):
     class Config:
         json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
-                "node_id": "extract_docling_1",
+                "id": "extract_docling_1",
                 "name": "Extract Documents",
                 "node_status": "COMPLETED",
                 "start_time": 1704067200,

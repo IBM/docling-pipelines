@@ -193,12 +193,12 @@ class JobStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
         title="Report Status",
         description="Status of background report generation: GENERATING, COMPLETED, FAILED",
     )
-    report_started_at: int | None = Field(
+    report_generation_started_at: int | None = Field(
         default=None,
         title="Report Started At",
         description="Epoch timestamp when report generation started",
     )
-    report_completed_at: int | None = Field(
+    report_generation_completed_at: int | None = Field(
         default=None,
         title="Report Completed At",
         description="Epoch timestamp when report generation completed or failed",

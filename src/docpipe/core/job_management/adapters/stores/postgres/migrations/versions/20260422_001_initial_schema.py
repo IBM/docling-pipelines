@@ -74,8 +74,8 @@ def upgrade() -> None:
             sa.Column("page_type_stats", postgresql.JSONB, nullable=True),
             sa.Column("user_entitlements", postgresql.JSONB, nullable=True, server_default=sa.text("'{}'::jsonb")),
             sa.Column("report_status", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-            sa.Column("report_started_at", sa.Integer(), nullable=True),
-            sa.Column("report_completed_at", sa.Integer(), nullable=True),
+            sa.Column("report_generation_started_at", sa.Integer(), nullable=True),
+            sa.Column("report_generation_completed_at", sa.Integer(), nullable=True),
             sa.PrimaryKeyConstraint("job_run_id"),
             schema=schema_name,
         )

@@ -179,7 +179,7 @@ class TestTerminalPathBatchPropagation:
         node_name = "SkippedNode"
         operator_type = "TestOperator"
         column_names = ["col1", "col2"]
-        global_config = {}  # No batching enabled
+        global_config: dict = {}  # No batching enabled
 
         # Act
         handler.after_node_skipped(
@@ -221,7 +221,7 @@ class TestTerminalPathBatchPropagation:
         node_id = "node-3"
         node_name = "DownstreamNode"
         operator_type = "ExtractOperator"
-        column_names = []
+        column_names: list = []
         custom_reason = "Skipped - no data received from previous step"
         global_config = {
             DocpipeConstants.ENABLE_MICRO_BATCHING: True,

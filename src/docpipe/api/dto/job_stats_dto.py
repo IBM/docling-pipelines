@@ -241,8 +241,10 @@ class JobStatsDto(BaseModel):
     report_status: str | None = Field(
         default=None, description="Report generation status: GENERATING, COMPLETED, FAILED, or NOT_AVAILABLE"
     )
-    report_started_at: int | None = Field(default=None, description="Timestamp when report generation started")
-    report_completed_at: int | None = Field(
+    report_generation_started_at: int | None = Field(
+        default=None, description="Timestamp when report generation started"
+    )
+    report_generation_completed_at: int | None = Field(
         default=None, description="Timestamp when report generation completed or failed"
     )
 

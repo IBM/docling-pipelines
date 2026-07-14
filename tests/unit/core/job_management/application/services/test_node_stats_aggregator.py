@@ -46,7 +46,7 @@ class TestNonBatchAggregation:
         """Single non-batch node should be returned as-is."""
         store = MockJobStatsStore()
         node_stats = NodeStats(
-            node_id=NODE_1_ID,
+            id=NODE_1_ID,
             name="Ingest",
             node_status="Completed",
             docs_completed=["doc1", "doc2"],
@@ -67,13 +67,13 @@ class TestNonBatchAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Ingest",
                 node_status="Completed",
                 docs_completed_count=10,
             ),
             NodeStats(
-                node_id=NODE_2_ID,
+                id=NODE_2_ID,
                 name="Extract",
                 node_status="Completed",
                 docs_completed_count=10,
@@ -96,7 +96,7 @@ class TestBatchAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -108,7 +108,7 @@ class TestBatchAggregation:
                 time_taken=100,
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Completed",
                 batch_id=BATCH_2_ID,
@@ -141,7 +141,7 @@ class TestBatchAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -150,7 +150,7 @@ class TestBatchAggregation:
                 docs_completed_count=1,
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Running",
                 batch_id=BATCH_2_ID,
@@ -173,14 +173,14 @@ class TestBatchAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Pending",
                 batch_id=BATCH_1_ID,
                 batch_num=0,
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Queued",
                 batch_id=BATCH_2_ID,
@@ -204,7 +204,7 @@ class TestMixedBatchAndNonBatchAggregation:
         store.node_stats_data = [
             # Non-batch node (e.g., Ingest)
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Ingest",
                 node_status="Completed",
                 docs_completed=["doc1", "doc2", "doc3"],
@@ -212,7 +212,7 @@ class TestMixedBatchAndNonBatchAggregation:
             ),
             # Batch node with 2 batches (e.g., Transform)
             NodeStats(
-                node_id=NODE_2_ID,
+                id=NODE_2_ID,
                 name="Transform",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -221,7 +221,7 @@ class TestMixedBatchAndNonBatchAggregation:
                 docs_completed_count=1,
             ),
             NodeStats(
-                node_id=NODE_2_ID,
+                id=NODE_2_ID,
                 name="Transform",
                 node_status="Completed",
                 batch_id=BATCH_2_ID,
@@ -231,7 +231,7 @@ class TestMixedBatchAndNonBatchAggregation:
             ),
             # Another non-batch node (e.g., VectorDB)
             NodeStats(
-                node_id=NODE_3_ID,
+                id=NODE_3_ID,
                 name="VectorDB",
                 node_status="Completed",
                 docs_completed=["doc1", "doc2", "doc3"],
@@ -277,7 +277,7 @@ class TestEdgeCases:
         """get_batch_node_stats should pass through to store."""
         store = MockJobStatsStore()
         store.batch_node_stats_data = {
-            NODE_1_ID: {BATCH_1_ID: NodeStats(node_id=NODE_1_ID, name="Test", batch_id=BATCH_1_ID, batch_num=0)}
+            NODE_1_ID: {BATCH_1_ID: NodeStats(id=NODE_1_ID, name="Test", batch_id=BATCH_1_ID, batch_num=0)}
         }
 
         aggregator = NodeStatsAggregator(job_stats_store=store)
@@ -295,7 +295,7 @@ class TestDocumentListAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -305,7 +305,7 @@ class TestDocumentListAggregation:
                 failed_docs=["doc2"],
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Transform",
                 node_status="Completed",
                 batch_id=BATCH_2_ID,
@@ -334,7 +334,7 @@ class TestStageBasedProgressAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Extract",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -364,7 +364,7 @@ class TestStageBasedProgressAggregation:
                 },
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Extract",
                 node_status="Completed",
                 batch_id=BATCH_2_ID,
@@ -421,7 +421,7 @@ class TestStageBasedProgressAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Extract",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -451,7 +451,7 @@ class TestStageBasedProgressAggregation:
                 },
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Extract",
                 node_status="Completed",
                 batch_id=BATCH_2_ID,
@@ -481,7 +481,7 @@ class TestStageBasedProgressAggregation:
                 },
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Extract",
                 node_status="Pending",
                 batch_id="b3234567-1234-1234-1234-123456789abc",
@@ -514,7 +514,7 @@ class TestStageBasedProgressAggregation:
         store = MockJobStatsStore()
         store.node_stats_data = [
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Classifier",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -531,7 +531,7 @@ class TestStageBasedProgressAggregation:
                 },
             ),
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Classifier",
                 node_status="Running",
                 batch_id=BATCH_2_ID,
@@ -575,7 +575,7 @@ class TestStageBasedProgressAggregation:
         store.node_stats_data = [
             # Extraction node with stage progress
             NodeStats(
-                node_id=NODE_1_ID,
+                id=NODE_1_ID,
                 name="Extract",
                 node_status="Completed",
                 batch_id=BATCH_1_ID,
@@ -599,7 +599,7 @@ class TestStageBasedProgressAggregation:
             ),
             # Classification node with progress
             NodeStats(
-                node_id=NODE_2_ID,
+                id=NODE_2_ID,
                 name="Classifier",
                 node_status="Running",
                 batch_id=BATCH_1_ID,

@@ -28,7 +28,7 @@ NODE_2 = "22222222-0000-0000-0000-000000000001"
 
 
 def _make_node(node_id: str, name: str, start_time: int, end_time: int = 0) -> NodeStats:
-    return NodeStats(node_id=node_id, name=name, start_time=start_time, end_time=end_time)
+    return NodeStats(id=node_id, name=name, start_time=start_time, end_time=end_time)
 
 
 def _make_job_stats(node_stats: dict[str, NodeStats]) -> JobStats:
@@ -128,9 +128,9 @@ class TestJobStatsMapperToDto:
 
         dto = JobStatsMapper.to_dto(job_stats)
 
-        assert dto.node_stats[NODE_1].node_id == NODE_1
+        assert dto.node_stats[NODE_1].id == NODE_1
         assert dto.node_stats[NODE_1].name == "First"
-        assert dto.node_stats[NODE_2].node_id == NODE_2
+        assert dto.node_stats[NODE_2].id == NODE_2
         assert dto.node_stats[NODE_2].name == "Second"
 
 
@@ -210,44 +210,44 @@ class TestJobStatsMapperReportFields:
         dto = JobStatsMapper.to_dto(job_stats)
 
         assert dto.report_status is None
-        assert dto.report_started_at is None
-        assert dto.report_completed_at is None
+        assert dto.report_generation_started_at is None
+        assert dto.report_generation_completed_at is None
 
     def test_report_status_generating_mapped(self):
         """GENERATING status and started_at timestamp are preserved in the DTO."""
         job_stats = _make_job_stats({})
         job_stats.report_status = "GENERATING"
-        job_stats.report_started_at = 1704067200
+        job_stats.report_generation_started_at = 1704067200
 
         dto = JobStatsMapper.to_dto(job_stats)
 
         assert dto.report_status == "GENERATING"
-        assert dto.report_started_at == 1704067200
-        assert dto.report_completed_at is None
+        assert dto.report_generation_started_at == 1704067200
+        assert dto.report_generation_completed_at is None
 
     def test_report_status_completed_mapped(self):
         """COMPLETED status with both timestamps is preserved."""
         job_stats = _make_job_stats({})
         job_stats.report_status = "COMPLETED"
-        job_stats.report_started_at = 1704067200
-        job_stats.report_completed_at = 1704067260
+        job_stats.report_generation_started_at = 1704067200
+        job_stats.report_generation_completed_at = 1704067260
 
         dto = JobStatsMapper.to_dto(job_stats)
 
         assert dto.report_status == "COMPLETED"
-        assert dto.report_started_at == 1704067200
-        assert dto.report_completed_at == 1704067260
+        assert dto.report_generation_started_at == 1704067200
+        assert dto.report_generation_completed_at == 1704067260
 
     def test_report_status_failed_mapped(self):
         """FAILED status and completed_at timestamp are preserved."""
         job_stats = _make_job_stats({})
         job_stats.report_status = "FAILED"
-        job_stats.report_completed_at = 1704067260
+        job_stats.report_generation_completed_at = 1704067260
 
         dto = JobStatsMapper.to_dto(job_stats)
 
         assert dto.report_status == "FAILED"
-        assert dto.report_completed_at == 1704067260
+        assert dto.report_generation_completed_at == 1704067260
 
     def test_report_status_not_available_mapped(self):
         """NOT_AVAILABLE status is preserved (set when parquet is absent)."""

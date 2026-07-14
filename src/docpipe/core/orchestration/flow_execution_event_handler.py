@@ -455,7 +455,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         self.job_stats_service.end_job(
             job_run_id=self.job_run_id,
             status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
-            job_run_stats={"report_status": "GENERATING", "report_started_at": started_at},
+            job_run_stats={"report_status": "GENERATING", "report_generation_started_at": started_at},
         )
 
     def _mark_report_not_available(self):
@@ -484,7 +484,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             self.job_stats_service.end_job(
                 job_run_id=self.job_run_id,
                 status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
-                job_run_stats={"report_status": "FAILED", "report_completed_at": completed_at},
+                job_run_stats={"report_status": "FAILED", "report_generation_completed_at": completed_at},
             )
 
         logger.error(
@@ -610,7 +610,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 self.job_stats_service.end_job(
                     job_run_id=job_run_id,
                     status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
-                    job_run_stats={"report_status": "COMPLETED", "report_completed_at": completed_at},
+                    job_run_stats={"report_status": "COMPLETED", "report_generation_completed_at": completed_at},
                 )
 
             elapsed_time = time.time() - start_time

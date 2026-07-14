@@ -59,7 +59,7 @@ def sample_job_stats():
 def sample_node_stats():
     """Sample node stats for testing."""
     return NodeStats(
-        node_id="abcdef12-3456-7890-abcd-ef1234567890",
+        id="abcdef12-3456-7890-abcd-ef1234567890",
         name="TestNode",
         node_status=ExecutionStatus.COMPLETED,
         batch_id="fedcba98-7654-3210-fedc-ba9876543210",
@@ -209,7 +209,7 @@ class TestJobStatsCRUD:
         # Store job and node stats
         store.store_job_stats(sample_job_stats)
         node_stats = NodeStats(
-            node_id=str(uuid.uuid4()),
+            id=str(uuid.uuid4()),
             name="TestNode",
             batch_id="0",
             batch_num=0,
@@ -255,7 +255,7 @@ class TestNodeStatsCRUD:
 
         retrieved = store.get_node_stats(job_run_id=job_run_id)
         assert len(retrieved) == 1
-        assert retrieved[0].node_id == sample_node_stats.node_id
+        assert retrieved[0].id == sample_node_stats.id
         assert retrieved[0].name == "TestNode"
 
     def test_store_multiple_node_stats(self, *, store, sample_job_stats):
@@ -272,7 +272,7 @@ class TestNodeStatsCRUD:
             node_id = str(uuid.uuid4())
             node_ids_created.append(node_id)
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name=f"Node{i}",
                 batch_id=str(i),
                 batch_num=i,
@@ -284,7 +284,7 @@ class TestNodeStatsCRUD:
         assert len(all_stats) == 3
 
         # Verify all created node_ids are present
-        retrieved_node_ids = {stats.node_id for stats in all_stats}
+        retrieved_node_ids = {stats.id for stats in all_stats}
         assert retrieved_node_ids == set(node_ids_created)
 
     def test_get_node_stats_nonexistent_job_returns_empty(self, *, store):
@@ -303,7 +303,7 @@ class TestNodeStatsCRUD:
         store.store_job_stats(sample_job_stats)
 
         node_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=batch_id,
             batch_num=0,
@@ -313,7 +313,7 @@ class TestNodeStatsCRUD:
         # Retrieve specific node stats
         result = store.get_node_stats_by_batch_and_node(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)
         assert result is not None
-        assert result.node_id == node_id
+        assert result.id == node_id
         assert result.batch_id == batch_id
 
     def test_get_node_stats_by_batch_and_node_with_none(self, *, store, sample_job_stats):
@@ -326,7 +326,7 @@ class TestNodeStatsCRUD:
         store.store_job_stats(sample_job_stats)
 
         node_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
         )
@@ -354,7 +354,7 @@ class TestBatchScopedWrites:
         for i in range(3):
             batch_id = str(i)
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=i,
@@ -381,7 +381,7 @@ class TestBatchScopedWrites:
 
         # Store batch record
         batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id="0",
             batch_num=0,
@@ -391,7 +391,7 @@ class TestBatchScopedWrites:
 
         # Store non-batch record (batch_id=None)
         non_batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
             node_status=ExecutionStatus.COMPLETED,
@@ -420,7 +420,7 @@ class TestBulkOperations:
         # Create 10 batch records
         node_stats_list = [
             NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=str(i),
                 batch_num=i,
@@ -487,7 +487,7 @@ class TestConcurrentAccess:
         def write_batch(batch_num):
             batch_id = str(batch_num)
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=batch_num,
@@ -613,7 +613,7 @@ class TestJSONFields:
         store.store_job_stats(sample_job_stats)
 
         node_stats = NodeStats(
-            node_id=str(uuid.uuid4()),
+            id=str(uuid.uuid4()),
             name="TestNode",
             batch_id="0",
             batch_num=0,

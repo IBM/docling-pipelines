@@ -55,7 +55,7 @@ class ClassificationInfo:
 def _get_empty_node_stats(*, node_id: str) -> NodeStats:
     """Returns empty aggregated stats for a node with no batches."""
     return NodeStats(
-        node_id=node_id,
+        id=node_id,
         name="Unknown",
         start_time=0,
         end_time=0,
@@ -793,7 +793,7 @@ def aggregate_batch_node_stats(
     node_name = batch_records[0].name if batch_records else "Unknown"
 
     return NodeStats(
-        node_id=node_id,
+        id=node_id,
         name=node_name,
         start_time=aggregated_start_time,
         end_time=aggregated_end_time,

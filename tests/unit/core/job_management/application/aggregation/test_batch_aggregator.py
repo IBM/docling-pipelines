@@ -165,7 +165,7 @@ class TestCountBatchesByStatus:
         """Test counting batches with mixed statuses."""
         batch_records = [
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.COMPLETED.value,
                 batch_id="batch-1",
@@ -176,7 +176,7 @@ class TestCountBatchesByStatus:
                 col_names=[],
             ),
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.FAILED.value,
                 batch_id="batch-2",
@@ -187,7 +187,7 @@ class TestCountBatchesByStatus:
                 col_names=[],
             ),
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.SKIPPED.value,
                 batch_id="batch-3",
@@ -198,7 +198,7 @@ class TestCountBatchesByStatus:
                 col_names=[],
             ),
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.PENDING.value,
                 batch_id="batch-4",
@@ -222,7 +222,7 @@ class TestCountBatchesByStatus:
         """Test counting when all batches are pending."""
         batch_records = [
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.PENDING.value,
                 batch_id=f"batch-{i}",

@@ -60,8 +60,8 @@ class JobStats(BaseModel):
 
     # Report Generation Status
     report_status: str | None = None  # "GENERATING", "COMPLETED", "FAILED"
-    report_started_at: int | None = None
-    report_completed_at: int | None = None
+    report_generation_started_at: int | None = None
+    report_generation_completed_at: int | None = None
 
     # Nested Statistics (Populated by aggregation)
     node_stats: dict[str, NodeStats] = Field(default_factory=dict)

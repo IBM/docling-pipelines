@@ -432,6 +432,8 @@ class TaskType(Enum):
     EXECUTE_FLOW = "execute_flow"
     VALIDATE_FLOW = "validate_flow"
     NON_EXECUTE_FLOW = "non_execute_flow"
+    SET_NODE_FEATURES = "set_node_features"
+    ADD_OPERATOR_CARD_DETAILS = "add_operator_card_details"
 
 
 class DocumentConstants:
@@ -524,6 +526,20 @@ TERMINAL_JOB_STATUSES = frozenset(
 )
 
 TERMINAL_NODE_STATES = frozenset(TERMINAL_JOB_STATUSES | {ExecutionStatus.SKIPPED})
+
+# Visual status indicators for batch execution summary (mirrors Enterprise NodeExecutionLogConstants)
+STATUS_INDICATOR_MAP: dict[str, str] = {
+    ExecutionStatus.COMPLETED.value: "✓",
+    ExecutionStatus.FAILED.value: "✗",
+    ExecutionStatus.COMPLETED_WITH_ERRORS.value: "✗",
+    ExecutionStatus.COMPLETED_WITH_WARNINGS.value: "✓",
+    ExecutionStatus.SKIPPED.value: "⊘",
+    ExecutionStatus.RUNNING.value: "•",
+    ExecutionStatus.PENDING.value: "○",
+    ExecutionStatus.QUEUED.value: "○",
+    ExecutionStatus.CANCELED.value: "⊗",
+    ExecutionStatus.CANCELING.value: "•",
+}
 
 active_states = [
     ExecutionStatus.STARTING,

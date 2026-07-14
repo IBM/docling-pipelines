@@ -200,10 +200,10 @@ class JobTrackerService(JobStatsService):
                 job_stats.message = job_run_stats["message"]
             if "report_status" in job_run_stats:
                 job_stats.report_status = job_run_stats["report_status"]
-            if "report_started_at" in job_run_stats:
-                job_stats.report_started_at = job_run_stats["report_started_at"]
-            if "report_completed_at" in job_run_stats:
-                job_stats.report_completed_at = job_run_stats["report_completed_at"]
+            if "report_generation_started_at" in job_run_stats:
+                job_stats.report_generation_started_at = job_run_stats["report_generation_started_at"]
+            if "report_generation_completed_at" in job_run_stats:
+                job_stats.report_generation_completed_at = job_run_stats["report_generation_completed_at"]
 
         self.job_stats_store.store_job_stats(job_stats)
         logger.info(f"Ended job: job_run_id={job_run_id}, status={normalized_status.value}")
@@ -245,7 +245,7 @@ class JobTrackerService(JobStatsService):
 
         # Create initial node stats
         node_stats: NodeStats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name=node_name,
             start_time=round(datetime.now().timestamp()),
             total_docs=total_docs,
@@ -328,7 +328,7 @@ class JobTrackerService(JobStatsService):
 
         # Build complete node stats
         completed_node_stats: NodeStats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name=node_name,
             start_time=start_time,
             end_time=end_time,
@@ -424,7 +424,7 @@ class JobTrackerService(JobStatsService):
         )
 
         failed_node_stats: NodeStats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name=node_name,
             start_time=start_time,
             end_time=end_time,
@@ -483,7 +483,7 @@ class JobTrackerService(JobStatsService):
 
         # Build canceled node stats
         canceled_node_stats: NodeStats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name=node_name,
             start_time=start_time,
             end_time=end_time,
@@ -543,7 +543,7 @@ class JobTrackerService(JobStatsService):
 
         # Build aborted node stats with reason in metadata
         aborted_node_stats: NodeStats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name=node_name,
             start_time=start_time,
             end_time=end_time,
@@ -620,7 +620,7 @@ class JobTrackerService(JobStatsService):
         )
 
         skipped_node_stats: NodeStats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name=node_name,
             start_time=start_time,
             end_time=end_time,
@@ -661,7 +661,7 @@ class JobTrackerService(JobStatsService):
         else:
             base_stats = existing_node or {}
 
-        target_node_stats = base_stats | node_stats | {"node_id": node_id}
+        target_node_stats = base_stats | node_stats | {"id": node_id}
         if batch_id:
             target_node_stats["batch_id"] = batch_id
         return target_node_stats
@@ -897,7 +897,53 @@ class JobTrackerService(JobStatsService):
             return 0
         return int(value) if isinstance(value, int) else 0
 
-    def _build_node_log_lines(self, node_stats: Any) -> list[str]:
+    def _build_batch_summary_lines(self, batch_stats: dict[str, Any]) -> list[str]:
+        """Build batch execution summary lines from batch_node_stats for a single node.
+
+        Args:
+            batch_stats: dict[batch_id, NodeStats] — the per-batch stats for one node.
+
+        Returns:
+            List of formatted summary lines, empty if no batch stats.
+        """
+        from docpipe.core.constants.constants import STATUS_INDICATOR_MAP
+
+        if not batch_stats:
+            return []
+
+        # Sort batches by batch_num for consistent ordering
+        sorted_batches = sorted(
+            batch_stats.values(),
+            key=lambda b: getattr(b, "batch_num", 0) or 0,
+        )
+
+        lines: list[str] = [f"\nBatch Execution Summary ({len(sorted_batches)} batches):"]
+        failed_batches: list[Any] = []
+
+        for batch in sorted_batches:
+            status: str = str(getattr(batch, "node_status", "Pending"))
+            indicator: str = STATUS_INDICATOR_MAP.get(status, "•")
+            time_taken: float = getattr(batch, "time_taken", 0) or 0
+            total_docs: int = self._count_items(value=getattr(batch, "total_docs", []))
+            batch_num: int | str = getattr(batch, "batch_num", "?")
+            doc_suffix = "s" if total_docs != 1 else ""
+            batch_line = f"  {indicator} Batch {batch_num}: {status} ({time_taken:.2f}s, {total_docs} doc{doc_suffix})"
+            error: str = getattr(batch, "error", "") or ""
+            if status == ExecutionStatus.SKIPPED.value and error:
+                batch_line += f" - Reason: {error}"
+            lines.append(batch_line)
+            if status in (ExecutionStatus.FAILED.value, ExecutionStatus.COMPLETED_WITH_ERRORS.value) and error:
+                failed_batches.append(batch)
+
+        # Append error details section for failed batches
+        if failed_batches:
+            lines.append("\nError Details:")
+            for batch in failed_batches:
+                lines.append(f"  Batch {getattr(batch, 'batch_num', '?')}: {getattr(batch, 'error', '')}")
+
+        return lines
+
+    def _build_node_log_lines(self, node_stats: Any, batch_stats: dict[str, Any] | None = None) -> list[str]:
         node_name: str = str(getattr(node_stats, "name", "Unknown step"))
         time_taken: Any | int = getattr(node_stats, "time_taken", 0) or 0
         node_status: str = str(getattr(node_stats, "node_status", "UNKNOWN"))
@@ -909,24 +955,38 @@ class JobTrackerService(JobStatsService):
         skipped_count = self._count_items(value=getattr(node_stats, "skipped_docs", []))
         total_count = self._count_items(value=getattr(node_stats, "total_docs", []))
 
-        return [
+        lines = [
             f"Starting execution: Step Name: {node_name}",
-            f"Completed execution: {node_name}, Time = {time_taken:.2f} seconds",
             self._format_schema_line(col_names),
-            (
-                "Operator Summary: "
-                f"total_docs={total_count}, "
-                f"completed_docs={completed_count}, "
-                f"failed_docs={failed_count}, "
-                f"skipped_docs={skipped_count}, "
-                f"node_status={node_status}"
-            ),
         ]
 
+        # Batch execution summary (only for micro-batching nodes)
+        if batch_stats:
+            lines.extend(self._build_batch_summary_lines(batch_stats))
+
+        lines.extend(
+            [
+                (
+                    "Operator Summary: "
+                    f"total_docs={total_count}, "
+                    f"completed_docs={completed_count}, "
+                    f"failed_docs={failed_count}, "
+                    f"skipped_docs={skipped_count}, "
+                    f"node_status={node_status}"
+                ),
+                f"Completed execution: {node_name}, Time = {time_taken:.2f} seconds",
+            ]
+        )
+        return lines
+
     def get_job_run_logs(self, *, job_run_id: str) -> list[str]:
-        job_stats: JobStats | None = self.get_job(job_run_id=job_run_id, include_node_stats=True)
+        job_stats: JobStats | None = self.get_job(
+            job_run_id=job_run_id, include_node_stats=True, include_batch_stats=True
+        )
         if not job_stats or not getattr(job_stats, "node_stats", None):
             return []
+
+        batch_node_stats: dict[str, dict[str, Any]] = getattr(job_stats, "batch_node_stats", {}) or {}
 
         node_stats_values: list[NodeStats] = list(job_stats.node_stats.values())
         sorted_nodes: list[NodeStats] = sorted(
@@ -940,7 +1000,9 @@ class JobTrackerService(JobStatsService):
 
         logs: list[str] = []
         for node in sorted_nodes:
-            logs.extend(self._build_node_log_lines(node))
+            node_id: str = str(getattr(node, "id", ""))
+            per_node_batch_stats = batch_node_stats.get(node_id) or {}
+            logs.extend(self._build_node_log_lines(node, batch_stats=per_node_batch_stats))
         return logs
 
     def is_job_run_complete(self, *, job_run_id: str) -> bool:
@@ -1238,8 +1300,10 @@ class JobTrackerService(JobStatsService):
         from docpipe.api.dto.mappers.job_stats_mapper import JobStatsMapper
         from docpipe.exceptions.docpipe_exceptions import JobRunNotFoundException
 
-        # Get job stats with node stats
-        job_stats: JobStats | None = self.get_job(job_run_id=job_run_id, include_node_stats=True)
+        # Fetch batch stats too so to_log_string can include batch execution summary
+        job_stats: JobStats | None = self.get_job(
+            job_run_id=job_run_id, include_node_stats=True, include_batch_stats=True
+        )
 
         if not job_stats:
             raise JobRunNotFoundException(message=f"Job run not found: {job_run_id}", job_run_id=job_run_id)
@@ -1530,7 +1594,7 @@ class JobTrackerService(JobStatsService):
             for node_id, node_name in zip(downstream_node_ids, downstream_node_names, strict=False):
                 # Create minimal pending record with proper node name
                 pending_node_stats: NodeStats = NodeStats(
-                    node_id=node_id,
+                    id=node_id,
                     name=node_name,
                     node_status=ExecutionStatus.PENDING.value,
                     batch_id=batch_id,
@@ -1600,7 +1664,7 @@ class JobTrackerService(JobStatsService):
         for record in pending_records:
             # Create updated NodeStats with SKIPPED status
             updated_record = NodeStats(
-                node_id=record.node_id,
+                id=record.id,
                 name=record.name,
                 node_status=ExecutionStatus.SKIPPED.value,
                 batch_id=record.batch_id,

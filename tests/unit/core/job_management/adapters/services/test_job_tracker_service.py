@@ -92,7 +92,7 @@ class TestFinalDocumentCounting:
             total_docs=3,
             node_stats={
                 INGEST_NODE_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="Ingest",
                     total_docs=["doc1", "doc2", "doc3"],
                     docs_completed=["doc1", "doc2", "doc3"],
@@ -100,7 +100,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 TRANSFORM_NODE_ID: NodeStats(
-                    node_id=TRANSFORM_NODE_ID,
+                    id=TRANSFORM_NODE_ID,
                     name="Transform",
                     total_docs=["doc1", "doc2", "doc3"],
                     docs_completed=["doc1", "doc2", "doc3"],
@@ -108,7 +108,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_1: NodeStats(
-                    node_id=DEST_NODE_ID_1,
+                    id=DEST_NODE_ID_1,
                     name="Destination",
                     total_docs=["doc1", "doc2", "doc3"],
                     docs_completed=["doc1", "doc2", "doc3"],
@@ -133,7 +133,7 @@ class TestFinalDocumentCounting:
             total_docs=3,
             node_stats={
                 INGEST_NODE_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="Ingest",
                     total_docs=["doc1", "doc2", "doc3"],
                     docs_completed=["doc1", "doc2", "doc3"],
@@ -141,7 +141,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 TRANSFORM_NODE_ID: NodeStats(
-                    node_id=TRANSFORM_NODE_ID,
+                    id=TRANSFORM_NODE_ID,
                     name="Transform",
                     total_docs=["doc1", "doc2", "doc3"],
                     docs_completed=["doc1", "doc2"],
@@ -149,7 +149,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_1: NodeStats(
-                    node_id=DEST_NODE_ID_1,
+                    id=DEST_NODE_ID_1,
                     name="Destination",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc1", "doc2"],
@@ -174,7 +174,7 @@ class TestFinalDocumentCounting:
             total_docs=5,
             node_stats={
                 INGEST_NODE_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="Ingest",
                     total_docs=["doc1", "doc2", "doc3", "doc4", "doc5"],
                     docs_completed=["doc1", "doc2", "doc3"],
@@ -182,7 +182,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 TRANSFORM_NODE_ID: NodeStats(
-                    node_id=TRANSFORM_NODE_ID,
+                    id=TRANSFORM_NODE_ID,
                     name="Transform",
                     total_docs=["doc1", "doc2", "doc3"],
                     docs_completed=["doc1", "doc2", "doc3"],
@@ -190,7 +190,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_1: NodeStats(
-                    node_id=DEST_NODE_ID_1,
+                    id=DEST_NODE_ID_1,
                     name="Destination",
                     total_docs=["doc1", "doc2", "doc3"],
                     docs_completed=["doc1", "doc2", "doc3"],
@@ -215,7 +215,7 @@ class TestFinalDocumentCounting:
             total_docs=5,
             node_stats={
                 INGEST_NODE_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="Ingest",
                     total_docs=["doc1", "doc2", "doc3", "doc4", "doc5"],
                     docs_completed=["doc1", "doc2", "doc3", "doc4"],
@@ -223,7 +223,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 TRANSFORM_NODE_ID: NodeStats(
-                    node_id=TRANSFORM_NODE_ID,
+                    id=TRANSFORM_NODE_ID,
                     name="Transform",
                     total_docs=["doc1", "doc2", "doc3", "doc4"],
                     docs_completed=["doc1", "doc2"],
@@ -231,7 +231,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_1: NodeStats(
-                    node_id=DEST_NODE_ID_1,
+                    id=DEST_NODE_ID_1,
                     name="Destination",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc1", "doc2"],
@@ -256,7 +256,7 @@ class TestFinalDocumentCounting:
             total_docs=4,
             node_stats={
                 INGEST_NODE_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="Ingest",
                     total_docs=["doc1", "doc2", "doc3", "doc4"],
                     docs_completed=["doc1", "doc2", "doc3", "doc4"],
@@ -264,7 +264,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 TRANSFORM_NODE_ID: NodeStats(
-                    node_id=TRANSFORM_NODE_ID,
+                    id=TRANSFORM_NODE_ID,
                     name="Transform",
                     total_docs=["doc1", "doc2", "doc3", "doc4"],
                     docs_completed=["doc1", "doc2", "doc3", "doc4"],
@@ -272,7 +272,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_1: NodeStats(
-                    node_id=DEST_NODE_ID_1,
+                    id=DEST_NODE_ID_1,
                     name="Destination 1",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc1", "doc2"],
@@ -280,7 +280,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_2: NodeStats(
-                    node_id=DEST_NODE_ID_2,
+                    id=DEST_NODE_ID_2,
                     name="Destination 2",
                     total_docs=["doc3", "doc4"],
                     docs_completed=["doc3", "doc4"],
@@ -307,7 +307,7 @@ class TestFinalDocumentCounting:
             total_docs=2,
             node_stats={
                 INGEST_NODE_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="Ingest",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc1", "doc2"],
@@ -315,7 +315,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 TRANSFORM_NODE_ID: NodeStats(
-                    node_id=TRANSFORM_NODE_ID,
+                    id=TRANSFORM_NODE_ID,
                     name="Transform",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc1", "doc2"],
@@ -323,7 +323,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_1: NodeStats(
-                    node_id=DEST_NODE_ID_1,
+                    id=DEST_NODE_ID_1,
                     name="Destination 1",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc1", "doc2"],
@@ -331,7 +331,7 @@ class TestFinalDocumentCounting:
                     skipped_docs=[],
                 ),
                 DEST_NODE_ID_2: NodeStats(
-                    node_id=DEST_NODE_ID_2,
+                    id=DEST_NODE_ID_2,
                     name="Destination 2",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc2"],
@@ -374,7 +374,7 @@ class TestFinalDocumentCounting:
             total_docs=2,
             node_stats={
                 NODE_ID_1: NodeStats(
-                    node_id=NODE_ID_1,
+                    id=NODE_ID_1,
                     name="Node 1",
                     total_docs=["doc1", "doc2"],
                     docs_completed=["doc1", "doc2"],
@@ -401,8 +401,8 @@ class TestHelperMethods:
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
             node_stats={
-                NODE_ID_1: NodeStats(node_id=NODE_ID_1, name="Node 1", failed_docs=["doc1", "doc2"]),
-                NODE_ID_2: NodeStats(node_id=NODE_ID_2, name="Node 2", failed_docs=["doc3"]),
+                NODE_ID_1: NodeStats(id=NODE_ID_1, name="Node 1", failed_docs=["doc1", "doc2"]),
+                NODE_ID_2: NodeStats(id=NODE_ID_2, name="Node 2", failed_docs=["doc3"]),
             },
         )
 
@@ -429,7 +429,7 @@ class TestHelperMethods:
             job_run_id=JOB_RUN_ID,
             node_stats={
                 DEST_NODE_ID_1: NodeStats(
-                    node_id=DEST_NODE_ID_1,
+                    id=DEST_NODE_ID_1,
                     name="Destination",
                     docs_completed=["doc1", "doc2", "doc3"],
                 )
@@ -456,7 +456,7 @@ class TestHelperMethods:
             job_run_id=JOB_RUN_ID,
             node_stats={
                 INGEST_NODE_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="Ingest",
                     total_docs=["doc1", "doc2", "doc3", "doc4"],
                 )
@@ -597,7 +597,7 @@ class TestGetJob:
 
         aggregated_node_stats = {
             INGEST_NODE_ID: NodeStats(
-                node_id=INGEST_NODE_ID,
+                id=INGEST_NODE_ID,
                 name="TestNode",
                 node_status=ExecutionStatus.COMPLETED,
             )
@@ -619,7 +619,7 @@ class TestGetJob:
         batch_node_stats = {
             INGEST_NODE_ID: {
                 BATCH_ID: NodeStats(
-                    node_id=INGEST_NODE_ID,
+                    id=INGEST_NODE_ID,
                     name="TestNode",
                     batch_id=BATCH_ID,
                     batch_num=0,
@@ -735,7 +735,7 @@ class TestStartNodeExecution:
         call_args = mock_store.store_node_stats.call_args
         node_stats = call_args[1]["node_stats"]
 
-        assert node_stats.node_id == INGEST_NODE_ID
+        assert node_stats.id == INGEST_NODE_ID
         assert node_stats.name == "Ingest"
         assert node_stats.node_status == ExecutionStatus.RUNNING.value
         assert node_stats.total_docs == ["doc1", "doc2", "doc3"]
@@ -770,7 +770,7 @@ class TestCompleteNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=INGEST_NODE_ID,
+            id=INGEST_NODE_ID,
             name="Ingest",
             start_time=current_time - 10,  # Started 10 seconds ago
             total_docs=["doc1", "doc2", "doc3"],
@@ -805,7 +805,7 @@ class TestCompleteNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1", "doc2", "doc3"],
@@ -837,7 +837,7 @@ class TestCompleteNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1", "doc2"],
@@ -892,7 +892,7 @@ class TestFailNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1", "doc2"],
@@ -922,7 +922,7 @@ class TestFailNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1"],
@@ -948,7 +948,7 @@ class TestFailNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1"],
@@ -990,7 +990,7 @@ class TestCancelNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1", "doc2"],
@@ -1015,7 +1015,7 @@ class TestCancelNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1"],
@@ -1049,7 +1049,7 @@ class TestAbortNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1", "doc2"],
@@ -1082,7 +1082,7 @@ class TestSkipNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1"],
@@ -1114,7 +1114,7 @@ class TestSkipNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1"],
@@ -1150,7 +1150,7 @@ class TestSkipNodeExecution:
 
         current_time = int(time.time())
         existing_node = NodeStats(
-            node_id=TRANSFORM_NODE_ID,
+            id=TRANSFORM_NODE_ID,
             name="Transform",
             start_time=current_time - 10,
             total_docs=["doc1", "doc2"],
@@ -1202,7 +1202,7 @@ class TestUpdateNodeStats:
 
         mock_store.store_node_stats.assert_called_once()
         stored_stats = mock_store.store_node_stats.call_args[1]["node_stats"]
-        assert stored_stats.node_id == NODE_ID_1
+        assert stored_stats.id == NODE_ID_1
         assert stored_stats.name == "Test Node"
         assert stored_stats.node_status == "COMPLETED"
         assert stored_stats.docs_completed == ["doc1", "doc2"]
@@ -1211,7 +1211,7 @@ class TestUpdateNodeStats:
     def test_update_node_stats_merges_with_existing(self, *, job_tracker_service, mock_store):
         """Test update merges with existing state."""
         existing_stats = NodeStats(
-            node_id=NODE_ID_1,
+            id=NODE_ID_1,
             name="Test Node",
             node_status=ExecutionStatus.RUNNING,
             start_time=1000,
@@ -1237,7 +1237,7 @@ class TestUpdateNodeStats:
         stored_stats = mock_store.store_node_stats.call_args[1]["node_stats"]
 
         # Verify merge: existing fields preserved
-        assert stored_stats.node_id == NODE_ID_1
+        assert stored_stats.id == NODE_ID_1
         assert stored_stats.name == "Test Node"
         assert stored_stats.start_time == 1000
         assert stored_stats.total_docs == ["doc1", "doc2", "doc3"]
@@ -1252,7 +1252,7 @@ class TestUpdateNodeStats:
     def test_update_node_stats_preserves_metadata(self, *, job_tracker_service, mock_store):
         """Test update preserves existing metadata when not provided."""
         existing_stats = NodeStats(
-            node_id=NODE_ID_1,
+            id=NODE_ID_1,
             name="Test Node",
             node_status=ExecutionStatus.RUNNING,
             node_metadata={
@@ -1285,7 +1285,7 @@ class TestUpdateNodeStats:
     def test_update_node_stats_partial_update_preserves_counters(self, *, job_tracker_service, mock_store):
         """Test partial update doesn't discard existing counters."""
         existing_stats = NodeStats(
-            node_id=NODE_ID_1,
+            id=NODE_ID_1,
             name="Test Node",
             node_status=ExecutionStatus.RUNNING,
             start_time=1000,
@@ -1320,7 +1320,7 @@ class TestUpdateNodeStats:
     def test_update_node_stats_with_batch_id(self, *, job_tracker_service, mock_store):
         """Test update with batch_id parameter."""
         existing_stats = NodeStats(
-            node_id=NODE_ID_1,
+            id=NODE_ID_1,
             name="Test Node",
             batch_id=BATCH_ID,
             batch_num=1,
@@ -1347,7 +1347,7 @@ class TestUpdateNodeStats:
     def test_update_node_stats_with_node_stats_dto(self, *, job_tracker_service, mock_store):
         """Test update accepts NodeStats input."""
         existing_stats = NodeStats(
-            node_id=NODE_ID_1,
+            id=NODE_ID_1,
             name="Test Node",
             node_status=ExecutionStatus.RUNNING,
             start_time=1000,
@@ -1355,7 +1355,7 @@ class TestUpdateNodeStats:
         mock_store.get_node_stats_by_batch_and_node.return_value = existing_stats
 
         update_dto = NodeStats(
-            node_id=NODE_ID_1,
+            id=NODE_ID_1,
             name="Test Node",
             node_status=ExecutionStatus.COMPLETED,
             end_time=2000,
@@ -1468,7 +1468,7 @@ class TestMarkPendingBatchesAsSkipped:
         # Setup: Create pending batch node stats
         pending_stats = [
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.PENDING.value,
                 batch_id="batch-1",
@@ -1480,7 +1480,7 @@ class TestMarkPendingBatchesAsSkipped:
                 col_names=[],
             ),
             NodeStats(
-                node_id="node2",
+                id="node2",
                 name="chunker",
                 node_status=ExecutionStatus.PENDING.value,
                 batch_id="batch-2",
@@ -1514,7 +1514,7 @@ class TestMarkPendingBatchesAsSkipped:
         # Setup: Mix of pending and completed batch node stats
         mixed_stats = [
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.PENDING.value,
                 batch_id="batch-1",
@@ -1526,7 +1526,7 @@ class TestMarkPendingBatchesAsSkipped:
                 col_names=[],
             ),
             NodeStats(
-                node_id="node2",
+                id="node2",
                 name="chunker",
                 node_status=ExecutionStatus.COMPLETED.value,  # Already completed
                 batch_id="batch-2",
@@ -1550,7 +1550,7 @@ class TestMarkPendingBatchesAsSkipped:
         assert mock_store.bulk_store_node_stats.called
         updated_stats = mock_store.bulk_store_node_stats.call_args[1]["node_stats_list"]
         assert len(updated_stats) == 1
-        assert updated_stats[0].node_id == "node1"
+        assert updated_stats[0].id == "node1"
         assert updated_stats[0].node_status == ExecutionStatus.SKIPPED.value
 
     def test_mark_pending_batches_handles_queued(self, *, job_tracker_service, mock_store):
@@ -1560,7 +1560,7 @@ class TestMarkPendingBatchesAsSkipped:
         # Setup: QUEUED batch node stats
         queued_stats = [
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.QUEUED.value,
                 batch_id="batch-1",
@@ -1593,7 +1593,7 @@ class TestMarkPendingBatchesAsSkipped:
         # Setup: Only completed batches
         completed_stats = [
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.COMPLETED.value,
                 batch_id="batch-1",
@@ -1639,7 +1639,7 @@ class TestMarkPendingBatchesAsSkipped:
         # Setup: Pending batch
         pending_stats = [
             NodeStats(
-                node_id="node1",
+                id="node1",
                 name="extract",
                 node_status=ExecutionStatus.PENDING.value,
                 batch_id="batch-1",
