@@ -123,17 +123,21 @@ class DocpipeConstants:
     ENABLE_CUSTOM_OPERATORS_DEFAULT = True
 
     # Operator Ownership Tiers
-    OWNER_ENTERPRISE = "docpipe_enterprise"
     OWNER_DOCPIPE = "docpipe"
     OWNER_CUSTOM = "custom"
     OWNER_ATTRIBUTE = "owner"
 
     # Operator Priority Map: lower number = higher priority
-    # Used for resolving conflicts when multiple operators have the same short_name
+    # Used for resolving conflicts when multiple operators have the same short_name.
+    # Additional owner tiers can be registered at runtime via OperatorFactory.register_owner_priority().
+    # Built-in tiers are spaced at intervals of 100 to leave room for consumer tiers:
+    #   0-99   : available for consumer tiers above OWNER_CUSTOM
+    #   100    : OWNER_CUSTOM
+    #   101-199: available for consumer tiers between OWNER_CUSTOM and OWNER_DOCPIPE
+    #   200    : OWNER_DOCPIPE
     OPERATOR_PRIORITY_MAP: ClassVar[dict[str, int]] = {
-        OWNER_ENTERPRISE: 0,  # Enterprise operators have highest precedence
-        OWNER_CUSTOM: 1,  # Custom operators have medium priority
-        OWNER_DOCPIPE: 2,  # OSS docpipe operators have lowest priority
+        OWNER_CUSTOM: 100,
+        OWNER_DOCPIPE: 200,
     }
 
     # Feature Flag States

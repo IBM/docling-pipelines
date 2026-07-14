@@ -342,12 +342,14 @@ All operators must properly identify themselves using the `owner` attribute to e
 **Priority Resolution:**
 
 When multiple operators share the same `short_name`, the operator factory uses priority-based resolution:
-- **Priority 1**: Custom operators (`owner="custom"` or `owner=None`)
-- **Priority 2**: Docling-pipelines operators (`owner="docpipe"`)
+- **Priority 100**: Custom operators (`owner="custom"` or `owner=None`)
+- **Priority 200**: Docling-pipelines operators (`owner="docpipe"`)
+
+Additional tiers can be registered at runtime via `OperatorFactory.register_owner_priority()`. Built-in values are spaced at intervals of 100, leaving room for consumer tiers without requiring magic numbers.
 
 **Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override Docling-pipelines operators with the same `short_name`.
 
-**Example - Built-in Docling-pipelines Operator:**
+**Example — Built-in Docling-pipelines Operator:**
 
 ```python
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -360,52 +362,9 @@ class MyDocpipeOperator(AbstractOperator):
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         super().__init__(config=config)
-        # Implementation
 ```
 
-**Example - Custom Operator:**
-
-```python
-from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-
-class MyCustomOperator(AbstractOperator):
-    short_name: str = "my_operator"
-    category: OperatorCategory = OperatorCategory.Functional  # Use appropriate standard category
-    owner: str = "custom"  # REQUIRED for custom operators
-
-    def __init__(self, *, config: dict[str, Any]) -> None:
-        super().__init__(config=config)
-        # Custom implementation
-```
-
-**Custom Operator Loading:**
-
-Custom operators can be loaded from three sources:
-
-1. **Filesystem Paths**: Local directories or files containing operator Python files
-2. **Python Packages**: Pip-installed packages with operators (recommended for distribution)
-3. **S3 URIs**: Remote storage for enterprise deployments (requires boto3)
-
-**Environment Variable Configuration:**
-
-The `DOCPIPE_CUSTOM_OPERATORS` environment variable must be a comma-separated string of package paths. Non-string values will be logged as warnings and ignored to prevent operator factory failures.:
-
-```bash
-# Filesystem path
-export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators"
-
-# Python package name (must be installed via pip)
-export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
-
-# S3 URI
-export DOCPIPE_CUSTOM_OPERATORS="s3://bucket/operators"
-
-# Multiple sources
-export DOCPIPE_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
-
-# Invalid (non-string values are ignored with warning)
-export DOCPIPE_CUSTOM_OPERATORS=123  # Will be ignored
-```
+For writing custom operators, loading sources, and the `DOCPIPE_CUSTOM_OPERATORS` environment variable, see the [Custom Operators Guide](docs/guides/CUSTOM_OPERATORS_GUIDE.md).
 
 See [`OperatorFactory`](src/docpipe/core/orchestration/operator_factory.py:35) for implementation details.
 

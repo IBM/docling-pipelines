@@ -139,64 +139,18 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 #### Operator Ownership Attribute
 
-All operators must declare an `owner` attribute to support priority-based resolution when multiple operators share the same `short_name`.
-
-**Where to Add the Owner Attribute:**
-
-The `owner` attribute must be declared as a **class variable** at the top of your operator class, alongside `short_name` and `category`.
-
-**Important**: To override an existing docpipe operator, use the **same `short_name`** as the docpipe operator. The priority system will ensure your custom operator (priority 2) takes precedence over the docpipe operator (priority 1).
+All operators must declare an `owner` class variable to support priority-based resolution when multiple operators share the same `short_name`.
 
 ```python
-from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from docpipe.core.constants.operator_constants import OperatorConstants
-
-class CustomChunkerOperator(AbstractOperator):
-    """Custom chunking operator that overrides the docpipe chunker."""
-
-    # Class-level attributes (declare these at the top)
-    short_name: str = OperatorConstants.Operators.CHUNKER  # Same as docpipe chunker!
-    category: OperatorCategory = OperatorCategory.Functional
-    owner: str = "custom"  # REQUIRED: This gives priority 1 (overrides docpipe)
-
-    def __init__(self, *, config: dict[str, Any]) -> None:
-        super().__init__(config=config)
-        # Your custom chunking logic here
-```
-
-**Key Point**: When both docpipe's `ChunkerOperator` and your `CustomChunkerOperator` have `short_name = "chunker"`, the operator factory will load **only your custom operator** because it has higher priority (1 vs 2), and lower priority numbers carry higher precedence.
-
-**For Docpipe Operators:**
-
-```python
+# Built-in docpipe operators
 from docpipe.core.constants.constants import DocpipeConstants
+owner: str = DocpipeConstants.OWNER_DOCPIPE  # MUST be set for all built-in operators
 
-owner: str = DocpipeConstants.OWNER_DOCPIPE  # MUST be explicitly set for built-in operators
+# Custom operators
+owner: str = "custom"  # MUST be set for all custom operators
 ```
 
-**For Custom Operators:**
-
-```python
-owner: str = "custom"  # MUST be explicitly set as shown above
-```
-
-**Why This Matters:**
-
-- Custom operators with `owner="custom"` receive **priority 1** (highest)
-- Docpipe operators with `owner="docpipe"` receive **priority 2**
-- Operators without an explicit `owner` attribute inherit `owner=None` from [`AbstractOperator`](../../src/docpipe/core/operators/abstract_operator.py#L32), which are treated as custom operators
-- During operator loading, the factory validates that custom operators (not in DOCPIPE_OPERATORS frozenset) have `owner="custom"` and **rejects** those with `owner="docpipe"`
-- **All built-in docpipe operators must explicitly set** `owner = DocpipeConstants.OWNER_DOCPIPE`
-- The `owner` attribute is included in operator metadata and can be queried via `OperatorMetadata.get_operator_metadata()`
-
-**Priority Resolution Example:**
-
-If both a docpipe operator and custom operator have `short_name="chunker"`:
-
-- Custom operator with `owner="custom"` → **Selected** (priority 1, highest)
-- Docpipe operator with `owner="docpipe"` → Overridden (priority 2)
-
-See [`OperatorFactory`](../../src/docpipe/core/orchestration/operator_factory.py#L97) for implementation details.
+For full details on the priority system, override behaviour, and registering custom tiers, see [CONTRIBUTING.md — Custom Operator Requirements](../../CONTRIBUTING.md#custom-operator-requirements) and [External Operator Integration — Operator Priority](../guides/EXTERNAL_OPERATOR_INTEGRATION.md#operator-priority-and-override).
 
 ### Ingest Operators
 

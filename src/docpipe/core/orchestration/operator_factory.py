@@ -207,6 +207,25 @@ class OperatorFactory:
             return {}
 
     @staticmethod
+    def register_owner_priority(*, owner: str, priority: int) -> None:
+        """Register a custom owner tier and its resolution priority.
+
+        Allows consumers to inject additional owner tiers at runtime without
+        requiring changes to the docpipe library. Call this before operators are
+        loaded.
+
+        Lower priority numbers take precedence over higher numbers.
+        Priorities 100 (OWNER_CUSTOM) and 200 (OWNER_DOCPIPE) are reserved.
+        Use values below 100 to outrank all built-in tiers, or values between
+        100 and 200 to slot between custom and docpipe operators.
+
+        Args:
+            owner: Owner string identifier (e.g. "my_app").
+            priority: Integer priority. Lower number = higher precedence.
+        """
+        DocpipeConstants.OPERATOR_PRIORITY_MAP[owner] = priority
+
+    @staticmethod
     def apply_priority_resolution(
         *,
         new_operator: type[AbstractOperator],

@@ -487,12 +487,13 @@ When creating custom operators, you **must**:
    ```
 
    **Why This Matters:**
-   - Custom operators with `owner="custom"` receive **priority 1** (highest)
-   - Docpipe operators with `owner="docpipe"` receive **priority 2**
-   - When both have the same `short_name`, only the custom operator (priority 1) is loaded
+   - Custom operators with `owner="custom"` receive **priority 100**
+   - Docpipe operators with `owner="docpipe"` receive **priority 200**
+   - When both have the same `short_name`, only the custom operator (priority 100) is loaded
    - Without setting `owner="custom"`, your operator inherits `owner=None` from `AbstractOperator`, which will be treated as a custom operator
    - The `owner` attribute appears in operator metadata returned by `get_operator_metadata()`
    - **All built-in docpipe operators must explicitly set** `owner = DocpipeConstants.OWNER_DOCPIPE`
+   - To register a tier with higher precedence than `OWNER_CUSTOM`, see [External Operator Integration — Registering a Custom Priority Tier](docs/guides/EXTERNAL_OPERATOR_INTEGRATION.md#registering-a-custom-priority-tier)
 
 2. **Use keyword-only arguments:**
    All function parameters must use `*` to enforce keyword-only arguments:

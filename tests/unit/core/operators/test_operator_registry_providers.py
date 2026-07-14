@@ -52,11 +52,15 @@ class MockCustomOperator(AbstractOperator):
         return table, {}
 
 
-class MockEnterpriseOperator(AbstractOperator):
-    """Mock enterprise operator (priority 0)"""
+MOCK_HIGH_PRIORITY_OWNER = "mock_high_priority"
+MOCK_HIGH_PRIORITY = 10  # below 100 (OWNER_CUSTOM), so outranks all built-in tiers
+
+
+class MockHighPriorityOperator(AbstractOperator):
+    """Mock operator registered with a consumer-defined high-priority tier (priority 10)."""
 
     short_name = "mock_op"
-    owner = DocpipeConstants.OWNER_ENTERPRISE
+    owner = MOCK_HIGH_PRIORITY_OWNER
 
     @staticmethod
     def is_available():
@@ -134,6 +138,14 @@ class TestOperatorProviderRegistration:
 class TestPriorityResolution:
     """Test priority-based operator resolution."""
 
+    def setup_method(self):
+        """Register the mock high-priority tier before each test."""
+        OperatorFactory.register_owner_priority(owner=MOCK_HIGH_PRIORITY_OWNER, priority=MOCK_HIGH_PRIORITY)
+
+    def teardown_method(self):
+        """Remove the mock tier after each test to avoid polluting global state."""
+        DocpipeConstants.OPERATOR_PRIORITY_MAP.pop(MOCK_HIGH_PRIORITY_OWNER, None)
+
     def test_resolve_no_conflict(self):
         """Test resolution when no existing operator."""
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
@@ -143,32 +155,32 @@ class TestPriorityResolution:
         )
 
         assert should_override is True
-        assert new_priority == 2  # OSS priority
+        assert new_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
         assert existing_priority == float("inf")
 
-    def test_enterprise_overrides_custom(self):
-        """Test that enterprise operator overrides custom operator."""
+    def test_high_priority_overrides_custom(self):
+        """Test that a registered high-priority operator overrides a custom operator."""
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
-            new_operator=MockEnterpriseOperator,
+            new_operator=MockHighPriorityOperator,
             existing_operator=MockCustomOperator,
             default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is True
-        assert new_priority == 0  # Enterprise priority
-        assert existing_priority == 1  # Custom priority
+        assert new_priority == MOCK_HIGH_PRIORITY
+        assert existing_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
 
-    def test_enterprise_overrides_oss(self):
-        """Test that enterprise operator overrides OSS operator."""
+    def test_high_priority_overrides_oss(self):
+        """Test that a registered high-priority operator overrides an OSS operator."""
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
-            new_operator=MockEnterpriseOperator,
+            new_operator=MockHighPriorityOperator,
             existing_operator=MockOSSOperator,
             default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is True
-        assert new_priority == 0  # Enterprise priority
-        assert existing_priority == 2  # OSS priority
+        assert new_priority == MOCK_HIGH_PRIORITY
+        assert existing_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
 
     def test_custom_overrides_oss(self):
         """Test that custom operator overrides OSS operator."""
@@ -179,20 +191,20 @@ class TestPriorityResolution:
         )
 
         assert should_override is True
-        assert new_priority == 1  # Custom priority
-        assert existing_priority == 2  # OSS priority
+        assert new_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+        assert existing_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
 
-    def test_custom_cannot_override_enterprise(self):
-        """Test that custom operator cannot override enterprise operator."""
+    def test_custom_cannot_override_high_priority(self):
+        """Test that custom operator cannot override a higher-priority registered operator."""
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockCustomOperator,
-            existing_operator=MockEnterpriseOperator,
+            existing_operator=MockHighPriorityOperator,
             default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is False
-        assert new_priority == 1  # Custom priority
-        assert existing_priority == 0  # Enterprise priority
+        assert new_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+        assert existing_priority == MOCK_HIGH_PRIORITY
 
     def test_oss_cannot_override_custom(self):
         """Test that OSS operator cannot override custom operator."""
@@ -203,20 +215,20 @@ class TestPriorityResolution:
         )
 
         assert should_override is False
-        assert new_priority == 2  # OSS priority
-        assert existing_priority == 1  # Custom priority
+        assert new_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
+        assert existing_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
 
-    def test_oss_cannot_override_enterprise(self):
-        """Test that OSS operator cannot override enterprise operator."""
+    def test_oss_cannot_override_high_priority(self):
+        """Test that OSS operator cannot override a higher-priority registered operator."""
         should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
             new_operator=MockOSSOperator,
-            existing_operator=MockEnterpriseOperator,
+            existing_operator=MockHighPriorityOperator,
             default_owner=DocpipeConstants.OWNER_DOCPIPE,
         )
 
         assert should_override is False
-        assert new_priority == 2  # OSS priority
-        assert existing_priority == 0  # Enterprise priority
+        assert new_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
+        assert existing_priority == MOCK_HIGH_PRIORITY
 
     def test_same_priority_allows_override(self):
         """Test that operators with same priority can override (last wins)."""
@@ -227,8 +239,8 @@ class TestPriorityResolution:
         )
 
         assert should_override is True
-        assert new_priority == 2
-        assert existing_priority == 2
+        assert new_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
+        assert existing_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
 
 
 class TestApplyPriorityResolution:
@@ -251,31 +263,39 @@ class TestApplyPriorityResolution:
 
     def test_override_with_higher_priority(self):
         """Test overriding operator with higher priority."""
+        OperatorFactory.register_owner_priority(owner=MOCK_HIGH_PRIORITY_OWNER, priority=MOCK_HIGH_PRIORITY)
         operators_dict: dict[str, type[AbstractOperator]] = {"mock_op": MockOSSOperator}
 
-        result = OperatorFactory.apply_priority_resolution(
-            new_operator=MockEnterpriseOperator,
-            operators_dict=operators_dict,
-            default_owner=DocpipeConstants.OWNER_DOCPIPE,
-            log_prefix="Test operator",
-        )
+        try:
+            result = OperatorFactory.apply_priority_resolution(
+                new_operator=MockHighPriorityOperator,
+                operators_dict=operators_dict,
+                default_owner=DocpipeConstants.OWNER_DOCPIPE,
+                log_prefix="Test operator",
+            )
 
-        assert result is True
-        assert operators_dict["mock_op"] == MockEnterpriseOperator
+            assert result is True
+            assert operators_dict["mock_op"] == MockHighPriorityOperator
+        finally:
+            DocpipeConstants.OPERATOR_PRIORITY_MAP.pop(MOCK_HIGH_PRIORITY_OWNER, None)
 
     def test_reject_with_lower_priority(self):
         """Test rejecting operator with lower priority."""
-        operators_dict: dict[str, type[AbstractOperator]] = {"mock_op": MockEnterpriseOperator}
+        OperatorFactory.register_owner_priority(owner=MOCK_HIGH_PRIORITY_OWNER, priority=MOCK_HIGH_PRIORITY)
+        operators_dict: dict[str, type[AbstractOperator]] = {"mock_op": MockHighPriorityOperator}
 
-        result = OperatorFactory.apply_priority_resolution(
-            new_operator=MockOSSOperator,
-            operators_dict=operators_dict,
-            default_owner=DocpipeConstants.OWNER_DOCPIPE,
-            log_prefix="Test operator",
-        )
+        try:
+            result = OperatorFactory.apply_priority_resolution(
+                new_operator=MockOSSOperator,
+                operators_dict=operators_dict,
+                default_owner=DocpipeConstants.OWNER_DOCPIPE,
+                log_prefix="Test operator",
+            )
 
-        assert result is False
-        assert operators_dict["mock_op"] == MockEnterpriseOperator
+            assert result is False
+            assert operators_dict["mock_op"] == MockHighPriorityOperator
+        finally:
+            DocpipeConstants.OPERATOR_PRIORITY_MAP.pop(MOCK_HIGH_PRIORITY_OWNER, None)
 
     def test_operator_without_short_name(self):
         """Test handling operator without short_name attribute."""
@@ -401,13 +421,20 @@ class TestExternalProviderIntegration:
 class TestPriorityMapConfiguration:
     """Test priority map configuration."""
 
-    def test_priority_map_values(self):
-        """Test that priority map has correct values."""
+    def test_priority_map_builtin_values(self):
+        """Test that built-in priority map entries have the expected spaced values."""
         priority_map = DocpipeConstants.OPERATOR_PRIORITY_MAP
 
-        assert priority_map[DocpipeConstants.OWNER_ENTERPRISE] == 0
-        assert priority_map[DocpipeConstants.OWNER_CUSTOM] == 1
-        assert priority_map[DocpipeConstants.OWNER_DOCPIPE] == 2
+        assert priority_map[DocpipeConstants.OWNER_CUSTOM] == 100
+        assert priority_map[DocpipeConstants.OWNER_DOCPIPE] == 200
+        assert DocpipeConstants.OPERATOR_PRIORITY_MAP.get("docpipe_enterprise") is None
+
+    def test_custom_has_higher_precedence_than_docpipe(self):
+        """Test that custom priority value is lower (higher precedence) than docpipe."""
+        assert (
+            DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+            < DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
+        )
 
     def test_unknown_owner_gets_lowest_priority(self):
         """Test that unknown owner gets lowest priority (infinity)."""
@@ -431,4 +458,110 @@ class TestPriorityMapConfiguration:
 
         assert should_override is False
         assert new_priority == float("inf")
-        assert existing_priority == 2
+        assert existing_priority == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
+
+    def test_register_owner_priority_adds_to_map(self):
+        """Test that register_owner_priority correctly inserts the new tier."""
+        owner = "test_registered_owner"
+        priority = 50
+        try:
+            OperatorFactory.register_owner_priority(owner=owner, priority=priority)
+            assert DocpipeConstants.OPERATOR_PRIORITY_MAP[owner] == priority
+        finally:
+            DocpipeConstants.OPERATOR_PRIORITY_MAP.pop(owner, None)
+
+    def test_register_owner_priority_affects_resolution(self):
+        """Test that registered tiers are respected during resolution, including ordering between two registered tiers."""
+        app_owner = "test_app_tier"  # priority 10: above all built-ins
+        plugin_owner = "test_plugin_tier"  # priority 50: above OWNER_CUSTOM (100), below app
+
+        OperatorFactory.register_owner_priority(owner=app_owner, priority=10)
+        OperatorFactory.register_owner_priority(owner=plugin_owner, priority=50)
+
+        class AppOperator(AbstractOperator):
+            short_name = "mock_op"
+            owner = app_owner
+
+            @staticmethod
+            def is_available():
+                return True
+
+            def transform(self, table, *, file_name: str = ""):
+                return table, {}
+
+        class PluginOperator(AbstractOperator):
+            short_name = "mock_op"
+            owner = plugin_owner
+
+            @staticmethod
+            def is_available():
+                return True
+
+            def transform(self, table, *, file_name: str = ""):
+                return table, {}
+
+        try:
+            # app (10) overrides OSS (200)
+            should_override, new_p, existing_p = OperatorFactory.resolve_operator_by_priority(
+                new_operator=AppOperator,
+                existing_operator=MockOSSOperator,
+                default_owner=DocpipeConstants.OWNER_DOCPIPE,
+            )
+            assert should_override is True
+            assert new_p == 10
+            assert existing_p == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
+
+            # app (10) overrides plugin (50)
+            should_override, new_p, existing_p = OperatorFactory.resolve_operator_by_priority(
+                new_operator=AppOperator,
+                existing_operator=PluginOperator,
+                default_owner=DocpipeConstants.OWNER_DOCPIPE,
+            )
+            assert should_override is True
+            assert new_p == 10
+            assert existing_p == 50
+
+            # plugin (50) overrides custom (100)
+            should_override, new_p, existing_p = OperatorFactory.resolve_operator_by_priority(
+                new_operator=PluginOperator,
+                existing_operator=MockCustomOperator,
+                default_owner=DocpipeConstants.OWNER_DOCPIPE,
+            )
+            assert should_override is True
+            assert new_p == 50
+            assert existing_p == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+
+            # plugin (50) cannot override app (10)
+            should_override, new_p, existing_p = OperatorFactory.resolve_operator_by_priority(
+                new_operator=PluginOperator,
+                existing_operator=AppOperator,
+                default_owner=DocpipeConstants.OWNER_DOCPIPE,
+            )
+            assert should_override is False
+            assert new_p == 50
+            assert existing_p == 10
+
+            # custom (100) cannot override plugin (50)
+            should_override, new_p, existing_p = OperatorFactory.resolve_operator_by_priority(
+                new_operator=MockCustomOperator,
+                existing_operator=PluginOperator,
+                default_owner=DocpipeConstants.OWNER_DOCPIPE,
+            )
+            assert should_override is False
+            assert new_p == DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+            assert existing_p == 50
+        finally:
+            DocpipeConstants.OPERATOR_PRIORITY_MAP.pop(app_owner, None)
+            DocpipeConstants.OPERATOR_PRIORITY_MAP.pop(plugin_owner, None)
+
+    def test_register_owner_priority_overwrites_existing(self):
+        """Test that re-registering an owner updates its priority."""
+        owner = "test_overwrite_owner"
+        try:
+            OperatorFactory.register_owner_priority(owner=owner, priority=90)
+            assert DocpipeConstants.OPERATOR_PRIORITY_MAP[owner] == 90
+
+            OperatorFactory.register_owner_priority(owner=owner, priority=30)
+            assert DocpipeConstants.OPERATOR_PRIORITY_MAP[owner] == 30
+        finally:
+            DocpipeConstants.OPERATOR_PRIORITY_MAP.pop(owner, None)

@@ -163,10 +163,11 @@ register_operator_provider(get_env_specific_operators)
 
 Docpipe uses a **priority-based resolution system** to handle operators with the same `short_name`. Operators are assigned priorities based on their `owner` attribute:
 
-**Priority Levels** (lower number = higher priority):
-- **Enterprise operators** (priority 0): Highest precedence
-- **Custom operators** (priority 1): Medium precedence
-- **OSS Docpipe operators** (priority 2): Lowest precedence
+**Built-in Priority Levels** (lower number = higher priority):
+- **Custom operators** (priority 100): Can override OSS operators
+- **OSS Docpipe operators** (priority 200): Lowest precedence
+
+Additional tiers can be registered at runtime — see [Registering a Custom Priority Tier](#registering-a-custom-priority-tier) below.
 
 #### Setting Operator Owner
 
@@ -177,7 +178,7 @@ class CustomExtractOperator(AbstractOperator):
     """Custom extract operator with priority."""
 
     short_name = "extract"  # Same as docpipe's ExtractOperator
-    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 100
 
     def transform(self, table: pa.Table) -> pa.Table:
         # Custom extraction logic
@@ -186,9 +187,8 @@ class CustomExtractOperator(AbstractOperator):
 
 #### Priority Rules
 
-- **Custom operators CAN override OSS operators** (priority 1 > priority 2)
-- **Custom operators CANNOT override Enterprise operators** (priority 1 < priority 0)
-- **OSS operators CANNOT override Custom or Enterprise operators**
+- **Custom operators CAN override OSS operators** (priority 100 < priority 200)
+- **OSS operators CANNOT override Custom operators**
 - **Same priority**: Last registered wins
 
 #### Example: Custom Operator Overriding OSS
@@ -197,27 +197,41 @@ class CustomExtractOperator(AbstractOperator):
 # This custom operator will override docpipe's built-in extract operator
 class MyExtractOperator(AbstractOperator):
     short_name = "extract"
-    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 beats OSS priority 2
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 100 beats OSS priority 200
 
     def transform(self, table: pa.Table) -> pa.Table:
         # Your custom logic replaces docpipe's extract
         return table
 ```
 
-#### Example: Enterprise Operator (Highest Priority)
+#### Registering a Custom Priority Tier
+
+If you need an operator tier with higher precedence than `OWNER_CUSTOM`, register it at startup before operators are loaded. Priorities below 100 outrank all built-in tiers.
 
 ```python
-# Enterprise operators have highest priority
-class EnterpriseExtractOperator(AbstractOperator):
+from docpipe.core.orchestration.operator_factory import OperatorFactory
+
+# Call once at application startup, before operators are loaded
+OperatorFactory.register_owner_priority(owner="my_app", priority=10)
+
+class MyAppOperator(AbstractOperator):
     short_name = "extract"
-    owner = DocpipeConstants.OWNER_ENTERPRISE  # Priority 0 (highest)
+    owner = "my_app"  # Priority 10 — overrides custom (100) and OSS (200)
 
     def transform(self, table: pa.Table) -> pa.Table:
-        # This will override both custom and OSS operators
         return table
 ```
 
-**Note:** If you don't set the `owner` attribute, it defaults to `OWNER_CUSTOM` (priority 1).
+**Priority ranges:**
+
+| Range | Purpose |
+|---|---|
+| 0-99 | Consumer tiers above all built-ins |
+| 100 | `OWNER_CUSTOM` |
+| 101-199 | Consumer tiers between custom and docpipe |
+| 200 | `OWNER_DOCPIPE` |
+
+**Note:** If you don't set the `owner` attribute, it defaults to `OWNER_CUSTOM` (priority 100).
 
 ### Dynamic Operator Loading
 

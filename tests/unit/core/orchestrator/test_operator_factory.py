@@ -164,10 +164,10 @@ def test_priority_map_custom_has_highest_priority():
     print(f"docpipe priority: {docpipe_priority}")
     print(f"Note: None owner is treated as '{DocpipeConstants.OWNER_CUSTOM}' during priority lookup")
 
-    if custom_priority == 1 and docpipe_priority == 2 and custom_priority < docpipe_priority:
-        print("✓ Custom operator priority is highest (priority 1)")
-        print("✓ Docpipe operator priority is lower (priority 2)")
-        print("✓ None owner is treated as custom (priority 1)")
+    if custom_priority == 100 and docpipe_priority == 200 and custom_priority < docpipe_priority:
+        print("✓ Custom operator priority is highest (priority 100)")
+        print("✓ Docpipe operator priority is lower (priority 200)")
+        print("✓ None owner is treated as custom (priority 100)")
         print("✓ Lower priority number carries higher weightage")
         return True
 

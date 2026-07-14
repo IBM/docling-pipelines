@@ -58,7 +58,7 @@ class UppercaseOperator(AbstractOperator):
     """Converts all text columns to uppercase."""
 
     short_name = "uppercase"
-    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 100 (can override OSS operators)
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -102,7 +102,7 @@ class ReverseOperator(AbstractOperator):
     """Reverses text in specified column."""
 
     short_name = "reverse"
-    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 (can override OSS operators)
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 100 (can override OSS operators)
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
@@ -409,27 +409,14 @@ pytest tests/test_integration.py::test_operator_registration
 2. **Seamless Integration**: Custom operators work alongside docpipe operators
 3. **No Docpipe Modification**: Docpipe codebase remains unchanged
 4. **Type Safety**: Custom operators inherit from `AbstractOperator`
-5. **Priority-Based Resolution**: Custom operators (priority 1) can override OSS operators (priority 2)
+5. **Priority-Based Resolution**: Custom operators (priority 100) can override OSS operators (priority 200)
 6. **Testable**: Easy to test operator registration and functionality
 
 ## Operator Priority System
 
-Docpipe uses priority-based resolution for operators with the same `short_name`:
+Docpipe uses priority-based resolution for operators with the same `short_name`. Set `owner = DocpipeConstants.OWNER_CUSTOM` on your operators.
 
-- **Enterprise operators** (priority 0): Highest precedence
-- **Custom operators** (priority 1): Medium precedence - **can override OSS**
-- **OSS Docpipe operators** (priority 2): Lowest precedence
-
-Set the `owner` attribute on your operators:
-```python
-from docpipe.core.constants.constants import DocpipeConstants
-
-class MyOperator(AbstractOperator):
-    short_name = "my_op"
-    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1
-```
-
-If `owner` is not set, it defaults to `OWNER_CUSTOM`.
+For the full priority levels, override rules, and registering custom tiers, see [External Operator Integration — Operator Priority](../docs/guides/EXTERNAL_OPERATOR_INTEGRATION.md#operator-priority-and-override).
 
 ## Troubleshooting
 
