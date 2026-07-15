@@ -195,3 +195,45 @@ Second block contains JSON:
         response = '{"message": "She said \\"hello\\" to him", "valid": true}'
         result = parse_llm_json_response(response)
         assert result == {"message": 'She said "hello" to him', "valid": True}
+
+    def test_parse_json_with_trailing_text_after_closing_brace(self):
+        """Test that valid JSON followed by prose/explanation text is parsed correctly.
+
+        LLMs often append explanation text after the JSON object, causing json.loads
+        to fail with 'Extra data'. The brace-depth fallback must find the matching
+        closing brace rather than the last } in the string.
+        """
+        response = (
+            '{"invoice_id": "0298878900", "line_items": [{"amount": 5630, "quantity": 10}]}\n\n'
+            "The above JSON contains the extracted invoice data. Note that some fields are null."
+        )
+        result = parse_llm_json_response(response)
+        assert result == {"invoice_id": "0298878900", "line_items": [{"amount": 5630, "quantity": 10}]}
+
+    def test_parse_json_with_trailing_brace_in_prose(self):
+        """Test that prose containing } characters after the JSON does not confuse the parser."""
+        response = '{"key": "value"} (see schema definition in config/schema.json}'
+        result = parse_llm_json_response(response)
+        assert result == {"key": "value"}
+
+    def test_parse_json_with_invalid_escape_sequences(self):
+        """Test that invalid JSON escape sequences emitted by LLMs are sanitized.
+
+        LLMs sometimes emit raw backslashes inside string values that are not valid
+        JSON escape sequences (e.g. Windows-style paths or address abbreviations like
+        l\\IC). json.loads rejects these with 'Invalid \\escape'. The sanitizer
+        strips the backslash so the string becomes parseable.
+        """
+        response = (
+            '{"vendor_address": "1056 STRATFORD COURT GOLDSBORO l\\IC 27530", '
+            '"invoice_id": "0298878900"}'
+        )
+        result = parse_llm_json_response(response)
+        assert result["invoice_id"] == "0298878900"
+        assert "GOLDSBORO" in result["vendor_address"]
+
+    def test_parse_json_invalid_escape_in_nested_value(self):
+        """Test sanitization works on invalid escapes inside nested objects."""
+        response = '{"items": [{"path": "C:\\Users\\admin\\docs"}]}'
+        result = parse_llm_json_response(response)
+        assert "Users" in result["items"][0]["path"]

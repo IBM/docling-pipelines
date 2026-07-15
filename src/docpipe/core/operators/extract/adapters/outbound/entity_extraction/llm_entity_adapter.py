@@ -5,7 +5,7 @@ supporting both watsonx and litellm providers through a unified interface.
 It replaces the provider-specific adapters (OllamaEntityAdapter, LiteLLMEntityAdapter,
 WatsonXEntityAdapter) with a single implementation.
 """
-
+import json
 from typing import Any
 
 import pyarrow as pa
@@ -15,6 +15,7 @@ from docpipe.core.constants import OperatorConstants
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from docpipe.core.ports.llm_inference_port import LLMInferencePort
+from docpipe.utils.document_class_utils import DocumentClassUtils
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.llm import parse_llm_json_response
 
@@ -213,6 +214,152 @@ class LLMEntityAdapter(EntityExtractionPort):
         # Delegate to service for orchestration
         return service.transform(table=table, metadata=metadata)
 
+    # ========================================================================
+    # LLM-Based Entity Extraction Helper Methods
+    # ========================================================================
+    # These methods provide common utilities for LLM-based entity extraction
+    # adapters (Ollama, LiteLLM, etc.). They handle prompt building, schema
+    # processing, and JSON parsing with repair logic.
+    # ========================================================================
+
+    def _build_schema_prompt(self, *, content: str, schema: dict[str, Any]) -> str:
+        """Build prompt for schema-based extraction.
+        Args:
+            content: Document text content
+            schema: Schema dictionary with fields/columns
+        Returns:
+            Formatted user prompt string
+        """
+        schema_name = schema.get("document_type", "") or schema.get("table", "") or "document"
+        json_template = self._build_json_template(schema=schema)
+
+        # Build per-field extraction hints from extraction_instructions (if present)
+        hints = self._build_extraction_hints(schema=schema)
+        hints_section = f"\nField extraction notes:\n{hints}\n" if hints else ""
+
+        return (
+            f"You are extracting structured data from a {schema_name} document.\n\n"
+            f"DOCUMENT TEXT:\n"
+            f"{content}\n\n"
+            f"---\n\n"
+            f"TASK:\n"
+            f"Read the document above and fill in every field of the JSON template below.\n"
+            f"Rules:\n"
+            f"  1. Return ONLY the completed JSON object — no explanation, no markdown fences.\n"
+            f"  2. Replace each null with the value found in the document.\n"
+            f"  3. If a value is not present in the document, keep it as null.\n"
+            f"  4. Match the template structure EXACTLY — do NOT add, rename, remove, or nest keys beyond what the template defines.\n"
+            f"  5. Use key names EXACTLY as written in the template — do NOT copy key names from the document text.\n"
+            f"  6. The value type must match the template: if the template has null (a scalar), return a string or number — never an object or array.\n"
+            f"  7. If the template has a list, return a list with one object per item found; use null for missing sub-fields within each object.\n"
+            f"  8. Preserve values exactly as they appear in the document (dates, amounts, names, identifiers).\n"
+            f"  9. Each field name describes its exact meaning — read the field name carefully and extract only the value that matches it.\n"
+            f"{hints_section}\n"
+            f"JSON TEMPLATE (fill in the nulls):\n"
+            f"{json.dumps(json_template, indent=2)}"
+        )
+
+    def _build_extraction_hints(self, *, schema: dict[str, Any]) -> str:
+        """Build per-field extraction hints from extraction_instructions in the schema.
+
+        Args:
+            schema: Schema dictionary
+        Returns:
+            Formatted hints string, empty string if no instructions exist
+        """
+        fields = schema.get("fields", [])
+        if not fields:
+            return ""
+
+        lines: list[str] = []
+        for field in fields:
+            instruction = field.get("extraction_instructions", "").strip()
+            if instruction:
+                lines.append(f"  - {field.get('name', '')}: {instruction}")
+            # Recurse into nested fields
+            for nested in field.get("fields", []):
+                nested_instruction = nested.get("extraction_instructions", "").strip()
+                if nested_instruction:
+                    lines.append(f"  - {nested.get('name', '')}: {nested_instruction}")
+
+        return "\n".join(lines)
+
+    def _build_json_template(self, *, schema: dict[str, Any]) -> dict[str, Any]:
+        """Build JSON template from schema.
+
+        Supports three schema formats:
+          1. fields format  : {"fields": [{"name": ..., "type": ...}, ...]}
+          2. columns format : {"columns": {"field_name": "type", ...}}
+          3. flat format    : {"field_name": "type", ...}  (custom_schema from flow config)
+
+        Args:
+            schema: Schema dictionary
+        Returns:
+            JSON template dictionary with null placeholders (or option hints)
+        """
+        # Format 1: new 'fields' list format
+        if "fields" in schema:
+            return DocumentClassUtils.build_json_template_from_fields(schema["fields"])
+
+        # Format 2: explicit 'columns' dict
+        columns = schema.get("columns", {})
+        if columns:
+            return self._template_from_columns(columns)
+
+        # Format 3: flat {field_name: type_str} — custom_schema from flow config
+        # Detect by checking that all values are strings (type hints) and none are
+        # reserved schema meta-keys.
+        _meta_keys = {"document_type", "document_description", "table", "description"}
+        flat_fields = {k: v for k, v in schema.items() if k not in _meta_keys and isinstance(v, str)}
+        if flat_fields:
+            return self._template_from_columns(flat_fields)
+
+        return {}
+
+    def _template_from_columns(self, columns: dict[str, Any]) -> dict[str, Any]:
+        """Build a null-placeholder template from a flat {col_name: type} dict.
+
+        Supports dot-notation keys for nested structures (e.g. 'address.street').
+
+        Args:
+            columns: Dict mapping column names to type strings
+        Returns:
+            Nested template dict with None placeholders
+        """
+        template: dict[str, Any] = {}
+        for col_name in columns.keys():
+            if "." in col_name:
+                parts = col_name.split(".")
+                current = template
+                for part in parts[:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                current[parts[-1]] = None
+            else:
+                template[col_name] = None
+        return template
+
+    def _build_schema_free_prompt(self, *, content: str) -> str:
+        """Build prompt for schema-free extraction.
+        Args:
+            content: Document text content
+        Returns:
+            Formatted user prompt string
+        """
+        return (
+            f"DOCUMENT TEXT:\n"
+            f"{content}\n\n"
+            f"---\n\n"
+            f"TASK:\n"
+            f"Extract all named entities and key structured information from the document above.\n"
+            f"Return ONLY a valid JSON object — no explanation, no markdown fences.\n"
+            f"Use descriptive snake_case keys (e.g. invoice_number, vendor_name, total_amount).\n"
+            f"Group related fields under nested objects where appropriate (e.g. vendor, customer, line_items).\n"
+            f"Set any field to null if the value cannot be determined."
+        )
+
+
     def extract_entities_single(
         self, *, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -246,22 +393,14 @@ class LLMEntityAdapter(EntityExtractionPort):
             )
             content = content[: self.max_doc_chars]
 
-        # Build prompt based on whether schema is provided
+        # non-empty schema (covers fields, columns, and flat custom_schema formats).
         if schema:
             system_prompt = OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_SYSTEM_PROMPT
-            user_prompt = f"""Document Content:
-{content}
-
-Schema Template:
-{schema}
-
-Extract entities matching the schema template above."""
+            user_prompt = self._build_schema_prompt(content=content, schema=schema)
         else:
+            # Schema-free extraction
             system_prompt = OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_SCHEMA_FREE_SYSTEM_PROMPT
-            user_prompt = f"""Document Content:
-{content}
-
-Extract all named entities and structured information from the document."""
+            user_prompt = self._build_schema_free_prompt(content=content)
 
         # Call LLM using chat interface for better provider compatibility
         try:
@@ -307,11 +446,36 @@ Extract all named entities and structured information from the document."""
         from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
         try:
-            return parse_llm_json_response(
+            parsed = parse_llm_json_response(
                 response,
                 log_on_error=True,
                 log_level="warning",
             )
+            return self._normalise_response(parsed)
         except DocpipeException:
             # Return empty dict on parsing failure (maintains backward compatibility)
             return {}
+
+    def _normalise_response(self, obj: Any) -> Any:
+        """Recursively normalise a parsed LLM response.
+
+        - Strips leading/trailing whitespace from all dict keys.
+        - Converts numeric leaf values (int/float) to strings so downstream
+          transforms always receive string inputs.
+        - Leaves None and bool values untouched.
+
+        Args:
+            obj: Parsed JSON value (dict, list, or scalar)
+
+        Returns:
+            Same structure with keys stripped and numerics stringified
+        """
+        if isinstance(obj, dict):
+            return {k.strip(): self._normalise_response(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._normalise_response(item) for item in obj]
+        if isinstance(obj, bool) or obj is None:
+            return obj
+        if isinstance(obj, (int, float)):
+            return str(obj)
+        return obj

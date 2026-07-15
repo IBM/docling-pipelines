@@ -23,6 +23,10 @@ logger = get_logger(__name__)
 # to prevent exponential backtracking on malformed/adversarial inputs.
 _MARKDOWN_BLOCK_PATTERN = re.compile(r"```(?:json)?[ \t]*\n([^`]*?)```", re.DOTALL)
 
+# Valid JSON escape characters per RFC 8259: " \ / b f n r t and uXXXX
+_VALID_ESCAPES = set('"\\/' + "bfnrtu")
+_INVALID_ESCAPE_PATTERN = re.compile(r'\\([^"\\\/bfnrtu])')
+
 _LOG_TRUNCATE_CHARS = 5000
 
 
@@ -46,14 +50,71 @@ def _try_extract_from_markdown(raw_response: str) -> tuple[dict[str, Any] | None
     return None, last_error
 
 
+def _find_matching_brace(text: str, start: int) -> int:
+    """Return the index one past the closing } that matches the { at start.
+
+    Walks the string character-by-character, tracking brace depth while
+    skipping over string literals (including escaped quotes inside them).
+    Returns -1 if no matching closing brace is found.
+    """
+    depth = 0
+    i = start
+    in_string = False
+    while i < len(text):
+        ch = text[i]
+        if in_string:
+            if ch == "\\" and i + 1 < len(text):
+                i += 2  # skip escaped character
+                continue
+            if ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return i + 1
+        i += 1
+    return -1
+
+
 def _try_extract_from_braces(raw_response: str) -> tuple[dict[str, Any] | None, json.JSONDecodeError | None]:
-    """Try to extract JSON between first { and last }."""
-    if "{" in raw_response and "}" in raw_response:
-        start_idx = raw_response.find("{")
-        end_idx = raw_response.rfind("}") + 1
-        extracted = raw_response[start_idx:end_idx]
-        return _try_parse_json(extracted)
-    return None, None
+    """Try to extract JSON by finding the first { and its matching closing }."""
+    start_idx = raw_response.find("{")
+    if start_idx == -1:
+        return None, None
+    end_idx = _find_matching_brace(raw_response, start_idx)
+    if end_idx == -1:
+        return None, None
+    extracted = raw_response[start_idx:end_idx]
+    return _try_parse_json(extracted)
+
+
+def _sanitize_invalid_escapes(text: str) -> str:
+    """Replace invalid JSON escape sequences with their literal characters.
+
+    LLMs sometimes emit raw backslashes inside strings (e.g. Windows paths like
+    C:\\IC or address suffixes like l\\IC) that are not valid JSON escape sequences.
+    This replaces \\X (where X is not a valid JSON escape character) with just X,
+    making the string parseable.
+    """
+    return _INVALID_ESCAPE_PATTERN.sub(r"\1", text)
+
+
+def _try_parse_sanitized(raw_response: str) -> tuple[dict[str, Any] | None, json.JSONDecodeError | None]:
+    """Try to extract JSON from braces after sanitizing invalid escape sequences."""
+    start_idx = raw_response.find("{")
+    if start_idx == -1:
+        return None, None
+    end_idx = _find_matching_brace(raw_response, start_idx)
+    if end_idx == -1:
+        return None, None
+    extracted = raw_response[start_idx:end_idx]
+    sanitized = _sanitize_invalid_escapes(extracted)
+    return _try_parse_json(sanitized)
 
 
 def parse_llm_json_response(
@@ -100,6 +161,7 @@ def parse_llm_json_response(
         lambda: _try_parse_json(raw_response),
         lambda: _try_extract_from_markdown(raw_response),
         lambda: _try_extract_from_braces(raw_response),
+        lambda: _try_parse_sanitized(raw_response),
     ]
 
     for strategy in strategies:

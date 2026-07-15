@@ -398,7 +398,9 @@ class DocumentClassUtils:
             fields: List of field definitions
 
         Returns:
-            Nested dictionary template matching the schema structure
+            Nested dictionary template matching the schema structure.
+            Leaf fields with available_options use a hint string so the LLM
+            knows the allowed values; all other leaf fields use None.
         """
         template: dict[str, Any] = {}
 
@@ -415,8 +417,12 @@ class DocumentClassUtils:
                 else:
                     template[name] = nested_template
             else:
-                # Leaf field - set to None as placeholder
-                template[name] = None
+                options = field.get("available_options", [])
+                if options:
+                    # Embed allowed values inline so the LLM picks the right one
+                    template[name] = f"<one of: {', '.join(str(o) for o in options)}>"
+                else:
+                    template[name] = None
 
         return template
 

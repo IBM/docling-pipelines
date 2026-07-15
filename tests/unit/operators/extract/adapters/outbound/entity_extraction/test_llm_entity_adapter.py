@@ -158,7 +158,7 @@ class TestLLMEntityAdapterSchemaBasedExtraction:
         assert result[OperatorConstants.Extraction.ERROR] is None
         entities = result[OperatorConstants.Misc.ENTITIES]
         assert entities["invoice_number"] == "INV-2024-001"
-        assert entities["total_amount"] == 1500.00
+        assert entities["total_amount"] == "1500.0"  # numerics normalised to str
         assert entities["date"] == "2024-01-15"
 
         # Verify LLM was called with correct parameters
@@ -275,7 +275,7 @@ class TestLLMEntityAdapterJSONParsing:
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         entities = result[OperatorConstants.Misc.ENTITIES]
         assert entities["name"] == "John"
-        assert entities["age"] == 30
+        assert entities["age"] == "30"  # numerics normalised to str
 
     def test_parse_json_with_markdown_fences(self, mock_llm_adapter, litellm_config):
         """Test parsing JSON wrapped in markdown code fences."""
