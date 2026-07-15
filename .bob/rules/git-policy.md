@@ -128,7 +128,7 @@ Bob: "Pre-commit hooks failed:
       - ruff: 32 errors remaining
       - mypy: 11 type checking errors
       - detect-secrets: Found potential secrets
-      
+
       Cannot push until these issues are resolved. Please fix the errors and try again."
 ```
 
@@ -143,8 +143,8 @@ Bob: "Pre-commit hooks failed:
 ## Pull Request Template Policy
 
 ### Template Usage Requirements
-- **ALWAYS** check for the existence of `pull_request_template.md` in the project root
-- If `pull_request_template.md` exists, it **MUST** be used as the body template for all GitHub PRs
+- **ALWAYS** check for the existence of `.github/pull_request_template.md`
+- If `.github/pull_request_template.md` exists, it **MUST** be used as the body template for all GitHub PRs
 - **NEVER** bypass or ignore the pull request template if it exists
 - The template ensures consistency, completeness, and adherence to project standards
 
@@ -152,7 +152,7 @@ Bob: "Pre-commit hooks failed:
 When creating a pull request:
 
 1. **Check for Template:**
-   - Look for `pull_request_template.md` in the project root
+   - Look for `.github/pull_request_template.md`
    - If found, read its contents
 
 2. **Use Template:**

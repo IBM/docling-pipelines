@@ -1,7 +1,7 @@
-<!-- 
-Note - 
-1. Ensure that an appropriate title is given to the PR in the Title bar of the PR 
-2. Headings that are not applicable to the PR can be removed from the below template 
+<!--
+Note -
+1. Ensure that an appropriate title is given to the PR in the Title bar of the PR
+2. Headings that are not applicable to the PR can be removed from the below template
 -->
 
 ## Issue
@@ -40,7 +40,7 @@ Note -
 - [ ] CONTRIBUTING.md (if changing development workflow or code standards)
 - [ ] USER_GUIDE_PIPELINE_SETUP.md (if changing installation, setup, or execution)
 - [ ] QUICKSTART.md (if changing quick start steps or examples)
-- [ ] OPERATOR_REFERENCE.md (if adding/modifying operators)
+- [ ] docs/reference/OPERATORS.md (if adding/modifying operators)
 - [ ] TROUBLESHOOTING.md (if discovering new issues or solutions)
 - [ ] Operator documentation in docs/operators/ (if operator added/modified)
 - [ ] N/A - No documentation updates needed

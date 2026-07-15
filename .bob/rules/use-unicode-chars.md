@@ -1,11 +1,5 @@
-# Rule: Use Unicode Characters
+# Rule: No Emoji in Python Output
 
-## Description
-Emoji and other non-unicode characters must NOT be used in any Python logging statements, error messages, or debug output.
+Do NOT use emoji or non-ASCII characters in any Python logging statements, print statements, or error messages.
 
-
-## Applies To
-- All Python files (*.py)
-- All logging statements using the `logging` module
-- All print statements used for debugging or output
-- Error messages and exception handling
+Applies to all `*.py` files — logging, print, and exception handling.

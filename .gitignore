@@ -57,9 +57,12 @@ src/docpipe_app/backend/models/
 src/docpipe_app/models/
 src/models/
 
-# Bob AI Assistant
-.bob/
-!.bob/agents.md
+# Bob AI Assistant — track rules/skills; ignore local-only files
+.bob/.ai_architecture.yaml
+.bob/mcp.json
+.bob/*.bak
+
+
 
 # OS
 .DS_Store
