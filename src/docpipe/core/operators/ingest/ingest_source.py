@@ -3,6 +3,7 @@ import hashlib
 import importlib
 import itertools
 import json
+import pathlib
 from typing import Any, Iterator, cast
 
 import pyarrow as pa
@@ -21,7 +22,6 @@ from docpipe.core.incremental_metadata import IncrementalUpdateService
 from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.core.operators.ingest.ingest_utils import (
-    filter_based_on_extension,
     get_filter_extensions,
     is_doc_previously_processed,
 )
@@ -719,18 +719,43 @@ class IngestSourceOperator(AbstractOperator):
         try:
             # Extract source information
             source: str = doc.metadata.get("source", f"unknown_{idx}")
+            doc_name: str = doc.metadata.get("name", source)
 
-            # Check file extension filter
-            if filter_based_on_extension(source, self.excluded_extensions, self.included_extensions):
+            # Get extension for filtering
+            # First try metadata (set by adapters), then fall back to filename
+            file_extension: str = doc.metadata.get("extension", "")
+            if not file_extension:
+                file_extension = pathlib.Path(doc_name).suffix.lower()
+
+            # Ensure extension starts with dot
+            if file_extension and not file_extension.startswith("."):
+                file_extension = f".{file_extension}"
+
+            # Check excluded extensions first
+            if self.excluded_extensions and file_extension in self.excluded_extensions:
                 logger.info(
-                    f"Skipping document based on filter: {source}",
+                    f"Skipping document based on exclusion filter: {source}",
                     extra=self.common_log_arguments,
                 )
                 self.record_skipped_document(
                     metadata=metadata,
                     doc_id=source,
                     doc_name=source,
-                    reason="File extension filtered out",
+                    reason="File extension in exclusion list",
+                )
+                return None
+
+            # Check included extensions
+            if self.included_extensions and file_extension not in self.included_extensions:
+                logger.info(
+                    f"Skipping document based on inclusion filter: {source}",
+                    extra=self.common_log_arguments,
+                )
+                self.record_skipped_document(
+                    metadata=metadata,
+                    doc_id=source,
+                    doc_name=source,
+                    reason="File extension not in inclusion list",
                 )
                 return None
 
@@ -767,14 +792,16 @@ class IngestSourceOperator(AbstractOperator):
                 return None
 
             # Extract document format from metadata
-            document_format: str = doc.metadata.get("extension", "")
+            # Use file_extension (already computed and validated) instead of re-reading from metadata
+            document_format: str = file_extension if file_extension else doc.metadata.get("extension", "")
 
             source_id = doc.metadata.get("source_id", source)
 
             # Create processed document
+            # Use doc_name (actual filename) for the name field, not source (URL)
             processed_doc: dict[str, Any] = {
                 "id": doc_id,
-                "name": source,
+                "name": doc_name,
                 "document_format": document_format,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source_id,

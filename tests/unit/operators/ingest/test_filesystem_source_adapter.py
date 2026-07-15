@@ -61,7 +61,7 @@ class TestFilesystemSourceConfig:
     def test_accepts_file_path(self, tmp_path):
         """Test that config accepts file paths (single file mode)."""
         file_path = tmp_path / "file.txt"
-        file_path.write_text("x")
+        file_path.write_text("test content")
 
         config = FilesystemSourceConfig(
             paths=[str(file_path)],
@@ -279,7 +279,7 @@ class TestFilesystemSourceAdapter:
         ):
             success, message = asyncio.run(adapter.test_connection(config))
             assert success is False
-            assert "Path is not a directory" in message
+            assert "Path is not a file" in message
 
         with (
             patch("pathlib.Path.exists", return_value=True),

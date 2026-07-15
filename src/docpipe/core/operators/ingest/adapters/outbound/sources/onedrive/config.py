@@ -30,6 +30,11 @@ class OneDriveSourceConfig(BaseModel):
         None, description="Folder path to ingest from (e.g., '/Documents/Reports'). If None, starts from root."
     )
 
+    file_path: str | None = Field(
+        None,
+        description="Specific file path or URL to ingest. Can be: (1) Direct path like '/personal/user/Documents/file.txt', (2) SharePoint URL with 'id=' parameter. If provided, only this file is processed (ignores folder_path, recursive, and filter settings).",
+    )
+
     # Behavior configuration
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
 

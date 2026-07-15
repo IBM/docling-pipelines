@@ -93,7 +93,10 @@ node_config = {
 
 **Parameters:**
 - `bucket` (required): S3 bucket name
-- `prefix` (optional): S3 key prefix to filter objects. Supports both folder-level (e.g., `'documents/reports/'`) and file-level (e.g., `'documents/report.pdf'`) ingestion. **Note:** File-level ingestion is unique to S3 and not available for other providers.
+- `prefix` (optional): S3 key prefix to filter objects. Supports both directory-level and single file ingestion:
+  - **Directory ingestion**: `'documents/reports/'` - ingests all files in the directory
+  - **Single file ingestion**: `'documents/report.pdf'` - ingests only the specified file
+  - **Entire bucket**: `''` (empty string) - ingests all files in the bucket
 - `endpoint_url` (optional): Custom S3 endpoint URL for S3-compatible storage (e.g., IBM COS, MinIO). Leave empty for AWS S3.
 - `region` (optional): AWS region (e.g., 'us-east-1'). Optional for S3-compatible storage.
 - `access_key` (required): AWS access key ID or S3-compatible access key

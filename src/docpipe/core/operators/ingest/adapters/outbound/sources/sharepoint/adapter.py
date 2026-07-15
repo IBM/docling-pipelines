@@ -6,6 +6,7 @@ from typing import Any, AsyncGenerator, cast
 
 from pydantic import BaseModel
 
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
     register_source_adapter,
 )
@@ -14,6 +15,11 @@ from docpipe.core.operators.ingest.domain.models import Document
 
 # Import the MicrosoftGraphLoader from ingest_source.py
 from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+from docpipe.core.operators.ingest.ingest_utils import (
+    extract_msgraph_file_id_from_url,
+    handle_msgraph_resolution_result,
+    resolve_msgraph_file_id_to_item_id,
+)
 from docpipe.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 from docpipe.core.operators.operator_utils import resolve_env_var
 from docpipe.integrations.rest_client import RestMethod
@@ -86,6 +92,94 @@ class SharePointSourceAdapter(DocumentSourcePort):
                 recursive=sharepoint_config.recursive,
             )
 
+            # Single file mode
+            if config.file_path:
+                token = loader._get_token()
+                headers = {"Authorization": f"Bearer {token}"}
+
+                # Use URL normalization to extract file ID from URL
+                item_id = None
+                actual_drive_id = config.document_library_id
+                if config.file_path.startswith("http"):
+                    file_id = extract_msgraph_file_id_from_url(config.file_path)
+                    if not file_id:
+                        raise ValueError(f"Could not extract file ID from URL: {config.file_path}")
+                    logger.info(f"Extracted file ID from URL: {file_id}")
+
+                    # Try to resolve file_id to actual item_id using Graph API
+                    # Use shared utility function with SharePoint-specific path prefix stripping
+                    item_id, actual_drive_id = resolve_msgraph_file_id_to_item_id(
+                        file_id=file_id,
+                        drive_id=config.document_library_id,
+                        rest_client=loader._rest_client,
+                        token=token,
+                        original_url=config.file_path,
+                        strip_path_prefixes=["Shared Documents/", "Documents/", "Shared%20Documents/"],
+                    )
+
+                    item_id, actual_drive_id = handle_msgraph_resolution_result(
+                        file_id=file_id,
+                        item_id=item_id,
+                        actual_drive_id=actual_drive_id,
+                        fallback_drive_id=config.document_library_id,
+                        allow_guid_fallback=True,
+                        original_url=config.file_path,
+                    )
+                else:
+                    # Direct file path provided - use it as item_id
+                    item_id = config.file_path
+                    logger.info(f"Using direct file path as item ID: {item_id}")
+
+                # Fetch item metadata using item_id and actual_drive_id
+                endpoint = f"/drives/{actual_drive_id}/items/{item_id}"
+                item = loader._rest_client.call_rest_json(
+                    method=RestMethod.GET,
+                    endpoint=endpoint,
+                    headers=headers,
+                )
+
+                doc_id = item.get(OperatorConstants.Columns.ID, "")
+                doc_name = item.get(OperatorConstants.Columns.NAME, "unknown")
+                file_size = item.get("size", 0)
+
+                # Parse modified time
+                modified_time = None
+                last_modified = item.get("lastModifiedDateTime")
+                if last_modified:
+                    try:
+                        modified_time = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
+                    except (ValueError, AttributeError):
+                        pass
+
+                source_url = item.get("webUrl", f"https://sharepoint.com/?{OperatorConstants.Columns.ID}={doc_id}")
+                extension = os.path.splitext(doc_name)[1].lower()
+
+                document = Document(
+                    id=doc_id,
+                    name=doc_name,
+                    content=b"",
+                    source_url=source_url,
+                    modified_time=modified_time,
+                    mimetype=item.get("file", {}).get("mimeType", "application/octet-stream"),
+                    size=file_size,
+                    extension=extension,
+                    metadata={
+                        "document_library_id": sharepoint_config.document_library_id,
+                        "item_id": doc_id,
+                        "file_size": file_size,
+                        "mime_type": item.get("file", {}).get("mimeType"),
+                        "created_time": item.get("createdDateTime"),
+                        "web_url": source_url,
+                        OperatorConstants.Config.PROVIDER: "sharepoint",
+                        "client_id": sharepoint_config.client_id,
+                        "client_secret": sharepoint_config.client_secret,
+                        "tenant_id": sharepoint_config.tenant_id,
+                    },
+                )
+                yield document
+                return
+
+            # Folder mode
             # List files to get metadata only (don't download binary content)
             token = loader._get_token()
             headers = {"Authorization": f"Bearer {token}"}
@@ -101,7 +195,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                         endpoint=endpoint,
                         headers=headers,
                     )
-                    folder_item_id = data.get("id")
+                    folder_item_id = data.get(OperatorConstants.Columns.ID)
                 except Exception as e:
                     raise ValueError(
                         f"Folder path '{sharepoint_config.folder_path}' not found in document library '{sharepoint_config.document_library_id}': {e!s}"
@@ -112,8 +206,8 @@ class SharePointSourceAdapter(DocumentSourcePort):
 
             # Convert file metadata to domain documents
             for item in files:
-                doc_id = item.get("id", "")
-                doc_name = item.get("name", "unknown")
+                doc_id = item.get(OperatorConstants.Columns.ID, "")
+                doc_name = item.get(OperatorConstants.Columns.NAME, "unknown")
 
                 # Apply file extension filter if specified
                 if sharepoint_config.file_extensions:
@@ -139,7 +233,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                         pass
 
                 # Build source URL
-                source_url = item.get("webUrl", f"https://sharepoint.com/?id={doc_id}")
+                source_url = item.get("webUrl", f"https://sharepoint.com/?{OperatorConstants.Columns.ID}={doc_id}")
 
                 # Get file extension
                 extension = os.path.splitext(doc_name)[1].lower()
@@ -155,14 +249,14 @@ class SharePointSourceAdapter(DocumentSourcePort):
                     size=file_size,
                     extension=extension,
                     metadata={
-                        "source_id": doc_id,  # Required by binary_content_fetcher
+                        OperatorConstants.Columns.SOURCE_ID: doc_id,  # Required by binary_content_fetcher
                         "document_library_id": sharepoint_config.document_library_id,
                         "item_id": doc_id,
                         "file_size": file_size,
                         "mime_type": item.get("file", {}).get("mimeType"),
                         "created_time": item.get("createdDateTime"),
                         "web_url": source_url,
-                        "provider": "sharepoint",
+                        OperatorConstants.Config.PROVIDER: "sharepoint",
                         # Store credentials for lazy loading
                         "client_id": sharepoint_config.client_id,
                         "client_secret": sharepoint_config.client_secret,
@@ -367,6 +461,9 @@ class SharePointSourceAdapter(DocumentSourcePort):
             "file_extensions": included_extensions,
             "max_file_size_mb": connection_params.get("max_file_size_mb"),
         }
+
+        if "file_path" in connection_params:
+            config_params["file_path"] = connection_params["file_path"]
 
         if "graph_api_version" in connection_params:
             config_params["graph_api_version"] = connection_params["graph_api_version"]

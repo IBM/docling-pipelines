@@ -2,6 +2,7 @@
 
 import os
 import pickle
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator
@@ -138,8 +139,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Creates document with metadata only, no binary content download.
         Binary content is fetched on-demand by Extract operator.
         """
-        doc_id = file_metadata.get("id", "")
-        doc_name = file_metadata.get("name", "unknown")
+        doc_id = file_metadata.get(OperatorConstants.Columns.ID, "")
+        doc_name = file_metadata.get(OperatorConstants.Columns.NAME, "unknown")
 
         # Parse modified time if available
         modified_time = None
@@ -158,6 +159,16 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
         # Get file extension
         extension = os.path.splitext(doc_name)[1].lower()
+
+        # For Google Workspace files, derive extension from MIME type
+        if not extension and mime_type.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
+            workspace_extensions = {
+                OperatorConstants.MimeTypes.GOOGLE_APPS_DOCUMENT: ".docx",
+                OperatorConstants.MimeTypes.GOOGLE_APPS_SPREADSHEET: ".xlsx",
+                OperatorConstants.MimeTypes.GOOGLE_APPS_PRESENTATION: ".pptx",
+                OperatorConstants.MimeTypes.GOOGLE_APPS_DRAWING: ".pdf",
+            }
+            extension = workspace_extensions.get(mime_type, extension)
 
         # Build source URL
         source_url = file_metadata.get("webViewLink", f"https://drive.google.com/file/d/{doc_id}")
@@ -201,84 +212,87 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         creds = self._get_credentials(config)
         service = build("drive", "v3", credentials=creds)
 
-        # Build query
-        query_parts = [f"'{config.folder_id}' in parents"]
-        query_parts.append("trashed = false")
+        all_files: list[dict[str, Any]] = []
+        folders_to_process: deque[str] = deque([config.folder_id] if config.folder_id else [])
 
-        # Add file type filter if specified
-        if config.file_extensions:
-            # Map extensions to mime types where possible
-            mime_conditions = []
-            for ext in config.file_extensions:
-                if ext == OperatorConstants.FileExtensions.EXT_PDF:
-                    mime_conditions.append("mimeType = 'application/pdf'")
-                elif ext == OperatorConstants.FileExtensions.EXT_DOCX:
-                    mime_conditions.append("mimeType contains 'document'")
-                elif ext == OperatorConstants.FileExtensions.EXT_XLSX:
-                    mime_conditions.append("mimeType contains 'spreadsheet'")
-                elif ext == OperatorConstants.FileExtensions.EXT_PPTX:
-                    mime_conditions.append("mimeType contains 'presentation'")
+        while folders_to_process:
+            current_folder_id = folders_to_process.popleft()
 
-            if mime_conditions:
-                query_parts.append(f"({' or '.join(mime_conditions)})")
+            # Build query for current folder
+            query_parts = [f"'{current_folder_id}' in parents"]
+            query_parts.append("trashed = false")
 
-        query = " and ".join(query_parts)
+            # Add file type filter if specified
+            if config.file_extensions:
+                # Map extensions to mime types where possible
+                extension_mime_map = {
+                    OperatorConstants.FileExtensions.EXT_PDF: "mimeType = 'application/pdf'",
+                    OperatorConstants.FileExtensions.EXT_DOCX: "mimeType contains 'document'",
+                    OperatorConstants.FileExtensions.EXT_XLSX: "mimeType contains 'spreadsheet'",
+                    OperatorConstants.FileExtensions.EXT_PPTX: "mimeType contains 'presentation'",
+                    OperatorConstants.FileExtensions.EXT_TXT: "mimeType = 'text/plain'",
+                }
+                mime_conditions = [
+                    extension_mime_map[ext] for ext in config.file_extensions if ext in extension_mime_map
+                ]
 
-        # List files with pagination
-        # Optimize pageSize based on max_files to reduce unnecessary API calls
-        files: list[dict[str, Any]] = []
-        page_token = None
+                if mime_conditions:
+                    # Include folders OR matching file types to enable recursive traversal
+                    mime_conditions.append("mimeType = 'application/vnd.google-apps.folder'")
+                    query_parts.append(f"({' or '.join(mime_conditions)})")
 
-        while True:
-            # Determine optimal page size
-            if config.max_files is not None:
-                remaining = config.max_files - len(files)
-                if remaining <= 0:
+            query = " and ".join(query_parts)
+
+            # List files with pagination for current folder
+            page_token = None
+
+            while True:
+                # Check if we've reached max_files limit across all folders
+                if config.max_files is not None and len(all_files) >= config.max_files:
+                    # Filter out folders and return
+                    return [f for f in all_files if f.get("mimeType") != "application/vnd.google-apps.folder"]
+
+                # Determine optimal page size
+                if config.max_files is not None:
+                    remaining = config.max_files - len(all_files)
+                    page_size = min(remaining, 100)
+                else:
+                    # No max_files limit, use default page size
+                    page_size = 100
+
+                results = (
+                    service.files()
+                    .list(
+                        q=query,
+                        spaces="drive",
+                        fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, webViewLink)",
+                        pageToken=page_token,
+                        pageSize=page_size,
+                    )
+                    .execute()
+                )
+
+                items = results.get("files", [])
+
+                # Separate files and folders
+                for item in items:
+                    if item.get("mimeType") == "application/vnd.google-apps.folder":
+                        # Add folder to processing queue if recursive is enabled
+                        if config.recursive:
+                            folders_to_process.append(item["id"])
+                    else:
+                        # Add file to results
+                        all_files.append(item)
+
+                        # Check if we've reached max_files limit
+                        if config.max_files is not None and len(all_files) >= config.max_files:
+                            return all_files
+
+                page_token = results.get("nextPageToken")
+                if not page_token:
                     break
-                # If max_files < 100, use max_files as pageSize; otherwise use 100
-                page_size = min(remaining, 100)
-            else:
-                # No max_files limit, use default page size
-                page_size = 100
 
-            results = (
-                service.files()
-                .list(
-                    q=query,
-                    spaces="drive",
-                    fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, webViewLink)",
-                    pageToken=page_token,
-                    pageSize=page_size,
-                )
-                .execute()
-            )
-
-            items = results.get("files", [])
-            files.extend(items)
-
-            # Stop if we've reached max_files limit
-            if config.max_files is not None and len(files) >= config.max_files:
-                break
-
-            page_token = results.get("nextPageToken")
-            if not page_token:
-                break
-
-        # Apply recursive folder traversal if needed
-        if config.recursive:
-            # Find folders and recursively list their contents
-            folders = [f for f in files if f.get("mimeType") == "application/vnd.google-apps.folder"]
-            for folder in folders:
-                # Create temporary config for subfolder
-                subfolder_config = GoogleDriveSourceConfig(
-                    **{**config.model_dump(), "folder_id": folder["id"], "recursive": True}
-                )
-                files.extend(self._list_files_from_drive(config=subfolder_config))
-
-        # Filter out folders from final list
-        files = [f for f in files if f.get("mimeType") != "application/vnd.google-apps.folder"]
-
-        return files
+        return all_files
 
     def _iter_documents(self, config: GoogleDriveSourceConfig) -> list[Document]:
         """
@@ -294,18 +308,35 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         # Convert to domain documents
         documents = []
         for file_metadata in files:
+            file_name = file_metadata.get(OperatorConstants.Columns.NAME, "")
+            file_mime = file_metadata.get("mimeType", "")
+
             # Apply file extension filter if specified
             if config.file_extensions:
-                file_name = file_metadata.get("name", "")
                 file_ext = os.path.splitext(file_name)[1].lower()
+
+                # For Google Workspace files, derive extension from MIME type
+                if not file_ext and file_mime.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
+                    workspace_extensions = {
+                        OperatorConstants.MimeTypes.GOOGLE_APPS_DOCUMENT: ".docx",
+                        OperatorConstants.MimeTypes.GOOGLE_APPS_SPREADSHEET: ".xlsx",
+                        OperatorConstants.MimeTypes.GOOGLE_APPS_PRESENTATION: ".pptx",
+                        OperatorConstants.MimeTypes.GOOGLE_APPS_DRAWING: ".pdf",
+                    }
+                    file_ext = workspace_extensions.get(file_mime, file_ext)
+
                 if file_ext not in config.file_extensions:
+                    logger.debug(f"Skipping {file_name}: extension '{file_ext}' not in {config.file_extensions}")
                     continue
 
             # Apply file size filter if specified
             if config.max_file_size_mb:
-                file_size = int(file_metadata.get("size", 0))
-                file_size_mb = file_size / (1024 * 1024)
+                file_size_int = int(file_metadata.get("size", 0))
+                file_size_mb = file_size_int / (1024 * 1024)
                 if file_size_mb > config.max_file_size_mb:
+                    logger.debug(
+                        f"Skipping {file_name}: size {file_size_mb:.2f}MB exceeds limit {config.max_file_size_mb}MB"
+                    )
                     continue
 
             doc = self._prepare_document(file_metadata=file_metadata, config=config)
@@ -341,6 +372,31 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             ValueError: If credentials are invalid or folder not found
         """
         try:
+            # Single file mode
+            if config.file_id:
+                logger.info(f"Fetching single file from Google Drive: file_id={config.file_id}")
+                try:
+                    from googleapiclient.discovery import build
+                except ImportError:
+                    raise ImportError(
+                        "Google API client not installed. Install with: pip install google-api-python-client"
+                    ) from None
+
+                creds = self._get_credentials(config)
+                service = build("drive", "v3", credentials=creds)
+
+                # Get file metadata
+                file_metadata = (
+                    service.files()
+                    .get(fileId=config.file_id, fields="id, name, mimeType, size, modifiedTime, webViewLink")
+                    .execute()
+                )
+
+                document = self._prepare_document(file_metadata=file_metadata, config=config)
+                yield document
+                return
+
+            # Folder mode
             fetched_count = 0
             for document in self._iter_documents(config):
                 # Check max_files limit
@@ -463,20 +519,18 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             # Get file metadata first to check mime type
             file_metadata = service.files().get(fileId=source_id, fields="mimeType,name").execute()
             mime_type = file_metadata.get("mimeType", "")
-            file_name = file_metadata.get("name", "unknown")
+            file_name = file_metadata.get(OperatorConstants.Columns.NAME, "unknown")
 
             # Handle Google Workspace files (need to export)
             if mime_type.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
                 # Export Google Workspace files
-                export_mime_type = None
-                if "document" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.PDF
-                elif "spreadsheet" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.EXCEL_XLSX
-                elif "presentation" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.PDF
-                elif "drawing" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.PDF
+                workspace_export_mime_map = {
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_DOCUMENT: OperatorConstants.MimeTypes.PDF,
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_SPREADSHEET: OperatorConstants.MimeTypes.EXCEL_XLSX,
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_PRESENTATION: OperatorConstants.MimeTypes.PDF,
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_DRAWING: OperatorConstants.MimeTypes.PDF,
+                }
+                export_mime_type = workspace_export_mime_map.get(mime_type)
 
                 if export_mime_type:
                     request = service.files().export_media(fileId=source_id, mimeType=export_mime_type)
@@ -556,6 +610,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             config_dict["drive_id"] = resolve_env_var(connection_params["drive_id"])
         if "folder_path" in connection_params:
             config_dict["folder_path"] = resolve_env_var(connection_params["folder_path"])
+        if "file_id" in connection_params:
+            config_dict["file_id"] = resolve_env_var(connection_params["file_id"])
         if "max_file_size_mb" in connection_params:
             config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
 

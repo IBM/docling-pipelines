@@ -185,6 +185,15 @@ class BoxSourceAdapter(DocumentSourcePort):
         try:
             client = self._get_box_client(config=config)
 
+            # Single file mode
+            if config.file_id:
+                logger.info(f"Fetching single file from Box: file_id={config.file_id}")
+                file_info = client.files.get_file_by_id(config.file_id)
+                document = self._prepare_document(client=client, file_info=file_info)
+                yield document
+                return
+
+            # Folder mode
             doc_count = 0
             for file_info in self._iter_box_files(client=client, config=config, folder_id=config.folder_id):
                 # Check max_files limit
@@ -234,6 +243,10 @@ class BoxSourceAdapter(DocumentSourcePort):
             "file_extensions": included_extensions or [],
             "exclude_patterns": connection_params.get("exclude_patterns", []),
         }
+
+        # Support single file ingestion via file_id
+        if "file_id" in connection_params:
+            config_dict["file_id"] = connection_params["file_id"]
 
         if "max_file_size_mb" in connection_params:
             config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]

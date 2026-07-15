@@ -38,6 +38,11 @@ class GoogleDriveSourceConfig(BaseModel):
 
     folder_path: str | None = Field(None, description="Folder path to ingest from (alternative to folder_id)")
 
+    file_id: str | None = Field(
+        None,
+        description="Specific Google Drive file ID to ingest. If provided, only this file is processed (ignores folder_id, folder_path, recursive, and filter settings).",
+    )
+
     # Behavior configuration
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
 

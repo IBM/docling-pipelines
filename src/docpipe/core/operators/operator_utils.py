@@ -104,7 +104,9 @@ def get_supported_file_extensions() -> str:
     # Add audio/video extensions only if ASR is available
     if is_asr_available():
         supported_extensions.extend(OperatorConstants.FileExtensions.AUDIO_VIDEO_EXTENSIONS)
-    return ",".join(supported_extensions)
+
+    # Strip leading dots before joining (constants have dots, but return format should not)
+    return ",".join(ext.lstrip(".") for ext in supported_extensions)
 
 
 def resolve_env_var(value: Any) -> Any:
@@ -278,7 +280,7 @@ class OperatorUtils:
         input_ids = input_table.column(OperatorConstants.Misc.ID)
 
         # 2. Create boolean mask for rows where input ID is NOT in output IDs
-        mask = pc.invert(pc.is_in(input_ids, output_ids))
+        mask = pc.invert(pc.is_in(input_ids, output_ids))  # type: ignore[attr-defined]
 
         # 3. Filter input table to get only skipped rows
         skipped_table = input_table.filter(mask)
@@ -448,7 +450,7 @@ class OperatorUtils:
         failed_ids_array = pa.array(remove_row_id, type=id_col.type)
 
         # Create mask: True for rows to keep (not in failed_ids)
-        keep_mask = pc.invert(pc.is_in(id_col, failed_ids_array))
+        keep_mask = pc.invert(pc.is_in(id_col, failed_ids_array))  # type: ignore[attr-defined]
         table = table.filter(keep_mask)
 
         return table
@@ -880,7 +882,7 @@ class OperatorUtils:
                     if "source" in table.column_names:
                         doc_metadata["source"] = table["source"][row_idx].as_py()
 
-                    # Add metadata column content if available (contains item_id for OneDrive/SharePoint)
+                    # Add metadata column content if available (contains item_id and drive_id for OneDrive/SharePoint)
                     if OperatorConstants.Metadata.METADATA in table.column_names:
                         metadata_str = table[OperatorConstants.Metadata.METADATA][row_idx].as_py()
                         if metadata_str:
@@ -888,9 +890,11 @@ class OperatorUtils:
 
                             try:
                                 metadata_dict = json.loads(metadata_str)
-                                # Extract item_id if present (for OneDrive/SharePoint lazy loading)
+                                # Extract item_id and drive_id if present (for OneDrive/SharePoint lazy loading)
                                 if "item_id" in metadata_dict:
                                     doc_metadata["item_id"] = metadata_dict["item_id"]
+                                if "drive_id" in metadata_dict:
+                                    doc_metadata["drive_id"] = metadata_dict["drive_id"]
                             except (json.JSONDecodeError, TypeError):
                                 pass
 

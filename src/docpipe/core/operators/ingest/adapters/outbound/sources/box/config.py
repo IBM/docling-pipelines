@@ -13,6 +13,11 @@ class BoxSourceConfig(BaseModel):
     # Box folder configuration
     folder_id: str = Field("0", description="Box folder ID to start ingestion from. Default '0' is root folder.")
 
+    file_id: str | None = Field(
+        None,
+        description="Specific Box file ID to ingest. If provided, only this file is processed (ignores folder_id and recursive settings).",
+    )
+
     # Optional parameters
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
 

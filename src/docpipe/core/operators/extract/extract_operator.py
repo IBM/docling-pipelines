@@ -105,6 +105,7 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.compute as pc
 
 from docpipe.core.constants.constants import (
     AttributeDataTypes,
@@ -483,7 +484,6 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         Returns:
             Updated metadata with page_type_stats and total_pages_converted statistics
         """
-        import pyarrow.compute as pc
 
         if OperatorConstants.Columns.PAGES_PROCESSED not in table.column_names:
             logger.warning("Pages processed column not found in table, skipping page statistics")
@@ -495,7 +495,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
 
         # Use PyArrow compute for total pages calculation
         pages_column = table.column(OperatorConstants.Columns.PAGES_PROCESSED)
-        total_pages = pc.sum(pages_column).as_py()
+        total_pages = pc.sum(pages_column).as_py()  # type: ignore[attr-defined]
 
         # For page_type_stats, we still need to iterate since we need to group by file extension
         # This is more efficient than converting entire table to pylist
@@ -608,7 +608,15 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
 
         for idx in range(table.num_rows):
             doc_name = table[OperatorConstants.Columns.NAME][idx].as_py()
-            file_ext = Path(doc_name).suffix.lower()
+
+            # Try to get extension from document_format column first (set by ingest operators for cloud files)
+            # Fall back to extracting from filename if not available
+            file_ext = ""
+            if "document_format" in table.column_names:
+                file_ext = table["document_format"][idx].as_py() or ""
+
+            if not file_ext:
+                file_ext = Path(doc_name).suffix.lower()
 
             if file_ext not in supported_extensions:
                 doc_id = (

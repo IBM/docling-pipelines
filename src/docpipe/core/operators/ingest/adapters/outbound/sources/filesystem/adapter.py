@@ -154,7 +154,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                         failed.append(f"Permission denied: {root_path}")
                 # For files, verify it's a regular file
                 elif not root_path.is_file():
-                    failed.append(f"Path is not a directory: {root_path}")
+                    failed.append(f"Path is not a file: {root_path}")
 
             if failed:
                 return False, "; ".join(failed)

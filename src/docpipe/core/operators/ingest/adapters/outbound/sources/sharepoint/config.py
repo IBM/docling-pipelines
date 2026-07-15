@@ -30,6 +30,11 @@ class SharePointSourceConfig(BaseModel):
         None, description="Folder path to ingest from (e.g., '/Shared Documents/Reports'). If None, starts from root"
     )
 
+    file_path: str | None = Field(
+        None,
+        description="Specific SharePoint file path or URL to ingest. Can be a direct path or a SharePoint URL. If provided, only this file is processed.",
+    )
+
     # Behavior configuration
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
 

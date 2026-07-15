@@ -17,7 +17,11 @@ class WebPageSourceConfig(BaseModel):
     """
 
     # URL configuration
-    urls: list[str] = Field(..., description="List of starting URLs to crawl", min_length=1)
+    urls: list[str] = Field(
+        ...,
+        description="List of starting URLs to crawl. For single URL without crawling, provide one URL and set max_depth=0",
+        min_length=1,
+    )
 
     # Crawling behavior
     max_depth: int = Field(default=2, description="Maximum recursion depth for crawling", ge=0, le=10)

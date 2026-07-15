@@ -219,10 +219,16 @@ def _fetch_from_cloud_source(
         else:
             resolved_connection_params[key] = value
 
-    # For OneDrive/SharePoint: Pass item_id in credentials if available
-    # This allows the adapter to extract the actual item ID when source_id is a web URL
+    # For OneDrive/SharePoint: Pass item_id and drive_id in credentials if available
+    # This allows the adapter to use the correct drive and item IDs when source_id is a web URL
     if "item_id" in doc_metadata:
         resolved_credentials = {**resolved_credentials, "item_id": doc_metadata["item_id"]}
+        logger.debug(f"Added item_id to credentials: {doc_metadata['item_id']}")
+    if "drive_id" in doc_metadata:
+        resolved_credentials = {**resolved_credentials, "drive_id": doc_metadata["drive_id"]}
+        logger.debug(f"Added drive_id to credentials: {doc_metadata['drive_id']}")
+    else:
+        logger.debug(f"drive_id not found in doc_metadata. Available keys: {list(doc_metadata.keys())}")
 
     # Use dynamic adapter lookup
     if not SourceAdapterFactory.is_registered(provider):
