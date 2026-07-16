@@ -32,8 +32,9 @@ Run the automated setup script to install everything:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/docpipe.git
-cd docpipe
+git clone https://github.com/IBM/docling-pipelines.git
+# or, if you forked: git clone https://github.com/<your-username>/docling-pipelines.git
+cd docling-pipelines
 
 # Make setup script executable
 chmod +x scripts/setup_docling_pipelines_environment.sh
@@ -310,7 +311,7 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Verify you're in the right directory
-pwd  # Should end with /docpipe
+pwd  # Should end with /docling-pipelines
 ```
 
 **"Connection refused" to Ollama:**
