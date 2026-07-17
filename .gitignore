@@ -56,7 +56,6 @@ src/docpipe/backend/data/
 src/docpipe/backend/models/
 src/docpipe/models/
 src/models/
-models/
 
 # Bob AI Assistant — track rules/skills; ignore local-only files
 .bob/.ai_architecture.yaml
