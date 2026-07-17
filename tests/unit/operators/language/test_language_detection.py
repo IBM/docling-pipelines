@@ -281,9 +281,14 @@ class TestLanguageDetectOperator:
         assert metadata[Metrics.External.TOTAL_DOCS] == 3
         assert metadata[Metrics.External.PROCESSED_DOCS] == 3
 
-    def test_operator_transform_detects_languages(self, sample_config, sample_table):
+    def test_operator_transform_detects_languages(self, sample_table):
         """Test that operator correctly detects languages"""
-        operator = LanguageDetect(sample_config)
+        config = {
+            "doc_column": "content",
+            "language_provider": "langdetect",
+            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: False,
+        }
+        operator = LanguageDetect(config)
         result_tables, _metadata = operator.transform(sample_table)
         result_table = result_tables[0]
 

@@ -13,7 +13,9 @@ Key Features:
 - Automatic SSL fallback for corporate proxy environments
 """
 
+import os
 import ssl
+import tempfile
 import threading
 import urllib.error
 import urllib.request
@@ -80,8 +82,13 @@ class FastTextModelManager:
 
     def _get_model_path(self) -> Path:
         """
-        Get model path for local development.
-        Returns path to backend/models/fasttext/lid.176.ftz
+        Resolve the FastText model path.
+
+        Checks the ``FASTTEXT_MODEL_PATH`` environment variable first.
+        When set that path is used directly.
+
+        Falls back to ``<tempdir>/models/fasttext/lid.176.ftz`` for local
+        development so the auto-download path still works without any setup.
 
         Returns:
             Path to FastText model file
@@ -89,14 +96,15 @@ class FastTextModelManager:
         if self._model_path is not None:
             return self._model_path
 
-        # Get backend directory (5 levels up from this file)
-        # Path: fasttext_model_manager.py -> language_id -> language -> operators -> core -> backend
-        backend_dir = Path(__file__).resolve().parents[4]
-        local_dir = backend_dir / FastTextConstants.MODEL_LOCAL_DIR
-        local_dir.mkdir(parents=True, exist_ok=True)
-        self._model_path = local_dir / FastTextConstants.MODEL_FILENAME
+        env_path = os.environ.get("FASTTEXT_MODEL_PATH")
+        if env_path:
+            self._model_path = Path(env_path)
+        else:
+            local_dir = Path(tempfile.gettempdir()) / FastTextConstants.MODEL_LOCAL_DIR
+            local_dir.mkdir(parents=True, exist_ok=True)
+            self._model_path = local_dir / FastTextConstants.MODEL_FILENAME
 
-        logger.info(f"Model will be stored at: {self._model_path}")
+        logger.info("FastText model path: %s", self._model_path)
         return self._model_path
 
     def _download_model(self, model_path: Path) -> None:
