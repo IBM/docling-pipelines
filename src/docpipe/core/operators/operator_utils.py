@@ -166,8 +166,6 @@ class OperatorUtils:
             return str(ExecutionStatus.FAILED.value)
         elif failed_count > 0:
             return str(ExecutionStatus.COMPLETED_WITH_ERRORS.value)
-        elif skipped_count > 0 and processed_count == 0:
-            return str(ExecutionStatus.COMPLETED_WITH_WARNINGS.value)
         elif skipped_count > 0:
             return str(ExecutionStatus.COMPLETED_WITH_WARNINGS.value)
         else:
@@ -297,15 +295,18 @@ class OperatorUtils:
                 else pa.array([""] * skipped_table.num_rows)
             )
 
-            # Build the list of skipped docs using array indexing
+            # Build the list of skipped docs using to_pylist() + zip (one C→Python boundary crossing per column)
+            skipped_ids = skipped_ids_array.to_pylist()
+            skipped_names = skipped_names_array.to_pylist()
+            skipped_paths = skipped_paths_array.to_pylist()
             skipped_docs_list = [
                 {
-                    "id": skipped_ids_array[i].as_py(),
-                    "name": skipped_names_array[i].as_py(),
+                    "id": doc_id,
+                    "name": doc_name,
                     "reason": reason,
-                    "document_url": str(skipped_paths_array[i].as_py() or ""),
+                    "document_url": str(doc_path or ""),
                 }
-                for i in range(skipped_table.num_rows)
+                for doc_id, doc_name, doc_path in zip(skipped_ids, skipped_names, skipped_paths, strict=True)
             ]
 
         return {
@@ -431,7 +432,8 @@ class OperatorUtils:
         """
         Removes the rows for the given list of indexes in remove_row_idx from the table
         """
-        indices_to_keep = [i for i in range(table.num_rows) if i not in remove_row_idx]
+        remove_set = set(remove_row_idx)
+        indices_to_keep = [i for i in range(table.num_rows) if i not in remove_set]
         return table.take(pa.array(indices_to_keep, type=pa.int64()))
 
     @staticmethod
@@ -832,6 +834,13 @@ class OperatorUtils:
         doc_tasks = []
         global_config = global_config or {}
 
+        # Pre-extract metadata column once outside the loop to avoid per-row column lookups
+        metadata_list: list[str | None] = (
+            table[OperatorConstants.Metadata.METADATA].to_pylist()
+            if OperatorConstants.Metadata.METADATA in table.column_names
+            else [None] * table.num_rows
+        )
+
         for row_idx in range(table.num_rows):
             try:
                 doc_id = None
@@ -883,20 +892,17 @@ class OperatorUtils:
                         doc_metadata["source"] = table["source"][row_idx].as_py()
 
                     # Add metadata column content if available (contains item_id and drive_id for OneDrive/SharePoint)
-                    if OperatorConstants.Metadata.METADATA in table.column_names:
-                        metadata_str = table[OperatorConstants.Metadata.METADATA][row_idx].as_py()
-                        if metadata_str:
-                            import json
-
-                            try:
-                                metadata_dict = json.loads(metadata_str)
-                                # Extract item_id and drive_id if present (for OneDrive/SharePoint lazy loading)
-                                if "item_id" in metadata_dict:
-                                    doc_metadata["item_id"] = metadata_dict["item_id"]
-                                if "drive_id" in metadata_dict:
-                                    doc_metadata["drive_id"] = metadata_dict["drive_id"]
-                            except (json.JSONDecodeError, TypeError):
-                                pass
+                    metadata_str = metadata_list[row_idx]
+                    if metadata_str:
+                        try:
+                            metadata_dict = json.loads(metadata_str)
+                            # Extract item_id and drive_id if present (for OneDrive/SharePoint lazy loading)
+                            if "item_id" in metadata_dict:
+                                doc_metadata["item_id"] = metadata_dict["item_id"]
+                            if "drive_id" in metadata_dict:
+                                doc_metadata["drive_id"] = metadata_dict["drive_id"]
+                        except (json.JSONDecodeError, TypeError):
+                            pass
 
                     # Use binary content fetcher utility to fetch binary content on-demand
                     # Import here to avoid circular dependency
