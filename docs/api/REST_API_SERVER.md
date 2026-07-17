@@ -89,6 +89,15 @@ Discover available operators and their configuration schemas.
 |--------|------|-------------|
 | `GET` | `/api/v1/operators/metadata` | List all operators with metadata |
 
+### Document Classes — `/api/v1/document_classes`
+
+Enumerate all document class definitions bundled with the repository.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/document_classes` | List all available document classes |
+
+
 ### Validation — `/api/v1/validation`
 
 Validate a flow definition before submitting it.

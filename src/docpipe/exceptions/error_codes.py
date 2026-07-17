@@ -97,3 +97,6 @@ class ErrorCode(StrEnum):
     DOCUMENT_LIBRARY_INVALID_DATA = "document_library_invalid_data"
     DOCUMENT_LIBRARY_STORAGE_ERROR = "document_library_storage_error"
     DOCUMENT_LIBRARY_DOCUMENTSET_NOT_FOUND = "document_library_documentset_not_found"
+
+    # Document Class operations
+    DOCUMENT_CLASS_LIST_FAILED = "document_class_list_failed"

@@ -101,6 +101,8 @@ ErrorCode = Literal[
     "document_set_data_operation_failed",
     "document_set_invalid_config",
     "document_set_adapter_not_found",
+    # Document class operation error codes
+    "document_class_list_failed",
 ]
 
 
