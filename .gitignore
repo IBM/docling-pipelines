@@ -50,12 +50,13 @@ build/
 *.parquet.lock
 *.pkl
 docs/arch
-src/docpipe_app/backend/data/
+src/docpipe/backend/data/
 
 # Downloaded models
-src/docpipe_app/backend/models/
-src/docpipe_app/models/
+src/docpipe/backend/models/
+src/docpipe/models/
 src/models/
+models/
 
 # Bob AI Assistant — track rules/skills; ignore local-only files
 .bob/.ai_architecture.yaml

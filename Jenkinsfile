@@ -51,7 +51,7 @@ timestamps {
   } else {
     nodeName = "kube_ui"
   }
-  
+
   node(nodeName) {
 
     //
@@ -61,7 +61,7 @@ timestamps {
       //
       // Checkout And Build Without Running Tests
       //
-      
+
       stage('Build') {
         checkout scm
       }
@@ -113,31 +113,26 @@ timestamps {
               rm -rf ~/miniconda3/miniconda.sh
               export PATH=\${HOME}/miniconda3/bin:\$PATH
               eval "\$(conda shell.bash hook)"
-              
+
               # Create conda environment with Python 3.12
               conda create -n docpipe_py312 python=3.12 -y
               conda activate docpipe_py312
-              
+
               # Install uv
               curl -LsSf https://astral.sh/uv/install.sh | sh
-              
+
               # Navigate to backend directory and install dependencies
               uv sync --all-groups --all-extras
-              
+
               # Activate virtual environment and run tests from project root
               . .venv/bin/activate
               pwd
               export PYTHONPATH=./src/:./tests
               cp .env.example .env
               # Run unit tests with coverage
-              pytest -m "unit and not slow" -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
-              
-              # Generate coverage report
-              coverage report -m
-              
-              # Display coverage summary
+              pytest -m "unit and not slow" -v --cov=src/docpipe --cov-report=xml:coverage.xml --cov-report=term
+
               echo "Unit test coverage report generated"
-              coverage report
             """
           }
         }
@@ -174,21 +169,21 @@ timestamps {
                   export PATH=\${HOME}/miniconda3/bin:\$PATH
                   eval "\$(conda shell.bash hook)"
                   conda activate docpipe_py312
-                  
+
                   # Build the wheel using uv
                   uv build --wheel
-                  
+
                   # Find the generated wheel file
                   WHEEL_FILE=\$(ls -t dist/*.whl | head -n 1)
                   WHEEL_FILENAME=\$(basename "\$WHEEL_FILE")
-                  
+
                   echo "Built wheel: \$WHEEL_FILENAME"
-                  
+
                   # Push to Artifactory
                   curl -u "\${ARTIFACTORY_USERNAME}:\${ARTIFACTORY_PASSWORD}" \\
                     -T "\$WHEEL_FILE" \\
                     "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/docling-pipelines/${VERSION}/\${WHEEL_FILENAME}"
-                  
+
                   echo "Wheel file pushed to Artifactory successfully"
                 """
               }
