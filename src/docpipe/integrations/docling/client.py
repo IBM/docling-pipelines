@@ -167,7 +167,11 @@ class DoclingServeClient:
 
     def _build_options(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """
-        Build options dictionary with defaults for v1 API.
+        Build options dictionary with safe defaults for the docling-serve v1 API.
+
+        Defaults cover parameters that are universally supported across docling-serve
+        deployments. Parameters that vary by deployment (ocr_engine, table_mode) are
+        NOT included as defaults — they must be explicitly set by the caller.
 
         Args:
             options: User-provided options to override defaults
@@ -175,17 +179,15 @@ class DoclingServeClient:
         Returns:
             Complete options dictionary with defaults applied
         """
-        default_options = {
+        default_options: dict[str, Any] = {
             "do_ocr": True,
             "ocr_preset": "auto",
-            "ocr_lang": None,
             "pdf_backend": "dlparse_v2",
-            "table_mode": "accurate",
             "do_table_structure": True,
             "table_cell_matching": True,
             "include_images": True,
             "images_scale": 2.0,
-            "image_export_mode": "embedded",
+            "image_export_mode": "placeholder",
             # Markdown is mandatory, additional formats come from options
             "to_formats": ["md"],
         }
@@ -213,7 +215,8 @@ class DoclingServeClient:
                     user_to_formats.insert(0, "md")
                 default_options["to_formats"] = user_to_formats
 
-        return default_options
+        # Strip None values — requests serialises None as the string "None" which the server rejects
+        return {k: v for k, v in default_options.items() if v is not None}
 
     def submit_document(
         self,
@@ -335,7 +338,7 @@ class DoclingServeClient:
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             )
 
-        logger.info(f"Document submitted successfully, task_id={task_id}")
+        logger.info(f"Document submitted successfully, task_id={task_id}, params={list(data.keys())}")
         return task_id
 
     def _poll_for_completion(
@@ -390,7 +393,11 @@ class DoclingServeClient:
                 if task_status == "FAILURE":
                     error_msg = result.get("error_message", "Unknown error")
                     logger.error(
-                        f"Task {task_id} failed with error: {error_msg}",
+                        f"Task {task_id} failed with error: {error_msg}. "
+                        f"If this is an 'Internal processing error', check that the processing "
+                        f"parameters sent to docling-serve are supported by this deployment "
+                        f"(e.g. ocr_engine, table_mode, pdf_backend). "
+                        f"See the submission log above for the params that were sent.",
                         extra={"task_id": task_id, "full_response": result},
                     )
                     raise DocpipeException(
