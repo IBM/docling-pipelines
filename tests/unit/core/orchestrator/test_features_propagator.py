@@ -1,5 +1,6 @@
 """Unit tests for FeaturePropagator."""
 
+from typing import ClassVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -10,6 +11,47 @@ from docpipe.core.orchestration.feature_propagation.models import (
     FeaturePropagationResult,
 )
 from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+
+# ---------------------------------------------------------------------------
+# Module-level helpers — shared across all test classes
+# ---------------------------------------------------------------------------
+
+
+def _make_feature_def(
+    description: str = "",
+    tags: list[str] | None = None,
+    available_for_filter: bool = True,
+    available_for_vector_db: bool = False,
+    type_: str = "string",
+) -> dict:
+    """Return a minimal feature definition dict as used in input_features."""
+    return {
+        "description": description,
+        "tags": tags if tags is not None else [],
+        "available_for_filter": available_for_filter,
+        "available_for_vector_db": available_for_vector_db,
+        "type": type_,
+    }
+
+
+def _make_parent_result(
+    features: dict[str, dict],
+    source_node_id: str = "parent-node",
+) -> FeaturePropagationResult:
+    """Build a FeaturePropagationResult from {feature_name: feature_def_dict}."""
+    result = FeaturePropagationResult()
+    result.source_node_id = source_node_id
+    for name, fdef in features.items():
+        result.add_feature(
+            feature_name=name,
+            node_id=source_node_id,
+            description=fdef.get("description", ""),
+            tags=fdef.get("tags", []),
+            available_for_filter=fdef.get("available_for_filter", True),
+            available_for_vector_db=fdef.get("available_for_vector_db", False),
+            type=fdef.get("type", "string"),
+        )
+    return result
 
 
 class TestFeaturePropagator:
@@ -36,20 +78,10 @@ class TestFeaturePropagator:
     def test_propagate_features_preserves_input_features(self, propagator):
         """Test that input features are preserved in output."""
         input_features = {
-            "id": {
-                "description": "Document ID",
-                "tags": ["mandatory"],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Document content",
-                "tags": ["mandatory"],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
+            "id": _make_feature_def(description="Document ID", tags=["mandatory"]),
+            "content": _make_feature_def(
+                description="Document content", tags=["mandatory"], available_for_filter=False
+            ),
         }
 
         result = propagator.propagate_features(
@@ -67,31 +99,15 @@ class TestFeaturePropagator:
 
     def test_propagate_features_adds_operator_features(self, propagator):
         """Test that operator-defined features are added."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            }
-        }
-        operator_features = {
-            "new_feature": {
-                "description": "New feature from operator",
-                "tags": ["operator"],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            }
-        }
-        propagator.operator_metadata.get_features = Mock(return_value=operator_features)
+        propagator.operator_metadata.get_features = Mock(
+            return_value={"new_feature": _make_feature_def(description="New feature from operator", tags=["operator"])}
+        )
 
         result = propagator.propagate_features(
             node_id="test-node",
             operator_short_name="test_operator",
             operator_config={},
-            input_features=input_features,
+            input_features={"id": _make_feature_def()},
             global_config={},
             parent_results=[],
         )
@@ -101,28 +117,11 @@ class TestFeaturePropagator:
 
     def test_propagate_features_stores_input_features_explicitly(self, propagator):
         """Test that input features are stored separately for inspection."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Content",
-                "tags": [],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-        }
-
         result = propagator.propagate_features(
             node_id="test-node",
             operator_short_name="test_operator",
             operator_config={},
-            input_features=input_features,
+            input_features={"id": _make_feature_def(), "content": _make_feature_def(available_for_filter=False)},
             global_config={},
             parent_results=[],
         )
@@ -133,31 +132,15 @@ class TestFeaturePropagator:
 
     def test_propagate_features_computes_output_features(self, propagator):
         """Test that output features (new features only) are computed."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            }
-        }
-        operator_features = {
-            "new_feature": {
-                "description": "New",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            }
-        }
-        propagator.operator_metadata.get_features = Mock(return_value=operator_features)
+        propagator.operator_metadata.get_features = Mock(
+            return_value={"new_feature": _make_feature_def(description="New")}
+        )
 
         result = propagator.propagate_features(
             node_id="test-node",
             operator_short_name="test_operator",
             operator_config={},
-            input_features=input_features,
+            input_features={"id": _make_feature_def()},
             global_config={},
             parent_results=[],
         )
@@ -168,34 +151,19 @@ class TestFeaturePropagator:
 
     def test_propagate_features_vectordb_produces_no_output(self, propagator):
         """Test that VectorDB operator produces no output features."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "embeddings": {
-                "description": "Embeddings",
-                "tags": [],
-                "available_for_filter": False,
-                "available_for_vector_db": True,
-                "type": "list",
-            },
-        }
-
         result = propagator.propagate_features(
             node_id="vectordb-node",
             operator_short_name=OperatorConstants.Operators.VECTORDB,
             operator_config={},
-            input_features=input_features,
+            input_features={
+                "id": _make_feature_def(),
+                "embeddings": _make_feature_def(available_for_filter=False, available_for_vector_db=True, type_="list"),
+            },
             global_config={},
             parent_results=[],
         )
 
-        output = result.get_output_features(node_id="vectordb-node")
-        assert len(output) == 0  # VectorDB produces no output features
+        assert len(result.get_output_features(node_id="vectordb-node")) == 0
 
 
 class TestExtractOperatorSpecialCase:
@@ -207,90 +175,46 @@ class TestExtractOperatorSpecialCase:
         with patch.object(FeaturePropagator, "__init__", lambda x: None):
             prop = FeaturePropagator()
             prop.operator_metadata = Mock()
-            # Extract operator defines entities and document_type features
             prop.operator_metadata.get_features = Mock(
                 return_value={
-                    "text": {
-                        "description": "Extracted text",
-                        "tags": [],
-                        "available_for_filter": False,
-                        "available_for_vector_db": False,
-                        "type": "string",
-                    },
-                    "entities": {
-                        "description": "Entities",
-                        "tags": ["entity"],
-                        "available_for_filter": False,
-                        "available_for_vector_db": False,
-                        "type": "list",
-                    },
-                    OperatorConstants.Columns.DOCUMENT_TYPE: {
-                        "description": "Doc type",
-                        "tags": ["entity"],
-                        "available_for_filter": True,
-                        "available_for_vector_db": False,
-                        "type": "string",
-                    },
+                    "text": _make_feature_def(description="Extracted text", available_for_filter=False),
+                    "entities": _make_feature_def(
+                        description="Entities", tags=["entity"], available_for_filter=False, type_="list"
+                    ),
+                    OperatorConstants.Columns.DOCUMENT_TYPE: _make_feature_def(description="Doc type", tags=["entity"]),
                 }
             )
             return prop
 
-    def test_extract_with_entity_mode_none_removes_entity_features(self, propagator):
-        """Test that entity_extraction_mode=none removes entity features."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Content",
-                "tags": [],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-        }
+    _BASE_FEATURES: ClassVar[dict] = {
+        "id": _make_feature_def(),
+        "content": _make_feature_def(available_for_filter=False),
+    }
 
+    def test_extract_with_entity_mode_none_removes_entity_features(self, propagator):
+        """entity_extraction_mode=none removes entity features; text survives."""
         result = propagator.propagate_features(
             node_id="extract-node",
             operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
             operator_config={OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE},
-            input_features=input_features,
+            input_features=self._BASE_FEATURES,
             global_config={},
             parent_results=[],
         )
 
         assert "entities" not in result.feature_metadata
         assert OperatorConstants.Columns.DOCUMENT_TYPE not in result.feature_metadata
-        assert "text" in result.feature_metadata  # Text feature should still be present
+        assert "text" in result.feature_metadata
 
     def test_extract_with_entity_mode_ollama_adds_entity_features(self, propagator):
-        """Test that entity_extraction_mode=ollama adds entity features."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Content",
-                "tags": [],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-        }
-
+        """entity_extraction.provider=litellm adds entities and document_type."""
         result = propagator.propagate_features(
             node_id="extract-node",
             operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
-            operator_config={OperatorConstants.Config.PROVIDER: "litellm"},
-            input_features=input_features,
+            operator_config={
+                OperatorConstants.Config.ENTITY_EXTRACTION: {OperatorConstants.Config.PROVIDER: "litellm"}
+            },
+            input_features=self._BASE_FEATURES,
             global_config={},
             parent_results=[],
         )
@@ -304,83 +228,38 @@ class TestSQLFilterSpecialCase:
 
     @pytest.fixture
     def propagator(self):
-        """Create FeaturePropagator instance."""
         with patch.object(FeaturePropagator, "__init__", lambda x: None):
             prop = FeaturePropagator()
             prop.operator_metadata = Mock()
             prop.operator_metadata.get_features = Mock(return_value={})
             return prop
 
-    def test_sql_filter_with_select_star_keeps_all_features(self, propagator):
-        """Test that SELECT * keeps all features."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": ["mandatory"],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Content",
-                "tags": [],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "metadata": {
-                "description": "Metadata",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-        }
+    _THREE_FEATURES: ClassVar[dict] = {
+        "id": _make_feature_def(tags=["mandatory"]),
+        "content": _make_feature_def(available_for_filter=False),
+        "metadata": _make_feature_def(),
+    }
 
+    def test_sql_filter_with_select_star_keeps_all_features(self, propagator):
+        """SELECT * keeps all features."""
         result = propagator.propagate_features(
             node_id="filter-node",
             operator_short_name=OperatorConstants.Operators.SQL_FILTER,
             operator_config={"sql_query": "SELECT * FROM table WHERE condition"},
-            input_features=input_features,
+            input_features=self._THREE_FEATURES,
             global_config={},
             parent_results=[],
         )
 
-        assert "id" in result.feature_metadata
-        assert "content" in result.feature_metadata
-        assert "metadata" in result.feature_metadata
+        assert {"id", "content", "metadata"} <= result.feature_metadata.keys()
 
     def test_sql_filter_with_specific_columns_removes_others(self, propagator):
-        """Test that SELECT specific columns removes non-selected features."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": ["mandatory"],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Content",
-                "tags": [],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "metadata": {
-                "description": "Metadata",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-        }
-
+        """SELECT specific columns removes non-selected features."""
         result = propagator.propagate_features(
             node_id="filter-node",
             operator_short_name=OperatorConstants.Operators.SQL_FILTER,
             operator_config={"sql_query": "SELECT id, content FROM table WHERE condition"},
-            input_features=input_features,
+            input_features=self._THREE_FEATURES,
             global_config={},
             parent_results=[],
         )
@@ -390,68 +269,29 @@ class TestSQLFilterSpecialCase:
         assert "metadata" not in result.feature_metadata
 
     def test_sql_filter_tracks_dropped_features(self, propagator):
-        """Test that SQLFilter tracks which features were dropped."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": ["mandatory"],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Content",
-                "tags": [],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "metadata": {
-                "description": "Metadata",
-                "tags": [],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-        }
-
+        """SQLFilter records which features were removed."""
         result = propagator.propagate_features(
             node_id="filter-node",
             operator_short_name=OperatorConstants.Operators.SQL_FILTER,
             operator_config={"sql_query": "SELECT id, content FROM table"},
-            input_features=input_features,
+            input_features=self._THREE_FEATURES,
             global_config={},
             parent_results=[],
         )
 
-        dropped = result.get_output_features_to_drop(node_id="filter-node")
-        assert "metadata" in dropped.get_features_to_drop()
+        assert "metadata" in result.get_output_features_to_drop(node_id="filter-node").get_features_to_drop()
 
     def test_sql_filter_cannot_drop_mandatory_features(self, propagator):
-        """Test that SQLFilter raises error when trying to drop mandatory features."""
-        input_features = {
-            "id": {
-                "description": "ID",
-                "tags": ["mandatory"],
-                "available_for_filter": True,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-            "content": {
-                "description": "Content",
-                "tags": ["mandatory"],
-                "available_for_filter": False,
-                "available_for_vector_db": False,
-                "type": "string",
-            },
-        }
-
+        """SQLFilter raises FlowValidationException when a mandatory feature is dropped."""
         with pytest.raises(FlowValidationException) as exc_info:
             propagator.propagate_features(
                 node_id="filter-node",
                 operator_short_name=OperatorConstants.Operators.SQL_FILTER,
-                operator_config={"sql_query": "SELECT id FROM table"},  # Drops mandatory 'content'
-                input_features=input_features,
+                operator_config={"sql_query": "SELECT id FROM table"},  # drops mandatory 'content'
+                input_features={
+                    "id": _make_feature_def(tags=["mandatory"]),
+                    "content": _make_feature_def(tags=["mandatory"], available_for_filter=False),
+                },
                 global_config={},
                 parent_results=[],
             )
@@ -466,7 +306,6 @@ class TestMergeOperatorSpecialCase:
 
     @pytest.fixture
     def propagator(self):
-        """Create FeaturePropagator instance."""
         with patch.object(FeaturePropagator, "__init__", lambda x: None):
             prop = FeaturePropagator()
             prop.operator_metadata = Mock()
@@ -474,46 +313,9 @@ class TestMergeOperatorSpecialCase:
             return prop
 
     def test_merge_rows_combines_all_features(self, propagator):
-        """Test that ROWS merge combines all features from all parents."""
-        parent1_result = FeaturePropagationResult()
-        parent1_result.add_feature(
-            feature_name="id",
-            node_id="parent1",
-            description="ID",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent1_result.add_feature(
-            feature_name="content",
-            node_id="parent1",
-            description="Content",
-            tags=[],
-            available_for_filter=False,
-            available_for_vector_db=False,
-            type="string",
-        )
-
-        parent2_result = FeaturePropagationResult()
-        parent2_result.add_feature(
-            feature_name="id",
-            node_id="parent2",
-            description="ID",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent2_result.add_feature(
-            feature_name="metadata",
-            node_id="parent2",
-            description="Metadata",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
+        """ROWS merge produces the union of all parent features."""
+        p1 = _make_parent_result({"id": _make_feature_def(), "content": _make_feature_def(available_for_filter=False)})
+        p2 = _make_parent_result({"id": _make_feature_def(), "metadata": _make_feature_def()})
 
         result = propagator.propagate_features(
             node_id="merge-node",
@@ -521,71 +323,24 @@ class TestMergeOperatorSpecialCase:
             operator_config={OperatorConstants.Merge.MERGE_TYPE: OperatorConstants.Merge.ROWS},
             input_features={},
             global_config={},
-            parent_results=[parent1_result, parent2_result],
+            parent_results=[p1, p2],
         )
 
-        assert "id" in result.feature_metadata
-        assert "content" in result.feature_metadata
-        assert "metadata" in result.feature_metadata
+        assert {"id", "content", "metadata"} <= result.feature_metadata.keys()
 
     def test_merge_columns_inner_join_keeps_common_features(self, propagator):
-        """Test that COLUMNS + INNER_JOIN keeps only common features."""
-        parent1_result = FeaturePropagationResult()
-        parent1_result.add_feature(
-            feature_name="id",
-            node_id="parent1",
-            description="ID",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent1_result.add_feature(
-            feature_name="content",
-            node_id="parent1",
-            description="Content",
-            tags=[],
-            available_for_filter=False,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent1_result.add_feature(
-            feature_name="title",
-            node_id="parent1",
-            description="Title",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
+        """COLUMNS + INNER_JOIN retains only features present in all parents.
 
-        parent2_result = FeaturePropagationResult()
-        parent2_result.add_feature(
-            feature_name="id",
-            node_id="parent2",
-            description="ID",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
+        Common features appear as plain key (first occurrence) plus a suffixed copy
+        for the second branch.  Features unique to one parent are dropped entirely.
+        """
+        p1 = _make_parent_result(
+            {"id": _make_feature_def(), "content": _make_feature_def(), "title": _make_feature_def()},
+            source_node_id="node-a",
         )
-        parent2_result.add_feature(
-            feature_name="content",
-            node_id="parent2",
-            description="Content",
-            tags=[],
-            available_for_filter=False,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent2_result.add_feature(
-            feature_name="author",
-            node_id="parent2",
-            description="Author",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
+        p2 = _make_parent_result(
+            {"id": _make_feature_def(), "content": _make_feature_def(), "author": _make_feature_def()},
+            source_node_id="node-b",
         )
 
         result = propagator.propagate_features(
@@ -594,58 +349,28 @@ class TestMergeOperatorSpecialCase:
             operator_config={
                 OperatorConstants.Merge.MERGE_TYPE: OperatorConstants.Merge.COLUMNS,
                 OperatorConstants.Merge.COLUMN_OPTION: OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN,
+                OperatorConstants.Merge.INPUT_LINKS: [
+                    {"node_id_ref": "node-a", OperatorConstants.Misc.LINK_NAME: "Link_5"},
+                    {"node_id_ref": "node-b", OperatorConstants.Misc.LINK_NAME: "Link_6"},
+                ],
             },
             input_features={},
             global_config={},
-            parent_results=[parent1_result, parent2_result],
+            parent_results=[p1, p2],
         )
 
+        # id is never suffixed; first occurrence of common feature plain, second suffixed
         assert "id" in result.feature_metadata
-        assert "content" in result.feature_metadata
-        assert "title" not in result.feature_metadata  # Not common
-        assert "author" not in result.feature_metadata  # Not common
+        assert "content" in result.feature_metadata  # first occurrence: plain key
+        assert "content_Link_6" in result.feature_metadata  # second occurrence: suffixed
+        # features unique to one branch are excluded entirely
+        assert "title" not in result.feature_metadata
+        assert "author" not in result.feature_metadata
 
     def test_merge_columns_full_outer_join_disambiguates_duplicates(self, propagator):
-        """Test that COLUMNS + FULL_OUTER_JOIN disambiguates duplicate features."""
-        parent1_result = FeaturePropagationResult()
-        parent1_result.add_feature(
-            feature_name="id",
-            node_id="parent1",
-            description="ID",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent1_result.add_feature(
-            feature_name="content",
-            node_id="parent1",
-            description="Content1",
-            tags=[],
-            available_for_filter=False,
-            available_for_vector_db=False,
-            type="string",
-        )
-
-        parent2_result = FeaturePropagationResult()
-        parent2_result.add_feature(
-            feature_name="id",
-            node_id="parent2",
-            description="ID",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent2_result.add_feature(
-            feature_name="content",
-            node_id="parent2",
-            description="Content2",
-            tags=[],
-            available_for_filter=False,
-            available_for_vector_db=False,
-            type="string",
-        )
+        """COLUMNS + FULL_OUTER_JOIN: first occurrence plain, 2nd+ suffixed with link name."""
+        p1 = _make_parent_result({"id": _make_feature_def(), "content": _make_feature_def()}, source_node_id="node-a")
+        p2 = _make_parent_result({"id": _make_feature_def(), "content": _make_feature_def()}, source_node_id="node-b")
 
         result = propagator.propagate_features(
             node_id="merge-node",
@@ -653,46 +378,25 @@ class TestMergeOperatorSpecialCase:
             operator_config={
                 OperatorConstants.Merge.MERGE_TYPE: OperatorConstants.Merge.COLUMNS,
                 OperatorConstants.Merge.COLUMN_OPTION: OperatorConstants.Merge.FULL_OUTER_JOIN,
+                OperatorConstants.Merge.INPUT_LINKS: [
+                    {"node_id_ref": "node-a", OperatorConstants.Misc.LINK_NAME: "Link_5"},
+                    {"node_id_ref": "node-b", OperatorConstants.Misc.LINK_NAME: "Link_6"},
+                ],
             },
             input_features={},
             global_config={},
-            parent_results=[parent1_result, parent2_result],
+            parent_results=[p1, p2],
         )
 
-        assert "id" in result.feature_metadata  # Join key not duplicated
-        assert "content_0" in result.feature_metadata  # Disambiguated
-        assert "content_1" in result.feature_metadata  # Disambiguated
-        assert "content" not in result.feature_metadata  # Original removed
+        assert "id" in result.feature_metadata
+        assert "content" in result.feature_metadata  # first occurrence: plain key
+        assert "content_Link_6" in result.feature_metadata  # second occurrence: suffixed
+        assert "content_Link_5" not in result.feature_metadata  # first is never suffixed
 
     def test_merge_with_features_to_drop_config(self, propagator):
-        """Test that Merge operator respects features_to_drop configuration."""
-        parent1_result = FeaturePropagationResult()
-        parent1_result.add_feature(
-            feature_name="id",
-            node_id="parent1",
-            description="ID",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent1_result.add_feature(
-            feature_name="content",
-            node_id="parent1",
-            description="Content",
-            tags=[],
-            available_for_filter=False,
-            available_for_vector_db=False,
-            type="string",
-        )
-        parent1_result.add_feature(
-            feature_name="metadata",
-            node_id="parent1",
-            description="Metadata",
-            tags=[],
-            available_for_filter=True,
-            available_for_vector_db=False,
-            type="string",
+        """features_to_drop removes the named features after merging."""
+        p1 = _make_parent_result(
+            {"id": _make_feature_def(), "content": _make_feature_def(), "metadata": _make_feature_def()}
         )
 
         result = propagator.propagate_features(
@@ -704,7 +408,7 @@ class TestMergeOperatorSpecialCase:
             },
             input_features={},
             global_config={},
-            parent_results=[parent1_result],
+            parent_results=[p1],
         )
 
         assert "id" in result.feature_metadata
@@ -787,6 +491,74 @@ class TestMergeFeaturesMethod:
 
         assert "feat1" in result
         assert "feat2" in result
+
+
+class TestExtractOperatorEntityMode:
+    """Tests for the P3 fix: entity mode detection reads entity_extraction.provider."""
+
+    @pytest.fixture
+    def propagator(self):
+        with patch.object(FeaturePropagator, "__init__", lambda x: None):
+            prop = FeaturePropagator()
+            prop.operator_metadata = Mock()
+            prop.operator_metadata.get_features = Mock(return_value={})
+            return prop
+
+    # Class-level constant — avoids re-constructing the same dict in every test
+    _BASE_FEATURES: ClassVar[dict] = {
+        "id": _make_feature_def(tags=["mandatory"]),
+        "content": _make_feature_def(tags=["mandatory"], available_for_filter=False),
+    }
+
+    def test_entity_features_added_when_provider_nested(self, propagator):
+        """entity_extraction.provider=litellm → entities and document_type added."""
+        result = propagator.propagate_features(
+            node_id="extract-1",
+            operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
+            operator_config={"entity_extraction": {"provider": "litellm"}},
+            input_features=self._BASE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+        assert "entities" in result.feature_metadata
+        assert OperatorConstants.Columns.DOCUMENT_TYPE in result.feature_metadata
+
+    def test_entity_features_absent_when_no_entity_extraction_key(self, propagator):
+        """Missing entity_extraction key → provider defaults to 'none' → no entity features."""
+        result = propagator.propagate_features(
+            node_id="extract-1",
+            operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
+            operator_config={},
+            input_features=self._BASE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+        assert "entities" not in result.feature_metadata
+        assert OperatorConstants.Columns.DOCUMENT_TYPE not in result.feature_metadata
+
+    def test_entity_features_absent_when_provider_is_none_string(self, propagator):
+        """entity_extraction.provider='none' → no entity features."""
+        result = propagator.propagate_features(
+            node_id="extract-1",
+            operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
+            operator_config={"entity_extraction": {"provider": "none"}},
+            input_features=self._BASE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+        assert "entities" not in result.feature_metadata
+
+    def test_top_level_provider_key_no_longer_triggers_entity_mode(self, propagator):
+        """Old (buggy) top-level 'provider' key is ignored — no entity features produced."""
+        result = propagator.propagate_features(
+            node_id="extract-1",
+            operator_short_name=OperatorConstants.Operators.EXTRACT_OPERATOR,
+            operator_config={"provider": "litellm"},  # wrong key — should be nested
+            input_features=self._BASE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+        assert "entities" not in result.feature_metadata
 
 
 if __name__ == "__main__":

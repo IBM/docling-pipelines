@@ -4,7 +4,10 @@ This module provides classes and utilities for tracking features as they
 propagate through DAG flows during validation.
 """
 
-from docpipe.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
+from docpipe.core.orchestration.feature_propagation.features_propagator import (
+    FeaturePropagator,
+    disambiguate_features,
+)
 from docpipe.core.orchestration.feature_propagation.models import (
     FeatureMetadata,
     FeaturePropagationResult,
@@ -16,4 +19,5 @@ __all__ = [
     "FeaturePropagationResult",
     "FeaturePropagator",
     "OutputFeaturesToDrop",
+    "disambiguate_features",
 ]

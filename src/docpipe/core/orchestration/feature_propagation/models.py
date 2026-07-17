@@ -106,6 +106,11 @@ class FeaturePropagationResult:
         # Global parameters (e.g., embeddings_model_id)
         self.global_params: dict[str, Any] = {}
 
+        # The DAG node ID that produced this result. Set by FlowValidator after
+        # propagation so that merge_features() can look up the link name for
+        # this branch using input_links[node_id_ref → link_name].
+        self.source_node_id: str | None = None
+
     def set_input_features(self, *, node_id: str, features: dict[str, Any]) -> None:
         """Set input features for a node (features received from parent nodes).
 

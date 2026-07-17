@@ -15,6 +15,7 @@ from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrato
 from docpipe.core.orchestration.feature_propagation import (
     FeaturePropagationResult,
     FeaturePropagator,
+    disambiguate_features,
 )
 from docpipe.core.orchestration.operator_factory import OperatorFactory, OperatorFactoryProvider
 from docpipe.exceptions.docpipe_exceptions import (
@@ -161,7 +162,12 @@ class FlowValidator:
         - AbstractOrchestrator: Orchestrator interface
     """
 
-    def __init__(self, *, orchestrator: AbstractOrchestrator):
+    def __init__(
+        self,
+        *,
+        orchestrator: AbstractOrchestrator,
+        feature_propagator: FeaturePropagator | None = None,
+    ):
         """Initialize the FlowValidator.
 
         Creates a validator instance tied to a specific orchestrator. The validator
@@ -170,6 +176,10 @@ class FlowValidator:
         Args:
             orchestrator: Reference to the AbstractOrchestrator instance that will
                 execute the validation traversal. Must have flow_engine initialized.
+            feature_propagator: Optional shared FeaturePropagator instance. When
+                provided the validator reuses it instead of constructing a new one,
+                avoiding a redundant operator-metadata load (e.g. when called from
+                FlowEnrichmentService which already holds a propagator).
 
         Note:
             Operator metadata loading may fail for operators requiring external services
@@ -190,8 +200,8 @@ class FlowValidator:
                 f"Some operators failed to load metadata (this is normal if external services are unavailable): {e!s}"
             )
             # Continue with whatever metadata was successfully loaded
-        # Initialize feature propagator
-        self.feature_propagator = FeaturePropagator()
+        # Use injected propagator when available to avoid a redundant metadata load.
+        self.feature_propagator = feature_propagator if feature_propagator is not None else FeaturePropagator()
 
     def validate(self, *, flow_def: dict, params: dict):
         """Main validation entry point for a flow definition.
@@ -430,9 +440,13 @@ class FlowValidator:
 
         def feature_propagation_task(task_name, op_def, prev_result=None, link_name=None):
             """Task function for feature propagation traversal."""
+            node_id, operator, operator_config = self._get_required_node_fields(op_def=op_def)
+            parent_results = self._get_parent_results(prev_result=prev_result)
             node_result = self._build_node_feature_result(
-                op_def=op_def,
-                prev_result=prev_result,
+                node_id=node_id,
+                operator=operator,
+                operator_config=operator_config,
+                parent_results=parent_results,
                 global_config=global_config,
             )
             self._merge_node_result_into_propagation_result(
@@ -479,12 +493,15 @@ class FlowValidator:
         if session_info is not None:
             set_session_info(session_info=session_info)
 
+        node_id, operator_name, operator_config = self._get_required_node_fields(op_def=op_def)
+        parent_results = self._get_parent_results(prev_result=prev_result)
         node_result = self._build_node_feature_result(
-            op_def=op_def,
-            prev_result=prev_result,
+            node_id=node_id,
+            operator=operator_name,
+            operator_config=operator_config,
+            parent_results=parent_results,
             global_config=global_config,
         )
-        node_id, operator_name, _ = self._get_required_node_fields(op_def=op_def)
 
         input_features = list(node_result.get_input_features(node_id=node_id).keys())
         output_features = list(node_result.feature_metadata.keys())
@@ -604,18 +621,23 @@ class FlowValidator:
     def _build_node_feature_result(
         self,
         *,
-        op_def: dict[str, Any],
-        prev_result: Any,
+        node_id: str,
+        operator: str,
+        operator_config: dict[str, Any],
+        parent_results: list[FeaturePropagationResult],
         global_config: dict[str, Any],
     ) -> FeaturePropagationResult:
-        """Build propagation state for a single node from its parents."""
-        node_id, operator, operator_config = self._get_required_node_fields(op_def=op_def)
+        """Build propagation state for a single node from its parents.
 
-        parent_results = self._get_parent_results(prev_result=prev_result)
-        input_features: dict[str, dict[str, Any]] = {}
-
-        for parent_result in parent_results:
-            input_features.update(self._feature_metadata_to_dict(result=parent_result))
+        Accepts pre-extracted fields so callers that already hold them (e.g.
+        ``feature_debug_task``) avoid running ``_get_required_node_fields`` and
+        ``_get_parent_results`` a second time.
+        """
+        input_features = self._merge_parent_input_features(
+            parent_results=parent_results,
+            operator=operator,
+            operator_config=operator_config,
+        )
 
         return self.feature_propagator.propagate_features(
             node_id=node_id,
@@ -624,6 +646,79 @@ class FlowValidator:
             input_features=input_features,
             global_config=global_config,
             parent_results=parent_results,
+            source_node_id=node_id,
+        )
+
+    def _merge_parent_input_features(
+        self,
+        *,
+        parent_results: list[FeaturePropagationResult],
+        operator: str,
+        operator_config: dict[str, Any],
+    ) -> dict[str, dict[str, Any]]:
+        """Build the flat ``input_features`` dict passed into ``propagate_features()``.
+
+        For non-merge nodes (or a merge with only one upstream branch) a plain
+        dict union is sufficient — there are no conflicting keys.
+
+        For a merge node with multiple upstream branches, duplicate feature keys
+        must be disambiguated so downstream propagation tracks which branch each
+        column originates from.  The second and subsequent occurrences of a key
+        are renamed ``<key>_<link_name>``, where the link name is resolved from
+        ``operator_config["input_links"]`` via ``node_id_ref → link_name``.
+        When a parent's ``source_node_id`` cannot be resolved in that map, the
+        parent's numeric index is used as a fallback suffix.
+
+        The join key (``"id"``) is never suffixed — the first occurrence always
+        wins, consistent with the disambiguation logic in ``merge_features()``.
+        """
+        if operator != OperatorConstants.Operators.MERGE or len(parent_results) <= 1:
+            input_features: dict[str, dict[str, Any]] = {}
+            for parent_result in parent_results:
+                input_features.update(self._feature_metadata_to_dict(result=parent_result))
+            return input_features
+
+        # Build node_id → link_name lookup from input_links in the operator config.
+        input_links = operator_config.get(OperatorConstants.Merge.INPUT_LINKS, [])
+        node_id_to_link_name: dict[str, str] = {
+            lnk["node_id_ref"]: lnk[OperatorConstants.Misc.LINK_NAME]
+            for lnk in input_links
+            if lnk.get("node_id_ref") and lnk.get(OperatorConstants.Misc.LINK_NAME)
+        }
+
+        join_key = OperatorConstants.Columns.ID
+        merge_type = operator_config.get(OperatorConstants.Merge.MERGE_TYPE, OperatorConstants.Merge.ROWS)
+        column_option = operator_config.get(OperatorConstants.Merge.COLUMN_OPTION)
+
+        # For INNER_JOIN use the intersection of all parent feature sets so that
+        # the input snapshot only contains features that will actually survive the
+        # merge — branch-exclusive keys are excluded here rather than added and
+        # then dropped inside _apply_special_case_logic.
+        if (
+            merge_type == OperatorConstants.Merge.COLUMNS
+            and column_option == OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN
+        ):
+            common_keys: set[str] = set(self._feature_metadata_to_dict(result=parent_results[0]).keys())
+            for pr in parent_results[1:]:
+                common_keys.intersection_update(self._feature_metadata_to_dict(result=pr).keys())
+            common_keys.add(join_key)
+            output_feature_set = common_keys
+        else:
+            # ROWS and FULL_OUTER_JOIN both expose all keys from all parents.
+            output_feature_set = {key for pr in parent_results for key in self._feature_metadata_to_dict(result=pr)}
+
+        # Build (suffix, feature_dict) pairs for the shared disambiguation loop.
+        parent_items: list[tuple[str, dict[str, Any]]] = []
+        for index, parent_result in enumerate(parent_results):
+            link_name = (
+                node_id_to_link_name.get(parent_result.source_node_id) if parent_result.source_node_id else None
+            ) or str(index)
+            parent_items.append((link_name, self._feature_metadata_to_dict(result=parent_result)))
+
+        return disambiguate_features(
+            parent_items=parent_items,
+            output_feature_set=output_feature_set,
+            join_key=join_key,
         )
 
     def _merge_node_result_into_propagation_result(
@@ -678,19 +773,24 @@ class FlowValidator:
             parent_node_map[node_id] = parent_ids
 
         def feature_debug_task(task_name, op_def, prev_result=None, link_name=None):
-            node_id = op_def.get(OperatorConstants.Misc.ID)
-            operator = op_def.get(OperatorConstants.Misc.OPERATOR)
+            node_id, operator, operator_config = self._get_required_node_fields(op_def=op_def)
+            parent_results = self._get_parent_results(prev_result=prev_result)
 
+            # Pass pre-extracted fields to avoid running _get_required_node_fields
+            # and _get_parent_results a second time inside _build_node_feature_result.
             node_result = self._build_node_feature_result(
-                op_def=op_def,
-                prev_result=prev_result,
+                node_id=node_id,
+                operator=operator,
+                operator_config=operator_config,
+                parent_results=parent_results,
                 global_config=global_config,
             )
 
-            node_features[node_id] = {
+            snapshot: dict[str, Any] = {
                 "node_id": node_id,
                 "node_name": op_def.get(OperatorConstants.Misc.NAME),
                 "operator": operator,
+                "operator_config": operator_config,
                 "parent_node_ids": parent_node_map.get(node_id, []),
                 "input_features": node_result.get_input_features(node_id=node_id),
                 "output_features": node_result.get_output_features(node_id=node_id),
@@ -700,6 +800,13 @@ class FlowValidator:
                 ),
                 "global_params": dict(node_result.global_params),
             }
+
+            # Expose parent FeaturePropagationResult objects for merge strategy
+            # computation in FlowEnrichmentService._build_node_feature_metadata().
+            if operator == OperatorConstants.Operators.MERGE:
+                snapshot["parent_results"] = parent_results
+
+            node_features[node_id] = snapshot
 
             return node_result
 

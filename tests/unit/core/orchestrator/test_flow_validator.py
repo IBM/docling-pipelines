@@ -7,6 +7,7 @@ import pytest
 from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import OperatorCategory
+from docpipe.core.orchestration.feature_propagation.models import FeaturePropagationResult
 from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
 from docpipe.exceptions.docpipe_exceptions import (
     FlowValidationException,
@@ -65,7 +66,7 @@ class TestFlowValidator:
 
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
-        flow_def = {}
+        flow_def: dict[str, object] = {}
 
         with pytest.raises(FlowValidationException) as exc_info:
             validator.validate(flow_def=flow_def, params={})
@@ -80,7 +81,7 @@ class TestFlowValidator:
 
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
-        flow_def = {DocpipeConstants.DAG: []}
+        flow_def: dict[str, object] = {DocpipeConstants.DAG: []}
 
         with pytest.raises(FlowValidationException) as exc_info:
             validator.validate_dag(flow_def=flow_def, global_config={})
@@ -307,7 +308,7 @@ class TestFlowValidator:
             {"id": "node2", "operator": "extract_op2"},
         ]
 
-        errors = []
+        errors: list[object] = []
 
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
@@ -325,7 +326,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}
-        alerts = []
+        alerts: list[object] = []
 
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Ingest
@@ -348,7 +349,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}
-        alerts = []
+        alerts: list[object] = []
 
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
@@ -374,7 +375,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"operator": "test_op"}  # Missing ID
-        alerts = []
+        alerts: list[object] = []
 
         # The method adds alerts but doesn't raise exception for missing ID
         validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
@@ -392,7 +393,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}  # Missing NAME
-        alerts = []
+        alerts: list[object] = []
 
         # The method adds alerts but doesn't raise exception for missing name
         validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
@@ -418,7 +419,7 @@ class TestFlowValidator:
             OperatorConstants.Columns.NAME: "Test Op",
             "operator": "test_op",
         }
-        alerts = []
+        alerts: list[object] = []
 
         result = validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
 
@@ -433,7 +434,7 @@ class TestFlowValidator:
 
         op_def = {"id": "node1", "name": "Test"}
         messages = [Mock(), Mock()]
-        alerts = []
+        alerts: list[object] = []
 
         with patch("docpipe.core.orchestration.flow_validator.add_validation_alert") as mock_add:
             validator.create_validation_alerts(op_def=op_def, messages=messages, alerts=alerts)
@@ -663,7 +664,7 @@ class TestFlowValidatorIntegration:
 
     def test_integration_empty_dag_fails(self, validator):
         """Test that empty DAG fails validation."""
-        flow_def = {"dag": []}
+        flow_def: dict[str, object] = {"dag": []}
 
         with pytest.raises(FlowValidationException) as exc_info:
             validator.validate_dag(flow_def=flow_def, global_config={})
@@ -766,13 +767,187 @@ class TestFlowValidatorIntegration:
             ]
         }
 
-        errors = []
+        errors: list[object] = []
         extract_count = validator.check_duplicate_extract_operators(
             sequence=flow_def["dag"], global_config={}, errors=errors
         )
 
         assert extract_count == 2, "Expected 2 extract operators"
         assert len(errors) > 0, "Expected error for multiple extract operators"
+
+
+class TestMergeParentInputFeatures:
+    """Unit tests for FlowValidator._merge_parent_input_features().
+
+    Verifies that duplicate feature keys across merge parents are suffixed
+    with the link_name (or numeric index fallback) rather than silently
+    overwritten.
+    """
+
+    @pytest.fixture
+    def validator(self):
+        mock_orchestrator = Mock()
+        mock_orchestrator.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orchestrator)
+
+    def _make_parent(self, *, features: dict, source_node_id: str | None = None) -> FeaturePropagationResult:
+        """Build a minimal FeaturePropagationResult with the given features."""
+        result = FeaturePropagationResult()
+        result.source_node_id = source_node_id
+        for name, desc in features.items():
+            result.add_feature(
+                feature_name=name,
+                node_id=source_node_id or "node",
+                description=desc,
+                available_for_filter=True,
+                available_for_vector_db=False,
+            )
+        return result
+
+    def _make_input_links(self, mapping: dict[str, str]) -> list[dict]:
+        """Turn {node_id: link_name} into the input_links list shape."""
+        return [{"node_id_ref": nid, "link_name": ln} for nid, ln in mapping.items()]
+
+    def test_non_merge_operator_uses_plain_update(self, validator):
+        """Non-merge nodes: plain update, no suffixing."""
+        p1 = self._make_parent(features={"id": "d1", "content": "d2"}, source_node_id="n1")
+        result = validator._merge_parent_input_features(
+            parent_results=[p1],
+            operator="chunker",
+            operator_config={},
+        )
+        assert set(result.keys()) == {"id", "content"}
+
+    def test_single_merge_parent_no_suffix(self, validator):
+        """Single merge parent: no disambiguation needed."""
+        p1 = self._make_parent(features={"id": "d1", "text": "d2"}, source_node_id="n1")
+        result = validator._merge_parent_input_features(
+            parent_results=[p1],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config={"input_links": [{"node_id_ref": "n1", "link_name": "Link_1"}]},
+        )
+        assert set(result.keys()) == {"id", "text"}
+
+    def test_merge_two_parents_distinct_features(self, validator):
+        """Two parents with no overlapping keys: both sets present, no suffix."""
+        p1 = self._make_parent(features={"id": "d", "content": "d"}, source_node_id="n1")
+        p2 = self._make_parent(features={"id": "d", "size": "d"}, source_node_id="n2")
+        config = {"input_links": self._make_input_links({"n1": "Link_1", "n2": "Link_2"})}
+        result = validator._merge_parent_input_features(
+            parent_results=[p1, p2],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config=config,
+        )
+        assert "id" in result
+        assert "content" in result
+        assert "size" in result
+        # no suffixed duplicates
+        assert not any("_Link" in k for k in result)
+
+    def test_merge_duplicate_feature_gets_link_name_suffix(self, validator):
+        """Duplicate key on second parent gets _<link_name> suffix."""
+        p1 = self._make_parent(features={"id": "d", "content": "from-p1"}, source_node_id="n1")
+        p2 = self._make_parent(features={"id": "d", "content": "from-p2"}, source_node_id="n2")
+        config = {"input_links": self._make_input_links({"n1": "Link_5", "n2": "Link_6"})}
+        result = validator._merge_parent_input_features(
+            parent_results=[p1, p2],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config=config,
+        )
+        assert "content" in result  # first occurrence kept as-is
+        assert "content_Link_6" in result  # second occurrence suffixed with p2's link name
+        assert result["content"]["description"] == "from-p1"
+        assert result["content_Link_6"]["description"] == "from-p2"
+
+    def test_merge_id_is_never_suffixed(self, validator):
+        """Primary key 'id' must never be suffixed even when both parents carry it."""
+        p1 = self._make_parent(features={"id": "from-p1", "x": "d"}, source_node_id="n1")
+        p2 = self._make_parent(features={"id": "from-p2", "x": "d"}, source_node_id="n2")
+        config = {"input_links": self._make_input_links({"n1": "Link_A", "n2": "Link_B"})}
+        result = validator._merge_parent_input_features(
+            parent_results=[p1, p2],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config=config,
+        )
+        assert "id" in result
+        assert "id_Link_B" not in result  # no suffixed id
+        assert result["id"]["description"] == "from-p1"  # first occurrence wins
+
+    def test_merge_fallback_to_numeric_index_when_no_link_name_map(self, validator):
+        """When input_links is empty, falls back to numeric index suffix."""
+        p1 = self._make_parent(features={"id": "d", "content": "p1"}, source_node_id="n1")
+        p2 = self._make_parent(features={"id": "d", "content": "p2"}, source_node_id="n2")
+        result = validator._merge_parent_input_features(
+            parent_results=[p1, p2],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config={},  # no input_links
+        )
+        assert "content" in result
+        assert "content_1" in result  # numeric index 1 (second parent)
+
+    def test_merge_fallback_to_numeric_when_source_node_id_absent(self, validator):
+        """source_node_id=None on a parent: falls back to numeric index."""
+        p1 = self._make_parent(features={"id": "d", "content": "p1"}, source_node_id="n1")
+        p2 = self._make_parent(features={"id": "d", "content": "p2"}, source_node_id=None)
+        config = {"input_links": self._make_input_links({"n1": "Link_1"})}
+        result = validator._merge_parent_input_features(
+            parent_results=[p1, p2],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config=config,
+        )
+        assert "content" in result
+        assert "content_1" in result  # numeric index for unresolved parent
+
+    def test_merge_inner_join_excludes_branch_exclusive_features(self, validator):
+        """INNER_JOIN gate: features present in only one branch must not appear in input snapshot."""
+        p1 = self._make_parent(
+            features={"id": "d", "content": "d", "only_p1": "exclusive"},
+            source_node_id="n1",
+        )
+        p2 = self._make_parent(
+            features={"id": "d", "content": "d", "only_p2": "exclusive"},
+            source_node_id="n2",
+        )
+        config = {
+            "merge_type": OperatorConstants.Merge.COLUMNS,
+            "column_option": OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN,
+            "input_links": self._make_input_links({"n1": "Link_5", "n2": "Link_6"}),
+        }
+        result = validator._merge_parent_input_features(
+            parent_results=[p1, p2],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config=config,
+        )
+        # Only features common to both branches (plus id) should be in the input snapshot
+        assert "id" in result
+        assert "content" in result
+        assert "only_p1" not in result
+        assert "only_p2" not in result
+
+    def test_merge_full_outer_includes_all_features(self, validator):
+        """FULL_OUTER gate: all features from all branches appear in input snapshot."""
+        p1 = self._make_parent(
+            features={"id": "d", "content": "d", "only_p1": "exclusive"},
+            source_node_id="n1",
+        )
+        p2 = self._make_parent(
+            features={"id": "d", "content": "d", "only_p2": "exclusive"},
+            source_node_id="n2",
+        )
+        config = {
+            "merge_type": OperatorConstants.Merge.COLUMNS,
+            "column_option": OperatorConstants.Merge.FULL_OUTER_JOIN,
+            "input_links": self._make_input_links({"n1": "Link_5", "n2": "Link_6"}),
+        }
+        result = validator._merge_parent_input_features(
+            parent_results=[p1, p2],
+            operator=OperatorConstants.Operators.MERGE,
+            operator_config=config,
+        )
+        assert "id" in result
+        assert "content" in result
+        assert "only_p1" in result
+        assert "only_p2" in result
 
 
 if __name__ == "__main__":

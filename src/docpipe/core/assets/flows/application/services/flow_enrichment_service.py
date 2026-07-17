@@ -7,17 +7,25 @@ from typing import Any, Callable
 
 from docpipe.core.assets.flows.application.services.validation_service import ValidationService
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
 from docpipe.core.orchestration.flow_validator import FlowValidator
+from docpipe.utils.orchestration.elyra_converter import ElyraConstants
 
 logger = logging.getLogger(__name__)
 
 
-def _default_validator_factory() -> FlowValidator:
+def _default_validator_factory(
+    feature_propagator: FeaturePropagator | None = None,
+) -> FlowValidator:
     """Create a FlowValidator backed by a fresh Python orchestrator.
 
     Constructs a Python-mode orchestrator, initialises it with fixed
     job/run IDs suitable for metadata work (no persistence side-effects),
     and wraps it in a FlowValidator ready for feature propagation.
+
+    Args:
+        feature_propagator: Optional shared FeaturePropagator instance to inject
+            into the validator, avoiding a redundant operator-metadata load.
 
     Returns:
         FlowValidator: A fully initialised validator instance.
@@ -27,7 +35,7 @@ def _default_validator_factory() -> FlowValidator:
 
     orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
     orchestrator.initialize(job_id="enrich-flow", job_run_id="enrich-flow-run")
-    return FlowValidator(orchestrator=orchestrator)
+    return FlowValidator(orchestrator=orchestrator, feature_propagator=feature_propagator)
 
 
 class FlowEnrichmentService:
@@ -57,12 +65,17 @@ class FlowEnrichmentService:
 
         Args:
             validator_factory: Zero-argument callable that returns a ready-to-use
-                FlowValidator. Defaults to _default_validator_factory, which
-                creates a Python-mode orchestrator per call. Override in tests
-                to inject a mock validator without touching the orchestrator stack.
+                FlowValidator. Defaults to a closure over _default_validator_factory
+                that injects ``self._propagator`` so operator metadata is loaded only
+                once per service instance. Override in tests to inject a mock validator
+                without touching the orchestrator stack.
         """
-        self._validator_factory = validator_factory or _default_validator_factory
         self._validation_service = ValidationService()
+        # Shared propagator used both by _build_node_feature_metadata() (three-strategy
+        # merge dict) and, when using the default factory, by the FlowValidator — so
+        # operator metadata is loaded exactly once per FlowEnrichmentService instance.
+        self._propagator = FeaturePropagator()
+        self._validator_factory = validator_factory or (lambda: _default_validator_factory(self._propagator))
 
     def enrich_flow_with_features(
         self,
@@ -141,8 +154,7 @@ class FlowEnrichmentService:
                 node_feature_result = node_features.get(node_id)
                 if node_feature_result is None:
                     continue
-                operator_name = node.get(OperatorConstants.Misc.OPERATOR, "")
-                # Inject into node.parameters (top-level), never into app_data
+                operator_name = node.get(ElyraConstants.OP, "")
                 node_params = node.setdefault(OperatorConstants.Config.PARAMETERS, {})
                 node_params.update(
                     self._build_node_feature_metadata(
@@ -153,6 +165,134 @@ class FlowEnrichmentService:
                 )
         return enriched_flow
 
+    @staticmethod
+    def _normalise_feature_map(
+        feature_map: dict[str, Any],
+        fallback_node_id: str,
+    ) -> dict[str, Any]:
+        """Convert a raw feature map to the normalised shape expected by the API response.
+
+        Args:
+            feature_map: Mapping of feature name to raw feature attribute dict.
+            fallback_node_id: Used as ``node_id`` for features that have no
+                ``source_node_id`` stored in their attribute dict.
+
+        Returns:
+            Mapping of feature name to normalised attribute dict.
+        """
+        return {
+            feature_name: {
+                OperatorConstants.Misc.FEATURE_ATTR_NAME: feature_name,
+                OperatorConstants.Misc.FEATURE_ATTR_DESCRIPTION: feature_meta.get(
+                    OperatorConstants.Misc.FEATURE_ATTR_DESCRIPTION, ""
+                ),
+                OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_FILTER: feature_meta.get(
+                    OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_FILTER, True
+                ),
+                OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB: feature_meta.get(
+                    OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, False
+                ),
+                OperatorConstants.Misc.TYPE: feature_meta.get(OperatorConstants.Misc.TYPE, "string"),
+                OperatorConstants.Misc.FEATURE_ATTR_NODE_ID: feature_meta.get("source_node_id", fallback_node_id),
+                OperatorConstants.Misc.TAGS: feature_meta.get(OperatorConstants.Misc.TAGS, []),
+            }
+            for feature_name, feature_meta in feature_map.items()
+        }
+
+    def _build_merge_available_features(
+        self,
+        *,
+        node_id: str,
+        node_feature_result: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        """Build the three-strategy ``available_features`` dict for a merge node.
+
+        Called only when ``operator_type == MERGE``.
+
+        Args:
+            node_id: Elyra node ID used as the fallback ``node_id`` on feature entries.
+            node_feature_result: Per-node snapshot from
+                ``FlowValidator.propagate_features_per_node()``.  Must contain
+                ``parent_results`` and ``operator_config`` when the node has upstream
+                parents wired; falls back to a flat dict otherwise.
+
+        Returns:
+            A ``(available_features, merge_output_features)`` pair where:
+
+            - ``available_features`` is the three-strategy nested dict (or flat
+              fallback when no parents are wired).
+            - ``merge_output_features`` is the strategy bucket selected by
+              ``merge_type``/``column_option``, or ``None`` when no parents are
+              wired.
+        """
+        parent_results = node_feature_result.get("parent_results")
+        if not parent_results:
+            # No upstream nodes wired yet — return the flat available_feature_map
+            # from the propagator snapshot as a best-effort fallback.
+            flat_map = node_feature_result.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+            return self._normalise_feature_map(flat_map, node_id), None
+
+        operator_config = node_feature_result.get("operator_config", {})
+        input_links = operator_config.get(OperatorConstants.Merge.INPUT_LINKS, [])
+        node_id_to_link_name: dict[str, str] | None = {
+            lnk["node_id_ref"]: lnk[OperatorConstants.Misc.LINK_NAME]
+            for lnk in input_links
+            if lnk.get("node_id_ref") and lnk.get(OperatorConstants.Misc.LINK_NAME)
+        } or None
+
+        def _to_normalised(features: dict) -> dict[str, Any]:
+            return self._normalise_feature_map(
+                {k: self._propagator.feature_metadata_to_dict(feature_meta=v) for k, v in features.items()},
+                node_id,
+            )
+
+        concat_normalised = _to_normalised(
+            self._propagator.merge_features(
+                parent_results=parent_results,
+                merge_type=OperatorConstants.Merge.ROWS,
+            )
+        )
+        inner_normalised = _to_normalised(
+            self._propagator.merge_features(
+                parent_results=parent_results,
+                merge_type=OperatorConstants.Merge.COLUMNS,
+                column_option=OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN,
+                node_id_to_link_name=node_id_to_link_name,
+            )
+        )
+        outer_normalised = _to_normalised(
+            self._propagator.merge_features(
+                parent_results=parent_results,
+                merge_type=OperatorConstants.Merge.COLUMNS,
+                column_option=OperatorConstants.Merge.FULL_OUTER_JOIN,
+                node_id_to_link_name=node_id_to_link_name,
+            )
+        )
+
+        available_features = {
+            OperatorConstants.Misc.MERGE_STRATEGY_CONCATENATION: concat_normalised,
+            OperatorConstants.Misc.MERGE_STRATEGY_INNER_JOIN: inner_normalised,
+            OperatorConstants.Misc.MERGE_STRATEGY_FULL_OUTER_JOIN: outer_normalised,
+        }
+
+        # Select the output strategy bucket from the operator config.
+        # merge_type=rows → concatenation  (vertical stack, no schema constraint)
+        # merge_type=columns, full_outer    → full_outer_join  (all columns)
+        # merge_type=columns, inner_join    → inner_join_with_duplicate_columns
+        merge_type = operator_config.get(OperatorConstants.Merge.MERGE_TYPE, OperatorConstants.Merge.ROWS)
+        column_option = operator_config.get(OperatorConstants.Merge.COLUMN_OPTION)
+        if merge_type == OperatorConstants.Merge.COLUMNS and column_option == OperatorConstants.Merge.FULL_OUTER_JOIN:
+            merge_output_features: dict[str, Any] = outer_normalised
+        elif (
+            merge_type == OperatorConstants.Merge.COLUMNS
+            and column_option == OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN
+        ):
+            merge_output_features = inner_normalised
+        else:
+            merge_output_features = concat_normalised
+
+        return available_features, merge_output_features
+
     def _build_node_feature_metadata(
         self,
         *,
@@ -162,99 +302,82 @@ class FlowEnrichmentService:
     ) -> dict[str, Any]:
         """Build the feature metadata dict to merge into a single node's ``parameters``.
 
-        Converts raw feature maps from the propagator result into the
-        normalised shape expected by the UI,
-        and applies operator-specific rules for ``available_features``.
+        Converts raw feature maps from the propagator snapshot into the
+        normalised shape expected by the enrichment response and applies
+        operator-specific rules.
 
         Args:
-            node_id: The Elyra node ID, used as the fallback ``node_id`` value
-                when a feature's ``source_node_id`` is absent from the result.
-            node_feature_result: Per-node feature result as returned by
-                FlowValidator.propagate_features_per_node(). Expected keys:
+            node_id: Elyra node ID — used as the fallback ``node_id`` on
+                feature entries whose ``source_node_id`` is absent.
+            node_feature_result: Per-node snapshot returned by
+                FlowValidator.propagate_features_per_node(). Relevant keys:
 
-                - ``available_features`` (dict[str, dict]): post-special-case
-                  feature set visible at this node after SELECT/merge logic.
-                - ``input_features`` (dict[str, dict]): features flowing in
-                  from all upstream nodes.
-                - ``output_features`` (dict[str, dict]): new features produced
-                  by this node.
-                - ``dropped_features`` (list[str]): feature names removed by
-                  this node (informational only, not included in output).
+                - ``available_features``: flat feature map (post special-case logic)
+                - ``input_features``: features arriving from upstream nodes
+                - ``output_features``: new features introduced by this node
+                - ``parent_results``: list of FeaturePropagationResult objects —
+                  present only for merge nodes; used to build the three-strategy dict
+                - ``operator_config``: raw operator config dict — present only for
+                  merge nodes; used to select the active output strategy
 
-            operator_type: The ``op`` value from the Elyra node (e.g.
-                ``"sql_filter"``, ``"vectordb"``, ``"chunker"``). Determines
-                which ``available_features`` population rule applies.
+            operator_type: The Elyra ``op`` field (e.g. ``"merge"``,
+                ``"sql_filter"``, ``"chunker"``). Controls which
+                ``available_features`` rule applies and whether
+                ``output_features`` is overridden.
 
         Returns:
-            Dict with three keys ready to be merged into ``node.parameters``:
+            Dict with three keys to be merged into ``node.parameters``:
 
-            - ``available_features``: populated for ``sql_filter`` (criteria
-              dropdown) and ``vectordb`` (field-mapping UI); ``{}`` for all
-              other operators. For ``merge``, returns a flat dict for the
-              configured strategy.
-            - ``input_features``: normalised map of features received from
-              upstream nodes.
-            - ``output_features``: normalised map of features this node adds.
+            - ``available_features``: three-strategy nested dict for ``merge``;
+              flat feature map for ``sql_filter`` and ``vectordb``; ``{}`` for
+              all other operators.
+            - ``input_features``: normalised union of features from upstream nodes.
+            - ``output_features``: for merge nodes, the strategy bucket selected
+              by ``merge_type``/``column_option``; for all other nodes, the
+              features newly introduced by this node.
 
         Note:
             ``OperatorConstants.Operators.VECTORDB`` is ``"vectordb"``, not
-            ``"vectordb_operator"``. This must match the ``op`` value set by
+            ``"vectordb_operator"``. This must match the ``op`` set by
             ElyraConverter on VectorDB nodes.
         """
         available_feature_map = node_feature_result.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         input_feature_map = node_feature_result.get(OperatorConstants.Config.INPUT_FEATURES, {})
         output_feature_map = node_feature_result.get(OperatorConstants.Config.OUTPUT_FEATURES, {})
 
-        def _normalise_feature_map(feature_map: dict[str, Any], fallback_node_id: str) -> dict[str, Any]:
-            return {
-                feature_name: {
-                    OperatorConstants.Misc.FEATURE_ATTR_NAME: feature_name,
-                    OperatorConstants.Misc.FEATURE_ATTR_DESCRIPTION: feature_meta.get(
-                        OperatorConstants.Misc.FEATURE_ATTR_DESCRIPTION, ""
-                    ),
-                    OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_FILTER: feature_meta.get(
-                        OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_FILTER, True
-                    ),
-                    OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB: feature_meta.get(
-                        OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, False
-                    ),
-                    OperatorConstants.Misc.TYPE: feature_meta.get(OperatorConstants.Misc.TYPE, "string"),
-                    OperatorConstants.Misc.FEATURE_ATTR_NODE_ID: feature_meta.get("source_node_id", fallback_node_id),
-                    OperatorConstants.Misc.TAGS: feature_meta.get(OperatorConstants.Misc.TAGS, []),
-                }
-                for feature_name, feature_meta in feature_map.items()
-            }
+        # Holds the output_features for merge nodes (active strategy bucket).
+        # Stays None for all other operators, which use the propagator snapshot.
+        merge_output_features: dict[str, Any] | None = None
 
         if operator_type == OperatorConstants.Operators.SQL_FILTER:
             # TODO: available_features for sql_filter should contain only the features
             # that survive the SQL SELECT clause (post-filter feature set). Currently the
             # full available_feature_map is returned without applying SELECT-clause
             # pruning. This needs to be driven by the operator's configured SQL expression.
-            available_features = _normalise_feature_map(available_feature_map, node_id)
+            available_features = self._normalise_feature_map(available_feature_map, node_id)
         elif operator_type == OperatorConstants.Operators.VECTORDB:
             # TODO: available_features for vectordb should also include adapter-level
             # metadata: available_resources (index/collection names), selected_resource_schema
             # (field-level schema for the configured resource), feature_mappings, and
             # is_docpipe_supported_resource. These require a live OpenSearch/Milvus
             # connection and are not yet populated.
-            available_features = _normalise_feature_map(available_feature_map, node_id)
+            available_features = self._normalise_feature_map(available_feature_map, node_id)
         elif operator_type == OperatorConstants.Operators.MERGE:
-            # TODO: available_features for merge should be a three-key nested dict, one
-            # entry per strategy, keyed by strategy name:
-            #   OperatorConstants.Misc.MERGE_STRATEGY_FULL_OUTER_JOIN
-            #   OperatorConstants.Misc.MERGE_STRATEGY_INNER_JOIN
-            #   OperatorConstants.Misc.MERGE_STRATEGY_CONCATENATION
-            # Each value should be the feature set produced by calling merge_features()
-            # with that strategy applied. The configured strategy
-            # (node_feature_result["operator_config"].get(OperatorConstants.Misc.MERGE_TYPE))
-            # determines which entry the UI pre-selects, but all three must be present.
-            # Currently a flat dict for the single configured strategy is returned.
-            available_features = _normalise_feature_map(available_feature_map, node_id)
+            available_features, merge_output_features = self._build_merge_available_features(
+                node_id=node_id,
+                node_feature_result=node_feature_result,
+            )
         else:
             available_features = {}
 
         return {
             OperatorConstants.Config.AVAILABLE_FEATURES: available_features,
-            OperatorConstants.Config.INPUT_FEATURES: _normalise_feature_map(input_feature_map, node_id),
-            OperatorConstants.Config.OUTPUT_FEATURES: _normalise_feature_map(output_feature_map, node_id),
+            OperatorConstants.Config.INPUT_FEATURES: self._normalise_feature_map(input_feature_map, node_id),
+            OperatorConstants.Config.OUTPUT_FEATURES: (
+                # Merge nodes: use the strategy bucket matching the configured merge_type.
+                # All other nodes: use the propagator snapshot (features new to this node).
+                merge_output_features
+                if merge_output_features is not None
+                else self._normalise_feature_map(output_feature_map, node_id)
+            ),
         }

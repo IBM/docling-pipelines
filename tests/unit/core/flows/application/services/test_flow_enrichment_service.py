@@ -2,11 +2,14 @@
 
 from typing import Any
 from unittest.mock import MagicMock, patch
+from unittest.mock import patch as _patch
 
 import pytest
 
 from docpipe.core.assets.flows.application.services.flow_enrichment_service import FlowEnrichmentService
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
+from docpipe.core.orchestration.feature_propagation.models import FeaturePropagationResult
 from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
 # ---------------------------------------------------------------------------
@@ -340,3 +343,267 @@ class TestBuildNodeFeatureMetadataAvailableFeatures:
         assert result[OperatorConstants.Config.AVAILABLE_FEATURES] == {}
         assert result[OperatorConstants.Config.INPUT_FEATURES] == {}
         assert result[OperatorConstants.Config.OUTPUT_FEATURES] == {}
+
+
+# ---------------------------------------------------------------------------
+# Tests: _build_node_feature_metadata — merge three-strategy nested dict (P4)
+# ---------------------------------------------------------------------------
+
+
+def _make_parent_result(
+    features: dict[str, tuple[str, bool, bool]],
+    source_node_id: str = "upstream-node",
+) -> FeaturePropagationResult:
+    """Build a FeaturePropagationResult from {name: (description, filter, vector_db)}."""
+    result = FeaturePropagationResult()
+    result.source_node_id = source_node_id
+    for name, (desc, for_filter, for_vdb) in features.items():
+        result.add_feature(
+            feature_name=name,
+            node_id=source_node_id,
+            description=desc,
+            available_for_filter=for_filter,
+            available_for_vector_db=for_vdb,
+        )
+    return result
+
+
+def _build_merge_result(
+    parent_results: list,
+    available: dict | None = None,
+    operator_config: dict | None = None,
+) -> dict:
+    """Call _build_node_feature_metadata for a merge node.
+
+    FeaturePropagator.__init__ is bypassed to avoid loading the full operator
+    registry (which requires the optional 're2' native library).
+    """
+    with _patch.object(FeaturePropagator, "__init__", lambda self: None):
+        service = FlowEnrichmentService.__new__(FlowEnrichmentService)
+        # _propagator must be set explicitly because __new__ skips __init__.
+        service._propagator = FeaturePropagator()
+        node_feature_result = _make_node_feature_result(available=available or {})
+        node_feature_result["parent_results"] = parent_results
+        if operator_config is not None:
+            node_feature_result["operator_config"] = operator_config
+        return service._build_node_feature_metadata(
+            node_id="merge-node",
+            node_feature_result=node_feature_result,
+            operator_type=OperatorConstants.Operators.MERGE,
+        )
+
+
+class TestMergeAvailableFeaturesThreeStrategy:
+    """Tests for P4: merge available_features returns nested dict with three strategy keys."""
+
+    def test_three_strategy_keys_present(self):
+        """Three strategy keys are present when parent_results are provided."""
+        p1 = _make_parent_result({"id": ("ID", True, False), "content": ("Content", False, True)})
+        p2 = _make_parent_result({"id": ("ID", True, False), "title": ("Title", True, False)})
+
+        result = _build_merge_result([p1, p2])
+        af = result[OperatorConstants.Config.AVAILABLE_FEATURES]
+
+        assert OperatorConstants.Misc.MERGE_STRATEGY_CONCATENATION in af
+        assert OperatorConstants.Misc.MERGE_STRATEGY_INNER_JOIN in af
+        assert OperatorConstants.Misc.MERGE_STRATEGY_FULL_OUTER_JOIN in af
+
+    def test_concatenation_is_union_of_all_features(self):
+        """concatenation_with_different_schema contains the union of all parent features."""
+        p1 = _make_parent_result({"id": ("", True, False), "content": ("", False, True)})
+        p2 = _make_parent_result({"id": ("", True, False), "title": ("", True, False)})
+
+        result = _build_merge_result([p1, p2])
+        concat = result[OperatorConstants.Config.AVAILABLE_FEATURES][
+            OperatorConstants.Misc.MERGE_STRATEGY_CONCATENATION
+        ]
+
+        assert "id" in concat
+        assert "content" in concat
+        assert "title" in concat
+
+    def test_inner_join_contains_only_common_features(self):
+        """inner_join_with_duplicate_columns contains only features present in ALL parents."""
+        p1 = _make_parent_result({"id": ("", True, False), "content": ("", False, True), "only_p1": ("", True, False)})
+        p2 = _make_parent_result({"id": ("", True, False), "content": ("", False, True), "only_p2": ("", True, False)})
+
+        result = _build_merge_result([p1, p2])
+        inner = result[OperatorConstants.Config.AVAILABLE_FEATURES][OperatorConstants.Misc.MERGE_STRATEGY_INNER_JOIN]
+
+        assert "id" in inner
+        assert "content" in inner
+        assert "only_p1" not in inner
+        assert "only_p2" not in inner
+
+    def test_full_outer_join_contains_all_features_with_disambiguation(self):
+        """full_outer_join: first occurrence keeps plain key, 2nd+ gets link-name suffix."""
+        p1 = _make_parent_result({"id": ("", True, False), "name": ("Name", True, False)}, source_node_id="node-a")
+        p2 = _make_parent_result({"id": ("", True, False), "name": ("Name", True, False)}, source_node_id="node-b")
+        op_cfg = {
+            OperatorConstants.Merge.INPUT_LINKS: [
+                {"node_id_ref": "node-a", OperatorConstants.Misc.LINK_NAME: "Link_5"},
+                {"node_id_ref": "node-b", OperatorConstants.Misc.LINK_NAME: "Link_6"},
+            ]
+        }
+
+        result = _build_merge_result([p1, p2], operator_config=op_cfg)
+        outer = result[OperatorConstants.Config.AVAILABLE_FEATURES][
+            OperatorConstants.Misc.MERGE_STRATEGY_FULL_OUTER_JOIN
+        ]
+
+        assert "id" in outer
+        assert "name" in outer  # first occurrence: plain key
+        assert "name_Link_6" in outer  # second occurrence: suffixed with branch 2 link name
+        assert "name_Link_5" not in outer  # first occurrence is never suffixed
+
+    def test_single_parent_inner_join_contains_all_its_features(self):
+        """With a single parent, inner join returns all features from that parent."""
+        p1 = _make_parent_result({"id": ("", True, False), "content": ("", False, True)})
+
+        result = _build_merge_result([p1])
+        inner = result[OperatorConstants.Config.AVAILABLE_FEATURES][OperatorConstants.Misc.MERGE_STRATEGY_INNER_JOIN]
+
+        assert "id" in inner
+        assert "content" in inner
+
+    def test_fallback_to_flat_dict_when_no_parent_results(self):
+        """When parent_results is absent/empty, falls back to flat dict from available_feature_map."""
+        service = FlowEnrichmentService.__new__(FlowEnrichmentService)
+        available = {"id": _make_feature()}
+        node_feature_result = _make_node_feature_result(available=available)
+        # no "parent_results" key
+
+        result = service._build_node_feature_metadata(
+            node_id="merge-node",
+            node_feature_result=node_feature_result,
+            operator_type=OperatorConstants.Operators.MERGE,
+        )
+
+        af = result[OperatorConstants.Config.AVAILABLE_FEATURES]
+        # flat dict fallback — NOT a three-key nested structure
+        assert "id" in af
+        assert OperatorConstants.Misc.MERGE_STRATEGY_CONCATENATION not in af
+
+    def test_each_strategy_entry_has_normalised_feature_shape(self):
+        """Each feature inside a strategy dict has the expected normalised keys."""
+        p1 = _make_parent_result({"id": ("The ID", True, True)})
+
+        result = _build_merge_result([p1])
+        concat_features = result[OperatorConstants.Config.AVAILABLE_FEATURES][
+            OperatorConstants.Misc.MERGE_STRATEGY_CONCATENATION
+        ]
+        id_meta = concat_features["id"]
+
+        assert "name" in id_meta
+        assert "description" in id_meta
+        assert "available_for_filter" in id_meta
+        assert "available_for_vector_db" in id_meta
+        assert "type" in id_meta
+        assert "node_id" in id_meta
+        assert "tags" in id_meta
+
+
+# ---------------------------------------------------------------------------
+# Tests: _build_node_feature_metadata — output_features for merge node
+# ---------------------------------------------------------------------------
+
+
+class TestMergeOutputFeaturesSelection:
+    """output_features on a merge node must equal the active strategy bucket
+    selected by merge_type / column_option from operator_config."""
+
+    def _two_parent_config(self, merge_type: str, column_option: str | None = None) -> dict:
+        return {
+            OperatorConstants.Merge.MERGE_TYPE: merge_type,
+            OperatorConstants.Merge.COLUMN_OPTION: column_option,
+            OperatorConstants.Merge.INPUT_LINKS: [
+                {"node_id_ref": "node-a", OperatorConstants.Misc.LINK_NAME: "Link_5"},
+                {"node_id_ref": "node-b", OperatorConstants.Misc.LINK_NAME: "Link_6"},
+            ],
+        }
+
+    def test_rows_output_equals_concatenation_bucket(self):
+        """merge_type=rows → output_features == concatenation_with_different_schema."""
+        p1 = _make_parent_result({"id": ("", True, False), "content": ("", True, True)}, source_node_id="node-a")
+        p2 = _make_parent_result({"id": ("", True, False), "size": ("", True, False)}, source_node_id="node-b")
+
+        result = _build_merge_result([p1, p2], operator_config=self._two_parent_config(OperatorConstants.Merge.ROWS))
+
+        af = result[OperatorConstants.Config.AVAILABLE_FEATURES]
+        of = result[OperatorConstants.Config.OUTPUT_FEATURES]
+
+        assert set(of.keys()) == set(af[OperatorConstants.Misc.MERGE_STRATEGY_CONCATENATION].keys())
+
+    def test_columns_full_outer_output_equals_full_outer_bucket(self):
+        """merge_type=columns + column_option=full_outer → output_features == full_outer_join."""
+        p1 = _make_parent_result({"id": ("", True, False), "content": ("", True, True)}, source_node_id="node-a")
+        p2 = _make_parent_result({"id": ("", True, False), "content": ("", True, True)}, source_node_id="node-b")
+
+        result = _build_merge_result(
+            [p1, p2],
+            operator_config=self._two_parent_config(
+                OperatorConstants.Merge.COLUMNS, OperatorConstants.Merge.FULL_OUTER_JOIN
+            ),
+        )
+
+        af = result[OperatorConstants.Config.AVAILABLE_FEATURES]
+        of = result[OperatorConstants.Config.OUTPUT_FEATURES]
+
+        assert set(of.keys()) == set(af[OperatorConstants.Misc.MERGE_STRATEGY_FULL_OUTER_JOIN].keys())
+
+    def test_columns_inner_join_output_equals_inner_join_bucket(self):
+        """merge_type=columns + column_option=inner_join → output_features == inner_join_with_duplicate_columns."""
+        p1 = _make_parent_result(
+            {"id": ("", True, False), "content": ("", True, True), "only_a": ("", True, False)},
+            source_node_id="node-a",
+        )
+        p2 = _make_parent_result(
+            {"id": ("", True, False), "content": ("", True, True), "only_b": ("", True, False)},
+            source_node_id="node-b",
+        )
+
+        result = _build_merge_result(
+            [p1, p2],
+            operator_config=self._two_parent_config(
+                OperatorConstants.Merge.COLUMNS, OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN
+            ),
+        )
+
+        af = result[OperatorConstants.Config.AVAILABLE_FEATURES]
+        of = result[OperatorConstants.Config.OUTPUT_FEATURES]
+
+        # output_features matches inner_join bucket (no unique-only-branch features)
+        assert set(of.keys()) == set(af[OperatorConstants.Misc.MERGE_STRATEGY_INNER_JOIN].keys())
+        assert "only_a" not in of
+        assert "only_b" not in of
+
+    def test_output_features_contain_link_name_suffixes_for_column_merge(self):
+        """Suffixed duplicate keys appear in output_features for column merge types."""
+        p1 = _make_parent_result({"id": ("", True, False), "name": ("", True, False)}, source_node_id="node-a")
+        p2 = _make_parent_result({"id": ("", True, False), "name": ("", True, False)}, source_node_id="node-b")
+
+        result = _build_merge_result(
+            [p1, p2],
+            operator_config=self._two_parent_config(
+                OperatorConstants.Merge.COLUMNS, OperatorConstants.Merge.FULL_OUTER_JOIN
+            ),
+        )
+
+        of = result[OperatorConstants.Config.OUTPUT_FEATURES]
+        assert "name" in of  # first occurrence: plain key
+        assert "name_Link_6" in of  # second occurrence: suffixed
+        assert "id" in of
+        assert "id_Link_6" not in of  # primary key never suffixed
+
+    def test_no_parent_results_falls_back_to_propagator_output(self):
+        """Without parent_results, output_features uses the propagator-computed map."""
+        service = FlowEnrichmentService.__new__(FlowEnrichmentService)
+        outputs = {"chunk": _make_feature()}
+        node_feature_result = _make_node_feature_result(outputs=outputs)
+        # no "parent_results" key → merge_output_features stays None
+        result = service._build_node_feature_metadata(
+            node_id="merge-node",
+            node_feature_result=node_feature_result,
+            operator_type=OperatorConstants.Operators.MERGE,
+        )
+        assert "chunk" in result[OperatorConstants.Config.OUTPUT_FEATURES]
