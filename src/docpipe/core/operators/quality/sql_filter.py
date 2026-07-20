@@ -1,4 +1,3 @@
-import ast
 import re
 from enum import Enum
 from typing import Any
@@ -34,11 +33,12 @@ VALID_FILTER_LOGICAL_OPERATORS: list[str] = [
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
 ]
+
 # defaults
-FILTER_CRITERIA_DEFAULT: list[Any] = ast.literal_eval("[]")
+FILTER_CRITERIA_DEFAULT: list[Any] = []
 """ The default list of filter criteria (in SQL WHERE clause format)"""
 FILTER_LOGICAL_OPERATOR_DEFAULT: str = FILTER_LOGICAL_OPERATOR_AND
-FILTER_FEATURES_TO_DROP_DEFAULT: list[Any] = ast.literal_eval("[]")
+FILTER_FEATURES_TO_DROP_DEFAULT: list[Any] = []
 """ The default list of features to drop"""
 
 IS_NULL: str = "IS NULL"
@@ -70,8 +70,8 @@ class SQLFilterOperator(AbstractOperator):
         """
 
         super().__init__(config)
-        self.filter_criteria: list[str] = config.get(
-            OperatorConstants.Filtering.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT
+        self.filter_criteria: list[str] = (
+            config.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT) or []
         )
         self.logical_operator: str = config.get(
             OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY,
@@ -244,7 +244,8 @@ class SQLFilterOperator(AbstractOperator):
 
         # initialize the SQL statement used for filtering
         sql_statement: str = "SELECT * FROM input_table"
-        con: duckdb.DuckDBPyConnection | None = None
+        stats_sql: str = ""
+        needs_filter: bool = False
 
         if self.filter_criteria_json:
             if self.has_invalid_columns(
@@ -253,9 +254,11 @@ class SQLFilterOperator(AbstractOperator):
                 mode=Mode.FILTER_CRITERIA_JSON,
             ):
                 return [table]
+
             sql_where: str = json_to_sql_where(self.filter_criteria_json)
             sql_statement = sql_statement + " " + sql_where
-            con = duckdb.connect()
+            needs_filter = True
+
         elif len(self.filter_criteria) > 0:
             if self.has_invalid_columns(
                 input_table_columns_set=input_table_columns_set,
@@ -264,22 +267,19 @@ class SQLFilterOperator(AbstractOperator):
             ):
                 return [table]
 
-            # populate metadata with filtering stats for each filter criterion
-            con = duckdb.connect()
-            for filter_criterion in self.filter_criteria:
-                criterion_sql: str = f"{sql_statement} WHERE {filter_criterion}"
-                filter_table: pa.Table = con.execute(criterion_sql).arrow()
-                docs_filtered: int = total_docs - filter_table.num_rows
-                bytes_filtered: int = total_bytes - filter_table.nbytes
-                metadata[f"docs_filtered_out_by '{filter_criterion}'"] = docs_filtered
-                metadata[f"bytes_filtered_out_by '{filter_criterion}'"] = bytes_filtered
+            # populate per-criterion stats in a single query using conditional aggregation
+            case_exprs: list[str] = [
+                f"COUNT(CASE WHEN ({c}) THEN 1 END) AS _keep_{i}" for i, c in enumerate(self.filter_criteria)
+            ]
+            stats_sql = f"SELECT {', '.join(case_exprs)} FROM input_table"
 
             # use filtering criteria to build the SQL query for filtering
             filter_clauses: list[str] = [f"({x})" for x in self.filter_criteria]
             where_clause: str = f" {self.logical_operator} ".join(filter_clauses)
             sql_statement = f"{sql_statement} WHERE {where_clause}"
+            needs_filter = True
 
-        if "WHERE" in sql_statement and con is not None:
+        if needs_filter:
             # filter using SQL statement
             duckdb_binding_errors = (
                 duckdb.BinderException,
@@ -287,22 +287,31 @@ class SQLFilterOperator(AbstractOperator):
                 duckdb.CatalogException,
             )
 
-            try:
-                filtered_table: pa.Table = con.execute(sql_statement).arrow()
-            except duckdb_binding_errors as ex:  # type: ignore[misc]
-                binding_err_msg: str = f"Filter condition is invalid due to mismatched data types. (e.g. comparing text to numbers). Please review the filter expression and table schema. {ex}"
-                raise DocpipeException(
-                    message=binding_err_msg,
-                    status_code=400,
-                    error_code=ErrorCode.SQL_FILTER_ERROR,
-                ) from ex
-            except Exception as ex:
-                unexpected_err_msg: str = f"An unexpected error occurred. Please review your filter logic. {ex}"
-                raise DocpipeException(
-                    message=unexpected_err_msg,
-                    status_code=400,
-                    error_code=ErrorCode.SQL_FILTER_ERROR,
-                ) from ex
+            with duckdb.connect() as con:
+                try:
+                    # collect per-criterion stats before the main filter (filter_criteria_list path only)
+                    if len(self.filter_criteria) > 0 and not self.filter_criteria_json:
+                        stats_row = con.execute(stats_sql).fetchone()
+                        for i, criterion in enumerate(self.filter_criteria):
+                            keep_count: int = stats_row[i] if stats_row else 0  # type: ignore[index]
+                            docs_filtered: int = total_docs - keep_count
+                            metadata[f"docs_filtered_out_by '{criterion}'"] = docs_filtered
+
+                    filtered_table: pa.Table = con.execute(sql_statement).arrow()
+                except duckdb_binding_errors as ex:  # type: ignore[misc]
+                    binding_err_msg: str = f"Filter condition is invalid due to mismatched data types. (e.g. comparing text to numbers). Please review the filter expression and table schema. {ex}"
+                    raise DocpipeException(
+                        message=binding_err_msg,
+                        status_code=400,
+                        error_code=ErrorCode.SQL_FILTER_ERROR,
+                    ) from ex
+                except Exception as ex:
+                    unexpected_err_msg: str = f"An unexpected error occurred. Please review your filter logic. {ex}"
+                    raise DocpipeException(
+                        message=unexpected_err_msg,
+                        status_code=400,
+                        error_code=ErrorCode.SQL_FILTER_ERROR,
+                    ) from ex
         else:
             filtered_table = table
 
