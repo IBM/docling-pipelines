@@ -5,6 +5,14 @@ assets_management:
       # Set this to the directory where your flow definitions are stored (flow repository).
       base_dir: sample_flows
 
+projects_management:
+  project_repository:
+    type: local
+    config:
+      # Set this to the directory where project definitions are stored.
+      # Defaults to ~/Documents/pipeline/projects if not specified.
+      base_dir: sample_projects
+
 job_management:
   framework:
     type: default
@@ -29,7 +37,7 @@ incremental_metadata:
 #    type: duckdb
 #    config:
 #      database_path: ./data/duckdb/job_stats.duckdb
-    
+
     # To use PostgreSQL (requires running PostgreSQL server), uncomment below:
 #     type: postgresql
 #     config:

@@ -54,6 +54,19 @@ See [OAuth2 Authentication](OAUTH2_AUTHENTICATION.md) for full OAuth2/OIDC setup
 
 All data endpoints are prefixed with `/api/v1`.
 
+### Projects — `/api/v1/projects`
+
+Manage projects that group and organise flows. Deleting a project cascade-deletes all flows linked to it.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/projects` | Create a new project |
+| `GET` | `/api/v1/projects` | List projects (paginated, filterable by name/tags) |
+| `GET` | `/api/v1/projects/{project_id}` | Get a project by ID |
+| `PUT` | `/api/v1/projects/{project_id}` | Fully replace a project |
+| `PATCH` | `/api/v1/projects/{project_id}` | Partially update a project |
+| `DELETE` | `/api/v1/projects/{project_id}` | Delete a project (cascade-deletes linked flows) |
+
 ### Flows — `/api/v1/flows`
 
 Manage flow definitions (pipeline configurations).
@@ -149,6 +162,7 @@ See [ACL Document Retrieval](ACL_DOCUMENT_RETRIEVAL.md) for full details on ACL 
 |----------|---------|-------------|
 | `DS_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
+| `PROJECT_REPOSITORY_BASE_DIR` | — | Override project storage directory (takes precedence over `docling-pipelines-config.yaml`) |
 | `DOCPIPE_POSTGRES_*` | — | PostgreSQL backend for job stats (see [Environment Variables](../../USER_GUIDE_PIPELINE_SETUP.md)) |
 
 Authentication-specific variables are documented in [OAuth2 Authentication](OAUTH2_AUTHENTICATION.md).

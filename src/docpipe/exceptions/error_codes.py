@@ -100,3 +100,8 @@ class ErrorCode(StrEnum):
 
     # Document Class operations
     DOCUMENT_CLASS_LIST_FAILED = "document_class_list_failed"
+
+    # Project CRUD operations
+    PROJECT_NOT_FOUND = "project_not_found"
+    PROJECT_ALREADY_EXISTS = "project_already_exists"
+    PROJECT_INVALID_DATA = "project_invalid_data"

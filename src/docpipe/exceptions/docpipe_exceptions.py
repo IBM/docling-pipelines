@@ -391,6 +391,74 @@ class FlowStorageException(DocpipeException):
         self.flow_id = flow_id
 
 
+class ProjectNotFoundException(DocpipeException):
+    """
+    Exception raised when a project is not found.
+
+    Used in project CRUD operations when attempting to retrieve, update,
+    or delete a project that does not exist.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        project_id: str | None = None,
+        status_code: int = 404,
+    ):
+        super().__init__(
+            message or f"Project '{project_id}' not found",
+            status_code=status_code,
+            error_code=ErrorCode.PROJECT_NOT_FOUND,
+        )
+        self.project_id = project_id
+
+
+class ProjectAlreadyExistsException(DocpipeException):
+    """
+    Exception raised when a project with the same name already exists.
+
+    Used in project creation to prevent duplicate project names.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        project_name: str | None = None,
+        status_code: int = 409,
+    ):
+        super().__init__(
+            message or f"A project named '{project_name}' already exists",
+            status_code=status_code,
+            error_code=ErrorCode.PROJECT_ALREADY_EXISTS,
+        )
+        self.project_name = project_name
+
+
+class ProjectInvalidDataException(DocpipeException):
+    """
+    Exception raised when project data fails validation.
+
+    Used when project name is empty, exceeds length limits, or other
+    field-level validation errors occur.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        field_name: str | None = None,
+        status_code: int = 400,
+    ):
+        super().__init__(
+            message,
+            status_code=status_code,
+            error_code=ErrorCode.PROJECT_INVALID_DATA,
+        )
+        self.field_name = field_name
+
+
 class RepositoryConfigurationException(DocpipeException):
     """
     Exception raised when repository configuration is invalid.
@@ -777,6 +845,9 @@ __all__ = [
     "PostgresQueryException",
     "PostgresTransactionException",
     "PrefectFlowFailed",
+    "ProjectAlreadyExistsException",
+    "ProjectInvalidDataException",
+    "ProjectNotFoundException",
     "RepositoryConfigurationException",
     "ValidationAlert",
     "ValidationAlertEncoder",

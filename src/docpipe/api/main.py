@@ -106,6 +106,10 @@ app = FastAPI(
     ],
     openapi_tags=[
         {
+            "name": "Projects",
+            "description": "Project management operations for creating, listing, retrieving, updating, and deleting projects",
+        },
+        {
             "name": "Flows",
             "description": "Flow management operations for creating, reading, updating, and deleting data processing flows",
         },
