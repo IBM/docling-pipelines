@@ -2301,14 +2301,14 @@ Using a schema template:
 **Class:** `core.operators.document_sets.document_set_operator.DocumentSetOperator`
 
 | Parameter             | Type   | Required | Default                            | Description                                              |
-| --------------------- | ------ | -------: | ---------------------------------- | -------------------------------------------------------- |
+|-----------------------| ------ | -------: | ---------------------------------- | -------------------------------------------------------- |
 | `document_set_name`   | string |      Yes | -                                  | Unique name for the document set                         |
 | `description`         | string |       No | `null`                             | Description of the document set                          |
 | `metadata`            | object |       No | `null`                             | Additional metadata payload stored with the document set |
 | `retain_deleted_docs` | bool   |       No | `false`                            | Whether to retain soft-deleted documents                 |
 | `document_set_id`     | string |       No | `null`                             | Existing document set UUID for update flows              |
 | `database_path`       | string |       No | `data/duckdb/document_sets.duckdb` | Database file path used by DuckDB-backed adapters        |
-| `metadata_backend`    | string |       No | `duckdb`                           | Metadata repository backend                              |
+| `storage_type`        | string |       No | `duckdb`                           | Metadata repository backend                              |
 | `data_backend`        | string |       No | `duckdb`                           | Data store backend                                       |
 | `metadata_config`     | object |       No | `{}`                               | Backend-specific metadata repository configuration       |
 | `data_config`         | object |       No | `{}`                               | Backend-specific data store configuration                |
@@ -2376,29 +2376,29 @@ Common upstream fields from the sample flow:
 
 ```json
 {
-  "global_config": {
+  "type": "document_set",
+  "name": "documents",
+  "config": {
+    "document_set_name": "documents_collection",
+    "description": "Persistent storage of extracted document content with metadata tracking",
+    "database_path": "./data/document_sets/extracted_docs.duckdb",
+    "data_backend": "duckdb",
     "storage_type": "duckdb",
-    "database_path": "data/assets.db"
-  },
-  "nodes": [
-    {
-      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
-      "name": "store_in_document_set",
-      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
-      "operator_params": {
-        "document_set_name": "integration_test_documents",
-        "description": "Integration test for hexagonal architecture",
-        "data_backend": "duckdb"
-      }
+    "retain_deleted_docs": false,
+    "metadata": {
+      "pipeline_version": "1.0",
+      "extraction_method": "docling",
+      "created_by": "docpipe_pipeline",
+      "purpose": "demonstration_flow"
     }
-  ]
+  }
 }
 ```
 
 **Configuration Notes:**
 
-- `storage_type` in `global_config` controls metadata storage backend (default: "duckdb")
-- `database_path` in `global_config` specifies the database file location
+- `storage_type` in `config` controls metadata storage backend (default: "duckdb")
+- `database_path` in `config` specifies the database file location
 - `data_backend` in operator parameters controls PyArrow table data storage
 - Metadata and data can use different backends independently
 
@@ -2415,10 +2415,6 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
   "name": "ingest-extract-documentset",
   "flow_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
   "description": "Integration test flow for document set hexagonal architecture: Ingest -> Extract -> DocumentSet",
-  "global_config": {
-    "storage_type": "duckdb",
-    "database_path": "data/integration_test.db"
-  },
   "storage": "in-memory",
   "execute_type": "local",
   "global_config": {
@@ -2457,7 +2453,7 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
         "document_set_name": "integration_test_documents",
         "description": "Integration test for hexagonal architecture",
         "database_path": "data/integration_test.db",
-        "metadata_backend": "duckdb",
+        "storage_type": "duckdb",
         "data_backend": "duckdb"
       }
     }
@@ -2495,7 +2491,7 @@ uv run pytest tests/integration/api/test_document_sets_api.py -v
 
 **Extension**
 
-For new backends, implement the document set ports, register adapters with the factories, and configure `metadata_backend` and `data_backend`. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+For new backends, implement the document set ports, register adapters with the factories, and configure `storage_type` and `data_backend`. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 
 ---
 

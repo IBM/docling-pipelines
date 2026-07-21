@@ -3280,29 +3280,6 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
   - Validates configuration before instantiation
   - Supports multiple backends (currently: duckdb)
 
-#### Configuration
-
-**Flow Configuration (global_config)**:
-
-```json
-{
-  "global_config": {
-    "storage_type": "duckdb",
-    "database_path": "data/assets.db"
-  },
-  "nodes": [
-    {
-      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
-      "operator_params": {
-        "document_set_name": "my_documents",
-        "description": "Document collection",
-        "data_backend": "duckdb"
-      }
-    }
-  ]
-}
-```
-
 #### Entry Points
 
 Document sets can be managed through multiple entry points that share the same application and adapter layers:
@@ -3311,7 +3288,7 @@ Document sets can be managed through multiple entry points that share the same a
    - Persists PyArrow tables during flow execution
    - Returns the original input table unchanged for downstream operators
    - Uses factory-created metadata and data adapters
-   - Storage backend configured via `global_config.storage_type`
+   - Storage backend configured via `config.storage_type`
 
 2. **REST API** via `/api/v1/document-sets`
    - Creates, lists, retrieves, updates, deletes, and previews document sets
@@ -3373,17 +3350,15 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 
 ```json
 {
-  "global_config": {
-    "storage_type": "postgresql",
-    "connection_string": "postgresql://user:pass@localhost:5432/documents"  # pragma: allowlist secret
-  },
-  "nodes": [
-    {
-      "operator_params": {
-        "data_backend": "postgresql"
-      }
-    }
-  ]
+  "type": "document_set",
+  "name": "documents",
+  "config": {
+    "document_set_name": "documents_collection",
+    "description": "Persistent storage of extracted document content with metadata tracking",
+    "database_path": "./data/document_sets/extracted_docs.duckdb",
+    "data_backend": "postgresql",
+    "storage_type": "postgresql"
+  }
 }
 ```
 
@@ -3401,21 +3376,22 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 
 ```json
 {
-  "global_config": {
+  "type": "document_set",
+  "name": "documents",
+  "config": {
+    "document_set_name": "documents_collection",
+    "description": "Persistent storage of extracted document content with metadata tracking",
+    "database_path": "./data/document_sets/extracted_docs.duckdb",
+    "data_backend": "duckdb",
     "storage_type": "duckdb",
-    "database_path": "data/assets.db"
-  },
-  "nodes": [
-    {
-      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
-      "operator_params": {
-        "document_set_name": "my_documents",
-        "description": "Processed documents",
-        "data_backend": "duckdb",
-        "metadata": { "source": "pipeline_v1" }
-      }
+    "retain_deleted_docs": false,
+    "metadata": {
+      "pipeline_version": "1.0",
+      "extraction_method": "docling",
+      "created_by": "docpipe_pipeline",
+      "purpose": "demonstration_flow"
     }
-  ]
+  }
 }
 ```
 
@@ -3431,7 +3407,7 @@ Ingest → Extract → [Other Operators] → DocumentSetOperator → [Downstream
 
 #### Storage Type Configuration
 
-The `storage_type` in `global_config` determines the storage backend for metadata:
+The `storage_type` in `config` determines the storage backend for metadata:
 
 - **"duckdb"** (default): Uses DuckDB for both metadata and data storage
   - Metadata stored in key-value tables
