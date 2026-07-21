@@ -273,19 +273,55 @@ class TestEnrichFlowWithFeaturesMetadataInjection:
 class TestBuildNodeFeatureMetadataAvailableFeatures:
     """Tests for operator-specific available_features population rules."""
 
-    def _build(self, operator_type: str, available: dict | None = None) -> dict[str, Any]:
+    def _build(
+        self,
+        operator_type: str,
+        available: dict | None = None,
+        inputs: dict | None = None,
+    ) -> dict[str, Any]:
         service = FlowEnrichmentService.__new__(FlowEnrichmentService)
         return service._build_node_feature_metadata(
             node_id="node-x",
-            node_feature_result=_make_node_feature_result(available=available or {}),
+            node_feature_result=_make_node_feature_result(
+                available=available or {},
+                inputs=inputs or {},
+            ),
             operator_type=operator_type,
         )
 
-    def test_sql_filter_populates_available_features(self):
-        """sql_filter returns available_features from the snapshot."""
+    def test_sql_filter_populates_available_features_from_input_features(self):
+        """sql_filter available_features comes from input_feature_map, not available_feature_map.
+
+        All upstream features where available_for_filter=True are included so the UI
+        can populate the criteria/column dropdowns correctly.
+        """
+        inputs = {"content": _make_feature(), "doc_id": _make_feature()}
+        result = self._build(OperatorConstants.Operators.SQL_FILTER, inputs=inputs)
+        af = result[OperatorConstants.Config.AVAILABLE_FEATURES]
+        assert "content" in af
+        assert "doc_id" in af
+
+    def test_sql_filter_excludes_non_filterable_input_features(self):
+        """sql_filter available_features excludes features with available_for_filter=False.
+
+        Features like vector_embeddings should not appear in the criteria dropdown.
+        """
+        filterable = _make_feature()  # available_for_filter=True by default
+        non_filterable = {**_make_feature(), "available_for_filter": False}
+        inputs = {"doc_id": filterable, "vector_embeddings": non_filterable}
+        result = self._build(OperatorConstants.Operators.SQL_FILTER, inputs=inputs)
+        af = result[OperatorConstants.Config.AVAILABLE_FEATURES]
+        assert "doc_id" in af
+        assert "vector_embeddings" not in af
+
+    def test_sql_filter_ignores_available_feature_map(self):
+        """sql_filter available_features is built from input_features, not the propagator's
+        available_feature_map (the post-propagation snapshot, which may already have had
+        features dropped)."""
+        # Populate available but leave inputs empty — available_features must be empty too.
         available = {"content": _make_feature()}
         result = self._build(OperatorConstants.Operators.SQL_FILTER, available=available)
-        assert "content" in result[OperatorConstants.Config.AVAILABLE_FEATURES]
+        assert result[OperatorConstants.Config.AVAILABLE_FEATURES] == {}
 
     def test_vectordb_populates_available_features(self):
         """vectordb returns available_features from the snapshot."""

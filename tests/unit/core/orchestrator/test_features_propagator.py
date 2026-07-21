@@ -20,7 +20,7 @@ from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 def _make_feature_def(
     description: str = "",
     tags: list[str] | None = None,
-    available_for_filter: bool = True,
+    available_for_filter: bool = False,
     available_for_vector_db: bool = False,
     type_: str = "string",
 ) -> dict:
@@ -47,7 +47,7 @@ def _make_parent_result(
             node_id=source_node_id,
             description=fdef.get("description", ""),
             tags=fdef.get("tags", []),
-            available_for_filter=fdef.get("available_for_filter", True),
+            available_for_filter=fdef.get("available_for_filter", False),
             available_for_vector_db=fdef.get("available_for_vector_db", False),
             type=fdef.get("type", "string"),
         )
@@ -224,7 +224,12 @@ class TestExtractOperatorSpecialCase:
 
 
 class TestSQLFilterSpecialCase:
-    """Tests for SQLFilter operator special case handling."""
+    """Tests for SQLFilter operator special case handling.
+
+    SQLFilter filters rows only — it never modifies the column schema.
+    Feature propagation mirrors this: all input features pass through unchanged
+    unless the operator config contains an explicit features_to_drop list.
+    """
 
     @pytest.fixture
     def propagator(self):
@@ -240,12 +245,26 @@ class TestSQLFilterSpecialCase:
         "metadata": _make_feature_def(),
     }
 
-    def test_sql_filter_with_select_star_keeps_all_features(self, propagator):
-        """SELECT * keeps all features."""
+    def test_sql_filter_passes_all_features_through(self, propagator):
+        """sql_filter passes every input feature downstream unchanged (no SELECT pruning)."""
         result = propagator.propagate_features(
             node_id="filter-node",
             operator_short_name=OperatorConstants.Operators.SQL_FILTER,
-            operator_config={"sql_query": "SELECT * FROM table WHERE condition"},
+            operator_config={"sql_query": "SELECT id, content FROM table WHERE lang='en'"},
+            input_features=self._THREE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+
+        # All three features survive — the SELECT clause is irrelevant for propagation
+        assert {"id", "content", "metadata"} <= result.feature_metadata.keys()
+
+    def test_sql_filter_with_no_config_keeps_all_features(self, propagator):
+        """sql_filter with no features_to_drop config keeps everything."""
+        result = propagator.propagate_features(
+            node_id="filter-node",
+            operator_short_name=OperatorConstants.Operators.SQL_FILTER,
+            operator_config={},
             input_features=self._THREE_FEATURES,
             global_config={},
             parent_results=[],
@@ -253,12 +272,12 @@ class TestSQLFilterSpecialCase:
 
         assert {"id", "content", "metadata"} <= result.feature_metadata.keys()
 
-    def test_sql_filter_with_specific_columns_removes_others(self, propagator):
-        """SELECT specific columns removes non-selected features."""
+    def test_sql_filter_explicit_features_to_drop_removes_feature(self, propagator):
+        """Explicit features_to_drop list in operator config drops the named features."""
         result = propagator.propagate_features(
             node_id="filter-node",
             operator_short_name=OperatorConstants.Operators.SQL_FILTER,
-            operator_config={"sql_query": "SELECT id, content FROM table WHERE condition"},
+            operator_config={"features_to_drop": ["metadata"]},
             input_features=self._THREE_FEATURES,
             global_config={},
             parent_results=[],
@@ -268,12 +287,12 @@ class TestSQLFilterSpecialCase:
         assert "content" in result.feature_metadata
         assert "metadata" not in result.feature_metadata
 
-    def test_sql_filter_tracks_dropped_features(self, propagator):
-        """SQLFilter records which features were removed."""
+    def test_sql_filter_explicit_features_to_drop_is_tracked(self, propagator):
+        """Features dropped via features_to_drop are recorded in output_features_to_drop."""
         result = propagator.propagate_features(
             node_id="filter-node",
             operator_short_name=OperatorConstants.Operators.SQL_FILTER,
-            operator_config={"sql_query": "SELECT id, content FROM table"},
+            operator_config={"features_to_drop": ["metadata"]},
             input_features=self._THREE_FEATURES,
             global_config={},
             parent_results=[],
@@ -282,12 +301,12 @@ class TestSQLFilterSpecialCase:
         assert "metadata" in result.get_output_features_to_drop(node_id="filter-node").get_features_to_drop()
 
     def test_sql_filter_cannot_drop_mandatory_features(self, propagator):
-        """SQLFilter raises FlowValidationException when a mandatory feature is dropped."""
+        """SQLFilter raises FlowValidationException when features_to_drop targets a mandatory feature."""
         with pytest.raises(FlowValidationException) as exc_info:
             propagator.propagate_features(
                 node_id="filter-node",
                 operator_short_name=OperatorConstants.Operators.SQL_FILTER,
-                operator_config={"sql_query": "SELECT id FROM table"},  # drops mandatory 'content'
+                operator_config={"features_to_drop": ["content"]},
                 input_features={
                     "id": _make_feature_def(tags=["mandatory"]),
                     "content": _make_feature_def(tags=["mandatory"], available_for_filter=False),
@@ -299,6 +318,99 @@ class TestSQLFilterSpecialCase:
         errors = exc_info.value.errors or []
         assert len(errors) > 0
         assert "mandatory" in str(errors[0]).lower()
+
+
+class TestOutputFeaturesToDrop:
+    """output_features_to_drop is a generic config key — works on any operator.
+
+    Distinct from features_to_drop (sql_filter-specific). Applied after special-case
+    logic at the end of every propagation step, for every operator type.
+    """
+
+    @pytest.fixture
+    def propagator(self):
+        with patch.object(FeaturePropagator, "__init__", lambda x: None):
+            prop = FeaturePropagator()
+            prop.operator_metadata = Mock()
+            prop.operator_metadata.get_features = Mock(return_value={})
+            return prop
+
+    _THREE_FEATURES: ClassVar[dict] = {
+        "id": _make_feature_def(tags=["mandatory"]),
+        "content": _make_feature_def(),
+        "metadata": _make_feature_def(),
+    }
+
+    def test_removes_feature_on_any_operator(self, propagator):
+        """output_features_to_drop drops a feature on a generic operator (lang_detect)."""
+        result = propagator.propagate_features(
+            node_id="lang-node",
+            operator_short_name="lang_detect",
+            operator_config={"output_features_to_drop": ["metadata"]},
+            input_features=self._THREE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+
+        assert "metadata" not in result.feature_metadata
+        assert "id" in result.feature_metadata
+        assert "content" in result.feature_metadata
+
+    def test_dropped_features_are_tracked(self, propagator):
+        """Features dropped via output_features_to_drop are recorded in output_features_to_drop."""
+        result = propagator.propagate_features(
+            node_id="lang-node",
+            operator_short_name="lang_detect",
+            operator_config={"output_features_to_drop": ["metadata"]},
+            input_features=self._THREE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+
+        assert "metadata" in result.get_output_features_to_drop(node_id="lang-node").get_features_to_drop()
+
+    def test_cannot_drop_mandatory_features(self, propagator):
+        """output_features_to_drop raises FlowValidationException on mandatory features."""
+        with pytest.raises(FlowValidationException) as exc_info:
+            propagator.propagate_features(
+                node_id="lang-node",
+                operator_short_name="lang_detect",
+                operator_config={"output_features_to_drop": ["id"]},
+                input_features=self._THREE_FEATURES,
+                global_config={},
+                parent_results=[],
+            )
+
+        errors = exc_info.value.errors or []
+        assert len(errors) > 0
+        assert "mandatory" in str(errors[0]).lower()
+
+    def test_works_on_sql_filter(self, propagator):
+        """output_features_to_drop is distinct from features_to_drop and also works on sql_filter."""
+        result = propagator.propagate_features(
+            node_id="filter-node",
+            operator_short_name=OperatorConstants.Operators.SQL_FILTER,
+            operator_config={"output_features_to_drop": ["metadata"]},
+            input_features=self._THREE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+
+        assert "metadata" not in result.feature_metadata
+        assert "metadata" in result.get_output_features_to_drop(node_id="filter-node").get_features_to_drop()
+
+    def test_empty_list_is_noop(self, propagator):
+        """output_features_to_drop: [] leaves all features intact."""
+        result = propagator.propagate_features(
+            node_id="lang-node",
+            operator_short_name="lang_detect",
+            operator_config={"output_features_to_drop": []},
+            input_features=self._THREE_FEATURES,
+            global_config={},
+            parent_results=[],
+        )
+
+        assert {"id", "content", "metadata"} <= result.feature_metadata.keys()
 
 
 class TestMergeOperatorSpecialCase:
@@ -393,8 +505,8 @@ class TestMergeOperatorSpecialCase:
         assert "content_Link_6" in result.feature_metadata  # second occurrence: suffixed
         assert "content_Link_5" not in result.feature_metadata  # first is never suffixed
 
-    def test_merge_with_features_to_drop_config(self, propagator):
-        """features_to_drop removes the named features after merging."""
+    def test_merge_with_output_features_to_drop_config(self, propagator):
+        """output_features_to_drop (generic key) removes named features after merging."""
         p1 = _make_parent_result(
             {"id": _make_feature_def(), "content": _make_feature_def(), "metadata": _make_feature_def()}
         )
@@ -404,7 +516,7 @@ class TestMergeOperatorSpecialCase:
             operator_short_name=OperatorConstants.Operators.MERGE,
             operator_config={
                 OperatorConstants.Merge.MERGE_TYPE: OperatorConstants.Merge.ROWS,
-                "features_to_drop": ["metadata"],
+                "output_features_to_drop": ["metadata"],
             },
             input_features={},
             global_config={},

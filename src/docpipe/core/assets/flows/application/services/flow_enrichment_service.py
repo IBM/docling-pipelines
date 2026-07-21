@@ -187,7 +187,7 @@ class FlowEnrichmentService:
                     OperatorConstants.Misc.FEATURE_ATTR_DESCRIPTION, ""
                 ),
                 OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_FILTER: feature_meta.get(
-                    OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_FILTER, True
+                    OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_FILTER, False
                 ),
                 OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB: feature_meta.get(
                     OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, False
@@ -350,11 +350,18 @@ class FlowEnrichmentService:
         merge_output_features: dict[str, Any] | None = None
 
         if operator_type == OperatorConstants.Operators.SQL_FILTER:
-            # TODO: available_features for sql_filter should contain only the features
-            # that survive the SQL SELECT clause (post-filter feature set). Currently the
-            # full available_feature_map is returned without applying SELECT-clause
-            # pruning. This needs to be driven by the operator's configured SQL expression.
-            available_features = self._normalise_feature_map(available_feature_map, node_id)
+            # available_features for sql_filter = the features the UI should surface in
+            # criteria/column dropdowns: all upstream features where available_for_filter=True.
+            # Source: input_feature_map (the full set of features arriving at this node),
+            # not available_feature_map (the post-propagation snapshot, which may already
+            # have had features dropped by features_to_drop or output_features_to_drop).
+            # Only features explicitly marked available_for_filter=True are included.
+            filterable_features = {
+                k: v
+                for k, v in input_feature_map.items()
+                if v.get(OperatorConstants.Config.AVAILABLE_FOR_FILTER, False)
+            }
+            available_features = self._normalise_feature_map(filterable_features, node_id)
         elif operator_type == OperatorConstants.Operators.VECTORDB:
             # TODO: available_features for vectordb should also include adapter-level
             # metadata: available_resources (index/collection names), selected_resource_schema

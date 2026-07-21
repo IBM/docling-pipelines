@@ -20,7 +20,7 @@ class FeatureMetadata(BaseModel):
     description: str = Field(default="", description="Human-readable description of the feature")
     node_id: str = Field(..., description="ID of the operator that added this feature")
     tags: list[str] = Field(default_factory=list, description="Tags like 'mandatory', 'internal', etc.")
-    available_for_filter: bool = Field(default=True, description="Whether feature can be used in SQL filters")
+    available_for_filter: bool = Field(default=False, description="Whether feature can be used in SQL filters")
     available_for_vector_db: bool = Field(default=False, description="Whether feature can be stored in vector DB")
     type: str = Field(default="string", description="Data type of the feature")
 

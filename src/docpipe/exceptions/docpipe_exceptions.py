@@ -92,7 +92,7 @@ class FlowValidationException(DocpipeException):
         errors: list[ValidationAlert | ValidationMessage] | None = None,
         warnings: list[ValidationAlert | ValidationMessage] | None = None,
     ):
-        super().__init__(message, 400)
+        super().__init__(message, 400, error_code=ErrorCode.FLOW_VALIDATION_FAILED)
 
         self.errors = errors
         self.warnings = warnings

@@ -190,6 +190,8 @@ def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONRe
     Returns:
         JSONResponse: REST API standard error response
     """
+    from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+
     trace_id = get_trace_id(request)
 
     # Map specific HTTP status codes to their standard API error codes.
@@ -200,6 +202,35 @@ def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONRe
     }
     domain_error_code = str(exc.error_code.value) if exc.error_code else None
     api_error_code = status_code_error_map.get(exc.status_code) or domain_error_code or "internal_error"
+
+    # FlowValidationException carries a structured errors list — unpack each
+    # alert as a separate ErrorDetail so the caller gets actionable per-error detail.
+    if isinstance(exc, FlowValidationException) and exc.errors:
+        errors = []
+        for alert in exc.errors:
+            message = getattr(alert, "message", str(alert))
+            message_code = getattr(alert, "message_code", None)
+            errors.append(
+                ErrorDetail(
+                    code=api_error_code,  # type: ignore[arg-type]
+                    message=f"{message_code}: {message}" if message_code else message,
+                )
+            )
+        error_response = ErrorResponse(
+            errors=errors,
+            trace=trace_id,
+            status_code=exc.status_code,
+        )
+        logger.error(
+            "FlowValidationException: trace=%s, errors=%d",
+            trace_id,
+            len(errors),
+            exc_info=True,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response.model_dump(exclude_none=True),
+        )
 
     # Extract target information if available (for flow-specific exceptions)
     target = None
