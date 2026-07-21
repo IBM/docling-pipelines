@@ -45,6 +45,7 @@ Configuration examples and patterns for all operators:
 - **[Chunker](operators/functional/chunker_readme.md)** - Split documents into chunks
 - **[Embeddings](operators/functional/embeddings_readme.md)** - Generate vector embeddings
 - **[VectorDB](operators/vectordb/)** - Store vectors in OpenSearch or Milvus
+- **[StorageOutput](operators/storage/storage_output_readme.md)** - Write documents to a file destination (filesystem, etc.)
 
 ### All Operator Configurations
 Browse the complete list of operator configuration examples in the [operators/](operators/) directory.

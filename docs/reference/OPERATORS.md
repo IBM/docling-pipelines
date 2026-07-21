@@ -39,6 +39,7 @@ title: Operator Reference
       - [VectorDBOperator](#vectordboperator)
     - [Storage Operators](#storage-operators)
       - [DocumentSetOperator](#documentsetoperator)
+      - [StorageOutputOperator](#storageoutputoperator)
   - [DocpipeFlowManager API](#docpipeflowmanager-api)
     - [Constructor](#constructor)
     - [`validate()`](#validate)
@@ -2495,6 +2496,110 @@ uv run pytest tests/integration/api/test_document_sets_api.py -v
 **Extension**
 
 For new backends, implement the document set ports, register adapters with the factories, and configure `metadata_backend` and `data_backend`. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+
+---
+
+#### StorageOutputOperator
+
+**Purpose:** Write pipeline documents to a file-system (or pluggable) storage destination, supporting three modes: `processed_content`, `refetch_original`, and `comprehensive_export`.
+
+**Category:** Storage
+
+**Class:** `core.operators.storage.storage_output_operator.StorageOutputOperator`
+
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `mode` | string | Yes | — | `processed_content`, `refetch_original`, or `comprehensive_export` |
+| `destination_config` | object | Yes | — | Destination connection configuration |
+| `output_format` | object | No | `{}` | Controls content format and sidecar options |
+| `output_structure` | object | No | `{}` | Controls output directory / file naming |
+
+**`destination_config` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `provider` | string | Adapter name — currently `filesystem` |
+| `connection_params` | object | Provider-specific connection parameters |
+| `credentials` | object | Provider-specific credentials |
+
+**Filesystem `connection_params`**
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `root_path` | string | required | Base directory to write files into |
+| `create_dirs` | bool | `true` | Auto-create missing subdirectories |
+
+**`output_format` fields**
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `content_format` | string | `md` | Content file extension: `md`, `txt`, or `json` |
+| `include_metadata_sidecar` | bool | `false` | Write a `.meta.json` sidecar per document (`comprehensive_export` only) |
+
+**`output_structure` fields**
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `type` | string | `flat` | `flat` or `hierarchical` (mirrors source directory tree) |
+| `path_template` | string | `{name}.{ext}` | Template string for file path relative to `root_path` |
+| `overwrite_existing` | bool | `true` | When `false`, existing files are skipped and recorded with `write_status = skipped` |
+
+**Path template variables:** `{doc_id}`, `{name}` (stem without extension), `{ext}`, `{year}`, `{month}`, `{day}`
+
+**Operating Modes**
+
+- **`processed_content`** — writes `content` column as `.md` / `.txt` / `.json`. No source connection required. Requires `id`, `name`, `content` columns.
+- **`refetch_original`** — re-fetches the original binary from the upstream ingest source and writes it to the destination. Requires an upstream ingest_source operator and `id`, `name`, `path`, `document_format` columns.
+- **`comprehensive_export`** — writes original binary + extracted content file + optional metadata sidecar per document. Requires upstream ingest_source and `id`, `name`, `path`, `content`, `metadata`, `document_format` columns.
+
+**Output Schema**
+
+All input columns are passed through unchanged. The following columns are appended:
+
+| Column | Type | Values |
+| --- | --- | --- |
+| `write_status` | string | `success`, `failed`, `skipped` |
+| `destination_path` | string | Full path written; `null` on failure |
+| `bytes_written` | int64 | Bytes written; `0` on failure |
+| `write_error` | string | Error message; `null` on success |
+
+**Sample Flow Configuration**
+
+```json
+{
+  "dag": [
+    {
+      "id": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+      "name": "write_to_filesystem",
+      "operator": "storage_output",
+      "config": {
+        "mode": "processed_content",
+        "destination_config": {
+          "provider": "filesystem",
+          "connection_params": {
+            "root_path": "/output/docs",
+            "create_dirs": true
+          },
+          "credentials": {}
+        },
+        "output_format": { "content_format": "md" },
+        "output_structure": {
+          "path_template": "{year}/{month}/{doc_id}.{ext}",
+          "overwrite_existing": true
+        }
+      }
+    }
+  ]
+}
+```
+
+**Flow Pattern**
+
+```text
+IngestLocalOperator / IngestSourceOperator -> ExtractOperator -> StorageOutputOperator
+```
+
+For detailed usage, mode descriptions, and additional examples see [`StorageOutputOperator`](operators/storage/storage_output_readme.md).
 
 ---
 

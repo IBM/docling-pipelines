@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Added
 
+- `StorageOutputOperator` — writes pipeline documents to a pluggable storage destination with three modes: `processed_content`, `refetch_original`, and `comprehensive_export`. Includes `FilesystemDestinationAdapter` and `DestinationAdapterFactory` for extensible backend support.
 - Initial public open-source release preparation
 - Release process documentation (`RELEASE_PROCESS.md`)
 - Deprecation policy (`docs/guides/DEPRECATION_POLICY.md`)

@@ -523,8 +523,11 @@ class FlowValidator:
                 operator_class = operator_factory.operators.get(operator_name)
 
                 if operator_class is not None:
-                    config = global_config | op_def.get(OperatorConstants.Config.CONFIG, {})
-
+                    config = (
+                        global_config
+                        | op_def.get(OperatorConstants.Config.CONFIG, {})
+                        | {DocpipeConstants.VALIDATING_FLOW: True}
+                    )
                     operator = operator_class(config=config)
                     operator.name = op_def.get(OperatorConstants.Columns.NAME)
                     operator.id = op_def.get(OperatorConstants.Columns.ID)

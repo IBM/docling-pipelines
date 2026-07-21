@@ -1,0 +1,59 @@
+{
+  "flow_name": "comprehensive-export-filesystem",
+  "description": "Ingest documents, extract text, then write a complete archive per document: original binary + extracted markdown + metadata JSON sidecar. Useful for compliance, QA, and data handoff.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "root_path": "/data/source/documents",
+          "recursive": true
+        },
+        "credentials": {}
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": ["ingest"]
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "comprehensive_export",
+        "destination_config": {
+          "provider": "filesystem",
+          "connection_params": {
+            "root_path": "/data/archive/originals",
+            "create_dirs": true
+          },
+          "credentials": {}
+        },
+        "output_format": {
+          "content_format": "md",
+          "include_metadata_sidecar": true
+        },
+        "output_structure": {
+          "type": "flat",
+          "path_template": "{year}/{month}/{doc_id}/{name}.{ext}",
+          "overwrite_existing": true
+        }
+      },
+      "depends_on": ["extract"]
+    }
+  ]
+}

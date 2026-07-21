@@ -1,0 +1,57 @@
+{
+  "flow_name": "export-markdown-filesystem",
+  "description": "Ingest PDFs, extract text with Docling, write extracted markdown to local filesystem.",
+  "global_config": {
+    "execute_type": "local",
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "root_path": "/data/source/documents",
+          "recursive": true
+        },
+        "credentials": {}
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": ["ingest"]
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "processed_content",
+        "destination_config": {
+          "provider": "filesystem",
+          "connection_params": {
+            "root_path": "/data/archive/originals",
+            "create_dirs": true
+          },
+          "credentials": {}
+        },
+        "output_format": {
+          "content_format": "md"
+        },
+        "output_structure": {
+          "type": "flat",
+          "path_template": "{year}/{month}/{name}.{ext}",
+          "overwrite_existing": true
+        }
+      },
+      "depends_on": ["extract"]
+    }
+  ]
+}

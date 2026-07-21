@@ -39,6 +39,7 @@ from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator import PII
 from docpipe.core.operators.quality.readability import ReadabilityOperator
 from docpipe.core.operators.quality.redaction import RedactionOperator
 from docpipe.core.operators.quality.sql_filter import SQLFilterOperator
+from docpipe.core.operators.storage.storage_output_operator import StorageOutputOperator
 
 # VectorDB Operators
 from docpipe.core.operators.vectordb.vectordb_operator import VectorDBOperator
@@ -76,6 +77,7 @@ DOCPIPE_OPERATORS = frozenset(
         VectorDBOperator,
         # Storage
         DocumentSetOperator,
+        StorageOutputOperator,
     }
 )
 

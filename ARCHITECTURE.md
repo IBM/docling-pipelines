@@ -26,7 +26,7 @@ Docling-pipelines is a modular, operator-based data processing framework designe
 
 ### Key Capabilities
 
-- **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
+- **Operator-Based Architecture**: 20+ specialized operators organized into 6 categories (Extract, Ingest, Functional, Quality, VectorDB, Storage)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
 - **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
 - **Prefect Orchestration**: Workflow execution managed by Prefect with support for both ephemeral (local) and distributed execution via work pools (Docker)
@@ -114,6 +114,10 @@ graph TB
         end
         subgraph "VectorDB"
             VDB[VectorDBOperator]
+        end
+        subgraph "Storage"
+            DSO[DocumentSetOperator]
+            SOO[StorageOutputOperator]
         end
     end
 
@@ -299,6 +303,7 @@ graph LR
     OP --> FUN[Functional]
     OP --> QUA[Quality]
     OP --> VDB[VectorDB]
+    OP --> STO[Storage]
 
     ING --> I1[IngestLocalOperator]
     ING --> I2[IngestSourceOperator]
@@ -322,12 +327,16 @@ graph LR
 
     VDB --> V1[VectorDBOperator]
 
+    STO --> S1[DocumentSetOperator]
+    STO --> S2[StorageOutputOperator]
+
     style OP fill:#f9f9f9
     style EXT fill:#ffe6e6
     style ING fill:#e6f3ff
     style FUN fill:#fff4e6
     style QUA fill:#e6ffe6
     style VDB fill:#f3e6ff
+    style STO fill:#e6f9f9
 ```
 
 ### Custom Operator Ownership and Priority
