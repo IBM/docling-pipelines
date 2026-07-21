@@ -1,5 +1,7 @@
 """Unit tests for FlowService."""
 
+import logging
+import logging.handlers
 from datetime import UTC, datetime
 from unittest.mock import patch
 
@@ -266,12 +268,8 @@ class TestFlowServicePartialUpdate:
         # Verify repository was never called
         mock_flow_repository.find_by_id.assert_not_called()
 
-    def test_partial_update_flow_tracks_updated_fields(self, mock_flow_repository, sample_flow_with_id, caplog):
+    def test_partial_update_flow_tracks_updated_fields(self, mock_flow_repository, sample_flow_with_id):
         """Test that partial_update_flow tracks and logs updated fields."""
-        import logging
-
-        caplog.set_level(logging.INFO)
-
         # Arrange
         updated_flow = Flow.from_dict(data=sample_flow_with_id.to_dict())
         updated_flow.name = "new_name"
@@ -282,15 +280,23 @@ class TestFlowServicePartialUpdate:
         service = FlowService(repository=mock_flow_repository)
         updates = {"name": "new_name", "description": "new_desc"}
 
-        # Act
-        result = service.partial_update_flow("test-flow-id-123", updates)
+        flow_logger = logging.getLogger("docpipe.core.assets.flows.application.services.flow_service")
+        handler = logging.handlers.MemoryHandler(capacity=100, flushLevel=logging.CRITICAL)
+        handler.setLevel(logging.INFO)
+        flow_logger.addHandler(handler)
+        try:
+            result = service.partial_update_flow("test-flow-id-123", updates)
+        finally:
+            flow_logger.removeHandler(handler)
+
+        log_messages = " ".join(record.getMessage() for record in handler.buffer)
 
         # Assert
         assert result.name == "new_name"
         assert result.description == "new_desc"
-        assert "Updated fields" in caplog.text
-        assert "name" in caplog.text
-        assert "description" in caplog.text
+        assert "Updated fields" in log_messages
+        assert "name" in log_messages
+        assert "description" in log_messages
 
     def test_partial_update_flow_with_name_change(self, mock_flow_repository, sample_flow_with_id):
         """Test partial update with name change."""
@@ -328,12 +334,8 @@ class TestFlowServicePartialUpdate:
         assert result.description == "Updated description"
         mock_flow_repository.update.assert_called_once()
 
-    def test_partial_update_flow_ignores_protected_fields(self, mock_flow_repository, sample_flow_with_id, caplog):
+    def test_partial_update_flow_ignores_protected_fields(self, mock_flow_repository, sample_flow_with_id):
         """Test that protected fields (flow_id, created_on, created_by) are not updated."""
-        import logging
-
-        caplog.set_level(logging.WARNING)
-
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
         mock_flow_repository.update.return_value = sample_flow_with_id
@@ -346,14 +348,21 @@ class TestFlowServicePartialUpdate:
             "created_by": "hacker",
         }
 
-        # Act
-        result = service.partial_update_flow("test-flow-id-123", updates)
+        flow_logger = logging.getLogger("docpipe.core.assets.flows.application.services.flow_service")
+        handler = logging.handlers.MemoryHandler(capacity=100, flushLevel=logging.CRITICAL)
+        handler.setLevel(logging.WARNING)
+        flow_logger.addHandler(handler)
+        try:
+            result = service.partial_update_flow("test-flow-id-123", updates)
+        finally:
+            flow_logger.removeHandler(handler)
+
+        log_messages = " ".join(record.getMessage() for record in handler.buffer).lower()
 
         # Assert
         assert result.flow_id == original_id
         assert result.created_on == original_created
-        # Verify warnings were logged for protected fields
-        assert "protected field" in caplog.text.lower()
+        assert "protected field" in log_messages
 
     def test_partial_update_flow_validates_before_saving(self, mock_flow_repository, sample_flow_with_id):
         """Test that validation occurs before file operations."""

@@ -47,9 +47,9 @@ timestamps {
   //
   def nodeName = ""
   if (env.BUILD_URL.contains("hyc-wkc-devops-jenkins.swg-devops.com")) {
-    nodeName = "taas_image_with_docker"
-  } else {
     nodeName = "kube_ui"
+  } else {
+    nodeName = "taas_image_with_docker"
   }
 
   node(nodeName) {
@@ -66,31 +66,36 @@ timestamps {
         checkout scm
       }
 
+      stage('Setup') {
+        sh '''
+          # Install uv (fast, ~5s — manages its own Python, no Miniconda needed)
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+
+          # Install system dependencies (only if missing)
+          if ! dpkg -s libldap2-dev &>/dev/null 2>&1; then
+            sudo apt-get update --allow-releaseinfo-change -o Acquire::Retries=3 || true
+            sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
+          fi
+
+          # Pin Python 3.12 via uv (no Miniconda download needed)
+          uv python install 3.12
+          uv sync --all-groups --all-extras --python 3.12
+
+          # Install quality check tools
+          uv pip install ruff mypy detect-secrets types-requests types-cachetools
+        '''
+      }
+
       stage('Code Quality Check') {
         script {
           withCredentials([
             usernamePassword(credentialsId: docpipetwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
           ]) {
             sh '''
-              # Install uv
-              curl -LsSf https://astral.sh/uv/install.sh | sh
               export PATH="$HOME/.cargo/bin:$PATH"
-
-              # Install system dependencies with robust apt-get update
-              sudo rm -rf /var/lib/apt/lists/*
-              sudo apt-get clean
-              sudo apt-get update --allow-releaseinfo-change -o Acquire::Retries=3 || sudo apt-get update --allow-releaseinfo-change || true
-              sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
-
-              uv sync --all-groups --all-extras
-
-              # Install quality check tools using uv
-              uv pip install ruff mypy detect-secrets types-requests types-cachetools
-
-              # Activate virtual environment
               source .venv/bin/activate
 
-              # Make the script executable and run it
               chmod +x scripts/check_modified_files.sh
               ./scripts/check_modified_files.sh
             '''
@@ -104,34 +109,14 @@ timestamps {
             usernamePassword(credentialsId: docpipetwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
           ]) {
             sh """
-              # Setup Python environment
-              sudo rm -rf /usr/local/bin/python*
-              sudo rm -rf /usr/bin/python*
-              mkdir -p ~/miniconda3
-              wget -q -c https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
-              bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
-              rm -rf ~/miniconda3/miniconda.sh
-              export PATH=\${HOME}/miniconda3/bin:\$PATH
-              eval "\$(conda shell.bash hook)"
-
-              # Create conda environment with Python 3.12
-              conda create -n docpipe_py312 python=3.12 -y
-              conda activate docpipe_py312
-
-              # Install uv
-              curl -LsSf https://astral.sh/uv/install.sh | sh
-
-              # Navigate to backend directory and install dependencies
-              uv sync --all-groups --all-extras
-
-              # Activate virtual environment and run tests from project root
+              export PATH="\${HOME}/.cargo/bin:\$PATH"
               . .venv/bin/activate
-              pwd
+
               export PYTHONPATH=./src/:./tests
               cp .env.example .env
-              # Run unit tests with coverage
-              pytest -m "unit and not slow" -v --cov=src/docpipe --cov-report=xml:coverage.xml --cov-report=term
 
+              pytest -m "unit and not slow" -n 2 --dist=loadfile \
+                --cov=src/docpipe --cov-report=xml:coverage.xml --cov-report=term
               echo "Unit test coverage report generated"
             """
           }
@@ -139,7 +124,6 @@ timestamps {
       }
 
       stage('Sonar') {
-        checkout scm
         script {
           withCredentials([string(credentialsId: 'sonarqube-auth-token-cio', variable: 'SONAR_PWD')]) {
             println "Running sonarqube.."
@@ -165,10 +149,8 @@ timestamps {
                 usernamePassword(credentialsId: afaasCredentialsId, usernameVariable: 'ARTIFACTORY_USERNAME', passwordVariable: 'ARTIFACTORY_PASSWORD') // pragma: allowlist secret
               ]) {
                 sh """
-                  # Setup Python environment
-                  export PATH=\${HOME}/miniconda3/bin:\$PATH
-                  eval "\$(conda shell.bash hook)"
-                  conda activate docpipe_py312
+                  export PATH="\${HOME}/.cargo/bin:\$PATH"
+                  . .venv/bin/activate
 
                   # Build the wheel using uv
                   uv build --wheel
