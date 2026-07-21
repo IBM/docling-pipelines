@@ -94,6 +94,23 @@ class AssetRepository[T: Asset](ABC):
         pass
 
     @abstractmethod
+    def partial_update(self, asset: T, updates: dict[str, Any]) -> T:
+        """Apply partial updates to an existing asset and persist changes.
+
+        Args:
+            existing_asset: Asset entity to update
+            updates: Dictionary of field updates to apply
+
+        Returns:
+            Updated asset with refreshed timestamp
+
+        Raises:
+            ValueError: If validation fails after applying updates
+            Exception: If persistence fails
+        """
+        pass
+
+    @abstractmethod
     def delete(self, *, asset_id: str) -> bool:
         """Delete an asset from the repository.
 

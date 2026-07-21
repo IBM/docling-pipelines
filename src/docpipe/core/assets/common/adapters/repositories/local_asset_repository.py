@@ -183,6 +183,45 @@ class LocalAssetRepository(AssetRepository[T]):
         logger.info(f"Updated {self._asset_type.__name__} {asset.asset_id}")
         return asset
 
+    def partial_update(self, asset: T, updates: dict[str, Any]) -> T:
+        """Apply partial updates to an existing asset and persist changes.
+
+        This method applies the provided field updates to the asset,
+        validates the result, and persists using the existing update() method.
+
+        Args:
+            asset: Asset entity to update
+            updates: Dictionary of field updates to apply
+
+        Returns:
+            Updated asset with refreshed timestamp
+
+        Raises:
+            ValueError: If validation fails after applying updates
+            PermissionError: If write permission denied
+            OSError: If file system operation fails
+            TimeoutError: If lock cannot be acquired
+        """
+        # Apply updates using setattr
+        for field, value in updates.items():
+            if hasattr(asset, field):
+                setattr(asset, field, value)
+                logger.debug("Applied update to field '%s' for flow %s", field, asset.asset_id)
+
+        # Validate after updates
+        try:
+            asset.validate()
+            asset.update_timestamp()
+        except ValueError as exc:
+            logger.error("Flow validation failed after partial update: %s", exc)
+            raise ValueError(f"Invalid flow data after update: {exc!s}") from exc
+
+        # Persist using existing update method (handles locking and atomicity)
+        updated_asset = self.update(asset=asset)
+
+        logger.info("Partial update completed for flow %s", asset.asset_id)
+        return updated_asset
+
     def delete(self, *, asset_id: str) -> bool:
         """Delete an asset.
 

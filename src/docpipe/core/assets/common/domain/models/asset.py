@@ -63,6 +63,15 @@ class Asset(ABC):
         if self.description and len(self.description) > 2000:
             raise AssetInvalidDataException(f"{self.get_asset_type()} description cannot exceed 2000 characters")
 
+    @abstractmethod
+    def update_timestamp(self) -> None:
+        """Update the asset's last-modified timestamp.
+
+        Subclasses must implement this to refresh whatever timestamp field
+        they expose (e.g. ``modified_on`` on Flow, ``updated_at`` on DocumentSet).
+        """
+        pass
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize asset to dictionary.
 

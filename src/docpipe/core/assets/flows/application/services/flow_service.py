@@ -718,14 +718,8 @@ class FlowService(AssetService[Flow]):
             logger.info("No valid fields to update for flow %s", flow_id)
             return existing_flow
 
-        # Apply updates manually since partial_update is Flow-specific
-        for field, value in validated_updates.items():
-            setattr(existing_flow, field, value)
-
-        existing_flow.update_timestamp()
-        existing_flow.validate()
-
-        updated_flow = self._repository.update(asset=existing_flow)
+        # Delegate to repository for actual update (applies updates, validates, updates timestamp, persists)
+        updated_flow = self._repository.partial_update(existing_flow, validated_updates)
 
         logger.info("Updated fields for flow %s: %s", flow_id, list(validated_updates.keys()))
 
