@@ -1371,7 +1371,14 @@ class JobTrackerService(JobStatsService):
                 error_code=ErrorCode.STORAGE_ERROR,
             ) from e
 
-    def save_flow_definition(self, *, job_id: str, job_run_id: str, flow_definition: dict[str, Any]) -> None:
+    def save_flow_definition(
+        self,
+        *,
+        job_id: str,
+        job_run_id: str,
+        flow_definition: dict[str, Any],
+        params: dict[str, Any] | None = None,
+    ) -> None:
         """
         Save flow definition JSON to filesystem for audit and reproducibility.
 
@@ -1382,6 +1389,7 @@ class JobTrackerService(JobStatsService):
             job_id: Job identifier
             job_run_id: Job run identifier
             flow_definition: Flow definition dictionary to save
+            params: Optional execution parameters passed to the flow
 
         Raises:
             DocpipeException: If flow definition cannot be saved

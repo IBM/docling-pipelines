@@ -117,7 +117,10 @@ class FlowExecutor:
             if job_stats_service:
                 try:
                     job_stats_service.save_flow_definition(
-                        job_id=job_id, job_run_id=job_run_id, flow_definition=self.original_flow_def
+                        job_id=job_id,
+                        job_run_id=job_run_id,
+                        flow_definition=self.original_flow_def,
+                        params=params,
                     )
                 except Exception as e:
                     # Log error but don't fail the flow execution

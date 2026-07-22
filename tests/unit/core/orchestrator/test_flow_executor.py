@@ -368,7 +368,7 @@ class TestFlowExecutor:
 
         # Verify job_stats_service.save_flow_definition was called with original flow
         mock_job_stats_service.save_flow_definition.assert_called_once_with(
-            job_id=job_id, job_run_id=job_run_id, flow_definition=original_flow
+            job_id=job_id, job_run_id=job_run_id, flow_definition=original_flow, params=params
         )
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
