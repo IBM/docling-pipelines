@@ -86,17 +86,19 @@ class TestMarkReportNotAvailable:
 class TestGenerateReportAsyncParquetAbsent:
     def test_not_available_set_when_parquet_missing(self):
         """_generate_report_async sets NOT_AVAILABLE before early return."""
+        from docpipe.core.models.session_info import SessionInfo
+
         mock_service = MagicMock()
         mock_service.get_job.return_value = _make_job_stats()
         handler = _make_handler(job_stats_service=mock_service)
+        session_info = SessionInfo(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
 
         with patch(
             "docpipe.core.job_management.application.services.report_utils.check_parquet_availability",
             return_value=(False, "Data directory not found"),
         ):
             handler._generate_report_async(
-                job_run_id=JOB_RUN_ID,
-                job_id=JOB_ID,
+                session_info,
                 dag_nodes_ref=[],
                 batch_node_stats_ref={},
                 node_metadata_list_ref=[],
@@ -108,9 +110,12 @@ class TestGenerateReportAsyncParquetAbsent:
 
     def test_not_available_not_set_when_parquet_present(self):
         """When parquet is available, NOT_AVAILABLE is never written to job_run_stats."""
+        from docpipe.core.models.session_info import SessionInfo
+
         mock_service = MagicMock()
         mock_service.get_job.return_value = _make_job_stats()
         handler = _make_handler(job_stats_service=mock_service)
+        session_info = SessionInfo(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
 
         with (
             patch(
@@ -125,8 +130,7 @@ class TestGenerateReportAsyncParquetAbsent:
             ),
         ):
             handler._generate_report_async(
-                job_run_id=JOB_RUN_ID,
-                job_id=JOB_ID,
+                session_info,
                 dag_nodes_ref=[],
                 batch_node_stats_ref={},
                 node_metadata_list_ref=[],

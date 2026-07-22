@@ -9,14 +9,40 @@ import duckdb
 import pyarrow as pa
 
 from docpipe.storage.exceptions import StorageException, StorageValidationError
-from docpipe.storage.interfaces.table_storage import TableStorage
+from docpipe.storage.interfaces.table_storage_port import TableStoragePort
 from docpipe.utils.duckdb import DuckDBConnectionManager
 from docpipe.utils.infrastructure.logging import get_logger
 
+_IN_MEMORY_DB = ":memory:"
+
 logger = get_logger(__name__)
 
+# Mapping of PyArrow types to DuckDB type strings — keeps _pyarrow_to_duckdb_type simple.
+_PYARROW_TO_DUCKDB: list[tuple[Any, str]] = [
+    (pa.types.is_string, "VARCHAR"),
+    (pa.types.is_large_string, "VARCHAR"),
+    (pa.types.is_int64, "BIGINT"),
+    (pa.types.is_int32, "INTEGER"),
+    (pa.types.is_int16, "SMALLINT"),
+    (pa.types.is_int8, "TINYINT"),
+    (pa.types.is_float64, "DOUBLE"),
+    (pa.types.is_float32, "FLOAT"),
+    (pa.types.is_boolean, "BOOLEAN"),
+    (pa.types.is_binary, "BLOB"),
+    (pa.types.is_large_binary, "BLOB"),
+    (pa.types.is_timestamp, "TIMESTAMP"),
+    (pa.types.is_date, "DATE"),
+    (pa.types.is_time, "TIME"),
+    (pa.types.is_list, "JSON"),
+    (pa.types.is_large_list, "JSON"),
+    (pa.types.is_struct, "JSON"),
+    (pa.types.is_map, "JSON"),
+]
 
-class DuckDBTableStorage(TableStorage):
+_IDENTIFIER_RE = re.compile(r"^\w+$")
+
+
+class DuckDBTableStorage(TableStoragePort):
     """
     Thread-safe singleton DuckDB storage implementation for PyArrow tables.
 
@@ -57,14 +83,12 @@ class DuckDBTableStorage(TableStorage):
         Returns:
             Singleton instance for the given database path
         """
-        # Normalize path for consistent lookup
-        normalized_path = str(Path(database_path).resolve()) if database_path != ":memory:" else database_path
+        normalized_path = str(Path(database_path).resolve()) if database_path != _IN_MEMORY_DB else database_path
 
         with cls._lock:
             if normalized_path not in cls._instances:
                 instance = super().__new__(cls)
                 cls._instances[normalized_path] = instance
-                # Mark as not initialized yet
                 instance._initialized = False
             return cls._instances[normalized_path]
 
@@ -80,21 +104,15 @@ class DuckDBTableStorage(TableStorage):
             - INFO: Database path being used (only once per unique path)
             - WARNING: If database directory doesn't exist
         """
-        # Skip validation if this path has already been validated
         if db_path in cls._validated_paths:
             return
 
-        # Mark this path as validated
         cls._validated_paths.add(db_path)
-
-        # Log the database path being used
         logger.info(f"Using DuckDB database at: {db_path}")
 
-        # Skip validation for in-memory databases
-        if db_path == ":memory:":
+        if db_path == _IN_MEMORY_DB:
             return
 
-        # Check if database directory exists
         db_dir = Path(db_path).parent
         if not db_dir.exists():
             logger.warning(f"Database directory does not exist: {db_dir}")
@@ -109,15 +127,13 @@ class DuckDBTableStorage(TableStorage):
         Args:
             database_path: Path to DuckDB database file
         """
-        # Skip initialization if already initialized
         if self._initialized:
             return
 
-        # Validate and log database path
         self.validate_database_path(db_path=database_path)
 
         db_path = Path(database_path)
-        if database_path != ":memory:":
+        if database_path != _IN_MEMORY_DB:
             db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.database_path = database_path
@@ -135,7 +151,7 @@ class DuckDBTableStorage(TableStorage):
         if not table_name or not isinstance(table_name, str):
             raise StorageValidationError(message="Table name cannot be empty")
 
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
+        if not _IDENTIFIER_RE.match(table_name):
             raise StorageValidationError(
                 message=(
                     f"Invalid table name: {table_name}. Must start with letter or underscore "
@@ -153,7 +169,7 @@ class DuckDBTableStorage(TableStorage):
         if not column_name or not isinstance(column_name, str):
             raise StorageValidationError(message="Column name cannot be empty")
 
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", column_name):
+        if not _IDENTIFIER_RE.match(column_name):
             raise StorageValidationError(
                 message=(
                     f"Invalid column name: {column_name}. Must start with letter or underscore "
@@ -206,7 +222,7 @@ class DuckDBTableStorage(TableStorage):
             with self.connection_manager.get_connection(self.database_path) as conn:
                 conn.execute(create_table_sql)
                 logger.info(f"Created data table: {table_name}")
-        except StorageValidationError:
+        except StorageException:
             raise
         except duckdb.Error as e:
             raise StorageException(message=f"Failed to create table {table_name}: {e}") from e
@@ -250,7 +266,7 @@ class DuckDBTableStorage(TableStorage):
                 conn.unregister("temp_data")
 
                 logger.debug(f"Upserted {len(data)} rows into {table_name}")
-        except (StorageValidationError, StorageException):
+        except StorageException:
             raise
         except duckdb.Error as e:
             raise StorageException(message=f"Failed to upsert data into {table_name}: {e}") from e
@@ -282,12 +298,12 @@ class DuckDBTableStorage(TableStorage):
             if offset is not None:
                 query += f" OFFSET {offset}"
 
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 result = conn.execute(query).fetch_arrow_table()
                 logger.debug(f"Read {len(result)} rows from {table_name} (limit={limit}, offset={offset})")
                 return result
-        except (StorageValidationError, StorageException):
+        except StorageException:
             raise
         except duckdb.Error as e:
             raise StorageException(message=f"Failed to read data from {table_name}: {e}") from e
@@ -314,7 +330,7 @@ class DuckDBTableStorage(TableStorage):
                 conn.execute(f"DROP TABLE IF EXISTS {quoted_table}")
                 logger.info(f"Deleted table: {table_name}")
                 return True
-        except (StorageValidationError, StorageException):
+        except StorageException:
             raise
         except duckdb.Error as e:
             raise StorageException(message=f"Failed to delete table {table_name}: {e}") from e
@@ -333,7 +349,7 @@ class DuckDBTableStorage(TableStorage):
         """
         self._validate_table_name(table_name=table_name)
         try:
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 query = """
                 SELECT COUNT(*) FROM information_schema.tables
@@ -361,12 +377,12 @@ class DuckDBTableStorage(TableStorage):
 
         try:
             quoted_table = self._quote_identifier(identifier=table_name)
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 count_query = f"SELECT COUNT(*) as total FROM {quoted_table}"
                 count_result = conn.execute(count_query).fetchone()
                 return count_result[0] if count_result else 0
-        except (StorageValidationError, StorageException):
+        except StorageException:
             raise
         except duckdb.Error as e:
             raise StorageException(message=f"Failed to get row count for {table_name}: {e}") from e
@@ -385,7 +401,7 @@ class DuckDBTableStorage(TableStorage):
             Query results as PyArrow table
         """
         try:
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 if params:
                     result = conn.execute(query, params).fetch_arrow_table()
@@ -414,12 +430,12 @@ class DuckDBTableStorage(TableStorage):
 
         try:
             quoted_table = self._quote_identifier(identifier=table_name)
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 query = f"SELECT * FROM {quoted_table} LIMIT 1"
                 result = conn.execute(query).fetch_arrow_table()
                 return result.schema
-        except (StorageValidationError, StorageException):
+        except StorageException:
             raise
         except duckdb.Error as e:
             raise StorageException(message=f"Failed to get schema for {table_name}: {e}") from e
@@ -428,7 +444,7 @@ class DuckDBTableStorage(TableStorage):
 
     def _pyarrow_to_duckdb_type(self, *, pa_type: pa.DataType) -> str:
         """
-        Convert PyArrow type to DuckDB type.
+        Convert PyArrow type to DuckDB type string.
 
         Args:
             pa_type: PyArrow data type
@@ -436,39 +452,12 @@ class DuckDBTableStorage(TableStorage):
         Returns:
             DuckDB type string
         """
-        if pa.types.is_string(pa_type) or pa.types.is_large_string(pa_type):
-            return "VARCHAR"
-        elif pa.types.is_int64(pa_type):
-            return "BIGINT"
-        elif pa.types.is_int32(pa_type):
-            return "INTEGER"
-        elif pa.types.is_int16(pa_type):
-            return "SMALLINT"
-        elif pa.types.is_int8(pa_type):
-            return "TINYINT"
-        elif pa.types.is_float64(pa_type):
-            return "DOUBLE"
-        elif pa.types.is_float32(pa_type):
-            return "FLOAT"
-        elif pa.types.is_boolean(pa_type):
-            return "BOOLEAN"
-        elif pa.types.is_binary(pa_type) or pa.types.is_large_binary(pa_type):
-            return "BLOB"
-        elif pa.types.is_timestamp(pa_type):
-            return "TIMESTAMP"
-        elif pa.types.is_date(pa_type):
-            return "DATE"
-        elif pa.types.is_time(pa_type):
-            return "TIME"
-        elif pa.types.is_list(pa_type) or pa.types.is_large_list(pa_type):
-            return "JSON"
-        elif pa.types.is_struct(pa_type):
-            return "JSON"
-        elif pa.types.is_map(pa_type):
-            return "JSON"
-        else:
-            logger.warning(f"Unknown PyArrow type {pa_type}, defaulting to VARCHAR")
-            return "VARCHAR"
+        for type_check, duckdb_type in _PYARROW_TO_DUCKDB:
+            if type_check(pa_type):
+                return duckdb_type
+
+        logger.warning(f"Unknown PyArrow type {pa_type}, defaulting to VARCHAR")
+        return "VARCHAR"
 
     def _handle_schema_evolution(self, *, table_name: str, new_schema: pa.Schema) -> None:
         """

@@ -286,6 +286,9 @@ class DocpipeConfigKeys:
     INCREMENTAL_STORAGE = "storage"
     # Note: Use TYPE and CONFIG from above for storage_type and storage_config
 
+    # Job run report configuration keys
+    JOB_RUN_REPORT = "job_run_report"
+
     # Global storage configuration keys (shared defaults for all services)
     GLOBAL_STORAGE = "global_storage"
 

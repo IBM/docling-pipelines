@@ -14,7 +14,7 @@ from docpipe.core.assets.document_sets.factories.data_store_factory import DataS
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
-from docpipe.storage.interfaces.table_storage import TableStorage
+from docpipe.storage.interfaces.table_storage_port import TableStoragePort
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -31,14 +31,14 @@ class DuckDBDocumentSetDataStore(DocumentSetDataStore):
     generic storage operations to the TableStorage interface.
 
     Attributes:
-        storage: TableStorage backend for database operations
+        storage: TableStoragePort backend for database operations
     """
 
-    def __init__(self, *, table_storage: TableStorage) -> None:
+    def __init__(self, *, table_storage: TableStoragePort) -> None:
         """Initialize the DuckDB data store with injected storage.
 
         Args:
-            table_storage: TableStorage implementation (DuckDB-based)
+            table_storage: TableStoragePort implementation (DuckDB-based)
         """
         self.storage = table_storage
         logger.info("DuckDBDocumentSetDataStore initialized with injected TableStorage")

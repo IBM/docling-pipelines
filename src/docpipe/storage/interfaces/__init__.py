@@ -1,9 +1,11 @@
-"""Storage interfaces for docpipe."""
+"""Storage port interfaces for docpipe."""
 
-from docpipe.storage.interfaces.key_value_storage import KeyValueStorage
-from docpipe.storage.interfaces.table_storage import TableStorage
+from docpipe.storage.interfaces.content_storage_port import ContentStoragePort
+from docpipe.storage.interfaces.key_value_storage_port import KeyValueStoragePort
+from docpipe.storage.interfaces.table_storage_port import TableStoragePort
 
 __all__ = [
-    "KeyValueStorage",
-    "TableStorage",
+    "ContentStoragePort",
+    "KeyValueStoragePort",
+    "TableStoragePort",
 ]

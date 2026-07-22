@@ -2,7 +2,7 @@
 
 import pytest
 
-from docpipe.storage.duck_db.key_value_storage import DuckDBKeyValueStorage
+from docpipe.storage.duck_db.duckdb_key_value_storage import DuckDBKeyValueStorage
 from docpipe.storage.exceptions import StorageValidationError
 from docpipe.storage.factory import StorageFactory
 

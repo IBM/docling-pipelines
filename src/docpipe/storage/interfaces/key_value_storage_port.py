@@ -1,10 +1,10 @@
-"""Key-value storage interface for JSON-serializable records."""
+"""Key-value storage port — interface for JSON-serializable record storage."""
 
 from abc import ABC, abstractmethod
 from typing import Any
 
 
-class KeyValueStorage(ABC):
+class KeyValueStoragePort(ABC):
     """
     Interface for key-value storage of JSON-serializable records.
 
@@ -12,7 +12,7 @@ class KeyValueStorage(ABC):
     Collections represent logical groupings (e.g., "flows", "document_sets").
     Records are stored as dictionaries with a unique key.
 
-    Implementations: FileSystemStorage, DuckDBStorage
+    docling-pipelines implementations: KeyValueFileSystemStorage, DuckDBKeyValueStorage
     """
 
     @abstractmethod

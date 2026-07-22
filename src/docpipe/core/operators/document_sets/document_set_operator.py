@@ -21,7 +21,7 @@ from docpipe.exceptions.docpipe_exceptions import (
     FlowExecutionFailedException,
     FlowValidationException,
 )
-from docpipe.storage.duck_db.table_storage import DuckDBTableStorage
+from docpipe.storage.duck_db.duckdb_table_storage import DuckDBTableStorage
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()

@@ -17,7 +17,7 @@ from docpipe.core.assets.document_sets.factories.metadata_repository_factory imp
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
-from docpipe.storage.interfaces.key_value_storage import KeyValueStorage
+from docpipe.storage.interfaces.key_value_storage_port import KeyValueStoragePort
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -32,18 +32,18 @@ class DuckDBDocumentSetMetadataRepository(DocumentSetMetadataRepository):
     and error handling.
 
     Attributes:
-        storage: KeyValueStorage backend for database operations
+        storage: KeyValueStoragePort backend for database operations
         _transaction_active: Flag indicating if a transaction is active (not supported in KeyValueStorage)
         _database_path: Path to database for health check reporting
     """
 
     COLLECTION_NAME = "document_sets"
 
-    def __init__(self, *, key_value_storage: KeyValueStorage, database_path: str) -> None:
+    def __init__(self, *, key_value_storage: KeyValueStoragePort, database_path: str) -> None:
         """Initialize the DuckDB metadata repository with injected storage.
 
         Args:
-            key_value_storage: KeyValueStorage implementation (DuckDB-based)
+            key_value_storage: KeyValueStoragePort implementation (DuckDB-based)
             database_path: Path to DuckDB database file (for health check reporting)
         """
         self.storage = key_value_storage

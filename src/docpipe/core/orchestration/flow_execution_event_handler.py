@@ -516,8 +516,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
     def _generate_report_async(
         self,
-        job_run_id: str,
-        job_id: str,
+        session_info,
         dag_nodes_ref: list,
         batch_node_stats_ref: dict,
         node_metadata_list_ref: list,
@@ -525,9 +524,11 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         """
         Generate report in background thread.
 
+        SessionInfo is passed explicitly and restored at the start of the thread
+        because ContextVar values are not inherited by new threads.
+
         Args:
-            job_run_id: Job run identifier
-            job_id: Job identifier
+            session_info: SessionInfo captured from the spawning thread
             dag_nodes_ref: Reference to DAG nodes from flow definition
             batch_node_stats_ref: Reference to batch node statistics (or None for non-batched flows)
             node_metadata_list_ref: Pre-extracted node metadata list for failure/skip reasons
@@ -535,21 +536,22 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         import time
 
         from docpipe.core.job_management.application.services.report_generator import JobReportGenerator
-        from docpipe.core.job_management.application.services.report_utils import (
-            check_parquet_availability,
-            get_report_path,
-        )
+        from docpipe.core.job_management.application.services.report_utils import check_parquet_availability
+        from docpipe.core.models.session_info import set_session_info
         from docpipe.utils.core.datetime import get_current_timestamp
+
+        # Restore SessionInfo in this thread — ContextVar is not inherited from the spawning thread
+        set_session_info(session_info)
 
         start_time = time.time()
         started_at = get_current_timestamp()
 
         # Skip report generation when parquet files are not available
-        parquet_available, reason = check_parquet_availability(job_run_id=job_run_id, job_id=job_id)
+        parquet_available, reason = check_parquet_availability()
         if not parquet_available:
             logger.info(
                 "Skipping background report generation for job run %s: %s",
-                job_run_id,
+                session_info.job_run_id,
                 reason,
                 extra=self.common_log_arguments,
             )
@@ -568,7 +570,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 return
 
             # Fetch fresh job stats
-            job_stats_fresh = self.job_stats_service.get_job(job_run_id=job_run_id, include_node_stats=True)
+            job_stats_fresh = self.job_stats_service.get_job(
+                job_run_id=session_info.job_run_id, include_node_stats=True
+            )
 
             if not job_stats_fresh:
                 logger.warning("Could not fetch job stats for report generation", extra=self.common_log_arguments)
@@ -600,22 +604,23 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             generator = JobReportGenerator(
                 job_stats=job_stats_fresh, dag_nodes=dag_nodes_ref, node_metadata_list=node_metadata_list_ref
             )
-            report_path = get_report_path(job_run_id=job_run_id, job_id=job_id)
-            generator.save_report_to_file(report_path)
+            generator.save_report_to_file()
 
             # Update status to COMPLETED
             completed_at = get_current_timestamp()
-            current_job = self.job_stats_service.get_job(job_run_id=job_run_id, include_node_stats=False)
+            current_job = self.job_stats_service.get_job(job_run_id=session_info.job_run_id, include_node_stats=False)
             if current_job:
                 self.job_stats_service.end_job(
-                    job_run_id=job_run_id,
+                    job_run_id=session_info.job_run_id,
                     status=current_job.status.value if hasattr(current_job.status, "value") else current_job.status,
                     job_run_stats={"report_status": "COMPLETED", "report_generation_completed_at": completed_at},
                 )
 
             elapsed_time = time.time() - start_time
             logger.info(
-                f"Job report generated successfully in background: {report_path} (took {elapsed_time:.2f}s)",
+                "Job report generated successfully in background for job run %s (took %.2fs)",
+                session_info.job_run_id,
+                elapsed_time,
                 extra=self.common_log_arguments,
             )
 
@@ -640,11 +645,13 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             return
 
         try:
-            # Extract all data needed before the thread starts.
+            from docpipe.core.models.session_info import get_session_info
+
+            # Capture all data needed before the thread starts.
+            # SessionInfo is captured explicitly because ContextVar is not inherited by threads.
             # node_metadata_list must be captured here while it still exists in node_stats
             # (it may not be available after the thread starts if node_stats is cleared).
-            job_run_id = job_stats.job_run_id
-            job_id = job_stats.job_id
+            session_info_ref = get_session_info()
             dag_nodes_ref = op_flow
             batch_node_stats_ref = job_stats.batch_node_stats
             node_metadata_list_ref = self._extract_node_metadata_list_from_job_stats(job_stats)
@@ -658,7 +665,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             # Start background thread
             report_thread = threading.Thread(
                 target=lambda: self._generate_report_async(
-                    job_run_id, job_id, dag_nodes_ref, batch_node_stats_ref, node_metadata_list_ref
+                    session_info_ref, dag_nodes_ref, batch_node_stats_ref, node_metadata_list_ref
                 ),
                 name=f"ReportGen-{self.job_run_id}",
                 daemon=False,

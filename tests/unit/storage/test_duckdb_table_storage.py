@@ -3,7 +3,7 @@
 import pyarrow as pa
 import pytest
 
-from docpipe.storage.duck_db.table_storage import DuckDBTableStorage
+from docpipe.storage.duck_db.duckdb_table_storage import DuckDBTableStorage
 from docpipe.storage.exceptions import StorageException, StorageValidationError
 from docpipe.storage.factory import StorageFactory
 

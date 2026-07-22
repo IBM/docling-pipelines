@@ -14,7 +14,6 @@ Tests cover:
 
 import csv
 import io
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -330,7 +329,9 @@ class TestCSVGeneration:
         assert rows[0]["Pages"] == "10"
 
     def test_save_report_to_file(self, tmp_path):
-        """Save report to file creates directory and writes CSV."""
+        """Save report delegates to the storage adapter."""
+        from unittest.mock import Mock
+
         job_stats = JobStats(
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
@@ -340,13 +341,29 @@ class TestCSVGeneration:
 
         generator = JobReportGenerator(job_stats=job_stats)
 
-        mock_csv = "GUID,File name,Status\ndoc1,test.pdf,Ingested\n"
-        with patch.object(generator, "generate_csv_content", return_value=mock_csv):
-            report_path = tmp_path / "reports" / "test_report.csv"
-            saved_path = generator.save_report_to_file(str(report_path))
+        from docpipe.core.models.session_info import create_session_info
 
-        assert Path(saved_path).exists()
-        assert Path(saved_path).read_text() == mock_csv
+        create_session_info(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+
+        mock_csv = "GUID,File name,Status\ndoc1,test.pdf,Ingested\n"
+        mock_adapter = Mock()
+        mock_adapter.write_text.return_value = str(tmp_path / "job_report.csv")
+
+        with (
+            patch.object(generator, "generate_csv_content", return_value=mock_csv),
+            patch(
+                "docpipe.core.job_management.adapters.config.report_storage_factory.get_content_storage",
+                return_value=mock_adapter,
+            ),
+        ):
+            saved_path = generator.save_report_to_file()
+
+        mock_adapter.write_text.assert_called_once_with(
+            collection=f"{JOB_ID}/{JOB_RUN_ID}",
+            file_name=f"job_report_{JOB_RUN_ID}.csv",
+            content=mock_csv,
+        )
+        assert saved_path == str(tmp_path / "job_report.csv")
 
 
 class TestTimestampConversion:

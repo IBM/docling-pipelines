@@ -1,4 +1,4 @@
-"""Table storage interface for PyArrow tables."""
+"""Table storage port — interface for PyArrow table storage."""
 
 from abc import ABC, abstractmethod
 from typing import Any
@@ -6,14 +6,14 @@ from typing import Any
 import pyarrow as pa
 
 
-class TableStorage(ABC):
+class TableStoragePort(ABC):
     """
     Interface for PyArrow table storage.
 
     Used for storing document set data as PyArrow tables.
     Provides operations for creating tables, upserting data, and querying.
 
-    Implementations: DuckDBStorage
+    docling-pipelines implementations: DuckDBTableStorage
     """
 
     @abstractmethod

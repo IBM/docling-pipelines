@@ -10,14 +10,17 @@ import duckdb
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.storage.exceptions import StorageValidationError
-from docpipe.storage.interfaces.key_value_storage import KeyValueStorage
+from docpipe.storage.interfaces.key_value_storage_port import KeyValueStoragePort
 from docpipe.utils.duckdb import DuckDBConnectionManager
 from docpipe.utils.infrastructure.logging import get_logger
+
+_IN_MEMORY_DB = ":memory:"
+
 
 logger = get_logger(__name__)
 
 
-class DuckDBKeyValueStorage(KeyValueStorage):
+class DuckDBKeyValueStorage(KeyValueStoragePort):
     """
     Thread-safe singleton DuckDB storage implementation for key-value records.
 
@@ -56,7 +59,7 @@ class DuckDBKeyValueStorage(KeyValueStorage):
             Singleton instance for the given database path
         """
         # Normalize path for consistent lookup
-        normalized_path = str(Path(database_path).resolve()) if database_path != ":memory:" else database_path
+        normalized_path = str(Path(database_path).resolve()) if database_path != _IN_MEMORY_DB else database_path
 
         with cls._lock:
             if normalized_path not in cls._instances:
@@ -81,14 +84,14 @@ class DuckDBKeyValueStorage(KeyValueStorage):
 
         self.database_path = database_path
         db_path = Path(database_path)
-        if database_path != ":memory:":
+        if database_path != _IN_MEMORY_DB:
             db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.connection_manager = DuckDBConnectionManager()
         self._initialized = True
         logger.info(f"Initialized DuckDBKeyValueStorage at: {database_path}")
 
-    def _validate_collection_name(self, *, collection: str) -> None:
+    def _validate_collection(self, *, collection: str) -> None:
         """Validate collection name for security."""
         if not collection:
             raise StorageValidationError(message="Collection name cannot be empty")
@@ -110,7 +113,7 @@ class DuckDBKeyValueStorage(KeyValueStorage):
         Args:
             collection: Collection name (becomes table name)
         """
-        self._validate_collection_name(collection=collection)
+        self._validate_collection(collection=collection)
 
         create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS {collection} (
@@ -168,7 +171,7 @@ class DuckDBKeyValueStorage(KeyValueStorage):
         try:
             select_sql = f"SELECT data FROM {collection} WHERE key = ?"
 
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 result = conn.execute(select_sql, [key]).fetchone()
 
@@ -198,7 +201,7 @@ class DuckDBKeyValueStorage(KeyValueStorage):
         try:
             select_sql = f"SELECT data FROM {collection}"
 
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 results = conn.execute(select_sql).fetchall()
 
@@ -253,7 +256,7 @@ class DuckDBKeyValueStorage(KeyValueStorage):
             WHERE table_name = ?
             """
 
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 result = conn.execute(check_sql, [collection]).fetchone()
                 return result[0] > 0 if result else False
@@ -269,7 +272,7 @@ class DuckDBKeyValueStorage(KeyValueStorage):
         try:
             check_sql = f"SELECT COUNT(*) FROM {collection} WHERE key = ?"
 
-            read_only = self.database_path != ":memory:"
+            read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
                 result = conn.execute(check_sql, [key]).fetchone()
                 return result[0] > 0 if result else False

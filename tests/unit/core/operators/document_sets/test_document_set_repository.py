@@ -17,7 +17,7 @@ from docpipe.core.assets.document_sets.adapters.duckdb.metadata_repository impor
 )
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
-from docpipe.storage.duck_db.key_value_storage import DuckDBKeyValueStorage
+from docpipe.storage.duck_db.duckdb_key_value_storage import DuckDBKeyValueStorage
 
 
 @pytest.fixture

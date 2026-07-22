@@ -20,7 +20,7 @@ from docpipe.core.assets.document_libraries.factories.document_library_repositor
 from docpipe.core.constants.constants import DocpipeConstants, DocumentLibraryConstants
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
-from docpipe.storage.interfaces.key_value_storage import KeyValueStorage
+from docpipe.storage.interfaces.key_value_storage_port import KeyValueStoragePort
 from docpipe.utils.duckdb.connection_manager import DuckDBConnectionManager
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -40,11 +40,11 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
 
     COLLECTION_NAME = "document_libraries"
 
-    def __init__(self, *, key_value_storage: KeyValueStorage, database_path: str) -> None:
+    def __init__(self, *, key_value_storage: KeyValueStoragePort, database_path: str) -> None:
         """Initialize repository with injected storage.
 
         Args:
-            key_value_storage: KeyValueStorage implementation (DuckDB-based)
+            key_value_storage: KeyValueStoragePort implementation (DuckDB-based)
             database_path: Path to DuckDB database file (for junction table and health checks)
         """
         self.storage = key_value_storage

@@ -2,64 +2,56 @@
 Report Utility Functions
 
 Helper functions for job report generation, storage, and retrieval.
-Adapted for docling-pipelines - uses local filesystem only, no CP4D/CAMS dependencies.
+Report read/write and data-availability checks are delegated to the
+ContentStoragePort resolved via ContentStorageFactory so that storage backends
+(filesystem, COS, etc.) can be swapped without modifying this module.
+
+All functions read job_id and job_run_id from SessionInfo so callers
+do not need to pass them explicitly.
 """
 
-import os
+from __future__ import annotations
 
 from fastapi.responses import StreamingResponse
 
-from docpipe.utils.infrastructure.filesystem import get_data_path
+from docpipe.core.models.session_info import get_session_info
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
+_REPORT_FILENAME_TEMPLATE = "job_report_{job_run_id}.csv"
 
-def get_report_path(*, job_run_id: str, job_id: str) -> str:
+
+def _report_collection(*, job_id: str, job_run_id: str) -> str:
     """
-    Get the file path for a job run report.
+    Return the sub-path (relative to base_dir) where reports are stored.
 
-    The report is saved in the same directory as job logs:
-    data/{job_id}/{job_run_id}/job_report_{job_run_id}.csv
+    Resolves to: {base_dir}/{job_id}/{job_run_id}/
+    """
+    return f"{job_id}/{job_run_id}"
 
-    Args:
-        job_run_id: Job run ID
-        job_id: Job ID (required)
+
+def _report_file_name(*, job_run_id: str) -> str:
+    """Return the file name for a job run report."""
+    return _REPORT_FILENAME_TEMPLATE.format(job_run_id=job_run_id)
+
+
+def read_report_from_storage() -> str:
+    """
+    Read report content via the configured storage adapter.
+
+    Reads job_id and job_run_id from SessionInfo.
 
     Returns:
-        Full path to the report CSV file
+        CSV content as string, or empty string if not found.
     """
-    filename = f"job_report_{job_run_id}.csv"
-    job_dir = os.path.join(get_data_path(), job_id, job_run_id)
-    return os.path.join(job_dir, filename)
+    from docpipe.core.job_management.adapters.config.report_storage_factory import get_content_storage
 
-
-def read_report_from_storage(report_path: str) -> tuple[str, bool]:
-    """
-    Read report content from file storage.
-
-    Args:
-        report_path: Path to the report file
-
-    Returns:
-        Tuple of (report_content, exists)
-        - report_content: CSV content as string (empty if not found)
-        - exists: True if file exists, False otherwise
-    """
-    try:
-        if not os.path.exists(report_path):
-            logger.debug(f"Report file not found: {report_path}")
-            return "", False
-
-        with open(report_path, encoding="utf-8") as f:
-            content = f.read()
-
-        logger.debug(f"Successfully read report from: {report_path}")
-        return content, True
-
-    except Exception as e:
-        logger.error(f"Error reading report from {report_path}: {e}")
-        return "", False
+    session = get_session_info()
+    return get_content_storage().read_text(
+        collection=_report_collection(job_id=session.job_id, job_run_id=session.job_run_id),
+        file_name=_report_file_name(job_run_id=session.job_run_id),
+    )
 
 
 def create_csv_streaming_response(*, content: str, job_run_id: str) -> StreamingResponse:
@@ -75,50 +67,28 @@ def create_csv_streaming_response(*, content: str, job_run_id: str) -> Streaming
     """
     import io
 
-    # Create streaming response
-    response = StreamingResponse(
+    return StreamingResponse(
         io.StringIO(content),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="job_report_{job_run_id}.csv"'},
     )
 
-    return response
 
-
-def check_parquet_availability(*, job_run_id: str, job_id: str) -> tuple[bool, str]:
+def check_parquet_availability() -> tuple[bool, str]:
     """
-    Check if parquet files are available for report generation.
+    Check if data is available for report generation.
 
-    This is a lightweight check that verifies the ingest parquet file exists
-    before doing expensive operations like fetching full job_stats.
+    Delegates to ``ContentStoragePort.check_data_availability()`` so each
+    backend (filesystem, COS, S3, etc.) applies its own check without
+    any changes to this module.
 
-    Args:
-        job_run_id: Job run ID
-        job_id: Job ID
+    Reads job_id and job_run_id from SessionInfo.
 
     Returns:
         Tuple of (is_available: bool, error_message: str)
     """
-    from pathlib import Path
+    from docpipe.core.job_management.adapters.config.report_storage_factory import get_content_storage
 
-    # Construct expected data directory path
-    # Pattern: data/{job_id}/{job_run_id}/data/
-    data_dir = Path("data") / job_id / job_run_id / "data"
-
-    # Check if the data directory exists
-    if not data_dir.exists():
-        return False, f"Data directory not found: {data_dir}"
-
-    # Look for ingest operator parquet file (could be ingest_0, ingest_local_0, etc.)
-    ingest_dirs = list(data_dir.glob("ingest*_0"))
-    if not ingest_dirs:
-        return False, f"No ingest operator directory found in {data_dir}"
-
-    # Check if parquet file exists in any ingest directory
-    for ingest_dir in ingest_dirs:
-        parquet_file = ingest_dir / "output.parquet"
-        if parquet_file.exists():
-            logger.info(f"Found ingest parquet file: {parquet_file}")
-            return True, ""
-
-    return False, f"No ingest parquet file found in {data_dir}"
+    session = get_session_info()
+    collection = _report_collection(job_id=session.job_id, job_run_id=session.job_run_id)
+    return get_content_storage().check_data_availability(collection=collection)

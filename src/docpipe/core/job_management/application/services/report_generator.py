@@ -4,12 +4,12 @@ Job Report Generator Module
 This module provides functionality to generate CSV reports for Docpipe job runs.
 The report includes details about documents discovered, ingested, skipped, and failed during job execution.
 
-- Uses local filesystem storage only.
+Report persistence is delegated to the ContentStoragePort so storage backends
+can be swapped without modifying this module.
 """
 
 import csv
 import io
-import os
 import time
 import typing
 from datetime import UTC
@@ -136,9 +136,9 @@ class JobReportGenerator:
         from docpipe.core.job_management.application.services.report_utils import (
             check_parquet_availability,
             create_csv_streaming_response,
-            get_report_path,
             read_report_from_storage,
         )
+        from docpipe.core.models.session_info import SessionInfo, set_session_info
         from docpipe.exceptions.docpipe_exceptions import JobRunOperationFailedException
         from docpipe.utils.orchestration.dag_utils import extract_dag_nodes
 
@@ -159,12 +159,16 @@ class JobReportGenerator:
                 status_code=425,
             )
 
+        # Populate SessionInfo so all storage helpers (read_report_from_storage,
+        # check_parquet_availability, save_report_to_file) resolve the correct
+        # job_id/job_run_id from context rather than falling back to None.
+        set_session_info(SessionInfo(job_id=job_stats.job_id, job_run_id=job_run_id))
+
         # Step 2: Check if report already exists (fast path after status validation)
-        report_path = get_report_path(job_run_id=job_run_id, job_id=job_stats.job_id)
-        report_content, report_exists = read_report_from_storage(report_path)
+        report_content = read_report_from_storage()
 
         # If report exists, return it immediately
-        if report_exists:
+        if report_content:
             logger.info("Report found in storage for job run: %s", job_run_id)
             return create_csv_streaming_response(content=report_content, job_run_id=job_run_id)
 
@@ -172,7 +176,7 @@ class JobReportGenerator:
         logger.info("Report not found, proceeding with generation for %s", job_run_id)
 
         # Step 4: Check if parquet files are available before expensive operations
-        parquet_available, error_message = check_parquet_availability(job_run_id=job_run_id, job_id=job_stats.job_id)
+        parquet_available, error_message = check_parquet_availability()
         if not parquet_available:
             logger.info("Parquet files not available for job run %s: %s", job_run_id, error_message)
             raise JobRunOperationFailedException(
@@ -204,10 +208,10 @@ class JobReportGenerator:
             )
             csv_content = generator.generate_csv_content()
 
-            # Save for future requests
-            generator.save_report_to_file(report_path, csv_content=csv_content)
+            # Save to file for future requests (pass content to avoid generating twice)
+            generator.save_report_to_file(csv_content=csv_content)
 
-            logger.info("On-demand report generated and saved for job run %s", job_run_id)
+            logger.info("On-demand report generated and saved for job run: %s", job_run_id)
 
         except Exception as e:
             logger.error("Failed to generate report on-demand for %s: %s", job_run_id, e, exc_info=True)
@@ -282,28 +286,30 @@ class JobReportGenerator:
 
         return output.getvalue()
 
-    def save_report_to_file(self, file_path: str, csv_content: str | None = None) -> str:
+    def save_report_to_file(self, *, csv_content: str | None = None) -> str:
         """
-        Save report to a CSV file.
+        Save report via the configured ContentStoragePort adapter.
+
+        Reads job_id and job_run_id from SessionInfo.
 
         Args:
-            file_path: Path where the CSV file should be saved
-            csv_content: Pre-generated CSV content string. If None, generates content internally.
+            csv_content: Pre-generated CSV content. If None, generates internally.
 
         Returns:
-            Path to the saved file
+            Storage path or object key where the report was written
         """
+        from docpipe.core.job_management.adapters.config.report_storage_factory import get_content_storage
+        from docpipe.core.models.session_info import get_session_info
+
         if csv_content is None:
             csv_content = self.generate_csv_content()
 
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-        with open(file_path, "w", newline="", encoding="utf-8") as f:
-            f.write(csv_content)
-
-        logger.info("Job report saved to: %s", file_path)
-        return file_path
+        session = get_session_info()
+        return get_content_storage().write_text(
+            collection=f"{session.job_id}/{session.job_run_id}",
+            file_name=f"job_report_{session.job_run_id}.csv",
+            content=csv_content,
+        )
 
     def _build_node_name_map(self) -> dict[str, str]:
         """Build mapping from node ID to node name."""

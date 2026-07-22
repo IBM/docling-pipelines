@@ -2,11 +2,11 @@
 
 from typing import Any, ClassVar
 
-from docpipe.storage.duck_db.key_value_storage import DuckDBKeyValueStorage
-from docpipe.storage.duck_db.table_storage import DuckDBTableStorage
-from docpipe.storage.file_system.key_value_storage import FileSystemStorage
-from docpipe.storage.interfaces.key_value_storage import KeyValueStorage
-from docpipe.storage.interfaces.table_storage import TableStorage
+from docpipe.storage.duck_db.duckdb_key_value_storage import DuckDBKeyValueStorage
+from docpipe.storage.duck_db.duckdb_table_storage import DuckDBTableStorage
+from docpipe.storage.file_system.key_value_file_system_storage import KeyValueFileSystemStorage
+from docpipe.storage.interfaces.key_value_storage_port import KeyValueStoragePort
+from docpipe.storage.interfaces.table_storage_port import TableStoragePort
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -24,7 +24,7 @@ class StorageFactory:
     SUPPORTED_TABLE_TYPES: ClassVar[list[str]] = ["duckdb"]
 
     @staticmethod
-    def create_key_value_storage(*, storage_type: str, **config: Any) -> KeyValueStorage:
+    def create_key_value_storage(*, storage_type: str, **config: Any) -> KeyValueStoragePort:
         """Create a key-value storage instance.
 
         Args:
@@ -46,7 +46,7 @@ class StorageFactory:
         logger.debug(f"Creating key-value storage: {storage_type}")
 
         if storage_type == "filesystem":
-            return FileSystemStorage(**config)
+            return KeyValueFileSystemStorage(**config)
         elif storage_type == "duckdb":
             return DuckDBKeyValueStorage(**config)
         else:
@@ -56,7 +56,7 @@ class StorageFactory:
             )
 
     @staticmethod
-    def create_table_storage(*, storage_type: str, **config: Any) -> TableStorage:
+    def create_table_storage(*, storage_type: str, **config: Any) -> TableStoragePort:
         """Create a table storage instance.
 
         Args:

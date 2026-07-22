@@ -59,7 +59,7 @@ class TestDownloadJobReport:
         job_run_id = mock_job_stats_completed.job_run_id
 
         # Mock report exists in storage
-        mock_read_report.return_value = (mock_csv_content, True)
+        mock_read_report.return_value = mock_csv_content
 
         # Mock stats service
         mock_stats_service = MagicMock()
@@ -78,20 +78,32 @@ class TestDownloadJobReport:
         finally:
             app.dependency_overrides.clear()
 
-    @patch("docpipe.core.job_management.application.services.report_utils.generate_report_on_demand")
+    @patch("docpipe.core.job_management.application.services.report_generator.JobReportGenerator.save_report_to_file")
+    @patch("docpipe.core.job_management.application.services.report_generator.JobReportGenerator.generate_csv_content")
+    @patch("docpipe.core.job_management.application.services.report_utils.check_parquet_availability")
     @patch("docpipe.core.job_management.application.services.report_utils.read_report_from_storage")
     def test_download_report_on_demand_generation(
-        self, mock_read_report, mock_generate, client, mock_job_stats_completed, mock_csv_content
+        self,
+        mock_read_report,
+        mock_parquet,
+        mock_generate_csv,
+        mock_save,
+        client,
+        mock_job_stats_completed,
+        mock_csv_content,
     ):
         """Test on-demand report generation when report doesn't exist."""
         job_run_id = mock_job_stats_completed.job_run_id
 
         # Mock report doesn't exist initially
-        mock_read_report.return_value = ("", False)
-        # Mock on-demand generation
-        mock_generate.return_value = mock_csv_content
+        mock_read_report.return_value = ""
+        # Mock parquet availability check
+        mock_parquet.return_value = (True, "")
+        # Mock on-demand CSV generation and save
+        mock_generate_csv.return_value = mock_csv_content
+        mock_save.return_value = "/data/test-job/report.csv"
 
-        # Mock stats service
+        # Mock stats service — second get_job call (with node_stats) returns completed job
         mock_stats_service = MagicMock()
         mock_stats_service.get_job.return_value = mock_job_stats_completed
         mock_stats_service.get_flow_definition.return_value = {"dag": []}
@@ -105,7 +117,7 @@ class TestDownloadJobReport:
             assert "doc1,test.pdf,Ingested" in response.text
 
             # Verify on-demand generation was called
-            mock_generate.assert_called_once()
+            mock_generate_csv.assert_called_once()
         finally:
             app.dependency_overrides.clear()
 
@@ -157,18 +169,21 @@ class TestDownloadJobReport:
         response_data = response.json()
         assert "errors" in response_data
 
-    @patch("docpipe.core.job_management.application.services.report_utils.generate_report_on_demand")
+    @patch("docpipe.core.job_management.application.services.report_generator.JobReportGenerator.generate_csv_content")
+    @patch("docpipe.core.job_management.application.services.report_utils.check_parquet_availability")
     @patch("docpipe.core.job_management.application.services.report_utils.read_report_from_storage")
     def test_download_report_generation_failure(
-        self, mock_read_report, mock_generate, client, mock_job_stats_completed
+        self, mock_read_report, mock_parquet, mock_generate_csv, client, mock_job_stats_completed
     ):
         """Test 500 error when report generation fails."""
         job_run_id = mock_job_stats_completed.job_run_id
 
         # Mock report doesn't exist
-        mock_read_report.return_value = ("", False)
-        # Mock generation failure
-        mock_generate.side_effect = Exception("Report generation failed")
+        mock_read_report.return_value = ""
+        # Mock parquet availability check
+        mock_parquet.return_value = (True, "")
+        # Mock CSV generation failure
+        mock_generate_csv.side_effect = Exception("Report generation failed")
 
         # Mock stats service
         mock_stats_service = MagicMock()
@@ -195,7 +210,7 @@ class TestDownloadJobReport:
 doc1,测试文档.pdf,Ingested
 doc2,émoji🚀.docx,Failed
 """
-        mock_read_report.return_value = (unicode_csv, True)
+        mock_read_report.return_value = unicode_csv
 
         # Mock stats service
         mock_stats_service = MagicMock()
@@ -230,7 +245,7 @@ doc2,émoji🚀.docx,Failed
         with patch(
             "docpipe.core.job_management.application.services.report_utils.read_report_from_storage"
         ) as mock_read:
-            mock_read.return_value = (csv_content, True)
+            mock_read.return_value = csv_content
 
             try:
                 response = client.get(f"/api/v1/job_runs/{job_stats.job_run_id}/report")

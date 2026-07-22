@@ -8,79 +8,51 @@ Tests cover:
 - CSV streaming response creation
 """
 
-from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 
 from docpipe.core.job_management.application.services.report_utils import (
     create_csv_streaming_response,
-    get_report_path,
     read_report_from_storage,
 )
+from docpipe.core.models.session_info import create_session_info
 
 # Test constants
 JOB_ID = "test-job-123"
 JOB_RUN_ID = "test-run-456"
 
-
-class TestGetReportPath:
-    """Test report path generation."""
-
-    def test_get_report_path_with_job_id(self):
-        """Report path includes job_id when provided."""
-        path = get_report_path(job_run_id=JOB_RUN_ID, job_id=JOB_ID)
-
-        assert JOB_ID in path
-        assert JOB_RUN_ID in path
-        assert path.endswith(".csv")
-        assert f"job_report_{JOB_RUN_ID}.csv" in path
-
-    def test_get_report_path_structure(self):
-        """Report path has correct directory structure."""
-        path = get_report_path(job_run_id=JOB_RUN_ID, job_id=JOB_ID)
-
-        # Should be: data/{job_id}/{job_run_id}/job_report_{job_run_id}.csv
-        path_parts = Path(path).parts
-        assert JOB_ID in path_parts
-        assert JOB_RUN_ID in path_parts
-        assert f"job_report_{JOB_RUN_ID}.csv" in path_parts
+_STORAGE_FACTORY = "docpipe.core.job_management.adapters.config.report_storage_factory.get_content_storage"
 
 
 class TestReadReportFromStorage:
-    """Test reading report from storage."""
+    """Test reading report from storage via the adapter."""
 
-    def test_read_report_success(self, tmp_path):
-        """Successfully read report content from file."""
-        report_path = tmp_path / "test_report.csv"
+    def test_read_report_delegates_to_adapter(self):
+        """read_report_from_storage delegates to the ContentStoragePort adapter."""
+        create_session_info(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
         csv_content = "GUID,File name,Status\ndoc1,test.pdf,Ingested\n"
-        report_path.write_text(csv_content)
+        mock_adapter = Mock()
+        mock_adapter.read_text.return_value = csv_content
 
-        content, exists = read_report_from_storage(str(report_path))
+        with patch(_STORAGE_FACTORY, return_value=mock_adapter):
+            content = read_report_from_storage()
 
-        assert exists is True
         assert content == csv_content
+        mock_adapter.read_text.assert_called_once_with(
+            collection=f"{JOB_ID}/{JOB_RUN_ID}", file_name=f"job_report_{JOB_RUN_ID}.csv"
+        )
 
-    def test_read_report_not_found(self, tmp_path):
-        """Returns empty content when file not found."""
-        report_path = tmp_path / "nonexistent.csv"
+    def test_read_report_not_found(self):
+        """Returns empty string when report does not exist."""
+        create_session_info(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        mock_adapter = Mock()
+        mock_adapter.read_text.return_value = ""
 
-        content, exists = read_report_from_storage(str(report_path))
+        with patch(_STORAGE_FACTORY, return_value=mock_adapter):
+            content = read_report_from_storage()
 
-        assert exists is False
         assert content == ""
-
-    def test_read_report_handles_errors(self, tmp_path):
-        """Handles read errors gracefully."""
-        report_path = tmp_path / "test_report.csv"
-        report_path.write_text("content")
-        report_path.chmod(0o000)  # Remove read permissions
-
-        try:
-            content, exists = read_report_from_storage(str(report_path))
-            assert exists is False
-            assert content == ""
-        finally:
-            report_path.chmod(0o644)  # Restore permissions
 
 
 class TestCreateCSVStreamingResponse:

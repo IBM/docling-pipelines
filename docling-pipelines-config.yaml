@@ -25,6 +25,13 @@ job_management:
       base_dir: ./data/job_stats_store_data
 
 
+job_run_report:
+  storage:
+    # Report storage backend options: filesystem
+    # filesystem stores reports at data/{job_id}/{job_run_id}/job_report_{job_run_id}.csv
+    type: filesystem
+    config: {}
+
 incremental_metadata:
   storage:
     type: "filesystem"
