@@ -24,6 +24,7 @@ class TestCommandLineOperatorExecutor:
             operator="test_operator",
             params={"param1": "value1"},
             job_stats_service=None,
+            incremental_metadata_store=None,
         )
 
     @patch("docpipe.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__")
@@ -38,6 +39,7 @@ class TestCommandLineOperatorExecutor:
             operator="operator",
             params={},
             job_stats_service=None,
+            incremental_metadata_store=None,
         )
 
     @patch("docpipe.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__")
@@ -59,6 +61,7 @@ class TestCommandLineOperatorExecutor:
             operator="complex_operator",
             params=complex_params,
             job_stats_service=None,
+            incremental_metadata_store=None,
         )
 
     def test_inherits_from_python_operator_executor(self):
@@ -101,12 +104,14 @@ class TestCommandLineOperatorExecutor:
             "operator": "op1",
             "params": {"p1": "v1"},
             "job_stats_service": None,
+            "incremental_metadata_store": None,
         }
         assert calls[1].kwargs == {
             "name": "exec2",
             "operator": "op2",
             "params": {"p2": "v2"},
             "job_stats_service": None,
+            "incremental_metadata_store": None,
         }
 
 

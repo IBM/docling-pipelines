@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from docpipe.core.constants import OrchestratorType
+from docpipe.core.incremental_metadata.domain import IncrementalMetadataStore
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
 from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrator
@@ -71,6 +72,7 @@ class OrchestratorFactory:
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
         execution_reporter=None,
+        incremental_metadata_store: IncrementalMetadataStore | None = None,
     ) -> AbstractOrchestrator:  # pragma: no cover
         """
         Create an instance of the orchestrator with injected dependencies.
@@ -82,6 +84,7 @@ class OrchestratorFactory:
             enable_custom_operators: Whether to enable custom operators (passed to operator factory)
             custom_operator_packages: List of custom operator packages (passed to operator factory)
             execution_reporter: Optional output formatter for user-friendly console output
+            incremental_metadata_store: Optional incremental metadata store; passed through as-is and created lazily on demand if None
 
         Returns:
             Configured orchestrator instance
@@ -107,6 +110,7 @@ class OrchestratorFactory:
             enable_custom_operators=enable_custom_operators,
             custom_operator_packages=custom_operator_packages,
             execution_reporter=execution_reporter,
+            incremental_metadata_store=incremental_metadata_store,
         )
 
         return orchestrator

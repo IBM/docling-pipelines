@@ -564,8 +564,10 @@ class PrefectEngine(FlowEnginePort):
         destinations: list[tuple[PrefectFuture, Any]] = []
         node_id_to_index_map = create_node_id_to_index_map(flow_def=op_flow)
         deleted_docs_count = 0
-        # Create incremental update service (config loaded from docling-pipelines-config.yaml)
-        store = create_incremental_metadata_store(job_id=self.orchestrator.context_id)
+        # Use injected store if provided, otherwise create one from config
+        store = self.orchestrator.incremental_metadata_store or create_incremental_metadata_store(
+            job_id=self.orchestrator.context_id
+        )
         incremental_update_util = IncrementalUpdateService(store=store)
 
         is_sequential_flow = (

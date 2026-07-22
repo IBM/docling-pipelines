@@ -168,7 +168,7 @@ class IncrementalMetadataFactory:
     @classmethod
     def from_config_file(cls, config_path: str) -> "IncrementalMetadataFactory":
         """
-        Create factory from YAML configuration file.
+        Create factory from YAML configuration file from config.
 
         If the config file doesn't exist, falls back to default values (Filesystem storage).
 
