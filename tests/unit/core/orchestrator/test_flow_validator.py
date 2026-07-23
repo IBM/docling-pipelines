@@ -66,7 +66,7 @@ class TestFlowValidator:
 
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
-        flow_def: dict[str, object] = {}
+        flow_def: dict = {}
 
         with pytest.raises(FlowValidationException) as exc_info:
             validator.validate(flow_def=flow_def, params={})
@@ -81,7 +81,7 @@ class TestFlowValidator:
 
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
-        flow_def: dict[str, object] = {DocpipeConstants.DAG: []}
+        flow_def: dict = {DocpipeConstants.DAG: []}
 
         with pytest.raises(FlowValidationException) as exc_info:
             validator.validate_dag(flow_def=flow_def, global_config={})
@@ -308,7 +308,7 @@ class TestFlowValidator:
             {"id": "node2", "operator": "extract_op2"},
         ]
 
-        errors: list[object] = []
+        errors: list = []
 
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
@@ -326,7 +326,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}
-        alerts: list[object] = []
+        alerts: list = []
 
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Ingest
@@ -349,7 +349,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}
-        alerts: list[object] = []
+        alerts: list = []
 
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
@@ -375,7 +375,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"operator": "test_op"}  # Missing ID
-        alerts: list[object] = []
+        alerts: list = []
 
         # The method adds alerts but doesn't raise exception for missing ID
         validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
@@ -393,7 +393,7 @@ class TestFlowValidator:
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}  # Missing NAME
-        alerts: list[object] = []
+        alerts: list = []
 
         # The method adds alerts but doesn't raise exception for missing name
         validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
@@ -419,7 +419,7 @@ class TestFlowValidator:
             OperatorConstants.Columns.NAME: "Test Op",
             "operator": "test_op",
         }
-        alerts: list[object] = []
+        alerts: list = []
 
         result = validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
 
@@ -434,7 +434,7 @@ class TestFlowValidator:
 
         op_def = {"id": "node1", "name": "Test"}
         messages = [Mock(), Mock()]
-        alerts: list[object] = []
+        alerts: list = []
 
         with patch("docpipe.core.orchestration.flow_validator.add_validation_alert") as mock_add:
             validator.create_validation_alerts(op_def=op_def, messages=messages, alerts=alerts)
@@ -664,7 +664,7 @@ class TestFlowValidatorIntegration:
 
     def test_integration_empty_dag_fails(self, validator):
         """Test that empty DAG fails validation."""
-        flow_def: dict[str, object] = {"dag": []}
+        flow_def: dict = {"dag": []}
 
         with pytest.raises(FlowValidationException) as exc_info:
             validator.validate_dag(flow_def=flow_def, global_config={})
@@ -767,13 +767,109 @@ class TestFlowValidatorIntegration:
             ]
         }
 
-        errors: list[object] = []
+        errors: list = []
         extract_count = validator.check_duplicate_extract_operators(
             sequence=flow_def["dag"], global_config={}, errors=errors
         )
 
         assert extract_count == 2, "Expected 2 extract operators"
         assert len(errors) > 0, "Expected error for multiple extract operators"
+
+
+class TestValidateStorageOutputOperatorPlacement:
+    """Tests for validate_storage_output_operator_placement."""
+
+    def _make_validator(self):
+        mock_orchestrator = Mock()
+        mock_orchestrator.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orchestrator)
+
+    def _make_dag(self, *, ingest_op: str, storage_mode: str) -> list:
+        """Build a minimal two-node DAG: ingest → storage_output."""
+        return [
+            {
+                "id": "ingest-1",
+                "name": "ingest",
+                "operator": ingest_op,
+                "config": {},
+                "input_edges": [],
+                "output_edges": [{"node_id_ref": "storage-1"}],
+            },
+            {
+                "id": "storage-1",
+                "name": "storage_output",
+                "operator": "storage_output",
+                "config": {"mode": storage_mode},
+                "input_edges": [{"node_id_ref": "ingest-1"}],
+                "output_edges": [],
+            },
+        ]
+
+    def test_refetch_original_with_ingest_source_passes(self):
+        validator = self._make_validator()
+        dag = self._make_dag(ingest_op="ingest_source", storage_mode="refetch_original")
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+
+        assert results.errors == []
+
+    def test_comprehensive_export_with_ingest_source_passes(self):
+        validator = self._make_validator()
+        dag = self._make_dag(ingest_op="ingest_source", storage_mode="comprehensive_export")
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+
+        assert results.errors == []
+
+    def test_refetch_original_without_ingest_source_fails(self):
+        validator = self._make_validator()
+        dag = self._make_dag(ingest_op="ingest_local", storage_mode="refetch_original")
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+
+        assert len(results.errors) == 1
+        assert ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.name in str(results.errors[0].message_code)
+
+    def test_comprehensive_export_without_ingest_source_fails(self):
+        validator = self._make_validator()
+        dag = self._make_dag(ingest_op="ingest_local", storage_mode="comprehensive_export")
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+
+        assert len(results.errors) == 1
+        assert ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.name in str(results.errors[0].message_code)
+
+    def test_processed_content_without_ingest_source_passes(self):
+        """processed_content mode does not require ingest_source."""
+        validator = self._make_validator()
+        dag = self._make_dag(ingest_op="ingest_local", storage_mode="processed_content")
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+
+        assert results.errors == []
+
+    def test_no_storage_output_nodes_is_noop(self):
+        validator = self._make_validator()
+        dag = [
+            {
+                "id": "ingest-1",
+                "name": "ingest",
+                "operator": "ingest_local",
+                "config": {},
+                "input_edges": [],
+                "output_edges": [],
+            }
+        ]
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+
+        assert results.errors == []
 
 
 class TestMergeParentInputFeatures:

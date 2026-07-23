@@ -130,3 +130,17 @@ class TestFilesystemDestinationAdapterRegistration:
         )
 
         assert DestinationAdapterFactory.is_registered("filesystem")
+
+
+class TestFilesystemDestinationAdapterResolveDestinationPath:
+    def test_prepends_root_path(self, tmp_path):
+        adapter = FilesystemDestinationAdapter()
+        config = FilesystemDestinationConfig(root_path=str(tmp_path))
+        result = adapter.resolve_destination_path(relative_path="subdir/doc.md", config=config)
+        assert result == str(tmp_path / "subdir" / "doc.md")
+
+    def test_flat_relative_path(self, tmp_path):
+        adapter = FilesystemDestinationAdapter()
+        config = FilesystemDestinationConfig(root_path=str(tmp_path))
+        result = adapter.resolve_destination_path(relative_path="doc.md", config=config)
+        assert result == str(tmp_path / "doc.md")

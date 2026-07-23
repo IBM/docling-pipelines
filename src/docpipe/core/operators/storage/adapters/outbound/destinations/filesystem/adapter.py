@@ -13,6 +13,9 @@ from docpipe.core.operators.storage.adapters.outbound.destinations.filesystem.co
 )
 from docpipe.core.operators.storage.domain.models import WriteResult
 from docpipe.core.operators.storage.ports.outbound.destination_adapter import DestinationAdapterPort
+from docpipe.utils.infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @register_destination_adapter
@@ -22,6 +25,24 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
     DEST_NAME = "filesystem"
     DEST_DISPLAY_NAME = "Local Filesystem"
     DEST_VERSION = "1.0.0"
+
+    def validate_destination(
+        self,
+        *,
+        config: FilesystemDestinationConfig | None = None,
+    ) -> "WriteResult | None":
+        if config is None:
+            return None
+        root = Path(config.root_path)
+        if not root.exists():
+            if not config.create_dirs:
+                return WriteResult(
+                    doc_id="",
+                    doc_name="",
+                    success=False,
+                    error_message=f"destination directory does not exist and create_dirs is disabled: {root}",
+                )
+        return None
 
     def write_document(
         self,
@@ -53,7 +74,9 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
             path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
+            logger.info("Writing binary content to filesystem: path=%s", destination_path)
             path.write_bytes(content)
+            logger.info("Successfully wrote %d bytes to filesystem: %s", len(content), destination_path)
             return WriteResult(
                 doc_id="",
                 doc_name=path.name,
@@ -71,6 +94,15 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
 
     def ensure_directory(self, *, path: str) -> None:
         Path(path).mkdir(parents=True, exist_ok=True)
+
+    def resolve_destination_path(
+        self,
+        *,
+        relative_path: str,
+        config: FilesystemDestinationConfig,
+    ) -> str:
+        """Prepend the filesystem root_path to produce an absolute path."""
+        return str(Path(config.root_path) / relative_path)
 
     def build_config_from_operator_params(
         self,

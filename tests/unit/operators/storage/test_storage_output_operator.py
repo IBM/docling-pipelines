@@ -1,11 +1,12 @@
 """Tests for StorageOutputOperator — processed_content mode."""
 
+import json as _json
 from unittest.mock import patch
 
 import pyarrow as pa
 import pytest
 
-from docpipe.core.operators.storage.storage_output_operator import StorageOutputOperator
+from docpipe.core.operators.storage.storage_output_operator import StorageOutputOperator, _extract_source_relative_path
 
 
 def _make_table(rows: list[dict]) -> pa.Table:
@@ -60,6 +61,31 @@ class TestStorageOutputOperatorValidation:
                     [{"id": "1", "name": "a", "content": "x", "path": "/p", "metadata": "{}", "document_format": "pdf"}]
                 )
             )
+
+    def test_invalid_adapter_config_marks_docs_failed_and_flow_continues(self, tmp_path):
+        """A bad adapter config (e.g. missing S3 prefix) must NOT raise — it marks all docs
+        failed and returns a valid output table so downstream operators are unaffected."""
+        config = _base_config(tmp_path)
+        config["destination_config"] = {
+            "provider": "filesystem",
+            "connection_params": {},  # missing root_path — causes KeyError in build_config
+            "credentials": {},
+        }
+        op = StorageOutputOperator(config)
+        table = _make_table(
+            [
+                {"id": "1", "name": "doc1.md", "content": "x", "path": "/p", "metadata": "{}", "document_format": "md"},
+                {"id": "2", "name": "doc2.md", "content": "y", "path": "/q", "metadata": "{}", "document_format": "md"},
+            ]
+        )
+        # Must not raise
+        output_tables, metadata = op.transform(table)
+
+        assert output_tables and output_tables[0].num_rows == 2
+        write_statuses = output_tables[0].column("write_status").to_pylist()
+        assert all(s == "failed" for s in write_statuses)
+        # Downstream flow continues — metadata is returned, not an exception
+        assert metadata is not None
 
     def test_validate_method_reports_missing_content_column(self, tmp_path):
         op = StorageOutputOperator(_base_config(tmp_path))
@@ -267,6 +293,8 @@ class TestStorageOutputOperatorProcessedContent:
 
 
 def _refetch_config(tmp_path, overrides: dict | None = None) -> dict:
+    # ingest_source is at the top level, simulating what the orchestrator merges
+    # from the upstream ingest_source node into the operator config at runtime.
     config = {
         "name": "storage_output",
         "id": "node_1",
@@ -295,6 +323,8 @@ def _refetch_config(tmp_path, overrides: dict | None = None) -> dict:
 
 
 def _comprehensive_config(tmp_path, overrides: dict | None = None) -> dict:
+    # ingest_source is at the top level, simulating what the orchestrator merges
+    # from the upstream ingest_source node into the operator config at runtime.
     config = {
         "name": "storage_output",
         "id": "node_1",
@@ -349,7 +379,8 @@ class TestStorageOutputOperatorRefetchOriginal:
         assert (tmp_path / "doc1.pdf").read_bytes() == b"%PDF binary"
 
     def test_fetch_binary_content_called_with_path(self, tmp_path):
-        op = StorageOutputOperator(_refetch_config(tmp_path))
+        config = _refetch_config(tmp_path)
+        op = StorageOutputOperator(config)
         table = _make_table([_FULL_ROW])
 
         with patch("docpipe.core.operators.storage.storage_output_operator.get_binary_content") as mock_fetch:
@@ -358,45 +389,8 @@ class TestStorageOutputOperatorRefetchOriginal:
 
         mock_fetch.assert_called_once_with(
             doc_metadata={"path": "file:///src/report.pdf", "name": "report.pdf"},
-            global_config={
-                "ingest_source": {
-                    "provider": "filesystem",
-                    "connection_params": {"root_path": "/src"},
-                    "credentials": {},
-                }
-            },
+            global_config=config,
         )
-
-    def test_requires_ingest_source(self, tmp_path):
-        config = _refetch_config(tmp_path)
-        config.pop("ingest_source")
-        op = StorageOutputOperator(config)
-        with pytest.raises(ValueError, match="ingest_source"):
-            op.transform(_make_table([_FULL_ROW]))
-
-    def test_validate_reports_missing_ingest_source(self, tmp_path):
-        config = _refetch_config(tmp_path)
-        config.pop("ingest_source")
-        op = StorageOutputOperator(config)
-        errors: list[str] = []
-        warnings: list[str] = []
-        op.validate(
-            errors,
-            warnings,
-            available_features=["id", "name", "path", "content", "metadata", "document_format"],
-        )
-        assert any("ingest_source" in e for e in errors)
-
-    def test_ingest_source_in_config_is_sufficient(self, tmp_path):
-        op = StorageOutputOperator(_refetch_config(tmp_path))
-        errors: list[str] = []
-        warnings: list[str] = []
-        op.validate(
-            errors,
-            warnings,
-            available_features=["id", "name", "path", "content", "metadata", "document_format"],
-        )
-        assert not any("ingest_source" in e for e in errors)
 
     def test_failed_fetch_recorded_as_failure(self, tmp_path):
         op = StorageOutputOperator(_refetch_config(tmp_path))
@@ -474,8 +468,6 @@ class TestStorageOutputOperatorComprehensiveExport:
             mock_fetch.return_value = b"%PDF"
             op.transform(table)
 
-        import json as _json
-
         sidecar = _json.loads((tmp_path / "doc1" / "report.meta.json").read_text())
         assert sidecar["id"] == "doc1"
         assert sidecar["name"] == "report.pdf"
@@ -491,13 +483,6 @@ class TestStorageOutputOperatorComprehensiveExport:
             op.transform(table)
 
         assert (tmp_path / "doc1" / "report.pdf").read_bytes() == original_bytes
-
-    def test_requires_ingest_source(self, tmp_path):
-        config = _comprehensive_config(tmp_path)
-        config.pop("ingest_source")
-        op = StorageOutputOperator(config)
-        with pytest.raises(ValueError, match="ingest_source"):
-            op.transform(_make_table([_FULL_ROW]))
 
     def test_metadata_counts_correct(self, tmp_path):
         op = StorageOutputOperator(_comprehensive_config(tmp_path))
@@ -521,3 +506,140 @@ class TestStorageOutputOperatorComprehensiveExport:
         out = output_tables[0]
         assert out["write_status"][0].as_py() == "failed"
         assert metadata["failed_docs_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Tests for _extract_source_relative_path — S3 hierarchical path derivation
+# ---------------------------------------------------------------------------
+
+
+class TestExtractSourceRelativePath:
+    """Unit tests for the module-level helper that resolves relative paths."""
+
+    def test_returns_explicit_relative_path_when_present(self):
+        row = {"metadata": _json.dumps({"relative_path": "sub01/report.pdf"})}
+        assert _extract_source_relative_path(row) == "sub01/report.pdf"
+
+    def test_filesystem_relative_path_takes_precedence_over_key(self):
+        """When both relative_path and key are set, relative_path wins (filesystem adapter wins)."""
+        row = {"metadata": _json.dumps({"relative_path": "sub01/report.pdf", "key": "prefix/sub01/report.pdf"})}
+        assert _extract_source_relative_path(row, source_prefix="prefix/") == "sub01/report.pdf"
+
+    def test_s3_key_stripped_of_prefix_with_trailing_slash(self):
+        row = {"metadata": _json.dumps({"key": "vt_workspace/source_files/sub01/1kb_file.txt"})}
+        result = _extract_source_relative_path(row, source_prefix="vt_workspace/source_files/")
+        assert result == "sub01/1kb_file.txt"
+
+    def test_s3_key_stripped_of_prefix_leading_slash_normalised(self):
+        """Both key and prefix may carry a leading slash — normalisation ensures they match."""
+        row = {"metadata": _json.dumps({"key": "vt_workspace/source_files/sub01/hello.txt"})}
+        result = _extract_source_relative_path(row, source_prefix="/vt_workspace/source_files/")
+        assert result == "sub01/hello.txt"
+
+    def test_s3_key_file_at_prefix_root_returns_filename_only(self):
+        """A file directly under the source prefix has no sub-directory component."""
+        row = {"metadata": _json.dumps({"key": "vt_workspace/source_files/TR-INV_017.pdf"})}
+        result = _extract_source_relative_path(row, source_prefix="vt_workspace/source_files/")
+        assert result == "TR-INV_017.pdf"
+
+    def test_s3_key_with_no_prefix_match_returns_none(self):
+        """When the key doesn't start with the prefix, return None rather than a wrong path."""
+        row = {"metadata": _json.dumps({"key": "other_prefix/file.pdf"})}
+        result = _extract_source_relative_path(row, source_prefix="vt_workspace/source_files/")
+        assert result is None
+
+    def test_no_metadata_returns_none(self):
+        assert _extract_source_relative_path({}) is None
+
+    def test_empty_metadata_returns_none(self):
+        assert _extract_source_relative_path({"metadata": "{}"}) is None
+
+    def test_s3_key_present_but_no_prefix_returns_none(self):
+        """Without a source_prefix there is no way to compute a relative path from the key."""
+        row = {"metadata": _json.dumps({"key": "vt_workspace/source_files/sub01/file.pdf"})}
+        assert _extract_source_relative_path(row) is None
+
+    def test_malformed_metadata_returns_none(self):
+        assert _extract_source_relative_path({"metadata": "not-json"}) is None
+
+
+class TestStorageOutputOperatorS3Hierarchical:
+    """Integration-style tests verifying S3 hierarchical output structure via the filesystem adapter."""
+
+    def _s3_refetch_config(self, tmp_path) -> dict:
+        return {
+            "name": "storage_output",
+            "id": "node_s3",
+            "mode": "refetch_original",
+            "ingest_source": {
+                "provider": "s3",
+                "connection_params": {
+                    "bucket": "my-bucket",
+                    "prefix": "vt_workspace/source_files/",
+                    "region": "us-east-1",
+                },
+                "credentials": {"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
+            },
+            "destination_config": {
+                "provider": "filesystem",
+                "connection_params": {
+                    "root_path": str(tmp_path),
+                    "create_dirs": True,
+                },
+                "credentials": {},
+            },
+            "output_structure": {
+                "type": "hierarchical",
+                "overwrite_existing": True,
+            },
+        }
+
+    def _s3_row(self, key: str, name: str) -> dict:
+        return {
+            "id": key,
+            "name": name,
+            "content": "",
+            "path": f"s3://my-bucket/{key}",
+            "metadata": _json.dumps({"bucket": "my-bucket", "key": key}),
+            "document_format": name.rsplit(".", 1)[-1] if "." in name else "",
+        }
+
+    def test_subdirectory_preserved_in_hierarchical_mode(self, tmp_path):
+        from unittest.mock import patch
+
+        config = self._s3_refetch_config(tmp_path)
+        op = StorageOutputOperator(config)
+        row = self._s3_row("vt_workspace/source_files/sub01/1kb_file.txt", "1kb_file.txt")
+
+        with patch("docpipe.core.operators.storage.storage_output_operator.get_binary_content") as mock_fetch:
+            mock_fetch.return_value = b"hello"
+            op.transform(_make_table([row]))
+
+        assert (tmp_path / "sub01" / "1kb_file.txt").exists()
+
+    def test_root_level_file_has_no_subdirectory(self, tmp_path):
+        from unittest.mock import patch
+
+        config = self._s3_refetch_config(tmp_path)
+        op = StorageOutputOperator(config)
+        row = self._s3_row("vt_workspace/source_files/TR-INV_017.pdf", "TR-INV_017.pdf")
+
+        with patch("docpipe.core.operators.storage.storage_output_operator.get_binary_content") as mock_fetch:
+            mock_fetch.return_value = b"%PDF"
+            op.transform(_make_table([row]))
+
+        assert (tmp_path / "TR-INV_017.pdf").exists()
+        assert not (tmp_path / "vt_workspace").exists()
+
+    def test_multiple_nesting_levels_preserved(self, tmp_path):
+        from unittest.mock import patch
+
+        config = self._s3_refetch_config(tmp_path)
+        op = StorageOutputOperator(config)
+        row = self._s3_row("vt_workspace/source_files/a/b/c/deep.pdf", "deep.pdf")
+
+        with patch("docpipe.core.operators.storage.storage_output_operator.get_binary_content") as mock_fetch:
+            mock_fetch.return_value = b"data"
+            op.transform(_make_table([row]))
+
+        assert (tmp_path / "a" / "b" / "c" / "deep.pdf").exists()

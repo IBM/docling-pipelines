@@ -325,6 +325,7 @@ class FlowValidator:
 
         self.validate_first_operator(dag=dag, global_config=global_config, validate_results=validate_results)
         self.validate_acl_operator_placement(dag=dag, validate_results=validate_results)
+        self.validate_storage_output_operator_placement(dag=dag, validate_results=validate_results)
         self.validate_disjoint_operators(dag=dag, global_config=global_config, validate_results=validate_results)
         self.validate_no_cycles(dag=dag, validate_results=validate_results)
         self.validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
@@ -1091,6 +1092,64 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
         # Early exit if no ACL operator present
+
+    def validate_storage_output_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
+        """Validate that storage_output operators using refetch_original or comprehensive_export
+        have an upstream ingest_source operator in the DAG.
+
+        This check cannot be done inside StorageOutputOperator.validate() because
+        the ingest_source config key is only populated in global_config at runtime,
+        not during flow validation.
+        """
+        _modes_requiring_ingest_source = {"refetch_original", "comprehensive_export"}
+
+        storage_nodes = [
+            node
+            for node in dag
+            if node.get(OperatorConstants.Misc.OPERATOR) == OperatorConstants.Operators.STORAGE_OUTPUT
+            and node.get(OperatorConstants.Config.CONFIG, {}).get("mode") in _modes_requiring_ingest_source
+        ]
+        if not storage_nodes:
+            return
+
+        # Build a reverse-edge map: node_id -> list of parent node_ids
+        parent_map: dict[str, list[str]] = {n[OperatorConstants.Misc.ID]: [] for n in dag}
+        for node in dag:
+            for edge in node.get(DocpipeConstants.OUTPUT_EDGES, []):
+                target_id = edge.get("node_id_ref")
+                if target_id and target_id in parent_map:
+                    parent_map[target_id].append(node[OperatorConstants.Misc.ID])
+
+        # Map node_id -> operator name for ancestor lookup
+        id_to_operator: dict[str, str] = {
+            n[OperatorConstants.Misc.ID]: n.get(OperatorConstants.Misc.OPERATOR, "") for n in dag
+        }
+
+        def _has_ingest_source_ancestor(node_id: str) -> bool:
+            """BFS/DFS walk upward to find any ingest_source ancestor."""
+            visited: set[str] = set()
+            stack = list(parent_map.get(node_id, []))
+            while stack:
+                pid = stack.pop()
+                if pid in visited:
+                    continue
+                visited.add(pid)
+                if id_to_operator.get(pid) == OperatorConstants.Operators.INGEST_SOURCE:
+                    return True
+                stack.extend(parent_map.get(pid, []))
+            return False
+
+        for node in storage_nodes:
+            mode = node.get(OperatorConstants.Config.CONFIG, {}).get("mode", "")
+            if not _has_ingest_source_ancestor(node[OperatorConstants.Misc.ID]):
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.value.format(mode=mode),
+                        message_code=ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.name,
+                    ),
+                    op_def=node,
+                    alerts=validate_results.errors,
+                )
 
     def _build_graph(self, dag: list) -> dict:
         """Build a directed graph representation from the DAG.

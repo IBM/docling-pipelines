@@ -7,8 +7,9 @@ from typing import Any
 
 import pyarrow as pa
 
-# Import adapter so it self-registers via @register_destination_adapter
-import docpipe.core.operators.storage.adapters.outbound.destinations.filesystem.adapter  # noqa: F401
+# Import adapters so they self-register via @register_destination_adapter
+import docpipe.core.operators.storage.adapters.outbound.destinations.filesystem.adapter
+import docpipe.core.operators.storage.adapters.outbound.destinations.s3.adapter  # noqa: F401
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -42,18 +43,28 @@ def resolve_path_template(
 ) -> str:
     """Resolve a path template string with per-document variable substitution.
 
-    Variables: {doc_id}, {name}, {ext}, {year}, {month}, {day}
+    Variables: {doc_id}, {name}, {ext}, {year}, {month}, {day}, {relative_dir}
     Falls back to "{name}.{ext}" (flat) or the source relative path (hierarchical)
     when template is None.
 
     When ``hierarchical=True`` and no template is provided, the source relative
     path is used to mirror the source directory structure at the destination.
+
+    ``{relative_dir}`` expands to the directory portion of ``source_relative_path``
+    (e.g. ``sub01`` for a file ingested as ``sub01/report.pdf``).  It is empty
+    when the file lives at the root of the source tree.
     """
     now = datetime.now(tz=UTC)
     # Strip extension from name to get stem
     stem = Path(name).stem
     # Normalise ext: remove any leading dot so templates like "{doc_id}.{ext}" don't produce "..pdf"
     ext = ext.lstrip(".")
+
+    # Derive the directory portion of the source relative path for {relative_dir}.
+    relative_dir = str(Path(source_relative_path).parent) if source_relative_path else ""
+    # Path("file.pdf").parent == "." — normalise to empty string so templates don't get a stray dot.
+    if relative_dir == ".":
+        relative_dir = ""
 
     variables = {
         "doc_id": doc_id,
@@ -62,6 +73,7 @@ def resolve_path_template(
         "year": now.strftime("%Y"),
         "month": now.strftime("%m"),
         "day": now.strftime("%d"),
+        "relative_dir": relative_dir,
     }
 
     if not template:
@@ -69,20 +81,61 @@ def resolve_path_template(
             return source_relative_path
         return f"{stem}.{ext}"
 
-    return template.format(**variables)
+    resolved = template.format(**variables)
+    # Collapse any double (or more) slashes that arise when {relative_dir} is empty.
+    while "//" in resolved:
+        resolved = resolved.replace("//", "/")
+    return resolved
 
 
-def _extract_source_relative_path(row: dict[str, Any]) -> str | None:
-    """Extract ``relative_path`` from the JSON-serialised ``metadata`` column.
+def _extract_source_relative_path(
+    row: dict[str, Any],
+    *,
+    source_prefix: str | None = None,
+    ingest_root: str | None = None,
+) -> str | None:
+    """Extract ``relative_path`` from the row.
 
-    Returns the value (e.g. ``sub01/report.pdf``) when present, else ``None``.
+    Resolution order:
+    1. ``metadata["relative_path"]`` — set by ``ingest_source`` filesystem adapter.
+    2. ``metadata["key"]`` stripped of ``source_prefix`` — for S3 ``ingest_source`` rows.
+    3. ``row["path"]`` stripped of ``ingest_root`` — for ``ingest_local`` rows which have
+       no ``metadata`` column but carry the absolute path in ``path``.
+
+    Returns the relative path (e.g. ``sub01/report.pdf``) when it can be determined,
+    else ``None``.
     """
     raw = row.get("metadata", "{}")
     try:
         parsed = json.loads(raw) if raw else {}
     except (json.JSONDecodeError, TypeError):
         parsed = {}
-    return parsed.get("relative_path") or None
+
+    # 1. Prefer an explicitly stored relative_path (ingest_source filesystem adapter sets this).
+    explicit = parsed.get("relative_path")
+    if explicit:
+        return explicit
+
+    # 2. Fall back to deriving relative path from the S3 key by stripping the source prefix.
+    key = parsed.get("key")
+    if key and source_prefix:
+        # Normalise: remove any leading slash from both sides so the comparison is stable.
+        normalised_prefix = source_prefix.lstrip("/")
+        normalised_key = key.lstrip("/")
+        if normalised_key.startswith(normalised_prefix):
+            relative = normalised_key[len(normalised_prefix) :]
+            return relative.lstrip("/") or None
+
+    # 3. For ingest_local rows: derive from the absolute path in the row using the ingest root.
+    abs_path = row.get("path") or row.get("name")
+    if abs_path and ingest_root:
+        try:
+            rel = str(Path(abs_path).relative_to(ingest_root))
+            return rel or None
+        except ValueError:
+            pass
+
+    return None
 
 
 class StorageOutputOperator(AbstractOperator):
@@ -105,7 +158,7 @@ class StorageOutputOperator(AbstractOperator):
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
         self.mode: str | None = config.get("mode")
-        self.ingest_source: dict[str, Any] = config.get(OperatorConstants.Config.INGEST_SOURCE, {})
+        self._global_config: dict[str, Any] = config
         self.destination_config: dict[str, Any] = config.get("destination_config", {})
         self.output_format: dict[str, Any] = config.get("output_format", {})
         self.output_structure: dict[str, Any] = config.get("output_structure", {})
@@ -129,10 +182,6 @@ class StorageOutputOperator(AbstractOperator):
         for col in required_cols:
             if col not in available_features:
                 errors.append(f"{self.short_name}: required column '{col}' not found in available features")
-
-        if not self.validating_flow and self.mode in (WriteMode.REFETCH_ORIGINAL, WriteMode.COMPREHENSIVE_EXPORT):
-            if not self.ingest_source:
-                errors.append(f"{self.short_name}: mode '{self.mode}' requires an upstream ingest_source operator")
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -172,8 +221,8 @@ class StorageOutputOperator(AbstractOperator):
         if not self.destination_config:
             raise ValueError(f"{self.short_name}: 'destination_config' is required")
         if self.mode in (WriteMode.REFETCH_ORIGINAL, WriteMode.COMPREHENSIVE_EXPORT):
-            if not self.ingest_source:
-                raise ValueError(f"{self.short_name}: mode '{self.mode}' requires an upstream ingest_source operator")
+            if not self._global_config.get(OperatorConstants.Config.INGEST_SOURCE):
+                raise ValueError(f"{self.short_name}: mode '{self.mode}' requires an upstream 'ingest_source' operator")
 
         total = table.num_rows if table is not None else 0
         metadata = self.create_base_metadata(total_docs_count=total)
@@ -186,18 +235,91 @@ class StorageOutputOperator(AbstractOperator):
         # --- build adapter + config ---
         provider = self.destination_config.get("provider", "")
         adapter = DestinationAdapterFactory.create(provider)
-        dest_cfg = adapter.build_config_from_operator_params(
-            connection_params=self.destination_config.get("connection_params", {}),
-            credentials=self.destination_config.get("credentials", {}),
-        )
+        try:
+            dest_cfg = adapter.build_config_from_operator_params(
+                connection_params=self.destination_config.get("connection_params", {}),
+                credentials=self.destination_config.get("credentials", {}),
+            )
+        except (ValueError, KeyError) as e:
+            config_error_msg = str(e)
+            logger.error(
+                "destination config error for operator '%s': %s",
+                self.short_name,
+                config_error_msg,
+                extra=self.common_log_arguments,
+            )
+            write_results = [
+                WriteResult(
+                    doc_id=str(row.get("id", "")),
+                    doc_name=str(row.get("name", "")),
+                    success=False,
+                    error_message=config_error_msg,
+                )
+                for row in (table.to_pylist() if table is not None else [])
+            ]
+            for result in write_results:
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=result.doc_id,
+                    doc_name=result.doc_name,
+                    reason=config_error_msg,
+                )
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED
+            output_table = self._build_output_table(table, write_results)
+            self._record_operator_metrics(span=None, metadata=metadata)
+            return [output_table], metadata
+
+        # --- pre-flight destination check (fail fast before fetching any binaries) ---
+        dest_validation_error = adapter.validate_destination(config=dest_cfg)
+        if dest_validation_error is not None:
+            write_results = [
+                WriteResult(
+                    doc_id=str(row.get("id", "")),
+                    doc_name=str(row.get("name", "")),
+                    success=False,
+                    error_message=dest_validation_error.error_message,
+                )
+                for row in (table.to_pylist() if table is not None else [])
+            ]
+            for result in write_results:
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=result.doc_id,
+                    doc_name=result.doc_name,
+                    reason=result.error_message or "destination validation failed",
+                )
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED
+            output_table = self._build_output_table(table, write_results)
+            self._record_operator_metrics(span=None, metadata=metadata)
+            return [output_table], metadata
 
         content_format = self.output_format.get("content_format", ContentFormat.MD).lstrip(".")
         path_template = self.output_structure.get("path_template")
         overwrite = self.output_structure.get("overwrite_existing", True)
         hierarchical = self.output_structure.get("type", "flat") == "hierarchical"
 
+        # Derive the ingest source prefix so hierarchical mode can reconstruct
+        # relative paths for cloud sources (e.g. S3) that don't store relative_path
+        # directly in document metadata.
+        ingest_source = self._global_config.get(OperatorConstants.Config.INGEST_SOURCE, {})
+        source_prefix: str | None = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS, {}).get("prefix")
+
+        # For ingest_local rows there is no metadata column.  Derive the ingest root from
+        # the common directory ancestor of all absolute paths in the batch so that the
+        # sub-directory structure can be reconstructed at the destination.
+        ingest_root: str | None = None
+        if (hierarchical or path_template) and "path" in table.schema.names:
+            abs_parent_dirs = [str(Path(p).parent) for p in table.column("path").to_pylist() if p]
+            if abs_parent_dirs:
+                try:
+                    import os
+
+                    ingest_root = os.path.commonpath(abs_parent_dirs)
+                except (ValueError, TypeError):
+                    ingest_root = None
+
         rows = table.to_pylist()
-        write_results: list[WriteResult] = []
+        row_write_results: list[WriteResult] = []
 
         for row in rows:
             doc_id = row.get("id", "")
@@ -212,12 +334,14 @@ class StorageOutputOperator(AbstractOperator):
                     path_template=path_template,
                     overwrite=overwrite,
                     hierarchical=hierarchical,
+                    source_prefix=source_prefix,
+                    ingest_root=ingest_root,
                     doc_id=doc_id,
                     doc_name=doc_name,
                 )
                 result.doc_id = doc_id
                 result.doc_name = doc_name
-                write_results.append(result)
+                row_write_results.append(result)
 
                 if result.success:
                     metadata[Metrics.External.PROCESSED_DOCS] += 1
@@ -241,7 +365,7 @@ class StorageOutputOperator(AbstractOperator):
                     f"Unexpected error writing document {doc_name}: {e}",
                     extra=self.common_log_arguments,
                 )
-                write_results.append(
+                row_write_results.append(
                     WriteResult(
                         doc_id=doc_id,
                         doc_name=doc_name,
@@ -262,7 +386,7 @@ class StorageOutputOperator(AbstractOperator):
             skipped_count=metadata[Metrics.External.SKIPPED_DOCS_COUNT],
         )
 
-        output_table = self._build_output_table(table, write_results)
+        output_table = self._build_output_table(table, row_write_results)
         self._record_operator_metrics(span=None, metadata=metadata)
         return [output_table], metadata
 
@@ -280,6 +404,8 @@ class StorageOutputOperator(AbstractOperator):
         path_template: str | None,
         overwrite: bool,
         hierarchical: bool,
+        source_prefix: str | None,
+        ingest_root: str | None,
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
@@ -292,6 +418,8 @@ class StorageOutputOperator(AbstractOperator):
                 path_template=path_template,
                 overwrite=overwrite,
                 hierarchical=hierarchical,
+                source_prefix=source_prefix,
+                ingest_root=ingest_root,
                 doc_id=doc_id,
                 doc_name=doc_name,
             )
@@ -303,6 +431,8 @@ class StorageOutputOperator(AbstractOperator):
                 path_template=path_template,
                 overwrite=overwrite,
                 hierarchical=hierarchical,
+                source_prefix=source_prefix,
+                ingest_root=ingest_root,
                 doc_id=doc_id,
                 doc_name=doc_name,
             )
@@ -315,6 +445,8 @@ class StorageOutputOperator(AbstractOperator):
                 path_template=path_template,
                 overwrite=overwrite,
                 hierarchical=hierarchical,
+                source_prefix=source_prefix,
+                ingest_root=ingest_root,
                 doc_id=doc_id,
                 doc_name=doc_name,
             )
@@ -330,6 +462,8 @@ class StorageOutputOperator(AbstractOperator):
         path_template: str | None,
         overwrite: bool,
         hierarchical: bool,
+        source_prefix: str | None,
+        ingest_root: str | None,
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
@@ -353,9 +487,11 @@ class StorageOutputOperator(AbstractOperator):
             name=doc_name,
             ext=content_format,
             hierarchical=hierarchical,
-            source_relative_path=_extract_source_relative_path(row),
+            source_relative_path=_extract_source_relative_path(
+                row, source_prefix=source_prefix, ingest_root=ingest_root
+            ),
         )
-        base_path = Path(dest_cfg.root_path) / relative_path
+        base_path = Path(adapter.resolve_destination_path(relative_path=relative_path, config=dest_cfg))
         destination_path = str(base_path.with_name(base_path.stem + f".content.{content_format}"))
 
         return adapter.write_document(
@@ -374,6 +510,8 @@ class StorageOutputOperator(AbstractOperator):
         path_template: str | None,
         overwrite: bool,
         hierarchical: bool,
+        source_prefix: str | None,
+        ingest_root: str | None,
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
@@ -384,27 +522,11 @@ class StorageOutputOperator(AbstractOperator):
             name=doc_name,
             ext=ext,
             hierarchical=hierarchical,
-            source_relative_path=_extract_source_relative_path(row),
+            source_relative_path=_extract_source_relative_path(
+                row, source_prefix=source_prefix, ingest_root=ingest_root
+            ),
         )
-        destination_path = str(Path(dest_cfg.root_path) / relative_path)
-
-        # Validate destination before fetching binary content
-        dest_path = Path(destination_path)
-        if not overwrite and dest_path.exists():
-            return WriteResult(
-                doc_id=doc_id,
-                doc_name=doc_name,
-                success=False,
-                error_message="file exists, overwrite disabled",
-            )
-        create_dirs = dest_cfg.create_dirs if dest_cfg is not None else True
-        if not dest_path.parent.exists() and not create_dirs:
-            return WriteResult(
-                doc_id=doc_id,
-                doc_name=doc_name,
-                success=False,
-                error_message=f"destination directory does not exist and create_dirs is disabled: {dest_path.parent}",
-            )
+        destination_path = adapter.resolve_destination_path(relative_path=relative_path, config=dest_cfg)
 
         binary = self._fetch_binary(row=row, doc_name=doc_name)
 
@@ -433,10 +555,12 @@ class StorageOutputOperator(AbstractOperator):
         path_template: str | None,
         overwrite: bool,
         hierarchical: bool,
+        source_prefix: str | None,
+        ingest_root: str | None,
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
-        include_sidecar = self.output_format.get("include_metadata_sidecar", True)
+        include_sidecar = self.output_format.get("include_metadata_sidecar", False)
 
         # 1. Fetch original binary
         binary = self._fetch_binary(row=row, doc_name=doc_name)
@@ -458,9 +582,11 @@ class StorageOutputOperator(AbstractOperator):
             name=doc_name,
             ext=ext_original,
             hierarchical=hierarchical,
-            source_relative_path=_extract_source_relative_path(row),
+            source_relative_path=_extract_source_relative_path(
+                row, source_prefix=source_prefix, ingest_root=ingest_root
+            ),
         )
-        base_path = Path(dest_cfg.root_path) / base_relative
+        base_path = Path(adapter.resolve_destination_path(relative_path=base_relative, config=dest_cfg))
 
         # 2. Write original binary
         adapter.write_document(
@@ -523,12 +649,10 @@ class StorageOutputOperator(AbstractOperator):
         )
 
     def _fetch_binary(self, *, row: dict[str, Any], doc_name: str) -> bytes | None:
-        """Fetch binary content for a row using ingest_source from global_config."""
-        global_config = {OperatorConstants.Config.INGEST_SOURCE: self.ingest_source}
-
+        """Fetch binary content for a row using ingest_source populated by the orchestrator."""
         return get_binary_content(
             doc_metadata={"path": row.get("path", ""), "name": doc_name},
-            global_config=global_config,
+            global_config=self._global_config,
         )
 
     @staticmethod

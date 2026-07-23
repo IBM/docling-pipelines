@@ -1,8 +1,9 @@
 {
-  "flow_name": "export-markdown-filesystem",
-  "description": "Ingest PDFs, extract text with Docling, write extracted markdown to local filesystem.",
+  "flow_name": "export-markdown-s3",
+  "description": "Ingest PDFs, extract text with Docling, write extracted markdown to an S3 bucket. Credentials are read from environment variables.",
   "global_config": {
     "execute_type": "local",
+    "force_ingest": true,
     "storage": "in-memory"
   },
   "flow": [
@@ -10,12 +11,18 @@
       "type": "ingest_source",
       "name": "ingest",
       "config": {
-        "provider": "filesystem",
+        "provider": "s3",
         "connection_params": {
-          "paths": ["/data/source/documents"],
+          "bucket": "my-source-bucket",
+          "prefix": "source/",
+          "region": "us-east-1",
           "recursive": true
         },
-        "credentials": {}
+        "credentials": {
+          "access_key": "${S3_ACCESS_KEY}",
+          "secret_key": "${S3_SECRET_KEY}"
+        },
+        "include_filter": "pdf"
       }
     },
     {
@@ -35,18 +42,23 @@
       "config": {
         "mode": "processed_content",
         "destination_config": {
-          "provider": "filesystem",
+          "provider": "s3",
           "connection_params": {
-            "root_path": "/data/archive/originals",
+            "bucket": "my-output-bucket",
+            "prefix": "exports/",
+            "region": "us-east-1",
             "create_dirs": true
           },
-          "credentials": {}
+          "credentials": {
+            "access_key": "${S3_DEST_ACCESS_KEY}",
+            "secret_key": "${S3_DEST_SECRET_KEY}"
+          }
         },
         "output_format": {
-          "content_format": "md"
+          "content_format": "txt"
         },
         "output_structure": {
-          "type": "flat",
+          "type": "hierarchical",
           "path_template": "{year}/{month}/{name}.{ext}",
           "overwrite_existing": true
         }

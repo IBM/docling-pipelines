@@ -220,19 +220,14 @@ class AbstractOperatorExecutor:
         batch_id = self._params.get(DocpipeConstants.BATCH_ID)
         batch_num = self._params.get(DocpipeConstants.BATCH_NUM)
 
-        # Extract document IDs from tables
         all_doc_ids = OperatorUtils.get_unique_ids(tables=tables) if tables else []
-
-        # Extract failed and skipped document IDs from metadata
         failed_docs = [
             doc.get("id", "") for doc in metadata.get(Metrics.External.FAILED_DOCS, []) if isinstance(doc, dict)
         ]
         skipped_docs = [
             doc.get("id", "") for doc in metadata.get(Metrics.External.SKIPPED_DOCS, []) if isinstance(doc, dict)
         ]
-
-        # docs_completed = documents in output tables that are NOT failed or skipped
-        failed_and_skipped_set = set(failed_docs + skipped_docs)
+        failed_and_skipped_set = set(failed_docs) | set(skipped_docs)
         docs_completed = [doc_id for doc_id in all_doc_ids if doc_id not in failed_and_skipped_set]
         col_names = tables[0].column_names if tables else []
         node_status = metadata.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value)

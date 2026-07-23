@@ -125,3 +125,8 @@ class ValidationCodeMessages(StrEnum):
     ACL_OPERATOR_MISPLACED = "ACL operator must be placed immediately after an ingest_source operator. Current predecessor: {predecessor_operator}"
     ACL_INVALID_PROVIDER = "ACL operator requires ingest_source to use 'sharepoint' provider, but found '{provider}'"
     MULTIPLE_ACL_OPERATORS = "Multiple ACL operators detected in the flow. Only one ACL operator is allowed per flow."
+
+    # Storage Output Operator errors
+    STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE = (
+        "storage_output: mode '{mode}' requires an upstream 'ingest_source' operator"
+    )

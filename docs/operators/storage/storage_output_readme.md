@@ -14,9 +14,9 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 ## Key Features
 
 - Three write modes covering the most common output use cases
-- Pluggable destination backend via `DestinationAdapterFactory` (currently: `filesystem`)
-- Path templating with per-document variables (`{doc_id}`, `{name}`, `{year}`, `{month}`, `{day}`)
-- Hierarchical output that mirrors the source directory tree
+- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem` and `s3`
+- Path templating with per-document variables (`{doc_id}`, `{name}`, `{year}`, `{month}`, `{day}`, `{relative_dir}`)
+- Hierarchical output that mirrors the source directory tree across filesystem and S3 sources
 - Overwrite control — skip existing files and record `skipped` status per document
 - Automatic subdirectory creation (`create_dirs`)
 - Per-document write outcome tracked in output columns (`write_status`, `write_error`, etc.)
@@ -67,16 +67,38 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | Yes | — | Destination adapter name — currently `filesystem` |
+| `provider` | string | Yes | — | Destination adapter name: `filesystem` or `s3` |
 | `connection_params` | object | Yes | — | Provider-specific connection parameters (see below) |
 | `credentials` | object | No | `{}` | Provider-specific credentials |
 
-### Filesystem `connection_params`
+### Provider: `filesystem`
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `root_path` | string | Yes | — | Base directory to write files into. `~` is expanded automatically. |
 | `create_dirs` | bool | No | `true` | Auto-create missing subdirectories |
+
+No credentials required — set `"credentials": {}`.
+
+### Provider: `s3`
+
+**`connection_params`**
+
+| Field | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `bucket` | string | Yes | — | Target S3 bucket name |
+| `prefix` | string | Yes | — | Key prefix prepended to every object written (writing to bucket root is not permitted) |
+| `region` | string | No | — | AWS region, e.g. `us-east-1` |
+| `endpoint_url` | string | No | — | Custom endpoint for S3-compatible storage (IBM COS, MinIO). Must start with `http://` or `https://` |
+| `create_dirs` | bool | No | `true` | When `false`, the prefix must already contain at least one object; otherwise the write is refused |
+| `verify_expected_bucket_owner` | bool | No | `false` | When `true`, verifies the bucket owner matches the caller's AWS account via STS |
+
+**`credentials`**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `access_key` | string | Yes | AWS access key ID. Use `"${ENV_VAR}"` to read from an environment variable |
+| `secret_key` | string | Yes | AWS secret access key. Use `"${ENV_VAR}"` to read from an environment variable |
 
 ### `output_format`
 
@@ -103,10 +125,13 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 | `{year}` | UTC year at write time, e.g. `2026` |
 | `{month}` | UTC month, zero-padded, e.g. `06` |
 | `{day}` | UTC day, zero-padded, e.g. `14` |
+| `{relative_dir}` | Directory portion of the source relative path (e.g. `sub01` for a file ingested as `sub01/report.pdf`). Empty string when the file is at the source root. |
 
 When no `path_template` is provided and `type` is `flat`, files are written as `{name}.{ext}`.
-When `type` is `hierarchical` and no template is given, the `relative_path` value from the
-`metadata` column is used to mirror the source directory structure.
+When `type` is `hierarchical` and no template is given, the full source relative path is used to
+mirror the source directory structure. Relative paths are resolved from `metadata["relative_path"]`
+(filesystem ingest), `metadata["key"]` minus the source prefix (S3 ingest), or the absolute `path`
+column minus the common ingest root (local ingest).
 
 ## Output Columns
 
@@ -121,7 +146,7 @@ All input columns are passed through unchanged. The following columns are append
 
 ## Examples
 
-### Example 1: Write extracted content as markdown
+### Example 1: Write extracted content as markdown (filesystem)
 
 ```json
 {
@@ -141,18 +166,60 @@ All input columns are passed through unchanged. The following columns are append
 }
 ```
 
-### Example 2: Archive original files, skipping existing
+### Example 2: Write extracted content to S3
+
+Credentials are read from environment variables at runtime.
 
 ```json
 {
   "type": "storage_output",
-  "name": "archive_originals",
+  "name": "write_to_s3",
+  "config": {
+    "mode": "processed_content",
+    "destination_config": {
+      "provider": "s3",
+      "connection_params": {
+        "bucket": "my-export-bucket",
+        "prefix": "exports/markdown/",
+        "region": "us-east-1",
+        "create_dirs": true
+      },
+      "credentials": {
+        "access_key": "${S3_DEST_ACCESS_KEY}",
+        "secret_key": "${S3_DEST_SECRET_KEY}"
+      }
+    },
+    "output_format": { "content_format": "md" },
+    "output_structure": {
+      "type": "hierarchical",
+      "path_template": "{year}/{month}/{name}.{ext}",
+      "overwrite_existing": true
+    }
+  },
+  "depends_on": ["extract"]
+}
+```
+
+### Example 3: Archive original files to S3, skipping existing
+
+```json
+{
+  "type": "storage_output",
+  "name": "archive_originals_s3",
   "config": {
     "mode": "refetch_original",
     "destination_config": {
-      "provider": "filesystem",
-      "connection_params": { "root_path": "/archive/originals", "create_dirs": true },
-      "credentials": {}
+      "provider": "s3",
+      "connection_params": {
+        "bucket": "my-archive-bucket",
+        "prefix": "originals/",
+        "region": "us-east-1",
+        "create_dirs": true
+      },
+      "credentials": {
+        "access_key": "${S3_DEST_ACCESS_KEY}",
+        "secret_key": "${S3_DEST_SECRET_KEY}"
+      }
     },
     "output_structure": {
       "type": "hierarchical",
@@ -163,7 +230,7 @@ All input columns are passed through unchanged. The following columns are append
 }
 ```
 
-### Example 3: Full compliance export with metadata sidecar
+### Example 4: Full compliance export with metadata sidecar (filesystem)
 
 ```json
 {
@@ -201,19 +268,33 @@ Output layout per document:
 of `processed_content`, `refetch_original`, or `comprehensive_export`.
 
 **`ValueError: Unknown destination adapter: 'xyz'`** — The `provider` field in `destination_config`
-does not match any registered adapter. Currently only `filesystem` is available.
+does not match any registered adapter. Use `filesystem` or `s3`.
 
 **`write_status = failed` with `destination directory does not exist and create_dirs is disabled`** —
-The output directory does not exist and `create_dirs` is `false`. Set `create_dirs: true` or create
-the directory manually before running the flow.
+The output directory (filesystem) or prefix (S3) does not exist and `create_dirs` is `false`. Set
+`create_dirs: true` or create the path manually before running the flow.
+
+**`write_status = failed` with `S3 destination bucket '...' is not accessible`** — The S3 bucket is
+not reachable. Check that the bucket name, region, credentials, and network access are correct. For
+S3-compatible storage, verify `endpoint_url`.
+
+**`write_status = failed` with `boto3 is not installed`** — The `s3` provider requires the `boto3`
+package. Install it with `uv pip install boto3`.
+
+**`ValueError: Missing required S3 credential: 'access_key'`** — The `access_key` field is absent
+from `credentials`. If using environment variables, ensure `${S3_DEST_ACCESS_KEY}` is set in the
+shell before running the flow.
+
+**`ValueError: Missing required S3 destination path: set 'prefix'`** — The `prefix` field is absent
+from `connection_params`. Writing to the S3 bucket root is not permitted; set a non-empty prefix.
 
 **`write_status = failed` with `Could not fetch binary content for 'name' from source`** — Modes
 `refetch_original` and `comprehensive_export` re-fetch binaries via the upstream ingest source.
 Ensure the `ingest_source` global config is populated and the source is accessible.
 
 **`write_status = skipped`** — A file already exists at the destination path and
-`overwrite_existing` is `false`. This is expected behaviour; increase verbosity or inspect the
-`write_error` column for the exact path.
+`overwrite_existing` is `false`. This is expected behaviour; inspect the `write_error` column for
+the exact path.
 
 ## Architecture
 
@@ -226,16 +307,22 @@ implementation selected by [`DestinationAdapterFactory`](../../../src/docpipe/co
 graph LR
     SOO[StorageOutputOperator] --> FAC[DestinationAdapterFactory]
     FAC --> FSA[FilesystemDestinationAdapter]
+    FAC --> S3A[S3DestinationAdapter]
     FSA --> FS[Local Filesystem]
+    S3A --> S3[Amazon S3 / S3-compatible]
 
     style SOO fill:#e1f5ff
     style FAC fill:#fff4e1
     style FSA fill:#f3e6ff
+    style S3A fill:#f3e6ff
     style FS fill:#e8f5e9
+    style S3 fill:#e8f5e9
 ```
 
 New destination adapters self-register via the `@register_destination_adapter` decorator and
-require no changes to the operator itself.
+require no changes to the operator itself. Each adapter implements `validate_destination()` for
+pre-flight reachability checks and `resolve_destination_path()` to convert a relative template
+path into a provider-specific absolute path (filesystem path or S3 object key).
 
 **Operating modes and required input columns:**
 

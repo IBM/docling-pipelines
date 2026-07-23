@@ -70,6 +70,9 @@ class OperatorConstants:
         OPENSEARCH: Final[str] = "opensearch"
         VECTORDB: Final[str] = "vectordb"
 
+        # Storage Output Operators
+        STORAGE_OUTPUT: Final[str] = "storage_output"
+
         # Utility Operators
         DESIGN_FLOW_OUTPUT_OPERATOR: Final[str] = "design_flow_output"
         NOOP: Final[str] = "noop"

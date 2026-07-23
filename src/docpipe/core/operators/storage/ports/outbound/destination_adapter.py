@@ -22,6 +22,14 @@ class DestinationAdapterPort(ABC, Generic[DestConfig]):  # noqa: UP046
     DEST_DISPLAY_NAME: str | None = None
     DEST_VERSION: str = "1.0.0"
 
+    def validate_destination(self, *, config: DestConfig) -> WriteResult | None:
+        """Validate that the destination is reachable and writable before any content is fetched.
+
+        Returns a failed WriteResult if the destination is invalid, or None if all is well.
+        Default implementation performs no checks; adapters override as needed.
+        """
+        return None
+
     @abstractmethod
     def write_document(
         self,
@@ -35,6 +43,15 @@ class DestinationAdapterPort(ABC, Generic[DestConfig]):  # noqa: UP046
     @abstractmethod
     def ensure_directory(self, *, path: str) -> None:
         """Ensure the directory at path exists, creating it if necessary."""
+
+    @abstractmethod
+    def resolve_destination_path(self, *, relative_path: str, config: DestConfig) -> str:
+        """Resolve a provider-specific absolute destination path from a relative path.
+
+        Each adapter prepends its own root (filesystem root_path, S3 key_prefix, etc.)
+        to the relative path produced by resolve_path_template. The operator calls this
+        instead of touching dest_cfg.root_path directly.
+        """
 
     @abstractmethod
     def build_config_from_operator_params(

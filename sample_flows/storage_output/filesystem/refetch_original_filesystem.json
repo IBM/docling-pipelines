@@ -13,7 +13,7 @@
       "config": {
         "provider": "filesystem",
         "connection_params": {
-          "root_path": "/data/source/documents",
+          "paths": ["/data/source/documents"],
           "recursive": true
         },
         "credentials": {}
