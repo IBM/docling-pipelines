@@ -42,8 +42,8 @@ class TestRedactionOperator:
         assert stats[1] == 0
         assert stats[2] == 2
 
-        # Check metadata
-        assert metadata[Metrics.External.PROCESSED_DOCS] == 2  # Only docs with redactions
+        # Check metadata — PROCESSED_DOCS counts all rows that passed through the operator
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 3
         assert metadata["total_redactions"] == 3
 
     def test_redaction_with_regex_pattern(self):

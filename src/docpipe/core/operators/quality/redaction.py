@@ -114,16 +114,13 @@ class RedactionOperator(AbstractOperator):
                     "Verify the pattern is valid and does not use unsupported constructs such as lookaheads or backreferences."
                 )
 
-    def redact(self, matches: list, content: str):
+    def redact(self, content: str) -> str:
         """
-        Redact the given content by replacing the matches with the masking pattern.
+        Redact the given content by replacing pattern matches with the masking character.
         """
-        if not matches:
-            return content
-
-        pattern = re.compile(r"(?i)" + r"|".join(map(re.escape, matches)))
-
-        return pattern.sub(lambda m: self.masking_character * len(m.group()), content)
+        if self.pattern is None:
+            raise RuntimeError("redact() called but self.pattern is None; ensure a valid regex was provided.")
+        return self.pattern.sub(lambda m: self.masking_character * len(m.group()), content)
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -153,34 +150,36 @@ class RedactionOperator(AbstractOperator):
         OperatorUtils.validate_columns(table=table, required=[self.doc_column], operator_name=self.short_name)
 
         logger.info(
-            f"Redaction pattern/word: {self.pattern.pattern if self.pattern else None}, Masking Character: {self.masking_character or None}",
+            "Redaction pattern/word: %s, Masking Character: %s",
+            self.pattern.pattern if self.pattern else None,
+            self.masking_character or None,
             extra=self.common_log_arguments,
         )
-        docs = table[self.doc_column]
-        redacted_rows = 0
         total_redactions = 0
         redaction_status = [0] * table.num_rows
-        updated_content_column = table[self.doc_column].to_pandas().to_list()
-        for n in range(table.num_rows):
-            content = docs[n].as_py()
+        updated_content_column = table[self.doc_column].to_pylist()
+        redacted_rows = 0
+        for n, content in enumerate(updated_content_column):
             matches = self.pattern.findall(content)
-            redacted_content = self.redact(matches, content)
-            updated_content_column[n] = redacted_content
-            logger.info(
-                f"Redaction completed for doc {table['name'][n]}",
-                extra=self.common_log_arguments,
-            )
-            if len(matches) > 0:
-                redacted_rows += 1
+            if matches:
+                updated_content_column[n] = self.redact(content)
                 total_redactions += len(matches)
                 redaction_status[n] = len(matches)
+                redacted_rows += 1
 
-        # Drop the old column and add the updated content
-        table = table.drop(self.doc_column)
-        table = table.append_column(self.doc_column, pa.array(updated_content_column))
+        logger.info(
+            "Redaction complete. %s of %s documents redacted (%s total matches).",
+            redacted_rows,
+            table.num_rows,
+            total_redactions,
+            extra=self.common_log_arguments,
+        )
+
+        col_idx = table.schema.get_field_index(self.doc_column)
+        table = table.set_column(col_idx, self.doc_column, pa.array(updated_content_column))
         table = table.append_column(self.stats_column, pa.array(redaction_status))
 
-        metadata[Metrics.External.PROCESSED_DOCS] = redacted_rows
+        metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
         metadata["total_redactions"] = total_redactions
 
         return [table], metadata
