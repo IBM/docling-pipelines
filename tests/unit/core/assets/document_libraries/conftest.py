@@ -38,13 +38,12 @@ def sample_library_domain(sample_library_data) -> DocumentLibrary:
 @pytest.fixture
 def sample_library_with_id(sample_library_data) -> DocumentLibrary:
     """Sample DocumentLibrary domain object with a specific library_id for testing."""
-    library = DocumentLibrary(
+    return DocumentLibrary(
         library_id="test-library-id-123",
         name=sample_library_data["name"],
         description=sample_library_data["description"],
         document_set_ids=["set-1", "set-2"],
     )
-    return library
 
 
 @pytest.fixture

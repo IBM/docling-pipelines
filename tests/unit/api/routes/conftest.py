@@ -68,7 +68,7 @@ def sample_flow_data(sample_flow_data_authoring) -> dict[str, Any]:
 @pytest.fixture
 def sample_flow_with_id_elyra(sample_flow_data_elyra) -> Flow:
     """Sample Flow domain object with Elyra format definition for testing."""
-    flow = Flow(
+    return Flow(
         asset_id="12345678-1234-1234-1234-123456789abc",
         name="Test Flow",
         description="A test flow for unit testing",
@@ -83,7 +83,6 @@ def sample_flow_with_id_elyra(sample_flow_data_elyra) -> Flow:
         created_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         modified_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
-    return flow
 
 
 @pytest.fixture
@@ -115,7 +114,7 @@ def sample_authoring_flow_with_id() -> Flow:
         "global_config": {},
         "tags": ["test", "unit-test"],
     }
-    flow = Flow(
+    return Flow(
         asset_id="12345678-1234-1234-1234-123456789abc",
         name="Test Flow",
         description="A test flow for unit testing",
@@ -130,7 +129,6 @@ def sample_authoring_flow_with_id() -> Flow:
         created_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         modified_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
-    return flow
 
 
 @pytest.fixture

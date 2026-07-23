@@ -154,8 +154,7 @@ def load_embeddings_from_memmap_file(filepath):
 
     try:
         # Convert to list of lists for JSON serialization
-        embeddings_list = [embedding.tolist() for embedding in mmap_array]
-        return embeddings_list
+        return [embedding.tolist() for embedding in mmap_array]
     finally:
         # Explicitly delete the memmap array to free memory
         del mmap_array

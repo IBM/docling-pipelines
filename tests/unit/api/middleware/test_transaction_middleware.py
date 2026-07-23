@@ -24,8 +24,7 @@ def mock_call_next():
     """Create a mock call_next function."""
 
     async def call_next(request):
-        response = Response(content="test", status_code=200)
-        return response
+        return Response(content="test", status_code=200)
 
     return call_next
 

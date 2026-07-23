@@ -61,7 +61,7 @@ src/models/
 .bob/.ai_architecture.yaml
 .bob/mcp.json
 .bob/*.bak
-
+.bob/
 
 
 # OS

@@ -187,8 +187,7 @@ async def oauth2_discovery(
     """
     try:
         provider_instance = get_oauth2_provider(config)
-        discovery = await provider_instance.discover_endpoints()
-        return discovery
+        return await provider_instance.discover_endpoints()
     except Exception as e:
         logger.error(f"Failed to fetch discovery document: {e!s}")
         raise HTTPException(

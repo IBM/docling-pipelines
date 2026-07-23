@@ -66,11 +66,10 @@ def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60,
                         if exception:
                             logger.error(f"Failed after {max_retries} attempts: {exception!s}")
                             raise exception
-                        else:
-                            # This is a special case where, should_retry is True but no exception occurred, and retry_count reaches max_retries
-                            raise DocpipeException(
-                                f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}"
-                            )
+                        # This is a special case where, should_retry is True but no exception occurred, and retry_count reaches max_retries
+                        raise DocpipeException(
+                            f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}"
+                        )
 
                     logger.info(f"Operation failed on attempt {retry_count}. Retrying in {delay:.2f} seconds...")
                     time.sleep(delay)

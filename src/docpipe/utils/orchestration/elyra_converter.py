@@ -374,9 +374,7 @@ class ElyraConverter:
         self._validate_dag(graph=graph, first_nodes=first_nodes, node_count=len(transformed))
 
         # Sort topologically
-        transformed_sorted = self._sort_dag_topologically(dag=transformed)
-
-        return transformed_sorted
+        return self._sort_dag_topologically(dag=transformed)
 
     def _get_node_name(self, *, node: dict) -> str:
         """
@@ -663,7 +661,7 @@ class ElyraConverter:
         pipeline_id = str(uuid4())
 
         # Build Elyra pipeline structure
-        elyra_pipeline = {
+        return {
             ElyraConstants.DOC_TYPE: "pipeline",
             ElyraConstants.VERSION: "3.0",
             ElyraConstants.JSON_SCHEMA: "http://api.dataplatform.ibm.com/schemas/common-pipeline/pipeline-flow/pipeline-flow-v3-schema.json",
@@ -691,8 +689,6 @@ class ElyraConverter:
             ],
             ElyraConstants.SCHEMAS: [],
         }
-
-        return elyra_pipeline
 
     def _generate_node_layout(self, *, dag: list[dict], spacing_x: int, spacing_y: int) -> dict[str, tuple[int, int]]:
         """
@@ -817,19 +813,18 @@ class ElyraConverter:
 
                 return max_x
 
-            elif operator == OperatorConstants.Operators.MERGE:
+            if operator == OperatorConstants.Operators.MERGE:
                 # Merge node: already positioned, return next x
                 return current_x + spacing_x
 
-            else:
-                # Regular node: position children sequentially
-                next_x = current_x + spacing_x
-                for child_id in children:
-                    if child_id not in positioned:
-                        child_max_x = _position_subtree(child_id, next_x, start_y)
-                        next_x = child_max_x
+            # Regular node: position children sequentially
+            next_x = current_x + spacing_x
+            for child_id in children:
+                if child_id not in positioned:
+                    child_max_x = _position_subtree(child_id, next_x, start_y)
+                    next_x = child_max_x
 
-                return next_x
+            return next_x
 
         # Position from root nodes
         x_pos = 100

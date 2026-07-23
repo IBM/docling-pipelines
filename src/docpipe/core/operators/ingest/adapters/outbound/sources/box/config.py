@@ -48,12 +48,11 @@ class BoxSourceConfig(BaseModel):
         resolved = os.path.expandvars(v)
 
         # Then expand user home directory
-        expanded_path = os.path.expanduser(resolved)
+        return os.path.expanduser(resolved)
 
         # Just expand the path, don't validate existence here
         # The actual file access will happen during authentication
         # This avoids permission errors during config validation
-        return expanded_path
 
     @field_validator("file_extensions")
     @classmethod

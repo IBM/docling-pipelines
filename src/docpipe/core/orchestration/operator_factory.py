@@ -279,12 +279,11 @@ class OperatorFactory:
             )
             operators_dict[short_name] = new_operator
             return True
-        else:
-            logger.info(
-                f"{log_prefix} '{short_name}': {new_operator.__name__} (priority={new_priority}) "
-                f"cannot override {existing_operator.__name__} (priority={existing_priority})"
-            )
-            return False
+        logger.info(
+            f"{log_prefix} '{short_name}': {new_operator.__name__} (priority={new_priority}) "
+            f"cannot override {existing_operator.__name__} (priority={existing_priority})"
+        )
+        return False
 
     @staticmethod
     def resolve_operator_by_priority(

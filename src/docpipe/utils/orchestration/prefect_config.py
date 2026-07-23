@@ -130,9 +130,8 @@ def _safe_rmtree(path: str, prefix: str | None = None) -> bool:
         shutil.rmtree(path, ignore_errors=True)
         logger.info(f"Deleted tempdir: {path}")
         return True
-    else:
-        logger.info(f"Path does not exist: {path}")
-        return False
+    logger.info(f"Path does not exist: {path}")
+    return False
 
 
 __all__ = [

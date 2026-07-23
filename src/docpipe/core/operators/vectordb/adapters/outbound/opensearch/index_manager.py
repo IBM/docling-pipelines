@@ -282,17 +282,17 @@ class OpenSearchIndexManager:
         """
         if isinstance(obj, dict):
             return {k: self._replace_placeholders(obj=v) for k, v in obj.items()}
-        elif isinstance(obj, list):
+        if isinstance(obj, list):
             return [self._replace_placeholders(obj=item) for item in obj]
-        elif isinstance(obj, str):
+        if isinstance(obj, str):
             # Check if entire string is a placeholder
             if obj == "__ENGINE__":
                 return self.engine
-            elif obj == "__ALGORITHM__":
+            if obj == "__ALGORITHM__":
                 return self.algorithm
-            elif obj == "__SPACE_TYPE__":
+            if obj == "__SPACE_TYPE__":
                 return self.space_type
-            elif obj == "__ENGINE_PARAMETERS__":
+            if obj == "__ENGINE_PARAMETERS__":
                 return self._get_engine_parameters()
 
             # Otherwise, replace placeholders within string
@@ -306,8 +306,7 @@ class OpenSearchIndexManager:
                 if placeholder in result:
                     result = result.replace(placeholder, value)
             return result
-        else:
-            return obj
+        return obj
 
     def _validate_schema(self, *, schema: dict[str, Any]) -> None:
         """
@@ -1078,9 +1077,8 @@ class OpenSearchIndexManager:
                 self.client.indices.delete(index=self.index_name)
                 logger.info(f"Deleted index {self.index_name}")
                 return True
-            else:
-                logger.warning(f"Index {self.index_name} does not exist")
-                return False
+            logger.warning(f"Index {self.index_name} does not exist")
+            return False
         except Exception as e:
             logger.error(f"Error deleting index: {e}")
             return False

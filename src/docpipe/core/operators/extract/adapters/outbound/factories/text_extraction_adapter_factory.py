@@ -250,7 +250,7 @@ class TextExtractionAdapterFactory:
 
             return DoclingAdapter(config=full_config)
 
-        elif mode == TextExtractionMode.DOCLING_SERVE:
+        if mode == TextExtractionMode.DOCLING_SERVE:
             TextExtractionAdapterFactory._validate_docling_serve_config(adapter_config)
             logger.info(
                 "Creating DoclingServeAdapter with URL: %s",
@@ -260,10 +260,9 @@ class TextExtractionAdapterFactory:
             )
             return DoclingServeAdapter(config=full_config)
 
-        else:
-            raise ValueError(
-                f"Unsupported extraction provider: {mode}. Supported providers: {[m.value for m in TextExtractionMode]}"
-            )
+        raise ValueError(
+            f"Unsupported extraction provider: {mode}. Supported providers: {[m.value for m in TextExtractionMode]}"
+        )
 
     @staticmethod
     def _validate_docling_config(config: dict[str, Any]) -> None:

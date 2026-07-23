@@ -410,15 +410,13 @@ class ValidationService:
                     status = "FAILED"
                     message = "Flow validation failed."
 
-                result = {"status": status, "message": message, "errors": errors, "warnings": warnings}
-
-                return result
+                return {"status": status, "message": message, "errors": errors, "warnings": warnings}
 
         except Exception as e:
             # Catch any unexpected exceptions and return as validation error
             logger.error("Unexpected error during flow validation: %s", str(e), exc_info=True)
 
-            result = {
+            return {
                 "status": "FAILED",
                 "message": "Validation failed with unexpected error.",
                 "errors": [
@@ -426,5 +424,3 @@ class ValidationService:
                 ],
                 "warnings": [],
             }
-
-            return result

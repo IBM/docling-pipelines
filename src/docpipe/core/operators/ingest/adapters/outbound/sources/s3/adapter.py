@@ -182,8 +182,7 @@ class S3SourceAdapter(DocumentSourcePort):
                     True,
                     f"Successfully connected to S3 bucket '{config.bucket}'. Found {object_count} object(s) with prefix '{config.prefix}'.",
                 )
-            else:
-                return (True, f"Successfully connected to S3 bucket '{config.bucket}', but no objects found.")
+            return (True, f"Successfully connected to S3 bucket '{config.bucket}', but no objects found.")
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
@@ -191,14 +190,13 @@ class S3SourceAdapter(DocumentSourcePort):
 
             if error_code == "NoSuchBucket":
                 return (False, f"Bucket '{config.bucket}' does not exist.")
-            elif error_code == "AccessDenied":
+            if error_code == "AccessDenied":
                 return (False, f"Access denied to bucket '{config.bucket}'. Check credentials and permissions.")
-            elif error_code == "InvalidAccessKeyId":
+            if error_code == "InvalidAccessKeyId":
                 return (False, "Invalid access key ID. Check your credentials.")
-            elif error_code == "SignatureDoesNotMatch":
+            if error_code == "SignatureDoesNotMatch":
                 return (False, "Invalid secret key. Check your credentials.")
-            else:
-                return (False, f"S3 error ({error_code}): {error_message}")
+            return (False, f"S3 error ({error_code}): {error_message}")
 
         except BotoCoreError as e:
             return (False, f"Boto3 error: {e}")

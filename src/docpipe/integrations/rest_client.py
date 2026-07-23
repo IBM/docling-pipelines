@@ -103,7 +103,7 @@ def sanitize_sensitive_data(data: dict[str, Any] | str) -> dict[str, Any] | str:
                 sanitized[key] = value
         return sanitized
 
-    elif isinstance(data, str):
+    if isinstance(data, str):
         sanitized_str = data
         for pattern, replacement in sensitive_patterns:
             sanitized_str = re.sub(pattern, replacement, sanitized_str, flags=re.IGNORECASE)

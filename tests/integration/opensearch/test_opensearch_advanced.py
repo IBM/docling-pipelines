@@ -123,17 +123,15 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
             print("  ✅ Cleaned up index")
 
             return True, "Success"
-        else:
-            return False, f"Only indexed {metadata['processed_docs']}/5 documents"
+        return False, f"Only indexed {metadata['processed_docs']}/5 documents"
 
     except Exception as e:
         error_msg = str(e)
         if "Invalid space_type" in error_msg:
             return False, f"Space type '{space_type}' not supported"
-        elif "mapper_parsing_exception" in error_msg:
+        if "mapper_parsing_exception" in error_msg:
             return False, f"Mapping error: {error_msg[:100]}"
-        else:
-            return False, f"{type(e).__name__}: {error_msg[:100]}"
+        return False, f"{type(e).__name__}: {error_msg[:100]}"
 
 
 def test_all_engines():

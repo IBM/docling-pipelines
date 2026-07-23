@@ -212,9 +212,8 @@ def main():
     if all(results):
         print("\n✓ ALL TESTS PASSED")
         return 0
-    else:
-        print("\n✗ SOME TESTS FAILED")
-        return 1
+    print("\n✗ SOME TESTS FAILED")
+    return 1
 
 
 if __name__ == "__main__":

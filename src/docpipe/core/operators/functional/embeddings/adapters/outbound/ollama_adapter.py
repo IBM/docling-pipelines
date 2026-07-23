@@ -150,12 +150,11 @@ class OllamaLLMAdapter(LLMServicePort):
                     f"Ensure Ollama server is running: ollama serve\n"
                     f"Check server status: curl {ServiceConstants.DEFAULT_OLLAMA_HOST}/api/tags"
                 ) from e
-            elif "not found" in str(e).lower():
+            if "not found" in str(e).lower():
                 raise ExternalServiceError(
                     f"{error_msg}\nModel may not be available. Pull it with: ollama pull {self.model_name}"
                 ) from e
-            else:
-                raise RuntimeError(error_msg) from e
+            raise RuntimeError(error_msg) from e
 
     def get_embedding_dimension(self) -> int | None:
         """Get embedding dimension for Ollama model.

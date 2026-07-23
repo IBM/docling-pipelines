@@ -339,4 +339,4 @@ async def delete_project(
     logger.debug("Deleting project: %s", project_id)
     service.delete_project(project_id=project_id)
     logger.info("Deleted project %s", project_id)
-    return None
+    return

@@ -47,13 +47,12 @@ class StorageFactory:
 
         if storage_type == "filesystem":
             return KeyValueFileSystemStorage(**config)
-        elif storage_type == "duckdb":
+        if storage_type == "duckdb":
             return DuckDBKeyValueStorage(**config)
-        else:
-            raise ValueError(
-                f"Unsupported key-value storage type: '{storage_type}'. "
-                f"Supported types: {', '.join(StorageFactory.SUPPORTED_KEY_VALUE_TYPES)}"
-            )
+        raise ValueError(
+            f"Unsupported key-value storage type: '{storage_type}'. "
+            f"Supported types: {', '.join(StorageFactory.SUPPORTED_KEY_VALUE_TYPES)}"
+        )
 
     @staticmethod
     def create_table_storage(*, storage_type: str, **config: Any) -> TableStoragePort:
@@ -79,8 +78,7 @@ class StorageFactory:
 
         if storage_type == "duckdb":
             return DuckDBTableStorage(**config)
-        else:
-            raise ValueError(
-                f"Unsupported table storage type: '{storage_type}'. "
-                f"Supported types: {', '.join(StorageFactory.SUPPORTED_TABLE_TYPES)}"
-            )
+        raise ValueError(
+            f"Unsupported table storage type: '{storage_type}'. "
+            f"Supported types: {', '.join(StorageFactory.SUPPORTED_TABLE_TYPES)}"
+        )

@@ -186,6 +186,7 @@ select = [
     "C4",    # flake8-comprehensions
     "SIM",   # flake8-simplify
     "RUF",   # Ruff-specific rules
+    "RET",   # flake8-return
 ]
 # Ignore specific rules if needed
 ignore = [

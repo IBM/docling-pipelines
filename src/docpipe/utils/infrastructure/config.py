@@ -67,7 +67,7 @@ def get_opensearch_config() -> dict:
         provider_config[OperatorConstants.VectorDB.JWT_TOKEN] = jwt_token
 
     # Operator-level configuration (not provider-specific)
-    config = {
+    return {
         # Vector dimension
         OperatorConstants.VectorDB.VECTOR_DIMENSION: int(
             os.getenv(OperatorConstants.VectorDB.OPENSEARCH_VECTOR_DIMENSION, "384")
@@ -88,8 +88,6 @@ def get_opensearch_config() -> dict:
         # Provider-specific parameters
         OperatorConstants.Config.PROVIDER_CONFIG: provider_config,
     }
-
-    return config
 
 
 def get_milvus_config() -> dict:
@@ -150,7 +148,7 @@ def get_milvus_config() -> dict:
         provider_config[OperatorConstants.VectorDB.SSL_CERTIFICATE] = ssl_certificate
 
     # Operator-level configuration (not provider-specific)
-    config = {
+    return {
         # Vector dimension
         OperatorConstants.VectorDB.VECTOR_DIMENSION: int(
             os.getenv(OperatorConstants.VectorDB.MILVUS_VECTOR_DIMENSION, "384")
@@ -171,8 +169,6 @@ def get_milvus_config() -> dict:
         # Provider-specific parameters
         OperatorConstants.Config.PROVIDER_CONFIG: provider_config,
     }
-
-    return config
 
 
 def get_env_var(key: str, default: str | None = None) -> str | None:

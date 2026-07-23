@@ -126,9 +126,7 @@ class DoclingAdapter(TextExtractionPort):
 
         # Create complete pipeline options using the provider
         provider_config = self.vlm_provider_config or {}
-        pipeline_options = provider.create_pipeline_options(preset=self.vlm_preset, config=provider_config)
-
-        return pipeline_options
+        return provider.create_pipeline_options(preset=self.vlm_preset, config=provider_config)
 
     def _configure_asr_engine(self) -> Any:
         """Configure ASR pipeline options based on model configuration.

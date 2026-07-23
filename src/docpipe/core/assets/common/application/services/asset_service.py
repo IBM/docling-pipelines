@@ -105,9 +105,8 @@ class AssetService[T: Asset]:
         if deleted:
             logger.info("Successfully deleted asset %s", asset_id)
             return deleted
-        else:
-            logger.error("Asset %s not found for deletion", asset_id)
-            raise DocpipeException(f"Asset with ID '{asset_id}' not found", status_code=404)
+        logger.error("Asset %s not found for deletion", asset_id)
+        raise DocpipeException(f"Asset with ID '{asset_id}' not found", status_code=404)
 
     def exists(self, *, asset_id: str) -> bool:
         """Check if an asset exists by ID.

@@ -300,7 +300,7 @@ class ChunkerOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
-        operator_metadata = {
+        return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: ChunkerOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ChunkerOperator.is_available(),
@@ -505,8 +505,6 @@ class ChunkerOperator(AbstractOperator):
                 },
             },
         }
-
-        return operator_metadata
 
     @staticmethod
     def get_required_features() -> list[str]:
@@ -1123,14 +1121,13 @@ class ChunkerOperator(AbstractOperator):
 
         if chunk_type == ChunkType.SIMPLE.value:
             return self._simple_split_text(content)
-        elif chunk_type == ChunkType.SEMANTIC.value:
+        if chunk_type == ChunkType.SEMANTIC.value:
             return self._semantic_split_text(content)
-        elif chunk_type == ChunkType.HYBRID.value:
+        if chunk_type == ChunkType.HYBRID.value:
             # For hybrid chunking, we need the doc_name from context
             # We'll extract it in the transform method
             return self._docling_split_text(content)
-        else:
-            raise DocpipeException(f"Invalid chunk type: {self.chunk_type}")
+        raise DocpipeException(f"Invalid chunk type: {self.chunk_type}")
 
     def _initialize_summarization(self, metadata: dict[str, Any]) -> bool:
         """

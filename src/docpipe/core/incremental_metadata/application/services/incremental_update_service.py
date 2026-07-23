@@ -435,5 +435,4 @@ class IncrementalUpdateService:
             set(result_table[OperatorConstants.Misc.ID].to_pylist()) if result_table.num_rows != 0 else set()
         )
 
-        ids_to_delete = list(input_doc_ids - output_doc_ids)
-        return ids_to_delete
+        return list(input_doc_ids - output_doc_ids)

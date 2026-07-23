@@ -99,9 +99,7 @@ class JobTrackerService(JobStatsService):
             JobStats with empty node_stats/batch_node_stats if found, None otherwise
         """
         # Delegate to store
-        job_stats = self.job_stats_store.get_job_stats(job_run_id)
-
-        return job_stats
+        return self.job_stats_store.get_job_stats(job_run_id)
 
     def get_job(
         self, *, job_run_id: str, include_node_stats: bool = True, include_batch_stats: bool = False

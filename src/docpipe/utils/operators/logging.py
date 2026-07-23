@@ -86,12 +86,11 @@ def retrieve_operator_logs(*, job_id, jobrun_id):
         with open(log_final_path) as file:
             content = file.read()
 
-    operator_logs_combined = get_logs(
+    return get_logs(
         content=content,
         job_log_final_path=job_log_final_path,
         nodes_metadata_final_path=nodes_metadata_final_path,
     )
-    return operator_logs_combined
 
 
 def read_json_if_exists(*, path):
@@ -275,7 +274,7 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | 
         node_stats = format_node_stats(node_stats=node_stats_value, node_sequence=node_sequence)
     else:
         node_stats = ""
-    complete_message = f"""
+    return f"""
 >>> The flow execution is {job_status}.
 >>> Job Statistics:
     > Job ID          : {job_id}
@@ -295,4 +294,3 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | 
     {node_stats}
     >>> ===============================================================
     """
-    return complete_message

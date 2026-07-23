@@ -90,8 +90,7 @@ class GoogleDriveSourceConfig(BaseModel):
             return None
         # Only expand user home directory (~), don't make relative paths absolute
         # This allows the path to be resolved relative to where the command is run
-        expanded_path = os.path.expanduser(v)
-        return expanded_path
+        return os.path.expanduser(v)
 
     @field_validator("file_extensions")
     @classmethod

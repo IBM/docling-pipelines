@@ -336,7 +336,6 @@ def get_oauth2_provider(config: OAuth2Config) -> OAuth2Provider:
 
     if provider_name == "google":
         return GoogleOAuth2Provider(config)
-    elif provider_name == "azure":
+    if provider_name == "azure":
         return AzureADOAuth2Provider(config)
-    else:
-        return GenericOIDCProvider(config)
+    return GenericOIDCProvider(config)

@@ -415,13 +415,12 @@ class DocumentSetService:
         if deleted:
             logger.info("Successfully deleted document set %s", document_set_id)
             return True
-        else:
-            logger.error("Document set %s not found for deletion", document_set_id)
-            raise DocpipeException(
-                ValidationCodeMessages.DOCUMENT_SET_NOT_FOUND.format(document_set_id=document_set_id),
-                status_code=404,
-                error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
-            )
+        logger.error("Document set %s not found for deletion", document_set_id)
+        raise DocpipeException(
+            ValidationCodeMessages.DOCUMENT_SET_NOT_FOUND.format(document_set_id=document_set_id),
+            status_code=404,
+            error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
+        )
 
     def store_data(self, *, document_set_id: str, data: pa.Table) -> DocumentSet:
         """Store PyArrow table data and update metrics.

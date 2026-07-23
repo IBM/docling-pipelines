@@ -34,9 +34,7 @@ def sanitize_flow_name_for_job_id(*, flow_name: str) -> str:
     # Convert to lowercase and replace non-word chars (preserves Unicode letters/digits) with hyphens
     sanitized = re.sub(r"[^\w]+", "-", flow_name.lower(), flags=re.UNICODE)
     # Remove leading/trailing hyphens
-    sanitized = sanitized.strip("-")
-
-    return sanitized
+    return sanitized.strip("-")
 
 
 def generate_job_id_from_flow_name(*, flow_name: str) -> str:

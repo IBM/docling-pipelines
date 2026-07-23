@@ -210,25 +210,23 @@ class OllamaClient(BaseLLMClient):
                 # Handle both dict and ChatResponse object
                 if isinstance(response, dict):
                     return response.get("message", {}).get("content", "")
-                elif hasattr(response, "message"):
+                if hasattr(response, "message"):
                     # ChatResponse object
                     message = response.message
                     if isinstance(message, dict):
                         return message.get("content", "")
-                    elif hasattr(message, "content"):
+                    if hasattr(message, "content"):
                         return message.content or ""
                 return ""  # Fallback for unexpected response format
-            else:
-                response = client.generate(model=self.model_name, prompt=prompt)
-                # Handle both dict and GenerateResponse object
-                if isinstance(response, dict):
-                    return response.get("response", "")
-                elif hasattr(response, "response"):
-                    # GenerateResponse object from newer ollama versions
-                    return response.response or ""
-                else:
-                    logger.warning(f"Unexpected response type: {type(response).__name__}")
-                    return ""
+            response = client.generate(model=self.model_name, prompt=prompt)
+            # Handle both dict and GenerateResponse object
+            if isinstance(response, dict):
+                return response.get("response", "")
+            if hasattr(response, "response"):
+                # GenerateResponse object from newer ollama versions
+                return response.response or ""
+            logger.warning(f"Unexpected response type: {type(response).__name__}")
+            return ""
         except (ConnectionError, TimeoutError) as exc:
             logger.error(f"Connection failed: {exc}")
             raise DocpipeException(
@@ -732,9 +730,8 @@ class OllamaClient(BaseLLMClient):
             if process.returncode == 0:
                 logger.info(f"Model '{model_name}' pulled successfully")
                 return True
-            else:
-                logger.error(f"Failed to pull model '{model_name}'")
-                return False
+            logger.error(f"Failed to pull model '{model_name}'")
+            return False
 
         except Exception as e:
             logger.error(f"Failed to pull model: {e}")
@@ -909,7 +906,6 @@ class OllamaClient(BaseLLMClient):
         original_mode = self.mode
         self.mode = InteractionMode.CHAT
         try:
-            result = self.run(prompt=prompt)
-            return result
+            return self.run(prompt=prompt)
         finally:
             self.mode = original_mode

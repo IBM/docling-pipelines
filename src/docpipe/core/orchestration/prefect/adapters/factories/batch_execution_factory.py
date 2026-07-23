@@ -113,7 +113,7 @@ class BatchExecutionFactory:
             )
 
         # Match any work-pool-* strategy type
-        elif strategy_type.startswith("work-pool-"):
+        if strategy_type.startswith("work-pool-"):
             return BatchExecutionFactory._create_work_pool_strategy_with_fallback(
                 config=batch_exec_config,
                 strategy_type=strategy_type,
@@ -121,11 +121,10 @@ class BatchExecutionFactory:
                 batch_manager=batch_manager,
             )
 
-        else:
-            raise ValueError(
-                f"Invalid batch execution strategy: {strategy_type}. "
-                f"Valid options: {[e.value for e in ExecutionStrategyType]}"
-            )
+        raise ValueError(
+            f"Invalid batch execution strategy: {strategy_type}. "
+            f"Valid options: {[e.value for e in ExecutionStrategyType]}"
+        )
 
     @staticmethod
     def _create_thread_pool_strategy(*, config: dict[str, Any], prefect_engine, batch_manager) -> ThreadPoolAdapter:

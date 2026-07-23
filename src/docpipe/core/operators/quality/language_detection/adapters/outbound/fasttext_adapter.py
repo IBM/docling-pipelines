@@ -105,8 +105,7 @@ class FastTextAdapter(LanguageServicePort):
                 language_code = predictions[0][0].replace("__label__", "")
                 confidence = float(predictions[1][0])
                 return LanguageDetectionResult(language_code=language_code, confidence=confidence)
-            else:
-                raise ValueError("FastText returned invalid predictions")
+            raise ValueError("FastText returned invalid predictions")
 
         except ValueError:
             # Re-raise ValueError as-is

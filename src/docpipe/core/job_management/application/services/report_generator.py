@@ -430,7 +430,7 @@ class JobReportGenerator:
 
                 dt = datetime.fromtimestamp(modified_time, tz=UTC)
                 return dt.isoformat()
-            elif isinstance(modified_time, str):
+            if isinstance(modified_time, str):
                 return modified_time
             return ""
         except Exception as e:
@@ -827,9 +827,8 @@ class JobReportGenerator:
             all_docs[doc_id]["pages"] = str(page_count)
             logger.debug(f"Updated page count for doc {doc_id}: {page_count}")
             return True
-        else:
-            logger.debug(f"No page count found for doc {doc_id}. Available keys: {list(row_data.keys())}")
-            return False
+        logger.debug(f"No page count found for doc {doc_id}. Available keys: {list(row_data.keys())}")
+        return False
 
     def _read_page_counts_from_batches(
         self, all_docs: dict[str, dict[str, Any]], extract_node_id: str, batch_nums: set

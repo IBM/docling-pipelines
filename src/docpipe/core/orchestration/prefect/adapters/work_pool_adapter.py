@@ -431,10 +431,9 @@ class WorkPoolAdapter(BatchExecutionPort):
         """
         if self.batch_storage_type == BatchStorageType.S3:
             return self._transfer_batch_s3(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
-        elif self.batch_storage_type == BatchStorageType.LOCAL:
+        if self.batch_storage_type == BatchStorageType.LOCAL:
             return self._transfer_batch_local(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
-        else:
-            return self._transfer_batch_inline(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
+        return self._transfer_batch_inline(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
 
     def _create_s3_filesystem(self):
         """
@@ -571,7 +570,7 @@ class WorkPoolAdapter(BatchExecutionPort):
                 f"3. Disable the limit entirely (not recommended):\n"
                 f"   export PREFECT_SERVER_API_MAX_PARAMETER_SIZE=0"
             )
-        elif size_bytes > warning_threshold:
+        if size_bytes > warning_threshold:
             self.prefect_engine.logger.warning(
                 f"Batch {batch_num}: size {size_bytes:,} bytes approaching "
                 f"Prefect parameter limit ({size_limit:,} bytes, controlled by PREFECT_SERVER_API_MAX_PARAMETER_SIZE). "

@@ -562,8 +562,7 @@ class TestMergeFeaturesMethod:
     def propagator(self):
         """Create FeaturePropagator instance."""
         with patch.object(FeaturePropagator, "__init__", lambda x: None):
-            prop = FeaturePropagator()
-            return prop
+            return FeaturePropagator()
 
     def test_merge_features_empty_parents_returns_empty(self, propagator):
         """Test that empty parent_results returns empty dict."""

@@ -232,8 +232,7 @@ def resolve_msgraph_file_id_to_item_id(
                     item_id = items[0].get("id")
                     logger.info(f"Found file via search, GUID '{file_id}' -> item ID: {item_id}")
                     return item_id, drive_id
-                else:
-                    logger.warning(f"No files found in search for GUID: {file_id}")
+                logger.warning(f"No files found in search for GUID: {file_id}")
 
             except Exception as search_error:
                 logger.debug(f"Search failed: {search_error}")

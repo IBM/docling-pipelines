@@ -133,9 +133,8 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 extra=self.common_log_arguments,
             )
             return OperatorUtils.determine_final_job_status(node_stats_list=node_stats_for_status)
-        else:
-            logger.warning("Job stats not found when determining final status", extra=self.common_log_arguments)
-            return ExecutionStatus.FAILED
+        logger.warning("Job stats not found when determining final status", extra=self.common_log_arguments)
+        return ExecutionStatus.FAILED
 
     def _determine_final_status(
         self, op_flow, present_job_status: ExecutionStatus, global_config=None
@@ -143,10 +142,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         """Determine final job status based on present status."""
         if present_job_status == ExecutionStatus.CANCELING:
             return ExecutionStatus.CANCELED
-        elif present_job_status == ExecutionStatus.FAILING:
+        if present_job_status == ExecutionStatus.FAILING:
             return ExecutionStatus.FAILED
-        else:
-            return self._determine_job_status_from_stats(op_flow, global_config)
+        return self._determine_job_status_from_stats(op_flow, global_config)
 
     def after_flow_execution_complete(self, op_flow, present_job_status: str, message, global_config=None):
         """Finalize internal job stats and push final framework status with complete statistics."""
@@ -760,5 +758,4 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         elif type_ == "job":
             log_job_run_file_name = "job_stats.json"
 
-        log_final_path = os.path.join(log_job_location, log_job_run_file_name)
-        return log_final_path
+        return os.path.join(log_job_location, log_job_run_file_name)

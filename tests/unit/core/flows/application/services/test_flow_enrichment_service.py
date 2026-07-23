@@ -60,7 +60,7 @@ def _make_service(node_features: dict[str, Any]) -> FlowEnrichmentService:
         mock_vs_cls.return_value = mock_vs
         service = FlowEnrichmentService(validator_factory=lambda: mock_validator)
 
-    return service
+    return service  # noqa: RET504
 
 
 def _minimal_elyra_flow(*node_ids_and_ops: tuple[str, str]) -> dict[str, Any]:

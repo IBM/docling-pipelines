@@ -95,7 +95,6 @@ def get_oauth2_config(provider: str | None = None) -> OAuth2Config:
 
     if provider == "google":
         return GoogleOAuth2Config()
-    elif provider == "azure":
+    if provider == "azure":
         return AzureADOAuth2Config()
-    else:
-        return OAuth2Config()
+    return OAuth2Config()

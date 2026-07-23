@@ -506,7 +506,7 @@ async def delete_job_run(
     service.delete_job_run(job_run_id=job_run_id)
 
     logger.info(f"Successfully deleted job run: {job_run_id}")
-    return None
+    return
 
 
 @job_runs_router.get(

@@ -44,8 +44,7 @@ class FuturedList:
     def get_future(self, index):
         if 0 <= index < len(self.items):
             return self.items[index].get_future()
-        else:
-            raise IndexError("Index out of range, given {index=} the list size is {len(self)}")
+        raise IndexError("Index out of range, given {index=} the list size is {len(self)}")
 
     def set_entry(self, index, future, count):
         if 0 <= index < len(self.items):

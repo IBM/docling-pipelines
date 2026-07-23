@@ -183,7 +183,7 @@ class TestFilesystemSourceAdapter:
             path_str = str(self)
             if path_str == str(tmp_path):
                 return tmp_path_stat
-            elif path_str == str(large):
+            if path_str == str(large):
                 # Return large file stat (2MB) — should be skipped
                 return os.stat_result(
                     (
@@ -199,10 +199,9 @@ class TestFilesystemSourceAdapter:
                         int(large_stat.st_ctime),
                     )
                 )
-            elif path_str == str(small):
+            if path_str == str(small):
                 return small_stat
-            else:
-                return type(self).stat(self)
+            return type(self).stat(self)
 
         with (
             patch.object(

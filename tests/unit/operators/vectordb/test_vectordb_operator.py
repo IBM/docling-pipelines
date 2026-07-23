@@ -21,7 +21,7 @@ def basic_config():
     env_config = get_opensearch_config()
 
     # The config structure now has all connection params in provider_config
-    config = {
+    return {
         OperatorConstants.Config.PROVIDER: "opensearch",
         OperatorConstants.VectorDB.INDEX_NAME: "test_index",
         OperatorConstants.VectorDB.CREATE_INDEX: True,
@@ -53,7 +53,6 @@ def basic_config():
         },
         OperatorConstants.Config.PROVIDER_CONFIG: env_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}),
     }
-    return config
 
 
 @pytest.fixture
@@ -92,7 +91,7 @@ class TestVectorDBOperatorInitialization:
         del config[OperatorConstants.VectorDB.INDEX_NAME]
 
         operator = VectorDBOperator(config=config)
-        errors = []
+        errors: list = []
         operator.validate(errors=errors, warnings=[], available_features=[])
 
         assert len(errors) > 0

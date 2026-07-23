@@ -111,17 +111,14 @@ class ColoredFormatter(logging.Formatter):
             level_color = self.LEVEL_COLORS.get(record.levelno, Colors.RESET)
 
             # Construct colored message using LogRecord attributes
-            colored_message = (
+            return (
                 f"{Colors.TIME}{time_str}{Colors.RESET} - "
                 f"{Colors.NAME}{name_str}{Colors.RESET} - "
                 f"{level_color}{Colors.BOLD}{level_str}{Colors.RESET} - "
                 f"{msg_str}"
             )
-            return colored_message
-        else:
-            # Plain text format without ANSI codes for file output
-            plain_message = f"{time_str} - {name_str} - {level_str} - {msg_str}"
-            return plain_message
+        # Plain text format without ANSI codes for file output
+        return f"{time_str} - {name_str} - {level_str} - {msg_str}"
 
 
 class ConditionalFormatter(logging.Formatter):

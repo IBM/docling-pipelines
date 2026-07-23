@@ -455,13 +455,12 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 f"Model: {model_name}) context length. Add Chunking operator and/or adjust the chunk_type/chunk_size"
                 " in Chunking operator and the Embeddings model ID in Embeddings operator to avoid this error."
             ) from error
-        else:
-            logger.error(
-                f"Failed to generate embeddings{' ' + context if context else ''}: {error!s}",
-                exc_info=True,
-                extra=self.common_log_arguments,
-            )
-            raise DocpipeException(f"Batch embedding generation failed: {error!s}") from error
+        logger.error(
+            f"Failed to generate embeddings{' ' + context if context else ''}: {error!s}",
+            exc_info=True,
+            extra=self.common_log_arguments,
+        )
+        raise DocpipeException(f"Batch embedding generation failed: {error!s}") from error
 
     def _create_embeddings(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
         """

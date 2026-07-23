@@ -486,61 +486,59 @@ class IngestSourceOperator(AbstractOperator):
             # Get document iterator (lazy loading)
             if SourceAdapterFactory.is_registered(self.provider):
                 # Use async generator for memory-efficient streaming
-                doc_data = self._process_documents_from_adapter(metadata)
-                return doc_data
+                return self._process_documents_from_adapter(metadata)
+            loader: BaseLoader = self._get_loader()
+            # Use lazy_load if available, otherwise fall back to load()
+            if hasattr(loader, "lazy_load"):
+                documents = cast(Iterator[Document], loader.lazy_load())
             else:
-                loader: BaseLoader = self._get_loader()
-                # Use lazy_load if available, otherwise fall back to load()
-                if hasattr(loader, "lazy_load"):
-                    documents = cast(Iterator[Document], loader.lazy_load())
-                else:
-                    documents = iter(loader.load())
+                documents = iter(loader.load())
 
-                # Process documents in batches until max_files newly processed docs reached
-                while processed_count < self.max_files:
-                    # Fetch next batch of documents
-                    batch = list(itertools.islice(documents, self.max_files))
+            # Process documents in batches until max_files newly processed docs reached
+            while processed_count < self.max_files:
+                # Fetch next batch of documents
+                batch = list(itertools.islice(documents, self.max_files))
 
-                    if not batch:
-                        # No more documents available
+                if not batch:
+                    # No more documents available
+                    logger.info(
+                        f"No more documents available. Total fetched: {total_fetched}, processed: {processed_count}",
+                        extra=self.common_log_arguments,
+                    )
+                    break
+
+                total_fetched += len(batch)
+                logger.info(
+                    f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
+                    extra=self.common_log_arguments,
+                )
+
+                # Process each document in the batch
+                for idx, doc in enumerate(batch):
+                    if processed_count >= self.max_files:
                         logger.info(
-                            f"No more documents available. Total fetched: {total_fetched}, processed: {processed_count}",
+                            f"Reached max files limit: {self.max_files}",
                             extra=self.common_log_arguments,
                         )
                         break
 
-                    total_fetched += len(batch)
-                    logger.info(
-                        f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
-                        extra=self.common_log_arguments,
-                    )
+                    # Calculate global index for this document
+                    global_idx = total_fetched - len(batch) + idx
 
-                    # Process each document in the batch
-                    for idx, doc in enumerate(batch):
-                        if processed_count >= self.max_files:
-                            logger.info(
-                                f"Reached max files limit: {self.max_files}",
-                                extra=self.common_log_arguments,
-                            )
-                            break
+                    # Process individual document
+                    processed_doc: dict[str, Any] | None = self.process_document(doc, global_idx, metadata)
+                    if processed_doc:
+                        doc_data.append(processed_doc)
+                        processed_count += 1
 
-                        # Calculate global index for this document
-                        global_idx = total_fetched - len(batch) + idx
+                # If we've processed enough documents, stop fetching more batches
+                if processed_count >= self.max_files:
+                    break
 
-                        # Process individual document
-                        processed_doc: dict[str, Any] | None = self.process_document(doc, global_idx, metadata)
-                        if processed_doc:
-                            doc_data.append(processed_doc)
-                            processed_count += 1
-
-                    # If we've processed enough documents, stop fetching more batches
-                    if processed_count >= self.max_files:
-                        break
-
-                logger.info(
-                    f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
-                    extra=self.common_log_arguments,
-                )
+            logger.info(
+                f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
+                extra=self.common_log_arguments,
+            )
 
         except Exception as e:
             logger.error(
@@ -858,7 +856,7 @@ class IngestSourceOperator(AbstractOperator):
 
         # 2. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
-        elif self.provider == "custom":
+        if self.provider == "custom":
             loader_path = self.connection_params.get("loader_class_path")
             if not loader_path:
                 raise ValueError("Provider is 'custom' but 'loader_class_path' is missing.")
@@ -874,8 +872,7 @@ class IngestSourceOperator(AbstractOperator):
             init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
             return loader_class(**init_kwargs)
 
-        else:
-            raise ValueError(f"Provider '{self.provider}' is not supported.")
+        raise ValueError(f"Provider '{self.provider}' is not supported.")
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:

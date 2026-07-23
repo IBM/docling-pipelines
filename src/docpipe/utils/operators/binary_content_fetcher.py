@@ -91,10 +91,9 @@ def get_binary_content(
                 doc_metadata=doc_metadata,
                 ingest_source=ingest_source,
             )
-        else:
-            # Local source: Read from filesystem
-            logger.info(f"Using local filesystem for '{doc_name}'")
-            return _read_from_local_file(doc_metadata=doc_metadata)
+        # Local source: Read from filesystem
+        logger.info(f"Using local filesystem for '{doc_name}'")
+        return _read_from_local_file(doc_metadata=doc_metadata)
 
     except Exception as e:
         doc_name = doc_metadata.get("name") or doc_metadata.get("source_id") or doc_metadata.get("path", "unknown")
@@ -158,8 +157,7 @@ def get_adapter_for_provider(
             return None
 
         # Create adapter instance
-        adapter = SourceAdapterFactory.create(provider)
-        return adapter
+        return SourceAdapterFactory.create(provider)
 
     except Exception as e:
         logger.error(
@@ -293,9 +291,7 @@ def _read_from_local_file(
 
         # Read binary content
         with open(path, "rb") as f:
-            content = f.read()
-
-        return content
+            return f.read()
 
     except Exception as e:
         logger.error(

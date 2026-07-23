@@ -438,7 +438,7 @@ class IngestLocalOperator(AbstractOperator):
             )
             return False
 
-        elif filter_based_on_extension(file, self.excluded_extensions, self.included_extensions):
+        if filter_based_on_extension(file, self.excluded_extensions, self.included_extensions):
             logger.info(
                 f">>> Skipping based on Filter : {file}",
                 extra=self.common_log_arguments,
@@ -450,8 +450,7 @@ class IngestLocalOperator(AbstractOperator):
                 reason=f"Skipping the file {abs_path} due to the extension filter. The file has the extension {file.split('.')[-1]}.",
             )
             return False
-        else:
-            return True
+        return True
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:

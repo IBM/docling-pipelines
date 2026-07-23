@@ -69,7 +69,7 @@ class RedactionOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata():
-        operator_metadata = {
+        return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: RedactionOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: RedactionOperator.is_available(),
@@ -100,8 +100,6 @@ class RedactionOperator(AbstractOperator):
                 },
             },
         }
-
-        return operator_metadata
 
     def validate(self, errors: list, warnings: list, available_features: list):
         super().validate(errors, warnings, available_features)

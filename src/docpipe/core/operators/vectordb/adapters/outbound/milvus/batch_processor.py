@@ -244,13 +244,11 @@ class MilvusBatchProcessor:
             filter_expr = f"{self.primary_key_field} in {doc_names}"
 
             # Query documents
-            results = self.client.query(
+            return self.client.query(
                 collection_name=self.collection_name,
                 filter=filter_expr,
                 output_fields=fields or ["*"],
             )
-
-            return results
 
         except Exception as e:
             logger.error(f"Query by doc names failed: {e}")

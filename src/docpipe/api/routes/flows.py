@@ -387,8 +387,7 @@ async def create_flow(
     # Convert domain model back to appropriate DTO based on format
     if is_elyra:
         return FlowMapper.domain_to_dto(created_flow)
-    else:
-        return FlowMapper.domain_to_authoring_dto(domain=created_flow)
+    return FlowMapper.domain_to_authoring_dto(domain=created_flow)
 
 
 @flows_router.get(
@@ -511,9 +510,8 @@ async def get_flow(
     if DocpipeConstants.FLOW_NAME in domain_flow.definition:
         # Authoring format - return flat structure with metadata
         return FlowMapper.domain_to_authoring_dto(domain=domain_flow)
-    else:
-        # Elyra format - return wrapped structure
-        return FlowMapper.domain_to_dto(domain_flow)
+    # Elyra format - return wrapped structure
+    return FlowMapper.domain_to_dto(domain_flow)
 
 
 @flows_router.get(
@@ -676,16 +674,15 @@ async def list_flows(
             next=next_link,
             prev=prev_link,
         )
-    else:
-        return PaginatedAuthoringFlowResponse(
-            flows=[FlowMapper.domain_to_authoring_dto(domain=flow) for flow in flows],
-            total_count=total,
-            offset=offset,
-            limit=limit,
-            first=first_link,
-            next=next_link,
-            prev=prev_link,
-        )
+    return PaginatedAuthoringFlowResponse(
+        flows=[FlowMapper.domain_to_authoring_dto(domain=flow) for flow in flows],
+        total_count=total,
+        offset=offset,
+        limit=limit,
+        first=first_link,
+        next=next_link,
+        prev=prev_link,
+    )
 
 
 @flows_router.put(
@@ -836,8 +833,7 @@ async def update_flow(
     # Convert domain model back to appropriate DTO based on format
     if is_elyra:
         return FlowMapper.domain_to_dto(updated_flow)
-    else:
-        return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
+    return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
 
 
 @flows_router.patch(
@@ -968,8 +964,7 @@ async def partial_update_flow(
     # Convert domain model back to appropriate DTO based on format
     if is_elyra:
         return FlowMapper.domain_to_dto(updated_flow)
-    else:
-        return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
+    return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
 
 
 @flows_router.delete(
@@ -1062,7 +1057,7 @@ async def delete_flow(
     logger.info(f"Successfully deleted flow {flow_id}")
 
     # Return 204 No Content on success
-    return None
+    return
 
 
 @flows_router.delete(

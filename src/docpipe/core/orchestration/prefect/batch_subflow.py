@@ -180,19 +180,18 @@ def _load_batch(*, batch_transfer: dict, batch_num: int) -> pa.Table:
             s3_fs = S3FileSystem(**fs_kwargs)
             return pq.read_table(f"{bucket}/{key}", filesystem=s3_fs)
 
-        elif storage_type == "local":
+        if storage_type == "local":
             ref = batch_transfer["ref"]
             logger.info(f"Loading batch {batch_num} from local: {ref}")
             return pq.read_table(ref)
 
-        elif storage_type == "inline":
+        if storage_type == "inline":
             logger.info(f"Loading batch {batch_num} from inline parameters")
             return _deserialize_batch_data(batch_data=batch_transfer["data"])
 
-        else:
-            raise FlowExecutionFailedException(
-                f"Unknown batch storage type: {storage_type}. Expected 's3', 'local', or 'inline'."
-            )
+        raise FlowExecutionFailedException(
+            f"Unknown batch storage type: {storage_type}. Expected 's3', 'local', or 'inline'."
+        )
 
     except FlowExecutionFailedException:
         raise
@@ -233,8 +232,7 @@ def _deserialize_batch_data(*, batch_data: dict) -> pa.Table:
             arrays.append(pa.array(col_data))
 
         # Create table
-        table = pa.Table.from_arrays(arrays, names=columns)
-        return table
+        return pa.Table.from_arrays(arrays, names=columns)
 
     except Exception as e:
         logger.error(f"Failed to deserialize batch data: {e!s}", exc_info=True)

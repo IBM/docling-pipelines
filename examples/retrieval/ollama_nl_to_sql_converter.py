@@ -280,7 +280,7 @@ class OllamaNLToSQLConverter:
         """Build the prompt for Ollama."""
         schema_str = json.dumps(self.schema, indent=2)
 
-        prompt = f"""You are a SQL expert. Convert the following natural language question into a SQL query for OpenSearch.
+        return f"""You are a SQL expert. Convert the following natural language question into a SQL query for OpenSearch.
 
 DATABASE SCHEMA:
 {schema_str}
@@ -301,8 +301,6 @@ NATURAL LANGUAGE QUESTION:
 
 
 SQL QUERY:"""
-
-        return prompt
 
     def convert_to_sql(self, natural_language_query: str) -> str:
         """

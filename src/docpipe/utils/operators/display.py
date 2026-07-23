@@ -206,8 +206,7 @@ def list_operators(verbose: bool = False, summary_only: bool = True) -> str:
 
     if summary_only:
         return display_operator_summary(operator_metadata)
-    else:
-        return format_operator_details(operator_metadata, verbose=verbose)
+    return format_operator_details(operator_metadata, verbose=verbose)
 
 
 # For testing

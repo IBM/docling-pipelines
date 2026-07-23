@@ -178,8 +178,7 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
         # Always validate during execution phase
         if not self.validating_flow:
             return True
-        else:
-            return False
+        return False
 
     @staticmethod
     def create_base_metadata(

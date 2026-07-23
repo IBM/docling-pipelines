@@ -139,9 +139,8 @@ class PIIHAPService:
             if self.use_specialized_api:
                 # WatsonX path: Use specialized detection API
                 return self._detect_via_specialized_api(payload=payload, text=text)
-            else:
-                # LiteLLM path: Use prompt-based detection
-                return self._detect_via_llm(payload=payload, text=text)
+            # LiteLLM path: Use prompt-based detection
+            return self._detect_via_llm(payload=payload, text=text)
 
         except DocpipeException:
             raise

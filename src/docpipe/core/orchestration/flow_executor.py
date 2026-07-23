@@ -89,7 +89,7 @@ class FlowExecutor:
                 ">>> Cancelled the execution: %s",
                 job_run_id,
             )
-            return
+            return None
 
         # Initialize orchestrator before validation (creates flow_engine required by validator)
         if job_id and job_run_id:

@@ -47,7 +47,7 @@ class NLToSQLConverter:
                 WHERE supplier.name = '{supplier_name}'
             """
 
-        elif "above" in query or "greater than" in query:
+        if "above" in query or "greater than" in query:
             amount = self._extract_amount(natural_language_query)
             return f"""
                 SELECT po_number, supplier.name, total_amount, order_date
@@ -56,7 +56,7 @@ class NLToSQLConverter:
                 ORDER BY total_amount DESC
             """
 
-        elif "most orders" in query and "supplier" in query:
+        if "most orders" in query and "supplier" in query:
             return """
                 SELECT supplier.name, COUNT(*) as order_count
                 FROM purchase_orders
@@ -65,7 +65,7 @@ class NLToSQLConverter:
                 LIMIT 10
             """
 
-        elif "average" in query and "department" in query:
+        if "average" in query and "department" in query:
             return """
                 SELECT department, AVG(total_amount) as avg_order_value, COUNT(*) as order_count
                 FROM purchase_orders
@@ -73,7 +73,7 @@ class NLToSQLConverter:
                 ORDER BY avg_order_value DESC
             """
 
-        elif "pending" in query:
+        if "pending" in query:
             return """
                 SELECT po_number, supplier.name, total_amount, order_date
                 FROM purchase_orders
@@ -81,7 +81,7 @@ class NLToSQLConverter:
                 ORDER BY order_date DESC
             """
 
-        elif "last week" in query or "this week" in query:
+        if "last week" in query or "this week" in query:
             return """
                 SELECT po_number, supplier.name, total_amount, order_date, status
                 FROM purchase_orders
@@ -89,9 +89,8 @@ class NLToSQLConverter:
                 ORDER BY order_date DESC
             """
 
-        else:
-            # Default query
-            return """
+        # Default query
+        return """
                 SELECT po_number, supplier.name, total_amount, order_date, status
                 FROM purchase_orders
                 ORDER BY order_date DESC
@@ -169,8 +168,7 @@ Generate ONLY the SQL query without any explanation:
             result = response.json()
             sql_query = result["choices"][0]["message"]["content"].strip()
             # Clean up the SQL query
-            sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
-            return sql_query
+            return sql_query.replace("```sql", "").replace("```", "").strip()
         except Exception as e:
             print(f"Error calling LLM API: {e}")
             # Fallback to pattern matching
@@ -237,12 +235,11 @@ class OpenSearchQueryExecutor:
                 formatted.append(dict(zip(columns, row, strict=False)))
             return formatted
 
-        elif "hits" in results:
+        if "hits" in results:
             # Format: standard search hits
             return [hit["_source"] for hit in results["hits"]["hits"]]
 
-        else:
-            return [results]
+        return [results]
 
 
 class PurchaseOrderQuerySystem:

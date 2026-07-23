@@ -44,8 +44,7 @@ def create_log_folders(job_id, job_run_id, type):
     elif type == "agg_logs":
         log_job_run_file_name = "flow_execute_aggregated.json"
 
-    log_final_path = os.path.join(log_job_location, log_job_run_file_name)
-    return log_final_path
+    return os.path.join(log_job_location, log_job_run_file_name)
 
 
 def write_job_logs(job_stats, job_log_path):

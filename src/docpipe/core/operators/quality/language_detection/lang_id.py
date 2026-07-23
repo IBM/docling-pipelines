@@ -101,7 +101,7 @@ class LanguageDetect(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
-        operator_metadata = {
+        return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: LanguageDetect.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: LanguageDetect.is_available(),
@@ -139,8 +139,6 @@ class LanguageDetect(AbstractOperator):
                 },
             },
         }
-
-        return operator_metadata
 
     @staticmethod
     def get_required_features() -> list[str]:

@@ -1384,8 +1384,7 @@ class FlowValidator:
         Returns:
             List of duplicate node names
         """
-        duplicates = [item for item in set(nodes) if nodes.count(item) > 1]
-        return duplicates
+        return [item for item in set(nodes) if nodes.count(item) > 1]
 
     def _evaluate_node_validation_skip(
         self, operator: str, operator_factory: OperatorFactory, global_config: dict

@@ -104,7 +104,7 @@ class OrchestratorFactory:
             )
 
         orchestrator_class = cls._orchestrators[orchestrator_name]
-        orchestrator = orchestrator_class(
+        return orchestrator_class(
             job_stats_service=job_stats_service,
             job_run_manager=job_run_manager,
             enable_custom_operators=enable_custom_operators,
@@ -112,5 +112,3 @@ class OrchestratorFactory:
             execution_reporter=execution_reporter,
             incremental_metadata_store=incremental_metadata_store,
         )
-
-        return orchestrator

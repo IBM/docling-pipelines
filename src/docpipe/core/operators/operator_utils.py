@@ -120,11 +120,10 @@ def resolve_env_var(value: Any) -> Any:
             env_var_name = parts[0]
             default_value = parts[1].lstrip("-")  # Remove optional '-' after colon
             return os.getenv(env_var_name, default_value)
-        else:
-            resolved = os.getenv(env_var_name)
-            if resolved is None:
-                raise ValueError(f"Environment variable {env_var_name} is not set")
-            return resolved
+        resolved = os.getenv(env_var_name)
+        if resolved is None:
+            raise ValueError(f"Environment variable {env_var_name} is not set")
+        return resolved
     if value.startswith("$"):
         env_var_name = value[1:]
         resolved = os.getenv(env_var_name)
@@ -164,12 +163,11 @@ class OperatorUtils:
         """
         if failed_count > 0 and processed_count == 0:
             return str(ExecutionStatus.FAILED.value)
-        elif failed_count > 0:
+        if failed_count > 0:
             return str(ExecutionStatus.COMPLETED_WITH_ERRORS.value)
-        elif skipped_count > 0:
+        if skipped_count > 0:
             return str(ExecutionStatus.COMPLETED_WITH_WARNINGS.value)
-        else:
-            return str(ExecutionStatus.COMPLETED.value)
+        return str(ExecutionStatus.COMPLETED.value)
 
     @staticmethod
     def validate_columns(
@@ -423,9 +421,7 @@ class OperatorUtils:
         if not flow_definition or not isinstance(flow_definition, dict):
             return False
 
-        exists = any(node.get("operator") == operator for node in flow_definition.get("dag", []))
-
-        return exists
+        return any(node.get("operator") == operator for node in flow_definition.get("dag", []))
 
     @staticmethod
     def remove_rows(*, table: pa.Table, remove_row_idx: list[int]) -> pa.Table:
@@ -453,9 +449,7 @@ class OperatorUtils:
 
         # Create mask: True for rows to keep (not in failed_ids)
         keep_mask = pc.invert(pc.is_in(id_col, failed_ids_array))  # type: ignore[attr-defined]
-        table = table.filter(keep_mask)
-
-        return table
+        return table.filter(keep_mask)
 
     @staticmethod
     def find_doc_count(*, table: pa.Table) -> int:
@@ -511,9 +505,9 @@ class OperatorUtils:
         detected_encoding = from_bytes(binary_content).best()
         if detected_encoding and detected_encoding.encoding:
             return str(detected_encoding)
-        else:  # pragma: no cover
-            # Fallback to a default encoding if detection failsF
-            return binary_content.decode("utf-8", errors="replace")
+        # pragma: no cover
+        # Fallback to a default encoding if detection failsF
+        return binary_content.decode("utf-8", errors="replace")
 
     @staticmethod
     def upsert_fields_in_schema(*, schema: pa.Schema, updates: dict[str, pa.DataType]) -> pa.Schema:
@@ -724,13 +718,12 @@ class OperatorUtils:
         if not check_features or not input_features:
             return []
 
-        mandatory_features = [
+        return [
             feature
             for feature, value in input_features.items()
             if feature in check_features
             and OperatorConstants.Misc.MANDATORY in value.get(OperatorConstants.Misc.TAGS, [])
         ]
-        return mandatory_features
 
     @staticmethod
     def _raise_value_error(msg: str) -> None:

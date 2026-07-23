@@ -74,10 +74,9 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 if not service_account_path.is_file():
                     raise ValueError(f"Service account path is not a file: {service_account_path}")
 
-                creds = ServiceAccountCredentials.from_service_account_file(
+                return ServiceAccountCredentials.from_service_account_file(
                     str(service_account_path), scopes=config.scopes
                 )
-                return creds
             except PermissionError as e:
                 raise PermissionError(
                     f"Permission denied accessing service account file: {service_account_path}. Original error: {e}"

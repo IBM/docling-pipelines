@@ -464,12 +464,11 @@ class ExampleTester:
         if failed > 0 or errors > 0:
             print("RESULT: FAILED")
             return 1
-        elif passed > 0:
+        if passed > 0:
             print("RESULT: PASSED")
             return 0
-        else:
-            print("RESULT: NO TESTS RUN")
-            return 0
+        print("RESULT: NO TESTS RUN")
+        return 0
 
 
 def main():

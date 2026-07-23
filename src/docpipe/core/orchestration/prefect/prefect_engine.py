@@ -521,12 +521,11 @@ class PrefectEngine(FlowEnginePort):
                         )
                         has_ingest_dependency = True
                         continue
-                    else:
-                        self.logger.error(
-                            f"Node {node_id_ref} not found in flow. ingest_node_id={ingest_node_id}",
-                            extra=self.common_log_arguments,
-                        )
-                        raise FlowExecutionFailedException(f"Node {node_id_ref} not found in flow")
+                    self.logger.error(
+                        f"Node {node_id_ref} not found in flow. ingest_node_id={ingest_node_id}",
+                        extra=self.common_log_arguments,
+                    )
+                    raise FlowExecutionFailedException(f"Node {node_id_ref} not found in flow")
 
                 prev_index = node_id_to_index_map[node_id_ref]
                 prev_res[prev_node.get(DocpipeConstants.LINK_NAME)] = results_.get_future(prev_index)
@@ -664,6 +663,7 @@ class PrefectEngine(FlowEnginePort):
         self.orchestrator._reset_non_recoverable_docs_for_batch(
             global_config=global_config, common_log_arguments=self.common_log_arguments
         )
+        return None
 
     def __non_execute_inner_flow(
         self,
@@ -739,6 +739,7 @@ class PrefectEngine(FlowEnginePort):
                 message=f"Flow stopped after node but allowed {len(submitted_futures)} tasks to complete",
                 name="EarlyStopped",
             )
+        return None
 
     def __wait_for_tasks(self, *, destinations):
         """Wait for all tasks to complete."""

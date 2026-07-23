@@ -67,7 +67,7 @@ def sample_flow_domain(sample_flow_data) -> Flow:
 @pytest.fixture
 def sample_flow_with_id(sample_flow_data) -> Flow:
     """Sample Flow domain object with a specific flow_id for testing."""
-    flow = Flow(
+    return Flow(
         asset_id="test-flow-id-123",
         name=sample_flow_data["name"],
         description=sample_flow_data["description"],
@@ -82,7 +82,6 @@ def sample_flow_with_id(sample_flow_data) -> Flow:
         created_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         modified_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
-    return flow
 
 
 @pytest.fixture

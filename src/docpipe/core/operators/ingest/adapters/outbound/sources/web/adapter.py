@@ -172,13 +172,12 @@ class WebPageSourceAdapter(DocumentSourcePort):
         # Determine overall success
         if not failed_urls:
             return True, f"Successfully connected to all {len(config.urls)} URL(s):\n" + "\n".join(results)
-        elif results:
+        if results:
             # Partial success
             all_results = results + failed_urls
             return True, f"Connected to {len(results)}/{len(config.urls)} URL(s):\n" + "\n".join(all_results)
-        else:
-            # All failed
-            return False, "Failed to connect to all URL(s):\n" + "\n".join(failed_urls)
+        # All failed
+        return False, "Failed to connect to all URL(s):\n" + "\n".join(failed_urls)
 
     def get_config_schema(self) -> type[BaseModel]:
         """

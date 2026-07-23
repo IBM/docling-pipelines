@@ -87,7 +87,7 @@ class BaseParquetTableHandler(ABC):
             raise TypeError("delete_filter_fn must return a pyarrow BooleanArray")
 
         # Invert the mask to keep only non-matching (i.e., not deleted) rows
-        keep_mask = pc.invert(delete_mask)
+        keep_mask = pc.invert(delete_mask)  # type: ignore[attr-defined]
 
         updated_table = table.filter(keep_mask)
         self.save_table(path=path, table=updated_table)
@@ -122,8 +122,7 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
             if not os.path.exists(path):
                 self.logger.debug(f"Table not found from: {path}")
                 return None
-            table = pq.read_table(path, columns=columns, filters=filters)
-            return table
+            return pq.read_table(path, columns=columns, filters=filters)
 
     def save_table(self, *, path, table: pa.Table):
         """

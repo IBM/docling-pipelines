@@ -664,14 +664,13 @@ class AbstractOrchestrator(ABC):
 
                     prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
 
-            result = self._execute_step(
+            return self._execute_step(
                 op_def=op_def,
                 global_config=global_config,
                 prev_results=prev_results,
                 deleted_docs_count=deleted_docs_count,
             )
 
-            return result
         except Exception as e:
             self._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
             # steps in output edges will exit early

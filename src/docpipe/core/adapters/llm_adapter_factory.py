@@ -107,7 +107,7 @@ class LLMAdapterFactory:
                 container_kind=provider_config.get("container_kind"),
                 timeout=provider_config.get("timeout", 120),
             )
-        elif provider == "litellm":
+        if provider == "litellm":
             # Extract connection-level config (stream, timeout) for the HTTP client
             extra_kwargs = {}
             for key in ("stream", "timeout"):
@@ -119,8 +119,7 @@ class LLMAdapterFactory:
                 api_base=provider_config.get("api_base"),
                 **extra_kwargs,
             )
-        else:
-            raise ValueError(f"Provider '{provider}' not yet implemented for inference")
+        raise ValueError(f"Provider '{provider}' not yet implemented for inference")
 
     @staticmethod
     def create_embedding_adapter(
@@ -197,13 +196,13 @@ class LLMAdapterFactory:
                 container_kind=provider_config.get("container_kind"),
                 timeout=provider_config.get("timeout", 120),
             )
-        elif provider == "litellm":
+        if provider == "litellm":
             return LiteLLMAdapter(
                 model_name=model_id,
                 api_key=provider_config.get("api_key"),
                 api_base=provider_config.get("api_base"),
             )
-        elif provider == "huggingface":
+        if provider == "huggingface":
             return HuggingFaceAdapter(
                 model_name=model_id,
                 use_local=provider_config.get("use_local", True),
@@ -211,8 +210,7 @@ class LLMAdapterFactory:
                 device=provider_config.get("device"),
                 batch_size=provider_config.get("batch_size", 32),
             )
-        else:
-            raise ValueError(f"Provider '{provider}' not yet implemented for embeddings")
+        raise ValueError(f"Provider '{provider}' not yet implemented for embeddings")
 
     @staticmethod
     def create_text_detection_adapter(
@@ -271,8 +269,7 @@ class LLMAdapterFactory:
                 container_kind=provider_config.get("container_kind"),
                 timeout=provider_config.get("timeout", 120),
             )
-        else:
-            raise ValueError(f"Provider '{provider}' not yet implemented for text detection")
+        raise ValueError(f"Provider '{provider}' not yet implemented for text detection")
 
     @staticmethod
     def get_supported_providers(*, capability: str = "inference") -> set[str]:
@@ -291,9 +288,8 @@ class LLMAdapterFactory:
 
         if capability == "inference":
             return LLMAdapterFactory.INFERENCE_PROVIDERS.copy()
-        elif capability in ("embedding", "embeddings"):
+        if capability in ("embedding", "embeddings"):
             return LLMAdapterFactory.EMBEDDING_PROVIDERS.copy()
-        elif capability in ("text_detection", "detection"):
+        if capability in ("text_detection", "detection"):
             return LLMAdapterFactory.TEXT_DETECTION_PROVIDERS.copy()
-        else:
-            raise ValueError(f"Unknown capability: {capability}. Supported: 'inference', 'embedding', 'text_detection'")
+        raise ValueError(f"Unknown capability: {capability}. Supported: 'inference', 'embedding', 'text_detection'")

@@ -366,8 +366,7 @@ class DocpipeFlowManager:
 
         try:
             # Delegate execution to FlowExecutor (logging moved to FlowExecutor.execute())
-            result = self.executor.execute(orchestrator=self.orchestrator, params=params)  # type: ignore
-            return result
+            return self.executor.execute(orchestrator=self.orchestrator, params=params)  # type: ignore
         except Exception as e:
             self.logger.error(f"Flow execution failed: {e}")
             raise

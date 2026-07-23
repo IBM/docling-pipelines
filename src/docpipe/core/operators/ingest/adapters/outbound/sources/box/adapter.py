@@ -39,8 +39,7 @@ class BoxSourceAdapter(DocumentSourcePort):
 
             jwt_config = JWTConfig.from_config_json_string(json.dumps(box_config))
             auth = BoxJWTAuth(config=jwt_config)
-            client = BoxClient(auth=auth)
-            return client
+            return BoxClient(auth=auth)
 
         except PermissionError as e:
             raise PermissionError(
@@ -109,8 +108,7 @@ class BoxSourceAdapter(DocumentSourcePort):
         """Download Box file content."""
         try:
             stream = client.downloads.download_file(file_id)
-            content = stream.read()
-            return content
+            return stream.read()
         except Exception as e:
             logger.error(f"Error downloading file {file_id}: {e}", exc_info=True)
             raise

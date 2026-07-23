@@ -405,8 +405,7 @@ class SQLFilterOperator(AbstractOperator):
                 metadata[Metrics.External.PROCESSED_DOCS] = 0
                 metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
                 return True
-            else:
-                return list(invalid_columns)
+            return list(invalid_columns)
         return False
 
     @staticmethod
@@ -491,11 +490,11 @@ def format_value(value: Any) -> str:
     """Format value for SQL based on its type."""
     if value is None:
         return "NULL"
-    elif isinstance(value, (int, float)):
+    if isinstance(value, (int, float)):
         return str(value)
-    elif isinstance(value, list):
+    if isinstance(value, list):
         return f"({', '.join(format_value(v) for v in value)})"
-    elif isinstance(value, str):
+    if isinstance(value, str):
         try:
             # Try to parse as number
             return str(float(value)) if "." in value else str(int(value))
@@ -652,13 +651,12 @@ def extract_columns(filter_input: dict[str, Any] | list[str]) -> set[str]:
     """
     if isinstance(filter_input, dict):
         return extract_columns_json(filter_input)
-    elif isinstance(filter_input, list) and all(isinstance(x, str) for x in filter_input):
+    if isinstance(filter_input, list) and all(isinstance(x, str) for x in filter_input):
         return extract_columns_list(filter_input)
-    else:
-        raise DocpipeException(
-            message=f"Unsupported filter_input type: {type(filter_input).__name__}",
-            status_code=400,
-        )
+    raise DocpipeException(
+        message=f"Unsupported filter_input type: {type(filter_input).__name__}",
+        status_code=400,
+    )
 
 
 def extract_columns_json(condition_or_group: dict[str, Any]) -> set[str]:

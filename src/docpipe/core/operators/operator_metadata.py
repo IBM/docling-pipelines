@@ -223,9 +223,8 @@ class OperatorMetadata:
                 if purpose is None:
                     # Return all features
                     return dict(features.items())
-                else:
-                    # Filter by purpose (e.g., available_for_filter, available_for_vector_db)
-                    return {k: v for k, v in features.items() if v.get(purpose, False)}
+                # Filter by purpose (e.g., available_for_filter, available_for_vector_db)
+                return {k: v for k, v in features.items() if v.get(purpose, False)}
 
         return {}
 
@@ -277,10 +276,8 @@ class OperatorMetadata:
         if len(features) > 0:
             if purpose is None:
                 return dict(features.items())
-            else:
-                return {k: v for k, v in features.items() if v.get(purpose, False)}
-        else:
-            return features
+            return {k: v for k, v in features.items() if v.get(purpose, False)}
+        return features
 
     def required_feature_names(self, *, short_name: str) -> list[str]:
         """Get list of required input feature names for an operator.

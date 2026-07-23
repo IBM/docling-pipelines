@@ -220,8 +220,7 @@ class OpenSearchSQLClient:
         }
 
         try:
-            response = self.client.transport.perform_request("POST", self._sql_endpoint, body=body)
-            return response
+            return self.client.transport.perform_request("POST", self._sql_endpoint, body=body)
         except Exception as e:
             return {"error": str(e)}
 
@@ -238,8 +237,7 @@ class OpenSearchSQLClient:
         body = {"query": query}
 
         try:
-            response = self.client.transport.perform_request("POST", f"{self._sql_endpoint}/_explain", body=body)
-            return response
+            return self.client.transport.perform_request("POST", f"{self._sql_endpoint}/_explain", body=body)
         except Exception as e:
             return {"error": str(e)}
 
@@ -479,12 +477,11 @@ class SQLQueryBuilder:
         """Format a value for SQL query"""
         if isinstance(value, str):
             return f"'{value}'"
-        elif isinstance(value, bool):
+        if isinstance(value, bool):
             return "TRUE" if value else "FALSE"
-        elif value is None:
+        if value is None:
             return "NULL"
-        else:
-            return str(value)
+        return str(value)
 
 
 # Example usage functions
@@ -522,8 +519,7 @@ def example_filtered_query():
         LIMIT 20
     """
 
-    result = sql_client.execute(query)
-    return result
+    return sql_client.execute(query)
 
 
 def example_aggregation_query():
@@ -542,8 +538,7 @@ def example_aggregation_query():
         ORDER BY doc_count DESC
     """
 
-    result = sql_client.execute(query)
-    return result
+    return sql_client.execute(query)
 
 
 def example_query_builder():
@@ -568,8 +563,7 @@ def example_query_builder():
 
     print(f"Generated query: {query}")
 
-    result = sql_client.execute(query)
-    return result
+    return sql_client.execute(query)
 
 
 def example_pagination():

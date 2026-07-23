@@ -139,8 +139,7 @@ def list_global_config(*, verbose: bool = False, category: str | None = None) ->
 
     if verbose:
         return format_global_config_details(params, category_filter=category)
-    else:
-        return display_global_config_summary(category_filter=category)
+    return display_global_config_summary(category_filter=category)
 
 
 # For testing

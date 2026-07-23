@@ -525,32 +525,30 @@ class DocumentFormatter:
         """Convert document to Markdown format"""
         if doc_type == "purchase_order":
             return DocumentFormatter._purchase_order_to_markdown(doc)
-        elif doc_type == "invoice":
+        if doc_type == "invoice":
             return DocumentFormatter._invoice_to_markdown(doc)
-        elif doc_type == "bank_statement":
+        if doc_type == "bank_statement":
             return DocumentFormatter._bank_statement_to_markdown(doc)
-        elif doc_type == "credit_card_statement":
+        if doc_type == "credit_card_statement":
             return DocumentFormatter._credit_card_to_markdown(doc)
-        elif doc_type == "passport":
+        if doc_type == "passport":
             return DocumentFormatter._passport_to_markdown(doc)
-        else:
-            return f"# {doc_type.upper()}\n\n```json\n{json.dumps(doc, indent=2)}\n```"
+        return f"# {doc_type.upper()}\n\n```json\n{json.dumps(doc, indent=2)}\n```"
 
     @staticmethod
     def to_html(doc: dict[str, Any], doc_type: str) -> str:
         """Convert document to HTML format"""
         if doc_type == "purchase_order":
             return DocumentFormatter._purchase_order_to_html(doc)
-        elif doc_type == "invoice":
+        if doc_type == "invoice":
             return DocumentFormatter._invoice_to_html(doc)
-        elif doc_type == "bank_statement":
+        if doc_type == "bank_statement":
             return DocumentFormatter._bank_statement_to_html(doc)
-        elif doc_type == "credit_card_statement":
+        if doc_type == "credit_card_statement":
             return DocumentFormatter._credit_card_to_html(doc)
-        elif doc_type == "passport":
+        if doc_type == "passport":
             return DocumentFormatter._passport_to_html(doc)
-        else:
-            return f"<html><body><h1>{doc_type.upper()}</h1><pre>{json.dumps(doc, indent=2)}</pre></body></html>"
+        return f"<html><body><h1>{doc_type.upper()}</h1><pre>{json.dumps(doc, indent=2)}</pre></body></html>"
 
     @staticmethod
     def to_pdf_content(doc: dict[str, Any], doc_type: str) -> str:

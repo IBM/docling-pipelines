@@ -123,11 +123,11 @@ class LiteLLMLLMClient(BaseLLMClient):
         # Infer from model name patterns
         if model_name.startswith("gpt-") or "text-embedding" in model_name:
             return "openai"
-        elif model_name.startswith("claude-"):
+        if model_name.startswith("claude-"):
             return "anthropic"
-        elif model_name.startswith("command-") or model_name.startswith("embed-"):
+        if model_name.startswith("command-") or model_name.startswith("embed-"):
             return "cohere"
-        elif model_name.startswith("ollama/"):
+        if model_name.startswith("ollama/"):
             return "ollama"
 
         # Default to openai

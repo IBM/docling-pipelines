@@ -194,18 +194,17 @@ class EntityExtractionAdapterFactory:
             )
             return LLMEntityAdapter(config=full_config)
 
-        elif mode == EntityExtractionMode.DOCLING:
+        if mode == EntityExtractionMode.DOCLING:
             logger.info("Creating DoclingEntityAdapter with %s workers", max_workers)
             return DoclingEntityAdapter(config=full_config)
 
-        elif mode == EntityExtractionMode.NONE:
+        if mode == EntityExtractionMode.NONE:
             logger.info("Entity extraction disabled (mode='none')")
             return None
 
-        else:
-            raise ValueError(
-                f"Unsupported entity extraction mode: {mode}. Supported modes: litellm, watsonx, docling, none"
-            )
+        raise ValueError(
+            f"Unsupported entity extraction mode: {mode}. Supported modes: litellm, watsonx, docling, none"
+        )
 
     @staticmethod
     def get_supported_modes() -> list[str]:

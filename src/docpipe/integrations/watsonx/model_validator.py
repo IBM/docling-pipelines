@@ -93,9 +93,8 @@ def get_model_dimension(*, model_id: str, api_key: str, url: str) -> int:
                 if dimension:
                     logger.info(f"Found embedding dimension {dimension} for model '{model_id}'")
                     return dimension
-                else:
-                    logger.warning(f"Model '{model_id}' found but embedding_dimension not available in spec")
-                    return 0
+                logger.warning(f"Model '{model_id}' found but embedding_dimension not available in spec")
+                return 0
 
         logger.warning(f"Model '{model_id}' not found in available models")
         return 0

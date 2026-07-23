@@ -108,8 +108,7 @@ class S3SourceConfig(BaseModel):
         if not v:
             return ""
         # Remove leading slash
-        v = v.lstrip("/")
-        return v
+        return v.lstrip("/")
 
     @field_validator("endpoint_url")
     @classmethod

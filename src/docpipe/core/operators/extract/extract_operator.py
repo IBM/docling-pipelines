@@ -580,7 +580,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                 extensions.update(OperatorConstants.FileExtensions.DOCLING_LIBRARY_AUDIO_VIDEO_EXTENSIONS)
             return extensions
 
-        elif self.text_extraction_mode == TextExtractionMode.DOCLING_SERVE:
+        if self.text_extraction_mode == TextExtractionMode.DOCLING_SERVE:
             return set(OperatorConstants.FileExtensions.DOCLING_SERVE_EXTENSIONS)
 
         # Default: return base extensions

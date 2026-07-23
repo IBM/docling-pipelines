@@ -52,13 +52,13 @@ class DocumentQueryGenerator:
         """Generate queries for a specific document type"""
         if doc_type == "purchase_order":
             return self._generate_purchase_order_queries()
-        elif doc_type == "invoice":
+        if doc_type == "invoice":
             return self._generate_invoice_queries()
-        elif doc_type == "bank_statement":
+        if doc_type == "bank_statement":
             return self._generate_bank_statement_queries()
-        elif doc_type == "credit_card_statement":
+        if doc_type == "credit_card_statement":
             return self._generate_credit_card_queries()
-        elif doc_type == "passport":
+        if doc_type == "passport":
             return self._generate_passport_queries()
         return []
 

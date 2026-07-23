@@ -66,7 +66,7 @@ class KeyValueFileSystemStorage(AbstractContentStorage, KeyValueStoragePort):
 
     def _missing_file_value(self) -> None:
         """Return ``None`` when a JSON record file does not exist."""
-        return None
+        return
 
     def list_files(self, *, collection: str) -> list[Any]:
         """
