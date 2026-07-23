@@ -29,12 +29,12 @@ def document_set_to_response(*, document_set: DocumentSet) -> DocumentSetRespons
     updated_at = document_set.updated_at or created_at
 
     return DocumentSetResponse(
-        id=document_set.id or "",
+        id=document_set.asset_id or "",
         name=document_set.name,
         description=document_set.description,
         storage_backend=document_set.storage_backend,
-        database_path=document_set.database_path,
-        table_name=document_set.table_name,
+        database_path=document_set.storage_reference.database_path if document_set.storage_reference else "",
+        table_name=document_set.storage_reference.table_name if document_set.storage_reference else "",
         total_documents=document_set.total_documents,
         total_size_bytes=document_set.total_size_bytes,
         total_pages=document_set.total_pages,

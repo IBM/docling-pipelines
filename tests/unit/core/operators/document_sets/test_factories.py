@@ -112,10 +112,11 @@ class TestDataStoreFactory:
         data_store = DataStoreFactory.create(adapter_name="duckdb", config=config)
 
         assert data_store is not None
-        assert hasattr(data_store, "create_data_table")
-        assert hasattr(data_store, "upsert_document_set_data")
-        assert hasattr(data_store, "get_document_set_data")
-        assert hasattr(data_store, "delete_document_set_data")
+        assert hasattr(data_store, "store")
+        assert hasattr(data_store, "load")
+        assert hasattr(data_store, "delete")
+        assert hasattr(data_store, "get_metrics")
+        assert hasattr(data_store, "exists")
 
     def test_create_duckdb_adapter_memory(self):
         """Test creating DuckDB adapter with in-memory database."""

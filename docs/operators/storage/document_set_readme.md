@@ -21,9 +21,9 @@ point in a pipeline without disrupting downstream operators.
 - Persistent columnar storage via DuckDB with automatic schema evolution
 - Automatic metrics tracking (document count, size, page count)
 - Upsert-based incremental updates keyed on `id`
-- Optional soft-delete cleanup (`retain_deleted_docs`)
 - Pass-through design — input table is returned unchanged
 - Idempotent: safe to re-run (get-or-create on `document_set_name`)
+- `StorageReference` captures adapter-specific coordinates (database path, table name) and is persisted alongside document set metadata
 
 ---
 
@@ -51,9 +51,9 @@ point in a pipeline without disrupting downstream operators.
 | `document_set_name` | string | **Yes** | — | Name of the document set to create or update |
 | `description` | string | No | `""` | Human-readable description of the document set |
 | `metadata` | object | No | `{}` | Arbitrary JSON object stored as document set metadata |
-| `retain_deleted_docs` | boolean | No | `false` | When `true`, soft-deleted documents are kept; when `false` they are removed |
 | `document_set_id` | string | No | — | UUID of an existing document set to update instead of creating a new one |
-| `database_path` | string | No | default path | File path for the DuckDB database file |
+| `database_path` | string | No | `data/duckdb/document_sets.duckdb` | File path for the DuckDB database (metadata + data share this file) |
+| `data_backend` | string | No | `duckdb` | Data store backend for PyArrow table data |
 
 ---
 
@@ -103,7 +103,7 @@ This operator does not add or remove columns. The original input table is return
 }
 ```
 
-### Example 3 — Audit trail (retain soft-deleted docs)
+### Example 3 — Custom database path
 
 ```json
 {
@@ -111,8 +111,8 @@ This operator does not add or remove columns. The original input table is return
   "name": "store_compliance_docs",
   "config": {
     "document_set_name": "compliance_documents",
-    "description": "Compliance documents — full audit trail retained",
-    "retain_deleted_docs": true,
+    "description": "Compliance documents",
+    "database_path": "./data/compliance.duckdb",
     "metadata": {
       "retention_policy": "7_years",
       "compliance_standard": "SOX"
@@ -142,10 +142,14 @@ This operator does not add or remove columns. The original input table is return
 
 ```
 DocumentSetOperator
-    └── DocumentSetService          (application layer)
-            ├── DataStoreFactory    → DuckDBTableStorage  (columnar storage)
-            └── MetadataRepositoryFactory → metadata store (document set registry)
+    └── DocumentSetService                (application layer)
+            ├── DataStoreFactory          → DuckDBDocumentSetStorage  (implements DocumentSetStorage port)
+            │                               └── DuckDBTableStorage    (columnar storage)
+            └── MetadataRepositoryFactory → DuckDBDocumentSetMetadataRepository
+                                            └── DuckDBKeyValueStorage (document set registry)
 ```
+
+The adapter derives the physical `table_name` from the document set name (via `sanitize_table_name`) and returns a `StorageReference` that is persisted alongside the document set metadata. The service layer never constructs raw table names — it only holds the `StorageReference` returned by the adapter.
 
 ### Pipeline placement
 

@@ -64,8 +64,7 @@ class DocumentSetOperator(AbstractOperator):
                 - database_path (optional): Database path (default: from constants)
 
         Note:
-            metadata_backend is NO LONGER supported - use global_config.storage_type
-            Storage type for metadata is passed via operator params from orchestrator
+            Metadata storage type is passed via operator params from orchestrator
         """
         super().__init__(config)
 
@@ -89,16 +88,17 @@ class DocumentSetOperator(AbstractOperator):
             # Validate database path
             DuckDBTableStorage.validate_database_path(db_path=self.database_path)
 
-            # Storage type will be set in transform() from params
-            self.storage_type: str | None = None
+            # Metadata storage type will be set in transform() from params
+            self.metadata_storage_type: str | None = None
 
             # Data backend from operator config (operator-specific)
             self.data_backend: str = config.get(
-                OperatorConstants.DocumentSet.DATA_BACKEND, DocpipeConstants.DEFAULT_STORAGE_TYPE
+                OperatorConstants.DocumentSet.DATA_BACKEND, OperatorConstants.DocumentSet.DEFAULT_DATA_BACKEND
             )
 
             logger.info(
-                f"Initialized DocumentSetOperator for: {self.document_set_name}",
+                "Initialized DocumentSetOperator for: %s",
+                self.document_set_name,
                 extra=self.common_log_arguments,
             )
         except FlowValidationException:
@@ -144,7 +144,7 @@ class DocumentSetOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "duckdb",
                     OperatorConstants.Config.DESCRIPTION: (
-                        "Data store backend (default: duckdb). Metadata backend uses global_config.storage_type"
+                        "Data store backend (default: duckdb). Metadata backend uses global_config.metadata_storage_type"
                     ),
                 },
                 "database_path": {
@@ -183,21 +183,25 @@ class DocumentSetOperator(AbstractOperator):
                 - List containing the original table (pass-through)
                 - Metadata dictionary with storage info and metrics
         """
-        # Extract storage type from config (set by orchestrator)
-        self.storage_type = self.config.get(DocpipeConstants.STORAGE_TYPE, DocpipeConstants.DEFAULT_STORAGE_TYPE)
+        # Extract metadata storage type from config (set by orchestrator)
+        self.metadata_storage_type = self.config.get(
+            DocpipeConstants.METADATA_STORAGE_TYPE, DocpipeConstants.DEFAULT_METADATA_STORAGE_TYPE
+        )
 
         logger.info(
-            f"Using storage type: {self.storage_type} for metadata, {self.data_backend} for data",
+            "Using metadata storage type: %s, data storage type: %s",
+            self.metadata_storage_type,
+            self.data_backend,
             extra=self.common_log_arguments,
         )
 
-        # Create metadata repository using global storage type
+        # Create metadata repository using global metadata storage type
         metadata_repo_config: dict[str, Any] = {
             OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path,
         }
 
         metadata_repository = MetadataRepositoryFactory.create(
-            adapter_name=self.storage_type,  # Use global storage type
+            adapter_name=self.metadata_storage_type,  # Use global metadata storage type
             config=metadata_repo_config,
         )
 
@@ -225,7 +229,7 @@ class DocumentSetOperator(AbstractOperator):
         # Add storage-specific metadata
         metadata[OperatorConstants.DocumentSet.META_DOCUMENT_SET_NAME] = self.document_set_name
         metadata[OperatorConstants.DocumentSet.META_DATABASE_PATH] = self.database_path
-        metadata["metadata_storage_type"] = self.storage_type
+        metadata[DocpipeConstants.METADATA_STORAGE_TYPE] = self.metadata_storage_type
         metadata["data_storage_type"] = self.data_backend
 
         # Handle empty table
@@ -247,11 +251,11 @@ class DocumentSetOperator(AbstractOperator):
             metadata[OperatorConstants.DocumentSet.META_DOCUMENT_SET_ID] = doc_set_id
 
             logger.info(
-                f"Using document set: {self.document_set_name} (ID: {doc_set_id})", extra=self.common_log_arguments
+                "Using document set: %s (ID: %s)", self.document_set_name, doc_set_id, extra=self.common_log_arguments
             )
 
             # Store data
-            logger.info(f"Storing {table.num_rows} rows in document set", extra=self.common_log_arguments)
+            logger.info("Storing %d rows in document set", table.num_rows, extra=self.common_log_arguments)
 
             updated_doc_set = service.store_data(document_set_id=doc_set_id, data=table)
 
@@ -259,14 +263,16 @@ class DocumentSetOperator(AbstractOperator):
             metadata[OperatorConstants.DocumentSet.META_STORED_DOCUMENTS] = updated_doc_set.total_documents
             metadata[OperatorConstants.DocumentSet.META_TOTAL_SIZE_BYTES] = updated_doc_set.total_size_bytes
             metadata[OperatorConstants.DocumentSet.META_TOTAL_PAGES] = updated_doc_set.total_pages
-            metadata[OperatorConstants.DocumentSet.META_TABLE_NAME] = updated_doc_set.table_name
+            metadata[OperatorConstants.DocumentSet.META_TABLE_NAME] = (
+                updated_doc_set.storage_reference.table_name if updated_doc_set.storage_reference else None
+            )
             metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
 
             logger.info(
-                f"Successfully stored data. "
-                f"Total documents: {updated_doc_set.total_documents}, "
-                f"Size: {updated_doc_set.total_size_bytes} bytes, "
-                f"Pages: {updated_doc_set.total_pages}",
+                "Successfully stored data. Total documents: %d, Size: %d bytes, Pages: %d",
+                updated_doc_set.total_documents,
+                updated_doc_set.total_size_bytes,
+                updated_doc_set.total_pages,
                 extra=self.common_log_arguments,
             )
 
@@ -292,20 +298,19 @@ class DocumentSetOperator(AbstractOperator):
             Document set ID
         """
         if self.document_set_id:
-            logger.info(f"Updating existing document set: {self.document_set_id}", extra=self.common_log_arguments)
+            logger.info("Updating existing document set: %s", self.document_set_id, extra=self.common_log_arguments)
             doc_set = service.update_document_set(
                 document_set_id=self.document_set_id, description=self.description, metadata=self.metadata_config
             )
-            return doc_set.id or ""
+            return doc_set.asset_id or ""
 
-        logger.info(f"Getting or creating document set: {self.document_set_name}", extra=self.common_log_arguments)
+        logger.info("Getting or creating document set: %s", self.document_set_name, extra=self.common_log_arguments)
         doc_set = service.create_document_set(
             name=self.document_set_name,
             description=self.description,
-            database_path=self.database_path,
             metadata=self.metadata_config,
         )
-        return doc_set.id or ""
+        return doc_set.asset_id or ""
 
     def _validate_database_path(self, *, database_path: str) -> str:
         """Validate and normalize database path to prevent path traversal.
@@ -324,8 +329,8 @@ class DocumentSetOperator(AbstractOperator):
         try:
             return validate_database_path(database_path)
         except ValueError as exc:
-            logger.warning(f"Database path validation failed: {exc}", extra=self.common_log_arguments)
+            logger.warning("Database path validation failed: %s", exc, extra=self.common_log_arguments)
             raise FlowValidationException(f"Invalid database path: {exc}") from exc
         except Exception as exc:
-            logger.warning(f"Database path validation failed: {exc}", extra=self.common_log_arguments)
+            logger.warning("Database path validation failed: %s", exc, extra=self.common_log_arguments)
             raise FlowValidationException(f"Failed to validate database path: {exc}") from exc

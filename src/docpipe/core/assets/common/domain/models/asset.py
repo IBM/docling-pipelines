@@ -7,6 +7,7 @@ Only truly common attributes are included here. Asset-specific attributes are de
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 from docpipe.core.constants.asset_constants import AssetType
 from docpipe.exceptions.docpipe_exceptions import AssetInvalidDataException
@@ -62,6 +63,11 @@ class Asset(ABC):
 
         if self.description and len(self.description) > 2000:
             raise AssetInvalidDataException(f"{self.get_asset_type()} description cannot exceed 2000 characters")
+
+    def __post_init__(self) -> None:
+        """Generate asset_id if not provided."""
+        if self.asset_id is None:
+            self.asset_id = str(uuid4())
 
     @abstractmethod
     def update_timestamp(self) -> None:

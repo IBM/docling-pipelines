@@ -2300,32 +2300,28 @@ Using a schema template:
 
 **Class:** `core.operators.document_sets.document_set_operator.DocumentSetOperator`
 
-| Parameter             | Type   | Required | Default                            | Description                                              |
-|-----------------------| ------ | -------: | ---------------------------------- | -------------------------------------------------------- |
-| `document_set_name`   | string |      Yes | -                                  | Unique name for the document set                         |
-| `description`         | string |       No | `null`                             | Description of the document set                          |
-| `metadata`            | object |       No | `null`                             | Additional metadata payload stored with the document set |
-| `retain_deleted_docs` | bool   |       No | `false`                            | Whether to retain soft-deleted documents                 |
-| `document_set_id`     | string |       No | `null`                             | Existing document set UUID for update flows              |
-| `database_path`       | string |       No | `data/duckdb/document_sets.duckdb` | Database file path used by DuckDB-backed adapters        |
-| `storage_type`        | string |       No | `duckdb`                           | Metadata repository backend                              |
-| `data_backend`        | string |       No | `duckdb`                           | Data store backend                                       |
-| `metadata_config`     | object |       No | `{}`                               | Backend-specific metadata repository configuration       |
-| `data_config`         | object |       No | `{}`                               | Backend-specific data store configuration                |
+| Parameter           | Type   | Required | Default                            | Description                                              |
+| ------------------- | ------ | -------: | ---------------------------------- | -------------------------------------------------------- |
+| `document_set_name` | string |      Yes | -                                  | Unique name for the document set                         |
+| `description`       | string |       No | `null`                             | Description of the document set                          |
+| `metadata`          | object |       No | `null`                             | Additional metadata payload stored with the document set |
+| `document_set_id`   | string |       No | `null`                             | Existing document set UUID for update flows              |
+| `data_backend`      | string |       No | `duckdb`                           | Data store backend for PyArrow table data                |
+| `database_path`     | string |       No | `data/duckdb/document_sets.duckdb` | Database file path used by DuckDB-backed adapters        |
 
 **Description**
 
 The Document Set operator persists table rows and document-set metadata through separate port interfaces:
 
 - `DocumentSetMetadataRepository`
-- `DocumentSetDataStore`
+- `DocumentSetStorage`
 
 The operator creates concrete adapters through:
 
 - `MetadataRepositoryFactory`
 - `DataStoreFactory`
 
-Current production support is DuckDB for both metadata and data storage. The operator returns the input table unchanged, so it can be placed mid-pipeline without breaking downstream processing.
+The metadata backend is controlled by `global_config.metadata_storage_type` (default: `duckdb`). The data backend is controlled per-operator via `data_backend`. Current production support is DuckDB for both. The operator returns the input table unchanged, so it can be placed mid-pipeline without breaking downstream processing.
 
 **Architecture**
 
@@ -2355,7 +2351,12 @@ Common upstream fields from the sample flow:
 - `document_set_name`: Name of the document set
 - `database_path`: Database path used for storage
 - `stored_documents`: Number of rows written in the operation
-- error metadata when persistence fails
+- `total_size_bytes`: Total size in bytes of all stored rows
+- `total_pages`: Total pages across all stored documents
+- `table_name`: Backend-specific data location identifier populated by the storage adapter
+- `metadata_storage_type`: Metadata adapter used (from `global_config.metadata_storage_type`)
+- `data_storage_type`: Data adapter used (from `data_backend`)
+- `error`: Error message when persistence fails
 
 **Features**
 
@@ -2383,24 +2384,22 @@ Common upstream fields from the sample flow:
     "description": "Persistent storage of extracted document content with metadata tracking",
     "database_path": "./data/document_sets/extracted_docs.duckdb",
     "data_backend": "duckdb",
-    "storage_type": "duckdb",
-    "retain_deleted_docs": false,
     "metadata": {
       "pipeline_version": "1.0",
       "extraction_method": "docling",
       "created_by": "docpipe_pipeline",
       "purpose": "demonstration_flow"
     }
-  }
+  },
+  "depends_on": ["extract_content"]
 }
 ```
 
 **Configuration Notes:**
 
-- `storage_type` in `config` controls metadata storage backend (default: "duckdb")
-- `database_path` in `config` specifies the database file location
-- `data_backend` in operator parameters controls PyArrow table data storage
-- Metadata and data can use different backends independently
+- `global_config.metadata_storage_type` controls the metadata storage backend (default: `duckdb`)
+- `database_path` in the operator config specifies the DuckDB file path for both metadata and data
+- `data_backend` in the operator config controls the PyArrow table data adapter (default: `duckdb`)
 
 **Flow Pattern**
 
@@ -2412,50 +2411,39 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
 
 ```json
 {
-  "name": "ingest-extract-documentset",
-  "flow_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
-  "description": "Integration test flow for document set hexagonal architecture: Ingest -> Extract -> DocumentSet",
-  "storage": "in-memory",
-  "execute_type": "local",
+  "flow_name": "ingest-extract-documentset",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": true,
-    "force_ingest": true
+    "storage": "in-memory",
+    "execute_type": "local"
   },
-  "dag": [
+  "flow": [
     {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "name": "ingest_local_folder",
-      "operator": "ingest_local",
+      "type": "ingest_local",
+      "name": "ingest_documents",
       "config": {
-        "paths": "tests/fixtures/invoices",
-        "include_filter": "pdf,txt,md",
-        "store_binary_content": true
+        "paths": "./documents",
+        "include_filter": "pdf,txt"
       }
     },
     {
-      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
-      "name": "extract_documents",
-      "operator": "extract_operator",
+      "type": "extract_operator",
+      "name": "extract_content",
       "config": {
-        "text_extraction": {
-          "provider": "docling_library",
-          "doc_column": "content"
-        },
-        "entity_extraction": { "provider": "none" }
-      }
+        "text_extraction": { "provider": "docling_library" }
+      },
+      "depends_on": ["ingest_documents"]
     },
     {
-      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
-      "name": "store_in_document_set",
-      "operator": "document_set",
+      "type": "document_set",
+      "name": "store_documents",
       "config": {
         "document_set_name": "integration_test_documents",
         "description": "Integration test for hexagonal architecture",
         "database_path": "data/integration_test.db",
-        "storage_type": "duckdb",
         "data_backend": "duckdb"
-      }
+      },
+      "depends_on": ["extract_content"]
     }
   ]
 }
@@ -2484,14 +2472,14 @@ Document sets are also exposed through `/api/v1/document-sets`:
 **Testing**
 
 ```bash
-source src/docpipe_app/backend/.venv/bin/activate
+source .venv/bin/activate
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv run pytest tests/integration/api/test_document_sets_api.py -v
 ```
 
 **Extension**
 
-For new backends, implement the document set ports, register adapters with the factories, and configure `storage_type` and `data_backend`. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+For new backends, implement the `DocumentSetStorage` and `DocumentSetMetadataRepository` ports, register the adapters with `DataStoreFactory` and `MetadataRepositoryFactory` respectively. Configure `data_backend` in the operator config to select the data adapter, and `global_config.metadata_storage_type` to select the metadata adapter. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 
 ---
 
@@ -2530,7 +2518,7 @@ For new backends, implement the document set ports, register adapters with the f
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
 | `content_format` | string | `md` | Content file extension: `md`, `txt`, or `json` |
-| `include_metadata_sidecar` | bool | `false` | Write a `.meta.json` sidecar per document (`comprehensive_export` only) |
+| `include_metadata_sidecar` | bool | `true` | Write a `.meta.json` sidecar per document (`comprehensive_export` only) |
 
 **`output_structure` fields**
 
@@ -2563,11 +2551,31 @@ All input columns are passed through unchanged. The following columns are append
 
 ```json
 {
-  "dag": [
+  "flow_name": "ingest-extract-export",
+  "global_config": {
+    "doc_column": "content",
+    "execute_type": "local"
+  },
+  "flow": [
     {
-      "id": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+      "type": "ingest_local",
+      "name": "ingest_documents",
+      "config": {
+        "paths": "./documents",
+        "include_filter": "pdf,txt"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_content",
+      "config": {
+        "text_extraction": { "provider": "docling_library" }
+      },
+      "depends_on": ["ingest_documents"]
+    },
+    {
+      "type": "storage_output",
       "name": "write_to_filesystem",
-      "operator": "storage_output",
       "config": {
         "mode": "processed_content",
         "destination_config": {
@@ -2583,7 +2591,8 @@ All input columns are passed through unchanged. The following columns are append
           "path_template": "{year}/{month}/{doc_id}.{ext}",
           "overwrite_existing": true
         }
-      }
+      },
+      "depends_on": ["extract_content"]
     }
   ]
 }

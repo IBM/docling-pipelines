@@ -13,7 +13,6 @@ ensuring consistent exception handling across the application layers.
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
 
 from docpipe.core.assets.common.domain.models.asset import Asset
 from docpipe.core.constants.asset_constants import AssetType
@@ -86,10 +85,7 @@ class Flow(Asset):
 
     def __post_init__(self):
         """Post-initialization to set default values."""
-        # Generate asset_id if not provided (backward compatible with flow_id)
-        if self.asset_id is None:
-            self.asset_id = str(uuid4())
-
+        super().__post_init__()
         if self.created_on is None:
             self.created_on = datetime.now(UTC)
         if self.modified_on is None:

@@ -4,12 +4,14 @@ import pyarrow as pa
 import pytest
 
 from docpipe.core.assets.document_sets.adapters.duckdb.data_store import (
-    DuckDBDocumentSetDataStore,
+    DuckDBDocumentSetStorage,
 )
+from docpipe.core.assets.document_sets.adapters.duckdb.duckdb_utils import sanitize_table_name
 from docpipe.core.assets.document_sets.adapters.duckdb.metadata_repository import (
     DuckDBDocumentSetMetadataRepository,
 )
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.core.assets.document_sets.domain.models.storage_reference import StorageReference
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.storage import StorageFactory
@@ -32,18 +34,15 @@ def metadata_repository(*, temp_db_path):
 def data_store(*, temp_db_path):
     """Create data store for testing with dependency injection."""
     table_storage = StorageFactory.create_table_storage(storage_type="duckdb", database_path=temp_db_path)
-    return DuckDBDocumentSetDataStore(table_storage=table_storage)
+    return DuckDBDocumentSetStorage(table_storage=table_storage, database_path=temp_db_path)
 
 
 @pytest.fixture
-def sample_document_set(*, temp_db_path):
+def sample_document_set():
     """Create a sample document set."""
     return DocumentSet(
-        id="test-id-1",
-        name="test_set",
-        description="Test description",
-        table_name="test_table",
-        database_path=temp_db_path,
+        asset_id="test-id-1",
+        name="Test Set",
     )
 
 
@@ -54,43 +53,39 @@ class TestDuckDBMetadataRepository:
         """Test creating a document set."""
         created = metadata_repository.create(document_set=sample_document_set)
 
-        assert created.id == sample_document_set.id
+        assert created.asset_id == sample_document_set.asset_id
         assert created.name == sample_document_set.name
-        assert created.description == sample_document_set.description
-        assert created.table_name == sample_document_set.table_name
+        assert created.storage_reference is not None
+        assert created.storage_reference.table_name == "test_set"
 
     def test_get_by_id(self, *, metadata_repository, temp_db_path):
         """Test retrieving document set by ID."""
         doc_set = DocumentSet(
-            id="test-id-2",
-            name="test_set_2",
+            asset_id="test-id-2",
+            name="Test Set Two",
             description="Test",
-            table_name="test_table_2",
-            database_path=temp_db_path,
         )
         metadata_repository.create(document_set=doc_set)
 
         retrieved = metadata_repository.get_by_id(document_set_id="test-id-2")
 
-        assert retrieved.id == doc_set.id
+        assert retrieved.asset_id == doc_set.asset_id
         assert retrieved.name == doc_set.name
-        assert retrieved.database_path == temp_db_path
+        assert retrieved.storage_reference.database_path == temp_db_path
 
-    def test_get_by_name(self, *, metadata_repository, temp_db_path):
+    def test_get_by_name(self, *, metadata_repository):
         """Test retrieving document set by name."""
         doc_set = DocumentSet(
-            id="test-id-3",
-            name="unique_name",
+            asset_id="test-id-3",
+            name="Unique Name",
             description="Test",
-            table_name="test_table_3",
-            database_path=temp_db_path,
         )
         metadata_repository.create(document_set=doc_set)
 
-        retrieved = metadata_repository.get_by_name(name="unique_name")
+        retrieved = metadata_repository.get_by_name(name="Unique Name")
 
-        assert retrieved.id == doc_set.id
-        assert retrieved.name == "unique_name"
+        assert retrieved.asset_id == doc_set.asset_id
+        assert retrieved.name == "Unique Name"
 
     def test_get_nonexistent_raises_error(self, *, metadata_repository):
         """Test getting nonexistent document set raises error."""
@@ -106,15 +101,13 @@ class TestDuckDBMetadataRepository:
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
 
-    def test_list_all(self, *, metadata_repository, temp_db_path):
+    def test_list_all(self, *, metadata_repository):
         """Test listing all document sets."""
         for i in range(3):
             doc_set = DocumentSet(
-                id=f"test-id-{i}",
-                name=f"test_set_{i}",
+                asset_id=f"test-id-{i}",
+                name=f"Test Set {i}",
                 description=f"Test {i}",
-                table_name=f"test_table_{i}",
-                database_path=temp_db_path,
             )
             metadata_repository.create(document_set=doc_set)
 
@@ -122,19 +115,17 @@ class TestDuckDBMetadataRepository:
 
         assert len(all_sets) == 3
         assert {document_set.name for document_set in all_sets} == {
-            "test_set_0",
-            "test_set_1",
-            "test_set_2",
+            "Test Set 0",
+            "Test Set 1",
+            "Test Set 2",
         }
 
-    def test_update_document_set(self, *, metadata_repository, temp_db_path):
+    def test_update_document_set(self, *, metadata_repository):
         """Test updating document set metadata."""
         doc_set = DocumentSet(
-            id="test-id-update",
-            name="original_name",
+            asset_id="test-id-update",
+            name="Original Name",
             description="Original description",
-            table_name="test_table",
-            database_path=temp_db_path,
         )
         created = metadata_repository.create(document_set=doc_set)
 
@@ -142,34 +133,29 @@ class TestDuckDBMetadataRepository:
         updated = metadata_repository.update(document_set=created)
 
         assert updated.description == "Updated description"
-        assert updated.name == "original_name"
+        assert updated.name == "Original Name"
 
         retrieved = metadata_repository.get_by_id(document_set_id="test-id-update")
         assert retrieved.description == "Updated description"
 
-    def test_update_nonexistent_document_set_raises_error(self, *, metadata_repository, temp_db_path):
+    def test_update_nonexistent_document_set_raises_error(self, *, metadata_repository):
         """Test that updating a nonexistent document set raises an error."""
         doc_set = DocumentSet(
-            id="missing-id",
-            name="missing_name",
+            asset_id="missing-id",
+            name="Missing Name",
             description="Missing",
-            table_name="missing_table",
-            database_path=temp_db_path,
         )
 
-        # Should raise error when trying to update nonexistent document set
         with pytest.raises(DocpipeException) as exc_info:
             metadata_repository.update(document_set=doc_set)
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
 
-    def test_delete_document_set(self, *, metadata_repository, temp_db_path):
+    def test_delete_document_set(self, *, metadata_repository):
         """Test deleting document set."""
         doc_set = DocumentSet(
-            id="test-id-delete",
-            name="to_delete",
+            asset_id="test-id-delete",
+            name="To Delete",
             description="Will be deleted",
-            table_name="test_table",
-            database_path=temp_db_path,
         )
         metadata_repository.create(document_set=doc_set)
 
@@ -187,27 +173,23 @@ class TestDuckDBMetadataRepository:
 
     def test_exists(self, *, metadata_repository, sample_document_set):
         """Test checking document set existence."""
-        assert metadata_repository.exists(document_set_id=sample_document_set.id) is False
+        assert metadata_repository.exists(document_set_id=sample_document_set.asset_id) is False
 
         metadata_repository.create(document_set=sample_document_set)
 
-        assert metadata_repository.exists(document_set_id=sample_document_set.id) is True
+        assert metadata_repository.exists(document_set_id=sample_document_set.asset_id) is True
 
-    def test_create_duplicate_name_raises_error(self, *, metadata_repository, temp_db_path):
+    def test_create_duplicate_name_raises_error(self, *, metadata_repository):
         """Test creating document sets with duplicate name raises error."""
         first = DocumentSet(
-            id="test-id-a",
-            name="duplicate_name",
+            asset_id="test-id-a",
+            name="Duplicate Name",
             description="First",
-            table_name="test_table_a",
-            database_path=temp_db_path,
         )
         second = DocumentSet(
-            id="test-id-b",
-            name="duplicate_name",
+            asset_id="test-id-b",
+            name="Duplicate Name",
             description="Second",
-            table_name="test_table_b",
-            database_path=temp_db_path,
         )
 
         metadata_repository.create(document_set=first)
@@ -234,195 +216,134 @@ class TestDuckDBMetadataRepository:
             "Configuration 'database_path' cannot be empty"
         ]
 
-    def test_commit_without_active_transaction_raises_error(self, *, metadata_repository):
-        """Test commit without active transaction raises error."""
-        with pytest.raises(DocpipeException) as exc_info:
-            metadata_repository.commit_transaction()
 
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TRANSACTION_FAILED
+class TestDuckDBDocumentSetStorage:
+    """Test DuckDBDocumentSetStorage adapter."""
 
-    def test_rollback_without_active_transaction_raises_error(self, *, metadata_repository):
-        """Test rollback without active transaction raises error."""
-        with pytest.raises(DocpipeException) as exc_info:
-            metadata_repository.rollback_transaction()
+    def _make_storage_ref(self, *, table_name: str, database_path: str) -> StorageReference:
+        return StorageReference(backend_type="duckdb", database_path=database_path, table_name=table_name)
 
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TRANSACTION_FAILED
+    def test_store_creates_table_and_returns_reference(self, *, data_store, temp_db_path):
+        """Test that store() creates backing table and returns a StorageReference."""
+        data = pa.table({"id": ["1", "2"], "content": ["a", "b"]})
 
+        ref = data_store.store(doc_set_name="My Documents", data=data)
 
-class TestDuckDBDataStore:
-    """Test DuckDBDocumentSetDataStore adapter."""
+        assert ref.table_name == "my_documents"
+        assert ref.database_path == temp_db_path
+        assert ref.backend_type == "duckdb"
 
-    def test_create_data_table(self, *, data_store):
-        """Test creating data table with schema."""
-        schema = pa.schema(
-            [
-                ("id", pa.string()),
-                ("content", pa.string()),
-                ("metadata", pa.string()),
-            ]
-        )
-
-        data_store.create_data_table(table_name="test_table", schema=schema)
-
-        assert data_store.table_exists(table_name="test_table")
-
-    def test_create_duplicate_table_raises_error(self, *, data_store):
-        """Test creating duplicate table raises error."""
-        schema = pa.schema([("id", pa.string())])
-
-        data_store.create_data_table(table_name="duplicate_table", schema=schema)
+    def test_store_without_id_column_raises_error(self, *, data_store):
+        """Test that store() raises an error when data has no id column."""
+        data = pa.table({"content": ["a", "b"]})
 
         with pytest.raises(DocpipeException) as exc_info:
-            data_store.create_data_table(table_name="duplicate_table", schema=schema)
-
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_ALREADY_EXISTS
-
-    def test_table_exists(self, *, data_store):
-        """Test checking if table exists."""
-        assert data_store.table_exists(table_name="nonexistent_table") is False
-
-        schema = pa.schema([("id", pa.string())])
-        data_store.create_data_table(table_name="exists_table", schema=schema)
-
-        assert data_store.table_exists(table_name="exists_table") is True
-
-    def test_upsert_data(self, *, data_store):
-        """Test upserting data into table."""
-        schema = pa.schema(
-            [
-                ("id", pa.string()),
-                ("content", pa.string()),
-            ]
-        )
-        data_store.create_data_table(table_name="upsert_table", schema=schema)
-
-        data = pa.table(
-            {
-                "id": ["1", "2", "3"],
-                "content": ["test1", "test2", "test3"],
-            }
-        )
-
-        data_store.upsert_document_set_data(table_name="upsert_table", data=data)
-
-        count = data_store.get_row_count(table_name="upsert_table")
-        assert count == 3
-
-    def test_upsert_nonexistent_table_raises_error(self, *, data_store):
-        """Test upserting into nonexistent table raises error."""
-        data = pa.table({"id": ["1"], "content": ["test1"]})
-
-        with pytest.raises(DocpipeException) as exc_info:
-            data_store.upsert_document_set_data(table_name="missing_table", data=data)
-
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
-
-    def test_upsert_without_id_column_raises_error(self, *, data_store):
-        """Test upserting data without id column raises error."""
-        schema = pa.schema([("content", pa.string())])
-        data_store.create_data_table(table_name="bad_upsert_table", schema=schema)
-
-        data = pa.table({"content": ["test1"]})
-
-        with pytest.raises(DocpipeException) as exc_info:
-            data_store.upsert_document_set_data(table_name="bad_upsert_table", data=data)
+            data_store.store(doc_set_name="My Documents", data=data)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_SCHEMA_MISMATCH
 
-    def test_get_row_count(self, *, data_store):
-        """Test getting row count from table."""
-        schema = pa.schema([("id", pa.string())])
-        data_store.create_data_table(table_name="count_table", schema=schema)
+    def test_exists_returns_false_before_store(self, *, data_store, temp_db_path):
+        """Test exists() returns False when table has not been created yet."""
+        ref = self._make_storage_ref(table_name="nonexistent_table", database_path=temp_db_path)
+        assert data_store.exists(storage_ref=ref) is False
 
-        assert data_store.get_row_count(table_name="count_table") == 0
+    def test_exists_returns_true_after_store(self, *, data_store, temp_db_path):
+        """Test exists() returns True after store() has been called."""
+        data = pa.table({"id": ["1"]})
+        ref = data_store.store(doc_set_name="Exists Table", data=data)
 
-        data = pa.table({"id": ["1", "2"]})
-        data_store.upsert_document_set_data(table_name="count_table", data=data)
+        assert data_store.exists(storage_ref=ref) is True
 
-        assert data_store.get_row_count(table_name="count_table") == 2
+    def test_load_returns_stored_data(self, *, data_store):
+        """Test load() returns the data written by store()."""
+        data = pa.table({"id": ["1", "2", "3"], "value": [10, 20, 30]})
+        ref = data_store.store(doc_set_name="Load Table", data=data)
 
-    def test_get_row_count_nonexistent_table_raises_error(self, *, data_store):
-        """Test getting row count for nonexistent table raises error."""
+        loaded = data_store.load(storage_ref=ref)
+
+        assert loaded.num_rows == 3
+
+    def test_load_with_limit(self, *, data_store):
+        """Test load() respects the limit parameter."""
+        data = pa.table({"id": ["1", "2", "3"], "value": [10, 20, 30]})
+        ref = data_store.store(doc_set_name="Load Limit Table", data=data)
+
+        loaded = data_store.load(storage_ref=ref, limit=2)
+
+        assert loaded.num_rows == 2
+
+    def test_load_nonexistent_table_raises_error(self, *, data_store, temp_db_path):
+        """Test load() raises an error when table does not exist."""
+        ref = self._make_storage_ref(table_name="missing_table", database_path=temp_db_path)
+
         with pytest.raises(DocpipeException) as exc_info:
-            data_store.get_row_count(table_name="missing_table")
+            data_store.load(storage_ref=ref)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
 
-    def test_get_document_set_data(self, *, data_store):
-        """Test retrieving data from table."""
-        schema = pa.schema(
-            [
-                ("id", pa.string()),
-                ("value", pa.int64()),
-            ]
-        )
-        data_store.create_data_table(table_name="query_table", schema=schema)
+    def test_delete_returns_true_for_existing_table(self, *, data_store, temp_db_path):
+        """Test delete() returns True when the table exists."""
+        data = pa.table({"id": ["1"]})
+        ref = data_store.store(doc_set_name="Delete Table", data=data)
 
-        data = pa.table(
-            {
-                "id": ["1", "2", "3"],
-                "value": [10, 20, 30],
-            }
-        )
-        data_store.upsert_document_set_data(table_name="query_table", data=data)
-
-        result = data_store.get_document_set_data(table_name="query_table", limit=None)
-
-        assert result.num_rows == 3
-        assert result.column("id")[1].as_py() == "2"
-        assert result.column("value")[1].as_py() == 20
-
-    def test_get_document_set_data_with_limit(self, *, data_store):
-        """Test retrieving limited data from table."""
-        schema = pa.schema(
-            [
-                ("id", pa.string()),
-                ("value", pa.int64()),
-            ]
-        )
-        data_store.create_data_table(table_name="limited_query_table", schema=schema)
-
-        data = pa.table(
-            {
-                "id": ["1", "2", "3"],
-                "value": [10, 20, 30],
-            }
-        )
-        data_store.upsert_document_set_data(table_name="limited_query_table", data=data)
-
-        result = data_store.get_document_set_data(table_name="limited_query_table", limit=2)
-
-        assert result.num_rows == 2
-
-    def test_get_document_set_data_nonexistent_table_raises_error(self, *, data_store):
-        """Test retrieving data from nonexistent table raises error."""
-        with pytest.raises(DocpipeException) as exc_info:
-            data_store.get_document_set_data(table_name="missing_table", limit=None)
-
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
-
-    def test_delete_data(self, *, data_store):
-        """Test deleting data table."""
-        schema = pa.schema([("id", pa.string())])
-        data_store.create_data_table(table_name="delete_table", schema=schema)
-
-        data = pa.table({"id": ["1", "2", "3"]})
-        data_store.upsert_document_set_data(table_name="delete_table", data=data)
-
-        result = data_store.delete_document_set_data(table_name="delete_table")
+        result = data_store.delete(storage_ref=ref)
 
         assert result is True
-        assert data_store.table_exists(table_name="delete_table") is False
+        assert data_store.exists(storage_ref=ref) is False
 
-    def test_delete_nonexistent_table_returns_false(self, *, data_store):
-        """Test deleting nonexistent table returns False."""
-        result = data_store.delete_document_set_data(table_name="missing_table")
-        assert result is False
+    def test_delete_returns_false_for_missing_table(self, *, data_store, temp_db_path):
+        """Test delete() returns False when the table does not exist."""
+        ref = self._make_storage_ref(table_name="missing_table", database_path=temp_db_path)
+        assert data_store.delete(storage_ref=ref) is False
+
+    def test_get_metrics(self, *, data_store):
+        """Test get_metrics() returns correct aggregates."""
+        data = pa.table(
+            {
+                "id": ["1", "2", "3"],
+                "content": ["a", "b", "c"],
+                "size": [100, 200, 300],
+                "pages_processed": [1, 2, 3],
+            }
+        )
+        ref = data_store.store(doc_set_name="Metrics Table", data=data)
+
+        metrics = data_store.get_metrics(storage_ref=ref)
+
+        assert metrics["total_documents"] == 3
+        assert metrics["total_size_bytes"] == 600
+        assert metrics["total_pages"] == 6
+
+    def test_get_metrics_empty_table(self, *, data_store):
+        """Test get_metrics() returns zeros for empty table."""
+        data = pa.table(
+            {
+                "id": pa.array([], type=pa.string()),
+                "size": pa.array([], type=pa.int64()),
+                "pages_processed": pa.array([], type=pa.int64()),
+            }
+        )
+        ref = data_store.store(doc_set_name="Empty Metrics Table", data=data)
+
+        metrics = data_store.get_metrics(storage_ref=ref)
+
+        assert metrics["total_documents"] == 0
+        assert metrics["total_size_bytes"] == 0
+        assert metrics["total_pages"] == 0
+
+    def test_get_metrics_nonexistent_table_raises_error(self, *, data_store, temp_db_path):
+        """Test get_metrics() raises error for nonexistent table."""
+        ref = self._make_storage_ref(table_name="missing_table", database_path=temp_db_path)
+
+        with pytest.raises(DocpipeException) as exc_info:
+            data_store.get_metrics(storage_ref=ref)
+
+        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
 
     def test_health_check(self, *, data_store, temp_db_path):
         """Test health check after database file is initialized."""
-        schema = pa.schema([("id", pa.string())])
-        data_store.create_data_table(table_name="health_table", schema=schema)
+        data = pa.table({"id": ["1"]})
+        data_store.store(doc_set_name="Health Table", data=data)
 
         result = data_store.health_check()
 
@@ -431,66 +352,36 @@ class TestDuckDBDataStore:
 
     def test_validate_config(self):
         """Test config validation."""
-        assert DuckDBDocumentSetDataStore.validate_config(config={"database_path": "test.db"}) == []
-        assert DuckDBDocumentSetDataStore.validate_config(config={}) == [
+        assert DuckDBDocumentSetStorage.validate_config(config={"database_path": "test.db"}) == []
+        assert DuckDBDocumentSetStorage.validate_config(config={}) == [
             "Missing required configuration: 'database_path'"
         ]
-        assert DuckDBDocumentSetDataStore.validate_config(config={"database_path": ""}) == [
+        assert DuckDBDocumentSetStorage.validate_config(config={"database_path": ""}) == [
             "Configuration 'database_path' cannot be empty"
         ]
 
-    def test_get_table_metrics(self, *, data_store):
-        """Test efficient metrics computation without loading full table."""
-        # Create table with metrics columns
-        schema = pa.schema(
-            [
-                ("id", pa.string()),
-                ("content", pa.string()),
-                ("size", pa.int64()),
-                ("pages_processed", pa.int64()),
-            ]
-        )
-        data_store.create_data_table(table_name="metrics_table", schema=schema)
 
-        # Insert test data
-        data = pa.table(
-            {
-                "id": ["1", "2", "3"],
-                "content": ["test1", "test2", "test3"],
-                "size": [100, 200, 300],
-                "pages_processed": [1, 2, 3],
-            }
-        )
-        data_store.upsert_document_set_data(table_name="metrics_table", data=data)
+class TestSanitizeTableName:
+    """Test sanitize_table_name utility used by both DuckDB adapters."""
 
-        # Get metrics using SQL aggregation
-        metrics = data_store.get_table_metrics(table_name="metrics_table")
-
-        # Verify correct aggregates
-        assert metrics["total_documents"] == 3
-        assert metrics["total_size_bytes"] == 600  # 100 + 200 + 300
-        assert metrics["total_pages"] == 6  # 1 + 2 + 3
-
-    def test_get_table_metrics_empty_table(self, *, data_store):
-        """Test metrics computation for empty table."""
-        schema = pa.schema(
-            [
-                ("id", pa.string()),
-                ("size", pa.int64()),
-                ("pages_processed", pa.int64()),
-            ]
-        )
-        data_store.create_data_table(table_name="empty_metrics_table", schema=schema)
-
-        metrics = data_store.get_table_metrics(table_name="empty_metrics_table")
-
-        assert metrics["total_documents"] == 0
-        assert metrics["total_size_bytes"] == 0
-        assert metrics["total_pages"] == 0
-
-    def test_get_table_metrics_nonexistent_table_raises_error(self, *, data_store):
-        """Test getting metrics for nonexistent table raises error."""
-        with pytest.raises(DocpipeException) as exc_info:
-            data_store.get_table_metrics(table_name="missing_table")
-
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("My Documents", "my_documents"),
+            ("Documents 2024", "documents_2024"),
+            ("Test-Data (v1)", "testdata_v1"),
+            ("UPPER CASE", "upper_case"),
+            ("already_valid", "already_valid"),
+            # Starts with a digit — gets tbl_ prefix
+            ("123 Documents", "tbl_123_documents"),
+            ("1kb file", "tbl_1kb_file"),
+            # Empty / only special chars — gets tbl_ prefix
+            ("", "tbl_"),
+            ("@#$%", "tbl_"),
+            # Single letter
+            ("A", "a"),
+        ],
+    )
+    def test_sanitize_table_name(self, name: str, expected: str) -> None:
+        """Test table name sanitization produces correct output."""
+        assert sanitize_table_name(name) == expected

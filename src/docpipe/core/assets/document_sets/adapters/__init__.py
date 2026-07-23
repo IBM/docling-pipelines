@@ -6,11 +6,11 @@ with the factory classes.
 
 # Import DuckDB adapters to trigger registration
 from docpipe.core.assets.document_sets.adapters.duckdb import (
-    DuckDBDocumentSetDataStore,
     DuckDBDocumentSetMetadataRepository,
+    DuckDBDocumentSetStorage,
 )
 
 __all__ = [
-    "DuckDBDocumentSetDataStore",
     "DuckDBDocumentSetMetadataRepository",
+    "DuckDBDocumentSetStorage",
 ]

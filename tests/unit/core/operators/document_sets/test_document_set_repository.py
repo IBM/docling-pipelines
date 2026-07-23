@@ -38,8 +38,6 @@ def sample_document_set():
     return DocumentSet(
         name="Test Documents",
         description="Test description",
-        database_path="/data/test.db",
-        table_name="test_table",
     )
 
 
@@ -50,7 +48,7 @@ class TestCreateDocumentSet:
         """Test creating a new document set."""
         created = repository.create(document_set=sample_document_set)
 
-        assert created.id == sample_document_set.id
+        assert created.asset_id == sample_document_set.asset_id
         assert created.name == sample_document_set.name
         assert created.description == sample_document_set.description
 
@@ -59,10 +57,8 @@ class TestCreateDocumentSet:
         repository.create(document_set=sample_document_set)
 
         duplicate = DocumentSet(
-            id=sample_document_set.id,
+            asset_id=sample_document_set.asset_id,
             name="Different Name",
-            database_path="/data/test.db",
-            table_name="different_table",
         )
 
         with pytest.raises(DocpipeException):
@@ -74,8 +70,6 @@ class TestCreateDocumentSet:
 
         duplicate = DocumentSet(
             name=sample_document_set.name,
-            database_path="/data/test.db",
-            table_name="different_table",
         )
 
         with pytest.raises(DocpipeException):
@@ -85,8 +79,6 @@ class TestCreateDocumentSet:
         """Test creating document set with custom metadata."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             metadata={"source": "test", "version": "1.0"},
         )
 
@@ -102,10 +94,10 @@ class TestGetByID:
         """Test retrieving existing document set by ID."""
         created = repository.create(document_set=sample_document_set)
 
-        retrieved = repository.get_by_id(document_set_id=created.id or "")
+        retrieved = repository.get_by_id(document_set_id=created.asset_id or "")
 
         assert retrieved is not None
-        assert retrieved.id == created.id
+        assert retrieved.asset_id == created.asset_id
         assert retrieved.name == created.name
 
     def test_get_by_id_not_found(self, repository):
@@ -117,13 +109,11 @@ class TestGetByID:
         """Test that metadata is preserved when retrieving."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             metadata={"key": "value"},
         )
         created = repository.create(document_set=doc_set)
 
-        retrieved = repository.get_by_id(document_set_id=created.id or "")
+        retrieved = repository.get_by_id(document_set_id=created.asset_id or "")
 
         assert retrieved.metadata == {"key": "value"}
 
@@ -138,7 +128,7 @@ class TestGetByName:
         retrieved = repository.get_by_name(name=created.name)
 
         assert retrieved is not None
-        assert retrieved.id == created.id
+        assert retrieved.asset_id == created.asset_id
         assert retrieved.name == created.name
 
     def test_get_by_name_not_found(self, repository):
@@ -165,10 +155,8 @@ class TestUpdateDocumentSet:
     def test_update_document_set_not_found(self, repository):
         """Test updating nonexistent document set raises error."""
         doc_set = DocumentSet(
-            id="nonexistent-id",
+            asset_id="nonexistent-id",
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
 
         with pytest.raises(DocpipeException):
@@ -209,8 +197,6 @@ class TestListAll:
         for i in range(5):
             doc_set = DocumentSet(
                 name=f"Documents {i}",
-                database_path="/data/test.db",
-                table_name=f"table_{i}",
             )
             repository.create(document_set=doc_set)
 
@@ -224,16 +210,14 @@ class TestListAll:
         for i in range(3):
             doc_set = DocumentSet(
                 name=f"Documents {i}",
-                database_path="/data/test.db",
-                table_name=f"table_{i}",
             )
             created = repository.create(document_set=doc_set)
             doc_sets.append(created)
 
         result = repository.list_all()
 
-        assert result[0].id == doc_sets[2].id
-        assert result[2].id == doc_sets[0].id
+        assert result[0].asset_id == doc_sets[2].asset_id
+        assert result[2].asset_id == doc_sets[0].asset_id
 
 
 class TestExists:
@@ -243,7 +227,7 @@ class TestExists:
         """Test exists returns True for existing document set."""
         created = repository.create(document_set=sample_document_set)
 
-        assert repository.exists(document_set_id=created.id or "") is True
+        assert repository.exists(document_set_id=created.asset_id or "") is True
 
     def test_exists_false(self, repository):
         """Test exists returns False for nonexistent document set."""
@@ -267,10 +251,10 @@ class TestDeleteDocumentSet:
         """Test deleting an existing document set."""
         created = repository.create(document_set=sample_document_set)
 
-        result = repository.delete(document_set_id=created.id or "")
+        result = repository.delete(document_set_id=created.asset_id or "")
 
         assert result is True
-        assert repository.exists(document_set_id=created.id or "") is False
+        assert repository.exists(document_set_id=created.asset_id or "") is False
 
     def test_delete_document_set_not_found(self, repository):
         """Test deleting nonexistent document set returns False."""
@@ -284,44 +268,38 @@ class TestDeleteDocumentSet:
         for i in range(3):
             doc_set = DocumentSet(
                 name=f"Documents {i}",
-                database_path="/data/test.db",
-                table_name=f"table_{i}",
             )
             created = repository.create(document_set=doc_set)
             doc_sets.append(created)
 
-        repository.delete(document_set_id=doc_sets[1].id or "")
+        repository.delete(document_set_id=doc_sets[1].asset_id or "")
 
         all_sets = repository.list_all()
         assert len(all_sets) == 2
-        assert doc_sets[1].id not in [ds.id for ds in all_sets]
+        assert doc_sets[1].asset_id not in [ds.asset_id for ds in all_sets]
 
 
 class TestRepositoryErrorHandling:
     """Test error handling in repository operations."""
 
     def test_create_without_id_raises_error(self, repository):
-        """Test that creating without ID raises error."""
+        """Test that creating without asset_id raises error."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
-        doc_set.id = None
+        doc_set.asset_id = None
 
-        with pytest.raises(DocpipeException, match="ID cannot be None"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be None"):
             repository.create(document_set=doc_set)
 
     def test_update_without_id_raises_error(self, repository):
-        """Test that updating without ID raises error."""
+        """Test that updating without asset_id raises error."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
-        doc_set.id = None
+        doc_set.asset_id = None
 
-        with pytest.raises(DocpipeException, match="ID cannot be None"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be None"):
             repository.update(document_set=doc_set)
 
 
@@ -333,10 +311,10 @@ class TestRepositoryWithInMemoryDatabase:
         storage = DuckDBKeyValueStorage(database_path=":memory:")
         repository = DuckDBDocumentSetMetadataRepository(key_value_storage=storage, database_path=":memory:")
 
-        doc_set = DocumentSet(name="Test Documents", database_path=":memory:", table_name="test_table")
+        doc_set = DocumentSet(name="Test Documents")
         created = repository.create(document_set=doc_set)
 
-        retrieved = repository.get_by_id(document_set_id=created.id or "")
+        retrieved = repository.get_by_id(document_set_id=created.asset_id or "")
         assert retrieved is not None
         assert retrieved.name == "Test Documents"
 

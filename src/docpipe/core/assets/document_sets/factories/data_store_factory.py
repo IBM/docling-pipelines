@@ -10,7 +10,7 @@ The factory creates storage instances via StorageFactory and injects them into a
 from typing import Any, ClassVar, cast
 
 from docpipe.core.assets.document_sets.domain.ports.data_store import (
-    DocumentSetDataStore,
+    DocumentSetStorage,
 )
 from docpipe.core.assets.document_sets.domain.types import DataStoreConfig
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
@@ -44,7 +44,7 @@ class DataStoreFactory:
         info = DataStoreFactory.get_adapter_info(adapter_name="duckdb")
     """
 
-    _adapters: ClassVar[dict[str, type[DocumentSetDataStore]]] = {}
+    _adapters: ClassVar[dict[str, type[DocumentSetStorage]]] = {}
     _adapter_metadata: ClassVar[dict[str, dict[str, str]]] = {}
 
     @classmethod
@@ -63,15 +63,15 @@ class DataStoreFactory:
 
         Example:
             @DataStoreFactory.register(name="duckdb", display_name="DuckDB")
-            class DuckDBDocumentSetDataStore(DocumentSetDataStore):
+            class DuckDBDocumentSetStorage(DocumentSetStorage):
                 pass
         """
 
         def decorator(
-            adapter_class: type[DocumentSetDataStore],
-        ) -> type[DocumentSetDataStore]:
+            adapter_class: type[DocumentSetStorage],
+        ) -> type[DocumentSetStorage]:
             if name in cls._adapters:
-                logger.warning(f"Adapter '{name}' is already registered. Overwriting.")
+                logger.warning("Adapter '%s' is already registered. Overwriting.", name)
 
             cls._adapters[name] = adapter_class
             cls._adapter_metadata[name] = {
@@ -79,14 +79,14 @@ class DataStoreFactory:
                 "display_name": display_name,
                 "class": adapter_class.__name__,
             }
-            logger.debug(f"Registered data store adapter: {name}")
+            logger.debug("Registered data store adapter: %s", name)
 
             return adapter_class
 
         return decorator
 
     @classmethod
-    def create(cls, *, adapter_name: str, config: DataStoreConfig) -> DocumentSetDataStore:
+    def create(cls, *, adapter_name: str, config: DataStoreConfig) -> DocumentSetStorage:
         """Create a data store adapter instance with dependency injection.
 
         This method creates the appropriate storage instance via StorageFactory
@@ -111,7 +111,7 @@ class DataStoreFactory:
             )
 
         adapter_class = cls._adapters[adapter_name]
-        logger.debug(f"Creating data store adapter: {adapter_name}")
+        logger.debug("Creating data store adapter: %s", adapter_name)
 
         # Validate configuration before instantiation
         config_dict = cast(dict[str, Any], config)
@@ -126,12 +126,21 @@ class DataStoreFactory:
 
         try:
             # Create storage instance via StorageFactory (dependency injection)
-            # The adapter_name determines which storage type to use
             storage_type = adapter_name  # e.g., "duckdb" -> DuckDB storage
             table_storage = StorageFactory.create_table_storage(storage_type=storage_type, **config_dict)
 
-            # Inject storage into adapter
-            return adapter_class(table_storage=table_storage)
+            # database_path is guaranteed present by validate_config(); raise if somehow missing
+            database_path = config_dict.get("database_path")
+            if not database_path:
+                raise DocpipeException(
+                    message=f"'database_path' is required but missing in config for adapter '{adapter_name}'",
+                    status_code=500,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
+
+            return adapter_class(table_storage=table_storage, database_path=database_path)
+        except DocpipeException:
+            raise
         except Exception as e:
             raise DocpipeException(
                 message=f"Failed to create data store adapter '{adapter_name}': {e!s}",

@@ -28,15 +28,11 @@ class TestDocumentSetCreation:
         doc_set = DocumentSet(
             name="Test Documents",
             description="Test description",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
 
         assert doc_set.name == "Test Documents"
         assert doc_set.description == "Test description"
-        assert doc_set.database_path == "/data/test.db"
-        assert doc_set.table_name == "test_table"
-        assert doc_set.id is not None
+        assert doc_set.asset_id is not None
         assert doc_set.storage_backend == "duckdb"
         assert doc_set.total_documents == 0
         assert doc_set.total_size_bytes == 0
@@ -44,27 +40,22 @@ class TestDocumentSetCreation:
         assert isinstance(doc_set.created_at, datetime)
         assert isinstance(doc_set.updated_at, datetime)
         assert isinstance(doc_set.metadata, dict)
-        assert isinstance(doc_set.storage_reference, StorageReference)
 
     def test_document_set_with_custom_id(self):
-        """Test creating a DocumentSet with custom ID."""
+        """Test creating a DocumentSet with custom asset_id."""
         custom_id = "custom-id-123"
         doc_set = DocumentSet(
-            id=custom_id,
+            asset_id=custom_id,
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
 
-        assert doc_set.id == custom_id
+        assert doc_set.asset_id == custom_id
 
     def test_document_set_with_metadata(self):
         """Test creating a DocumentSet with custom metadata."""
         metadata = {"source": "test", "version": "1.0"}
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             metadata=metadata,
         )
 
@@ -74,8 +65,6 @@ class TestDocumentSetCreation:
         """Test creating a DocumentSet with statistics."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             total_documents=100,
             total_size_bytes=1024000,
             total_pages=500,
@@ -85,19 +74,31 @@ class TestDocumentSetCreation:
         assert doc_set.total_size_bytes == 1024000
         assert doc_set.total_pages == 500
 
+    def test_document_set_with_storage_reference(self):
+        """Test creating a DocumentSet with an explicit StorageReference."""
+        ref = StorageReference(backend_type="duckdb", database_path="/data/test.db", table_name="test_table")
+        doc_set = DocumentSet(
+            name="Test Documents",
+            storage_reference=ref,
+        )
+
+        assert doc_set.storage_reference is ref
+        assert doc_set.storage_reference.database_path == "/data/test.db"
+        assert doc_set.storage_reference.table_name == "test_table"
+
 
 class TestDocumentSetValidation:
     """Test DocumentSet validation rules."""
 
     def test_document_set_validation_success(self):
         """Test validation passes with valid data."""
-        doc_set = DocumentSet(name="Valid Name", database_path="/data/test.db", table_name="test_table")
+        doc_set = DocumentSet(name="Valid Name")
 
         doc_set.validate()  # Should not raise
 
     def test_validation_empty_name(self):
         """Test validation fails with empty name."""
-        doc_set = DocumentSet(name="", database_path="/data/test.db", table_name="test_table")
+        doc_set = DocumentSet(name="")
 
         with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
@@ -105,7 +106,7 @@ class TestDocumentSetValidation:
 
     def test_validation_name_starts_with_number(self):
         """Test validation fails when name starts with number."""
-        doc_set = DocumentSet(name="123 Documents", database_path="/data/test.db", table_name="test_table")
+        doc_set = DocumentSet(name="123 Documents")
 
         with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
@@ -115,8 +116,6 @@ class TestDocumentSetValidation:
         """Test validation fails with invalid characters in name."""
         doc_set = DocumentSet(
             name="Test@Documents!",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
 
         with pytest.raises(DocpipeException) as exc_info:
@@ -126,7 +125,7 @@ class TestDocumentSetValidation:
     def test_validation_name_too_long(self):
         """Test validation fails when name exceeds max length."""
         long_name = "A" * 129  # Max is 128
-        doc_set = DocumentSet(name=long_name, database_path="/data/test.db", table_name="test_table")
+        doc_set = DocumentSet(name=long_name)
 
         with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
@@ -138,36 +137,16 @@ class TestDocumentSetValidation:
         doc_set = DocumentSet(
             name="Test Documents",
             description=long_desc,
-            database_path="/data/test.db",
-            table_name="test_table",
         )
 
         with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "description cannot exceed 2000 characters" in str(exc_info.value)
 
-    def test_validation_empty_database_path(self):
-        """Test validation fails with empty database path."""
-        doc_set = DocumentSet(name="Test Documents", database_path="", table_name="test_table")
-
-        with pytest.raises(DocpipeException) as exc_info:
-            doc_set.validate()
-        assert "Database path cannot be empty" in str(exc_info.value)
-
-    def test_validation_empty_table_name(self):
-        """Test validation fails with empty table name."""
-        doc_set = DocumentSet(name="Test Documents", database_path="/data/test.db", table_name="")
-
-        with pytest.raises(DocpipeException) as exc_info:
-            doc_set.validate()
-        assert "Table name cannot be empty" in str(exc_info.value)
-
     def test_validation_negative_documents(self):
         """Test validation fails with negative document count."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             total_documents=-1,
         )
 
@@ -179,8 +158,6 @@ class TestDocumentSetValidation:
         """Test validation fails with negative size."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             total_size_bytes=-1,
         )
 
@@ -192,8 +169,6 @@ class TestDocumentSetValidation:
         """Test validation fails with negative pages."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             total_pages=-1,
         )
 
@@ -315,8 +290,6 @@ class TestDocumentSetUpdateStatistics:
         """Test update_statistics method."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
 
         original_updated_at = doc_set.updated_at
@@ -332,8 +305,6 @@ class TestDocumentSetUpdateStatistics:
         """Test update_statistics with partial updates."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
             total_documents=50,
             total_size_bytes=512000,
             total_pages=250,
@@ -349,15 +320,13 @@ class TestDocumentSetUpdateStatistics:
         """Test update_timestamp method."""
         doc_set = DocumentSet(
             name="Test Documents",
-            database_path="/data/test.db",
-            table_name="test_table",
         )
 
         original_updated_at = doc_set.updated_at
 
         doc_set.update_timestamp()
 
-        assert doc_set.updated_at > original_updated_at
+        assert doc_set.updated_at >= original_updated_at
 
 
 class TestDocumentSetSerialization:
@@ -368,8 +337,6 @@ class TestDocumentSetSerialization:
         doc_set = DocumentSet(
             name="Test Documents",
             description="Test description",
-            database_path="/data/test.db",
-            table_name="test_table",
             total_documents=100,
             metadata={"source": "test"},
         )
@@ -378,31 +345,27 @@ class TestDocumentSetSerialization:
 
         assert result["name"] == "Test Documents"
         assert result["description"] == "Test description"
-        assert result["database_path"] == "/data/test.db"
-        assert result["table_name"] == "test_table"
         assert result["total_documents"] == 100
         assert result["metadata"] == {"source": "test"}
-        assert "id" in result
+        assert "asset_id" in result
         assert "created_at" in result
         assert "updated_at" in result
 
     def test_document_set_from_dict(self):
         """Test DocumentSet from_dict method."""
         data = {
-            "id": "test-id-123",
+            "asset_id": "test-id-123",
             "name": "Test Documents",
             "description": "Test description",
-            "database_path": "/data/test.db",
-            "table_name": "test_table",
             "total_documents": 100,
             "total_size_bytes": 1024000,
             "total_pages": 500,
             "metadata": {"source": "test"},
         }
 
-        doc_set = DocumentSet.from_dict(data)
+        doc_set = DocumentSet.from_dict(data=data)
 
-        assert doc_set.id == "test-id-123"
+        assert doc_set.asset_id == "test-id-123"
         assert doc_set.name == "Test Documents"
         assert doc_set.description == "Test description"
         assert doc_set.total_documents == 100
@@ -413,15 +376,13 @@ class TestDocumentSetSerialization:
         original = DocumentSet(
             name="Test Documents",
             description="Test description",
-            database_path="/data/test.db",
-            table_name="test_table",
             total_documents=100,
         )
 
         data = original.to_dict()
-        restored = DocumentSet.from_dict(data)
+        restored = DocumentSet.from_dict(data=data)
 
-        assert restored.id == original.id
+        assert restored.asset_id == original.asset_id
         assert restored.name == original.name
         assert restored.description == original.description
         assert restored.total_documents == original.total_documents

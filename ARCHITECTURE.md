@@ -3288,7 +3288,7 @@ Document sets can be managed through multiple entry points that share the same a
    - Persists PyArrow tables during flow execution
    - Returns the original input table unchanged for downstream operators
    - Uses factory-created metadata and data adapters
-   - Storage backend configured via `config.storage_type`
+   - Metadata storage backend configured via `global_config.metadata_storage_type`
 
 2. **REST API** via `/api/v1/document-sets`
    - Creates, lists, retrieves, updates, deletes, and previews document sets
@@ -3350,15 +3350,22 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 
 ```json
 {
-  "type": "document_set",
-  "name": "documents",
-  "config": {
-    "document_set_name": "documents_collection",
-    "description": "Persistent storage of extracted document content with metadata tracking",
-    "database_path": "./data/document_sets/extracted_docs.duckdb",
-    "data_backend": "postgresql",
-    "storage_type": "postgresql"
-  }
+  "flow_name": "ingest-extract-documentset",
+  "global_config": {
+    "metadata_storage_type": "postgresql"
+  },
+  "flow": [
+    {
+      "type": "document_set",
+      "name": "documents",
+      "config": {
+        "document_set_name": "documents_collection",
+        "description": "Persistent storage of extracted document content with metadata tracking",
+        "database_path": "./data/document_sets/extracted_docs.duckdb",
+        "data_backend": "postgresql"
+      }
+    }
+  ]
 }
 ```
 
@@ -3376,22 +3383,28 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 
 ```json
 {
-  "type": "document_set",
-  "name": "documents",
-  "config": {
-    "document_set_name": "documents_collection",
-    "description": "Persistent storage of extracted document content with metadata tracking",
-    "database_path": "./data/document_sets/extracted_docs.duckdb",
-    "data_backend": "duckdb",
-    "storage_type": "duckdb",
-    "retain_deleted_docs": false,
-    "metadata": {
-      "pipeline_version": "1.0",
-      "extraction_method": "docling",
-      "created_by": "docpipe_pipeline",
-      "purpose": "demonstration_flow"
+  "flow_name": "ingest-extract-documentset",
+  "global_config": {
+    "metadata_storage_type": "duckdb"
+  },
+  "flow": [
+    {
+      "type": "document_set",
+      "name": "documents",
+      "config": {
+        "document_set_name": "documents_collection",
+        "description": "Persistent storage of extracted document content with metadata tracking",
+        "database_path": "./data/document_sets/extracted_docs.duckdb",
+        "data_backend": "duckdb",
+        "metadata": {
+          "pipeline_version": "1.0",
+          "extraction_method": "docling",
+          "created_by": "docpipe_pipeline",
+          "purpose": "demonstration_flow"
+        }
+      }
     }
-  }
+  ]
 }
 ```
 
@@ -3407,18 +3420,16 @@ Ingest → Extract → [Other Operators] → DocumentSetOperator → [Downstream
 
 #### Storage Type Configuration
 
-The `storage_type` in `config` determines the storage backend for metadata:
+`global_config.metadata_storage_type` determines the storage backend for document set metadata:
 
-- **"duckdb"** (default): Uses DuckDB for both metadata and data storage
+- **"duckdb"** (default): Uses DuckDB for metadata storage
   - Metadata stored in key-value tables
-  - Data stored as PyArrow tables
-  - Single database file for all assets
+  - Single database file shared with data storage
 - **"filesystem"**: Uses filesystem for metadata (key-value only)
   - Metadata stored as JSON files
-  - Data storage still requires DuckDB (via `data_backend`)
   - Suitable for development and small-scale deployments
 
-**Note**: The `data_backend` parameter in operator configuration is separate from `storage_type` and controls where PyArrow table data is stored.
+**Note**: The `data_backend` parameter in operator configuration is separate from `metadata_storage_type` and controls where PyArrow table data is stored.
 
 ## Deployment Patterns
 

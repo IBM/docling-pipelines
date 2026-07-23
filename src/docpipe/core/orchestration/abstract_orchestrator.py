@@ -145,21 +145,23 @@ class AbstractOrchestrator(ABC):
         # Initialize the orchestrator with job_id and job_run_id
         self.initialize(job_id=job_id, job_run_id=job_run_id)
 
-        # Extract storage type from global_config
+        # Extract metadata storage type from global_config
         flow_global_config = flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
-        storage_type = flow_global_config.get(DocpipeConstants.STORAGE_TYPE, DocpipeConstants.DEFAULT_STORAGE_TYPE)
+        metadata_storage_type = flow_global_config.get(
+            DocpipeConstants.METADATA_STORAGE_TYPE, DocpipeConstants.DEFAULT_METADATA_STORAGE_TYPE
+        )
 
-        # Validate storage type
-        if storage_type not in DocpipeConstants.SUPPORTED_STORAGE_TYPES:
+        # Validate metadata storage type
+        if metadata_storage_type not in DocpipeConstants.SUPPORTED_STORAGE_TYPES:
             raise FlowExecutionFailedException(
-                f"Unsupported storage type: '{storage_type}'. "
+                f"Unsupported metadata storage type: '{metadata_storage_type}'. "
                 f"Supported types: {', '.join(DocpipeConstants.SUPPORTED_STORAGE_TYPES)}"
             )
 
-        # Add storage type to params for operators
-        params[DocpipeConstants.STORAGE_TYPE] = storage_type
+        # Add metadata storage type to params for operators
+        params[DocpipeConstants.METADATA_STORAGE_TYPE] = metadata_storage_type
 
-        self.logger.info(f"Using storage type: {storage_type}", extra=self.common_log_arguments)
+        self.logger.info("Using metadata storage type: %s", metadata_storage_type, extra=self.common_log_arguments)
 
         global_config = flow_global_config | params | {DocpipeConstants.FLOW_DEFINITION: flow_def}
 

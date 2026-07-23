@@ -7,7 +7,6 @@ storing assets as JSON files in the local filesystem.
 import json
 import logging
 import os
-import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypeVar
@@ -77,10 +76,6 @@ class LocalAssetRepository(AssetRepository[T]):
         Returns:
             Saved asset with generated ID and timestamps
         """
-        # Generate ID if not present
-        if not asset.asset_id:
-            asset.asset_id = str(uuid.uuid4())
-
         # Set timestamps for Flow
         if isinstance(asset, Flow):
             now = datetime.now(UTC)

@@ -178,10 +178,9 @@ async def create_document_set(
     document_set = service.create_document_set(
         name=payload.name,
         description=payload.description,
-        database_path=DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH,
         metadata=payload.metadata,
     )
-    logger.info("Successfully created or retrieved document set %s", document_set.id)
+    logger.info("Successfully created or retrieved document set %s", document_set.asset_id)
     return document_set_to_response(document_set=document_set)
 
 
