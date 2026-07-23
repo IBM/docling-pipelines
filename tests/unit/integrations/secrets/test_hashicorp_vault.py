@@ -1,11 +1,18 @@
-"""Unit tests for HashiCorp Vault provider (REST API based, no hvac dependency)."""
+"""Unit tests for HashiCorp Vault provider (REST API based, no hvac dependency).
+
+All tests are pure unit tests — every HTTP call is intercepted via MagicMock/patch.
+No running Vault instance is required. Tests run in any environment without
+external dependencies.
+"""
 
 import os
 import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError, ExternalServiceError
 from docpipe.integrations.secrets.hashicorp_vault import (
     HashiCorpVaultConfig,
     HashiCorpVaultProvider,
@@ -85,14 +92,14 @@ class TestHashiCorpVaultConfig:
         config = HashiCorpVaultConfig()
         config.role_id = ""
         config.secret_id = "some-secret-id"
-        with pytest.raises(ValueError, match="VAULT_ROLE_ID"):
+        with pytest.raises(ConfigurationError, match="VAULT_ROLE_ID"):
             config.validate()
 
     def test_validate_missing_secret_id_raises(self):
         config = HashiCorpVaultConfig()
         config.role_id = "some-role-id"
         config.secret_id = ""
-        with pytest.raises(ValueError, match="VAULT_SECRET_ID"):
+        with pytest.raises(ConfigurationError, match="VAULT_SECRET_ID"):
             config.validate()
 
     def test_validate_passes_with_both_set(self):
@@ -162,8 +169,8 @@ class TestHashiCorpVaultProvider:
             # Token should be set in session headers
             assert mock_session.headers["X-Vault-Token"] == "s.test-token-123"
 
-    def test_authenticate_failure_raises_runtime_error(self):
-        """Test that non-200 response raises RuntimeError."""
+    def test_authenticate_failure_raises_external_service_error(self):
+        """Test that non-200 response raises ExternalServiceError."""
         config = self._make_config()
         provider = HashiCorpVaultProvider(config=config)
 
@@ -177,7 +184,7 @@ class TestHashiCorpVaultProvider:
             mock_session.headers = {}
             mock_session_cls.return_value = mock_session
 
-            with pytest.raises(RuntimeError, match="AppRole login failed"):
+            with pytest.raises(ExternalServiceError, match="AppRole login failed"):
                 provider.authenticate()
 
     def test_get_secret_kv_v2(self):
@@ -248,7 +255,7 @@ class TestHashiCorpVaultProvider:
         kv2_response.text = "permission denied"
         mock_session.get.return_value = kv2_response
 
-        with pytest.raises(RuntimeError, match="403"):
+        with pytest.raises(ExternalServiceError, match="403"):
             provider.get_secret(path="db/creds", key="password")
 
         # KV v1 must never be attempted
@@ -272,7 +279,7 @@ class TestHashiCorpVaultProvider:
             kv2_response.text = "error"
             mock_session.get.return_value = kv2_response
 
-            with pytest.raises(RuntimeError, match=str(status_code)):
+            with pytest.raises(ExternalServiceError, match=str(status_code)):
                 provider.get_secret(path="db/creds", key="password")
 
             # KV v1 must never be attempted for any of these
@@ -313,11 +320,11 @@ class TestHashiCorpVaultProvider:
         mock_response.json.return_value = {"data": {"data": {"user": "admin", "pass": "secret"}}}
         mock_session.get.return_value = mock_response
 
-        with pytest.raises(ValueError, match="Multiple keys"):
+        with pytest.raises(ConfigurationError, match="Multiple keys"):
             provider.get_secret(path="db/creds")
 
-    def test_get_secret_missing_key_raises_keyerror(self):
-        """Test that a missing key raises KeyError."""
+    def test_get_secret_missing_key_raises_external_service_error(self):
+        """Test that a missing key raises ExternalServiceError."""
         config = self._make_config()
         provider = HashiCorpVaultProvider(config=config)
 
@@ -332,7 +339,7 @@ class TestHashiCorpVaultProvider:
         mock_response.json.return_value = {"data": {"data": {"user": "admin"}}}
         mock_session.get.return_value = mock_response
 
-        with pytest.raises(KeyError, match="nonexistent"):
+        with pytest.raises(ExternalServiceError, match="nonexistent"):
             provider.get_secret(path="db/creds", key="nonexistent")
 
     def test_is_available_returns_true_on_200(self):
@@ -357,11 +364,9 @@ class TestHashiCorpVaultProvider:
         config.role_id = ""  # Invalid config
         provider = HashiCorpVaultProvider(config=config)
 
-        import requests as req
-
         with patch("docpipe.integrations.secrets.hashicorp_vault.requests.Session") as mock_session_cls:
             mock_session = MagicMock()
-            mock_session.get.side_effect = req.exceptions.ConnectionError("refused")
+            mock_session.get.side_effect = requests.exceptions.ConnectionError("refused")
             mock_session.headers = {}
             mock_session_cls.return_value = mock_session
 

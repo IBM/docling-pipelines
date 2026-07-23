@@ -2,6 +2,7 @@
 
 import pytest
 
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError, ExternalServiceError
 from docpipe.integrations.secrets.secret_provider import (
     SecretProvider,
     SecretReference,
@@ -25,14 +26,14 @@ class FakeProvider(SecretProvider):
     def get_secret(self, *, path: str, key: str | None = None) -> str:
         data = self._secrets.get(path)
         if data is None:
-            raise RuntimeError(f"Secret not found: {path}")
+            raise ExternalServiceError(f"Secret not found: {path}")
         if key:
             if key not in data:
-                raise KeyError(f"Key '{key}' not found at path '{path}'")
+                raise ExternalServiceError(f"Key '{key}' not found at path '{path}'")
             return data[key]
         if len(data) == 1:
             return next(iter(data.values()))
-        raise ValueError("Multiple keys, specify one")
+        raise ConfigurationError("Multiple keys, specify one")
 
     def is_available(self) -> bool:
         return True
@@ -167,20 +168,20 @@ class TestResolveValue:
         assert resolved["provider_config"]["password"] == "os_pass"  # pragma: allowlist secret
         assert resolved["provider_config"]["host"] == "localhost"
 
-    def test_unregistered_provider_raises_valueerror(self):
-        with pytest.raises(ValueError, match="not registered"):
+    def test_unregistered_provider_raises_configuration_error(self):
+        with pytest.raises(ConfigurationError, match="not registered"):
             resolve_value("vault://unknown/path#key")
 
-    def test_missing_key_raises_keyerror(self):
+    def test_missing_key_raises_external_service_error(self):
         provider = FakeProvider(secrets={"db/creds": {"user": "admin"}})
         register_provider(name="hashicorp", provider=provider)
 
-        with pytest.raises(KeyError):
+        with pytest.raises(ExternalServiceError):
             resolve_value("vault://hashicorp/db/creds#nonexistent")
 
-    def test_missing_path_raises_runtimeerror(self):
+    def test_missing_path_raises_external_service_error(self):
         provider = FakeProvider(secrets={})
         register_provider(name="hashicorp", provider=provider)
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ExternalServiceError):
             resolve_value("vault://hashicorp/no/such/path#key")

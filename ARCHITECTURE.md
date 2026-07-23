@@ -3845,8 +3845,44 @@ All sensitive credentials are supplied at runtime via environment variables and 
 | OpenAI / Hugging Face API keys | `OPENAI_API_KEY`, `HUGGINGFACE_API_KEY` env vars |
 | OpenSearch credentials | `OPENSEARCH_USERNAME`, `OPENSEARCH_PASSWORD` env vars |
 | Object storage keys (S3/COS) | `access_key`, `secret_key` in operator config |
+| HashiCorp Vault AppRole credentials | `VAULT_ROLE_ID`, `VAULT_SECRET_ID` env vars (or `_FILE` variants for Docker/K8s) |
 
 Configuration files support environment variable substitution (e.g. `${WATSONX_API_KEY}`) so flow definitions remain secret-free. The repository is protected by `detect-secrets` pre-commit hooks to prevent accidental secret commits.
+
+#### HashiCorp Vault Integration
+
+For deployments that centralise secrets in HashiCorp Vault, operator configs can reference secrets using the `vault://` URI scheme:
+
+```json
+"property_key": "vault://hashicorp/<path>#<key>"  // pragma: allowlist secret
+```
+
+The integration is enabled per-deployment in `docling-pipelines-config.yaml`:
+
+```yaml
+secrets:
+  vault:
+    enabled: true
+    provider: hashicorp
+```
+
+Vault connection credentials are always read from environment variables — never from the config file:
+
+| Variable | Description |
+|---|---|
+| `VAULT_ADDR` | Vault server URL (default: `http://127.0.0.1:8200`) |
+| `VAULT_ROLE_ID` | AppRole role ID |
+| `VAULT_SECRET_ID` | AppRole secret ID |
+| `VAULT_MOUNT_POINT` | KV secrets engine mount (default: `secret`) |
+| `VAULT_APPROLE_MOUNT` | AppRole auth mount (default: `approle`) |
+| `VAULT_NAMESPACE` | Vault Enterprise namespace (optional) |
+| `VAULT_CA_CERT` | Path to CA certificate for TLS (optional) |
+| `VAULT_CLIENT_CERT` / `VAULT_CLIENT_KEY` | Client cert/key for mTLS (optional) |
+| `VAULT_TLS_SKIP_VERIFY` | Skip TLS verification — development only (default: `false`) |
+
+Docker and Kubernetes file-backed secrets are supported via the `_FILE` suffix convention (e.g. `VAULT_ROLE_ID_FILE=/run/secrets/vault_role_id`).
+
+Secret resolution is transparent — values that do not start with `vault://` are passed to operators unchanged, so Vault can be adopted incrementally without modifying existing flows.
 
 ---
 

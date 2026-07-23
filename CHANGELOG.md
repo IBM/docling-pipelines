@@ -17,6 +17,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - Release process documentation (`RELEASE_PROCESS.md`)
 - Deprecation policy (`docs/guides/DEPRECATION_POLICY.md`)
 - Migration guide template (`docs/guides/MIGRATION_GUIDE_TEMPLATE.md`)
+- **HashiCorp Vault integration** — `vault://` URI scheme for resolving secrets in flow operator configs at runtime. Enable via `secrets.vault.enabled: true` in `docling-pipelines-config.yaml`. Credentials (`VAULT_ROLE_ID`, `VAULT_SECRET_ID`) supplied via environment variables. Supports AppRole auth, KV v1/v2, TLS, mTLS, Vault Enterprise namespaces, and Docker/Kubernetes file-backed secrets. See `sample_flows/vault/opensearch_with_vault.json` for a working example.
 
 ---
 

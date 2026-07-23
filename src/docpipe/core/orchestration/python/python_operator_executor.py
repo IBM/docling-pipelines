@@ -157,7 +157,21 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         clazz = self.operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
             raise DocpipeException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")
-        return clazz(config=self._params)
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference, resolve_value
+
+        vault_keys = (
+            [k for k, v in self._params.items() if is_vault_reference(v)] if isinstance(self._params, dict) else []
+        )
+        if vault_keys:
+            logger.info(
+                "Resolving vault references in operator '%s' config for keys: %s",
+                self._operator,
+                vault_keys,
+            )
+        resolved_params = resolve_value(self._params)
+        if vault_keys:
+            logger.info("Vault references resolved successfully for operator '%s'", self._operator)
+        return clazz(config=resolved_params)
 
 
 # used for unit testing only

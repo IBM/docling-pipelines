@@ -83,7 +83,11 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
     from docpipe.core.constants.constants import DocpipeConstants
     from docpipe.core.orchestration.flow_executor import FlowExecutor
     from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+    from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
     from docpipe.utils.infrastructure import get_telemetry_service
+
+    # Register secret providers (no-op when secrets.vault.enabled=false in config)
+    initialize_secret_providers()
 
     # Initialise telemetry early so spans and metrics are captured during flow execution
     telemetry = get_telemetry_service()

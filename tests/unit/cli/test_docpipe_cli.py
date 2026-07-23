@@ -474,5 +474,23 @@ class TestValidateFlowDefinitionRealValidator:
         assert result is True
 
 
+class TestVaultInitializerWiring:
+    """Verify initialize_secret_providers() is called during CLI startup."""
+
+    @patch("docpipe.integrations.secrets.vault_initializer.initialize_secret_providers")
+    @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
+    def test_initialize_secret_providers_called_on_execution(self, mock_executor, mock_init):
+        """initialize_secret_providers() must be called in run_command_line_executor."""
+        flow_def = {"name": "test", "global_config": {}, "pipeline": []}
+
+        mock_executor.return_value.execute.return_value = None
+
+        from docpipe.cli.docpipe_cli import run_command_line_executor
+
+        run_command_line_executor(flow_def=flow_def)
+
+        mock_init.assert_called_once()
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

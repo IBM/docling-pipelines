@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 
 import requests
 
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError, ExternalServiceError
 from docpipe.integrations.secrets.secret_provider import SecretProvider
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -108,18 +109,18 @@ class HashiCorpVaultConfig:
         """Validate that required configuration is present.
 
         Raises:
-            ValueError: If required fields are missing.
+            ConfigurationError: If required fields are missing.
         """
         if not self.role_id:
-            raise ValueError(
+            raise ConfigurationError(
                 "VAULT_ROLE_ID (or VAULT_ROLE_ID_FILE) must be set. See .env.example for configuration details."
             )
         if not self.secret_id:
-            raise ValueError(
+            raise ConfigurationError(
                 "VAULT_SECRET_ID (or VAULT_SECRET_ID_FILE) must be set. See .env.example for configuration details."
             )
         if not self.addr:
-            raise ValueError("VAULT_ADDR must be set.")
+            raise ConfigurationError("VAULT_ADDR must be set.")
 
 
 # Buffer before token expiry to trigger re-authentication (seconds)
@@ -127,6 +128,27 @@ _TOKEN_REFRESH_BUFFER = 60
 
 # HTTP timeout for Vault API calls (seconds)
 _REQUEST_TIMEOUT = 30
+
+
+def _log_vault_response(*, method: str, url: str, response: "requests.Response") -> None:
+    """Log the full Vault HTTP response at DEBUG level for error diagnosis.
+
+    Only emitted when DS_LOG_LEVEL=DEBUG. Logs method, URL, status code,
+    response headers, and body so that Vault-side error messages are fully visible.
+
+    Args:
+        method: HTTP method used (GET, POST, etc.).
+        url: Full request URL.
+        response: The requests.Response object from the failed call.
+    """
+    logger.debug(
+        "Vault %s %s -> HTTP %d\nResponse headers: %s\nResponse body: %s",
+        method,
+        url,
+        response.status_code,
+        dict(response.headers),
+        response.text,
+    )
 
 
 class HashiCorpVaultProvider(SecretProvider):
@@ -168,7 +190,7 @@ class HashiCorpVaultProvider(SecretProvider):
             session.verify = False
         elif self._config.ca_cert:
             if not os.path.isfile(self._config.ca_cert):
-                raise ValueError(f"VAULT_CA_CERT path does not exist: {self._config.ca_cert}")
+                raise ConfigurationError(f"VAULT_CA_CERT path does not exist: {self._config.ca_cert}")
             session.verify = self._config.ca_cert
         else:
             session.verify = True
@@ -176,13 +198,13 @@ class HashiCorpVaultProvider(SecretProvider):
         # Client certificate for mTLS
         if self._config.client_cert and self._config.client_key:
             if not os.path.isfile(self._config.client_cert):
-                raise ValueError(f"VAULT_CLIENT_CERT path does not exist: {self._config.client_cert}")
+                raise ConfigurationError(f"VAULT_CLIENT_CERT path does not exist: {self._config.client_cert}")
             if not os.path.isfile(self._config.client_key):
-                raise ValueError(f"VAULT_CLIENT_KEY path does not exist: {self._config.client_key}")
+                raise ConfigurationError(f"VAULT_CLIENT_KEY path does not exist: {self._config.client_key}")
             session.cert = (self._config.client_cert, self._config.client_key)
         elif self._config.client_cert:
             if not os.path.isfile(self._config.client_cert):
-                raise ValueError(f"VAULT_CLIENT_CERT path does not exist: {self._config.client_cert}")
+                raise ConfigurationError(f"VAULT_CLIENT_CERT path does not exist: {self._config.client_cert}")
             session.cert = self._config.client_cert
 
         # Vault namespace header (Vault Enterprise / HCP Vault)
@@ -198,8 +220,8 @@ class HashiCorpVaultProvider(SecretProvider):
         Body: {"role_id": "...", "secret_id": "..."}
 
         Raises:
-            ValueError: If configuration is invalid.
-            RuntimeError: If authentication fails.
+            ConfigurationError: If configuration is invalid.
+            ExternalServiceError: If authentication fails.
         """
         self._config.validate()
 
@@ -219,12 +241,13 @@ class HashiCorpVaultProvider(SecretProvider):
         try:
             response = self._session.post(url, json=payload, timeout=_REQUEST_TIMEOUT)
         except requests.exceptions.ConnectionError as e:
-            raise RuntimeError(f"Cannot connect to Vault at {self._config.addr}: {e}") from e
+            raise ExternalServiceError(f"Cannot connect to Vault at {self._config.addr}: {e}") from e
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Vault authentication request failed: {e}") from e
+            raise ExternalServiceError(f"Vault authentication request failed: {e}") from e
 
         if response.status_code != 200:
-            raise RuntimeError(f"Vault AppRole login failed (HTTP {response.status_code}): {response.text}")
+            _log_vault_response(method="POST", url=url, response=response)
+            raise ExternalServiceError(f"Vault AppRole login failed (HTTP {response.status_code}): {response.text}")
 
         data = response.json()
         auth_data = data.get("auth", {})
@@ -233,7 +256,7 @@ class HashiCorpVaultProvider(SecretProvider):
         self._token_expiry = time.time() + lease_duration
 
         if not self._token:
-            raise RuntimeError("Vault login response missing client_token")
+            raise ExternalServiceError("Vault login response missing client_token")
 
         # Set token header for subsequent requests
         self._session.headers["X-Vault-Token"] = self._token
@@ -263,9 +286,8 @@ class HashiCorpVaultProvider(SecretProvider):
             The secret value as a string.
 
         Raises:
-            KeyError: If the specified key does not exist at the path.
-            ValueError: If no key is specified and the secret has multiple keys.
-            RuntimeError: If the secret cannot be retrieved.
+            ExternalServiceError: If the specified key does not exist or secret cannot be retrieved.
+            ConfigurationError: If no key is specified and the secret has multiple keys.
         """
         self._ensure_authenticated()
 
@@ -273,14 +295,14 @@ class HashiCorpVaultProvider(SecretProvider):
 
         if key:
             if key not in data:
-                raise KeyError(f"Key '{key}' not found at vault path '{self._config.mount_point}/{path}'.")
+                raise ExternalServiceError(f"Key '{key}' not found at vault path '{self._config.mount_point}/{path}'.")
             return str(data[key])
 
         # No key specified - return the single value or raise if ambiguous
         if len(data) == 1:
             return str(next(iter(data.values())))
 
-        raise ValueError(
+        raise ConfigurationError(
             f"Multiple keys at vault path '{self._config.mount_point}/{path}'. Specify a key using #key_name."
         )
 
@@ -297,7 +319,7 @@ class HashiCorpVaultProvider(SecretProvider):
             Dictionary of key-value pairs from the secret.
 
         Raises:
-            RuntimeError: If the secret cannot be read.
+            ExternalServiceError: If the secret cannot be read.
         """
         assert self._session is not None, "authenticate() must be called before reading secrets"
         base_url = self._config.addr.rstrip("/")
@@ -310,15 +332,18 @@ class HashiCorpVaultProvider(SecretProvider):
             if response.status_code == 200:
                 resp_data = response.json()
                 return resp_data["data"]["data"]
-            elif response.status_code != 404:
+            if response.status_code != 404:
                 # 403 permission denied, 400 bad request, 429 rate limited, 503 sealed, etc.
                 # None of these mean "try KV v1" — fail immediately with the real status.
-                raise RuntimeError(
+                _log_vault_response(method="GET", url=kv2_url, response=response)
+                raise ExternalServiceError(
                     f"Vault returned HTTP {response.status_code} for path '{mount}/{path}': {response.text}"
                 )
             # 404 only: path not found under KV v2 /data/ prefix — fall through to KV v1
         except requests.exceptions.RequestException as kv2_error:
-            raise RuntimeError(f"Network error reading secret at path '{mount}/{path}': {kv2_error}") from kv2_error
+            raise ExternalServiceError(
+                f"Network error reading secret at path '{mount}/{path}': {kv2_error}"
+            ) from kv2_error
 
         # Fallback to KV v1 (only reached on 404 from KV v2)
         kv1_url = f"{base_url}/v1/{mount}/{path}"
@@ -327,9 +352,14 @@ class HashiCorpVaultProvider(SecretProvider):
             if response.status_code == 200:
                 resp_data = response.json()
                 return resp_data["data"]
-            raise RuntimeError(f"Vault returned HTTP {response.status_code} for path '{mount}/{path}': {response.text}")
+            _log_vault_response(method="GET", url=kv1_url, response=response)
+            raise ExternalServiceError(
+                f"Vault returned HTTP {response.status_code} for path '{mount}/{path}': {response.text}"
+            )
         except requests.exceptions.RequestException as kv1_error:
-            raise RuntimeError(f"Network error reading secret at path '{mount}/{path}': {kv1_error}") from kv1_error
+            raise ExternalServiceError(
+                f"Network error reading secret at path '{mount}/{path}': {kv1_error}"
+            ) from kv1_error
 
     def is_available(self) -> bool:
         """Check if Vault is reachable and initialized.
@@ -348,5 +378,5 @@ class HashiCorpVaultProvider(SecretProvider):
             # Vault returns 200 if initialized+unsealed, 429/472/473 for other states
             return response.status_code in (200, 429, 472, 473)
         except Exception as e:
-            logger.debug("Vault availability check failed: %s", e)
+            logger.warning("Vault availability check failed for %s: %s", self._config.addr, e, exc_info=True)
             return False

@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -60,7 +61,8 @@ class SecretProvider(ABC):
         """Authenticate with the vault backend.
 
         Raises:
-            DocpipeException: If authentication fails.
+            ConfigurationError: If credentials or configuration are invalid.
+            ExternalServiceError: If the vault backend is unreachable or rejects the request.
         """
 
     @abstractmethod
@@ -75,8 +77,8 @@ class SecretProvider(ABC):
             The secret value as a string.
 
         Raises:
-            KeyError: If the specified key does not exist at the path.
-            DocpipeException: If retrieval fails.
+            ExternalServiceError: If the key does not exist at the path or the secret cannot be retrieved.
+            ConfigurationError: If no key is specified and the secret has multiple keys.
         """
 
     @abstractmethod
@@ -156,8 +158,10 @@ def resolve_value(value: Any) -> Any:
         The resolved value (secret fetched from vault, or original value).
 
     Raises:
-        ValueError: If the provider referenced in the URI is not registered.
-        KeyError: If the key does not exist at the vault path.
+        ConfigurationError: If the provider referenced in the URI is not registered, or the
+            secret path has multiple keys and none is specified.
+        ExternalServiceError: If the key does not exist at the vault path or the secret
+            cannot be retrieved from the backend.
     """
     if isinstance(value, str):
         ref = parse_reference(value)
@@ -166,16 +170,21 @@ def resolve_value(value: Any) -> Any:
 
         provider = _providers.get(ref.provider)
         if provider is None:
-            available = list(_providers.keys()) if _providers else ["none registered"]
-            raise ValueError(f"Secret provider '{ref.provider}' not registered. Available providers: {available}")
+            raise ConfigurationError(
+                f"Secret provider '{ref.provider}' not registered. "
+                "Vault initialization failed at startup — check logs for details. "
+                "Common causes: VAULT_ROLE_ID/VAULT_SECRET_ID not set, "
+                "or Vault unreachable at VAULT_ADDR. "
+                "Enable debug logging with DS_LOG_LEVEL=DEBUG for full detail."
+            )
 
-        logger.debug("Resolving vault reference: provider=%s, path=%s", ref.provider, ref.path)
+        logger.debug("Resolving vault reference: provider=%s, path=%s, key=%s", ref.provider, ref.path, ref.key)
         return provider.get_secret(path=ref.path, key=ref.key)
 
-    elif isinstance(value, dict):
+    if isinstance(value, dict):
         return {k: resolve_value(v) for k, v in value.items()}
 
-    elif isinstance(value, list):
+    if isinstance(value, list):
         return [resolve_value(item) for item in value]
 
     return value

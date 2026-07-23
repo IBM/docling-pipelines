@@ -90,6 +90,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     del app
     get_default_factory().initialize_storage()
+    # Register secret providers (no-op when secrets.vault.enabled=false in config)
+    from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
+
+    initialize_secret_providers()
     yield
 
 

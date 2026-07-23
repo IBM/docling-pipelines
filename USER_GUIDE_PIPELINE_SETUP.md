@@ -357,6 +357,8 @@ cp .env.example .env
 # Edit .env if you need to customize settings
 ```
 
+> **HashiCorp Vault (optional):** If your organisation uses Vault for secret management, set `secrets.vault.enabled: true` in `docling-pipelines-config.yaml` and supply `VAULT_ROLE_ID` and `VAULT_SECRET_ID` as environment variables. See the [Architecture Guide — HashiCorp Vault Integration](ARCHITECTURE.md) for full details.
+
 ### Verify Installation
 
 ```bash

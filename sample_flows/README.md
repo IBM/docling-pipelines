@@ -11,6 +11,7 @@ sample_flows/
 ├── use_cases/           # Real-world use case examples
 ├── advanced/            # Complex workflows and patterns
 ├── vectordb/            # Vector database integrations
+├── vault/               # HashiCorp Vault secret reference examples
 └── custom_operators/    # Custom operator examples
 ```
 
@@ -114,6 +115,32 @@ Complete pipelines demonstrating vector database integrations.
 
 ---
 
+### Vault
+
+Flows demonstrating HashiCorp Vault secret references in operator configs.
+
+| Flow | Description |
+|------|-------------|
+| `opensearch_with_vault.json` | Full OpenSearch pipeline where credentials are resolved from Vault at runtime using `vault://` references |
+
+**Start here if:** You need to manage secrets centrally and keep credentials out of flow JSON files.
+
+**Prerequisites:**
+```bash
+# Enable Vault in docling-pipelines-config.yaml
+secrets:
+  vault:
+    enabled: true
+    provider: hashicorp
+
+# Set Vault credentials as environment variables
+export VAULT_ADDR=https://vault.your-org.com
+export VAULT_ROLE_ID=<your-approle-role-id>
+export VAULT_SECRET_ID=<your-approle-secret-id>
+```
+
+---
+
 ### Custom Operators
 
 Examples showing how to create and use custom operators.
@@ -193,6 +220,19 @@ export OPENSEARCH_PASSWORD=MyStrongPass123!
 export WATSONX_API_KEY=your_api_key
 export WATSONX_API_BASE=https://us-south.ml.cloud.ibm.com
 export WATSONX_CONTAINER_ID=your_project_id
+```
+
+### For Vault Flows
+```bash
+# Enable in docling-pipelines-config.yaml (secrets.vault.enabled: true)
+# Then set AppRole credentials
+export VAULT_ADDR=https://vault.your-org.com
+export VAULT_ROLE_ID=your-approle-role-id
+export VAULT_SECRET_ID=your-approle-secret-id
+
+# Optional: use file-backed secrets (Docker/Kubernetes pattern)
+export VAULT_ROLE_ID_FILE=/run/secrets/vault_role_id
+export VAULT_SECRET_ID_FILE=/run/secrets/vault_secret_id
 ```
 
 ---
