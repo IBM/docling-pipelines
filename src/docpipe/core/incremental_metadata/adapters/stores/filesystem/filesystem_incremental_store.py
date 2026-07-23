@@ -11,6 +11,7 @@ Features:
 - Atomic writes with temporary files
 """
 
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,10 @@ import pyarrow.compute as pc  # type: ignore[import-untyped]
 import pyarrow.parquet as pq
 from filelock import FileLock, Timeout
 
+from docpipe.core.incremental_metadata.adapters.config.incremental_metadata_factory import (
+    ENV_INCREMENTAL_BASE_DIR_KEY,
+    register_incremental_update_store,
+)
 from docpipe.core.incremental_metadata.domain import (
     IncrementalMetadataRecord,
     IncrementalMetadataStore,
@@ -50,6 +55,7 @@ def _should_retry_on_lock_timeout(result, exception):
     return False, ""
 
 
+@register_incremental_update_store
 class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
     """
     Filesystem-based storage adapter for incremental metadata.
@@ -66,6 +72,8 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
         - deleted: bool
     """
 
+    STORE_BACKEND = "filesystem"
+
     # Parquet schema definition
     SCHEMA = pa.schema(
         [
@@ -78,40 +86,39 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
         ]
     )
 
-    def __init__(
-        self,
-        *,
-        base_dir: Path | str | None = None,
-        lock_timeout: float = 120.0,
-        config: dict[str, Any] | None = None,
-    ):
+    def __init__(self, *, config: dict[str, Any] | None = None):
         """
         Initialize Filesystem incremental metadata store.
 
         Args:
-            base_dir: Base directory for storing parquet files (defaults to data path)
-            lock_timeout: Timeout in seconds for acquiring file locks
-            config: Optional full configuration dict containing all settings.
-                    If provided, base_dir and lock_timeout can be extracted from it.
-                    Direct parameters take precedence over config dict values.
+            config: Configuration dict. Recognised keys:
+                    - base_dir: base directory for parquet files
+                    - lock_timeout: seconds to wait for file lock (default 120.0)
+                    DOCPIPE_INCREMENTAL_BASE_DIR env var takes precedence over base_dir.
         """
         self.config = config or {}
 
-        # Resolve base_dir: direct parameter > config dict > default
-        if base_dir is None:
-            config_base_dir = self.config.get("base_dir")
-            if config_base_dir is not None:
-                self._base_dir = Path(config_base_dir) if isinstance(config_base_dir, str) else config_base_dir
-            else:
-                self._base_dir = Path(get_data_path())
+        # Resolve base_dir: env var > config dict > default data path
+        base_dir_override = os.getenv(ENV_INCREMENTAL_BASE_DIR_KEY)
+        if base_dir_override:
+            resolved = Path(base_dir_override)
+        elif self.config.get("base_dir") is not None:
+            config_base_dir = self.config["base_dir"]
+            resolved = Path(config_base_dir) if isinstance(config_base_dir, str) else config_base_dir
+            resolved = resolved if resolved.is_absolute() else resolved.resolve()
         else:
-            self._base_dir = Path(base_dir) if isinstance(base_dir, str) else base_dir
+            resolved = Path(get_data_path())
 
-        # Resolve lock_timeout: direct parameter > config dict > default
-        self._lock_timeout = self.config.get("lock_timeout", lock_timeout)
+        if base_dir_override or self.config.get("base_dir"):
+            resolved.mkdir(parents=True, exist_ok=True)
+
+        self._base_dir = resolved
+        self._lock_timeout: float = self.config.get("lock_timeout", 120.0)
 
         logger.info(
-            f"FilesystemIncrementalMetadataStore initialized: base_dir={self._base_dir}, config_keys={list(self.config.keys())}"
+            "FilesystemIncrementalMetadataStore initialized: base_dir=%s, config_keys=%s",
+            self._base_dir,
+            list(self.config.keys()),
         )
 
     def _get_job_dir(self, *, job_id: str) -> Path:

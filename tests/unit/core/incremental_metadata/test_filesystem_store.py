@@ -11,7 +11,7 @@ from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 @pytest.fixture
 def store(*, tmp_path):
     """Create Filesystem store with temporary directory."""
-    return FilesystemIncrementalMetadataStore(base_dir=tmp_path, lock_timeout=5.0)
+    return FilesystemIncrementalMetadataStore(config={"base_dir": str(tmp_path), "lock_timeout": 5.0})
 
 
 @pytest.fixture

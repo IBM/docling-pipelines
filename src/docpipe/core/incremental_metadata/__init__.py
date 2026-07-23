@@ -12,10 +12,11 @@ Supports multiple storage backends:
 from .adapters import (
     FilesystemIncrementalMetadataStore,
     IncrementalMetadataFactory,
-    IncrementalStorageBackend,
     PostgresIncrementalMetadataStore,
-    get_default_incremental_factory,
-    reset_default_incremental_factory,
+    create_incremental_metadata_store,
+    create_store_from_config_file,
+    register_incremental_update_store,
+    reset_default_incremental_store,
 )
 from .application import IncrementalUpdateService
 from .domain import IncrementalMetadataRecord, IncrementalMetadataStore
@@ -25,9 +26,10 @@ __all__ = [
     "IncrementalMetadataFactory",
     "IncrementalMetadataRecord",
     "IncrementalMetadataStore",
-    "IncrementalStorageBackend",
     "IncrementalUpdateService",
     "PostgresIncrementalMetadataStore",
-    "get_default_incremental_factory",
-    "reset_default_incremental_factory",
+    "create_incremental_metadata_store",
+    "create_store_from_config_file",
+    "register_incremental_update_store",
+    "reset_default_incremental_store",
 ]

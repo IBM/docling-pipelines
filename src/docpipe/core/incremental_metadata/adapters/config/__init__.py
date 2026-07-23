@@ -4,16 +4,16 @@ Configuration and factory for incremental metadata.
 
 from .incremental_metadata_factory import (
     IncrementalMetadataFactory,
-    IncrementalStorageBackend,
     create_incremental_metadata_store,
-    get_default_incremental_factory,
-    reset_default_incremental_factory,
+    create_store_from_config_file,
+    register_incremental_update_store,
+    reset_default_incremental_store,
 )
 
 __all__ = [
     "IncrementalMetadataFactory",
-    "IncrementalStorageBackend",
     "create_incremental_metadata_store",
-    "get_default_incremental_factory",
-    "reset_default_incremental_factory",
+    "create_store_from_config_file",
+    "register_incremental_update_store",
+    "reset_default_incremental_store",
 ]

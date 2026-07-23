@@ -1,9 +1,15 @@
 """
 Storage adapters for incremental metadata.
 
-Exports all storage adapter implementations.
+Importing these modules triggers their @register_incremental_update_store
+decorator, which populates IncrementalMetadataFactory._stores.
+
+External backends (e.g. COS in EE) must be imported before
+create_incremental_metadata_store() is called so their decorator fires.
+This is the same contract as OperatorSourceFactory.
 """
 
+# Import adapters to trigger decorator registration
 from .filesystem import FilesystemIncrementalMetadataStore
 from .postgres import PostgresIncrementalMetadataStore
 
