@@ -81,7 +81,7 @@ class FlowEnginePort(ABC):
         pass
 
     @abstractmethod
-    def execute_non_execute_flow(self, *, flow_name: str | None = None, task: Any = None, dag: Any = None) -> None:
+    def execute_non_execute_flow(self, *, flow_name: str, task: Any, dag: Any) -> None:
         """
         Execute a non-execution flow (e.g., validation, visualization).
 

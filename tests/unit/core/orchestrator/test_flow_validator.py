@@ -182,8 +182,8 @@ class TestFlowValidator:
         dag = [{"id": "node1", "operator": "ingest_op"}]
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        with patch.object(validator, "validate_operator_category") as mock_validate:
-            validator.validate_first_operator(dag=dag, global_config={}, validate_results=validate_results)
+        with patch.object(validator, "_validate_operator_category") as mock_validate:
+            validator._validate_first_operator(dag=dag, validate_results=validate_results)
 
             mock_validate.assert_called_once()
 
@@ -273,7 +273,7 @@ class TestFlowValidator:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Should not add errors for connected graph
-        validator.validate_disjoint_operators(dag=dag, global_config={}, validate_results=validate_results)
+        validator._validate_disjoint_operators(dag=dag, validate_results=validate_results)
 
         assert len(validate_results.errors) == 0
 
@@ -291,7 +291,7 @@ class TestFlowValidator:
 
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_disjoint_operators(dag=dag, global_config={}, validate_results=validate_results)
+        validator._validate_disjoint_operators(dag=dag, validate_results=validate_results)
 
         # Should add error for disconnected graph
         assert len(validate_results.errors) > 0
@@ -310,10 +310,10 @@ class TestFlowValidator:
 
         errors: list = []
 
-        with patch.object(validator, "get_operator_category") as mock_get_category:
+        with patch.object(validator, "_get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
 
-            result = validator.check_duplicate_extract_operators(sequence=sequence, global_config={}, errors=errors)
+            result = validator._check_duplicate_extract_operators(sequence=sequence, errors=errors)
 
             assert result == 2
             assert len(errors) > 0  # Should have error for multiple extracts
@@ -328,12 +328,11 @@ class TestFlowValidator:
         op_def = {"id": "node1", "operator": "test_op"}
         alerts: list = []
 
-        with patch.object(validator, "get_operator_category") as mock_get_category:
+        with patch.object(validator, "_get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Ingest
 
-            validator.validate_operator_category(
+            validator._validate_operator_category(
                 op_def=op_def,
-                global_config={},
                 expected_category=OperatorCategory.Ingest,
                 error_message=Mock(),
                 alerts=alerts,
@@ -351,14 +350,13 @@ class TestFlowValidator:
         op_def = {"id": "node1", "operator": "test_op"}
         alerts: list = []
 
-        with patch.object(validator, "get_operator_category") as mock_get_category:
+        with patch.object(validator, "_get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
 
             from docpipe.exceptions.error_messages import ValidationMessage
 
-            validator.validate_operator_category(
+            validator._validate_operator_category(
                 op_def=op_def,
-                global_config={},
                 expected_category=OperatorCategory.Ingest,
                 error_message=ValidationMessage(message="Category mismatch error"),
                 alerts=alerts,
@@ -378,7 +376,7 @@ class TestFlowValidator:
         alerts: list = []
 
         # The method adds alerts but doesn't raise exception for missing ID
-        validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
+        validator._get_operator_category(op_def=op_def, alerts=alerts)
 
         # Verify that an alert was added for missing ID
         assert len(alerts) > 0
@@ -396,7 +394,7 @@ class TestFlowValidator:
         alerts: list = []
 
         # The method adds alerts but doesn't raise exception for missing name
-        validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
+        validator._get_operator_category(op_def=op_def, alerts=alerts)
 
         # Verify that an alert was added for missing name
         assert len(alerts) > 0
@@ -421,7 +419,7 @@ class TestFlowValidator:
         }
         alerts: list = []
 
-        result = validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
+        result = validator._get_operator_category(op_def=op_def, alerts=alerts)
 
         assert result == OperatorCategory.Ingest
 
@@ -768,9 +766,7 @@ class TestFlowValidatorIntegration:
         }
 
         errors: list = []
-        extract_count = validator.check_duplicate_extract_operators(
-            sequence=flow_def["dag"], global_config={}, errors=errors
-        )
+        extract_count = validator._check_duplicate_extract_operators(sequence=flow_def["dag"], errors=errors)
 
         assert extract_count == 2, "Expected 2 extract operators"
         assert len(errors) > 0, "Expected error for multiple extract operators"
@@ -810,7 +806,7 @@ class TestValidateStorageOutputOperatorPlacement:
         dag = self._make_dag(ingest_op="ingest_source", storage_mode="refetch_original")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+        validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
 
         assert results.errors == []
 
@@ -819,7 +815,7 @@ class TestValidateStorageOutputOperatorPlacement:
         dag = self._make_dag(ingest_op="ingest_source", storage_mode="comprehensive_export")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+        validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
 
         assert results.errors == []
 
@@ -828,7 +824,7 @@ class TestValidateStorageOutputOperatorPlacement:
         dag = self._make_dag(ingest_op="ingest_local", storage_mode="refetch_original")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+        validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
 
         assert len(results.errors) == 1
         assert ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.name in str(results.errors[0].message_code)
@@ -838,7 +834,7 @@ class TestValidateStorageOutputOperatorPlacement:
         dag = self._make_dag(ingest_op="ingest_local", storage_mode="comprehensive_export")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+        validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
 
         assert len(results.errors) == 1
         assert ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.name in str(results.errors[0].message_code)
@@ -849,7 +845,7 @@ class TestValidateStorageOutputOperatorPlacement:
         dag = self._make_dag(ingest_op="ingest_local", storage_mode="processed_content")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+        validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
 
         assert results.errors == []
 
@@ -867,7 +863,7 @@ class TestValidateStorageOutputOperatorPlacement:
         ]
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
-        validator.validate_storage_output_operator_placement(dag=dag, validate_results=results)
+        validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
 
         assert results.errors == []
 

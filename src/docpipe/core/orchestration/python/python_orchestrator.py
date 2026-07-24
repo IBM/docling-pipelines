@@ -76,8 +76,5 @@ class PythonOrchestrator(AbstractOrchestrator):
             job_log_path=job_log_path,
         )
 
-    def visualize(self):
-        pass
-
     def get_type(self) -> str:
         return OrchestratorType.PYTHON

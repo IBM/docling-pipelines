@@ -384,7 +384,7 @@ class TestFlowValidatorEnhancements:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Act
-        validator.validate_no_cycles(dag=dag_with_cycle, validate_results=validate_results)
+        validator._validate_no_cycles(dag=dag_with_cycle, validate_results=validate_results)
 
         # Assert
         assert len(validate_results.errors) > 0
@@ -410,7 +410,7 @@ class TestFlowValidatorEnhancements:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Act
-        validator.validate_no_cycles(dag=valid_dag, validate_results=validate_results)
+        validator._validate_no_cycles(dag=valid_dag, validate_results=validate_results)
 
         # Assert
         assert len(validate_results.errors) == 0
@@ -437,7 +437,7 @@ class TestFlowValidatorEnhancements:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Act
-        validator.validate_no_cycles(dag=dag_with_self_cycle, validate_results=validate_results)
+        validator._validate_no_cycles(dag=dag_with_self_cycle, validate_results=validate_results)
 
         # Assert
         assert len(validate_results.errors) > 0
@@ -464,7 +464,7 @@ class TestFlowValidatorEnhancements:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Act
-        validator.validate_operator_availability(
+        validator._validate_operator_availability(
             dag=dag_with_missing_operator, global_config={}, validate_results=validate_results
         )
 
@@ -495,7 +495,7 @@ class TestFlowValidatorEnhancements:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Act
-        validator.validate_operator_availability(
+        validator._validate_operator_availability(
             dag=dag_with_valid_operator, global_config={}, validate_results=validate_results
         )
 
@@ -526,7 +526,7 @@ class TestFlowValidatorEnhancements:
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Act
-        validator.validate_operator_availability(
+        validator._validate_operator_availability(
             dag=dag_with_custom_operator, global_config=global_config, validate_results=validate_results
         )
 

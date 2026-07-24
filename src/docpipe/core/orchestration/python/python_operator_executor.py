@@ -83,7 +83,6 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         try:
             self._log_start(
                 op_logger=logger,
-                node_id=node_id,
                 name=op.name,
                 short_name=op.short_name,
                 common_log_arguments=common_log_arguments,

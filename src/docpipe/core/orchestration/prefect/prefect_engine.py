@@ -134,7 +134,7 @@ class PrefectEngine(FlowEnginePort):
             job_run_id=self.job_run_id,
         )
 
-    def execute_non_execute_flow(self, *, flow_name=None, task, dag):
+    def execute_non_execute_flow(self, *, flow_name: str, task: Any, dag: Any):
 
         flow = self.build_non_execute_flow(flow_name=flow_name)
         flow(TaskType.VALIDATE_FLOW, task, dag, None)

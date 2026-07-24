@@ -268,7 +268,7 @@ class AbstractOperatorExecutor:
             output_folder += "/"
         return output_folder + "output.parquet"
 
-    def _log_start(self, *, op_logger, node_id, name, short_name, common_log_arguments):
+    def _log_start(self, *, op_logger, name, short_name, common_log_arguments):
         op_logger.info(
             "Starting execution: Step Name: %s, operator: %s",
             name,

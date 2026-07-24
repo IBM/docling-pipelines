@@ -593,10 +593,6 @@ class AbstractOrchestrator(ABC):
         """The concrete subclasses needs to implement this method"""
         pass
 
-    def visualize(self):
-        # The concrete subclasses needs to implement this method
-        pass
-
     def _inner_task(
         self,
         op_def,

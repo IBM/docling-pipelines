@@ -323,12 +323,12 @@ class FlowValidator:
         validate_results = ValidateStepResults(available_features={}, errors=errors, warnings=warnings)
         session_info = get_session_info()
 
-        self.validate_first_operator(dag=dag, global_config=global_config, validate_results=validate_results)
-        self.validate_acl_operator_placement(dag=dag, validate_results=validate_results)
-        self.validate_storage_output_operator_placement(dag=dag, validate_results=validate_results)
-        self.validate_disjoint_operators(dag=dag, global_config=global_config, validate_results=validate_results)
-        self.validate_no_cycles(dag=dag, validate_results=validate_results)
-        self.validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
+        self._validate_first_operator(dag=dag, validate_results=validate_results)
+        self._validate_acl_operator_placement(dag=dag, validate_results=validate_results)
+        self._validate_storage_output_operator_placement(dag=dag, validate_results=validate_results)
+        self._validate_disjoint_operators(dag=dag, validate_results=validate_results)
+        self._validate_no_cycles(dag=dag, validate_results=validate_results)
+        self._validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
 
         def node_validation_task(task_name, op_def, result=None, link_name=None):
             return self._validate_node(
@@ -355,7 +355,7 @@ class FlowValidator:
         )
         clean_up_prefect_home()
 
-        self.validate_last_operator(dag=dag, global_config=global_config, validate_results=validate_results)
+        self.validate_last_operator(dag=dag, validate_results=validate_results)
 
         if validate_results.warnings:
             self.logger.warning(f"Validation warnings: {validate_results.warnings}")
@@ -831,7 +831,7 @@ class FlowValidator:
         clean_up_prefect_home()
         return node_features
 
-    def validate_first_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+    def _validate_first_operator(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the first operator in the DAG is an Ingest operator.
 
         Args:
@@ -840,9 +840,8 @@ class FlowValidator:
             validate_results: Container for validation results
         """
         # If the first operator is not an ingest, then add an error.
-        self.validate_operator_category(
+        self._validate_operator_category(
             op_def=dag[0],
-            global_config=global_config,
             expected_category=OperatorCategory.Ingest,
             error_message=ValidationMessage(
                 message=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.value,
@@ -851,7 +850,7 @@ class FlowValidator:
             alerts=validate_results.errors,
         )
 
-    def validate_disjoint_operators(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+    def _validate_disjoint_operators(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain disconnected (disjoint) operators.
 
         Args:
@@ -872,7 +871,6 @@ class FlowValidator:
                 graph=graph,
                 dag=dag,
                 id_to_index=id_to_index,
-                global_config=global_config,
                 validate_results=validate_results,
                 reported_nodes=reported_nodes,
             )
@@ -902,7 +900,6 @@ class FlowValidator:
         graph: dict,
         dag: list,
         id_to_index: dict,
-        global_config: dict,
         validate_results: ValidateStepResults,
         reported_nodes: set,
     ):
@@ -916,7 +913,6 @@ class FlowValidator:
                 terminal_node_id=terminal_node_id,
                 id_to_index=id_to_index,
                 dag=dag,
-                global_config=global_config,
                 validate_results=validate_results,
                 reported_nodes=reported_nodes,
             )
@@ -934,7 +930,6 @@ class FlowValidator:
         terminal_node_id: str,
         id_to_index: dict,
         dag: list,
-        global_config: dict,
         validate_results: ValidateStepResults,
         reported_nodes: set,
     ):
@@ -944,9 +939,7 @@ class FlowValidator:
             return
 
         terminal_node = dag[index]
-        category = self.get_operator_category(
-            op_def=terminal_node, global_config=global_config, alerts=validate_results.errors
-        )
+        category = self._get_operator_category(op_def=terminal_node, alerts=validate_results.errors)
 
         if category != OperatorCategory.VectorDB:
             add_validation_alert(
@@ -981,7 +974,7 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
 
-    def validate_acl_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
+    def _validate_acl_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate ACL operator placement in the DAG.
 
         ACL operator must be placed immediately after an ingest operator (ingest_source or ingest_local).
@@ -1093,7 +1086,7 @@ class FlowValidator:
                 )
         # Early exit if no ACL operator present
 
-    def validate_storage_output_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
+    def _validate_storage_output_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that storage_output operators using refetch_original or comprehensive_export
         have an upstream ingest_source operator in the DAG.
 
@@ -1208,7 +1201,7 @@ class FlowValidator:
                 components.append(comp)
         return components
 
-    def check_duplicate_extract_operators(self, *, sequence, global_config, errors):
+    def _check_duplicate_extract_operators(self, *, sequence, errors):
         """Check for duplicate extract operators in the sequence.
 
         Args:
@@ -1223,7 +1216,7 @@ class FlowValidator:
         extract_operator_count = 0
 
         for _, op_def in enumerate(sequence):
-            category = self.get_operator_category(op_def=op_def, global_config=global_config, alerts=errors)
+            category = self._get_operator_category(op_def=op_def, alerts=errors)
             if category == OperatorCategory.Extract:
                 extract_operator_count += 1
 
@@ -1239,15 +1232,13 @@ class FlowValidator:
 
         return extract_operator_count
 
-    def validate_last_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+    def validate_last_operator(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the last operator in the DAG is a VectorDB operator."""
         if not dag:
             return
 
         last_op = dag[-1]
-        category = self.get_operator_category(
-            op_def=last_op, global_config=global_config, alerts=validate_results.errors
-        )
+        category = self._get_operator_category(op_def=last_op, alerts=validate_results.errors)
 
         if category != OperatorCategory.VectorDB:
             add_validation_alert(
@@ -1259,7 +1250,7 @@ class FlowValidator:
                 alerts=validate_results.warnings,
             )
 
-    def validate_no_cycles(self, *, dag: list, validate_results: ValidateStepResults):
+    def _validate_no_cycles(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain cycles.
 
         Uses depth-first search with recursion stack to detect cycles.
@@ -1302,7 +1293,7 @@ class FlowValidator:
                     )
                     break
 
-    def validate_operator_availability(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+    def _validate_operator_availability(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
         """Validate that all operators in the DAG are available in the operator factory.
 
         Performs early check before DAG traversal to fail fast with clear error.
@@ -1338,11 +1329,10 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
 
-    def validate_operator_category(
+    def _validate_operator_category(
         self,
         *,
         op_def: dict,
-        global_config: dict,
         expected_category: str,
         error_message: ValidationMessage,
         alerts: list,
@@ -1351,21 +1341,19 @@ class FlowValidator:
 
         Args:
             op_def: Operator definition dictionary
-            global_config: Global configuration dictionary
             expected_category: Expected operator category
             error_message: Error message to add if validation fails
             alerts: List to collect alerts
         """
-        category = self.get_operator_category(op_def=op_def, global_config=global_config, alerts=alerts)
+        category = self._get_operator_category(op_def=op_def, alerts=alerts)
         if category != expected_category:
             add_validation_alert(message=error_message, op_def=op_def, alerts=alerts)
 
-    def get_operator_category(self, *, op_def: dict, global_config: dict, alerts: list):
+    def _get_operator_category(self, *, op_def: dict, alerts: list):
         """Get the category of an operator.
 
         Args:
             op_def: Operator definition dictionary
-            global_config: Global configuration dictionary
             alerts: List to collect alerts
 
         Returns:

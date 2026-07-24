@@ -534,9 +534,10 @@ class OperatorUtils:
     @staticmethod
     def remove_internal_metrics_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         internal_metadata = {}
-        for key in list(metadata.keys()):
+        for key, value in list(metadata.items()):
             if key in internal_metrics:
-                internal_metadata[key] = metadata.pop(key)
+                internal_metadata[key] = value
+                del metadata[key]
         return internal_metadata
 
     @staticmethod
@@ -965,15 +966,7 @@ class OperatorUtils:
 
         # ZIP-based Office formats (docx, xlsx, pptx) and plain ZIP
         if binary_content[:2] == b"PK":
-            # Inspect the central directory for known Office content-type markers
-            content_sample = binary_content[:2048]
-            if b"word/" in content_sample:
-                return ".docx"
-            if b"xl/" in content_sample:
-                return ".xlsx"
-            if b"ppt/" in content_sample:
-                return ".pptx"
-            return ".docx"  # generic ZIP-based Office fallback
+            return OperatorUtils.detect_extension_zip_based_office_formats(binary_content)
 
         # Legacy OLE2 Office formats (doc, xls, ppt)
         if binary_content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
@@ -1008,6 +1001,18 @@ class OperatorUtils:
             pass
 
         return ""
+
+    @staticmethod
+    def detect_extension_zip_based_office_formats(binary_content: bytes) -> str:
+        # Inspect the central directory for known Office content-type markers
+        content_sample = binary_content[:2048]
+        if b"word/" in content_sample:
+            return ".docx"
+        if b"xl/" in content_sample:
+            return ".xlsx"
+        if b"ppt/" in content_sample:
+            return ".pptx"
+        return ".docx"  # generic ZIP-based Office fallback
 
     @staticmethod
     def _export_docling_formats(
