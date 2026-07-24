@@ -1,8 +1,6 @@
 # This file defines the code owners for the repo.
-# More on this can be found here: 
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# More on this can be found (here)[https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners].
 
 # By default the below mentioned users are the codeowners for API repo
-# and will be assigned as reviewers
-# when someone opens a pull request.
-* @jjojo @benferna @smadugun @adityars @Sanchit-Rote @Paul-Baby1 @Nipun-Bayas
+# and will be assigned as reviewers when someone opens a pull request.
+* @jo-in @adityars-ibm @nsbayas
