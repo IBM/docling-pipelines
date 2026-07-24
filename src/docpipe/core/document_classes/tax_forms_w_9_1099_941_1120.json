@@ -1,0 +1,229 @@
+{
+  "document_class_id": "257cd27e-8a9c-4947-9a78-e89ae2ebefa6",
+  "document_class_name": "Tax Forms (W-9, 1099, 941, 1120)",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "form_name",
+          "examples": [
+            "W-9"
+          ],
+          "description": "Name or identifier of the tax form (W-9, 1099-MISC, 941, 1120, etc.).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax_year_or_period",
+          "examples": [
+            "2023"
+          ],
+          "description": "Tax year or reporting period covered by the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "taxpayer_name",
+          "examples": [
+            "John Doe or XYZ Corp."
+          ],
+          "description": "Name of the individual or business submitting the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "taxpayer_identification_number",
+          "examples": [
+            "XX-XXXXXXX or SSN: XXX-XX-XXXX"
+          ],
+          "description": "Employer Identification Number (EIN) or Social Security Number (SSN).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "address",
+          "examples": [
+            "123 Main St, Cityville, ST 12345"
+          ],
+          "description": "Mailing address of the taxpayer or entity.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "form_specific_details",
+          "examples": [
+            "W-9: Certification of TIN. 1099: Non-employee comp. 941: Q2 payroll taxes, etc."
+          ],
+          "description": "Key fields or line items unique to each form type.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "signature",
+          "examples": [
+            "John Doe (signature)"
+          ],
+          "description": "Authorized signatory acknowledging the form\u2019s accuracy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_signed",
+          "examples": [
+            "2023-04-15"
+          ],
+          "description": "When the taxpayer or representative signed the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "submission_date",
+          "examples": [
+            "2023-04-20"
+          ],
+          "description": "When the form was filed or submitted (if known).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "comments",
+          "examples": [
+            "Filed electronically via IRS e-file system."
+          ],
+          "description": "Any additional remarks relevant to the form filing.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Tax Forms (W-9, 1099, 941, 1120)",
+      "document_description": "Various U.S. tax forms used for business or contractor reporting, payroll tax returns, and corporate income tax filings. Examples include W-9 for taxpayer identification, 1099 for reporting income to contractors, 941 for quarterly payroll taxes, and 1120 for corporate income tax returns.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Tax_Forms_W_9_1099_941_1120",
+        "columns": [
+          {
+            "name": "form_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "form_name"
+              ]
+            },
+            "description": "Name or identifier of the tax form (W-9, 1099-MISC, 941, 1120, etc.)."
+          },
+          {
+            "name": "tax_year_or_period",
+            "type": "string",
+            "source": {
+              "field": [
+                "tax_year_or_period"
+              ]
+            },
+            "description": "Tax year or reporting period covered by the form."
+          },
+          {
+            "name": "taxpayer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "taxpayer_name"
+              ]
+            },
+            "description": "Name of the individual or business submitting the form."
+          },
+          {
+            "name": "taxpayer_identification_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "taxpayer_identification_number"
+              ]
+            },
+            "description": "Employer Identification Number (EIN) or Social Security Number (SSN)."
+          },
+          {
+            "name": "address",
+            "type": "string",
+            "source": {
+              "field": [
+                "address"
+              ]
+            },
+            "description": "Mailing address of the taxpayer or entity."
+          },
+          {
+            "name": "form_specific_details",
+            "type": "string",
+            "source": {
+              "field": [
+                "form_specific_details"
+              ]
+            },
+            "description": "Key fields or line items unique to each form type."
+          },
+          {
+            "name": "signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "signature"
+              ]
+            },
+            "description": "Authorized signatory acknowledging the form\u2019s accuracy."
+          },
+          {
+            "name": "date_signed",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_signed"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "When the taxpayer or representative signed the form."
+          },
+          {
+            "name": "submission_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "submission_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "When the form was filed or submitted (if known)."
+          },
+          {
+            "name": "comments",
+            "type": "string",
+            "source": {
+              "field": [
+                "comments"
+              ]
+            },
+            "description": "Any additional remarks relevant to the form filing."
+          }
+        ],
+        "metadata": {},
+        "description": "Various U.S. tax forms used for business or contractor reporting, payroll tax returns, and corporate income tax filings. Examples include W-9 for taxpayer identification, 1099 for reporting income to contractors, 941 for quarterly payroll taxes, and 1120 for corporate income tax returns."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

@@ -1,0 +1,77 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# uv
+.uv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.mypy_cache
+.ruff_cache
+pytest.ini
+
+# Documentation
+*.md
+docs/
+
+# Examples and scripts
+examples/
+scripts/
+scratch/
+
+# Data and artifacts
+data/
+artifacts/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# CI/CD
+.github/
+Jenkinsfile
+sonar/
+
+# Deployment examples
+k8s-deployment-examples/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test directory
+tests/

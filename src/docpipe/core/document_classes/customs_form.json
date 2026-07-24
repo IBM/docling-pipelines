@@ -1,0 +1,249 @@
+{
+  "document_class_id": "6a1ca419-e473-4f99-acf0-e0319a7e2308",
+  "document_class_name": "Customs Form",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "customs_form_number",
+          "examples": [
+            "CN22-12345"
+          ],
+          "description": "Identifier for the customs form (e.g., CN22, CN23, or commercial invoice ref).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipper_exporter_name",
+          "examples": [
+            "ABC Exports Inc."
+          ],
+          "description": "Name of the exporting entity.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "destination_country",
+          "examples": [
+            "Canada"
+          ],
+          "description": "Country to which the shipment is being exported.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "description_of_contents",
+          "examples": [
+            "5 T-shirts, 2 Electronics"
+          ],
+          "description": "Details of items inside the package.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "quantity",
+          "examples": [
+            "7"
+          ],
+          "description": "Total count of items, if applicable.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "unit_value",
+          "examples": [
+            "10.00"
+          ],
+          "description": "Declared value per unit of the product.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_value",
+          "examples": [
+            "70.00"
+          ],
+          "description": "Sum of declared values for all items.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "weight",
+          "examples": [
+            "3 kg"
+          ],
+          "description": "Gross weight of the package or items.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hs_tariff_code",
+          "examples": [
+            "6109.10"
+          ],
+          "description": "Harmonized System code for commodity classification.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "signature_date",
+          "examples": [
+            "2023-06-01"
+          ],
+          "description": "Signature and date from shipper/exporter to certify correctness.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Customs Form",
+      "document_description": "Customs forms (e.g., CN22, commercial invoices for customs) may be a single-page document detailing declared goods, value, and origin. They are used by customs authorities to assess import duties, confirm import/export compliance, and ensure accurate cargo descriptions.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Customs_Form",
+        "columns": [
+          {
+            "name": "customs_form_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "customs_form_number"
+              ]
+            },
+            "description": "Identifier for the customs form (e.g., CN22, CN23, or commercial invoice ref)."
+          },
+          {
+            "name": "shipper_exporter_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipper_exporter_name"
+              ]
+            },
+            "description": "Name of the exporting entity."
+          },
+          {
+            "name": "destination_country",
+            "type": "string",
+            "source": {
+              "field": [
+                "destination_country"
+              ]
+            },
+            "description": "Country to which the shipment is being exported."
+          },
+          {
+            "name": "description_of_contents",
+            "type": "string",
+            "source": {
+              "field": [
+                "description_of_contents"
+              ]
+            },
+            "description": "Details of items inside the package."
+          },
+          {
+            "name": "quantity",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "quantity"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Total count of items, if applicable."
+          },
+          {
+            "name": "unit_value",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "unit_value"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Declared value per unit of the product."
+          },
+          {
+            "name": "total_value",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_value"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Sum of declared values for all items."
+          },
+          {
+            "name": "weight",
+            "type": "string",
+            "source": {
+              "field": [
+                "weight"
+              ]
+            },
+            "description": "Gross weight of the package or items."
+          },
+          {
+            "name": "hs_tariff_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "hs_tariff_code"
+              ]
+            },
+            "description": "Harmonized System code for commodity classification."
+          },
+          {
+            "name": "signature_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "signature_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Signature and date from shipper/exporter to certify correctness."
+          }
+        ],
+        "metadata": {},
+        "description": "Customs forms (e.g., CN22, commercial invoices for customs) may be a single-page document detailing declared goods, value, and origin. They are used by customs authorities to assess import duties, confirm import/export compliance, and ensure accurate cargo descriptions."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

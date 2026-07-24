@@ -1,0 +1,886 @@
+{
+  "document_class_id": "81a9443a-08d9-4646-81d4-49eca0e6076c",
+  "document_class_name": "Invoice",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "invoice_date",
+          "examples": [
+            "2024-02-04"
+          ],
+          "description": "the invoice creation or issue date.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "invoice_id",
+          "examples": [
+            "INV-2024-001"
+          ],
+          "description": "unique identifier, reference number, or invoice number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_name",
+          "examples": [
+            "John Smith"
+          ],
+          "description": "Full name of the person or company being billed.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_billing_address",
+          "examples": [
+            "123 Main St, Anytown, ST 12345"
+          ],
+          "description": "Complete billing address. This is where bills and invoices are sent.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_email",
+          "examples": [
+            "john@example.com"
+          ],
+          "description": "Any email address associated with the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_phone",
+          "examples": [
+            "+1 555-0123"
+          ],
+          "description": "Any phone number associated with the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_name",
+          "examples": [
+            "Jane Smith"
+          ],
+          "description": "Name of the recipient for delivery (may differ from billing name).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_address",
+          "examples": [
+            "456 Delivery Ln, Anytown, ST 12345"
+          ],
+          "description": "Complete address where goods are delivered.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_phone",
+          "examples": [
+            "+1 555-0124"
+          ],
+          "description": "Contact phone number for delivery purposes.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_name",
+          "examples": [
+            "Business Corp"
+          ],
+          "description": "Name of the company or person issuing the invoice.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_address",
+          "examples": [
+            "456 Commerce Ave, Business City, ST 54321"
+          ],
+          "description": "Complete business address of the vendor.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_email",
+          "examples": [
+            "billing@business.com"
+          ],
+          "description": "Vendor's contact email.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_phone",
+          "examples": [
+            "+1 555-9876"
+          ],
+          "description": "Vendor's contact phone number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "bank_name",
+          "examples": [
+            "First National Bank"
+          ],
+          "description": "he name of the vendor's bank.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "bank_account_number",
+          "examples": [
+            "1234567890"
+          ],
+          "description": "The vendor's bank account number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "branch_name",
+          "examples": [
+            "Downtown Branch"
+          ],
+          "description": "The name of the bank branch used by the vendor.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "iban",
+          "examples": [
+            "US29NWBK60161331926819"
+          ],
+          "description": "The International Bank Account Number (IBAN) of the vendor.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "swift",
+          "examples": [
+            "FNBUUS33"
+          ],
+          "description": "The SWIFT code for the vendor's bank.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax_id",
+          "examples": [
+            "12-3456789"
+          ],
+          "description": "The tax identification number of the vendor.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "sub_total",
+          "examples": [
+            "1000.00"
+          ],
+          "description": "Amount before tax or additional charges.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax",
+          "examples": [
+            "100.00"
+          ],
+          "description": "The tax amount applied.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total",
+          "examples": [
+            "1100.00"
+          ],
+          "description": "The final total amount including all charges.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_discount",
+          "examples": [
+            "1100.00"
+          ],
+          "description": "Total discount amount applied to the invoice.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_terms",
+          "examples": [
+            "Net 30"
+          ],
+          "description": "Any specified payment conditions or terms.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "due_date",
+          "examples": [
+            "2024-03-05"
+          ],
+          "description": "The date by which payment must be made.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "currency",
+          "examples": [
+            "USD"
+          ],
+          "description": "The currency used in the invoice.",
+          "available_options": [
+            "USD",
+            "EUR",
+            "CNY",
+            "JPY",
+            "GBP",
+            "AUD",
+            "CAD",
+            "CHF",
+            "HKD",
+            "SGD",
+            "INR",
+            "KRW",
+            "MXN",
+            "BRL",
+            "ZAR",
+            "SEK",
+            "NOK",
+            "DKK",
+            "NZD",
+            "TRY",
+            "AED",
+            "THB",
+            "PLN",
+            "IDR",
+            "MYR",
+            "PHP",
+            "RUB",
+            "CZK",
+            "ILS"
+          ],
+          "extraction_instructions": ""
+        },
+        {
+          "name": "currency_sign",
+          "affix": true,
+          "examples": [
+            "$"
+          ],
+          "description": "The currency sign of the currency used in the invoice.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_charge",
+          "examples": [
+            "100.0"
+          ],
+          "description": "Shipping or delivery fee as printed on the invoice (if applicable)",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "carrier",
+          "examples": [
+            "FEDEX"
+          ],
+          "description": "The shipping company who deliver the goods.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "purchase_order_number",
+          "examples": [
+            "PO-45678"
+          ],
+          "description": "Reference number provided by the buyer to authorize the purchase.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax_rate",
+          "examples": [
+            "17%"
+          ],
+          "description": "Percentage of tax applied to the subtotal.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax_type",
+          "examples": [
+            "VAT"
+          ],
+          "description": "Type of tax applied to the subtotal.",
+          "available_options": [
+            "VAT",
+            "Sales Tax",
+            "GST",
+            "Excise Tax",
+            "Service Tax",
+            "Withholding Tax",
+            "WHT",
+            "Environmental Taxes",
+            "Carbon Tax",
+            "Tourism Tax",
+            "Lodging Tax",
+            "CGST",
+            "IGST",
+            "SGST",
+            "Use Tax",
+            "Cess",
+            "HST",
+            "PST",
+            "QST",
+            "Consumption Tax"
+          ],
+          "extraction_instructions": ""
+        },
+        {
+          "name": "line_items",
+          "fields": [
+            {
+              "name": "amount",
+              "examples": [
+                "500.00"
+              ],
+              "description": "The total amount for the line item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "description",
+              "examples": [
+                "Product A"
+              ],
+              "description": "Description of the product or service of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "product_code",
+              "examples": [
+                "SKU-123"
+              ],
+              "description": "Any product code, SKU, or identifier for the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "quantity",
+              "examples": [
+                "2"
+              ],
+              "description": "Number of units purchased of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "unit",
+              "examples": [
+                "each"
+              ],
+              "description": "Unit of measurement (e.g., \"each\", \"kg\", \"hours\") of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "unit_price",
+              "examples": [
+                "250.00"
+              ],
+              "description": "Price per unit of the item.",
+              "extraction_instructions": ""
+            }
+          ],
+          "description": "Information about each product or service listed in the invoice."
+        }
+      ],
+      "document_type": "Invoice",
+      "document_description": "An invoice is a financial document issued by a seller to a buyer, outlining products or services provided, quantities, prices, and payment terms. It serves as a request for payment in a sales transaction.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Invoice_line_items",
+        "columns": [
+          {
+            "name": "amount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "amount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "The total amount for the line item."
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "description"
+              ]
+            },
+            "description": "Description of the product or service of the item."
+          },
+          {
+            "name": "product_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "product_code"
+              ]
+            },
+            "description": "Any product code, SKU, or identifier for the item."
+          },
+          {
+            "name": "quantity",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "quantity"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Number of units purchased of the item."
+          },
+          {
+            "name": "unit",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "unit"
+              ]
+            },
+            "description": "Unit of measurement (e.g., \"each\", \"kg\", \"hours\") of the item."
+          },
+          {
+            "name": "unit_price",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "unit_price"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Price per unit of the item."
+          }
+        ],
+        "metadata": {},
+        "description": "Information about each product or service listed in the invoice."
+      },
+      {
+        "name": "Invoice",
+        "columns": [
+          {
+            "name": "invoice_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "invoice_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "the invoice creation or issue date."
+          },
+          {
+            "name": "invoice_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "invoice_id"
+              ]
+            },
+            "description": "unique identifier, reference number, or invoice number."
+          },
+          {
+            "name": "customer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_name"
+              ]
+            },
+            "description": "Full name of the person or company being billed."
+          },
+          {
+            "name": "customer_billing_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_billing_address"
+              ]
+            },
+            "description": "Complete billing address. This is where bills and invoices are sent."
+          },
+          {
+            "name": "customer_email",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_email"
+              ]
+            },
+            "description": "Any email address associated with the customer."
+          },
+          {
+            "name": "customer_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_phone"
+              ]
+            },
+            "description": "Any phone number associated with the customer."
+          },
+          {
+            "name": "shipping_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipping_name"
+              ]
+            },
+            "description": "Name of the recipient for delivery (may differ from billing name)."
+          },
+          {
+            "name": "shipping_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipping_address"
+              ]
+            },
+            "description": "Complete address where goods are delivered."
+          },
+          {
+            "name": "shipping_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipping_phone"
+              ]
+            },
+            "description": "Contact phone number for delivery purposes."
+          },
+          {
+            "name": "vendor_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_name"
+              ]
+            },
+            "description": "Name of the company or person issuing the invoice."
+          },
+          {
+            "name": "vendor_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_address"
+              ]
+            },
+            "description": "Complete business address of the vendor."
+          },
+          {
+            "name": "vendor_email",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_email"
+              ]
+            },
+            "description": "Vendor's contact email."
+          },
+          {
+            "name": "vendor_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_phone"
+              ]
+            },
+            "description": "Vendor's contact phone number."
+          },
+          {
+            "name": "bank_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "bank_name"
+              ]
+            },
+            "description": "he name of the vendor's bank."
+          },
+          {
+            "name": "bank_account_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "bank_account_number"
+              ]
+            },
+            "description": "The vendor's bank account number."
+          },
+          {
+            "name": "branch_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "branch_name"
+              ]
+            },
+            "description": "The name of the bank branch used by the vendor."
+          },
+          {
+            "name": "iban",
+            "type": "string",
+            "source": {
+              "field": [
+                "iban"
+              ]
+            },
+            "description": "The International Bank Account Number (IBAN) of the vendor."
+          },
+          {
+            "name": "swift",
+            "type": "string",
+            "source": {
+              "field": [
+                "swift"
+              ]
+            },
+            "description": "The SWIFT code for the vendor's bank."
+          },
+          {
+            "name": "tax_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "tax_id"
+              ]
+            },
+            "description": "The tax identification number of the vendor."
+          },
+          {
+            "name": "sub_total",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "sub_total"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Amount before tax or additional charges."
+          },
+          {
+            "name": "tax",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "tax"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "The tax amount applied."
+          },
+          {
+            "name": "total",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "The final total amount including all charges."
+          },
+          {
+            "name": "total_discount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_discount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total discount amount applied to the invoice."
+          },
+          {
+            "name": "payment_terms",
+            "type": "string",
+            "source": {
+              "field": [
+                "payment_terms"
+              ]
+            },
+            "description": "Any specified payment conditions or terms."
+          },
+          {
+            "name": "due_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "due_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The date by which payment must be made."
+          },
+          {
+            "name": "currency",
+            "type": "string",
+            "source": {
+              "field": [
+                "currency"
+              ]
+            },
+            "description": "The currency used in the invoice."
+          },
+          {
+            "name": "currency_sign",
+            "type": "string",
+            "source": {
+              "field": [
+                "currency_sign"
+              ]
+            },
+            "description": "The currency sign of the currency used in the invoice."
+          },
+          {
+            "name": "shipping_charge",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "shipping_charge"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Shipping or delivery fee as printed on the invoice (if applicable)"
+          },
+          {
+            "name": "carrier",
+            "type": "string",
+            "source": {
+              "field": [
+                "carrier"
+              ]
+            },
+            "description": "The shipping company who deliver the goods."
+          },
+          {
+            "name": "purchase_order_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "purchase_order_number"
+              ]
+            },
+            "description": "Reference number provided by the buyer to authorize the purchase."
+          },
+          {
+            "name": "tax_rate",
+            "type": "string",
+            "source": {
+              "field": [
+                "tax_rate"
+              ]
+            },
+            "description": "Percentage of tax applied to the subtotal."
+          },
+          {
+            "name": "tax_type",
+            "type": "string",
+            "source": {
+              "field": [
+                "tax_type"
+              ]
+            },
+            "description": "Type of tax applied to the subtotal."
+          }
+        ],
+        "metadata": {},
+        "description": "An invoice is a financial document issued by a seller to a buyer, outlining products or services provided, quantities, prices, and payment terms. It serves as a request for payment in a sales transaction."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-11-20T15:43:49Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "IBMid-69300096B9",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": false,
+  "is_enabled": true
+}

@@ -1,0 +1,68 @@
+{
+  "flow_name": "LiteLLM Schema-Free Entity Extraction",
+  "description": "Entity extraction using LiteLLM without predefined schema - auto-discovers entities from documents",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices",
+        "include_filter": "pdf,docx,txt"
+      }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/granite4:latest",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": false,
+        "max_content_length": 8000
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/granite4:latest",
+            "temperature": 0.0,
+            "max_tokens": 2000,
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<ollama_key>"
+          },
+          "max_doc_chars": 8000,
+          "expand_extracted_data": false
+        },
+        "max_workers": 2
+      },
+      "depends_on": [
+        "classify"
+      ]
+    }
+  ]
+}

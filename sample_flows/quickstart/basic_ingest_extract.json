@@ -1,0 +1,35 @@
+{
+  "flow_name": "Basic Text Extraction Flow",
+  "description": "Basic text extraction using Docling with table and image extraction",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices",
+        "include_filter": "pdf,docx,txt,md"
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "max_workers": 4
+      }
+    }
+  ]
+}

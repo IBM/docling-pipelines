@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# uv
+.uv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.ruff_cache/
+.mypy_cache/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+.env.local
+
+# Runtime data and logs
+/data/
+*.parquet
+*.parquet.lock
+*.pkl
+docs/arch
+src/docpipe_app/backend/data/
+
+# Downloaded models
+src/docpipe_app/backend/models/
+src/docpipe_app/models/
+src/models/
+
+# Bob AI Assistant
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebook runtime output
+examples/notebooks/data/
+
+# Connector credentials
+examples/connectors/.env
+examples/connectors/*-service-account.json
+examples/connectors/google-service-account.json
+
+# Local test artifacts with credentials
+test_flows/
+
+graphify-out
+.bob/
+Jenkinsfile

@@ -1,0 +1,50 @@
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # until Mend supports `uv` directly, an export to requirements.txt is needed.
+    # the .whitesource.config is adjusted accordingly
+    # uv version.
+    rev: 0.10.2
+    hooks:
+      - id: uv-export
+        files: ^(pyproject\.toml|uv\.lock)$
+        args:
+          [
+            "--no-hashes",
+            "--frozen",
+            "--no-annotate",
+            "--output-file=requirements.txt",
+            "--no-dev",
+            "--all-packages",
+          ]
+
+  # Strip Jupyter notebook outputs before other checks
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
+        files: \.ipynb$
+
+  # Python linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.5
+    hooks:
+      - id: ruff-format
+        files: ^.*\.py$
+      - id: ruff
+        args: [--fix]
+        files: ^.*\.py$
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        language_version: python3.12
+        args: [--ignore-missing-imports, --config-file=pyproject.toml, --python-version=3.12]
+        additional_dependencies: [types-requests, types-cachetools, pydantic]
+        files: ^src/.*\.py$
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]

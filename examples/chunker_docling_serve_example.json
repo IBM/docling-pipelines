@@ -1,0 +1,57 @@
+{
+  "flow_name": "Docling-Serve Remote Chunking Test",
+  "description": "Test flow for docling-serve remote chunking feature",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": ["./tests/fixtures/invoices"]
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "text_extraction": {
+          "doc_column": "content",
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      }
+    },
+    {
+      "name": "chunker",
+      "type": "chunker",
+      "depends_on": [
+        "extract"
+      ],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "provider": "docling_serve",
+        "provider_config": {
+          "api_base": "http://localhost:5001",
+          "timeout": 120,
+          "poll_interval": 2,
+          "max_retries": 3,
+          "verify_ssl": true
+        },
+        "retain_original_content": false
+      }
+    }
+  ]
+}

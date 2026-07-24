@@ -1,0 +1,121 @@
+{
+  "document_class_id": "36b7b998-a11d-4fe5-8489-90f4e117c6a2",
+  "document_class_name": "CustomerInfo",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "natureOfContact",
+          "examples": [
+            "General Information",
+            "Problem Resolution",
+            "Technical assistance",
+            "Permitting/Licensing Assistance",
+            "Other (describe) "
+          ],
+          "description": "What was the nature of your contact with us?",
+          "extraction_instructions": "What was the nature of your contact with us?"
+        },
+        {
+          "name": "officeOfContact",
+          "examples": [
+            "Eureka",
+            "Fresno",
+            "Lodi",
+            "Headquarters",
+            "Oakland"
+          ],
+          "description": "Which ABC office did you contact?",
+          "extraction_instructions": "Which ABC office did you contact?"
+        },
+        {
+          "name": "Name",
+          "examples": [
+            "Name"
+          ],
+          "description": "describes name\nof the person"
+        },
+        {
+          "name": "phoneNumber",
+          "examples": [
+            "Phone"
+          ],
+          "description": "describes phone number\nof person",
+          "extraction_instructions": "sds\nw wew\n"
+        }
+      ],
+      "document_type": "CustomerInfo",
+      "document_description": "The Business, Consumer Services and Housing Agency and the Department of\nAlcoholic Beverage Control would like to provide you with the best possible service and\nyour input is vital to our success. Please help us serve you and others better by taking a\nfew minutes to answer the questions below. Thank you for responding.\n",
+      "additional_prompt_instructions": "\n"
+    },
+    "target_tables": [
+      {
+        "name": "customerSurevy_Details",
+        "columns": [
+          {
+            "name": "officeOfContact",
+            "type": "string",
+            "source": {
+              "field": [
+                "officeOfContact"
+              ]
+            },
+            "description": "describes office of contact"
+          },
+          {
+            "name": "natureOfContact",
+            "type": "string",
+            "source": {
+              "field": [
+                "natureOfContact"
+              ]
+            }
+          }
+        ],
+        "description": ""
+      },
+      {
+        "name": "customerDetails",
+        "columns": [
+          {
+            "name": "personName",
+            "type": "string",
+            "source": {
+              "field": [
+                "Name"
+              ]
+            },
+            "description": "person Name"
+          },
+          {
+            "name": "perspnPhoneNumber",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "weight",
+                    "value": {
+                      "field": [
+                        "phoneNumber"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "weight_to_numeric"
+              }
+            },
+            "description": "describes person phone number"
+          }
+        ],
+        "description": "test\n"
+      }
+    ]
+  },
+  "created_time": "2025-12-08T16:23:38Z",
+  "last_modified_time": "2025-12-09T14:41:55Z",
+  "created_by": "IBMid-2700065J29",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": false,
+  "is_enabled": true
+}

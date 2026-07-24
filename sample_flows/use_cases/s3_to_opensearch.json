@@ -1,0 +1,130 @@
+{
+  "flow_name": "S3 to OpenSearch Pipeline",
+  "description": "Ingest documents from AWS S3 bucket, extract text, chunk text, generate embeddings using Ollama, and store in OpenSearch.",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest_s3",
+      "type": "ingest_source",
+      "config": {
+        "provider": "s3",
+        "connection_params": {
+          "bucket": "${S3_BUCKET_NAME}",
+          "prefix": "${S3_PREFIX:}"
+        },
+        "credentials": {
+          "access_key": "${S3_ACCESS_KEY}",
+          "secret_key": "${S3_SECRET_ACCESS_KEY}"        
+        },
+        "max_files": 100,
+        "force_ingest": true
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest_s3"
+      ]
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "config": {
+        "doc_column": "content",
+        "chunk_size": 512,
+        "chunk_overlap": 128
+      },
+      "depends_on": [
+        "extract"
+      ]
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "config": {
+        "doc_column": "content",
+        "embeddings_column": "embeddings",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/nomic-embed-text"
+        },
+        "provider": "litellm"
+      },
+      "depends_on": [
+        "chunk"
+      ]
+    },
+    {
+      "name": "store_opensearch",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "docpipe_s3_documents",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": "true",
+        "provider_config": {
+          "host": "9.30.97.49",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": true,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID Hash",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "source_id": {
+            "name": "Source Path",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "content": "text",
+          "source_id": "source_id",
+          "embeddings": "vector_embeddings"
+        }
+      },
+      "depends_on": [
+        "embeddings"
+      ]    
+    }
+  ]
+}

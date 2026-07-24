@@ -1,0 +1,32 @@
+[run]
+branch = True
+source = src/docpipe_app
+omit =
+    */tests/*
+    */test_*.py
+    */*_test.py
+    */venv/*
+    */virtualenv/*
+    */.venv/*
+    */site-packages/*
+    */ui/*
+    */examples/*
+    */__init__.py
+    /data/*
+    /sonar/*
+    /docs/*
+    /dist/*
+    /build/*
+    /ui/*
+
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == "__main__":
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abc.abstractmethod

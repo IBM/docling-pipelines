@@ -1,0 +1,72 @@
+{
+  "flow_name": "PII and HAP Detection Flow with LiteLLM",
+  "description": "Flow to detect PII and HAP in documents using LiteLLM with Ollama's OpenAI-compatible endpoint",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "tests/fixtures/customer_support_docs/",
+        "include_filter": "txt",
+        "max_workers": 2
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "pii_and_hap_detection",
+      "type": "pii_and_hap",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/llama3.2:3b",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
+        "pii_threshold": 0.5,
+        "hap_threshold": 0.75,
+        "expected_redactions": [
+          "pii",
+          "hap"
+        ],
+        "pii_list": [
+          "EmailAddress",
+          "PhoneNumber",
+          "SocialSecurityNumber",
+          "CreditCardNumber",
+          "BankAccountNumber",
+          "IPAddress"
+        ],
+        "redaction": true,
+        "redaction_character": "*",
+        "hap_redaction": true,
+        "hap_redaction_character": "#",
+        "display_pii": true,
+        "max_workers": 4,
+        "chunk_size": 50000,
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "extract"
+      ]
+    }
+  ]
+}

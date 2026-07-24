@@ -1,0 +1,57 @@
+{
+  "flow_name": "document-set-storage-example",
+  "description": "Example pipeline demonstrating DocumentSet operator for persistent document storage with metadata tracking. This flow ingests documents, extracts content using Docling, and stores them in a DuckDB-backed document set with comprehensive metadata.",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "type": "ingest_local",
+      "name": "ingest_documents",
+      "config": {
+        "paths": "./sample_documents",
+        "include_filter": "pdf,txt,docx",
+        "max_workers": 4,
+        "doc_id_hash_column": "id"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_content",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest_documents"
+      ]
+    },
+    {
+      "type": "document_set",
+      "name": "store_documents",
+      "config": {
+        "document_set_name": "extracted_documents_collection",
+        "description": "Persistent storage of extracted document content with metadata tracking",
+        "database_path": "./data/document_sets/extracted_docs.duckdb",
+        "data_backend": "duckdb",
+        "metadata_backend": "duckdb",
+        "retain_deleted_docs": false,
+        "metadata": {
+          "pipeline_version": "1.0",
+          "extraction_method": "docling",
+          "created_by": "docpipe_pipeline",
+          "purpose": "demonstration_flow"
+        }
+      },
+      "depends_on": [
+        "extract_content"
+      ]
+    }
+  ]
+}

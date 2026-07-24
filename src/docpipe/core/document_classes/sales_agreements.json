@@ -1,0 +1,58 @@
+{
+  "document_class_id": "5466c23c-55d0-4256-8a02-18ef018aeb16",
+  "document_class_name": "Sales agreements",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "Seller",
+          "examples": [
+            "Bob"
+          ],
+          "description": "An entity that sells an item or service"
+        },
+        {
+          "name": "Buyer",
+          "examples": [
+            "Ask bob"
+          ],
+          "description": "An entity that buys an item or service"
+        }
+      ],
+      "document_type": "Sales agreements",
+      "document_description": "A sales agreement is an agreement between two parties to conduct a deal."
+    },
+    "target_tables": [
+      {
+        "name": "Sales agreements",
+        "columns": [
+          {
+            "name": "buyer",
+            "type": "string",
+            "source": {
+              "field": [
+                "Buyer"
+              ]
+            }
+          },
+          {
+            "name": "seller",
+            "type": "string",
+            "source": {
+              "field": [
+                "Seller"
+              ]
+            }
+          }
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "created_time": "2026-01-30T21:45:26Z",
+  "last_modified_time": "2026-01-30T21:49:53Z",
+  "created_by": "IBMid-6950006123",
+  "last_modified_by": "IBMid-6950006123",
+  "is_predefined": false,
+  "is_enabled": true
+}

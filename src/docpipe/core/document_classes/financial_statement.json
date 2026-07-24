@@ -1,0 +1,381 @@
+{
+  "document_class_id": "224dafd8-0ee2-461a-bed2-64f5c381ad27",
+  "document_class_name": "Financial Statement",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "statement_type",
+          "examples": [
+            "Balance Sheet, Income Statement, or Cash Flow Statement"
+          ],
+          "description": "Type of the financial statement being referenced.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "reporting_period_start",
+          "examples": [
+            "2023-01-01"
+          ],
+          "description": "Start date of the period covered by the statement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "reporting_period_end",
+          "examples": [
+            "2023-03-31"
+          ],
+          "description": "End date of the period covered by the statement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "company_name",
+          "examples": [
+            "ABC Corporation"
+          ],
+          "description": "Name of the business entity whose financial data is shown.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "company_address",
+          "examples": [
+            "500 Industrial Rd, FinanceTown, ST 88888"
+          ],
+          "description": "Primary address or location of the company (if included).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_assets",
+          "examples": [
+            "500000.00"
+          ],
+          "description": "Sum of all assets on the balance sheet (if it\u2019s a balance sheet).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_liabilities",
+          "examples": [
+            "300000.00"
+          ],
+          "description": "Sum of all liabilities (if relevant to statement type).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shareholders_equity",
+          "examples": [
+            "200000.00"
+          ],
+          "description": "Equity or net worth portion (balance sheet).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "net_income",
+          "examples": [
+            "15000.00"
+          ],
+          "description": "Profit or loss for the stated period (income statement).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "revenues",
+          "examples": [
+            "90000.00"
+          ],
+          "description": "Total revenue or sales (income statement).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "expenses",
+          "examples": [
+            "75000.00"
+          ],
+          "description": "Total expenses or costs (income statement).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "cash_flow_from_operations",
+          "examples": [
+            "12000.00"
+          ],
+          "description": "Operating cash flow figure (cash flow statement).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "notes_and_disclosures",
+          "examples": [
+            "See attached footnotes for inventory valuation method."
+          ],
+          "description": "Additional explanatory information provided with the statements.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_issued",
+          "examples": [
+            "2023-04-15"
+          ],
+          "description": "When the financial statements were published or finalized.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Financial Statement",
+      "document_description": "Financial statements (e.g., Balance Sheet, Income Statement, Cash Flow Statement) present a formal record of an entity\u2019s financial activities. They are used for reporting, compliance, and decision-making by stakeholders.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Financial_Statement",
+        "columns": [
+          {
+            "name": "statement_type",
+            "type": "string",
+            "source": {
+              "field": [
+                "statement_type"
+              ]
+            },
+            "description": "Type of the financial statement being referenced."
+          },
+          {
+            "name": "reporting_period_start",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "reporting_period_start"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Start date of the period covered by the statement."
+          },
+          {
+            "name": "reporting_period_end",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "reporting_period_end"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "End date of the period covered by the statement."
+          },
+          {
+            "name": "company_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "company_name"
+              ]
+            },
+            "description": "Name of the business entity whose financial data is shown."
+          },
+          {
+            "name": "company_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "company_address"
+              ]
+            },
+            "description": "Primary address or location of the company (if included)."
+          },
+          {
+            "name": "total_assets",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_assets"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Sum of all assets on the balance sheet (if it\u2019s a balance sheet)."
+          },
+          {
+            "name": "total_liabilities",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_liabilities"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Sum of all liabilities (if relevant to statement type)."
+          },
+          {
+            "name": "shareholders_equity",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "shareholders_equity"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Equity or net worth portion (balance sheet)."
+          },
+          {
+            "name": "net_income",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "net_income"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Profit or loss for the stated period (income statement)."
+          },
+          {
+            "name": "revenues",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "revenues"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total revenue or sales (income statement)."
+          },
+          {
+            "name": "expenses",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "expenses"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total expenses or costs (income statement)."
+          },
+          {
+            "name": "cash_flow_from_operations",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "cash_flow_from_operations"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Operating cash flow figure (cash flow statement)."
+          },
+          {
+            "name": "notes_and_disclosures",
+            "type": "string",
+            "source": {
+              "field": [
+                "notes_and_disclosures"
+              ]
+            },
+            "description": "Additional explanatory information provided with the statements."
+          },
+          {
+            "name": "date_issued",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_issued"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "When the financial statements were published or finalized."
+          }
+        ],
+        "metadata": {},
+        "description": "Financial statements (e.g., Balance Sheet, Income Statement, Cash Flow Statement) present a formal record of an entity\u2019s financial activities. They are used for reporting, compliance, and decision-making by stakeholders."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

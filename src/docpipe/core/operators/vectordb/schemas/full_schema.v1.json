@@ -1,0 +1,57 @@
+{
+  "schema_name": "test_full_schema",
+  "schema_version": 1,
+  "settings": {
+    "index": {
+      "number_of_shards": 2,
+      "number_of_replicas": 1,
+      "knn": true,
+      "knn.algo_param.ef_search": 100
+    },
+    "analysis": {
+      "analyzer": {
+        "test_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "doc_id": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text",
+        "analyzer": "test_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "embeddings": {
+        "type": "knn_vector",
+        "method": {
+          "name": "__ALGORITHM__",
+          "space_type": "__SPACE_TYPE__",
+          "engine": "__ENGINE__",
+          "parameters": "__ENGINE_PARAMETERS__"
+        }
+      },
+      "metadata": {
+        "type": "object",
+        "dynamic": true
+      }
+    },
+    "_meta": {
+      "engine": "__ENGINE__",
+      "algorithm": "__ALGORITHM__",
+      "space_type": "__SPACE_TYPE__",
+      "created_by": "docpipe"
+    }
+  }
+}

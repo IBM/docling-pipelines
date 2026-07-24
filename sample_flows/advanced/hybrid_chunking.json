@@ -1,0 +1,84 @@
+{
+  "flow_name": "sample flow with summarization",
+  "flow_id": "55578a6c-96b0-4f51-af8f-3aa63c575141",
+  "description": "Test flow demonstrating chunker with summarization enabled",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "enable_micro_batching": true,
+    "micro_batch_size": 10,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/customer_support_docs",
+        "include_filter": "txt"
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      }
+    },
+    {
+      "name": "sql_filter",
+      "type": "sql_filter",
+      "depends_on": [
+        "extract"
+      ],
+      "config": {
+        "criteria_json": {
+          "criteria_list": [
+            {
+              "variable": "path",
+              "operator": "is not null"
+            }
+          ],
+          "logical_operator": "AND"
+        },
+        "features_to_drop": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": [
+        "sql_filter"
+      ],
+      "config": {
+        "chunk_type": "hybrid",
+        "doc_column": "content",
+        "provider": "docling_library",
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "retain_original_content": false,
+        "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
+        "summarization": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "llama3.2",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<value>"
+          },
+          "summary_sentences": 2,
+          "summary_max_words": 30
+        }
+      }
+    }
+  ]
+}

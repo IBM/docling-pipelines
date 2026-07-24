@@ -1,0 +1,6 @@
+Welcome to Docpipe!
+
+Docpipe is a modular data processing framework for building flexible pipelines.
+It supports document extraction, chunking, embeddings, and vector storage.
+
+This verification document is used to confirm that chunking no longer retains the original content by default.

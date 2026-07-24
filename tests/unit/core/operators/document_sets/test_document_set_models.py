@@ -1,0 +1,427 @@
+"""Unit tests for DocumentSet domain models.
+
+Tests cover:
+- DocumentSet creation and validation
+- StorageReference serialization
+- DataCard serialization
+- Statistics update methods
+- Invalid data handling
+"""
+
+from datetime import datetime
+
+import pytest
+
+from docpipe.core.assets.document_sets.domain.models.data_card import DataCard
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.core.assets.document_sets.domain.models.storage_reference import (
+    StorageReference,
+)
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+
+class TestDocumentSetCreation:
+    """Test DocumentSet creation and initialization."""
+
+    def test_document_set_creation(self):
+        """Test creating a DocumentSet with valid data."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            description="Test description",
+            database_path="/data/test.db",
+            table_name="test_table",
+        )
+
+        assert doc_set.name == "Test Documents"
+        assert doc_set.description == "Test description"
+        assert doc_set.database_path == "/data/test.db"
+        assert doc_set.table_name == "test_table"
+        assert doc_set.id is not None
+        assert doc_set.storage_backend == "duckdb"
+        assert doc_set.total_documents == 0
+        assert doc_set.total_size_bytes == 0
+        assert doc_set.total_pages == 0
+        assert isinstance(doc_set.created_at, datetime)
+        assert isinstance(doc_set.updated_at, datetime)
+        assert isinstance(doc_set.metadata, dict)
+        assert isinstance(doc_set.storage_reference, StorageReference)
+
+    def test_document_set_with_custom_id(self):
+        """Test creating a DocumentSet with custom ID."""
+        custom_id = "custom-id-123"
+        doc_set = DocumentSet(
+            id=custom_id,
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+        )
+
+        assert doc_set.id == custom_id
+
+    def test_document_set_with_metadata(self):
+        """Test creating a DocumentSet with custom metadata."""
+        metadata = {"source": "test", "version": "1.0"}
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+            metadata=metadata,
+        )
+
+        assert doc_set.metadata == metadata
+
+    def test_document_set_with_statistics(self):
+        """Test creating a DocumentSet with statistics."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+            total_documents=100,
+            total_size_bytes=1024000,
+            total_pages=500,
+        )
+
+        assert doc_set.total_documents == 100
+        assert doc_set.total_size_bytes == 1024000
+        assert doc_set.total_pages == 500
+
+
+class TestDocumentSetValidation:
+    """Test DocumentSet validation rules."""
+
+    def test_document_set_validation_success(self):
+        """Test validation passes with valid data."""
+        doc_set = DocumentSet(name="Valid Name", database_path="/data/test.db", table_name="test_table")
+
+        doc_set.validate()  # Should not raise
+
+    def test_validation_empty_name(self):
+        """Test validation fails with empty name."""
+        doc_set = DocumentSet(name="", database_path="/data/test.db", table_name="test_table")
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "name cannot be empty" in str(exc_info.value)
+
+    def test_validation_name_starts_with_number(self):
+        """Test validation fails when name starts with number."""
+        doc_set = DocumentSet(name="123 Documents", database_path="/data/test.db", table_name="test_table")
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "must start with an alphabetic character" in str(exc_info.value)
+
+    def test_validation_name_invalid_characters(self):
+        """Test validation fails with invalid characters in name."""
+        doc_set = DocumentSet(
+            name="Test@Documents!",
+            database_path="/data/test.db",
+            table_name="test_table",
+        )
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "can only contain letters, digits, spaces, and underscores" in str(exc_info.value)
+
+    def test_validation_name_too_long(self):
+        """Test validation fails when name exceeds max length."""
+        long_name = "A" * 129  # Max is 128
+        doc_set = DocumentSet(name=long_name, database_path="/data/test.db", table_name="test_table")
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "cannot exceed 128 characters" in str(exc_info.value)
+
+    def test_validation_description_too_long(self):
+        """Test validation fails when description exceeds max length."""
+        long_desc = "A" * 2001  # Max is 2000
+        doc_set = DocumentSet(
+            name="Test Documents",
+            description=long_desc,
+            database_path="/data/test.db",
+            table_name="test_table",
+        )
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "description cannot exceed 2000 characters" in str(exc_info.value)
+
+    def test_validation_empty_database_path(self):
+        """Test validation fails with empty database path."""
+        doc_set = DocumentSet(name="Test Documents", database_path="", table_name="test_table")
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "Database path cannot be empty" in str(exc_info.value)
+
+    def test_validation_empty_table_name(self):
+        """Test validation fails with empty table name."""
+        doc_set = DocumentSet(name="Test Documents", database_path="/data/test.db", table_name="")
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "Table name cannot be empty" in str(exc_info.value)
+
+    def test_validation_negative_documents(self):
+        """Test validation fails with negative document count."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+            total_documents=-1,
+        )
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "Total documents cannot be negative" in str(exc_info.value)
+
+    def test_validation_negative_size(self):
+        """Test validation fails with negative size."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+            total_size_bytes=-1,
+        )
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "Total size bytes cannot be negative" in str(exc_info.value)
+
+    def test_validation_negative_pages(self):
+        """Test validation fails with negative pages."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+            total_pages=-1,
+        )
+
+        with pytest.raises(DocpipeException) as exc_info:
+            doc_set.validate()
+        assert "Total pages cannot be negative" in str(exc_info.value)
+
+
+class TestStorageReferenceSerialization:
+    """Test StorageReference serialization and deserialization."""
+
+    def test_storage_reference_to_dict(self):
+        """Test StorageReference to_dict method."""
+        storage_ref = StorageReference(
+            backend_type="duckdb",
+            database_path="/data/test.db",
+            table_name="test_table",
+            schema_name="public",
+        )
+
+        result = storage_ref.to_dict()
+
+        assert result["backend_type"] == "duckdb"
+        assert result["database_path"] == "/data/test.db"
+        assert result["table_name"] == "test_table"
+        assert result["schema_name"] == "public"
+
+    def test_storage_reference_from_dict(self):
+        """Test StorageReference from_dict method."""
+        data = {
+            "backend_type": "duckdb",
+            "database_path": "/data/test.db",
+            "table_name": "test_table",
+            "schema_name": "public",
+        }
+
+        storage_ref = StorageReference.from_dict(data)
+
+        assert storage_ref.backend_type == "duckdb"
+        assert storage_ref.database_path == "/data/test.db"
+        assert storage_ref.table_name == "test_table"
+        assert storage_ref.schema_name == "public"
+
+    def test_storage_reference_roundtrip(self):
+        """Test StorageReference serialization roundtrip."""
+        original = StorageReference(
+            backend_type="duckdb",
+            database_path="/data/test.db",
+            table_name="test_table",
+        )
+
+        data = original.to_dict()
+        restored = StorageReference.from_dict(data)
+
+        assert restored.backend_type == original.backend_type
+        assert restored.database_path == original.database_path
+        assert restored.table_name == original.table_name
+
+
+class TestDataCardSerialization:
+    """Test DataCard serialization and deserialization."""
+
+    def test_data_card_to_dict(self):
+        """Test DataCard to_dict method."""
+        data_card = DataCard(
+            flow_id="flow-123",
+            flow_name="Test Flow",
+            job_id="job-456",
+            job_run_id="run-789",
+            operators=["IngestOperator", "ExtractOperator"],
+            lineage_metadata={"source": "test"},
+        )
+
+        result = data_card.to_dict()
+
+        assert result["flow_id"] == "flow-123"
+        assert result["flow_name"] == "Test Flow"
+        assert result["job_id"] == "job-456"
+        assert result["job_run_id"] == "run-789"
+        assert result["operators"] == ["IngestOperator", "ExtractOperator"]
+        assert result["lineage_metadata"] == {"source": "test"}
+
+    def test_data_card_from_dict(self):
+        """Test DataCard from_dict method."""
+        data = {
+            "flow_id": "flow-123",
+            "flow_name": "Test Flow",
+            "job_id": "job-456",
+            "job_run_id": "run-789",
+            "operators": ["IngestOperator", "ExtractOperator"],
+            "lineage_metadata": {"source": "test"},
+        }
+
+        data_card = DataCard.from_dict(data)
+
+        assert data_card.flow_id == "flow-123"
+        assert data_card.flow_name == "Test Flow"
+        assert data_card.job_id == "job-456"
+        assert data_card.job_run_id == "run-789"
+        assert data_card.operators == ["IngestOperator", "ExtractOperator"]
+        assert data_card.lineage_metadata == {"source": "test"}
+
+    def test_data_card_roundtrip(self):
+        """Test DataCard serialization roundtrip."""
+        original = DataCard(flow_id="flow-123", flow_name="Test Flow", operators=["Op1", "Op2"])
+
+        data = original.to_dict()
+        restored = DataCard.from_dict(data)
+
+        assert restored.flow_id == original.flow_id
+        assert restored.flow_name == original.flow_name
+        assert restored.operators == original.operators
+
+
+class TestDocumentSetUpdateStatistics:
+    """Test DocumentSet statistics update methods."""
+
+    def test_update_statistics(self):
+        """Test update_statistics method."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+        )
+
+        original_updated_at = doc_set.updated_at
+
+        doc_set.update_statistics(total_documents=100, total_size_bytes=1024000, total_pages=500)
+
+        assert doc_set.total_documents == 100
+        assert doc_set.total_size_bytes == 1024000
+        assert doc_set.total_pages == 500
+        assert doc_set.updated_at > original_updated_at
+
+    def test_update_statistics_partial(self):
+        """Test update_statistics with partial updates."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+            total_documents=50,
+            total_size_bytes=512000,
+            total_pages=250,
+        )
+
+        doc_set.update_statistics(total_documents=100)
+
+        assert doc_set.total_documents == 100
+        assert doc_set.total_size_bytes == 512000  # Unchanged
+        assert doc_set.total_pages == 250  # Unchanged
+
+    def test_update_timestamp(self):
+        """Test update_timestamp method."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            database_path="/data/test.db",
+            table_name="test_table",
+        )
+
+        original_updated_at = doc_set.updated_at
+
+        doc_set.update_timestamp()
+
+        assert doc_set.updated_at > original_updated_at
+
+
+class TestDocumentSetSerialization:
+    """Test DocumentSet serialization and deserialization."""
+
+    def test_document_set_to_dict(self):
+        """Test DocumentSet to_dict method."""
+        doc_set = DocumentSet(
+            name="Test Documents",
+            description="Test description",
+            database_path="/data/test.db",
+            table_name="test_table",
+            total_documents=100,
+            metadata={"source": "test"},
+        )
+
+        result = doc_set.to_dict()
+
+        assert result["name"] == "Test Documents"
+        assert result["description"] == "Test description"
+        assert result["database_path"] == "/data/test.db"
+        assert result["table_name"] == "test_table"
+        assert result["total_documents"] == 100
+        assert result["metadata"] == {"source": "test"}
+        assert "id" in result
+        assert "created_at" in result
+        assert "updated_at" in result
+
+    def test_document_set_from_dict(self):
+        """Test DocumentSet from_dict method."""
+        data = {
+            "id": "test-id-123",
+            "name": "Test Documents",
+            "description": "Test description",
+            "database_path": "/data/test.db",
+            "table_name": "test_table",
+            "total_documents": 100,
+            "total_size_bytes": 1024000,
+            "total_pages": 500,
+            "metadata": {"source": "test"},
+        }
+
+        doc_set = DocumentSet.from_dict(data)
+
+        assert doc_set.id == "test-id-123"
+        assert doc_set.name == "Test Documents"
+        assert doc_set.description == "Test description"
+        assert doc_set.total_documents == 100
+        assert doc_set.metadata == {"source": "test"}
+
+    def test_document_set_roundtrip(self):
+        """Test DocumentSet serialization roundtrip."""
+        original = DocumentSet(
+            name="Test Documents",
+            description="Test description",
+            database_path="/data/test.db",
+            table_name="test_table",
+            total_documents=100,
+        )
+
+        data = original.to_dict()
+        restored = DocumentSet.from_dict(data)
+
+        assert restored.id == original.id
+        assert restored.name == original.name
+        assert restored.description == original.description
+        assert restored.total_documents == original.total_documents

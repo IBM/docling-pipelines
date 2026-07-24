@@ -1,0 +1,67 @@
+{
+  "flow_name": "document classification with watsonx",
+  "description": "a flow to classify documents using IBM Watsonx.ai after extraction",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "storage": "in-memory",
+    "force_ingest": true,
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices/",
+        "include_filter": "txt,pdf,docx",
+        "max_workers": 2
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/granite4:latest",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
+        "document_types": {
+          "invoice": "Business invoice with line items, totals, and payment terms",
+          "receipt": "Payment receipt or transaction confirmation",
+          "contract": "Legal contract or agreement document",
+          "report": "Business or technical report",
+          "letter": "Formal or informal letter",
+          "email": "Email correspondence",
+          "form": "Form or application document",
+          "purchase_order": "Purchase order for goods or services",
+          "other": "Other document types"
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000
+      },
+      "depends_on": [
+        "extract"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# Jupyter Notebooks
+*.ipynb filter=nbstripout
+*.ipynb diff=jupyternotebook
+*.ipynb merge=jupyternotebook

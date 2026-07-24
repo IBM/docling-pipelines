@@ -1,0 +1,36 @@
+# 1. Create the Organizational Unit for users
+dn: ou=People,dc=abc,dc=com
+objectClass: organizationalUnit
+ou: People
+
+# 2. Create test users for authentication testing
+# Note: Passwords are set to ${TEST_USER_PASSWORD} from environment
+# Default password in .env.example is "changeme"
+
+dn: cn=Alice Baker,ou=People,dc=abc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: Alice Baker
+sn: Baker
+givenName: Alice
+uid: abaker
+userPassword: ${TEST_USER_PASSWORD}
+uidNumber: 1003
+gidNumber: 1003
+homeDirectory: /home/abaker
+mail: abaker@abc.com
+
+dn: cn=Jane Smith,ou=People,dc=abc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: Jane Smith
+sn: Smith
+givenName: Jane
+uid: jsmith
+userPassword: ${TEST_USER_PASSWORD}
+uidNumber: 1002
+gidNumber: 1002
+homeDirectory: /home/jsmith
+mail: jsmith@abc.com
