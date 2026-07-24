@@ -1,0 +1,56 @@
+{
+  "schema_name": "default",
+  "schema_version": 1,
+  "settings": {
+    "index": {
+      "knn": true,
+      "knn.algo_param.ef_search": 100,
+      "number_of_shards": 2,
+      "number_of_replicas": 1
+    }
+  },
+  "field_types": {
+    "vector": {
+      "type": "knn_vector",
+      "method": {
+        "name": "__ALGORITHM__",
+        "space_type": "__SPACE_TYPE__",
+        "engine": "__ENGINE__",
+        "parameters": "__ENGINE_PARAMETERS__"
+      }
+    },
+    "vector_sparse": {
+      "type": "rank_features"
+    },
+    "string": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "int64": {
+      "type": "long"
+    },
+    "float": {
+      "type": "float"
+    },
+    "boolean": {
+      "type": "boolean"
+    },
+    "object": {
+      "type": "object",
+      "enabled": true
+    },
+    "json": {
+      "type": "object",
+      "enabled": true
+    },
+    "nested": {
+      "type": "object",
+      "enabled": true
+    }
+  }
+}

@@ -1,0 +1,342 @@
+{
+  "flow_name": "Quality Pipeline with Branching",
+  "description": "Comprehensive quality operators showcase: Ingest → Extract → Language Detection → Dedup (removes 2 duplicate documents) → Doc Quality → Readability → Branching (on flesch_reading_ease) → [High Quality: ML Enrichment → Embeddings → OpenSearch] | [Low Quality: SQLFilter → Embeddings → OpenSearch]. Demonstrates DocQuality, Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "tests/fixtures/customer_support_docs/",
+        "include_filter": "txt,pdf",
+        "max_workers": 2
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "detect_language",
+      "type": "lang_detect",
+      "config": {
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "extract"
+      ]
+    },
+    {
+      "name": "dedup",
+      "type": "ededup",
+      "config": {
+        "doc_column": "content",
+        "doc_id_column": "doc_id_hash"
+      },
+      "depends_on": [
+        "detect_language"
+      ]
+    },
+    {
+      "name": "doc_quality",
+      "type": "doc_quality",
+      "config": {
+        "doc_column": "content",
+        "doc_content_column": "content",
+        "text_lang": "en"
+      },
+      "depends_on": [
+        "dedup"
+      ]
+    },
+    {
+      "name": "readability",
+      "type": "readability",
+      "config": {
+        "doc_column": "content",
+        "readability_score_list": [
+          "flesch_reading_ease",
+          "flesch_kincaid_grade",
+          "gunning_fog",
+          "difficult_words",
+          "dale_chall_readability_score"
+        ]
+      },
+      "depends_on": [
+        "doc_quality"
+      ]
+    },
+    {
+      "name": "quality_branching",
+      "type": "branching",
+      "config": {
+        "branches": {
+          "high_quality_branch": {
+            "link_name": "High Quality Documents",
+            "criteria_json": {
+              "criteria_list": [
+                {
+                  "variable": "flesch_reading_ease",
+                  "operator": ">",
+                  "value": 60
+                }
+              ],
+              "logical_operator": "AND"
+            }
+          },
+          "low_quality_branch": {
+            "link_name": "Low Quality Documents",
+            "criteria_json": {
+              "criteria_list": [
+                {
+                  "variable": "flesch_reading_ease",
+                  "operator": "<=",
+                  "value": 60
+                }
+              ],
+              "logical_operator": "AND"
+            }
+          }
+        }
+      },
+      "depends_on": [
+        "readability"
+      ]
+    },
+    {
+      "name": "ml_enrichment_high_quality",
+      "type": "ml_enrichment",
+      "config": {
+        "doc_column": "content",
+        "lang_column": "lang_name",
+        "output_column_prefix": "ml_",
+        "error_column_name": "enrichment_error"
+      },
+      "depends_on": [
+        "quality_branching.high_quality_branch"
+      ]
+    },
+    {
+      "name": "embeddings_high_quality",
+      "type": "embeddings",
+      "config": {
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.2,
+        "doc_column": "content",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/granite4:latest"
+        },
+        "provider": "litellm"
+      },
+      "depends_on": [
+        "ml_enrichment_high_quality"
+      ]
+    },
+    {
+      "name": "vectordb_high_quality",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "high_quality_docs",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 2560,
+        "create_index": "true",
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "name": {
+            "name": "Document Name",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          },
+          "lang_name": {
+            "name": "Language",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "flesch_reading_ease": {
+            "name": "Flesch Reading Ease",
+            "available_for_vector_db": true,
+            "type": "float"
+          },
+          "ml_num_words": {
+            "name": "Word Count",
+            "available_for_vector_db": true,
+            "type": "integer"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "name": "doc_name",
+          "content": "text",
+          "embeddings": "vector_embeddings",
+          "lang_name": "language",
+          "flesch_reading_ease": "readability_score",
+          "ml_num_words": "word_count"
+        }
+      },
+      "depends_on": [
+        "embeddings_high_quality"
+      ]
+    },
+    {
+      "name": "sql_filter_low_quality",
+      "type": "sql_filter",
+      "config": {
+        "criteria_json": {
+          "criteria_list": [
+            {
+              "variable": "docq_total_words",
+              "operator": ">",
+              "value": 0
+            }
+          ],
+          "logical_operator": "AND"
+        }
+      },
+      "depends_on": [
+        "quality_branching.low_quality_branch"
+      ]
+    },
+    {
+      "name": "embeddings_low_quality",
+      "type": "embeddings",
+      "config": {
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.2,
+        "doc_column": "content",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/granite4:latest"
+        },
+        "provider": "litellm"
+      },
+      "depends_on": [
+        "sql_filter_low_quality"
+      ]
+    },
+    {
+      "name": "vectordb_low_quality",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "low_quality_docs",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 2560,
+        "create_index": "true",
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "name": {
+            "name": "Document Name",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          },
+          "lang_name": {
+            "name": "Language",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "flesch_reading_ease": {
+            "name": "Flesch Reading Ease",
+            "available_for_vector_db": true,
+            "type": "float"
+          },
+          "difficult_words": {
+            "name": "Difficult Words Count",
+            "available_for_vector_db": true,
+            "type": "float"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "name": "doc_name",
+          "content": "text",
+          "embeddings": "vector_embeddings",
+          "lang_name": "language",
+          "flesch_reading_ease": "readability_score",
+          "difficult_words": "difficult_words"
+        }
+      },
+      "depends_on": [
+        "embeddings_low_quality"
+      ]
+    }
+  ]
+}

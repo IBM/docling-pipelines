@@ -1,0 +1,183 @@
+{
+  "document_class_id": "b018e6f9-15a5-4466-b940-0b934cae8911",
+  "document_class_name": "Diploma / Certification",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "recipient_name",
+          "examples": [
+            "Alice R. Johnson"
+          ],
+          "description": "Name of the individual who received the diploma/certification.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "institution_name",
+          "examples": [
+            "City College"
+          ],
+          "description": "Name of the school, college, or certifying authority.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "credential_title",
+          "examples": [
+            "Bachelor of Arts in English Literature"
+          ],
+          "description": "Degree, diploma, or certificate title awarded.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_awarded",
+          "examples": [
+            "2023-05-20"
+          ],
+          "description": "Date the credential was officially conferred.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "program_duration",
+          "examples": [
+            "4 years"
+          ],
+          "description": "Duration or length of study (if applicable).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "certificate_id_number",
+          "examples": [
+            "12345-ENG-2023"
+          ],
+          "description": "A unique reference number sometimes included on the diploma.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "honors_or_distinctions",
+          "examples": [
+            "Summa Cum Laude"
+          ],
+          "description": "Any honors or special recognition noted on the credential.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "official_signatures",
+          "examples": [
+            "Dean of the College, Board Chair"
+          ],
+          "description": "Authorized signatures or stamps that validate the diploma.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Diploma / Certification",
+      "document_description": "A diploma or certification is an official credential awarded by an educational institution or certifying body upon completion of a degree program, course, or specialized training. They confirm the recipient\u2019s qualification or academic achievement.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Diploma_Certification",
+        "columns": [
+          {
+            "name": "recipient_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "recipient_name"
+              ]
+            },
+            "description": "Name of the individual who received the diploma/certification."
+          },
+          {
+            "name": "institution_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "institution_name"
+              ]
+            },
+            "description": "Name of the school, college, or certifying authority."
+          },
+          {
+            "name": "credential_title",
+            "type": "string",
+            "source": {
+              "field": [
+                "credential_title"
+              ]
+            },
+            "description": "Degree, diploma, or certificate title awarded."
+          },
+          {
+            "name": "date_awarded",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_awarded"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the credential was officially conferred."
+          },
+          {
+            "name": "program_duration",
+            "type": "string",
+            "source": {
+              "field": [
+                "program_duration"
+              ]
+            },
+            "description": "Duration or length of study (if applicable)."
+          },
+          {
+            "name": "certificate_id_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "certificate_id_number"
+              ]
+            },
+            "description": "A unique reference number sometimes included on the diploma."
+          },
+          {
+            "name": "honors_or_distinctions",
+            "type": "string",
+            "source": {
+              "field": [
+                "honors_or_distinctions"
+              ]
+            },
+            "description": "Any honors or special recognition noted on the credential."
+          },
+          {
+            "name": "official_signatures",
+            "type": "string",
+            "source": {
+              "field": [
+                "official_signatures"
+              ]
+            },
+            "description": "Authorized signatures or stamps that validate the diploma."
+          }
+        ],
+        "metadata": {},
+        "description": "A diploma or certification is an official credential awarded by an educational institution or certifying body upon completion of a degree program, course, or specialized training. They confirm the recipient\u2019s qualification or academic achievement."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

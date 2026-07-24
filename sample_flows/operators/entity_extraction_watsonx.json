@@ -1,0 +1,97 @@
+{
+  "flow_name": "WatsonX Complete Extraction Pipeline Flow",
+  "description": "Complete extraction pipeline using WatsonX for classification and entity extraction",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices",
+        "include_filter": "pdf,docx"
+      }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "watsonx",
+        "provider_config": {
+          "model_id": "ibm/granite-3-8b-instruct",
+          "api_base": "https://us-south.ml.cloud.ibm.com",
+          "container_kind": "project",
+          "timeout": 120
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {}
+        },
+        "entity_extraction": {
+          "provider": "watsonx",
+          "provider_config": {
+            "model_id": "ibm/granite-3-8b-instruct",
+            "temperature": 0.0,
+            "max_tokens": 2000,
+            "api_base": "https://us-south.ml.cloud.ibm.com",
+            "container_kind": "project",
+            "timeout": 120
+          },
+          "max_doc_chars": 8000
+        },
+        "max_workers": 2
+      },
+      "depends_on": [
+        "classify"
+      ]
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "config": {
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "chunking_strategy": "simple"
+      },
+      "depends_on": [
+        "extract"
+      ]
+    },
+    {
+      "name": "embed",
+      "type": "embeddings",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
+      },
+      "depends_on": [
+        "chunk"
+      ]
+    }
+  ]
+}

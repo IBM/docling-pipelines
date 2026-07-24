@@ -1,0 +1,175 @@
+{
+  "flow_name": "LiteLLM Ollama Embeddings Integration Flow",
+  "flow_id": "litellm-ollama-embeddings-flow-001",
+  "description": "Complete pipeline demonstrating LiteLLM with Ollama embeddings: Ingest → Extract → Chunk → Embeddings (LiteLLM/Ollama) → VectorDB",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "enable_micro_batching": true,
+    "micro_batch_size": 10,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest_documents",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices",
+        "include_filter": "txt, pdf"
+      }
+    },
+    {
+      "name": "extract_documents",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest_documents"
+      ],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      }
+    },
+    {
+      "name": "generate_doc_id",
+      "type": "doc_id_hash",
+      "depends_on": [
+        "extract_documents"
+      ],
+      "config": {
+        "doc_column": "content",
+        "doc_id_column": "id"
+      }
+    },
+    {
+      "name": "chunk_documents",
+      "type": "chunker",
+      "depends_on": [
+        "generate_doc_id"
+      ],
+      "config": {
+        "doc_column": "content",
+        "chunk_size": 512,
+        "chunk_overlap": 50
+      }
+    },
+    {
+      "name": "generate_embeddings_litellm",
+      "type": "embeddings",
+      "depends_on": [
+        "chunk_documents"
+      ],
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
+        "doc_column": "content",
+        "embeddings_column": "embeddings"
+      }
+    },
+    {
+      "name": "store_in_opensearch",
+      "type": "vectordb",
+      "depends_on": [
+        "generate_embeddings_litellm"
+      ],
+      "config": {
+        "provider": "opensearch",
+        "index_name": "docpipe_litellm_embeddings",
+        "vector_dimension": 768,
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "create_index": "true",
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2",
+          "engine_parameters": {
+            "ef_construction": 512,
+            "m": 16,
+            "ef_search": 512
+          },
+          "number_of_shards": 1,
+          "number_of_replicas": 0
+        },
+        "available_features": {
+          "id": {
+            "name": "ID",
+            "description": "The ID of the document",
+            "available_for_filter": true,
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string"
+          },
+          "name": {
+            "name": "Document Name",
+            "description": "The name of the document",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "content": {
+            "name": "Document Content",
+            "description": "The content of the document",
+            "available_for_filter": true,
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "doc_id_hash": {
+            "name": "Hash ID",
+            "description": "Hash ID of the row",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "chunk_sequence_number": {
+            "name": "Chunk Sequence number",
+            "description": "Sequential chunk number for each text chunk",
+            "available_for_vector_db": true,
+            "type": "int64"
+          },
+          "start_index": {
+            "name": "Start Index",
+            "description": "Chunk starting token position in the source document",
+            "available_for_vector_db": true,
+            "type": "int64"
+          },
+          "chunked_content": {
+            "name": "Chunked Content",
+            "description": "Content containing segmented portions of larger text data",
+            "is_internal_feature": true
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "description": "The text embeddings from Ollama nomic-embed-text model via LiteLLM",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "id": "document_id",
+          "name": "document_name",
+          "content": "text",
+          "embeddings": "vector_embeddings",
+          "chunk_sequence_number": "chunk_seq",
+          "start_index": "chunk_start"
+        }
+      }
+    }
+  ]
+}

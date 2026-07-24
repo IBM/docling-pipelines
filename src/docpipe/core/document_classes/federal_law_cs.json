@@ -1,0 +1,54 @@
+{
+  "document_class_id": "559b70c5-ec33-4ab4-bf56-75faa5162389",
+  "document_class_name": "Federal_law_CS",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "release_point",
+          "examples": [
+            "123-45"
+          ],
+          "description": "release_point(federal law)"
+        }
+      ],
+      "document_type": "Federal_law_CS",
+      "document_description": "Federal laws Custom",
+      "additional_prompt_instructions": "Federal laws Custom"
+    },
+    "target_tables": [
+      {
+        "name": "Repeals",
+        "columns": [
+          {
+            "name": "release_point",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "release_point"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "release_point(federal law)"
+          }
+        ],
+        "description": "Repeals_Desc"
+      }
+    ]
+  },
+  "created_time": "2025-12-05T06:28:37Z",
+  "last_modified_time": "2025-12-05T06:28:37Z",
+  "created_by": "IBMid-2700076S1E",
+  "last_modified_by": "IBMid-2700076S1E",
+  "is_predefined": false,
+  "is_enabled": true
+}

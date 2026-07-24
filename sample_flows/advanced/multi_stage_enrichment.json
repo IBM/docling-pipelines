@@ -1,0 +1,180 @@
+{
+  "flow_name": "LLM Dependent Case 1: Docling Library + Docling Entity",
+  "description": "Complete pipeline with docling_library text extraction and docling entity extraction, covering classification, PII/HAP, chunking with summarization, and embeddings",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "data_storage_type": "local",
+    "data_local_config": {
+      "output_folder": "${OUTPUT_FOLDER}/flow_llm_case1_docling_docling"
+    },
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices",
+        "include_filter": "pdf,docx",
+        "store_binary_content": true,
+        "max_workers": 2
+      }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "watsonx",
+        "provider_config": {
+          "model_id": "ibm/granite-3-8b-instruct",
+          "api_base": "${WATSONX_API_BASE}",
+          "api_key": "${WATSONX_API_KEY}",
+          "container_kind": "project",
+          "container_id": "${WATSONX_CONTAINER_ID}",
+          "timeout": 120
+        },
+        "document_types": {
+          "invoice": "Business invoice with line items and totals",
+          "receipt": "Payment receipt or transaction confirmation",
+          "contract": "Legal contract or agreement",
+          "other": "Other document types"
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {}
+        },
+        "entity_extraction": {
+          "provider": "docling",
+          "output_column": "entities",
+          "expand_extracted_data": false,
+          "custom_schema": {
+            "invoice_number": "string",
+            "invoice_date": "string",
+            "total_amount": "float",
+            "vendor_name": "string"
+          }
+        },
+        "max_workers": 2
+      },
+      "depends_on": [
+        "classify"
+      ]
+    },
+    {
+      "name": "pii_and_hap",
+      "type": "pii_and_hap",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/llama3.2",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
+        "pii_threshold": 0.5,
+        "hap_threshold": 0.75,
+        "expected_redactions": [
+          "pii",
+          "hap"
+        ],
+        "pii_list": [
+          "EmailAddress",
+          "PhoneNumber",
+          "SocialSecurityNumber",
+          "CreditCardNumber",
+          "BankAccountNumber"
+        ],
+        "redaction": true,
+        "redaction_character": "*",
+        "hap_redaction": true,
+        "hap_redaction_character": "#",
+        "display_pii": true,
+        "batch_size": 4,
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "extract"
+      ]
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "config": {
+        "chunk_type": "simple",
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "retain_original_content": false,
+        "summarization": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct",
+            "api_key": "${HUGGINGFACE_API_KEY}"
+          },
+          "summary_sentences": 3,
+          "summary_max_words": 50
+        }
+      },
+      "depends_on": [
+        "pii_and_hap"
+      ]
+    },
+    {
+      "name": "embed",
+      "type": "embeddings",
+      "config": {
+        "provider": "watsonx",
+        "provider_config": {
+          "model_id": "ibm/slate-125m-english-rtrvr-v2",
+          "api_key": "${WATSONX_API_KEY}",
+          "api_base": "${WATSONX_API_BASE}",
+          "container_kind": "project",
+          "container_id": "${WATSONX_CONTAINER_ID}",
+          "batch_size": 800
+        },
+        "doc_column": "content",
+        "embeddings_column": "embeddings"
+      },
+      "depends_on": [
+        "chunk"
+      ]
+    },
+    {
+      "name": "document_set",
+      "type": "document_set",
+      "config": {
+        "document_set_name": "llm_case1_docling_docling",
+        "description": "Document set for LLM case 1 with docling extraction and entity processing",
+        "database_path": "${DUCKDB_PATH}",
+        "data_backend": "duckdb",
+        "metadata_backend": "duckdb",
+        "retain_deleted_docs": false,
+        "metadata": {
+          "pipeline_version": "1.0",
+          "extraction_method": "docling_library",
+          "entity_extraction": "docling",
+          "flow_case": "llm_case1"
+        }
+      },
+      "depends_on": [
+        "embed"
+      ]
+    }
+  ]
+}

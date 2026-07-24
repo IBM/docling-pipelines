@@ -1,0 +1,249 @@
+{
+  "document_class_id": "bb427b25-88e7-4b83-852d-33b71d333bec",
+  "document_class_name": "Receipt",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "receipt_number",
+          "examples": [
+            "R-20230901-ABC"
+          ],
+          "description": "Unique identifier on the receipt.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_transaction",
+          "examples": [
+            "2023-09-01"
+          ],
+          "description": "Date when the purchase or payment occurred.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_name",
+          "examples": [
+            "Local Grocery Store"
+          ],
+          "description": "Seller or merchant issuing the receipt.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_address",
+          "examples": [
+            "789 Market Ln, RetailCity, ST 11111"
+          ],
+          "description": "Physical or mailing address of the vendor/merchant.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_name",
+          "examples": [
+            "Jane Doe"
+          ],
+          "description": "Name of the customer or payee, if captured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "subtotal",
+          "examples": [
+            "8.00"
+          ],
+          "description": "Cost of items before tax.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax",
+          "examples": [
+            "0.64"
+          ],
+          "description": "Tax amount applied.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_paid",
+          "examples": [
+            "8.64"
+          ],
+          "description": "Final amount paid by the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_method",
+          "examples": [
+            "Credit Card"
+          ],
+          "description": "How payment was made (cash, card, check, etc.).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "notes",
+          "examples": [
+            "Thank you for shopping with us!"
+          ],
+          "description": "Optional remarks or disclaimers.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Receipt",
+      "document_description": "A receipt is proof of a transaction, typically acknowledging payment received for goods or services. It often includes the date, amount paid, method of payment, and an itemized list of purchases.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Receipt",
+        "columns": [
+          {
+            "name": "receipt_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "receipt_number"
+              ]
+            },
+            "description": "Unique identifier on the receipt."
+          },
+          {
+            "name": "date_of_transaction",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_transaction"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date when the purchase or payment occurred."
+          },
+          {
+            "name": "vendor_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_name"
+              ]
+            },
+            "description": "Seller or merchant issuing the receipt."
+          },
+          {
+            "name": "vendor_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_address"
+              ]
+            },
+            "description": "Physical or mailing address of the vendor/merchant."
+          },
+          {
+            "name": "customer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_name"
+              ]
+            },
+            "description": "Name of the customer or payee, if captured."
+          },
+          {
+            "name": "subtotal",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "subtotal"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Cost of items before tax."
+          },
+          {
+            "name": "tax",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "tax"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Tax amount applied."
+          },
+          {
+            "name": "total_paid",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_paid"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Final amount paid by the customer."
+          },
+          {
+            "name": "payment_method",
+            "type": "string",
+            "source": {
+              "field": [
+                "payment_method"
+              ]
+            },
+            "description": "How payment was made (cash, card, check, etc.)."
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "source": {
+              "field": [
+                "notes"
+              ]
+            },
+            "description": "Optional remarks or disclaimers."
+          }
+        ],
+        "metadata": {},
+        "description": "A receipt is proof of a transaction, typically acknowledging payment received for goods or services. It often includes the date, amount paid, method of payment, and an itemized list of purchases."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

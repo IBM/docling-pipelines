@@ -1,0 +1,82 @@
+{
+  "flow_name": "classify, extract entities, and curate flow",
+  "description": "A flow to classify documents, extract entities with Ollama, and curate them using document schemas",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "output_folder": "./tests/fixtures/invoices",
+    "storage": "disk",
+    "execute_type": "local",
+    "data_storage_type":"local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices",
+        "include_filter": "txt,pdf,docx",
+        "max_workers": 2
+      }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/granite4:latest",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "extract_entities",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/granite4:latest",
+            "temperature": 0.0,
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<ollama_key>"
+          },
+          "output_column": "entities",
+          "max_doc_chars": 8000,
+          "expand_extracted_data": true
+        },
+        "max_workers": 4
+      },
+      "depends_on": [
+        "classify"
+      ]
+    },
+    {
+      "name": "curate_entities",
+      "type": "entity_curation",
+      "config": {
+        "entities_column": "entities",
+        "document_type_column": "document_type"
+      },
+      "depends_on": [
+        "extract_entities"
+      ]
+    }
+  ]
+}

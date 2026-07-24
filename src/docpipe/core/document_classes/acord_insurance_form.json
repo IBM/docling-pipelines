@@ -1,0 +1,619 @@
+{
+  "document_class_id": "7692b8fe-a5c7-449c-9de7-b46832c309b5",
+  "document_class_name": "ACORD Insurance Form",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "form_number",
+          "examples": [
+            "ACORD 125"
+          ],
+          "description": "The specific ACORD form number (e.g., ACORD 125, ACORD 130).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "form_name",
+          "examples": [
+            "Commercial Insurance Application"
+          ],
+          "description": "Short title for the ACORD form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "policy_number",
+          "examples": [
+            "POL-123456"
+          ],
+          "description": "Unique identifier assigned by the insurer to this policy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "insurance_company_name",
+          "examples": [
+            "ABC Insurance Company"
+          ],
+          "description": "Name of the underwriting insurance company.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "named_insured",
+          "examples": [
+            "XYZ Enterprises LLC"
+          ],
+          "description": "Primary entity or individual listed as the insured on the policy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "applicant_name",
+          "examples": [
+            "John Doe"
+          ],
+          "description": "Name of the applicant if different from the named insured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "insured_address",
+          "examples": [
+            "123 Main St, Cityville, ST 12345"
+          ],
+          "description": "Physical or mailing address of the insured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "policy_effective_date",
+          "examples": [
+            "2023-01-01"
+          ],
+          "description": "Date the policy coverage begins.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "policy_expiration_date",
+          "examples": [
+            "2024-01-01"
+          ],
+          "description": "Date the policy coverage ends.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "producer_name",
+          "examples": [
+            "Smith Insurance Agency"
+          ],
+          "description": "Name of the agent or agency that produced the policy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "producer_address",
+          "examples": [
+            "456 Agency Ln, InsuranceTown, ST 98765"
+          ],
+          "description": "Address of the producing agent/agency.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "producer_phone",
+          "examples": [
+            "(555) 123-4567"
+          ],
+          "description": "Contact phone number for the agent/agency.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "policy_type",
+          "examples": [
+            "Commercial General Liability"
+          ],
+          "description": "Type of policy or line of business (e.g., CGL, Commercial Auto).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "coverage_details",
+          "examples": [
+            "Bodily Injury, Property Damage, etc."
+          ],
+          "description": "A list or summary of coverages and coverage parts included.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "coverage_limits",
+          "examples": [
+            "Each occurrence: $1,000,000; Aggregate: $2,000,000"
+          ],
+          "description": "Specified coverage limits for each coverage part.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "premium_amount",
+          "examples": [
+            "1200.00"
+          ],
+          "description": "Total or annual premium for the coverage.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "deductible",
+          "examples": [
+            "500"
+          ],
+          "description": "Deductible amount the insured is responsible for per claim.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "claim_number",
+          "examples": [
+            "CLAIM-987654"
+          ],
+          "description": "Number assigned to a specific claim under this policy, if applicable.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "loss_date",
+          "examples": [
+            "2023-07-15"
+          ],
+          "description": "Date of a reported loss/incident if relevant to the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "loss_description",
+          "examples": [
+            "Water damage due to burst pipe in office building."
+          ],
+          "description": "Summary of the reported incident or cause of loss.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "location_of_loss",
+          "examples": [
+            "Warehouse #3, 789 Industrial Rd, Cityville, ST 12345"
+          ],
+          "description": "Where the loss occurred, if different from insured address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "policyholder_signature",
+          "examples": [
+            "John Doe"
+          ],
+          "description": "Signature of the insured or policyholder verifying the information.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "agent_broker_signature",
+          "examples": [
+            "Jane Agent"
+          ],
+          "description": "Signature of the agent or broker representing the policy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "additional_insureds",
+          "examples": [
+            "Lender: Big Bank, Landlord: Real Estate Holdings"
+          ],
+          "description": "List of extra parties who are named as insured under the policy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "lienholder_mortgagee_name",
+          "examples": [
+            "ABC Bank, Loan #12345"
+          ],
+          "description": "Entity holding a financial interest in the insured property/vehicle.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vehicle_information",
+          "examples": [
+            "2019 Ford F-150, VIN #1FTEX1EPXKKF00000"
+          ],
+          "description": "Vehicle details if the ACORD form pertains to auto coverage.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "property_information",
+          "examples": [
+            "Commercial Building, 10,000 sq ft, Built 2005"
+          ],
+          "description": "Property details for commercial/residential lines of business.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "risk_classifications",
+          "examples": [
+            "Class Code 5192, Mercantile"
+          ],
+          "description": "Risk classification codes or descriptions used by underwriters.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "endorsements",
+          "examples": [
+            "Additional named insured endorsement, Blanket Waiver of Subrogation"
+          ],
+          "description": "List or short summary of endorsements included with the policy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "policy_status",
+          "examples": [
+            "Active"
+          ],
+          "description": "Indicates whether the policy is active, canceled, pending, etc.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "ACORD Insurance Form",
+      "document_description": "ACORD forms are standardized insurance documents used by insurers and agencies to capture, update, and communicate policy-related data. They include applicant, policy, coverage, and loss information in a consistent format recognized across the insurance industry.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "ACORD_Insurance_Form",
+        "columns": [
+          {
+            "name": "form_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "form_number"
+              ]
+            },
+            "description": "The specific ACORD form number (e.g., ACORD 125, ACORD 130)."
+          },
+          {
+            "name": "form_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "form_name"
+              ]
+            },
+            "description": "Short title for the ACORD form."
+          },
+          {
+            "name": "policy_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "policy_number"
+              ]
+            },
+            "description": "Unique identifier assigned by the insurer to this policy."
+          },
+          {
+            "name": "insurance_company_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "insurance_company_name"
+              ]
+            },
+            "description": "Name of the underwriting insurance company."
+          },
+          {
+            "name": "named_insured",
+            "type": "string",
+            "source": {
+              "field": [
+                "named_insured"
+              ]
+            },
+            "description": "Primary entity or individual listed as the insured on the policy."
+          },
+          {
+            "name": "applicant_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "applicant_name"
+              ]
+            },
+            "description": "Name of the applicant if different from the named insured."
+          },
+          {
+            "name": "insured_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "insured_address"
+              ]
+            },
+            "description": "Physical or mailing address of the insured."
+          },
+          {
+            "name": "policy_effective_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "policy_effective_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the policy coverage begins."
+          },
+          {
+            "name": "policy_expiration_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "policy_expiration_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the policy coverage ends."
+          },
+          {
+            "name": "producer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "producer_name"
+              ]
+            },
+            "description": "Name of the agent or agency that produced the policy."
+          },
+          {
+            "name": "producer_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "producer_address"
+              ]
+            },
+            "description": "Address of the producing agent/agency."
+          },
+          {
+            "name": "producer_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "producer_phone"
+              ]
+            },
+            "description": "Contact phone number for the agent/agency."
+          },
+          {
+            "name": "policy_type",
+            "type": "string",
+            "source": {
+              "field": [
+                "policy_type"
+              ]
+            },
+            "description": "Type of policy or line of business (e.g., CGL, Commercial Auto)."
+          },
+          {
+            "name": "coverage_details",
+            "type": "string",
+            "source": {
+              "field": [
+                "coverage_details"
+              ]
+            },
+            "description": "A list or summary of coverages and coverage parts included."
+          },
+          {
+            "name": "coverage_limits",
+            "type": "string",
+            "source": {
+              "field": [
+                "coverage_limits"
+              ]
+            },
+            "description": "Specified coverage limits for each coverage part."
+          },
+          {
+            "name": "premium_amount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "premium_amount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total or annual premium for the coverage."
+          },
+          {
+            "name": "deductible",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "deductible"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Deductible amount the insured is responsible for per claim."
+          },
+          {
+            "name": "claim_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "claim_number"
+              ]
+            },
+            "description": "Number assigned to a specific claim under this policy, if applicable."
+          },
+          {
+            "name": "loss_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "loss_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date of a reported loss/incident if relevant to the form."
+          },
+          {
+            "name": "loss_description",
+            "type": "string",
+            "source": {
+              "field": [
+                "loss_description"
+              ]
+            },
+            "description": "Summary of the reported incident or cause of loss."
+          },
+          {
+            "name": "location_of_loss",
+            "type": "string",
+            "source": {
+              "field": [
+                "location_of_loss"
+              ]
+            },
+            "description": "Where the loss occurred, if different from insured address."
+          },
+          {
+            "name": "policyholder_signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "policyholder_signature"
+              ]
+            },
+            "description": "Signature of the insured or policyholder verifying the information."
+          },
+          {
+            "name": "agent_broker_signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "agent_broker_signature"
+              ]
+            },
+            "description": "Signature of the agent or broker representing the policy."
+          },
+          {
+            "name": "additional_insureds",
+            "type": "string",
+            "source": {
+              "field": [
+                "additional_insureds"
+              ]
+            },
+            "description": "List of extra parties who are named as insured under the policy."
+          },
+          {
+            "name": "lienholder_mortgagee_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "lienholder_mortgagee_name"
+              ]
+            },
+            "description": "Entity holding a financial interest in the insured property/vehicle."
+          },
+          {
+            "name": "vehicle_information",
+            "type": "string",
+            "source": {
+              "field": [
+                "vehicle_information"
+              ]
+            },
+            "description": "Vehicle details if the ACORD form pertains to auto coverage."
+          },
+          {
+            "name": "property_information",
+            "type": "string",
+            "source": {
+              "field": [
+                "property_information"
+              ]
+            },
+            "description": "Property details for commercial/residential lines of business."
+          },
+          {
+            "name": "risk_classifications",
+            "type": "string",
+            "source": {
+              "field": [
+                "risk_classifications"
+              ]
+            },
+            "description": "Risk classification codes or descriptions used by underwriters."
+          },
+          {
+            "name": "endorsements",
+            "type": "string",
+            "source": {
+              "field": [
+                "endorsements"
+              ]
+            },
+            "description": "List or short summary of endorsements included with the policy."
+          },
+          {
+            "name": "policy_status",
+            "type": "string",
+            "source": {
+              "field": [
+                "policy_status"
+              ]
+            },
+            "description": "Indicates whether the policy is active, canceled, pending, etc."
+          }
+        ],
+        "metadata": {},
+        "description": "ACORD forms are standardized insurance documents used by insurers and agencies to capture, update, and communicate policy-related data. They include applicant, policy, coverage, and loss information in a consistent format recognized across the insurance industry."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

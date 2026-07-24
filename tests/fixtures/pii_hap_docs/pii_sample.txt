@@ -1,0 +1,17 @@
+From: support@acmecorp.com
+To: john.doe@example.com
+
+Subject: Action required: Update your payment information
+
+Hi John,
+
+Thank you for being a valued customer. We noticed an issue with the credit card on file for your account.
+
+The credit card number 5340904586541378 associated with your account has expired. Please update your payment details at your earliest convenience.
+
+For verification purposes, please have your Social Security Number (XXX-XX-XXXX) and current billing address ready when you call our support line at (555) 867-5309.
+
+If you have any questions, reply to this email or contact us directly at support@acmecorp.com.
+
+Best regards,
+Customer Support Team

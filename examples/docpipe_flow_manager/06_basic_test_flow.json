@@ -1,0 +1,67 @@
+{
+  "flow_name": "Test DocpipeFlowManager Flow",
+  "description": "Basic flow to test ingest, extract, chunk, and embeddings",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "storage": "in-memory",
+    "execute_type": "local",
+    "force_ingest": true
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./test_data",
+        "include_filter": "txt,md"
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": [
+        "extract"
+      ],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "doc_column": "content"
+      }
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "depends_on": [
+        "chunk"
+      ],
+      "config": {
+        "provider": "litellm",
+        "embeddings_column": "embeddings",
+        "doc_column": "content",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<ollama>"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,333 @@
+"""
+Unit tests for PostgresJobStatsStore.
+
+These tests focus on the adapter's interface and translation logic.
+Integration tests with a real PostgreSQL database are documented as a gap.
+"""
+
+from unittest.mock import Mock, patch
+
+import pytest
+
+from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.job_management.domain.models import JobStats, NodeStats
+from docpipe.exceptions.docpipe_exceptions import JobStatsStoreInitializationException
+
+
+class TestPostgresJobStatsStoreInterface:
+    """
+    Test PostgresJobStatsStore interface without requiring real database.
+
+    Integration Gap: These are unit tests that mock database operations.
+    Full integration tests with PostgreSQL are needed for production validation.
+    """
+
+    @pytest.fixture
+    def mock_engine(self):
+        """Mock SQLAlchemy engine."""
+        return Mock()
+
+    @pytest.fixture
+    def mock_session_factory(self):
+        """Mock session factory."""
+        return Mock()
+
+    @pytest.fixture
+    def mock_job_stats_dal(self):
+        """Mock JobStatsDAL."""
+        return Mock()
+
+    @pytest.fixture
+    def mock_node_stats_dal(self):
+        """Mock NodeStatsDAL."""
+        return Mock()
+
+    @pytest.fixture
+    def sample_job_stats_dto(self):
+        """Sample JobStats for testing."""
+        return JobStats(
+            job_id="12345678-1234-1234-1234-123456789012",
+            job_run_id="87654321-4321-4321-4321-210987654321",
+            status=ExecutionStatus.RUNNING,
+            message="Test job",
+            start_time=1704067200,
+            end_time=0,
+            duration=0,
+            total_docs=100,
+            processed_docs=50,
+            completed_docs=45,
+            failed_docs=5,
+            skipped_docs=0,
+        )
+
+    @pytest.fixture
+    def sample_node_stats_dto(self):
+        """Sample NodeStats for testing."""
+        return NodeStats(
+            node_id="abcdef12-3456-7890-abcd-ef1234567890",
+            name="Test Node",
+            node_status=ExecutionStatus.COMPLETED,
+            start_time=1704067200,
+            end_time=1704067260,
+            time_taken=60,
+            total_docs=["doc1", "doc2"],
+            docs_completed=["doc1", "doc2"],
+            failed_docs=[],
+            skipped_docs=[],
+            batch_id=None,
+        )
+
+    @patch(
+        "docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
+    )
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_postgres_engine")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_session_factory")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.JobStatsDAL")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.NodeStatsDAL")
+    def test_initialization_success(
+        self,
+        mock_node_dal_class,
+        mock_job_dal_class,
+        mock_create_session,
+        mock_create_engine,
+        mock_get_conn_str,
+    ):
+        """Test successful initialization of PostgresJobStatsStore."""
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        # Setup mocks
+        mock_get_conn_str.return_value = "postgresql://user:pass@localhost/db"  # pragma: allowlist secret
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+        mock_session_factory = Mock()
+        mock_create_session.return_value = mock_session_factory
+
+        # Initialize store
+        store = PostgresJobStatsStore()
+
+        # Verify initialization
+        assert store is not None
+        mock_get_conn_str.assert_called_once()
+        mock_create_engine.assert_called_once()
+        mock_create_session.assert_called_once_with(engine=mock_engine)
+        mock_job_dal_class.assert_called_once_with(session_factory=mock_session_factory)
+        mock_node_dal_class.assert_called_once_with(session_factory=mock_session_factory)
+
+    @patch(
+        "docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
+    )
+    def test_initialization_failure_no_password(self, mock_get_conn_str):
+        """Test initialization fails when PostgreSQL password not set."""
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        mock_get_conn_str.return_value = None
+
+        with pytest.raises(
+            JobStatsStoreInitializationException,
+            match="PostgreSQL connection not configured",
+        ):
+            PostgresJobStatsStore()
+
+    def test_store_job_stats_interface(self, sample_job_stats_dto):
+        """
+        Test store_job_stats interface (mocked).
+
+        Integration Gap: This tests the interface, not actual database operations.
+        """
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._job_stats_dal = Mock()
+
+            # Call store_job_stats
+            store.store_job_stats(sample_job_stats_dto)
+
+            # Verify DAL was called
+            store._job_stats_dal.upsert.assert_called_once()
+
+    def test_get_job_stats_interface(self, sample_job_stats_dto):
+        """
+        Test get_job_stats interface (mocked).
+
+        Integration Gap: This tests the interface, not actual database operations.
+        """
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from docpipe.core.job_management.adapters.stores.postgres.models import JobStatsModel
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._job_stats_dal = Mock()
+
+            # Mock DAL response - use the fixture's job_run_id
+            mock_job_run_stats = Mock(spec=JobStatsModel)
+            mock_job_run_stats.job_id = sample_job_stats_dto.job_id
+            mock_job_run_stats.job_run_id = sample_job_stats_dto.job_run_id
+            mock_job_run_stats.status = sample_job_stats_dto.status.value
+            mock_job_run_stats.message = sample_job_stats_dto.message
+            mock_job_run_stats.start_time = sample_job_stats_dto.start_time
+            mock_job_run_stats.end_time = sample_job_stats_dto.end_time
+            mock_job_run_stats.duration = sample_job_stats_dto.duration
+            mock_job_run_stats.total_docs = sample_job_stats_dto.total_docs
+            mock_job_run_stats.processed_docs = sample_job_stats_dto.processed_docs
+            mock_job_run_stats.completed_docs = sample_job_stats_dto.completed_docs
+            mock_job_run_stats.failed_docs = sample_job_stats_dto.failed_docs
+            mock_job_run_stats.skipped_docs = sample_job_stats_dto.skipped_docs
+            mock_job_run_stats.heartbeat_timestamp = None
+            mock_job_run_stats.deleted_doc_count = 0
+            mock_job_run_stats.total_pages_processed = 0
+            mock_job_run_stats.page_type_stats = {}
+            mock_job_run_stats.execution_time = 0
+            mock_job_run_stats.orchestrator = "Python"
+            mock_job_run_stats.container_kind = None
+            mock_job_run_stats.container_id = None
+            mock_job_run_stats.flow_id = None
+            mock_job_run_stats.user_id = None
+            mock_job_run_stats.account_id = None
+            mock_job_run_stats.user_entitlements = None
+
+            store._job_stats_dal.get_by_job_run_id.return_value = mock_job_run_stats
+
+            # Call get_job_stats with the fixture's job_run_id
+            result = store.get_job_stats(sample_job_stats_dto.job_run_id)
+
+            # Verify result
+            assert result is not None
+            assert result.job_run_id == sample_job_stats_dto.job_run_id
+            store._job_stats_dal.get_by_job_run_id.assert_called_once_with(job_run_id=sample_job_stats_dto.job_run_id)
+
+    def test_store_node_stats_interface(self, sample_node_stats_dto):
+        """
+        Test store_node_stats interface (mocked).
+
+        Integration Gap: This tests the interface, not actual database operations.
+        """
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._node_stats_dal = Mock()
+
+            # Call store_node_stats
+            store.store_node_stats(job_run_id="test-run-456", node_stats=sample_node_stats_dto)
+
+            # Verify DAL was called
+            store._node_stats_dal.upsert.assert_called_once()
+
+    def test_atomic_increment_fields_interface(self):
+        """
+        Test atomic_increment_fields interface (mocked).
+
+        Integration Gap: This tests the interface, not actual atomic operations.
+        """
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._job_stats_dal = Mock()
+
+            # Call atomic_increment_fields
+            store.atomic_increment_fields(
+                job_run_id="test-run-456",
+                increments={"processed_docs": 10},
+                updates={"status": ExecutionStatus.RUNNING},
+            )
+
+            # Verify DAL was called
+            store._job_stats_dal.atomic_increment_fields.assert_called_once_with(
+                job_run_id="test-run-456",
+                increments={"processed_docs": 10},
+                updates={"status": ExecutionStatus.RUNNING},
+                jsonb_merges=None,
+            )
+
+    def test_bulk_store_node_stats_interface(self, sample_node_stats_dto):
+        """
+        Test bulk_store_node_stats interface (mocked).
+
+        Integration Gap: This tests the interface, not actual bulk operations.
+        """
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._node_stats_dal = Mock()
+
+            # Call bulk_store_node_stats
+            node_stats_list = [sample_node_stats_dto]
+            store.bulk_store_node_stats(job_run_id="test-run-456", node_stats_list=node_stats_list)
+
+            # Verify DAL was called
+            store._node_stats_dal.bulk_insert.assert_called_once()
+
+    def test_delete_job_stats_interface(self):
+        """
+        Test delete_job_stats interface (mocked).
+
+        Integration Gap: This tests the interface, not actual delete operations.
+        """
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._job_stats_dal = Mock()
+            store._job_stats_dal.delete_job_stats.return_value = 1
+
+            # Call delete_job_stats
+            store.delete_job_stats("test-run-456")
+
+            # Verify DAL was called
+            store._job_stats_dal.delete_job_stats.assert_called_once_with(job_run_id="test-run-456")
+
+    def test_list_job_runs_interface(self):
+        """
+        Test list_job_runs interface (mocked).
+
+        Integration Gap: This tests the interface, not actual query operations.
+        """
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from docpipe.core.job_management.adapters.stores.postgres.models import JobStatsModel
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._job_stats_dal = Mock()
+
+            # Use consistent job_id throughout the test
+            test_job_id = "12345678-1234-1234-1234-123456789012"
+
+            # Mock DAL response
+            mock_job_run_stats = Mock(spec=JobStatsModel)
+            mock_job_run_stats.job_id = test_job_id
+            mock_job_run_stats.job_run_id = "87654321-4321-4321-4321-210987654321"
+            mock_job_run_stats.status = ExecutionStatus.COMPLETED.value
+            mock_job_run_stats.start_time = 1704067200
+            mock_job_run_stats.message = "Success"
+            mock_job_run_stats.end_time = 0
+            mock_job_run_stats.duration = 0
+            mock_job_run_stats.total_docs = 100
+            mock_job_run_stats.processed_docs = 100
+            mock_job_run_stats.completed_docs = 100
+            mock_job_run_stats.failed_docs = 0
+            mock_job_run_stats.skipped_docs = 0
+            mock_job_run_stats.heartbeat_timestamp = None
+            mock_job_run_stats.deleted_doc_count = 0
+            mock_job_run_stats.total_pages_processed = 0
+            mock_job_run_stats.page_type_stats = {}
+            mock_job_run_stats.execution_time = 0
+            mock_job_run_stats.orchestrator = "Python"
+            mock_job_run_stats.container_kind = None
+            mock_job_run_stats.container_id = None
+            mock_job_run_stats.flow_id = None
+            mock_job_run_stats.user_id = None
+            mock_job_run_stats.account_id = None
+            mock_job_run_stats.user_entitlements = None
+
+            store._job_stats_dal.list_job_runs.return_value = [mock_job_run_stats]
+
+            # Call list_job_runs
+            result = store.list_job_runs(job_id=test_job_id, limit=10)
+
+            # Verify result
+            assert len(result) == 1
+            assert result[0].job_id == test_job_id
+            store._job_stats_dal.list_job_runs.assert_called_once_with(job_id=test_job_id, status=None, limit=10)

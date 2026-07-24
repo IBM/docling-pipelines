@@ -1,0 +1,257 @@
+{
+  "document_class_id": "6bfc1eff-9b4c-4b4f-9187-057b3b9acd9e",
+  "document_class_name": "I-9 Form",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "employee_name",
+          "examples": [
+            "John Doe"
+          ],
+          "description": "Full legal name of the employee as entered on the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "employee_address",
+          "examples": [
+            "123 Elm St, Cityville, ST 11111"
+          ],
+          "description": "Residential address the employee provides on the I-9.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_birth",
+          "examples": [
+            "1985-05-10"
+          ],
+          "description": "Employee\u2019s DOB as stated on the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "social_security_number",
+          "examples": [
+            "XXX-XX-XXXX"
+          ],
+          "description": "SSN if the employee chooses to provide it (unless required for E-Verify).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "citizenship_status",
+          "examples": [
+            "U.S. Citizen"
+          ],
+          "description": "Selected box indicating the employee\u2019s citizenship or immigration status.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "document_title",
+          "examples": [
+            "U.S. Passport, Driver\u2019s License, Social Security Card"
+          ],
+          "description": "Title(s) of document(s) the employee presents for identity/work authorization.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issuing_authority",
+          "examples": [
+            "State DMV, Department of State"
+          ],
+          "description": "The authority that issued the ID/work authorization document.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "document_number",
+          "examples": [
+            "C1234567"
+          ],
+          "description": "Number found on the identity/authorization document.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "expiration_date",
+          "examples": [
+            "2026-12-31"
+          ],
+          "description": "Expiration date of the presented ID (if applicable).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "employer_certification_date",
+          "examples": [
+            "2023-07-01"
+          ],
+          "description": "Date the employer certifies the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "employer_representative_signature",
+          "examples": [
+            "Jane Smith"
+          ],
+          "description": "Name/Signature of employer or authorized representative.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "I-9 Form",
+      "document_description": "Form I-9 (Employment Eligibility Verification) is used by U.S. employers to verify an employee\u2019s identity and legal authorization to work. While official I-9 documentation spans multiple pages including instructions, businesses often store only the completed single-page section containing the employee\u2019s details and verification data.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "I_9_Form",
+        "columns": [
+          {
+            "name": "employee_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "employee_name"
+              ]
+            },
+            "description": "Full legal name of the employee as entered on the form."
+          },
+          {
+            "name": "employee_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "employee_address"
+              ]
+            },
+            "description": "Residential address the employee provides on the I-9."
+          },
+          {
+            "name": "date_of_birth",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_birth"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Employee\u2019s DOB as stated on the form."
+          },
+          {
+            "name": "social_security_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "social_security_number"
+              ]
+            },
+            "description": "SSN if the employee chooses to provide it (unless required for E-Verify)."
+          },
+          {
+            "name": "citizenship_status",
+            "type": "string",
+            "source": {
+              "field": [
+                "citizenship_status"
+              ]
+            },
+            "description": "Selected box indicating the employee\u2019s citizenship or immigration status."
+          },
+          {
+            "name": "document_title",
+            "type": "string",
+            "source": {
+              "field": [
+                "document_title"
+              ]
+            },
+            "description": "Title(s) of document(s) the employee presents for identity/work authorization."
+          },
+          {
+            "name": "issuing_authority",
+            "type": "string",
+            "source": {
+              "field": [
+                "issuing_authority"
+              ]
+            },
+            "description": "The authority that issued the ID/work authorization document."
+          },
+          {
+            "name": "document_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "document_number"
+              ]
+            },
+            "description": "Number found on the identity/authorization document."
+          },
+          {
+            "name": "expiration_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "expiration_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Expiration date of the presented ID (if applicable)."
+          },
+          {
+            "name": "employer_certification_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "employer_certification_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the employer certifies the form."
+          },
+          {
+            "name": "employer_representative_signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "employer_representative_signature"
+              ]
+            },
+            "description": "Name/Signature of employer or authorized representative."
+          }
+        ],
+        "metadata": {},
+        "description": "Form I-9 (Employment Eligibility Verification) is used by U.S. employers to verify an employee\u2019s identity and legal authorization to work. While official I-9 documentation spans multiple pages including instructions, businesses often store only the completed single-page section containing the employee\u2019s details and verification data."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

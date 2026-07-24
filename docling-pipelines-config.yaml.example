@@ -1,0 +1,300 @@
+# Docpipe Configuration File
+# This file configures various docpipe components including job management and incremental metadata storage
+# Copy this file to 'docling-pipelines-config.yaml' and customize for your environment
+
+# ============================================================================
+# Global Storage Configuration (NEW)
+# ============================================================================
+# Provides default storage configuration for ALL services (job_management and incremental_metadata)
+# Service-specific configurations will override these global defaults
+#
+# Configuration Precedence (highest to lowest):
+#   1. Environment Variables
+#   2. Service-Specific Config (job_management.storage or incremental_metadata.storage)
+#   3. Global Storage Config (global_storage) ← YOU ARE HERE
+#   4. Built-in Defaults
+#
+# Supported storage types: filesystem, postgresql, duckdb, inmemory
+global_storage:
+  type: "filesystem"  # Default storage type for all services
+  
+  # config section (required for file-based storage: parquet, duckdb)
+  config:
+    base_dir: "./data"  # Base directory for file-based storage
+    lock_timeout: 30.0  # Lock timeout in seconds
+  
+  # PostgreSQL configuration (only needed if type is "postgresql")
+  # NOTE: For PostgreSQL, the config section above is optional
+  postgres:
+    host: "localhost"
+    port: 5432
+    database: "docpipe"  # Database name
+    user: "docpipe_user"
+    password: "${POSTGRES_PASSWORD}"  # Environment variable substitution
+    schema: "docpipe_oss"  # Both services will use this schema
+    pool_size: 5
+    max_overflow: 10
+    pool_timeout: 30.0
+
+# ============================================================================
+# Job Management Configuration
+# ============================================================================
+# Controls how job execution statistics and metadata are stored
+# If not specified, inherits from global_storage configuration above
+job_management:
+  # Uncomment to override global_storage for job_management only
+  # storage:
+  #   type: "postgresql"  # Override: use PostgreSQL instead of global Filesystem
+  #   config:
+  #     base_dir: "./data/job_stats"
+  #   postgres:
+  #     schema: "job_management"  # Service-specific schema
+
+# ============================================================================
+# Incremental Metadata Configuration
+# ============================================================================
+# Controls how incremental processing metadata is stored and managed
+# If not specified, inherits from global_storage configuration above
+incremental_metadata:
+  # Uncomment to override global_storage for incremental_metadata only
+  # storage:
+  #   type: "postgresql"  # Override: use PostgreSQL instead of global Filesystem
+  #   postgres:
+  #     schema: "incremental_metadata"  # Service-specific schema
+
+# ============================================================================
+# Global Storage Configuration Examples
+# ============================================================================
+
+# Example 1: Global Filesystem Storage (Both services use Filesystem)
+# Best for: Medium-scale deployments, analytics workloads, data science
+# Pros: Efficient columnar storage, good compression, PyArrow integration
+# Cons: Requires more disk I/O for updates, no ACID guarantees
+#
+# global_storage:
+#   type: "filesystem"
+#   config:
+#     base_dir: "./data"
+#     lock_timeout: 30.0
+#
+# job_management: {}  # Inherits Filesystem from global_storage
+# incremental_metadata: {}  # Inherits Filesystem from global_storage
+
+# Example 2: Global PostgreSQL Storage (Both services use PostgreSQL in same schema)
+# Best for: Production deployments, high concurrency, data integrity requirements
+# Pros: ACID compliance, concurrent access, query capabilities, backup/restore
+# Cons: Requires PostgreSQL server, additional infrastructure
+# NOTE: config section is optional for PostgreSQL
+#
+# global_storage:
+#   type: "postgresql"
+#   postgres:
+#     host: "${POSTGRES_HOST:-localhost}"
+#     port: 5432
+#     database: "docpipe"  # Database name
+#     user: "${POSTGRES_USER:-docpipe_user}"
+#     password: "${POSTGRES_PASSWORD}"
+#     schema: "docpipe_oss"  # Both services use same schema
+#     pool_size: 5
+#     max_overflow: 10
+#
+# job_management: {}  # Inherits PostgreSQL with docpipe_oss schema
+# incremental_metadata: {}  # Inherits PostgreSQL with docpipe_oss schema
+
+# Example 3: Global DuckDB Storage (Both services use DuckDB)
+# Best for: Embedded analytics, serverless deployments, local development
+# Pros: Embedded database, no server required, SQL query support
+# Cons: Single-process access, not suitable for distributed systems
+#
+# global_storage:
+#   type: "duckdb"
+#   config:
+#     base_dir: "./data"
+#     lock_timeout: 30.0
+#
+# job_management: {}  # Inherits DuckDB from global_storage
+# incremental_metadata: {}  # Inherits DuckDB from global_storage
+
+# Example 4: Global with Service-Specific Override
+# Use case: Global Filesystem for most services, but PostgreSQL for job_management
+#
+# global_storage:
+#   type: "filesystem"
+#   config:
+#     base_dir: "./data"
+#
+# job_management:
+#   storage:
+#     type: "postgresql"  # Override: use PostgreSQL instead of Filesystem
+#   postgres:
+#     host: "postgres.example.com"
+#     database: "docpipe_jobs"
+#     schema: "job_management"
+#
+# incremental_metadata: {}  # Inherits Filesystem from global_storage
+
+# Example 5: Global with Multiple Overrides
+# Use case: Different storage for each service
+#
+# global_storage:
+#   type: "filesystem"  # Default (not used in this example)
+#   config:
+#     base_dir: "./data"
+#
+# job_management:
+#   storage:
+#     type: "postgresql"  # Job stats in PostgreSQL
+#   postgres:
+#     host: "postgres.example.com"
+#     schema: "job_management"
+#
+# incremental_metadata:
+#   storage:
+#     type: "postgresql"  # Incremental metadata in PostgreSQL
+#   postgres:
+#     host: "postgres.example.com"
+#     schema: "incremental_metadata"
+
+# ============================================================================
+# Environment Variable Substitution
+# ============================================================================
+# Docpipe supports environment variable substitution in configuration values
+#
+# Syntax:
+#   ${VAR_NAME}                    - Substitute environment variable
+#   ${VAR_NAME:-default_value}     - Substitute with default if not set
+#
+# Examples:
+#   password: "${DB_PASSWORD}"                    - Required variable
+#   host: "${DB_HOST:-localhost}"                 - Optional with default
+#   port: "${DB_PORT:-5432}"                      - Numeric with default
+#   database: "${DB_NAME:-docpipe}"              - String with default
+#
+# Security Best Practices:
+#   - ALWAYS use environment variables for sensitive data (passwords, tokens, API keys)
+#   - NEVER commit actual credentials to version control
+#   - Use .env files (excluded from git) for local development
+#   - Use secrets management systems (Vault, AWS Secrets Manager) in production
+
+# ============================================================================
+# Complete Configuration Example with Environment Variables
+# ============================================================================
+# This example shows a production-ready configuration using PostgreSQL
+# for both job management and incremental metadata with environment variables
+#
+# job_management:
+#   storage:
+#     type: "postgresql"
+#     config:
+#       base_dir: "${DATA_DIR:-./data}"
+#       lock_timeout: "${LOCK_TIMEOUT:-30.0}"
+#   postgres:
+#     host: "${JOB_MGMT_DB_HOST:-localhost}"
+#     port: "${JOB_MGMT_DB_PORT:-5432}"
+#     database: "${JOB_MGMT_DB_NAME:-docpipe}"
+#     user: "${JOB_MGMT_DB_USER:-docpipe_user}"
+#     password: "${JOB_MGMT_DB_PASSWORD}"
+#     schema: "${JOB_MGMT_DB_SCHEMA:-job_management}"
+#
+# incremental_metadata:
+#   storage:
+#     type: "postgresql"
+#     config:
+#       base_dir: "${DATA_DIR:-./data}"
+#       lock_timeout: "${LOCK_TIMEOUT:-30.0}"
+#   postgres:
+#     host: "${INCR_META_DB_HOST:-localhost}"
+#     port: "${INCR_META_DB_PORT:-5432}"
+#     database: "${INCR_META_DB_NAME:-docpipe}"
+#     user: "${INCR_META_DB_USER:-docpipe_user}"
+#     password: "${INCR_META_DB_PASSWORD}"
+#     schema: "${INCR_META_DB_SCHEMA:-incremental_metadata}"
+
+# ============================================================================
+# Migration Notes
+# ============================================================================
+# IMPORTANT: This configuration replaces flow-level incremental metadata settings
+#
+# Before (Flow-level configuration - DEPRECATED):
+#   {
+#     "nodes": [{
+#       "id": "ingest_1",
+#       "operator": "IngestSourceOperator",
+#       "config": {
+#         "incremental_metadata": {
+#           "storage_type": "filesystem",
+#           "base_dir": "./data"
+#         }
+#       }
+#     }]
+#   }
+#
+# After (Centralized configuration - CURRENT):
+#   1. Create docling-pipelines-config.yaml with incremental_metadata section
+#   2. Remove incremental_metadata from flow JSON files
+#   3. All flows will use the centralized configuration
+#
+# Migration Steps:
+#   1. Copy this file to docling-pipelines-config.yaml
+#   2. Configure your preferred storage backend
+#   3. Set environment variables for sensitive data
+#   4. Remove flow-level incremental_metadata configurations
+#   5. Test flows to ensure incremental processing works correctly
+#
+# Backward Compatibility:
+#   - Flow-level configurations are still supported but deprecated
+#   - Centralized config takes precedence over flow-level config
+#   - Plan to migrate all flows to use centralized configuration
+
+# ============================================================================
+# Configuration Validation
+# ============================================================================
+# Docpipe validates configuration on startup. Common issues:
+#
+# 1. Missing required fields:
+#    - storage.type is required
+#    - postgres section required when type is "postgresql"
+#
+# 2. Invalid storage type:
+#    - Must be one of: filesystem, postgresql
+#
+# 3. Missing environment variables:
+#    - Ensure all referenced ${VAR} are set
+#    - Use defaults (${VAR:-default}) for optional values
+#
+# 4. PostgreSQL connection issues:
+#    - Verify database server is running
+#    - Check credentials and network connectivity
+#    - Ensure schema exists or user has CREATE SCHEMA permission
+#
+# 5. File system permissions:
+#    - Ensure base_dir is writable
+#    - Check disk space availability
+
+# ============================================================================
+# Performance Tuning
+# ============================================================================
+# Recommendations for different deployment scales:
+#
+# Small Scale (< 1000 documents/day):
+#   - Use Filesystem storage for simplicity
+#   - lock_timeout: 30.0 seconds
+#   - base_dir on local SSD
+#
+# Medium Scale (1000-10000 documents/day):
+#   - Use Filesystem storage with optimized configuration
+#   - lock_timeout: 60.0 seconds
+#   - base_dir on fast network storage
+#
+# Large Scale (> 10000 documents/day):
+#   - Use PostgreSQL storage for scalability
+#   - lock_timeout: 120.0 seconds
+#   - Configure PostgreSQL connection pooling
+#   - Use dedicated database server
+#   - Enable PostgreSQL query optimization
+#
+# High Concurrency:
+#   - Always use PostgreSQL storage
+#   - Increase lock_timeout to 300.0+ seconds
+#   - Configure PostgreSQL max_connections appropriately
+#   - Monitor database connection pool usage

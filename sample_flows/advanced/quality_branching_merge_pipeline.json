@@ -1,0 +1,312 @@
+{
+  "flow_name": "Branching and Merging Pipeline",
+  "description": "Demonstrates both BranchingOperator and MergeOperator: Ingest → Extract → Language Detection → Dedup → Doc Quality → Readability → Branch (3-way split on word count) → [Long Docs: ML Enrichment] | [Medium Docs: SQL Filter] | [Short Docs: Noop] → Merge (rows) → Embeddings → OpenSearch. Shows document-length-based conditional routing with 3 branches and row-based merging.",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "tests/fixtures/customer_support_docs/",
+        "include_filter": "txt,pdf",
+        "max_workers": 2
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "detect_language",
+      "type": "lang_detect",
+      "config": {
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "extract"
+      ]
+    },
+    {
+      "name": "dedup",
+      "type": "ededup",
+      "config": {
+        "doc_column": "content",
+        "doc_id_column": "doc_id_hash"
+      },
+      "depends_on": [
+        "detect_language"
+      ]
+    },
+    {
+      "name": "doc_quality",
+      "type": "doc_quality",
+      "config": {
+        "doc_column": "content",
+        "doc_content_column": "content",
+        "text_lang": "en"
+      },
+      "depends_on": [
+        "dedup"
+      ]
+    },
+    {
+      "name": "readability",
+      "type": "readability",
+      "config": {
+        "doc_column": "content",
+        "readability_score_list": [
+          "flesch_reading_ease",
+          "flesch_kincaid_grade",
+          "gunning_fog",
+          "difficult_words",
+          "dale_chall_readability_score"
+        ]
+      },
+      "depends_on": [
+        "doc_quality"
+      ]
+    },
+    {
+      "name": "quality_branching",
+      "type": "branching",
+      "config": {
+        "branches": {
+          "long_docs_branch": {
+            "link_name": "Long Documents",
+            "criteria_json": {
+              "criteria_list": [
+                {
+                  "variable": "docq_total_words",
+                  "operator": ">=",
+                  "value": 98
+                }
+              ],
+              "logical_operator": "AND"
+            }
+          },
+          "medium_docs_branch": {
+            "link_name": "Medium Documents",
+            "criteria_json": {
+              "criteria_list": [
+                {
+                  "variable": "docq_total_words",
+                  "operator": ">=",
+                  "value": 78
+                },
+                {
+                  "variable": "docq_total_words",
+                  "operator": "<",
+                  "value": 98
+                }
+              ],
+              "logical_operator": "AND"
+            }
+          },
+          "short_docs_branch": {
+            "link_name": "Short Documents",
+            "criteria_json": {
+              "criteria_list": [
+                {
+                  "variable": "docq_total_words",
+                  "operator": "<",
+                  "value": 78
+                }
+              ],
+              "logical_operator": "AND"
+            }
+          }
+        }
+      },
+      "depends_on": [
+        "readability"
+      ]
+    },
+    {
+      "name": "ml_enrichment_long",
+      "type": "ml_enrichment",
+      "config": {
+        "doc_column": "content",
+        "lang_column": "lang_name",
+        "output_column_prefix": "ml_long_",
+        "error_column_name": "enrichment_error_long"
+      },
+      "depends_on": [
+        "quality_branching.long_docs_branch"
+      ]
+    },
+    {
+      "name": "sql_filter_medium",
+      "type": "sql_filter",
+      "config": {
+        "criteria_json": {
+          "criteria_list": [
+            {
+              "variable": "flesch_reading_ease",
+              "operator": ">",
+              "value": 0
+            }
+          ],
+          "logical_operator": "AND"
+        }
+      },
+      "depends_on": [
+        "quality_branching.medium_docs_branch"
+      ]
+    },
+    {
+      "name": "noop_short",
+      "type": "noop",
+      "config": {},
+      "depends_on": [
+        "quality_branching.short_docs_branch"
+      ]
+    },
+    {
+      "name": "merge_all_branches",
+      "type": "merge",
+      "config": {
+        "merge_type": "rows",
+        "input_links": [
+          {
+            "link_name": "long_docs_processed"
+          },
+          {
+            "link_name": "medium_docs_processed"
+          },
+          {
+            "link_name": "short_docs_processed"
+          }
+        ]
+      },
+      "depends_on": [
+        "ml_enrichment_long",
+        "sql_filter_medium",
+        "noop_short"
+      ]
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "config": {
+        "provider": "litellm",
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.2,
+        "doc_column": "content",
+        "provider_config": {
+          "model_id": "openai/granite4:latest",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
+      },
+      "depends_on": [
+        "merge_all_branches"
+      ]
+    },
+    {
+      "name": "vectordb",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "branched_merged_docs",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 2560,
+        "create_index": "true",
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+"username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "name": {
+            "name": "Document Name",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          },
+          "lang_name": {
+            "name": "Language",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "flesch_reading_ease": {
+            "name": "Flesch Reading Ease",
+            "available_for_vector_db": true,
+            "type": "float"
+          },
+          "flesch_kincaid_grade": {
+            "name": "Flesch-Kincaid Grade",
+            "available_for_vector_db": true,
+            "type": "float"
+          },
+          "gunning_fog": {
+            "name": "Gunning Fog Index",
+            "available_for_vector_db": true,
+            "type": "float"
+          },
+          "docq_total_words": {
+            "name": "Total Words",
+            "available_for_vector_db": true,
+            "type": "integer"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "name": "doc_name",
+          "content": "text",
+          "embeddings": "vector_embeddings",
+          "lang_name": "language",
+          "flesch_reading_ease": "readability_score",
+          "flesch_kincaid_grade": "grade_level",
+          "gunning_fog": "fog_index",
+          "docq_total_words": "word_count"
+        }
+      },
+      "depends_on": [
+        "embeddings"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "description": "You are a precise text analyzer that extracts ALL Personally Identifiable Information (PII) and Hate, Abuse and Profanity (HAP) from text.\n\nIMPORTANT RULES:\n1. Find EVERY instance of PII - do not skip any\n2. Detect these PII types: EmailAddress, PhoneNumber, SocialSecurityNumber (SSN), CreditCardNumber, BankAccountNumber, IPAddress\n3. For HAP, detect hate speech, abuse, profanity, discrimination\n4. Output ONLY valid JSON with NO additional text\n5. REQUIRED: Every detection MUST include ALL fields: detection, detection_type, start, end, score, AND text\n6. The 'text' field MUST contain the exact substring from the input at positions [start:end]\n\nOutput format:\n{\n  \"detections\": [\n    {\n      \"detection\": \"<type>\",\n      \"detection_type\": \"pii\" or \"hap\",\n      \"start\": <number>,\n      \"end\": <number>,\n      \"score\": <0.0-1.0>,\n      \"text\": \"<exact text from input[start:end]>\"\n    }\n  ]\n}\n",
+  "examples": [
+    {
+      "input": "Your email is support@ibm.com and your SSN is XXX-XX-XXXX.",
+      "output": {
+        "detections": [
+          {
+            "detection": "EmailAddress",
+            "detection_type": "pii",
+            "start": 14,
+            "end": 30,
+            "score": 0.8,
+            "text": "support@ibm.com"
+          },
+          {
+            "detection": "NationalNumber.SocialSecurityNumber.US",
+            "detection_type": "pii",
+            "start": 49,
+            "end": 60,
+            "score": 0.8,
+            "text": "XXX-XX-XXXX"
+          }
+        ]
+      }
+    },
+    {
+      "input": "People who believe in [religion] or follow [ethnicity] may face discrimination.",
+      "output": {
+        "detections": [
+          {
+            "detection": "has_HAP",
+            "detection_type": "hap",
+            "start": 0,
+            "end": 62,
+            "score": 0.9,
+            "text": "People who believe in [religion] or follow [ethnicity] may face discrimination."
+          }
+        ]
+      }
+    },
+    {
+      "input": "Your email is support@ibm.com! 5340904586541378 Only the next instance of email will be processed. test@ibm.com. Your SSN is XXX-XX-XXXX.\nPeople like you shouldn't even be allowed to speak. Honestly, anyone who believes in [religion] or follows [ethnicity] is a fool.",
+      "output": {
+        "detections": [
+          {
+            "detection": "EmailAddress",
+            "detection_type": "pii",
+            "start": 14,
+            "end": 29,
+            "score": 0.8,
+            "text": "support@ibm.com"
+          },
+          {
+            "detection": "CreditCardNumber",
+            "detection_type": "pii",
+            "start": 31,
+            "end": 47,
+            "score": 0.8,
+            "text": "5340904586541378"
+          },
+          {
+            "detection": "EmailAddress",
+            "detection_type": "pii",
+            "start": 99,
+            "end": 111,
+            "score": 0.8,
+            "text": "test@ibm.com"
+          },
+          {
+            "detection": "NationalNumber.SocialSecurityNumber.US",
+            "detection_type": "pii",
+            "start": 125,
+            "end": 136,
+            "score": 0.8,
+            "text": "XXX-XX-XXXX"
+          },
+          {
+            "detection": "has_HAP",
+            "detection_type": "hap",
+            "start": 138,
+            "end": 267,
+            "score": 0.9,
+            "text": "People like you shouldn't even be allowed to speak. Honestly, anyone who believes in [religion] or follows [ethnicity] is a fool."
+          }
+        ]
+      }
+    },
+    {
+      "input": "Subject: Assistance 127.0.0.1 adityars@ibm.com with credit card update",
+      "output": {
+        "detections": [
+          {
+            "detection": "IPAddress",
+            "detection_type": "pii",
+            "start": 20,
+            "end": 29,
+            "score": 0.8,
+            "text": "127.0.0.1"
+          },
+          {
+            "detection": "EmailAddress",
+            "detection_type": "pii",
+            "start": 30,
+            "end": 46,
+            "score": 0.8,
+            "text": "adityars@ibm.com"
+          }
+        ]
+      }
+    },
+    {
+      "input": "Contact me at 123-456-7890 or email john@example.com",
+      "output": {
+        "detections": [
+          {
+            "detection": "PhoneNumber",
+            "detection_type": "pii",
+            "start": 14,
+            "end": 26,
+            "score": 0.8,
+            "text": "123-456-7890"
+          },
+          {
+            "detection": "EmailAddress",
+            "detection_type": "pii",
+            "start": 36,
+            "end": 53,
+            "score": 0.8,
+            "text": "john@example.com"
+          }
+        ]
+      }
+    }
+  ]
+}

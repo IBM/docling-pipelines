@@ -1,0 +1,131 @@
+# Milvus Docker Compose Configuration
+# Cross-compatible with Docker and Podman on Apple Silicon (M1/M2/M3) and Linux
+# Milvus v2.6.16 - Latest production-ready, ultra-stable release
+#
+# Usage:
+#   Docker:  docker compose -f docker/docker-compose.milvus.yml up -d
+#   Podman:  podman-compose -f docker/docker-compose.milvus.yml up -d
+#
+# Stop:
+#   Docker:  docker compose -f docker/docker-compose.milvus.yml down
+#   Podman:  podman-compose -f docker/docker-compose.milvus.yml down
+#
+# Authentication:
+#   Default credentials: root / Milvus
+#   Configured via user.yaml in volumes/milvus_configs/
+#
+# Attu Dashboard:
+#   Access at: http://localhost:8000
+#   Login with: root / Milvus
+#
+# Requirements:
+#   - Docker Desktop / Podman Desktop: At least 2 vCPUs and 8GB Memory
+#   - Ports: 19530 (Milvus), 9091 (Milvus Web UI), 9000/9001 (MinIO), 8000 (Attu)
+
+version: '3.8'
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: milvus-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd
+    # Use network identifier 'etcd' instead of localhost loopback so Podman/Docker networks bridge correctly
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - milvus
+
+  minio:
+    # MinIO version pinned for Milvus compatibility
+    # Milvus requires specific MinIO API versions - do not use 'latest'
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: milvus-minio
+    environment:
+      MINIO_ACCESS_KEY: minioadmin  # pragma: allowlist secret
+      MINIO_SECRET_KEY: minioadmin  # pragma: allowlist secret
+    ports:
+      - "9001:9001"
+      - "9000:9000"
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      # Podman/Docker strict fallback check using socket commands
+      # Avoids missing 'curl' binaries in modern stripped-down MinIO base images
+      test: ["CMD-SHELL", "bash -c ': </dev/tcp/localhost/9000' || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - milvus
+
+  milvus-standalone:
+    image: milvusdb/milvus:v2.6.16
+    container_name: milvus-standalone
+    security_opt:
+      - seccomp:unconfined
+    # Automated entrypoint wrapper injects config and boots Milvus
+    # No volume mappings required for user.yaml - zero setup on Podman or Docker
+    entrypoint: >
+      /bin/sh -c "
+      mkdir -p /milvus/configs &&
+      echo 'common:' > /milvus/configs/user.yaml &&
+      echo '  security:' >> /milvus/configs/user.yaml &&
+      echo '    authorizationEnabled: true' >> /milvus/configs/user.yaml &&
+      exec milvus run standalone
+      "
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY: minioadmin  # pragma: allowlist secret
+      MINIO_SECRET_KEY: minioadmin  # pragma: allowlist secret
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - milvus
+
+  attu:
+    image: zilliz/attu:v2.4.9
+    container_name: milvus-attu
+    environment:
+      MILVUS_URL: milvus-standalone:19530
+    ports:
+      - "8000:3000"
+    depends_on:
+      milvus-standalone:
+        condition: service_healthy
+    networks:
+      - milvus
+
+networks:
+  milvus:
+    driver: bridge
+
+volumes:
+  etcd:
+  minio:
+  milvus:

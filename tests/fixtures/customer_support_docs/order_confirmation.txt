@@ -1,0 +1,20 @@
+From:
+To:
+
+Subject: Action required: Update your credit card for order processing
+
+Hi [Customer First Name],
+
+Thank you for shopping with us!
+
+Your order is temporarily on hold until you enter your new credit card information. Once you’ve updated your card, your order should be processed right away.
+
+The credit card number that you have provided 378734493671000 is not valid.
+
+You can always check the status of your orders by clicking My Account and selecting My Orders from the left menu.
+
+Thanks again for reaching out. Let me know if you have any further questions!
+
+Best,
+
+[Your Name]

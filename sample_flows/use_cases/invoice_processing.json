@@ -1,0 +1,168 @@
+{
+  "flow_name": "invoice processing flow",
+  "description": "a flow to demonstrate invoice processing with docpipe pipeline",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "tests/fixtures/invoices",
+        "include_filter": ".pdf",
+        "max_workers": 2
+      }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/llama3.2",
+          "api_key": "${OLLAMA_API_KEY}",
+          "api_base": "http://localhost:11434/v1",
+          "temperature": 0.0,
+          "max_tokens": 1000
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "docling"
+        }
+      },
+      "depends_on": [
+        "classify"
+      ]
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "config": {
+        "chunk_type": "hybrid",
+        "doc_column": "content",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "retain_original_content": false
+      },
+      "depends_on": [
+        "extract"
+      ]
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+       "config": {
+        "provider": "litellm",
+        "embeddings_column": "embeddings",
+        "doc_column": "content",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<ollama>"
+        }
+      },
+      "depends_on": [
+        "chunk"
+      ]
+    },
+    {
+      "name": "vectordb",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "invoices_test",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": "true",
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          },
+          "extracted_invoice_number": {
+            "name": "Invoice Number",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "extracted_invoice_date": {
+            "name": "Invoice Date",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "extracted_vendor_name": {
+            "name": "Vendor Name",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "extracted_grand_total": {
+            "name": "Grand Total",
+            "available_for_vector_db": true,
+            "type": "float"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "content": "text",
+          "embeddings": "vector_embeddings",
+          "extracted_invoice_number": "invoice_number",
+          "extracted_invoice_date": "invoice_date",
+          "extracted_vendor_name": "vendor_name",
+          "extracted_grand_total": "grand_total"
+        }
+      },
+      "depends_on": [
+        "embeddings"
+      ]
+    }
+  ]
+}

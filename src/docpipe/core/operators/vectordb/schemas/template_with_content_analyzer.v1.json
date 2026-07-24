@@ -1,0 +1,89 @@
+{
+  "schema_name": "template_with_content_analyzer",
+  "schema_version": 1,
+  "settings": {
+    "index": {
+      "number_of_shards": 3,
+      "number_of_replicas": 1,
+      "knn": true,
+      "knn.algo_param.ef_search": 100
+    },
+    "analysis": {
+      "analyzer": {
+        "content_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop", "snowball"]
+        }
+      }
+    }
+  },
+  "indexing_rules": {
+    "content": {
+      "field_type": "content_text"
+    }
+  },
+  "field_types": {
+    "vector": {
+      "type": "knn_vector",
+      "method": {
+        "name": "__ALGORITHM__",
+        "space_type": "__SPACE_TYPE__",
+        "engine": "__ENGINE__",
+        "parameters": "__ENGINE_PARAMETERS__"
+      }
+    },
+    "vector_sparse": {
+      "type": "rank_features"
+    },
+    "string": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "content_text": {
+      "type": "text",
+      "analyzer": "content_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "int64": {
+      "type": "long"
+    },
+    "integer": {
+      "type": "integer"
+    },
+    "float": {
+      "type": "float"
+    },
+    "boolean": {
+      "type": "boolean"
+    },
+    "keyword": {
+      "type": "keyword"
+    },
+    "date": {
+      "type": "date"
+    },
+    "object": {
+      "type": "object",
+      "enabled": true
+    },
+    "json": {
+      "type": "object",
+      "enabled": true
+    },
+    "nested": {
+      "type": "object",
+      "enabled": true
+    }
+  }
+}

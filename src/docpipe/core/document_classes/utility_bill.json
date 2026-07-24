@@ -1,0 +1,451 @@
+{
+  "document_class_id": "915b7383-82d9-42c3-ab58-1b7153c6fc03",
+  "document_class_name": "Utility Bill",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "bill_number",
+          "examples": [
+            "INV-1001"
+          ],
+          "description": "Unique identifier or invoice number for the utility bill.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issue_date",
+          "examples": [
+            "2023-03-01"
+          ],
+          "description": "Date on which the bill was issued.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "due_date",
+          "examples": [
+            "2023-03-15"
+          ],
+          "description": "Payment due date.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "billing_period_start_date",
+          "examples": [
+            "2023-02-01"
+          ],
+          "description": "Start date for the billing period.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "billing_period_end_date",
+          "examples": [
+            "2023-02-28"
+          ],
+          "description": "End date for the billing period.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_name",
+          "examples": [
+            "John Doe"
+          ],
+          "description": "Name of the account holder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_address",
+          "examples": [
+            "456 Oak St, Townsville, TX 12345"
+          ],
+          "description": "Mailing or service address of the account holder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_name",
+          "examples": [
+            "Townsville Water & Power"
+          ],
+          "description": "Name of the utility vendor or provider.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_address",
+          "examples": [
+            "PO Box 999, Townsville, TX 12345"
+          ],
+          "description": "Address of the utility provider.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "subtotal",
+          "examples": [
+            "75.00"
+          ],
+          "description": "Subtotal of charges before any taxes.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax",
+          "examples": [
+            "5.00"
+          ],
+          "description": "Tax amount applied to the charges.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total",
+          "examples": [
+            "80.00"
+          ],
+          "description": "Total amount due.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "currency",
+          "examples": [
+            "USD"
+          ],
+          "description": "Currency used in the bill.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_info_payment_method",
+          "examples": [
+            "Online"
+          ],
+          "description": "Recommended or used payment method.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_info_payment_reference",
+          "examples": [
+            "CONF12345"
+          ],
+          "description": "Transaction reference or confirmation number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "notes",
+          "examples": [
+            "Late fee applies if not paid by due date."
+          ],
+          "description": "Additional remarks regarding the bill.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "client_number",
+          "examples": [
+            "CUST-90877"
+          ],
+          "description": "Unique identifier for the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "service_address",
+          "examples": [
+            "789 Pine St, Apt 2A"
+          ],
+          "description": "Physical address where utility is used.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "previous_balance",
+          "examples": [
+            "65.00"
+          ],
+          "description": "Balance carried over from prior bill.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Utility Bill",
+      "document_description": "Utility bills are documents issued by service providers that itemize charges for essential services like electricity, water, gas, internet, or telecommunications, typically showing usage details, account information, and payment requirements.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Utility_Bill",
+        "columns": [
+          {
+            "name": "bill_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "bill_number"
+              ]
+            },
+            "description": "Unique identifier or invoice number for the utility bill."
+          },
+          {
+            "name": "issue_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "issue_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date on which the bill was issued."
+          },
+          {
+            "name": "due_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "due_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Payment due date."
+          },
+          {
+            "name": "billing_period_start_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "billing_period_start_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Start date for the billing period."
+          },
+          {
+            "name": "billing_period_end_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "billing_period_end_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "End date for the billing period."
+          },
+          {
+            "name": "customer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_name"
+              ]
+            },
+            "description": "Name of the account holder."
+          },
+          {
+            "name": "customer_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_address"
+              ]
+            },
+            "description": "Mailing or service address of the account holder."
+          },
+          {
+            "name": "vendor_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_name"
+              ]
+            },
+            "description": "Name of the utility vendor or provider."
+          },
+          {
+            "name": "vendor_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_address"
+              ]
+            },
+            "description": "Address of the utility provider."
+          },
+          {
+            "name": "subtotal",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "subtotal"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Subtotal of charges before any taxes."
+          },
+          {
+            "name": "tax",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "tax"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Tax amount applied to the charges."
+          },
+          {
+            "name": "total",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total amount due."
+          },
+          {
+            "name": "currency",
+            "type": "string",
+            "source": {
+              "field": [
+                "currency"
+              ]
+            },
+            "description": "Currency used in the bill."
+          },
+          {
+            "name": "payment_info_payment_method",
+            "type": "string",
+            "source": {
+              "field": [
+                "payment_info_payment_method"
+              ]
+            },
+            "description": "Recommended or used payment method."
+          },
+          {
+            "name": "payment_info_payment_reference",
+            "type": "string",
+            "source": {
+              "field": [
+                "payment_info_payment_reference"
+              ]
+            },
+            "description": "Transaction reference or confirmation number."
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "source": {
+              "field": [
+                "notes"
+              ]
+            },
+            "description": "Additional remarks regarding the bill."
+          },
+          {
+            "name": "client_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "client_number"
+              ]
+            },
+            "description": "Unique identifier for the customer."
+          },
+          {
+            "name": "service_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "service_address"
+              ]
+            },
+            "description": "Physical address where utility is used."
+          },
+          {
+            "name": "previous_balance",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "previous_balance"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Balance carried over from prior bill."
+          }
+        ],
+        "metadata": {},
+        "description": "Utility bills are documents issued by service providers that itemize charges for essential services like electricity, water, gas, internet, or telecommunications, typically showing usage details, account information, and payment requirements."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

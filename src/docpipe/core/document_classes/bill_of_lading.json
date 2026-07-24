@@ -1,0 +1,265 @@
+{
+  "document_class_id": "9c8f0e92-8ad4-4f5f-9d39-c26e087a7da4",
+  "document_class_name": "Bill of Lading",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "bill_of_lading_number",
+          "examples": [
+            "BOL-1001"
+          ],
+          "description": "Unique reference number for the bill of lading.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipper_name",
+          "examples": [
+            "ABC Exports Inc."
+          ],
+          "description": "Name of the party sending the goods.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipper_address",
+          "examples": [
+            "123 Commerce St, Cityville, ST 12345"
+          ],
+          "description": "Address of the shipper.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "consignee_name",
+          "examples": [
+            "XYZ Imports LLC"
+          ],
+          "description": "Name of the party receiving the goods.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "consignee_address",
+          "examples": [
+            "456 Industrial Ave, Townsville, ST 67890"
+          ],
+          "description": "Address of the consignee.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "carrier_name",
+          "examples": [
+            "Global Shipping Co."
+          ],
+          "description": "Name of the carrier handling the shipment.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "origin",
+          "examples": [
+            "New York, USA"
+          ],
+          "description": "Location where the shipment originates.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "destination",
+          "examples": [
+            "Los Angeles, USA"
+          ],
+          "description": "Final destination of the goods.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "description_of_goods",
+          "examples": [
+            "10 crates of electronics"
+          ],
+          "description": "Brief description of the items being shipped.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "gross_weight",
+          "examples": [
+            "500 kg"
+          ],
+          "description": "Total weight of the shipped goods including packaging.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "freight_charges",
+          "examples": [
+            "Prepaid"
+          ],
+          "description": "Indicates whether freight is prepaid or collect.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_issue",
+          "examples": [
+            "2023-04-10"
+          ],
+          "description": "Date the carrier issues the Bill of Lading.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Bill of Lading",
+      "document_description": "A Bill of Lading is a legal transport document issued by a carrier to a shipper, typically a single-page form that details the shipment contents, destination, and terms. It serves as both a contract of carriage and a receipt of goods.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Bill_of_Lading",
+        "columns": [
+          {
+            "name": "bill_of_lading_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "bill_of_lading_number"
+              ]
+            },
+            "description": "Unique reference number for the bill of lading."
+          },
+          {
+            "name": "shipper_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipper_name"
+              ]
+            },
+            "description": "Name of the party sending the goods."
+          },
+          {
+            "name": "shipper_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipper_address"
+              ]
+            },
+            "description": "Address of the shipper."
+          },
+          {
+            "name": "consignee_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "consignee_name"
+              ]
+            },
+            "description": "Name of the party receiving the goods."
+          },
+          {
+            "name": "consignee_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "consignee_address"
+              ]
+            },
+            "description": "Address of the consignee."
+          },
+          {
+            "name": "carrier_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "carrier_name"
+              ]
+            },
+            "description": "Name of the carrier handling the shipment."
+          },
+          {
+            "name": "origin",
+            "type": "string",
+            "source": {
+              "field": [
+                "origin"
+              ]
+            },
+            "description": "Location where the shipment originates."
+          },
+          {
+            "name": "destination",
+            "type": "string",
+            "source": {
+              "field": [
+                "destination"
+              ]
+            },
+            "description": "Final destination of the goods."
+          },
+          {
+            "name": "description_of_goods",
+            "type": "string",
+            "source": {
+              "field": [
+                "description_of_goods"
+              ]
+            },
+            "description": "Brief description of the items being shipped."
+          },
+          {
+            "name": "gross_weight",
+            "type": "string",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "weight",
+                    "value": {
+                      "field": [
+                        "gross_weight"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "weight_to_numeric"
+              }
+            },
+            "description": "Total weight of the shipped goods including packaging."
+          },
+          {
+            "name": "freight_charges",
+            "type": "string",
+            "source": {
+              "field": [
+                "freight_charges"
+              ]
+            },
+            "description": "Indicates whether freight is prepaid or collect."
+          },
+          {
+            "name": "date_of_issue",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_issue"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the carrier issues the Bill of Lading."
+          }
+        ],
+        "metadata": {},
+        "description": "A Bill of Lading is a legal transport document issued by a carrier to a shipper, typically a single-page form that details the shipment contents, destination, and terms. It serves as both a contract of carriage and a receipt of goods."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:58Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

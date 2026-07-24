@@ -1,0 +1,58 @@
+{
+  "flow_name": "ingest-extract-chunk-with-summarization",
+  "description": "Simple pipeline demonstrating LLM-based summarization: Ingest -> Extract -> Chunk with Summaries",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": false,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "type": "ingest_local",
+      "name": "ingest_documents",
+      "config": {
+        "paths": "./sample_documents",
+        "include_filter": "pdf,txt,docx",
+        "max_workers": 4
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_text",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest_documents"
+      ]
+    },
+    {
+      "type": "chunker",
+      "name": "chunk_with_summarization",
+      "config": {
+        "chunk_type": "simple",
+        "chunk_size": 500,
+        "chunk_overlap": 50,
+        "retain_original_content": false,
+        "summarization": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/llama3.2",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<value>"
+          },
+          "summary_sentences": 3,
+          "summary_max_words": 50
+        }
+      },
+      "depends_on": [
+        "extract_text"
+      ]
+    }
+  ]
+}

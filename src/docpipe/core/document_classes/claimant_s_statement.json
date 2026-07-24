@@ -1,0 +1,483 @@
+{
+  "document_class_id": "2e1fc8d4-96f8-441f-a1c7-7e025e8e18bb",
+  "document_class_name": "Claimant's Statement",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "full_name_of_deceased",
+          "examples": [
+            "John Doe"
+          ],
+          "description": "The full name of the deceased individual.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "usaa_number_of_deceased",
+          "examples": [
+            "987654321"
+          ],
+          "description": "The unique USAA identification number assigned to the deceased.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_birth",
+          "examples": [
+            "1950-06-15"
+          ],
+          "description": "The birth date of the deceased.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "contract_numbers",
+          "examples": [
+            "A12345-67890, B54321-98765"
+          ],
+          "description": "The policy contract numbers associated with the deceased.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_death",
+          "examples": [
+            "2024-09-10"
+          ],
+          "description": "The date of death of the policyholder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "cause_of_death",
+          "examples": [
+            "Natural Causes"
+          ],
+          "description": "The cause of death as stated on the claim form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "manner_of_death",
+          "examples": [
+            "Natural"
+          ],
+          "description": "The classified manner of death: Natural, Suicide, Accident, Homicide, Unknown, or Other.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "signature_of_beneficiary",
+          "examples": [
+            "Jane Smith"
+          ],
+          "description": "The name of the beneficiary signing the claim form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_signature",
+          "examples": [
+            "2024-09-15"
+          ],
+          "description": "The date the beneficiary signed the claimant's statement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_date_of_birth",
+          "examples": [
+            "1975-08-25"
+          ],
+          "description": "The birth date of the beneficiary.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_ssn_or_tin",
+          "examples": [
+            "XXX-XX-XXXX"
+          ],
+          "description": "The Social Security Number or Tax Identification Number of the beneficiary.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_name",
+          "examples": [
+            "Jane Smith"
+          ],
+          "description": "The full name of the beneficiary or authorized representative.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "citizenship_status",
+          "examples": [
+            "U.S. Citizen"
+          ],
+          "description": "The citizenship status of the beneficiary (U.S. Citizen, Resident Alien, Non-Resident Alien).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_mailing_street_address",
+          "examples": [
+            "123 Elm Street"
+          ],
+          "description": "The mailing street address of the beneficiary.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_mailing_city",
+          "examples": [
+            "Springfield"
+          ],
+          "description": "The city of the beneficiary's mailing address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_mailing_state",
+          "examples": [
+            "IL"
+          ],
+          "description": "The state of the beneficiary's mailing address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_mailing_zip_code",
+          "examples": [
+            "62704"
+          ],
+          "description": "The ZIP code of the beneficiary's mailing address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_phone_number",
+          "examples": [
+            "555-123-4567"
+          ],
+          "description": "The phone number of the beneficiary.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_physical_street_address",
+          "examples": [
+            "123 Elm Street"
+          ],
+          "description": "The physical street address of the beneficiary.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_physical_city",
+          "examples": [
+            "Springfield"
+          ],
+          "description": "The city of the beneficiary's physical address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_physical_state",
+          "examples": [
+            "IL"
+          ],
+          "description": "The state of the beneficiary's physical address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "beneficiary_physical_zip_code",
+          "examples": [
+            "62704"
+          ],
+          "description": "The ZIP code of the beneficiary's physical address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "mailing_address_same_as_physical",
+          "examples": [
+            "Yes"
+          ],
+          "description": "Indicates if the mailing address is the same as the physical address (Yes or No).",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Claimant's Statement",
+      "document_description": "A claimant's statement is a formal document submitted to an insurance company to request the disbursement of benefits following the death of a policyholder. It includes details about the deceased, the beneficiary, and relevant claim information.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Claimants_Statement",
+        "columns": [
+          {
+            "name": "full_name_of_deceased",
+            "type": "string",
+            "source": {
+              "field": [
+                "full_name_of_deceased"
+              ]
+            },
+            "description": "The full name of the deceased individual."
+          },
+          {
+            "name": "usaa_number_of_deceased",
+            "type": "string",
+            "source": {
+              "field": [
+                "usaa_number_of_deceased"
+              ]
+            },
+            "description": "The unique USAA identification number assigned to the deceased."
+          },
+          {
+            "name": "date_of_birth",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_birth"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The birth date of the deceased."
+          },
+          {
+            "name": "contract_numbers",
+            "type": "string",
+            "source": {
+              "field": [
+                "contract_numbers"
+              ]
+            },
+            "description": "The policy contract numbers associated with the deceased."
+          },
+          {
+            "name": "date_of_death",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_death"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The date of death of the policyholder."
+          },
+          {
+            "name": "cause_of_death",
+            "type": "string",
+            "source": {
+              "field": [
+                "cause_of_death"
+              ]
+            },
+            "description": "The cause of death as stated on the claim form."
+          },
+          {
+            "name": "manner_of_death",
+            "type": "string",
+            "source": {
+              "field": [
+                "manner_of_death"
+              ]
+            },
+            "description": "The classified manner of death: Natural, Suicide, Accident, Homicide, Unknown, or Other."
+          },
+          {
+            "name": "signature_of_beneficiary",
+            "type": "string",
+            "source": {
+              "field": [
+                "signature_of_beneficiary"
+              ]
+            },
+            "description": "The name of the beneficiary signing the claim form."
+          },
+          {
+            "name": "date_of_signature",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_signature"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The date the beneficiary signed the claimant's statement."
+          },
+          {
+            "name": "beneficiary_date_of_birth",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "beneficiary_date_of_birth"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The birth date of the beneficiary."
+          },
+          {
+            "name": "beneficiary_ssn_or_tin",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_ssn_or_tin"
+              ]
+            },
+            "description": "The Social Security Number or Tax Identification Number of the beneficiary."
+          },
+          {
+            "name": "beneficiary_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_name"
+              ]
+            },
+            "description": "The full name of the beneficiary or authorized representative."
+          },
+          {
+            "name": "citizenship_status",
+            "type": "string",
+            "source": {
+              "field": [
+                "citizenship_status"
+              ]
+            },
+            "description": "The citizenship status of the beneficiary (U.S. Citizen, Resident Alien, Non-Resident Alien)."
+          },
+          {
+            "name": "beneficiary_mailing_street_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_mailing_street_address"
+              ]
+            },
+            "description": "The mailing street address of the beneficiary."
+          },
+          {
+            "name": "beneficiary_mailing_city",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_mailing_city"
+              ]
+            },
+            "description": "The city of the beneficiary's mailing address."
+          },
+          {
+            "name": "beneficiary_mailing_state",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_mailing_state"
+              ]
+            },
+            "description": "The state of the beneficiary's mailing address."
+          },
+          {
+            "name": "beneficiary_mailing_zip_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_mailing_zip_code"
+              ]
+            },
+            "description": "The ZIP code of the beneficiary's mailing address."
+          },
+          {
+            "name": "beneficiary_phone_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_phone_number"
+              ]
+            },
+            "description": "The phone number of the beneficiary."
+          },
+          {
+            "name": "beneficiary_physical_street_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_physical_street_address"
+              ]
+            },
+            "description": "The physical street address of the beneficiary."
+          },
+          {
+            "name": "beneficiary_physical_city",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_physical_city"
+              ]
+            },
+            "description": "The city of the beneficiary's physical address."
+          },
+          {
+            "name": "beneficiary_physical_state",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_physical_state"
+              ]
+            },
+            "description": "The state of the beneficiary's physical address."
+          },
+          {
+            "name": "beneficiary_physical_zip_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "beneficiary_physical_zip_code"
+              ]
+            },
+            "description": "The ZIP code of the beneficiary's physical address."
+          },
+          {
+            "name": "mailing_address_same_as_physical",
+            "type": "string",
+            "source": {
+              "field": [
+                "mailing_address_same_as_physical"
+              ]
+            },
+            "description": "Indicates if the mailing address is the same as the physical address (Yes or No)."
+          }
+        ],
+        "metadata": {},
+        "description": "A claimant's statement is a formal document submitted to an insurance company to request the disbursement of benefits following the death of a policyholder. It includes details about the deceased, the beneficiary, and relevant claim information."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}
