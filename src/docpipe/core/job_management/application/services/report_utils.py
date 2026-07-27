@@ -45,10 +45,10 @@ def read_report_from_storage() -> str:
     Returns:
         CSV content as string, or empty string if not found.
     """
-    from docpipe.core.job_management.adapters.config.report_storage_factory import get_content_storage
+    from docpipe.core.job_management.adapters.config.report_storage_factory import get_report_storage
 
     session = get_session_info()
-    return get_content_storage().read_text(
+    return get_report_storage().read_text(
         collection=_report_collection(job_id=session.job_id, job_run_id=session.job_run_id),
         file_name=_report_file_name(job_run_id=session.job_run_id),
     )
@@ -87,8 +87,8 @@ def check_parquet_availability() -> tuple[bool, str]:
     Returns:
         Tuple of (is_available: bool, error_message: str)
     """
-    from docpipe.core.job_management.adapters.config.report_storage_factory import get_content_storage
+    from docpipe.core.job_management.adapters.config.report_storage_factory import get_report_storage
 
     session = get_session_info()
     collection = _report_collection(job_id=session.job_id, job_run_id=session.job_run_id)
-    return get_content_storage().check_data_availability(collection=collection)
+    return get_report_storage().check_data_availability(collection=collection)

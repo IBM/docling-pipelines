@@ -13,7 +13,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger(__name__)
 
 
-class AbstractContentStorage(ABC):
+class AbstractFileSystemStorage(ABC):
     """
     Abstract base for all filesystem storage implementations.
 
@@ -45,12 +45,12 @@ class AbstractContentStorage(ABC):
     """
 
     # Subclasses each maintain their own singleton registry
-    _instances: ClassVar[dict[str, "AbstractContentStorage"]] = {}
+    _instances: ClassVar[dict[str, "AbstractFileSystemStorage"]] = {}
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
     _initialized: bool
 
-    def __new__(cls, *, base_dir: str) -> "AbstractContentStorage":
+    def __new__(cls, *, base_dir: str) -> "AbstractFileSystemStorage":
         """
         Singleton pattern — one instance per (subclass, base_dir) pair.
 

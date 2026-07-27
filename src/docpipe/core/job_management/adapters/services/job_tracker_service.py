@@ -1314,8 +1314,8 @@ class JobTrackerService(JobStatsService):
         Retrieve the flow definition snapshot for a specific job run.
 
         This method abstracts the storage backend and returns the flow definition
-        that was persisted at job run creation time. The implementation uses the
-        job_stats_store to locate and read the flow definition file.
+        that was persisted at job run creation time. The implementation delegates
+        to the configured ContentStoragePort adapter.
 
         Args:
             job_run_id: Job run identifier
@@ -1326,10 +1326,9 @@ class JobTrackerService(JobStatsService):
         Raises:
             DocpipeException: If job_run_id not found or flow definition cannot be read
         """
-        from pathlib import Path
-
-        from docpipe.core.constants.constants import DocpipeConstants
-        from docpipe.utils.infrastructure.filesystem import get_data_path
+        from docpipe.core.job_management.adapters.config.flow_definition_snapshot_storage_factory import (
+            get_flow_definitions_snapshot_storage,
+        )
 
         # Get job stats to retrieve job_id
         job_stats = self.get_job_run_stats(job_run_id=job_run_id)
@@ -1342,27 +1341,22 @@ class JobTrackerService(JobStatsService):
             )
 
         job_id = job_stats.job_id
+        collection = f"{job_id}/{job_run_id}"
 
-        # Construct path to flow definition file
-        flow_dir = get_data_path(sub_dir=f"/{job_id}/{job_run_id}")
-        flow_file_path = Path(flow_dir) / DocpipeConstants.FLOW_DEFINITION_FILE
-
-        # Check if file exists
-        if not flow_file_path.exists():
-            logger.warning(f"Flow definition file not found: {flow_file_path}")
-            return None
-
-        # Read and return flow definition
         try:
-            with open(flow_file_path, encoding="utf-8") as f:
-                flow_definition = json.load(f)
-            logger.info(f"Successfully retrieved flow definition for job_run_id={job_run_id}, job_id={job_id}")
+            flow_definition = get_flow_definitions_snapshot_storage().get_record(
+                collection=collection,
+                key="flow_definition",
+            )
+            if flow_definition is None:
+                logger.warning("Flow definition not found for job_run_id=%s, job_id=%s", job_run_id, job_id)
+                return None
+            logger.info("Successfully retrieved flow definition for job_run_id=%s, job_id=%s", job_run_id, job_id)
             return flow_definition
         except DocpipeException:
-            # Re-raise DocpipeException as-is
             raise
         except Exception as e:
-            logger.error(f"Failed to read flow definition file {flow_file_path}: {e}", exc_info=True)
+            logger.error("Failed to read flow definition for job_run_id=%s: %s", job_run_id, e, exc_info=True)
             raise DocpipeException(
                 message=f"Failed to read flow definition for job_run_id={job_run_id}",
                 status_code=500,
@@ -1378,7 +1372,7 @@ class JobTrackerService(JobStatsService):
         params: dict[str, Any] | None = None,
     ) -> None:
         """
-        Save flow definition JSON to filesystem for audit and reproducibility.
+        Save flow definition JSON via the configured storage adapter for audit and reproducibility.
 
         This method stores the flow definition that was used for a specific job run,
         enabling retrieval via get_flow_definition for debugging and audit purposes.
@@ -1392,26 +1386,21 @@ class JobTrackerService(JobStatsService):
         Raises:
             DocpipeException: If flow definition cannot be saved
         """
-        from pathlib import Path
-
-        from docpipe.core.constants.constants import DocpipeConstants
-        from docpipe.utils.infrastructure.filesystem import get_data_path
+        from docpipe.core.job_management.adapters.config.flow_definition_snapshot_storage_factory import (
+            get_flow_definitions_snapshot_storage,
+        )
 
         try:
-            # Create directory path: /{job_id}/{job_run_id}/
-            flow_dir = get_data_path(sub_dir=f"/{job_id}/{job_run_id}")
-            flow_file_path = Path(flow_dir) / DocpipeConstants.FLOW_DEFINITION_FILE
-
-            # Write flow definition to JSON file
-            with open(flow_file_path, "w", encoding="utf-8") as f:
-                json.dump(flow_definition, f, indent=2, ensure_ascii=False)
-
-            logger.info(f"Saved flow definition to: {flow_file_path}")
+            get_flow_definitions_snapshot_storage().save_record(
+                collection=f"{job_id}/{job_run_id}",
+                key="flow_definition",
+                data=flow_definition,
+            )
+            logger.info("Saved flow definition snapshot for job_run_id=%s, job_id=%s", job_run_id, job_id)
         except DocpipeException:
-            # Re-raise DocpipeException as-is
             raise
         except Exception as e:
-            logger.error(f"Failed to save flow definition for job_run_id={job_run_id}: {e}", exc_info=True)
+            logger.error("Failed to save flow definition for job_run_id=%s: %s", job_run_id, e, exc_info=True)
             raise DocpipeException(
                 message=f"Failed to save flow definition for job_run_id={job_run_id}",
                 status_code=500,

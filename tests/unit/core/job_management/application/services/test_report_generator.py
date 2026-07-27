@@ -352,7 +352,7 @@ class TestCSVGeneration:
         with (
             patch.object(generator, "generate_csv_content", return_value=mock_csv),
             patch(
-                "docpipe.core.job_management.adapters.config.report_storage_factory.get_content_storage",
+                "docpipe.core.job_management.adapters.config.report_storage_factory.get_report_storage",
                 return_value=mock_adapter,
             ),
         ):

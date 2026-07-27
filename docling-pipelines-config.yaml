@@ -39,6 +39,13 @@ incremental_metadata:
       base_dir: "./data"
       lock_timeout: 30.0
 
+flow_definition_snapshot:
+  storage:
+    type: "filesystem"
+    config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+
 # Secret provider configuration.
 # Enable Vault to allow flow configs to use vault:// references for secrets.
 # Credentials (VAULT_ROLE_ID, VAULT_SECRET_ID) must be set as environment variables.

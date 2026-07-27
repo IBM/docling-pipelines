@@ -6,14 +6,14 @@ from typing import IO, Any, ClassVar
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.storage.exceptions import StorageValidationError
-from docpipe.storage.file_system.abstract_content_storage import AbstractContentStorage
+from docpipe.storage.file_system.abstract_file_system_storage import AbstractFileSystemStorage
 from docpipe.storage.interfaces.key_value_storage_port import KeyValueStoragePort
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class KeyValueFileSystemStorage(AbstractContentStorage, KeyValueStoragePort):
+class KeyValueFileSystemStorage(AbstractFileSystemStorage, KeyValueStoragePort):
     """
     Thread-safe singleton filesystem storage for JSON-serializable records.
 
@@ -32,7 +32,7 @@ class KeyValueFileSystemStorage(AbstractContentStorage, KeyValueStoragePort):
         # Creates: data/assets/flows/flow-123.json
     """
 
-    # Each subclass of AbstractContentStorage has its own singleton registry
+    # Each subclass of AbstractFileSystemStorage has its own singleton registry
     _instances: ClassVar[dict[str, "KeyValueFileSystemStorage"]] = {}
 
     def _validate_key(self, *, key: str) -> None:
@@ -43,7 +43,7 @@ class KeyValueFileSystemStorage(AbstractContentStorage, KeyValueStoragePort):
             raise StorageValidationError(message=f"Invalid key: {key}. Keys cannot contain path traversal characters")
 
     # ------------------------------------------------------------------
-    # AbstractContentStorage I/O hooks
+    # AbstractFileSystemStorage I/O hooks
     # ------------------------------------------------------------------
 
     def save_file_content(self, *, file: IO[str], data: Any) -> None:

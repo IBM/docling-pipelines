@@ -283,11 +283,14 @@ class DocpipeConfigKeys:
 
     # Incremental metadata configuration keys
     INCREMENTAL_METADATA = "incremental_metadata"
-    INCREMENTAL_STORAGE = "storage"
+    STORAGE = "storage"
     # Note: Use TYPE and CONFIG from above for storage_type and storage_config
 
     # Job run report configuration keys
     JOB_RUN_REPORT = "job_run_report"
+
+    # Flow definition snapshot configuration keys
+    FLOW_DEFINITION_SNAPSHOT = "flow_definition_snapshot"
 
     # Global storage configuration keys (shared defaults for all services)
     GLOBAL_STORAGE = "global_storage"

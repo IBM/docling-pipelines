@@ -298,14 +298,14 @@ class JobReportGenerator:
         Returns:
             Storage path or object key where the report was written
         """
-        from docpipe.core.job_management.adapters.config.report_storage_factory import get_content_storage
+        from docpipe.core.job_management.adapters.config.report_storage_factory import get_report_storage
         from docpipe.core.models.session_info import get_session_info
 
         if csv_content is None:
             csv_content = self.generate_csv_content()
 
         session = get_session_info()
-        return get_content_storage().write_text(
+        return get_report_storage().write_text(
             collection=f"{session.job_id}/{session.job_run_id}",
             file_name=f"job_report_{session.job_run_id}.csv",
             content=csv_content,

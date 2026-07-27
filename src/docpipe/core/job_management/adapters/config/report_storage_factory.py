@@ -126,7 +126,7 @@ class ContentStorageFactory:
             raise ValueError(f"Invalid YAML configuration: {e}") from e
 
         report_section = yaml_config.get(DocpipeConfigKeys.JOB_RUN_REPORT, {}) or {}
-        storage_section = report_section.get(DocpipeConfigKeys.INCREMENTAL_STORAGE, {}) or {}
+        storage_section = report_section.get(DocpipeConfigKeys.STORAGE, {}) or {}
 
         storage_type_str = storage_section.get(DocpipeConfigKeys.TYPE, ContentStorageType.FILESYSTEM.value)
         storage_config = storage_section.get(DocpipeConfigKeys.CONFIG, {}) or {}
@@ -166,7 +166,7 @@ _default_factory: ContentStorageFactory | None = None
 _default_adapter: ContentStoragePort | None = None
 
 
-def get_content_storage() -> ContentStoragePort:
+def get_report_storage() -> ContentStoragePort:
     """
     Return the singleton ContentStoragePort adapter.
 
@@ -182,7 +182,7 @@ def get_content_storage() -> ContentStoragePort:
     return _default_adapter
 
 
-def reset_content_storage() -> None:
+def reset_report_storage() -> None:
     """Reset singleton instances (useful for testing)."""
     global _default_factory, _default_adapter
     _default_factory = None

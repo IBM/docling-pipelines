@@ -241,7 +241,7 @@ def _resolve_backend_and_config(*, yaml_config: dict[str, Any]) -> tuple[str, di
     """Extract backend name and merged config dict from a parsed YAML document."""
     global_storage_config = yaml_config.get(DocpipeConfigKeys.GLOBAL_STORAGE, {})
     incremental_config = yaml_config.get(DocpipeConfigKeys.INCREMENTAL_METADATA, {})
-    storage_config: Any | dict[Any, Any] = incremental_config.get(DocpipeConfigKeys.INCREMENTAL_STORAGE, {}) or {}
+    storage_config: Any | dict[Any, Any] = incremental_config.get(DocpipeConfigKeys.STORAGE, {}) or {}
 
     # Precedence: service-specific > global_storage > default
     backend = (

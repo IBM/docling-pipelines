@@ -22,7 +22,7 @@ from docpipe.core.models.session_info import create_session_info
 JOB_ID = "test-job-123"
 JOB_RUN_ID = "test-run-456"
 
-_STORAGE_FACTORY = "docpipe.core.job_management.adapters.config.report_storage_factory.get_content_storage"
+_STORAGE_FACTORY = "docpipe.core.job_management.adapters.config.report_storage_factory.get_report_storage"
 
 
 class TestReadReportFromStorage:
