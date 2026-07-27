@@ -146,22 +146,18 @@ class IngestLocalOperator(AbstractOperator):
             raise ValueError("max_file_size must be greater than 0")
 
         # Validate included_extensions are subset of supported extensions
-        if self.included_extensions:
-            unsupported = set(self.included_extensions) - set(self.supported_extensions)
-            if unsupported:
-                raise ValueError(
-                    f"Unsupported file extensions in include_filter: {', '.join(sorted(unsupported))}. "
-                    f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
-                )
+        if self.included_extensions and (unsupported := set(self.included_extensions) - set(self.supported_extensions)):
+            raise ValueError(
+                f"Unsupported file extensions in include_filter: {', '.join(sorted(unsupported))}. "
+                f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
+            )
 
         # Validate excluded_extensions are subset of supported extensions
-        if self.excluded_extensions:
-            unsupported = set(self.excluded_extensions) - set(self.supported_extensions)
-            if unsupported:
-                raise ValueError(
-                    f"Unsupported file extensions in exclude_filter: {', '.join(sorted(unsupported))}. "
-                    f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
-                )
+        if self.excluded_extensions and (unsupported := set(self.excluded_extensions) - set(self.supported_extensions)):
+            raise ValueError(
+                f"Unsupported file extensions in exclude_filter: {', '.join(sorted(unsupported))}. "
+                f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
+            )
 
     def transform(self, table: pa.Table | None, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """

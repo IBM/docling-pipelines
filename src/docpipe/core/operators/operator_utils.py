@@ -789,6 +789,85 @@ class OperatorUtils:
         return False
 
     @staticmethod
+    def _resolve_doc_id(*, table: pa.Table, row_idx: int) -> str:
+        """Resolve the document identifier for a single row."""
+        if OperatorConstants.Columns.ID in table.column_names:
+            return table[OperatorConstants.Columns.ID][row_idx].as_py()
+        if OperatorConstants.Columns.PATH in table.column_names:
+            return table[OperatorConstants.Columns.PATH][row_idx].as_py()
+        return f"doc_{row_idx}"
+
+    @staticmethod
+    def _build_doc_metadata(
+        *, table: pa.Table, row_idx: int, doc_name: str, metadata_list: list[str | None]
+    ) -> dict[str, Any]:
+        """Build the document metadata dict used for on-demand binary content fetching."""
+        doc_metadata: dict[str, Any] = {"name": doc_name}
+
+        if OperatorConstants.Columns.PATH in table.column_names:
+            doc_metadata["path"] = table[OperatorConstants.Columns.PATH][row_idx].as_py()
+        if "source_id" in table.column_names:
+            doc_metadata["source_id"] = table["source_id"][row_idx].as_py()
+        if "source" in table.column_names:
+            doc_metadata["source"] = table["source"][row_idx].as_py()
+
+        metadata_str = metadata_list[row_idx]
+        if metadata_str:
+            try:
+                metadata_dict = json.loads(metadata_str)
+                if "item_id" in metadata_dict:
+                    doc_metadata["item_id"] = metadata_dict["item_id"]
+                if "drive_id" in metadata_dict:
+                    doc_metadata["drive_id"] = metadata_dict["drive_id"]
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        return doc_metadata
+
+    @staticmethod
+    def _prepare_single_document(
+        *,
+        table: pa.Table,
+        row_idx: int,
+        global_config: dict[str, Any],
+        supported_extensions: set[str] | None,
+        metadata_list: list[str | None],
+    ) -> dict[str, Any]:
+        """Prepare fetch task dict for a single table row."""
+        doc_id = OperatorUtils._resolve_doc_id(table=table, row_idx=row_idx)
+        doc_name = (
+            table[OperatorConstants.Columns.NAME][row_idx].as_py()
+            if OperatorConstants.Columns.NAME in table.column_names
+            else f"document_{row_idx}"
+        )
+
+        if supported_extensions:
+            file_ext = Path(doc_name).suffix.lower()
+            if file_ext not in supported_extensions:
+                return {
+                    "idx": row_idx,
+                    "doc_id": doc_id,
+                    "doc_name": doc_name,
+                    "error": f"Unsupported file extension: {file_ext}",
+                    "skip_reason": "unsupported_extension",
+                }
+
+        if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:
+            binary_content = table[OperatorConstants.Columns.BINARY_CONTENT][row_idx].as_py()
+        else:
+            # Import here to avoid circular dependency
+            from docpipe.utils.operators.binary_content_fetcher import get_binary_content
+
+            doc_metadata = OperatorUtils._build_doc_metadata(
+                table=table, row_idx=row_idx, doc_name=doc_name, metadata_list=metadata_list
+            )
+            binary_content = get_binary_content(doc_metadata=doc_metadata, global_config=global_config)
+            if binary_content is None:
+                raise ValueError(f"Failed to fetch binary content for document {doc_name}")
+
+        return {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}
+
+    @staticmethod
     def prepare_document_content_fetch(
         *, table: pa.Table, global_config: dict[str, Any] | None = None, supported_extensions: set[str] | None = None
     ) -> list[dict[str, Any]]:
@@ -825,101 +904,28 @@ class OperatorUtils:
             ValueError: If binary content cannot be fetched from any source
 
         """
-        doc_tasks = []
         global_config = global_config or {}
 
-        # Pre-extract metadata column once outside the loop to avoid per-row column lookups
         metadata_list: list[str | None] = (
             table[OperatorConstants.Metadata.METADATA].to_pylist()
             if OperatorConstants.Metadata.METADATA in table.column_names
             else [None] * table.num_rows
         )
 
+        doc_tasks = []
         for row_idx in range(table.num_rows):
             try:
-                doc_id = None
-                if OperatorConstants.Columns.ID in table.column_names:
-                    doc_id = table[OperatorConstants.Columns.ID][row_idx].as_py()
-                elif OperatorConstants.Columns.PATH in table.column_names:
-                    doc_id = table[OperatorConstants.Columns.PATH][row_idx].as_py()
-                else:
-                    doc_id = f"doc_{row_idx}"
-                doc_name = (
-                    table[OperatorConstants.Columns.NAME][row_idx].as_py()
-                    if OperatorConstants.Columns.NAME in table.column_names
-                    else f"document_{row_idx}"
-                )
-
-                # Check file extension if validation is requested
-                if supported_extensions:
-                    file_ext = Path(doc_name).suffix.lower()
-                    if file_ext not in supported_extensions:
-                        doc_tasks.append(
-                            {
-                                "idx": row_idx,
-                                "doc_id": doc_id,
-                                "doc_name": doc_name,
-                                "error": f"Unsupported file extension: {file_ext}",
-                                "skip_reason": "unsupported_extension",
-                            }
-                        )
-                        continue  # Skip binary content fetch for unsupported files
-
-                # Get binary content using on-demand fetching strategy
-                if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:
-                    # Backward compatibility: Use pre-loaded binary content if available
-                    binary_content = table[OperatorConstants.Columns.BINARY_CONTENT][row_idx].as_py()
-                else:
-                    # Build document metadata for on-demand fetching
-                    doc_metadata = {"name": doc_name}
-
-                    # Add path if available
-                    if OperatorConstants.Columns.PATH in table.column_names:
-                        doc_metadata["path"] = table[OperatorConstants.Columns.PATH][row_idx].as_py()
-
-                    # Add source_id if available (for cloud sources)
-                    if "source_id" in table.column_names:
-                        doc_metadata["source_id"] = table["source_id"][row_idx].as_py()
-
-                    # Add source if available (for cloud sources)
-                    if "source" in table.column_names:
-                        doc_metadata["source"] = table["source"][row_idx].as_py()
-
-                    # Add metadata column content if available (contains item_id and drive_id for OneDrive/SharePoint)
-                    metadata_str = metadata_list[row_idx]
-                    if metadata_str:
-                        try:
-                            metadata_dict = json.loads(metadata_str)
-                            # Extract item_id and drive_id if present (for OneDrive/SharePoint lazy loading)
-                            if "item_id" in metadata_dict:
-                                doc_metadata["item_id"] = metadata_dict["item_id"]
-                            if "drive_id" in metadata_dict:
-                                doc_metadata["drive_id"] = metadata_dict["drive_id"]
-                        except (json.JSONDecodeError, TypeError):
-                            pass
-
-                    # Use binary content fetcher utility to fetch binary content on-demand
-                    # Import here to avoid circular dependency
-                    from docpipe.utils.operators.binary_content_fetcher import get_binary_content
-
-                    binary_content = get_binary_content(
-                        doc_metadata=doc_metadata,
-                        global_config=global_config,
-                    )
-
-                    if binary_content is None:
-                        raise ValueError(f"Failed to fetch binary content for document {doc_name}")
-
                 doc_tasks.append(
-                    {
-                        "idx": row_idx,
-                        "doc_id": doc_id,
-                        "doc_name": doc_name,
-                        "binary_content": binary_content,
-                    }
+                    OperatorUtils._prepare_single_document(
+                        table=table,
+                        row_idx=row_idx,
+                        global_config=global_config,
+                        supported_extensions=supported_extensions,
+                        metadata_list=metadata_list,
+                    )
                 )
             except Exception as e:
-                logger.error(f"Error preparing document at index {row_idx}: {e!s}")
+                logger.error("Error preparing document at index %s: %s", row_idx, str(e))
                 doc_tasks.append(
                     {"idx": row_idx, "doc_id": f"doc_{row_idx}", "doc_name": f"document_{row_idx}", "error": str(e)}
                 )
