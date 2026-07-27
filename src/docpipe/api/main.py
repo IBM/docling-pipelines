@@ -122,6 +122,10 @@ app = FastAPI(
             "description": "Operator metadata operations for retrieving information about available operators, their configurations, and capabilities",
         },
         {
+            "name": "Providers",
+            "description": "Provider operations for listing available models from LLM/embedding providers (ollama, watsonx)",
+        },
+        {
             "name": "job-runs",
             "description": "Job run operations for creating, listing, monitoring, canceling, and deleting executions",
         },
@@ -178,8 +182,12 @@ def custom_openapi():
             if len(non_null_options) == 1:
                 preserved = non_null_options[0]
                 schema.pop("anyOf", None)
-                for merge_key, merge_value in preserved.items():
-                    schema[merge_key] = merge_value
+                if "$ref" in preserved:
+                    # $ref must not have sibling keys — wrap in allOf to preserve outer metadata
+                    schema["allOf"] = [preserved]
+                else:
+                    for merge_key, merge_value in preserved.items():
+                        schema[merge_key] = merge_value
             else:
                 schema["anyOf"] = non_null_options
 
@@ -198,9 +206,14 @@ def custom_openapi():
         for schema_name, schema_def in schemas.items():
             schemas[schema_name] = remove_nullable_keywords(schema_def)
 
-            # Add description to HTTPValidationError schema if missing
-            if schema_name == "HTTPValidationError" and "description" not in schema_def:
-                schema_def["description"] = "HTTP 422 validation error response with detailed error information"
+            if schema_name == "HTTPValidationError":
+                # Add description if missing
+                if "description" not in schema_def:
+                    schema_def["description"] = "HTTP 422 validation error response with detailed error information"
+                # IBM ibm-required-array-properties-in-response requires the detail array to be in required
+                required = set(schema_def.get("required", []))
+                if "detail" not in required:
+                    schema_def["required"] = sorted(required | {"detail"})
 
     # Process path operation schemas
     if "paths" in openapi_schema:

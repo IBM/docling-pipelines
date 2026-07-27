@@ -102,6 +102,14 @@ Discover available operators and their configuration schemas.
 |--------|------|-------------|
 | `GET` | `/api/v1/operators/metadata` | List all operators with metadata |
 
+### Providers — `/api/v1/providers`
+
+Query LLM/embedding provider capabilities.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/providers/{provider}/models` | List available models for a provider (`ollama`, `watsonx`) |
+
 ### Document Classes — `/api/v1/document_classes`
 
 Enumerate all document class definitions bundled with the repository.
@@ -164,6 +172,8 @@ See [ACL Document Retrieval](ACL_DOCUMENT_RETRIEVAL.md) for full details on ACL 
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
 | `PROJECT_REPOSITORY_BASE_DIR` | — | Override project storage directory (takes precedence over `docling-pipelines-config.yaml`) |
 | `DOCPIPE_POSTGRES_*` | — | PostgreSQL backend for job stats (see [Environment Variables](../../USER_GUIDE_PIPELINE_SETUP.md)) |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama host used by `GET /providers/ollama/models` |
+| `WATSONX_API_BASE_URL` | — | WatsonX base URL used by `GET /providers/watsonx/models` (required — no default) |
 
 Authentication-specific variables are documented in [OAuth2 Authentication](OAUTH2_AUTHENTICATION.md).
 

@@ -1,7 +1,7 @@
 import os
 from enum import Enum, StrEnum
 from pathlib import Path
-from typing import ClassVar, TypedDict
+from typing import ClassVar, Final, TypedDict
 
 # Import OperatorConstants for re-export
 
@@ -336,6 +336,21 @@ class ServiceConstants:
 
     # Embeddings batch processing
     DEFAULT_EMBEDDINGS_BATCH_SIZE = 32  # Default batch size for embeddings generation
+
+
+class ProviderConstants:
+    """Canonical provider name strings used across all provider-facing APIs.
+
+    These values identify LLM/embedding providers in contexts that cut across
+    operator categories (embeddings, chunking, classification, entity extraction,
+    etc.) — for example, the GET /providers/{provider}/models endpoint.
+
+    Use these constants anywhere a provider is identified by name at the service
+    or API layer rather than within a single operator's configuration.
+    """
+
+    OLLAMA: Final[str] = "ollama"
+    WATSONX: Final[str] = "watsonx"
 
 
 class DoclingClientConstants:

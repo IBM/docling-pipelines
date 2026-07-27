@@ -14,6 +14,7 @@ from docpipe.api.routes.flows import flows_router
 from docpipe.api.routes.job_runs import job_runs_router
 from docpipe.api.routes.operators import operators_router
 from docpipe.api.routes.projects import projects_router
+from docpipe.api.routes.providers import providers_router
 from docpipe.api.routes.validation import validation_router
 
 # Create main API router with /api/v1 prefix
@@ -26,6 +27,7 @@ api_router.include_router(document_libraries_router)
 api_router.include_router(document_sets_router)
 api_router.include_router(documents_router)
 api_router.include_router(operators_router)
+api_router.include_router(providers_router)
 api_router.include_router(job_runs_router)
 api_router.include_router(validation_router)
 api_router.include_router(document_classes_router)
