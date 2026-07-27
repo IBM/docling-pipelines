@@ -136,7 +136,7 @@ class TestConnectionSetup:
         assert result == mock_client
         mock_opensearch.assert_called_once()
         call_kwargs = mock_opensearch.call_args[1]
-        assert call_kwargs["http_auth"] == ("admin", "admin")
+        assert call_kwargs["http_auth"] == ("admin", os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw"))
         assert call_kwargs["use_ssl"] is False
         assert call_kwargs["verify_certs"] is False
 

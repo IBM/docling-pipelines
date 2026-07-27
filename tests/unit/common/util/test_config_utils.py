@@ -75,7 +75,8 @@ class TestGetOpensearchConfig:
             assert provider_config[OperatorConstants.VectorDB.VERIFY_CERTS] is True
             assert provider_config[OperatorConstants.VectorDB.USERNAME] == "admin"
             assert (
-                provider_config[OperatorConstants.VectorDB.PASSWORD] == "secret"  # pragma: allowlist secret
+                provider_config[OperatorConstants.VectorDB.PASSWORD]
+                == os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw")  # pragma: allowlist secret
             )
             assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 200
             assert provider_config[OperatorConstants.VectorDB.ENGINE] == "nmslib"
@@ -404,7 +405,8 @@ class TestEdgeCases:
             assert len(config) > 0
             assert provider_config[OperatorConstants.VectorDB.USERNAME] == "user"
             assert (
-                provider_config[OperatorConstants.VectorDB.PASSWORD] == "pass"  # pragma: allowlist secret
+                provider_config[OperatorConstants.VectorDB.PASSWORD]
+                == os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw")  # pragma: allowlist secret
             )
 
 
@@ -471,7 +473,9 @@ class TestGetMilvusConfig:
             assert provider_config[OperatorConstants.VectorDB.PORT] == 19531
             assert provider_config[OperatorConstants.VectorDB.DATABASE] == "custom_db"
             assert provider_config[OperatorConstants.VectorDB.USERNAME] == "admin"
-            assert provider_config[OperatorConstants.VectorDB.PASSWORD] == "secret"  # pragma: allowlist secret
+            assert provider_config[OperatorConstants.VectorDB.PASSWORD] == os.environ.get(
+                "TEST_MILVUS_PASSWORD", "test-milvus-pw"
+            )  # pragma: allowlist secret
             assert provider_config[OperatorConstants.VectorDB.INDEX_TYPE] == "IVF_FLAT"
             assert provider_config[OperatorConstants.VectorDB.METRIC_TYPE] == "IP"
             assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 200
@@ -563,7 +567,7 @@ class TestOpensearchJWTToken:
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
             assert (
                 provider_config[OperatorConstants.VectorDB.JWT_TOKEN]
-                == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"  # pragma: allowlist secret
+                == os.environ.get("TEST_JWT_TOKEN", "test-jwt-token-value")  # pragma: allowlist secret
             )
 
     def test_opensearch_config_without_jwt_token(self):
