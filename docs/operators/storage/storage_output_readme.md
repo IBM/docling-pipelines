@@ -14,7 +14,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 ## Key Features
 
 - Three write modes covering the most common output use cases
-- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem` and `s3`
+- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem`, `s3`, and `ibm_cos`
 - Path templating with per-document variables (`{doc_id}`, `{name}`, `{year}`, `{month}`, `{day}`, `{relative_dir}`)
 - Hierarchical output that mirrors the source directory tree across filesystem and S3 sources
 - Overwrite control — skip existing files and record `skipped` status per document
@@ -67,7 +67,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | Yes | — | Destination adapter name: `filesystem` or `s3` |
+| `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, or `ibm_cos` |
 | `connection_params` | object | Yes | — | Provider-specific connection parameters (see below) |
 | `credentials` | object | No | `{}` | Provider-specific credentials |
 
@@ -99,6 +99,23 @@ No credentials required — set `"credentials": {}`.
 | --- | --- | --- | --- |
 | `access_key` | string | Yes | AWS access key ID. Use `"${ENV_VAR}"` to read from an environment variable |
 | `secret_key` | string | Yes | AWS secret access key. Use `"${ENV_VAR}"` to read from an environment variable |
+
+### Provider: `ibm_cos`
+
+`ibm_cos` is an alias for `s3` — it uses the same `S3DestinationAdapter` with a custom
+`endpoint_url` pointing to IBM Cloud Object Storage. No separate adapter or credentials type is
+needed.
+
+**`connection_params`**
+
+| Field | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `bucket` | string | Yes | — | Target IBM COS bucket name |
+| `prefix` | string | Yes | — | Key prefix prepended to every object written |
+| `endpoint_url` | string | Yes | — | IBM COS regional endpoint, e.g. `https://s3.us-south.cloud-object-storage.appdomain.cloud` |
+| `create_dirs` | bool | No | `true` | When `false`, prefix must already contain at least one object |
+
+**`credentials`** — same as `s3` (HMAC access key and secret key).
 
 ### `output_format`
 
@@ -230,7 +247,42 @@ Credentials are read from environment variables at runtime.
 }
 ```
 
-### Example 4: Full compliance export with metadata sidecar (filesystem)
+### Example 4: Write extracted content to IBM COS
+
+`ibm_cos` behaves identically to `s3` — supply the IBM COS HMAC credentials and the regional
+endpoint URL.
+
+```json
+{
+  "type": "storage_output",
+  "name": "write_to_ibm_cos",
+  "config": {
+    "mode": "processed_content",
+    "destination_config": {
+      "provider": "ibm_cos",
+      "connection_params": {
+        "bucket": "my-cos-bucket",
+        "prefix": "exports/markdown/",
+        "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
+        "create_dirs": true
+      },
+      "credentials": {
+        "access_key": "${COS_DEST_ACCESS_KEY}",
+        "secret_key": "${COS_DEST_SECRET_KEY}"
+      }
+    },
+    "output_format": { "content_format": "md" },
+    "output_structure": {
+      "type": "hierarchical",
+      "overwrite_existing": true
+    }
+  },
+  "depends_on": ["extract"]
+}
+```
+
+
+### Example 5: Full compliance export with metadata sidecar (filesystem)
 
 ```json
 {
@@ -268,7 +320,7 @@ Output layout per document:
 of `processed_content`, `refetch_original`, or `comprehensive_export`.
 
 **`ValueError: Unknown destination adapter: 'xyz'`** — The `provider` field in `destination_config`
-does not match any registered adapter. Use `filesystem` or `s3`.
+does not match any registered adapter. Use `filesystem`, `s3`, or `ibm_cos`.
 
 **`write_status = failed` with `destination directory does not exist and create_dirs is disabled`** —
 The output directory (filesystem) or prefix (S3) does not exist and `create_dirs` is `false`. Set

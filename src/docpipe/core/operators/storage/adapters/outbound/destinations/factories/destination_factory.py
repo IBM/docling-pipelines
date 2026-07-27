@@ -15,6 +15,12 @@ class DestinationAdapterFactory:
 
     _adapters: ClassVar[dict[str, type[DestinationAdapterPort]]] = {}
 
+    # Alias provider names that map to an existing canonical adapter.
+    # ibm_cos uses the S3 adapter with a custom endpoint_url — no separate adapter needed.
+    _ALIASES: ClassVar[dict[str, str]] = {
+        "ibm_cos": "s3",
+    }
+
     @classmethod
     def register(cls, adapter_class: type[DestinationAdapterPort]) -> None:
         dest_name = getattr(adapter_class, "DEST_NAME", None)
@@ -24,19 +30,20 @@ class DestinationAdapterFactory:
 
     @classmethod
     def create(cls, dest_name: str) -> DestinationAdapterPort:
-        adapter_class = cls._adapters.get(dest_name)
+        resolved = cls._ALIASES.get(dest_name, dest_name)
+        adapter_class = cls._adapters.get(resolved)
         if not adapter_class:
-            available = ", ".join(cls._adapters.keys())
+            available = ", ".join(list(cls._adapters.keys()) + list(cls._ALIASES.keys()))
             raise ValueError(f"Unknown destination adapter: '{dest_name}'. Available: {available}")
         return adapter_class()
 
     @classmethod
     def is_registered(cls, dest_name: str) -> bool:
-        return dest_name in cls._adapters
+        return dest_name in cls._adapters or dest_name in cls._ALIASES
 
     @classmethod
     def get_registered_names(cls) -> list[str]:
-        return list(cls._adapters.keys())
+        return list(cls._adapters.keys()) + list(cls._ALIASES.keys())
 
 
 def register_destination_adapter(

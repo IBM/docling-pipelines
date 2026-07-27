@@ -22,6 +22,12 @@ class SourceAdapterFactory:
 
     _adapters: ClassVar[dict[str, type[DocumentSourcePort]]] = {}
 
+    # Alias provider names that map to an existing canonical adapter.
+    # ibm_cos uses the S3 adapter with a custom endpoint_url — no separate adapter needed.
+    _ALIASES: ClassVar[dict[str, str]] = {
+        "ibm_cos": "s3",
+    }
+
     @classmethod
     def register(cls, adapter_class: type[DocumentSourcePort]) -> None:
         """
@@ -54,10 +60,11 @@ class SourceAdapterFactory:
         Raises:
             ValueError: If source name is not registered
         """
-        adapter_class = cls._adapters.get(source_name)
+        resolved = cls._ALIASES.get(source_name, source_name)
+        adapter_class = cls._adapters.get(resolved)
 
         if not adapter_class:
-            available = ", ".join(cls._adapters.keys())
+            available = ", ".join(list(cls._adapters.keys()) + list(cls._ALIASES.keys()))
             raise ValueError(f"Unknown source adapter: '{source_name}'. Available adapters: {available}")
 
         return adapter_class()
@@ -73,7 +80,8 @@ class SourceAdapterFactory:
         Returns:
             Optional[Type[DocumentSourcePort]]: The adapter class or None
         """
-        return cls._adapters.get(source_name)
+        resolved = cls._ALIASES.get(source_name, source_name)
+        return cls._adapters.get(resolved)
 
     @classmethod
     def list_sources(cls) -> list[dict[str, Any]]:
@@ -104,7 +112,7 @@ class SourceAdapterFactory:
         Returns:
             bool: True if registered, False otherwise
         """
-        return source_name in cls._adapters
+        return source_name in cls._adapters or source_name in cls._ALIASES
 
     @classmethod
     def get_registered_names(cls) -> list[str]:
@@ -114,7 +122,7 @@ class SourceAdapterFactory:
         Returns:
             List[str]: List of registered source names
         """
-        return list(cls._adapters.keys())
+        return list(cls._adapters.keys()) + list(cls._ALIASES.keys())
 
     @classmethod
     def clear_registry(cls) -> None:

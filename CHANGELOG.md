@@ -13,6 +13,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 - `StorageOutputOperator` — writes pipeline documents to a pluggable storage destination with three modes: `processed_content`, `refetch_original`, and `comprehensive_export`. Includes `FilesystemDestinationAdapter`, `S3DestinationAdapter`, and `DestinationAdapterFactory` for extensible backend support.
 - `S3DestinationAdapter` — writes to Amazon S3 and S3-compatible storage (IBM COS, MinIO) with env-var credential resolution, pre-flight bucket validation, `create_dirs` prefix checking, and optional `verify_expected_bucket_owner` via STS.
+- `ibm_cos` provider alias — routes to `S3DestinationAdapter` with a custom `endpoint_url`; no separate adapter required. Mirrors the same alias pattern added to `SourceAdapterFactory`.
 - Initial public open-source release preparation
 - Release process documentation (`RELEASE_PROCESS.md`)
 - Deprecation policy (`docs/guides/DEPRECATION_POLICY.md`)

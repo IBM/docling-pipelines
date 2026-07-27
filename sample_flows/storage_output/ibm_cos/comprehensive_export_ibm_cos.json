@@ -1,0 +1,63 @@
+{
+  "flow_name": "comprehensive-export-ibm-cos",
+  "description": "Ingest documents from IBM COS, extract text, then write a complete archive per document to a destination IBM COS bucket: original binary + extracted markdown + metadata JSON sidecar. Useful for compliance, QA, and data handoff.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": ["/data/source/documents"],
+          "recursive": true
+        },
+        "include_filter": ["pdf"],
+        "credentials": {}
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": ["ingest"]
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "comprehensive_export",
+        "destination_config": {
+          "provider": "ibm_cos",
+          "connection_params": {
+            "bucket": "my-ibm-cos-bucket",
+            "prefix": "output/documents/",
+            "endpoint_url": "https://s3.<region>.cloud-object-storage.appdomain.cloud",
+            "create_dirs": true
+          },
+          "credentials": {
+            "access_key": "${COS_DEST_ACCESS_KEY}",
+            "secret_key": "${COS_DEST_SECRET_KEY}"
+          }
+        },
+        "output_format": {
+          "content_format": "txt",
+          "include_metadata_sidecar": true
+        },
+        "output_structure": {
+          "type": "hierarchical"
+        }
+      },
+      "depends_on": ["extract"]
+    }
+  ]
+}
