@@ -18,8 +18,7 @@ from docpipe.core.constants.constants import (
     Metrics,
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.incremental_metadata import IncrementalUpdateService
-from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
+from docpipe.core.incremental_metadata import get_incremental_update_service
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.core.operators.ingest.ingest_utils import (
     get_filter_extensions,
@@ -389,18 +388,8 @@ class IngestSourceOperator(AbstractOperator):
             Tuple of (list of output tables, metadata dictionary)
         """
 
-        # Initialize incremental update service
-        job_id_for_tracking: str = ""
-        if self.context_id:
-            job_id_for_tracking = self.context_id
-        else:
-            if self.job_id:
-                job_id_for_tracking = self.job_id
-            else:
-                job_id_for_tracking = ""
-
-        store = create_incremental_metadata_store(job_id=job_id_for_tracking if job_id_for_tracking else None)
-        incremental_service = IncrementalUpdateService(store=store)
+        incremental_service = get_incremental_update_service()
+        job_id_for_tracking: str = self.context_id or self.job_id or ""
 
         self.previously_processed_docs_dict = (
             None if self.force_ingest else incremental_service.get_all_processed_docs(job_id=job_id_for_tracking)

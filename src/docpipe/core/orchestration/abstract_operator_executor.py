@@ -15,7 +15,6 @@ from docpipe.core.constants.constants import (
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.data_access.data_access_utils import DataAccessUtils
-from docpipe.core.incremental_metadata.domain import IncrementalMetadataStore
 from docpipe.core.job_management.domain.ports import JobStatsService
 from docpipe.core.operators.abstract_operator import AbstractOperator
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -33,7 +32,6 @@ class AbstractOperatorExecutor:
         operator: str,
         params: dict,
         job_stats_service: JobStatsService | None = None,
-        incremental_metadata_store: IncrementalMetadataStore | None = None,
     ):
         """
         Initialize operator executor with explicit dependency injection.
@@ -45,13 +43,11 @@ class AbstractOperatorExecutor:
             operator: Identifies the operator to be executed
             params: dictionary of configuration information used while executing the operator
             job_stats_service: Optional job statistics service for tracking node execution
-            incremental_metadata_store: Optional incremental metadata store; created from config if not provided
         """
         self._name = name
         self._operator = operator
         self._params = params | {OperatorConstants.Columns.NAME: name}
         self._job_stats_service = job_stats_service
-        self._incremental_metadata_store = incremental_metadata_store
         job_id: str = str(self._params.get(DocpipeConstants.JOB_ID))
         job_run_id: str = str(self._params.get(DocpipeConstants.JOB_RUN_ID))
         DataAccessUtils.add_intermediate_storage_config(
@@ -377,16 +373,12 @@ class AbstractOperatorExecutor:
             return
 
         try:
-            from docpipe.core.incremental_metadata import IncrementalUpdateService
-            from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
+            from docpipe.core.incremental_metadata import get_incremental_update_service
 
             # Create a table with only the empty documents
             empty_docs_table = table.take(empty_doc_indices)
 
-            # Use the injected store if provided, otherwise create one from config
-            job_id = self._params.get(DocpipeConstants.JOB_ID)
-            store = self._incremental_metadata_store or create_incremental_metadata_store(job_id=job_id)
-            incremental_service = IncrementalUpdateService(store=store)
+            incremental_service = get_incremental_update_service()
 
             # Save empty documents to incremental metadata
             incremental_service.save_metadata_for_incremental_update(

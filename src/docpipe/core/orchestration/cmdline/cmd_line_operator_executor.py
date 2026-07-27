@@ -1,4 +1,3 @@
-from docpipe.core.incremental_metadata.domain import IncrementalMetadataStore
 from docpipe.core.job_management.domain.ports import JobStatsService
 from docpipe.core.orchestration.python.python_operator_executor import PythonOperatorExecutor
 
@@ -16,12 +15,10 @@ class CommandLineOperatorExecutor(PythonOperatorExecutor):
         operator: str,
         params: dict,
         job_stats_service: JobStatsService | None = None,
-        incremental_metadata_store: IncrementalMetadataStore | None = None,
     ):
         super().__init__(
             name=name,
             operator=operator,
             params=params,
             job_stats_service=job_stats_service,
-            incremental_metadata_store=incremental_metadata_store,
         )

@@ -11,8 +11,7 @@ from docpipe.core.constants.constants import (
     Metrics,
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.incremental_metadata import IncrementalUpdateService
-from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
+from docpipe.core.incremental_metadata import get_incremental_update_service
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
@@ -172,9 +171,7 @@ class IngestLocalOperator(AbstractOperator):
         to a new column named "content" in the table. The output
         column name is configurable using the "config" dictionary.
         """
-        # Create incremental update service
-        store = create_incremental_metadata_store(job_id=str(self.context_id) if self.context_id else None)
-        incremental_service = IncrementalUpdateService(store=store)
+        incremental_service = get_incremental_update_service()
 
         # get all previously processed doc IDs with modification time
         self.previously_processed_docs_dict = (

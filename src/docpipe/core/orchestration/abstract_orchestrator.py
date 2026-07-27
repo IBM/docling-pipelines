@@ -9,9 +9,7 @@ from data_processing.data_access import DataAccess, DataAccessFactory
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.incremental_metadata import IncrementalUpdateService
-from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
-from docpipe.core.incremental_metadata.domain import IncrementalMetadataStore
+from docpipe.core.incremental_metadata import get_incremental_update_service
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
 from docpipe.core.models.session_info import SessionInfo, get_session_info, set_session_info
 from docpipe.core.operators.abstract_operator import OperatorCategory
@@ -48,7 +46,6 @@ class AbstractOrchestrator(ABC):
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
         execution_reporter=None,
-        incremental_metadata_store: IncrementalMetadataStore | None = None,
     ) -> None:
         """
         Initialize orchestrator with optional job services.
@@ -59,7 +56,6 @@ class AbstractOrchestrator(ABC):
             enable_custom_operators: Whether to enable custom operators (passed to operator factory)
             custom_operator_packages: List of custom operator packages (passed to operator factory)
             execution_reporter: Optional output formatter for user-friendly console output
-            incremental_metadata_store: Optional store for incremental metadata; created from config if not provided
         """
         self.enable_custom_operators = enable_custom_operators
         self.custom_operator_packages = custom_operator_packages
@@ -75,7 +71,6 @@ class AbstractOrchestrator(ABC):
         self.non_recoverable_docs_tables: list[pa.Table] = []  # Track non-recoverable document tables
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
-        self.incremental_metadata_store: IncrementalMetadataStore | None = incremental_metadata_store
         self.flow_execution_event_handler = FlowExecutionEventHandler(
             job_stats_service=job_stats_service,
             job_run_manager=job_run_manager,
@@ -571,13 +566,11 @@ class AbstractOrchestrator(ABC):
             | operator_config_params
         )
 
-        # Pass job stats service and incremental store explicitly via constructor (not params)
         return self.create_executor_impl(
             name=operator_name,
             operator=op_def[OperatorConstants.Misc.OPERATOR],
             params=config,
             job_stats_service=self.job_stats_service,
-            incremental_metadata_store=self.incremental_metadata_store,
         )
 
     @abstractmethod
@@ -588,7 +581,6 @@ class AbstractOrchestrator(ABC):
         operator: str,
         params: dict,
         job_stats_service: JobStatsService | None = None,
-        incremental_metadata_store: IncrementalMetadataStore | None = None,
     ) -> AbstractOperatorExecutor:
         """The concrete subclasses needs to implement this method"""
         pass
@@ -756,9 +748,7 @@ class AbstractOrchestrator(ABC):
             output_table=ingest_results.tables[0], deleted_docs_count=deleted_docs_count, operator=ingest_operator
         )
 
-        # Use the injected store if provided, otherwise create one from config
-        store = self.incremental_metadata_store or create_incremental_metadata_store(job_id=self.job_id)
-        incremental_service = IncrementalUpdateService(store=store)
+        incremental_service = get_incremental_update_service()
         doc_ids = ingest_results.internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
         incremental_service.process_ingested_docs(config=global_config, job_id=self.job_id, doc_ids=doc_ids)
 

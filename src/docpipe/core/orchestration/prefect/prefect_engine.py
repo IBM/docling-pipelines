@@ -22,8 +22,7 @@ from prefect.task_runners import TaskRunner, ThreadPoolTaskRunner  # noqa: E402
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, TaskType  # noqa: E402
 from docpipe.core.constants.operator_constants import OperatorConstants  # noqa: E402
-from docpipe.core.incremental_metadata import IncrementalUpdateService  # noqa: E402
-from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store  # noqa: E402
+from docpipe.core.incremental_metadata import get_incremental_update_service  # noqa: E402
 from docpipe.core.models.session_info import get_session_info  # noqa: E402
 from docpipe.core.orchestration.futured_list import FuturedList  # noqa: E402
 from docpipe.core.orchestration.ports.flow_engine import ExecuteStepResults, FlowEnginePort  # noqa: E402
@@ -563,11 +562,7 @@ class PrefectEngine(FlowEnginePort):
         destinations: list[tuple[PrefectFuture, Any]] = []
         node_id_to_index_map = create_node_id_to_index_map(flow_def=op_flow)
         deleted_docs_count = 0
-        # Use injected store if provided, otherwise create one from config
-        store = self.orchestrator.incremental_metadata_store or create_incremental_metadata_store(
-            job_id=self.orchestrator.context_id
-        )
-        incremental_update_util = IncrementalUpdateService(store=store)
+        incremental_update_util = get_incremental_update_service()
 
         is_sequential_flow = (
             False

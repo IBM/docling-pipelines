@@ -214,41 +214,46 @@ class TestIncrementalUpdateService:
 
         assert service.get_all_processed_docs(job_id="job-1") == {}
 
-    def test_save_metadata_exception_handling(self, *, service, mocker):
+    def test_save_metadata_exception_handling(self, *, service):
         """Test exception handling in save_metadata."""
+        from unittest.mock import patch
+
         table = _build_table(ids=["doc-1"], names=["a"], modified_times=[1])
-        mocker.patch.object(service.store, "upsert_records", side_effect=Exception("Store failure"))
+        with patch.object(service.store, "upsert_records", side_effect=Exception("Store failure")):
+            with pytest.raises(FlowExecutionFailedException, match="Store failure"):
+                service.save_metadata_for_incremental_update(job_id="job-1", job_run_id="run-1", tables=[table])
 
-        with pytest.raises(FlowExecutionFailedException, match="Store failure"):
-            service.save_metadata_for_incremental_update(job_id="job-1", job_run_id="run-1", tables=[table])
-
-    def test_get_all_processed_docs_exception_handling(self, *, service, mocker):
+    def test_get_all_processed_docs_exception_handling(self, *, service):
         """Test exception handling in get_all_processed_docs."""
-        mocker.patch.object(service.store, "get_processed_docs", side_effect=Exception("Read failure"))
+        from unittest.mock import patch
 
-        with pytest.raises(FlowExecutionFailedException, match="Read failure"):
-            service.get_all_processed_docs(job_id="job-1")
+        with patch.object(service.store, "get_processed_docs", side_effect=Exception("Read failure")):
+            with pytest.raises(FlowExecutionFailedException, match="Read failure"):
+                service.get_all_processed_docs(job_id="job-1")
 
-    def test_mark_soft_deleted_docs_exception_handling(self, *, service, mocker):
+    def test_mark_soft_deleted_docs_exception_handling(self, *, service):
         """Test exception handling in mark_soft_deleted_docs."""
-        mocker.patch.object(service.store, "get_soft_deleted_doc_ids", side_effect=Exception("Mark failure"))
+        from unittest.mock import patch
 
-        with pytest.raises(FlowExecutionFailedException, match="Mark failure"):
-            service.mark_soft_deleted_docs(job_id="job-1", doc_ids=["doc-1"])
+        with patch.object(service.store, "get_soft_deleted_doc_ids", side_effect=Exception("Mark failure")):
+            with pytest.raises(FlowExecutionFailedException, match="Mark failure"):
+                service.mark_soft_deleted_docs(job_id="job-1", doc_ids=["doc-1"])
 
-    def test_get_soft_deleted_doc_ids_exception_handling(self, *, service, mocker):
+    def test_get_soft_deleted_doc_ids_exception_handling(self, *, service):
         """Test exception handling in get_soft_deleted_doc_ids."""
-        mocker.patch.object(service.store, "get_soft_deleted_doc_ids", side_effect=Exception("Deleted failure"))
+        from unittest.mock import patch
 
-        with pytest.raises(FlowExecutionFailedException, match="Deleted failure"):
-            service.get_soft_deleted_doc_ids(job_id="job-1")
+        with patch.object(service.store, "get_soft_deleted_doc_ids", side_effect=Exception("Deleted failure")):
+            with pytest.raises(FlowExecutionFailedException, match="Deleted failure"):
+                service.get_soft_deleted_doc_ids(job_id="job-1")
 
-    def test_delete_docs_for_ids_exception_handling(self, *, service, mocker):
+    def test_delete_docs_for_ids_exception_handling(self, *, service):
         """Test exception handling in delete_docs_for_ids."""
-        mocker.patch.object(service.store, "delete_docs", side_effect=Exception("Delete failure"))
+        from unittest.mock import patch
 
-        with pytest.raises(FlowExecutionFailedException, match="Delete failure"):
-            service.delete_docs_for_ids(doc_ids=["doc-1"], job_id="job-1")
+        with patch.object(service.store, "delete_docs", side_effect=Exception("Delete failure")):
+            with pytest.raises(FlowExecutionFailedException, match="Delete failure"):
+                service.delete_docs_for_ids(doc_ids=["doc-1"], job_id="job-1")
 
     def test_save_multiple_tables(self, *, service):
         """Test saving metadata from multiple tables."""

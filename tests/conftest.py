@@ -286,12 +286,14 @@ def cleanup_test_document_sets():
 @pytest.fixture(autouse=True)
 def clear_singleton_caches():
     """
-    Clear singleton caches before each test to prevent memory leaks.
+    Clear singleton caches before each test to prevent memory leaks and
+    cross-test contamination.
 
-    The LRUCache class uses Singleton pattern, which means all instances
-    share the same cache. This can cause memory accumulation across tests,
-    leading to OOM kills in CI environments. This fixture ensures caches
-    are cleared between tests.
+    Resets:
+    - LRUCache singleton (prevents OOM in CI from accumulated cache entries)
+    - IncrementalMetadataFactory singleton (prevents a factory created in one
+      test from leaking its store/service into the next test, and avoids any
+      test accidentally triggering a real filesystem or database connection)
     """
     yield  # Run test first
 
@@ -300,14 +302,20 @@ def clear_singleton_caches():
         from docpipe.utils.core.patterns import Singleton
         from docpipe.utils.infrastructure.caching import LRUCache
 
-        # Access the singleton instance if it exists
         if LRUCache in Singleton._instances:
             cache_instance = Singleton._instances[LRUCache]
-            # Type guard: verify it's actually an LRUCache instance
             if isinstance(cache_instance, LRUCache) and hasattr(cache_instance, "clear"):
                 cache_instance.clear()
     except (ImportError, AttributeError, KeyError):
-        # If cache doesn't exist or can't be cleared, that's fine
+        pass
+
+    # Reset the incremental metadata factory singleton after each test so no
+    # test leaks a real store/service into the next one.
+    try:
+        import docpipe.core.incremental_metadata.adapters.config.incremental_metadata_factory as _inc_factory_mod
+
+        _inc_factory_mod._default_factory = None
+    except (ImportError, AttributeError):
         pass
 
 

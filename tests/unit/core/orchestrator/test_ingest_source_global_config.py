@@ -82,21 +82,15 @@ class TestIngestSourceGlobalConfig:
         with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
             with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
                 with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("docpipe.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
-                        with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
-                            # Execute the flow
-                            orchestrator.execute(flow_def=flow_def, params=params)
+                    with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
+                        # Execute the flow
+                        orchestrator.execute(flow_def=flow_def, params=params)
 
-                            # Verify that ingest_source params were added to global_config
-                            assert "ingest_source" in captured_global_config
-                            assert captured_global_config["ingest_source"]["provider"] == "s3"
-                            assert (
-                                captured_global_config["ingest_source"]["connection_params"]["bucket"] == "test-bucket"
-                            )
-                            assert (
-                                captured_global_config["ingest_source"]["credentials"]["aws_access_key_id"]
-                                == "test_key"
-                            )
+                        # Verify that ingest_source params were added to global_config
+                        assert "ingest_source" in captured_global_config
+                        assert captured_global_config["ingest_source"]["provider"] == "s3"
+                        assert captured_global_config["ingest_source"]["connection_params"]["bucket"] == "test-bucket"
+                        assert captured_global_config["ingest_source"]["credentials"]["aws_access_key_id"] == "test_key"
 
     @patch("docpipe.core.orchestration.abstract_orchestrator.get_session_info")
     @patch("docpipe.core.orchestration.abstract_orchestrator.set_session_info")
@@ -160,10 +154,9 @@ class TestIngestSourceGlobalConfig:
         with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
             with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
                 with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("docpipe.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
-                        with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
-                            # Execute the flow
-                            orchestrator.execute(flow_def=flow_def, params=params)
+                    with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
+                        # Execute the flow
+                        orchestrator.execute(flow_def=flow_def, params=params)
 
-                            # Verify that ingest_source params were NOT added
-                            assert "ingest_source" not in captured_global_config
+                        # Verify that ingest_source params were NOT added
+                        assert "ingest_source" not in captured_global_config

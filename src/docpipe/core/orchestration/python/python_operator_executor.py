@@ -10,7 +10,6 @@ from docpipe.core.constants.constants import (
     OrchestratorType,
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.incremental_metadata.domain import IncrementalMetadataStore
 from docpipe.core.job_management.domain.ports import JobStatsService
 from docpipe.core.operators.abstract_operator import AbstractOperator
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -32,7 +31,6 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         operator: str,
         params: dict,
         job_stats_service: JobStatsService | None = None,
-        incremental_metadata_store: IncrementalMetadataStore | None = None,
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
     ):
@@ -41,7 +39,6 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             operator=operator,
             params=params,
             job_stats_service=job_stats_service,
-            incremental_metadata_store=incremental_metadata_store,
         )
         # Create operator factory with custom operator support
         self.operator_factory = OperatorFactoryProvider.get_operator_factory(

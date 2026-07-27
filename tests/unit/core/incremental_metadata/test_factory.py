@@ -3,40 +3,54 @@
 import pytest
 import yaml
 
+import docpipe.core.incremental_metadata.adapters.config.incremental_metadata_factory as _factory_mod
 from docpipe.core.incremental_metadata.adapters.config.incremental_metadata_factory import (
     IncrementalMetadataFactory,
-    create_incremental_metadata_store,
-    create_store_from_config_file,
-    reset_default_incremental_store,
+    get_default_factory,
 )
 from docpipe.core.incremental_metadata.adapters.stores.filesystem import FilesystemIncrementalMetadataStore
 
 
 class TestIncrementalMetadataFactory:
-    """Test IncrementalMetadataFactory registry and create()."""
+    """Test IncrementalMetadataFactory registry and get_store()."""
 
     def test_create_filesystem_store(self, *, tmp_path):
-        """Test creating a filesystem store via the factory."""
-        store = IncrementalMetadataFactory.create("filesystem", config={"base_dir": str(tmp_path)})
+        """Test creating a filesystem store via the factory instance."""
+        factory = IncrementalMetadataFactory(backend="filesystem", config={"base_dir": str(tmp_path)})
+        store = factory.get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
         assert store._base_dir == tmp_path
 
     def test_create_store_with_lock_timeout(self, *, tmp_path):
         """Test that config is passed through to the store."""
-        store = IncrementalMetadataFactory.create(
-            "filesystem", config={"base_dir": str(tmp_path), "lock_timeout": 10.0}
+        factory = IncrementalMetadataFactory(
+            backend="filesystem", config={"base_dir": str(tmp_path), "lock_timeout": 10.0}
         )
+        store = factory.get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
         assert store._lock_timeout == 10.0
 
+    def test_get_store_returns_singleton(self, *, tmp_path):
+        """get_store() returns the same instance on repeated calls."""
+        factory = IncrementalMetadataFactory(backend="filesystem", config={"base_dir": str(tmp_path)})
+
+        assert factory.get_store() is factory.get_store()
+
+    def test_get_service_returns_singleton(self, *, tmp_path):
+        """get_service() returns the same instance on repeated calls."""
+        factory = IncrementalMetadataFactory(backend="filesystem", config={"base_dir": str(tmp_path)})
+
+        assert factory.get_service() is factory.get_service()
+
     def test_create_unknown_backend_raises_error(self):
-        """Test that creating an unknown backend raises DocpipeException."""
+        """Test that get_store() with an unknown backend raises DocpipeException."""
         from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
+        factory = IncrementalMetadataFactory(backend="duckdb")
         with pytest.raises(DocpipeException, match="Unknown incremental metadata store backend"):
-            IncrementalMetadataFactory.create("duckdb")
+            factory.get_store()
 
     def test_list_backends_contains_registered(self):
         """Test that registered backends appear in list_backends()."""
@@ -45,11 +59,11 @@ class TestIncrementalMetadataFactory:
         assert "postgresql" in backends
 
 
-class TestCreateStoreFromConfigFile:
-    """Test create_store_from_config_file()."""
+class TestFromConfigFile:
+    """Test IncrementalMetadataFactory.from_config_file()."""
 
     def test_filesystem_backend_from_config(self, *, tmp_path):
-        """Test creating store from YAML config with filesystem backend."""
+        """Test creating factory from YAML config with filesystem backend."""
         config_path = tmp_path / "config.yaml"
         config_data = {
             "incremental_metadata": {
@@ -59,7 +73,8 @@ class TestCreateStoreFromConfigFile:
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
 
-        store = create_store_from_config_file(config_path=str(config_path))
+        factory = IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
+        store = factory.get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
 
@@ -70,7 +85,8 @@ class TestCreateStoreFromConfigFile:
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
 
-        store = create_store_from_config_file(config_path=str(config_path))
+        factory = IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
+        store = factory.get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
         assert store._base_dir == tmp_path / "global"
@@ -87,14 +103,16 @@ class TestCreateStoreFromConfigFile:
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
 
-        store = create_store_from_config_file(config_path=str(config_path))
+        factory = IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
+        store = factory.get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
         assert store._base_dir == tmp_path / "specific"
 
     def test_missing_file_uses_default(self, *, tmp_path):
         """Test graceful fallback when config file doesn't exist."""
-        store = create_store_from_config_file(config_path=str(tmp_path / "nonexistent.yaml"))
+        factory = IncrementalMetadataFactory.from_config_file(config_path=str(tmp_path / "nonexistent.yaml"))
+        store = factory.get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
 
@@ -103,7 +121,8 @@ class TestCreateStoreFromConfigFile:
         config_path = tmp_path / "config.yaml"
         config_path.write_text("")
 
-        store = create_store_from_config_file(config_path=str(config_path))
+        factory = IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
+        store = factory.get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
 
@@ -117,14 +136,14 @@ class TestCreateStoreFromConfigFile:
             yaml.dump(config_data, f)
 
         with pytest.raises(DocpipeException, match="Invalid storage backend 'duckdb'"):
-            create_store_from_config_file(config_path=str(config_path))
+            IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
 
 
-class TestCreateIncrementalMetadataStore:
-    """Test the primary create_incremental_metadata_store() entry point."""
+class TestGetDefaultFactory:
+    """Test the process-wide singleton get_default_factory()."""
 
     def test_returns_filesystem_store_from_config(self, *, tmp_path, monkeypatch):
-        """Test convenience function creates store from YAML config."""
+        """Singleton factory creates store from YAML config."""
         config_path = tmp_path / "config.yaml"
         config_data = {
             "incremental_metadata": {
@@ -135,19 +154,26 @@ class TestCreateIncrementalMetadataStore:
             yaml.dump(config_data, f)
 
         monkeypatch.setenv("DOCPIPE_CONFIG_PATH", str(config_path))
-        reset_default_incremental_store()
+        monkeypatch.setattr(_factory_mod, "_default_factory", None)
 
-        store = create_incremental_metadata_store(job_id="test-job")
+        store = get_default_factory().get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
 
-    def test_caching_returns_same_instance(self, *, monkeypatch):
-        """Test that repeated calls return the same cached store instance."""
+    def test_caching_returns_same_factory_instance(self, *, monkeypatch):
+        """Repeated calls to get_default_factory() return the same instance."""
         monkeypatch.delenv("DOCPIPE_CONFIG_PATH", raising=False)
-        reset_default_incremental_store()
+        monkeypatch.setattr(_factory_mod, "_default_factory", None)
 
-        store_a = create_incremental_metadata_store()
-        store_b = create_incremental_metadata_store()
+        assert get_default_factory() is get_default_factory()
+
+    def test_store_singleton_across_calls(self, *, monkeypatch):
+        """get_store() on the singleton factory always returns the same store."""
+        monkeypatch.delenv("DOCPIPE_CONFIG_PATH", raising=False)
+        monkeypatch.setattr(_factory_mod, "_default_factory", None)
+
+        store_a = get_default_factory().get_store()
+        store_b = get_default_factory().get_store()
 
         assert store_a is store_b
 
@@ -155,9 +181,9 @@ class TestCreateIncrementalMetadataStore:
         """Test DOCPIPE_INCREMENTAL_BASE_DIR is picked up by the filesystem store."""
         env_dir = tmp_path / "env_override"
         monkeypatch.setenv("DOCPIPE_INCREMENTAL_BASE_DIR", str(env_dir))
-        reset_default_incremental_store()
+        monkeypatch.setattr(_factory_mod, "_default_factory", None)
 
-        store = create_incremental_metadata_store()
+        store = get_default_factory().get_store()
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
         assert store._base_dir == env_dir
