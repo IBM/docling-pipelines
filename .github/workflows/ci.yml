@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install System Dependencies
+        run: sudo apt-get install -y libldap2-dev libsasl2-dev
+
       - name: Install Dependencies
         run: uv sync --extra dev
 
@@ -72,6 +75,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Install System Dependencies
+        run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install Dependencies
         run: uv sync --extra dev
