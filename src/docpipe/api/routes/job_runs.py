@@ -160,9 +160,10 @@ async def create_job_run(
         HTTPException: If creation fails (400, 404, 500)
     """
     logger.debug("Creating job run")
-    job_run_id = service.create_job_run_from_request(request_body=body)
+    result = service.create_job_run_from_request(request_body=body)
+    job_run_id = result.get("job_run_id")
 
-    logger.info(f"Successfully created job run: {job_run_id}")
+    logger.info("Successfully created job run: %s", job_run_id)
     return JobRunCreateResponse(
         job_run_id=job_run_id,
         status=ExecutionStatus.STARTING.value,

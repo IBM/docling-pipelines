@@ -39,7 +39,10 @@ class TestCreateJobRun:
 
     def test_create_job_run_enterprise_format(self, client, mock_job_management_service):
         """Test creating job run with enterprise format."""
-        mock_job_management_service.create_job_run_from_request.return_value = "33333333-3333-3333-3333-333333333333"
+        mock_job_management_service.create_job_run_from_request.return_value = {
+            "job_id": "66666666-6666-6666-6666-666666666666",
+            "job_run_id": "33333333-3333-3333-3333-333333333333",
+        }
 
         response = client.post(
             "/api/v1/job_runs",
@@ -66,7 +69,10 @@ class TestCreateJobRun:
 
     def test_create_job_run_legacy_format(self, client, mock_job_management_service):
         """Test creating job run with legacy format (backward compatibility)."""
-        mock_job_management_service.create_job_run_from_request.return_value = "44444444-4444-4444-4444-444444444444"
+        mock_job_management_service.create_job_run_from_request.return_value = {
+            "job_id": "77777777-7777-7777-7777-777777777777",
+            "job_run_id": "44444444-4444-4444-4444-444444444444",
+        }
 
         response = client.post(
             "/api/v1/job_runs",

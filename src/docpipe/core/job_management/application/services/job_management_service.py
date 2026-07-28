@@ -67,7 +67,7 @@ class JobManagementService:
         self.flow_service = flow_service
         self.executor = executor or ThreadPoolExecutor(max_workers=10)
 
-    def create_job_run_from_request(self, *, request_body: Any) -> str:
+    def create_job_run_from_request(self, *, request_body: Any) -> dict[str, Any]:
         """
         Create and start a new job run from API request body.
 
@@ -78,7 +78,8 @@ class JobManagementService:
             request_body: JobsAPIExecuteModel containing job and job_run configuration
 
         Returns:
-            job_run_id: Unique identifier for the created job run
+            dict containing at minimum ``job_id`` and ``job_run_id``.
+            Adapters may include additional keys (e.g. ``job_run_response``).
 
         Raises:
             JobRunOperationFailedException: If required fields are missing or invalid
@@ -121,7 +122,7 @@ class JobManagementService:
         flow_config: dict[str, Any],
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """
         Create and start a new job run.
 
@@ -133,7 +134,8 @@ class JobManagementService:
             metadata: Optional metadata dictionary
 
         Returns:
-            job_run_id: Unique identifier for this job run
+            dict containing at minimum ``job_id`` and ``job_run_id``.
+            Adapters may include additional keys (e.g. ``job_run_response``).
         """
         from docpipe.utils.orchestration.elyra_converter import ElyraConverter
 
@@ -195,8 +197,8 @@ class JobManagementService:
             flow.definition,  # Pass original flow definition
         )
 
-        logger.info(f"Created job run: flow_id={flow_id}, job_id={job_id}, job_run_id={job_run_id}")
-        return job_run_id
+        logger.info("Created job run: flow_id=%s, job_id=%s, job_run_id=%s", flow_id, job_id, job_run_id)
+        return result
 
     def get_job_run_status(self, *, job_run_id: str) -> JobStats | None:
         """
