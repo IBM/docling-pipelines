@@ -107,12 +107,12 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
     def build_config_from_operator_params(
         self,
         *,
-        connection_params: dict[str, Any],
+        provider_config: dict[str, Any],
         credentials: dict[str, Any],
     ) -> FilesystemDestinationConfig:
         return FilesystemDestinationConfig(
-            root_path=connection_params["root_path"],
-            create_dirs=connection_params.get("create_dirs", True),
+            root_path=provider_config["root_path"],
+            create_dirs=provider_config.get("create_dirs", True),
         )
 
     def get_config_schema(self) -> type[BaseModel]:

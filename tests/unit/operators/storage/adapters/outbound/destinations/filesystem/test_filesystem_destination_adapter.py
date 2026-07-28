@@ -101,7 +101,7 @@ class TestFilesystemDestinationAdapterBuildConfig:
     def test_build_config_from_operator_params(self, tmp_path):
         adapter = FilesystemDestinationAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "root_path": str(tmp_path),
                 "create_dirs": False,
             },
@@ -114,7 +114,7 @@ class TestFilesystemDestinationAdapterBuildConfig:
     def test_build_config_applies_defaults(self, tmp_path):
         adapter = FilesystemDestinationAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={"root_path": str(tmp_path)},
+            provider_config={"root_path": str(tmp_path)},
             credentials={},
         )
         assert config.create_dirs is True

@@ -12,7 +12,7 @@
       "name": "ingest",
       "config": {
         "provider": "s3",
-        "connection_params": {
+        "provider_config": {
           "bucket": "my-source-bucket",
           "prefix": "source/",
           "region": "us-east-1",
@@ -43,7 +43,7 @@
         "mode": "processed_content",
         "destination_config": {
           "provider": "s3",
-          "connection_params": {
+          "provider_config": {
             "bucket": "my-output-bucket",
             "prefix": "exports/",
             "region": "us-east-1",

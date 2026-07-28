@@ -2503,10 +2503,10 @@ For new backends, implement the `DocumentSetStorage` and `DocumentSetMetadataRep
 | Field | Type | Description |
 | --- | --- | --- |
 | `provider` | string | Adapter name — currently `filesystem` |
-| `connection_params` | object | Provider-specific connection parameters |
+| `provider_config` | object | Provider-specific connection parameters |
 | `credentials` | object | Provider-specific credentials |
 
-**Filesystem `connection_params`**
+**Filesystem `provider_config`**
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -2580,7 +2580,7 @@ All input columns are passed through unchanged. The following columns are append
         "mode": "processed_content",
         "destination_config": {
           "provider": "filesystem",
-          "connection_params": {
+          "provider_config": {
             "root_path": "/output/docs",
             "create_dirs": true
           },
@@ -2628,10 +2628,10 @@ For detailed usage, mode descriptions, and additional examples see [`StorageOutp
 | Field | Type | Description |
 | --- | --- | --- |
 | `provider` | string | Adapter name: `filesystem` or `s3` |
-| `connection_params` | object | Provider-specific connection parameters |
+| `provider_config` | object | Provider-specific connection parameters |
 | `credentials` | object | Provider-specific credentials |
 
-**Provider: `filesystem` — `connection_params`**
+**Provider: `filesystem` — `provider_config`**
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -2640,7 +2640,7 @@ For detailed usage, mode descriptions, and additional examples see [`StorageOutp
 
 No credentials required — set `"credentials": {}`.
 
-**Provider: `s3` — `connection_params`**
+**Provider: `s3` — `provider_config`**
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -2705,7 +2705,7 @@ All input columns are passed through unchanged. The following columns are append
         "mode": "processed_content",
         "destination_config": {
           "provider": "filesystem",
-          "connection_params": {
+          "provider_config": {
             "root_path": "/output/docs",
             "create_dirs": true
           },
@@ -2735,7 +2735,7 @@ All input columns are passed through unchanged. The following columns are append
         "mode": "processed_content",
         "destination_config": {
           "provider": "s3",
-          "connection_params": {
+          "provider_config": {
             "bucket": "my-export-bucket",
             "prefix": "exports/markdown/",
             "region": "us-east-1",
@@ -2787,10 +2787,10 @@ For detailed usage, mode descriptions, and additional examples see [`StorageOutp
 | Field | Type | Description |
 | --- | --- | --- |
 | `provider` | string | Adapter name: `filesystem`, `s3`, or `ibm_cos` |
-| `connection_params` | object | Provider-specific connection parameters |
+| `provider_config` | object | Provider-specific connection parameters |
 | `credentials` | object | Provider-specific credentials |
 
-**Provider: `filesystem` — `connection_params`**
+**Provider: `filesystem` — `provider_config`**
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -2799,7 +2799,7 @@ For detailed usage, mode descriptions, and additional examples see [`StorageOutp
 
 No credentials required — set `"credentials": {}`.
 
-**Provider: `s3` — `connection_params`**
+**Provider: `s3` — `provider_config`**
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -2820,7 +2820,7 @@ No credentials required — set `"credentials": {}`.
 **Provider: `ibm_cos`** — alias for `s3`. Uses `S3DestinationAdapter` with a custom `endpoint_url`.
 `region` is not required. `verify_expected_bucket_owner` has no effect.
 
-**Provider: `ibm_cos` — `connection_params`**
+**Provider: `ibm_cos` — `provider_config`**
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -2878,7 +2878,7 @@ All input columns are passed through unchanged. The following columns are append
         "mode": "processed_content",
         "destination_config": {
           "provider": "filesystem",
-          "connection_params": {
+          "provider_config": {
             "root_path": "/output/docs",
             "create_dirs": true
           },
@@ -2908,7 +2908,7 @@ All input columns are passed through unchanged. The following columns are append
         "mode": "processed_content",
         "destination_config": {
           "provider": "s3",
-          "connection_params": {
+          "provider_config": {
             "bucket": "my-export-bucket",
             "prefix": "exports/markdown/",
             "region": "us-east-1",
@@ -2943,7 +2943,7 @@ All input columns are passed through unchanged. The following columns are append
         "mode": "processed_content",
         "destination_config": {
           "provider": "ibm_cos",
-          "connection_params": {
+          "provider_config": {
             "bucket": "my-cos-bucket",
             "prefix": "exports/markdown/",
             "endpoint_url": "${COS_ENDPOINT_URL}",

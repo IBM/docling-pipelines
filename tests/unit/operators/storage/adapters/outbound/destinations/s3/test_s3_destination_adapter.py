@@ -306,7 +306,7 @@ class TestS3DestinationAdapterBuildConfig:
     def test_builds_config_from_valid_params(self):
         adapter = S3DestinationAdapter()
         cfg = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "bucket": "my-bucket",
                 "prefix": "exports/",
                 "region": "us-east-1",
@@ -325,7 +325,7 @@ class TestS3DestinationAdapterBuildConfig:
         adapter = S3DestinationAdapter()
         with pytest.raises(ValueError, match="access_key"):
             adapter.build_config_from_operator_params(
-                connection_params={"bucket": "b"},
+                provider_config={"bucket": "b"},
                 credentials={"secret_key": "s"},  # pragma: allowlist secret
             )
 
@@ -333,7 +333,7 @@ class TestS3DestinationAdapterBuildConfig:
         adapter = S3DestinationAdapter()
         with pytest.raises(ValueError, match="secret_key"):
             adapter.build_config_from_operator_params(
-                connection_params={"bucket": "b"},
+                provider_config={"bucket": "b"},
                 credentials={"access_key": "a"},  # pragma: allowlist secret
             )
 
@@ -341,7 +341,7 @@ class TestS3DestinationAdapterBuildConfig:
         adapter = S3DestinationAdapter()
         with pytest.raises(ValueError, match="bucket"):
             adapter.build_config_from_operator_params(
-                connection_params={},
+                provider_config={},
                 credentials={
                     "access_key": "a",  # pragma: allowlist secret
                     "secret_key": "s",  # pragma: allowlist secret
@@ -353,7 +353,7 @@ class TestS3DestinationAdapterBuildConfig:
         adapter = S3DestinationAdapter()
         with pytest.raises(ValueError, match="Missing required S3 destination path"):
             adapter.build_config_from_operator_params(
-                connection_params={"bucket": "b"},
+                provider_config={"bucket": "b"},
                 credentials={
                     "access_key": "a",  # pragma: allowlist secret
                     "secret_key": "s",  # pragma: allowlist secret
@@ -365,7 +365,7 @@ class TestS3DestinationAdapterBuildConfig:
         adapter = S3DestinationAdapter()
         with pytest.raises(ValueError, match="Missing required S3 destination path"):
             adapter.build_config_from_operator_params(
-                connection_params={"bucket": "b", "prefix": ""},
+                provider_config={"bucket": "b", "prefix": ""},
                 credentials={
                     "access_key": "a",  # pragma: allowlist secret
                     "secret_key": "s",  # pragma: allowlist secret
@@ -373,10 +373,10 @@ class TestS3DestinationAdapterBuildConfig:
             )
 
     def test_prefix_accepted(self):
-        """'prefix' in connection_params is the accepted key for the destination path."""
+        """'prefix' in provider_config is the accepted key for the destination path."""
         adapter = S3DestinationAdapter()
         cfg = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "bucket": "my-bucket",
                 "prefix": "/vt_workspace/dest_files_01/",
                 "region": "us-east-1",

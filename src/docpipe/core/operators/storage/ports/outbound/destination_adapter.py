@@ -57,7 +57,7 @@ class DestinationAdapterPort(ABC, Generic[DestConfig]):  # noqa: UP046
     def build_config_from_operator_params(
         self,
         *,
-        connection_params: dict[str, Any],
+        provider_config: dict[str, Any],
         credentials: dict[str, Any],
     ) -> DestConfig:
         """Build adapter-specific config from operator flow params."""

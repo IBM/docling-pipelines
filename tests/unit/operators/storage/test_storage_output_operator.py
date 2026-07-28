@@ -20,7 +20,7 @@ def _base_config(tmp_path, overrides: dict | None = None) -> dict:
         "mode": "processed_content",
         "destination_config": {
             "provider": "filesystem",
-            "connection_params": {
+            "provider_config": {
                 "root_path": str(tmp_path),
                 "create_dirs": True,
                 "overwrite_existing": True,
@@ -68,7 +68,7 @@ class TestStorageOutputOperatorValidation:
         config = _base_config(tmp_path)
         config["destination_config"] = {
             "provider": "filesystem",
-            "connection_params": {},  # missing root_path — causes KeyError in build_config
+            "provider_config": {},  # missing root_path — causes KeyError in build_config
             "credentials": {},
         }
         op = StorageOutputOperator(config)
@@ -306,7 +306,7 @@ def _refetch_config(tmp_path, overrides: dict | None = None) -> dict:
         },
         "destination_config": {
             "provider": "filesystem",
-            "connection_params": {
+            "provider_config": {
                 "root_path": str(tmp_path),
                 "create_dirs": True,
                 "overwrite_existing": True,
@@ -336,7 +336,7 @@ def _comprehensive_config(tmp_path, overrides: dict | None = None) -> dict:
         },
         "destination_config": {
             "provider": "filesystem",
-            "connection_params": {
+            "provider_config": {
                 "root_path": str(tmp_path),
                 "create_dirs": True,
                 "overwrite_existing": True,
@@ -582,7 +582,7 @@ class TestStorageOutputOperatorS3Hierarchical:
             },
             "destination_config": {
                 "provider": "filesystem",
-                "connection_params": {
+                "provider_config": {
                     "root_path": str(tmp_path),
                     "create_dirs": True,
                 },

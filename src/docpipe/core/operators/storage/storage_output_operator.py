@@ -237,7 +237,7 @@ class StorageOutputOperator(AbstractOperator):
         adapter = DestinationAdapterFactory.create(provider)
         try:
             dest_cfg = adapter.build_config_from_operator_params(
-                connection_params=self.destination_config.get("connection_params", {}),
+                provider_config=self.destination_config.get("provider_config", {}),
                 credentials=self.destination_config.get("credentials", {}),
             )
         except (ValueError, KeyError) as e:

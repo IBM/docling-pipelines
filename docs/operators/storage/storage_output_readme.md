@@ -32,7 +32,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
     "mode": "processed_content",
     "destination_config": {
       "provider": "filesystem",
-      "connection_params": {
+      "provider_config": {
         "root_path": "/output/docs",
         "create_dirs": true
       },
@@ -68,7 +68,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, or `ibm_cos` |
-| `connection_params` | object | Yes | — | Provider-specific connection parameters (see below) |
+| `provider_config` | object | Yes | — | Provider-specific connection parameters (see below) |
 | `credentials` | object | No | `{}` | Provider-specific credentials |
 
 ### Provider: `filesystem`
@@ -82,7 +82,7 @@ No credentials required — set `"credentials": {}`.
 
 ### Provider: `s3`
 
-**`connection_params`**
+**`provider_config`**
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -106,7 +106,7 @@ No credentials required — set `"credentials": {}`.
 `endpoint_url` pointing to IBM Cloud Object Storage. No separate adapter or credentials type is
 needed.
 
-**`connection_params`**
+**`provider_config`**
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -173,7 +173,7 @@ All input columns are passed through unchanged. The following columns are append
     "mode": "processed_content",
     "destination_config": {
       "provider": "filesystem",
-      "connection_params": { "root_path": "/output/markdown" },
+      "provider_config": { "root_path": "/output/markdown" },
       "credentials": {}
     },
     "output_format": { "content_format": "md" },
@@ -195,7 +195,7 @@ Credentials are read from environment variables at runtime.
     "mode": "processed_content",
     "destination_config": {
       "provider": "s3",
-      "connection_params": {
+      "provider_config": {
         "bucket": "my-export-bucket",
         "prefix": "exports/markdown/",
         "region": "us-east-1",
@@ -227,7 +227,7 @@ Credentials are read from environment variables at runtime.
     "mode": "refetch_original",
     "destination_config": {
       "provider": "s3",
-      "connection_params": {
+      "provider_config": {
         "bucket": "my-archive-bucket",
         "prefix": "originals/",
         "region": "us-east-1",
@@ -260,7 +260,7 @@ endpoint URL.
     "mode": "processed_content",
     "destination_config": {
       "provider": "ibm_cos",
-      "connection_params": {
+      "provider_config": {
         "bucket": "my-cos-bucket",
         "prefix": "exports/markdown/",
         "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
@@ -292,7 +292,7 @@ endpoint URL.
     "mode": "comprehensive_export",
     "destination_config": {
       "provider": "filesystem",
-      "connection_params": { "root_path": "/export/contracts", "create_dirs": true },
+      "provider_config": { "root_path": "/export/contracts", "create_dirs": true },
       "credentials": {}
     },
     "output_format": { "content_format": "md", "include_metadata_sidecar": true },
@@ -338,7 +338,7 @@ from `credentials`. If using environment variables, ensure `${S3_DEST_ACCESS_KEY
 shell before running the flow.
 
 **`ValueError: Missing required S3 destination path: set 'prefix'`** — The `prefix` field is absent
-from `connection_params`. Writing to the S3 bucket root is not permitted; set a non-empty prefix.
+from `provider_config`. Writing to the S3 bucket root is not permitted; set a non-empty prefix.
 
 **`write_status = failed` with `Could not fetch binary content for 'name' from source`** — Modes
 `refetch_original` and `comprehensive_export` re-fetch binaries via the upstream ingest source.

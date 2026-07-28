@@ -54,7 +54,7 @@ class TestProcessedContentIntegration:
                 "mode": "processed_content",
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(tmp_path)},
+                    "provider_config": {"root_path": str(tmp_path)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md"},
@@ -77,7 +77,7 @@ class TestProcessedContentIntegration:
                 "mode": "processed_content",
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(tmp_path)},
+                    "provider_config": {"root_path": str(tmp_path)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "txt"},
@@ -97,7 +97,7 @@ class TestProcessedContentIntegration:
                 "mode": "processed_content",
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(tmp_path)},
+                    "provider_config": {"root_path": str(tmp_path)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "json"},
@@ -119,7 +119,7 @@ class TestProcessedContentIntegration:
                 "mode": "processed_content",
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(tmp_path)},
+                    "provider_config": {"root_path": str(tmp_path)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md"},
@@ -139,7 +139,7 @@ class TestProcessedContentIntegration:
                 "mode": "processed_content",
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(tmp_path)},
+                    "provider_config": {"root_path": str(tmp_path)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md"},
@@ -165,7 +165,7 @@ class TestProcessedContentIntegration:
                 "mode": "processed_content",
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(tmp_path)},
+                    "provider_config": {"root_path": str(tmp_path)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md"},
@@ -190,7 +190,7 @@ class TestProcessedContentIntegration:
                 "mode": "processed_content",
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(tmp_path)},
+                    "provider_config": {"root_path": str(tmp_path)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md"},
@@ -243,12 +243,12 @@ class TestRefetchOriginalIntegration:
                 "mode": "refetch_original",
                 "ingest_source": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(source_dir)},
+                    "provider_config": {"root_path": str(source_dir)},
                     "credentials": {},
                 },
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(dest_dir)},
+                    "provider_config": {"root_path": str(dest_dir)},
                     "credentials": {},
                 },
                 "output_structure": {"path_template": "{doc_id}.{ext}"},
@@ -275,12 +275,12 @@ class TestRefetchOriginalIntegration:
                 "mode": "refetch_original",
                 "ingest_source": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(source_dir)},
+                    "provider_config": {"root_path": str(source_dir)},
                     "credentials": {},
                 },
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(dest_dir)},
+                    "provider_config": {"root_path": str(dest_dir)},
                     "credentials": {},
                 },
                 "output_structure": {"path_template": "{doc_id}.{ext}"},
@@ -326,12 +326,12 @@ class TestComprehensiveExportIntegration:
                 "mode": "comprehensive_export",
                 "ingest_source": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(source_dir)},
+                    "provider_config": {"root_path": str(source_dir)},
                     "credentials": {},
                 },
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(dest_dir)},
+                    "provider_config": {"root_path": str(dest_dir)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md", "include_metadata_sidecar": True},
@@ -362,12 +362,12 @@ class TestComprehensiveExportIntegration:
                 "mode": "comprehensive_export",
                 "ingest_source": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(source_dir)},
+                    "provider_config": {"root_path": str(source_dir)},
                     "credentials": {},
                 },
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(dest_dir)},
+                    "provider_config": {"root_path": str(dest_dir)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md", "include_metadata_sidecar": True},
@@ -388,12 +388,12 @@ class TestComprehensiveExportIntegration:
                 "mode": "comprehensive_export",
                 "ingest_source": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(source_dir)},
+                    "provider_config": {"root_path": str(source_dir)},
                     "credentials": {},
                 },
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(dest_dir)},
+                    "provider_config": {"root_path": str(dest_dir)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md", "include_metadata_sidecar": True},
@@ -419,12 +419,12 @@ class TestComprehensiveExportIntegration:
                 "mode": "comprehensive_export",
                 "ingest_source": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(source_dir)},
+                    "provider_config": {"root_path": str(source_dir)},
                     "credentials": {},
                 },
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(dest_dir)},
+                    "provider_config": {"root_path": str(dest_dir)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md", "include_metadata_sidecar": True},
@@ -454,12 +454,12 @@ class TestComprehensiveExportIntegration:
                 "mode": "comprehensive_export",
                 "ingest_source": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(source_dir)},
+                    "provider_config": {"root_path": str(source_dir)},
                     "credentials": {},
                 },
                 "destination_config": {
                     "provider": "filesystem",
-                    "connection_params": {"root_path": str(dest_dir)},
+                    "provider_config": {"root_path": str(dest_dir)},
                     "credentials": {},
                 },
                 "output_format": {"content_format": "md", "include_metadata_sidecar": False},

@@ -12,7 +12,7 @@
       "name": "ingest",
       "config": {
         "provider": "filesystem",
-        "connection_params": {
+        "provider_config": {
           "paths": ["/data/source/documents"],
           "recursive": true
         },
@@ -27,7 +27,7 @@
         "mode": "refetch_original",
         "destination_config": {
           "provider": "ibm_cos",
-          "connection_params": {
+          "provider_config": {
             "bucket": "my-ibm-cos-bucket",
             "prefix": "output/documents/",
             "endpoint_url": "https://s3.<region>.cloud-object-storage.appdomain.cloud",
