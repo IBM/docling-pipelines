@@ -7,6 +7,9 @@ from typing import Any, ClassVar
 
 import duckdb
 
+from docpipe.core.job_management.adapters.config.flow_definition_snapshot_storage_factory import (
+    register_flow_definition_snapshot_storage,
+)
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.storage.exceptions import StorageValidationError
@@ -20,6 +23,7 @@ _IN_MEMORY_DB = ":memory:"
 logger = get_logger(__name__)
 
 
+@register_flow_definition_snapshot_storage
 class DuckDBKeyValueStorage(KeyValueStoragePort):
     """
     Thread-safe singleton DuckDB storage implementation for key-value records.
@@ -40,6 +44,8 @@ class DuckDBKeyValueStorage(KeyValueStoragePort):
         )
         # Creates table 'flows' if not exists and inserts record
     """
+
+    STORE_BACKEND = "duckdb"
 
     # Class-level cache for singleton instances per database path
     _instances: ClassVar[dict[str, "DuckDBKeyValueStorage"]] = {}

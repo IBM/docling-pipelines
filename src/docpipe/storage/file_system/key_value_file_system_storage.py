@@ -3,6 +3,9 @@
 import json
 from typing import IO, Any, ClassVar
 
+from docpipe.core.job_management.adapters.config.flow_definition_snapshot_storage_factory import (
+    register_flow_definition_snapshot_storage,
+)
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.storage.exceptions import StorageValidationError
@@ -13,6 +16,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger(__name__)
 
 
+@register_flow_definition_snapshot_storage
 class KeyValueFileSystemStorage(AbstractFileSystemStorage, KeyValueStoragePort):
     """
     Thread-safe singleton filesystem storage for JSON-serializable records.
@@ -31,6 +35,8 @@ class KeyValueFileSystemStorage(AbstractFileSystemStorage, KeyValueStoragePort):
         )
         # Creates: data/assets/flows/flow-123.json
     """
+
+    STORE_BACKEND = "filesystem"
 
     # Each subclass of AbstractFileSystemStorage has its own singleton registry
     _instances: ClassVar[dict[str, "KeyValueFileSystemStorage"]] = {}
