@@ -86,7 +86,7 @@ class S3Adapter(OperatorSourcePort):
         # Type checker has issues with decorator type inference
         self.filesystem_adapter = FilesystemAdapter(str(self.cache_dir / self.prefix))  # type: ignore[call-arg]
 
-        logger.info(f"Initialized S3 adapter for {self.uri}, cache: {self.cache_dir}")
+        logger.info("Initialized S3 adapter for %s, cache: %s", self.uri, self.cache_dir)
 
     def _parse_s3_uri(self) -> None:
         """Parse S3 URI into bucket and prefix.
@@ -105,7 +105,32 @@ class S3Adapter(OperatorSourcePort):
         self.bucket = parsed.netloc
         self.prefix = parsed.path.lstrip("/")
 
-        logger.debug(f"Parsed S3 URI - bucket: {self.bucket}, prefix: {self.prefix}")
+        logger.debug("Parsed S3 URI - bucket: %s, prefix: %s", self.bucket, self.prefix)
+
+    def _build_aws_kwargs(self) -> dict:
+        """Build kwargs dict with ExpectedBucketOwner when an account ID is available."""
+        if self._aws_account_id:
+            return {"ExpectedBucketOwner": self._aws_account_id}
+        return {}
+
+    def _download_single_file(self, *, key: str) -> None:
+        """Download a single operator file from S3 to the local cache.
+
+        Args:
+            key: S3 object key to download
+        """
+        relative_path = key[len(self.prefix) :].lstrip("/")
+        local_path = self.cache_dir / self.prefix / relative_path
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.debug("Downloading %s to %s", key, local_path)
+        extra_args = self._build_aws_kwargs()
+        self.s3_client.download_file(self.bucket, key, str(local_path), ExtraArgs=extra_args or None)
+
+    def _is_operator_file(self, *, key: str) -> bool:
+        """Return True if the S3 key refers to a downloadable operator file."""
+        if not key.endswith(".py"):
+            return False
+        return not Path(key).name.startswith("_")
 
     def _download_operators(self) -> None:
         """Download operator files from S3 to local cache.
@@ -114,46 +139,21 @@ class S3Adapter(OperatorSourcePort):
             Exception: If S3 download fails
         """
         try:
-            # List objects in S3 bucket with prefix
             paginator = self.s3_client.get_paginator("list_objects_v2")
             list_kwargs: dict = {"Bucket": self.bucket, "Prefix": self.prefix}
-            if self._aws_account_id:
-                list_kwargs["ExpectedBucketOwner"] = self._aws_account_id
+            list_kwargs.update(self._build_aws_kwargs())
             pages = paginator.paginate(**list_kwargs)
 
             downloaded_count = 0
             for page in pages:
-                if "Contents" not in page:
-                    continue
-
-                for obj in page["Contents"]:
+                for obj in page.get("Contents", []):
                     key = obj["Key"]
-
-                    # Only download Python files
-                    if not key.endswith(".py"):
+                    if not self._is_operator_file(key=key):
                         continue
-
-                    # Skip __init__.py and private files
-                    filename = Path(key).name
-                    if filename.startswith("_"):
-                        continue
-
-                    # Determine local path
-                    relative_path = key[len(self.prefix) :].lstrip("/")
-                    local_path = self.cache_dir / self.prefix / relative_path
-                    local_path.parent.mkdir(parents=True, exist_ok=True)
-
-                    # Download file
-                    logger.debug(f"Downloading {key} to {local_path}")
-                    extra_args: dict = {}
-                    if self._aws_account_id:
-                        extra_args["ExpectedBucketOwner"] = self._aws_account_id
-                    self.s3_client.download_file(
-                        self.bucket, key, str(local_path), ExtraArgs=extra_args if extra_args else None
-                    )
+                    self._download_single_file(key=key)
                     downloaded_count += 1
 
-            logger.info(f"Downloaded {downloaded_count} operator files from S3")
+            logger.info("Downloaded %s operator files from S3", downloaded_count)
 
         except Exception as e:
             raise Exception(f"Failed to download operators from S3: {e}") from e
@@ -209,4 +209,4 @@ class S3Adapter(OperatorSourcePort):
         # Then clear file cache
         if self.cache_dir.exists():
             shutil.rmtree(self.cache_dir)
-            logger.info(f"Cleared S3 cache: {self.cache_dir}")
+            logger.info("Cleared S3 cache: %s", self.cache_dir)
