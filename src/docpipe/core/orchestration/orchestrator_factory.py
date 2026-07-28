@@ -39,7 +39,8 @@ class OrchestratorFactory:
             TypeError: If orchestrator_class is not a subclass of AbstractOrchestrator
         """
         if not orchestrators:
-            cls._orchestrators = orchestrators
+            raise ValueError("orchestrators dict must not be empty")
+        cls._orchestrators = orchestrators
 
     @classmethod
     def get_registered_orchestrators(cls) -> dict[str, type[AbstractOrchestrator]]:

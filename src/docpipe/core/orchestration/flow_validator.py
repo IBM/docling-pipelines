@@ -1055,9 +1055,12 @@ class FlowValidator:
 
         for parent in parent_operators:
             parent_op_name = parent.get(OperatorConstants.Misc.OPERATOR)
-            if parent_op_name == OperatorConstants.Operators.INGEST_SOURCE:
+            parent_metadata = self.operator_metadata.operator_metadata.get(parent_op_name, {})
+            parent_category = parent_metadata.get(OperatorConstants.Misc.CATEGORY)
+            if parent_category == OperatorCategory.Ingest:
                 has_valid_parent = True
-                ingest_source_parent = parent
+                if parent_op_name == OperatorConstants.Operators.INGEST_SOURCE:
+                    ingest_source_parent = parent
                 break
             predecessor_operator = parent_op_name
 
