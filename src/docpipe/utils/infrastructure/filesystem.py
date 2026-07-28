@@ -4,10 +4,10 @@ import os
 import shutil
 from pathlib import Path
 
+from docpipe.core.constants import DocpipeConstants
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
-DEFAULT_DATA_ROOT_FOLDER = os.getenv("DOCPIPE_DATA_PATH", "./data")
 
 
 def get_data_path(*, sub_dir: str = "") -> str:
@@ -21,7 +21,7 @@ def get_data_path(*, sub_dir: str = "") -> str:
     Returns:
         Full path to the data directory
     """
-    data_path = DEFAULT_DATA_ROOT_FOLDER + sub_dir
+    data_path = os.getenv(DocpipeConstants.DOCPIPE_DATA_PATH, "./data") + sub_dir
     Path(data_path).mkdir(parents=True, exist_ok=True)
     return data_path
 
@@ -49,7 +49,6 @@ def delete_folders(*, paths_list):
 
 
 __all__ = [
-    "DEFAULT_DATA_ROOT_FOLDER",
     "delete_folders",
     "get_data_path",
 ]

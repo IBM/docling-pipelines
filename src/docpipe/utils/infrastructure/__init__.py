@@ -7,7 +7,7 @@ from .concurrency import (
     submit_task_with_context_propagation,
 )
 from .config import get_opensearch_config
-from .filesystem import DEFAULT_DATA_ROOT_FOLDER, delete_folders, get_data_path
+from .filesystem import delete_folders, get_data_path
 from .logging import get_logger, setup_logging
 from .performance import (
     get_process_memory_mb,
@@ -18,7 +18,6 @@ from .retry import retry_with_exponential_backoff, should_retry_on_result
 from .telemetry_service import TelemetryConfig, get_telemetry_service
 
 __all__ = [
-    "DEFAULT_DATA_ROOT_FOLDER",
     "LRUCache",
     "TelemetryConfig",
     "delete_folders",

@@ -27,7 +27,6 @@ logger = get_logger(__name__)
 DEFAULT_STORAGE_BACKEND = "filesystem"
 DEFAULT_CONFIG_PATH = _find_project_root() / "docling-pipelines-config.yaml"
 ENV_CONFIG_PATH_KEY = EnvironmentVariables.DOCPIPE_CONFIG_PATH
-ENV_INCREMENTAL_BASE_DIR_KEY = "DOCPIPE_INCREMENTAL_BASE_DIR"
 
 if TYPE_CHECKING:
     from docpipe.storage import KeyValueStoragePort
@@ -116,7 +115,7 @@ class FlowDefinitionSnapshotStorageFactory:
             store_class = FlowDefinitionSnapshotStorageFactory._stores[self._backend]
             base_dir = self._config.get( DocpipeConfigKeys.BASE_DIR) or get_data_path()
             self._store = store_class(base_dir=base_dir)  # type: ignore[call-arg]
-            logger.info("Created FlowDefinitionSnapshotStorageFactory: backend=%s", self._backend)
+            logger.info("Created flow definition snapshot store: backend=%s", self._backend)
         return self._store
 
     @classmethod

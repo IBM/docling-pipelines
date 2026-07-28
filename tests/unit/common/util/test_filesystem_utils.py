@@ -9,10 +9,11 @@ import tempfile
 from unittest.mock import patch
 
 from docpipe.utils.infrastructure.filesystem import (
-    DEFAULT_DATA_ROOT_FOLDER,
     delete_folders,
     get_data_path,
 )
+
+DEFAULT_DATA_ROOT_FOLDER = "./data"
 
 
 class TestGetDataPath:
@@ -312,10 +313,6 @@ class TestDeleteFolders:
 
 class TestDefaultDataRootFolder:
     """Test DEFAULT_DATA_ROOT_FOLDER constant."""
-
-    def test_default_data_root_folder_value(self):
-        """Test that DEFAULT_DATA_ROOT_FOLDER has expected value."""
-        assert DEFAULT_DATA_ROOT_FOLDER == "./data"
 
     def test_default_data_root_folder_is_string(self):
         """Test that DEFAULT_DATA_ROOT_FOLDER is a string."""

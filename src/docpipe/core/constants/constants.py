@@ -35,6 +35,7 @@ def _find_project_root() -> Path:
 
 class DocpipeConstants:
     # Defines constants that are used across Docpipe service
+    DOCPIPE_DATA_PATH = "DOCPIPE_DATA_PATH"
     INPUT_EDGES = "input_edges"
     NODE_ID_REF = "node_id_ref"
     OUTPUT_EDGES = "output_edges"
