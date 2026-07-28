@@ -4,6 +4,9 @@ from typing import Any
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.exceptions.error_messages import ValidationMessage
 
+TROUBLESHOOTING_DOCS_URL = "https://github.com/IBM/docling-pipelines/tree/main/TROUBLESHOOTING.md"
+DOCLING_PIPELINES_DOCS_URL = "https://github.com/IBM/docling-pipelines/tree/main/docs"
+
 
 class DocpipeException(Exception):
     def __init__(
@@ -12,7 +15,7 @@ class DocpipeException(Exception):
         status_code: int = 500,
         error_code: ErrorCode | None = None,
         message_code: str | None = None,
-        more_info: str = "https://www.ibm.com/docs/en/software-hub/5.2.x?topic=data-getting-started",
+        more_info: str = DOCLING_PIPELINES_DOCS_URL,
     ):
         super().__init__(message)
         self.status_code = status_code
@@ -81,7 +84,12 @@ class FlowExecutionFailedException(DocpipeException):
     def __init__(self, message: str, status_code: int = 500, errors: list[ValidationAlert] | None = None):
         from docpipe.exceptions.error_codes import ErrorCode
 
-        super().__init__(message, status_code, error_code=ErrorCode.FLOW_EXECUTION_FAILED)
+        super().__init__(
+            message,
+            status_code,
+            error_code=ErrorCode.FLOW_EXECUTION_FAILED,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-flow-execution-failed",
+        )
         self.errors = errors
 
 
@@ -92,7 +100,12 @@ class FlowValidationException(DocpipeException):
         errors: list[ValidationAlert | ValidationMessage] | None = None,
         warnings: list[ValidationAlert | ValidationMessage] | None = None,
     ):
-        super().__init__(message, 400, error_code=ErrorCode.FLOW_VALIDATION_FAILED)
+        super().__init__(
+            message,
+            400,
+            error_code=ErrorCode.FLOW_VALIDATION_FAILED,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-flow-validation-failed",
+        )
 
         self.errors = errors
         self.warnings = warnings
@@ -148,6 +161,7 @@ class PrefectFlowFailed(DocpipeException):
             error_code=error_code,
             message_code=message_code,
             status_code=status_code,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-prefect-flow-task-failed",
         )
 
 
@@ -321,6 +335,7 @@ class FlowNotFoundException(DocpipeException):
             message,
             status_code=404,
             error_code=ErrorCode.FLOW_NOT_FOUND,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.flow_id = flow_id
 
@@ -342,6 +357,7 @@ class FlowAlreadyExistsException(DocpipeException):
             message,
             status_code=409,
             error_code=ErrorCode.FLOW_ALREADY_EXISTS,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.flow_id = flow_id
         self.flow_name = flow_name
@@ -364,6 +380,7 @@ class FlowInvalidDataException(DocpipeException):
             message,
             status_code=400,
             error_code=ErrorCode.FLOW_INVALID_DATA,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.field_name = field_name
 
@@ -386,6 +403,7 @@ class FlowStorageException(DocpipeException):
             message,
             status_code=500,
             error_code=ErrorCode.FLOW_STORAGE_ERROR,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.operation = operation
         self.flow_id = flow_id

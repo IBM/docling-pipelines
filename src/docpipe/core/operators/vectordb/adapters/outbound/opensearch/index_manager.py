@@ -13,7 +13,7 @@ from typing import Any, ClassVar
 from opensearchpy import OpenSearch
 
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import TROUBLESHOOTING_DOCS_URL, DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -995,6 +995,7 @@ class OpenSearchIndexManager:
                 message=f"Failed to create OpenSearch index '{self.index_name}': {exc}",
                 status_code=500,
                 error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-opensearch-index-creation-failed",
             ) from exc
 
     def validate_existing_index(self, *, dimension_mapping: dict[str, int]) -> None:
@@ -1051,6 +1052,7 @@ class OpenSearchIndexManager:
                     ),
                     status_code=400,
                     error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
+                    more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-opensearch-index-creation-failed",
                 )
         except DocpipeException:
             raise

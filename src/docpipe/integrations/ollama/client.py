@@ -16,7 +16,7 @@ from ollama import GenerateResponse
 from ollama._types import ChatResponse
 
 from docpipe.core.constants.constants import ServiceConstants
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import TROUBLESHOOTING_DOCS_URL, DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.integrations.base_llm_client import BaseLLMClient, retry_with_backoff
 from docpipe.utils.infrastructure.logging import get_logger
@@ -160,6 +160,7 @@ class OllamaClient(BaseLLMClient):
                     ),
                     status_code=404,
                     error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND,
+                    more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-model-not-found",
                 )
 
             logger.info(f"Model '{self.model_name}' validated successfully")
@@ -170,6 +171,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Failed to connect to Ollama server: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
         except Exception as exc:
             logger.warning(f"Could not validate model availability: {exc!s}")
@@ -233,6 +235,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Failed to connect to Ollama server: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
         except ValueError as exc:
             logger.error(f"Invalid model or parameters: {exc}")
@@ -240,6 +243,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Model '{self.model_name}' not found or invalid parameters: {exc}",
                 status_code=404,
                 error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-model-not-found",
             ) from exc
         except Exception as exc:
             logger.error(f"Unexpected error during model execution: {exc}")
@@ -407,6 +411,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Failed to connect to Ollama server during embedding generation: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
 
         except DocpipeException:
@@ -539,6 +544,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Failed to connect to Ollama server: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
 
         except DocpipeException:
