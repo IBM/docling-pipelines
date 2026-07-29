@@ -1,8 +1,26 @@
 [project]
 name = "docling-pipelines"
-version = "1.0.0"
+dynamic = ["version"]
 description = "This repository contains the docpipe operators."
 requires-python = ">=3.12,<3.13"
+maintainers = [
+    { name = "Jojo Joseph", email = "jjojo@in.ibm.com" },
+    { name = "Aditya Rohan Singh", email = "adityars@ibm.com" },
+    { name = "Anudeep Dunaboyina", email = "anudeep.dunaboyina@ibm.com" },
+    { name = "Ashok Kumar Angadi", email = "asangadi@in.ibm.com" },
+    { name = "Harshad Nehate", email = "Harshad.Nehate@ibm.com" },
+    { name = "Kurian Kevin", email = "Kurian.Kevin@ibm.com" },
+    { name = "Nipun Bayas", email = "nipun.bayas@ibm.com" },
+    { name = "Paul Baby", email = "Paul.Baby1@ibm.com" },
+    { name = "Prasad Madugundu", email = "smadugun@in.ibm.com" },
+    { name = "Remya P", email = "remya.p@ibm.com" },
+    { name = "Sahil Berwal", email = "Sahil.Berwal@ibm.com" },
+    { name = "Sanchit Rote", email = "Sanchit.Rote@ibm.com" },
+    { name = "Yash Bopardikar", email = "ybopard@us.ibm.com" },
+    { name = "Benson Fernandes", email = "benferna@in.ibm.com" },
+    { name = "Manish Soni", email = "Manish.Soni3@ibm.com" },
+    { name = "Docling Pipeline Team", email = "docling_pipeline_team-dg@ibm.com" },
+]
 dependencies = [
     "accelerate==1.13.0",
     "aiohttp==3.14.1",
@@ -265,8 +283,11 @@ module = [
 ignore_missing_imports = true
 follow_imports = "silent"
 
+[tool.hatch.version]
+source = "vcs"
+
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
