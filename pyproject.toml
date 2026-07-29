@@ -2,6 +2,7 @@
 name = "docling-pipelines"
 dynamic = ["version"]
 description = "This repository contains the docpipe operators."
+readme = "README.md"
 requires-python = ">=3.12,<3.13"
 maintainers = [
     { name = "Jojo Joseph", email = "jjojo@in.ibm.com" },
