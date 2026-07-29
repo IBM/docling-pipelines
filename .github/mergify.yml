@@ -16,7 +16,7 @@ merge_protections:
     description: All non-breaking PRs to main require at least 1 approval
     if:
       - base = main
-      - "title !~= \"!:\""
+      - "title !~= !:"
     success_conditions:
       - "#approved-reviews-by >= 1"
 merge_protections_settings:
