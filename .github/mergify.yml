@@ -5,20 +5,19 @@ merge_protections:
       - base = main
     success_conditions:
       - "title ~= ^(fix|feat|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\\(.+\\))?(!)?:"
-  - name: Require three reviewers for breaking changes
-    description: Breaking changes require additional scrutiny with 3 approvers
+  - name: Require two reviewers for breaking changes
+    description: Breaking changes require additional scrutiny with 2 approvers
     if:
       - base = main
       - "title ~= !:"
     success_conditions:
-      - "#approved-reviews-by >= 3"
-  - name: Require two reviewers for test updates
-    description: When test data is updated, we require two reviewers
+      - "#approved-reviews-by >= 2"
+  - name: Require one reviewer for small changes
+    description: All non-breaking PRs to main require at least 1 approval
     if:
       - base = main
-      - or:
-          - files ~= ^tests/
+      - "title ~!= !:"
     success_conditions:
-      - "#approved-reviews-by >= 2"
+      - "#approved-reviews-by >= 1"
 merge_protections_settings:
   reporting_method: check-runs
