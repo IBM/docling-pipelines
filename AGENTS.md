@@ -8,7 +8,7 @@ The docpipe project is a modular, operator-based data processing framework desig
 
 - **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
-- **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
+- **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator steps (see [`docs/guides/FLOW_AUTHORING_FORMAT.md`](docs/guides/FLOW_AUTHORING_FORMAT.md))
 - **Prefect Orchestration**: The orchestrator layer uses Prefect for managing workflow execution, parallel processing, and task dependencies
 - **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), and OpenSearch (vector storage)
 - **Multi-Provider Support**: Flexible ingest operators supporting local files, S3, CSV, and multi-provider sources
@@ -161,7 +161,7 @@ When coordinating flow-related tasks, delegate to Code mode for:
 - **Flow execution**: `docling-pipelines --flow-file <path>`
 - **Flow validation**: Validate flows before execution
 - **Test execution**: Run pytest with proper environment setup
-- **Flow structure**: JSON files with nodes (operators) and edges (data flow)
+- **Flow structure**: Follows canonical DAG format defined in [`docs/guides/FLOW_AUTHORING_FORMAT.md`](docs/guides/FLOW_AUTHORING_FORMAT.md) and [`sample_flows/`](sample_flows/)
 
 For detailed execution instructions, see [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
 
