@@ -10,6 +10,7 @@ from logging import Logger
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.compute as pc
 
 from docpipe.core.constants.constants import (
     AttributeDataTypes,
@@ -338,13 +339,16 @@ class MergeOperator(AbstractOperator):
         unsupported_columns: dict[str, tuple[pa.Array, pa.Array]] = {}
 
         if first_unsupported.num_columns > 0:
-            # Attach ID to unsupported subset
-            first_unsupported = first_unsupported.append_column(join_key, first_table[join_key])
+            # Hoist the ID array once — same for every column in this table
+            first_id_arr: pa.Array = (
+                first_table[join_key].combine_chunks()
+                if isinstance(first_table[join_key], pa.ChunkedArray)
+                else first_table[join_key]
+            )
             for col in first_unsupported.column_names:
-                # Store tuple: (column array, corresponding table ID array)
                 unsupported_columns[col] = (
                     first_unsupported[col].combine_chunks(),
-                    first_unsupported[join_key].combine_chunks(),
+                    first_id_arr,
                 )
 
         # STEP 2: PROCESS REMAINING TABLES
@@ -362,8 +366,12 @@ class MergeOperator(AbstractOperator):
 
             # Process unsupported fields
             if table_unsupported.num_columns > 0:
-                # Attach ID column to unsupported subset
-                table_unsupported = table_unsupported.append_column(join_key, table[join_key])
+                # Hoist the ID array once — same for every column in this table
+                table_id_arr: pa.Array = (
+                    table[join_key].combine_chunks()
+                    if isinstance(table[join_key], pa.ChunkedArray)
+                    else table[join_key]
+                )
 
                 for col in table_unsupported.column_names:
                     proposed_col_name: str = col
@@ -373,31 +381,33 @@ class MergeOperator(AbstractOperator):
                     if proposed_col_name in unsupported_columns:
                         raise DocpipeException(f"Duplicate unsupported column after suffixing: {proposed_col_name}")
 
-                    # Store both column array and table-specific ID array
                     unsupported_columns[proposed_col_name] = (
                         table_unsupported[col].combine_chunks(),
-                        table_unsupported[join_key].combine_chunks(),
+                        table_id_arr,
                     )
 
         # STEP 3: REATTACH UNSUPPORTED COLUMNS USING ID-MATCHING
-        # Get merged IDs as PyArrow array for efficient operations
-        merged_ids_array: pa.Array = merged_table[join_key]
+        # Get the merged ID column as a flat array once — used for all remap operations.
+        merged_ids_raw = merged_table[join_key]
+        merged_ids_array: pa.Array = (
+            merged_ids_raw.combine_chunks() if isinstance(merged_ids_raw, pa.ChunkedArray) else merged_ids_raw
+        )
 
         for col_name, (arr, arr_id) in unsupported_columns.items():
-            if col_name == join_key:
-                continue
-
-            # Build mapping: table-specific ID → index
+            # Build a position-lookup dict: source_id → row index in arr.
+            # Only the ID array (strings/ints) is materialised as a Python list — not the data.
             id_index_map: dict[str, int] = build_id_index(arr_id=arr_id)
 
-            # Convert merged_ids to list only once for lookup
-            merged_ids_list: list[str] = merged_ids_array.to_pylist()
-            py_array: list = arr.to_pylist()
+            # Map each merged ID to its source row index (or None for full-outer misses).
+            # merged_ids_array.to_pylist() materialises only the key column, never the data.
+            take_indices: pa.Array = pa.array(
+                [id_index_map.get(mid) for mid in merged_ids_array.to_pylist()],
+                type=pa.int64(),
+            )
 
-            # Build remapped array using list comprehension (still efficient for this use case)
-            remapped: list = [py_array[id_index_map[mid]] if mid in id_index_map else None for mid in merged_ids_list]
+            remapped: pa.Array = pc.take(arr, take_indices)
 
-            merged_table = merged_table.append_column(col_name, pa.array(remapped, type=arr.type))
+            merged_table = merged_table.append_column(col_name, remapped)
 
         # Remove any temporary ID columns if they exist
         temp_id_cols: list[str] = [f"{join_key}_{link}" for link in link_names]
