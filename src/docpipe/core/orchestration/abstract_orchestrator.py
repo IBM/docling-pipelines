@@ -736,9 +736,13 @@ class AbstractOrchestrator(ABC):
         ingest_operator = op_flow[0]
 
         initial_result = self._create_empty_result()
-        ingest_results = self._execute_step(
-            op_def=ingest_operator, global_config=global_config, prev_results=initial_result, deleted_docs_count=0
-        )
+        try:
+            ingest_results = self._execute_step(
+                op_def=ingest_operator, global_config=global_config, prev_results=initial_result, deleted_docs_count=0
+            )
+        except Exception as e:
+            self._handle_node_failure(e=e, op_def=ingest_operator, global_config=global_config)
+            raise
 
         # Populate global_config with ingest_source params for lazy binary loading
         self._populate_ingest_source_config(ingest_operator=ingest_operator, global_config=global_config)
