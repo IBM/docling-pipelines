@@ -520,6 +520,16 @@ class OperatorConstants:
         OUTPUT_FORMAT_DOCTAGS: Final[str] = "doctags"
         OUTPUT_FORMAT_DOCLANG: Final[str] = "doclang"
 
+        # Docling Serve API response keys
+        DOCLING_SERVE_DOCUMENT: Final[str] = "document"
+        DOCLING_SERVE_PROCESSING_TIME: Final[str] = "processing_time"
+        DOCLING_SERVE_PAGES: Final[str] = "pages"
+        DOCLING_SERVE_HTML_CONTENT: Final[str] = "html_content"
+        DOCLING_SERVE_JSON_CONTENT: Final[str] = "json_content"
+        DOCLING_SERVE_TEXT_CONTENT: Final[str] = "text_content"
+        DOCLING_SERVE_DOCTAGS_CONTENT: Final[str] = "doctags_content"
+        DOCLING_SERVE_DOCLANG_CONTENT: Final[str] = "doclang_content"
+
         # Valid output formats list (markdown is always generated, so not in this list)
         VALID_OUTPUT_FORMATS: Final[list[str]] = [
             OUTPUT_FORMAT_HTML,

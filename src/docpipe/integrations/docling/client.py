@@ -1,5 +1,5 @@
 # Copyright IBM Corp. 2025
-# -License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 
 """
 Docling Serve Client for document processing via REST API.
@@ -9,6 +9,7 @@ processing documents through docling-serve service.
 """
 
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,92 @@ from docpipe.integrations.rest_client import RestClient, RestClientConfig, RestM
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class DoclingServeErrorHandler:
+    """
+    Extensible error handler for docling-serve exceptions.
+
+    Each registered handler is a (matcher, enhancer) pair:
+      - matcher(exception) -> bool  : returns True if this handler applies
+      - enhancer(exception, context) -> DocpipeException : returns the enhanced exception
+
+    To add a new error type, call register():
+        handler.register(my_matcher, my_enhancer)
+    """
+
+    def __init__(self, *, base_url: str) -> None:
+        self.base_url = base_url
+        self._handlers: list[
+            tuple[
+                Callable[[DocpipeException], bool],
+                Callable[[DocpipeException, dict[str, Any]], DocpipeException],
+            ]
+        ] = []
+        self._register_defaults()
+
+    def _register_defaults(self) -> None:
+        self.register(self._is_format_compatibility_error, self._enhance_format_compatibility_error)
+
+    def register(
+        self,
+        matcher: Callable[[DocpipeException], bool],
+        enhancer: Callable[[DocpipeException, dict[str, Any]], DocpipeException],
+    ) -> None:
+        """Register a new (matcher, enhancer) pair. Handlers are checked in registration order."""
+        self._handlers.append((matcher, enhancer))
+
+    def handle(self, exception: DocpipeException, context: dict[str, Any] | None = None) -> DocpipeException:
+        """
+        Return an enhanced exception if any registered handler matches, otherwise return the original.
+
+        Args:
+            exception: The exception to classify
+            context: Optional context passed to the enhancer (e.g. requested_formats)
+        """
+        ctx = context or {}
+        for matcher, enhancer in self._handlers:
+            if matcher(exception):
+                return enhancer(exception, ctx)
+        return exception
+
+    # --- built-in handler: format compatibility ---
+
+    @staticmethod
+    def _is_format_compatibility_error(exception: DocpipeException) -> bool:
+        if exception.status_code == 422:
+            return True
+        msg = str(exception).lower()
+        return any(
+            indicator in msg
+            for indicator in (
+                "format",
+                "to_formats",
+                "unsupported",
+                "invalid format",
+                "unknown format",
+                "not supported",
+            )
+        )
+
+    def _enhance_format_compatibility_error(
+        self, exception: DocpipeException, context: dict[str, Any]
+    ) -> DocpipeException:
+        requested_formats = context.get("requested_formats", [])
+        message = (
+            f"The docling-serve instance at {self.base_url} rejected the requested output formats. "
+            f"This typically occurs when using an older docling-serve version that does not support "
+            f"one or more of the requested formats: {requested_formats}. "
+            f"\n\nTo resolve this issue:\n"
+            f"1. Upgrade docling-serve to the latest version, OR\n"
+            f"2. Remove unsupported formats from 'text_extraction.provider_config.additional_formats' in your flow configuration.\n"
+            f"\nOriginal error: {exception}"
+        )
+        return DocpipeException(
+            message=message,
+            status_code=exception.status_code,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+        )
 
 
 class DoclingServeClient:
@@ -73,11 +160,18 @@ class DoclingServeClient:
         if self.api_key:
             self.custom_headers["X-API-KEY"] = self.api_key
 
-        logger.info(f"Initialized DoclingServeClient with base_url={self.base_url}")
+        # Error handler — use register() to add new error types as needed
+        self.error_handler = DoclingServeErrorHandler(base_url=self.base_url)
+
+        logger.info("Initialized DoclingServeClient with base_url=%s", self.base_url)
 
     def _build_options(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """
-        Build options dictionary with defaults for v1 API.
+        Build options dictionary with safe defaults for the docling-serve v1 API.
+
+        Defaults cover parameters that are universally supported across docling-serve
+        deployments. Parameters that vary by deployment (ocr_engine, table_mode) are
+        NOT included as defaults — they must be explicitly set by the caller.
 
         Args:
             options: User-provided options to override defaults
@@ -85,24 +179,44 @@ class DoclingServeClient:
         Returns:
             Complete options dictionary with defaults applied
         """
-        default_options = {
+        default_options: dict[str, Any] = {
             "do_ocr": True,
             "ocr_preset": "auto",
-            "ocr_lang": None,
             "pdf_backend": "dlparse_v2",
-            "table_mode": "accurate",
             "do_table_structure": True,
             "table_cell_matching": True,
             "include_images": True,
             "images_scale": 2.0,
-            "image_export_mode": "embedded",
-            "to_formats": ["json", "md", "text", "doclang"],
+            "image_export_mode": "placeholder",
+            # Markdown is mandatory, additional formats come from options
+            "to_formats": ["md"],
         }
 
         if options:
-            default_options.update(options)
+            # Work on a copy so we never mutate the caller's dict (processing_options on the adapter
+            # is reused across every document — mutating it would lose additional_formats after the first call)
+            opts = dict(options)
 
-        return default_options
+            # Pull out additional_formats and append to to_formats before merging the rest
+            additional_formats = opts.pop("additional_formats", None)
+            if additional_formats:
+                to_formats_list: list[str] = default_options["to_formats"]  # type: ignore[assignment]
+                for fmt in additional_formats:
+                    if fmt and fmt not in to_formats_list:
+                        to_formats_list.append(fmt)
+
+            # Pull out any explicit to_formats override before the general update
+            user_to_formats = opts.pop("to_formats", None)
+            default_options.update(opts)
+
+            if user_to_formats:
+                # Ensure "md" is always present
+                if "md" not in user_to_formats:
+                    user_to_formats.insert(0, "md")
+                default_options["to_formats"] = user_to_formats
+
+        # Strip None values — requests serialises None as the string "None" which the server rejects
+        return {k: v for k, v in default_options.items() if v is not None}
 
     def submit_document(
         self,
@@ -142,12 +256,12 @@ class DoclingServeClient:
                 raise FileNotFoundError(f"File not found: {file_path}")
             content = path.read_bytes()
             actual_filename = path.name
-            logger.info(f"Submitting document: {file_path}")
+            logger.info("Submitting document: %s", file_path)
         else:
             # binary_content is guaranteed to be bytes here due to validation above
             content = binary_content  # type: ignore[assignment]
             actual_filename = filename if filename else OperatorConstants.Extraction.DEFAULT_FALLBACK_FILENAME
-            logger.info(f"Submitting document from binary content with filename: {actual_filename}")
+            logger.info("Submitting document from binary content with filename: %s", actual_filename)
 
         # Submit request using multipart/form-data
         endpoint = "/v1/convert/file/async"
@@ -206,13 +320,18 @@ class DoclingServeClient:
         # Build form data with options as individual fields
         data = self._build_options(options)
 
-        result = self.rest_client.call_rest_multipart(
-            method=RestMethod.POST,
-            endpoint=endpoint,
-            files=files,
-            data=data,
-            headers=self.custom_headers,
-        )
+        try:
+            result = self.rest_client.call_rest_multipart(
+                method=RestMethod.POST,
+                endpoint=endpoint,
+                files=files,
+                data=data,
+                headers=self.custom_headers,
+            )
+        except DocpipeException as e:
+            context = {"requested_formats": data.get("to_formats", [])}
+            enhanced = self.error_handler.handle(e, context)
+            raise enhanced from e
 
         task_id = result.get("task_id")
         if not task_id:
@@ -222,7 +341,7 @@ class DoclingServeClient:
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             )
 
-        logger.info(f"Document submitted successfully, task_id={task_id}")
+        logger.info("Document submitted successfully, task_id=%s, params=%s", task_id, list(data.keys()))
         return task_id
 
     def _poll_for_completion(
@@ -251,7 +370,7 @@ class DoclingServeClient:
         interval = poll_interval if poll_interval is not None else self.poll_interval
         start_time = time.time()
 
-        logger.info(f"Polling status for task_id={task_id} with timeout={timeout}s")
+        logger.info("Polling status for task_id=%s with timeout=%ss", task_id, timeout)
 
         while True:
             elapsed = time.time() - start_time
@@ -268,16 +387,22 @@ class DoclingServeClient:
                 task_status = result.get("task_status", "unknown").upper()
                 file_label = filename if filename is not None else "unknown"
 
-                logger.info(f"Polling task {task_id} for file '{file_label}': status={task_status}")
+                logger.info("Polling task %s for file '%s': status=%s", task_id, file_label, task_status)
 
                 if task_status == "SUCCESS":
-                    logger.info(f"Task {task_id} completed successfully")
+                    logger.info("Task %s completed successfully", task_id)
                     return result
 
                 if task_status == "FAILURE":
                     error_msg = result.get("error_message", "Unknown error")
                     logger.error(
-                        f"Task {task_id} failed with error: {error_msg}",
+                        "Task %s failed with error: %s. "
+                        "If this is an 'Internal processing error', check that the processing "
+                        "parameters sent to docling-serve are supported by this deployment "
+                        "(e.g. ocr_engine, table_mode, pdf_backend). "
+                        "See the submission log above for the params that were sent.",
+                        task_id,
+                        error_msg,
                         extra={"task_id": task_id, "full_response": result},
                     )
                     raise DocpipeException(
@@ -287,7 +412,7 @@ class DoclingServeClient:
                     )
 
                 # Continue polling for PENDING/STARTED/unknown statuses
-                logger.debug(f"Task {task_id} status: {task_status}, continuing to poll...")
+                logger.debug("Task %s status: %s, continuing to poll...", task_id, task_status)
                 time.sleep(interval)
 
             except DocpipeException as e:
@@ -295,7 +420,7 @@ class DoclingServeClient:
                 if e.error_code != ErrorCode.CONNECTION_ERROR:
                     raise
                 # For connection errors, log and retry
-                logger.warning(f"Connection error during polling: {e}, retrying...")
+                logger.warning("Connection error during polling: %s, retrying...", e)
                 time.sleep(interval)
 
     def poll_status(
@@ -359,8 +484,8 @@ class DoclingServeClient:
             # Only retry on 404 errors (task not found during pod transitions)
             if e.status_code == 404:
                 logger.warning(
-                    f"Task not found (404) at {endpoint}. "
-                    f"This may occur during pod restarts or HPA scaling. Retrying..."
+                    "Task not found (404) at %s. This may occur during pod restarts or HPA scaling. Retrying...",
+                    endpoint,
                 )
                 raise  # Let decorator handle retry
             # For other errors, raise immediately without retry
@@ -380,7 +505,7 @@ class DoclingServeClient:
             DocpipeException: For HTTP or network errors
         """
         endpoint = f"/v1/result/{task_id}"
-        logger.info(f"Retrieving result for task_id={task_id}")
+        logger.info("Retrieving result for task_id=%s", task_id)
 
         result = self.rest_client.call_rest_json(
             method=RestMethod.GET,
@@ -388,7 +513,7 @@ class DoclingServeClient:
             headers=self.custom_headers,
         )
 
-        logger.info(f"Result retrieved successfully for task_id={task_id}")
+        logger.info("Result retrieved successfully for task_id=%s", task_id)
         return result
 
     def process_document(
@@ -436,9 +561,9 @@ class DoclingServeClient:
             timeout=timeout,
             filename=filename,
         )
-        logger.info(f"Final Status before: {task_id}, {final_response}")
+        logger.info("Final status response for task_id=%s: %s", task_id, final_response)
         final_status = str(final_response.get("task_status", "")).upper()
-        logger.info(f"Final Status: {task_id}, {final_status}")
+        logger.info("Final status for task_id=%s: %s", task_id, final_status)
         if final_status != "SUCCESS":
             error_message = final_response.get("error_message", "Unknown Error")
             raise DocpipeException(

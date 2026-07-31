@@ -3,12 +3,18 @@
 This adapter implements remote document extraction using the Docling Serve API.
 It delegates extraction to a remote Docling Serve instance, enabling distributed
 processing and reducing local resource requirements.
+
+Supports two docling-serve response formats:
+- v1 (inline): {"document": {"md_content": "...", ...}, "processing_time": ...}
+- v2 (artifacts): {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "..."}]}], ...}
 """
 
 import json
 import logging
 from pathlib import Path
 from typing import Any, ClassVar
+
+import requests
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
@@ -55,13 +61,25 @@ class DoclingServeAdapter(TextExtractionPort):
     ADAPTER_NAME = "docling_serve"
     ADAPTER_DISPLAY_NAME = "Docling Serve Extractor"
 
-    # Maps format name -> docling-serve API response field name.
+    # Maps format name → docling-serve v1 API response field name.
+    # Paired with FORMAT_COLUMN_MAPPING (inherited from TextExtractionPort) this gives
+    # both the source key (API response) and the destination key (PyArrow column).
     FORMAT_API_FIELD_MAPPING: ClassVar[dict[str, str]] = {
-        OperatorConstants.Extraction.OUTPUT_FORMAT_HTML: "html_content",
-        OperatorConstants.Extraction.OUTPUT_FORMAT_JSON: "json_content",
-        OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT: "text_content",
-        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS: "doctags_content",
-        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG: "doclang_content",
+        OperatorConstants.Extraction.OUTPUT_FORMAT_HTML: OperatorConstants.Extraction.DOCLING_SERVE_HTML_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_JSON: OperatorConstants.Extraction.DOCLING_SERVE_JSON_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT: OperatorConstants.Extraction.DOCLING_SERVE_TEXT_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS: OperatorConstants.Extraction.DOCLING_SERVE_DOCTAGS_CONTENT,
+        OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG: OperatorConstants.Extraction.DOCLING_SERVE_DOCLANG_CONTENT,
+    }
+
+    # Maps docling-serve v2 artifact_type → format name used in FORMAT_API_FIELD_MAPPING / additional_formats
+    ARTIFACT_TYPE_TO_FORMAT: ClassVar[dict[str, str]] = {
+        "markdown": OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN,
+        "html": OperatorConstants.Extraction.OUTPUT_FORMAT_HTML,
+        "json": OperatorConstants.Extraction.OUTPUT_FORMAT_JSON,
+        "text": OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT,
+        "doctags": OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS,
+        "doclang": OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG,
     }
 
     def __init__(self, *, config: dict[str, Any]) -> None:
@@ -93,11 +111,16 @@ class DoclingServeAdapter(TextExtractionPort):
         self.max_retries = docling_serve_config.get("max_retries", 3)
         self.verify_ssl = docling_serve_config.get("verify_ssl", True)
 
-        # Build processing options
-        self.processing_options = {
+        # Build processing options — only include what the user explicitly configured.
+        # Markdown is always sent by the client as the default to_formats value.
+        self.processing_options: dict[str, Any] = {
             "do_ocr": docling_serve_config.get("do_ocr", True),
             "pdf_backend": docling_serve_config.get("pdf_backend", "dlparse_v2"),
         }
+
+        # Pass additional formats through — client will merge with the mandatory "md" default.
+        if self.additional_formats:
+            self.processing_options["additional_formats"] = self.additional_formats
 
         # Add optional parameters if present
         if "ocr_engine" in docling_serve_config:
@@ -109,13 +132,18 @@ class DoclingServeAdapter(TextExtractionPort):
         if "image_export_mode" in docling_serve_config:
             self.processing_options["image_export_mode"] = docling_serve_config["image_export_mode"]
 
-        logger.info("Initialized DoclingServeAdapter with base_url: %s, timeout: %s", self.base_url, self.timeout)
+        logger.info(
+            "Initialized DoclingServeAdapter with base_url: %s, timeout: %s, additional_formats: %s",
+            self.base_url,
+            self.timeout,
+            self.additional_formats,
+        )
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs: Any) -> dict[str, Any]:
         """Extract content from a single document using Docling Serve API.
 
         Sends the document to a remote Docling Serve instance for extraction.
-        Polls for results and returns the extracted markdown content.
+        Polls for results and returns the extracted markdown content plus any additional formats.
 
         Args:
             file_path: Path to the document file (used for logging and filename preservation)
@@ -125,11 +153,16 @@ class DoclingServeAdapter(TextExtractionPort):
         Returns:
             Dictionary containing:
                 - success: True if extraction succeeded
-                - doc_content: Extracted content as markdown
-                - metadata: Extraction metadata (processing_time, page_count, etc.)
+                - content: Extracted content as markdown (mandatory)
+                - content_html: HTML format (if requested in additional_formats)
+                - content_json: JSON format (if requested in additional_formats)
+                - content_text: Plain text format (if requested in additional_formats)
+                - content_doctags: DocTags format (if requested in additional_formats)
+                - content_doclang: DocLang format (if requested in additional_formats)
+                - metadata: Extraction metadata (processing_time, page_count, formats, etc.)
                 - error: Error message if extraction failed
         """
-        logger.info("Processing file with docling-serve: %s", file_path)
+        logger.info("Processing file with docling-serve (formats: md + %s): %s", self.additional_formats, file_path)
 
         try:
             file_suffix = Path(file_path).suffix.lower()
@@ -161,58 +194,31 @@ class DoclingServeAdapter(TextExtractionPort):
                 filename=filename,
                 options=self.processing_options,
             )
-            # Debug: Log the full result structure
-            logger.debug(
-                f"Docling-serve result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}"
-            )
-            # Extract content from v1 API response format
-            # v1 API returns: {"document": {"md_content": "...", ...}, "processing_time": ..., ...}
-            document = result.get("document", {})
-            logger.info(
-                f"Document object keys: {list(document.keys()) if isinstance(document, dict) else 'Not a dict'}"
-            )
-            markdown_text = document.get("md_content", "")
-            logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0} for file {file_path}")
 
-            # Build result dictionary starting with mandatory markdown
-            result_dict: dict[str, Any] = {
-                OperatorConstants.Extraction.SUCCESS: True,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
-            }
+            # Detect response format and extract content accordingly
+            extra_metadata: dict[str, Any] = {}
+            if "documents" in result:
+                # v2 format: artifacts are presigned URIs that must be fetched
+                result_dict, formats_generated = self._extract_from_v2_response(result=result, file_path=file_path)
+            else:
+                # v1 format: content is inline in the response body
+                result_dict, formats_generated, extra_metadata = self._extract_from_v1_response(
+                    result=result, file_path=file_path
+                )
 
-            # Add additional formats if they were requested and are present in response
-            formats_generated = [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN]
-
-            for fmt in self.additional_formats:
-                if fmt in self.FORMAT_API_FIELD_MAPPING and fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
-                    api_field = self.FORMAT_API_FIELD_MAPPING[fmt]
-                    output_column = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
-                    if api_field in document:
-                        content = document.get(api_field, "")
-                        # Special handling for JSON format: serialise the dict response to a string
-                        if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_JSON and content:
-                            content = json.dumps(content, indent=2) if content else ""
-                        result_dict[output_column] = content
-                        formats_generated.append(fmt)
-                        logger.info(f"Generated {fmt} format for {file_path}")
-
-            # Build metadata
+            # Build metadata, merging any extra fields from the response (e.g. page_count)
+            markdown_text = result_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT, "")
             metadata = {
-                "processing_time": result.get("processing_time", 0),
+                OperatorConstants.Extraction.DOCLING_SERVE_PROCESSING_TIME: result.get(
+                    OperatorConstants.Extraction.DOCLING_SERVE_PROCESSING_TIME, 0
+                ),
                 "char_count": len(markdown_text) if markdown_text else 0,
                 "formats": formats_generated,
+                **extra_metadata,
             }
-
-            # Add page count if available from json_content
-            json_content = document.get("json_content", {})
-            if json_content and isinstance(json_content, dict):
-                pages = json_content.get("pages", {})
-                if pages:
-                    metadata[OperatorConstants.Metadata.PAGE_COUNT] = len(pages)
-
             result_dict[OperatorConstants.Metadata.METADATA] = metadata
 
-            logger.info(f"Completed docling-serve extraction for {file_path} (formats: {formats_generated})")
+            logger.info("Completed docling-serve extraction for %s (formats: %s)", file_path, formats_generated)
             return result_dict
 
         except Exception as e:
@@ -222,3 +228,113 @@ class DoclingServeAdapter(TextExtractionPort):
                 OperatorConstants.Extraction.ERROR: str(e),
                 OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
             }
+
+    def _extract_from_v1_response(
+        self, *, result: dict[str, Any], file_path: str
+    ) -> tuple[dict[str, Any], list[str], dict[str, Any]]:
+        """Extract content from v1 inline response format.
+
+        v1 response: {"document": {"md_content": "...", "html_content": "..."}, "processing_time": ...}
+
+        Returns:
+            Tuple of (result_dict, formats_generated, extra_metadata) where extra_metadata
+            contains additional fields (e.g. page_count) to be merged into the final metadata dict.
+        """
+        document = result.get(OperatorConstants.Extraction.DOCLING_SERVE_DOCUMENT, {})
+        logger.debug(
+            "v1 response - document keys: %s",
+            list(document.keys()) if isinstance(document, dict) else "not a dict",
+        )
+
+        result_dict: dict[str, Any] = {
+            OperatorConstants.Extraction.SUCCESS: True,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: document.get("md_content", ""),
+        }
+        formats_generated = [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN]
+        extra_metadata: dict[str, Any] = {}
+
+        for fmt in self.additional_formats:
+            if fmt in self.FORMAT_API_FIELD_MAPPING and fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
+                api_field = self.FORMAT_API_FIELD_MAPPING[fmt]
+                output_column = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
+                if api_field in document:
+                    content = document.get(api_field, "")
+                    if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_JSON and content:
+                        content = json.dumps(content, indent=2) if content else ""
+                    result_dict[output_column] = content
+                    formats_generated.append(fmt)
+                    logger.info("Generated %s format for %s", fmt, file_path)
+
+        # Page count from json_content if present
+        json_content = document.get("json_content", {})
+        if json_content and isinstance(json_content, dict):
+            pages = json_content.get(OperatorConstants.Extraction.DOCLING_SERVE_PAGES, {})
+            if pages:
+                extra_metadata[OperatorConstants.Metadata.PAGE_COUNT] = len(pages)
+
+        return result_dict, formats_generated, extra_metadata
+
+    def _extract_from_v2_response(self, *, result: dict[str, Any], file_path: str) -> tuple[dict[str, Any], list[str]]:
+        """Extract content from v2 artifact URI response format.
+
+        v2 response: {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "..."}]}], ...}
+        Content is not inline — each artifact must be fetched from its presigned URI.
+        """
+        documents = result.get("documents", [])
+        logger.debug("v2 response - %d document(s) in result", len(documents))
+
+        result_dict: dict[str, Any] = {
+            OperatorConstants.Extraction.SUCCESS: True,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: "",
+        }
+        formats_generated: list[str] = []
+
+        if not documents:
+            logger.warning("v2 response contains no documents for %s", file_path)
+            return result_dict, [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN]
+
+        doc = documents[0]
+        artifacts = doc.get("artifacts", [])
+        logger.debug("v2 response - artifact types: %s", [a.get("artifact_type") for a in artifacts])
+
+        # Determine which formats to fetch: always markdown + any requested additional formats
+        requested_formats = {OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN} | set(self.additional_formats)
+
+        for artifact in artifacts:
+            artifact_type = artifact.get("artifact_type", "")
+            fmt = self.ARTIFACT_TYPE_TO_FORMAT.get(artifact_type)
+            if fmt is None or fmt not in requested_formats:
+                continue
+
+            uri = artifact.get("uri", "")
+            if not uri:
+                logger.warning("v2 artifact '%s' has no URI for %s", artifact_type, file_path)
+                continue
+
+            logger.info("Fetching v2 artifact '%s' for %s", artifact_type, file_path)
+            try:
+                resp = requests.get(uri, timeout=60, verify=self.verify_ssl)
+                resp.raise_for_status()
+                content: str = resp.text
+            except Exception as fetch_err:
+                logger.warning("Failed to fetch v2 artifact '%s' for %s: %s", artifact_type, file_path, fetch_err)
+                continue
+
+            if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN:
+                result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
+                formats_generated.append(fmt)
+            elif fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
+                output_column = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
+                if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_JSON:
+                    try:
+                        content = json.dumps(json.loads(content), indent=2)
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                result_dict[output_column] = content
+                formats_generated.append(fmt)
+                logger.info("Generated %s format for %s", fmt, file_path)
+
+        if OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN not in formats_generated:
+            formats_generated.insert(0, OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN)
+
+        return result_dict, formats_generated

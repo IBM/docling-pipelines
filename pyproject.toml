@@ -4,6 +4,12 @@ dynamic = ["version"]
 description = "This repository contains the docpipe operators."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
+
+[project.urls]
+Homepage = "https://github.com/IBM/docling-pipelines"
+Documentation = "https://github.com/IBM/docling-pipelines/blob/main/docs/README.md"
+Source = "https://github.com/IBM/docling-pipelines"
+"Bug Tracker" = "https://github.com/IBM/docling-pipelines/issues"
 maintainers = [
     { name = "Jojo Joseph", email = "jjojo@in.ibm.com" },
     { name = "Aditya Rohan Singh", email = "adityars@ibm.com" },

@@ -142,7 +142,6 @@ class TextExtractionAdapterFactory:
             )
 
         elif mode == TextExtractionMode.DOCLING_SERVE:
-            # Build docling_serve_config dictionary from provider_config
             docling_serve_config = {
                 OperatorConstants.Config.BASE_URL: provider_config.get(
                     OperatorConstants.Config.BASE_URL, "http://localhost:5001"
@@ -158,13 +157,9 @@ class TextExtractionAdapterFactory:
                     OperatorConstants.Processing.VERIFY_SSL, True
                 ),
                 OperatorConstants.Config.DO_OCR: provider_config.get(OperatorConstants.Config.DO_OCR, True),
-                OperatorConstants.Config.OCR_ENGINE: provider_config.get(
-                    OperatorConstants.Config.OCR_ENGINE, "easyocr"
-                ),
                 OperatorConstants.Config.PDF_BACKEND: provider_config.get(
                     OperatorConstants.Config.PDF_BACKEND, "dlparse_v2"
                 ),
-                OperatorConstants.Config.TABLE_MODE: provider_config.get(OperatorConstants.Config.TABLE_MODE, "fast"),
                 OperatorConstants.Config.IMAGE_EXPORT_MODE: provider_config.get(
                     OperatorConstants.Config.IMAGE_EXPORT_MODE, "placeholder"
                 ),
@@ -174,6 +169,18 @@ class TextExtractionAdapterFactory:
             if provider_config.get(OperatorConstants.Config.API_KEY):
                 docling_serve_config[OperatorConstants.Config.API_KEY] = provider_config[
                     OperatorConstants.Config.API_KEY
+                ]
+
+            # ocr_engine and table_mode are optional — only forward if explicitly set
+            # (different docling-serve versions/deployments support different values)
+            if provider_config.get(OperatorConstants.Config.OCR_ENGINE):
+                docling_serve_config[OperatorConstants.Config.OCR_ENGINE] = provider_config[
+                    OperatorConstants.Config.OCR_ENGINE
+                ]
+
+            if provider_config.get(OperatorConstants.Config.TABLE_MODE):
+                docling_serve_config[OperatorConstants.Config.TABLE_MODE] = provider_config[
+                    OperatorConstants.Config.TABLE_MODE
                 ]
 
             if provider_config.get(OperatorConstants.Config.OCR_LANGUAGES):
