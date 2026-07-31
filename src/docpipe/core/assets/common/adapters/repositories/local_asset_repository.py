@@ -7,13 +7,11 @@ storing assets as JSON files in the local filesystem.
 import json
 import logging
 import os
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypeVar
 
 from docpipe.core.assets.common.domain.models.asset import Asset
 from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
-from docpipe.core.assets.flows.domain.models.flow import Flow
 from docpipe.exceptions.docpipe_exceptions import (
     AssetAlreadyExistsException,
     AssetInvalidDataException,
@@ -29,13 +27,26 @@ class LocalAssetRepository(AssetRepository[T]):
     """Generic filesystem-based repository for all asset types.
 
     Stores assets as JSON files in configured directories.
-    Currently supports Flow assets, with DocumentSet and DocumentLibrary planned.
 
     Usage:
         flow_repo = LocalAssetRepository[Flow](asset_type=Flow, storage_path="/path/to/flows")
         flow = Flow(name="my_flow", definition={...})
         saved_flow = flow_repo.save(asset=flow)
     """
+
+    @classmethod
+    def from_config(cls, *, asset_type: type[T], config: dict) -> "LocalAssetRepository[T]":
+        """Create a LocalAssetRepository from a config dict.
+
+        Args:
+            asset_type: The asset model class (Flow, etc.)
+            config: May contain ``base_dir`` for the storage path.
+
+        Returns:
+            Configured LocalAssetRepository instance
+        """
+        storage_path = config.get("base_dir")
+        return cls(asset_type=asset_type, storage_path=storage_path)
 
     def __init__(self, *, asset_type: type[T], storage_path: str | None = None):
         """Initialize repository with explicit asset type.
@@ -76,12 +87,7 @@ class LocalAssetRepository(AssetRepository[T]):
         Returns:
             Saved asset with generated ID and timestamps
         """
-        # Set timestamps for Flow
-        if isinstance(asset, Flow):
-            now = datetime.now(UTC)
-            if not asset.created_on:
-                asset.created_on = now
-            asset.modified_on = now
+        asset.update_timestamp()
 
         # Check for duplicate name
         if self.exists_by_name(name=asset.name):
@@ -111,9 +117,6 @@ class LocalAssetRepository(AssetRepository[T]):
         with open(file_path) as f:
             data = json.load(f)
 
-        # Use Flow.from_dict for Flow type
-        if self._asset_type == Flow:
-            return Flow.from_dict(data=data)  # type: ignore
         return self._asset_type.from_dict(data=data)  # type: ignore
 
     def find_by_name(self, *, name: str) -> T | None:
@@ -141,15 +144,35 @@ class LocalAssetRepository(AssetRepository[T]):
             try:
                 with open(file_path) as f:
                     data = json.load(f)
-                # Use Flow.from_dict for Flow type
-                if self._asset_type == Flow:
-                    asset = Flow.from_dict(data=data)  # type: ignore
-                else:
-                    asset = self._asset_type.from_dict(data=data)  # type: ignore
+                asset = self._asset_type.from_dict(data=data)  # type: ignore
                 assets.append(asset)
             except Exception as e:
                 logger.warning(f"Failed to load asset from {file_path}: {e}")
         return assets
+
+    def list_all(self, *, limit: int | None = None, offset: int | None = None) -> list[T]:
+        """List all assets with optional pagination, sorted newest-first.
+
+        Args:
+            limit: Maximum number of assets to return (None for all)
+            offset: Number of assets to skip (None / 0 for none)
+
+        Returns:
+            List of assets sorted by creation date newest-first
+        """
+        assets = self.find_all()
+
+        # Sort newest-first using the canonical get_updated_at() method on Asset base class
+        def _sort_key(a: T) -> str:
+            updated = a.get_updated_at()
+            if updated is not None:
+                return updated.isoformat()
+            return a.name
+
+        assets.sort(key=_sort_key, reverse=True)
+
+        start = offset or 0
+        return assets[start : start + limit] if limit is not None else assets[start:]
 
     def update(self, *, asset: T) -> T:
         """Update an asset.
@@ -166,9 +189,7 @@ class LocalAssetRepository(AssetRepository[T]):
         if not self.exists(asset_id=asset.asset_id):
             raise AssetNotFoundException(f"Asset {asset.asset_id} not found")
 
-        # Update timestamp for Flow
-        if isinstance(asset, Flow):
-            asset.modified_on = datetime.now(UTC)
+        asset.update_timestamp()
 
         # Save to file
         file_path = self._get_file_path(asset_id=asset.asset_id)

@@ -2,31 +2,36 @@
 
 Provides CRUD operations for document libraries with validation, filtering, and pagination.
 Orchestrates business logic between domain models and repository layer.
+Now extends AssetService[DocumentLibrary] for unified architecture participation.
 """
 
-import logging
 from typing import TYPE_CHECKING, ClassVar
 
+from docpipe.core.assets.common.application.services.asset_service import AssetService
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
-from docpipe.core.assets.document_libraries.domain.ports.document_library_repository import (
-    DocumentLibraryRepository,
-)
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.utils.infrastructure.logging import get_logger
 
 if TYPE_CHECKING:
     from docpipe.core.assets.document_sets.application.services.document_set_service import (
         DocumentSetService,
     )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-class DocumentLibraryService:
-    """Application service for creating, retrieving, updating, and deleting document libraries.
+class DocumentLibraryService(AssetService[DocumentLibrary]):
+    """Application service for document library management.
 
-    Uses dependency injection to receive a repository implementation.
-    Orchestrates business logic and coordinates between domain and infrastructure layers.
+    Extends AssetService[DocumentLibrary] for unified architecture participation.
+    Inherits: get_by_id, get_by_name, delete, exists, exists_by_name,
+    list_all, count_all, health_check.
+
+    Adds DocumentLibrary-specific operations: create_library, update_library,
+    get_library, delete_library, list_libraries, and document set
+    relationship management (add/remove single and bulk).
     """
 
     # Fields that can be updated via partial updates
@@ -50,7 +55,7 @@ class DocumentLibraryService:
     def __init__(
         self,
         *,
-        repository: DocumentLibraryRepository,
+        repository: AssetRepository[DocumentLibrary],
         document_set_service: "DocumentSetService | None" = None,
     ):
         """Initialize the service with a document library repository.
@@ -59,9 +64,9 @@ class DocumentLibraryService:
             repository: Repository implementation for persistence
             document_set_service: Optional document set service for relationship validation
         """
-        self.repository = repository
+        super().__init__(repository=repository)
         self.document_set_service = document_set_service
-        logger.debug(msg=f"DocumentLibraryService initialized with repository: {type(repository).__name__}")
+        logger.debug("DocumentLibraryService initialized with repository: %s", type(repository).__name__)
 
     def _validate_library_id(self, *, library_id: str) -> str:
         """Validate that library_id is not None, empty, or whitespace.
@@ -140,13 +145,15 @@ class DocumentLibraryService:
                 href=href,
             )
 
-            logger.info(msg=f"Creating library with name: {library.name}")
+            logger.info("Creating library with name: %s", library.name)
 
             # Repository will check for duplicate names
-            created_library = self.repository.create(library=library)
+            created_library = self._repository.save(asset=library)
 
             logger.info(
-                msg=f"Successfully created library {created_library.library_id} with name {created_library.name}"
+                "Successfully created library %s with name %s",
+                created_library.library_id,
+                created_library.name,
             )
             return created_library
 
@@ -176,7 +183,7 @@ class DocumentLibraryService:
         """
         self._validate_library_id(library_id=library_id)
 
-        library = self.repository.get_by_id(library_id=library_id)
+        library = self._repository.find_by_id(asset_id=library_id)
 
         if library is None:
             raise DocpipeException(
@@ -185,42 +192,7 @@ class DocumentLibraryService:
                 error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
             )
 
-        logger.info(msg=f"Successfully retrieved library {library_id}")
-        return library
-
-    def get_library_by_name(self, *, name: str) -> DocumentLibrary:
-        """Retrieve a document library by name.
-
-        Args:
-            name: Name of the library
-
-        Returns:
-            The requested library entity
-
-        Raises:
-            DocumentLibraryNotFoundException: If library doesn't exist
-            DocumentLibraryStorageException: If retrieval fails
-
-        Example:
-            >>> library = service.get_library_by_name(name="Research Papers")
-        """
-        if not name or not name.strip():
-            raise DocpipeException(
-                "Library name cannot be empty",
-                status_code=400,
-                error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
-            )
-
-        library = self.repository.get_by_name(name=name)
-
-        if library is None:
-            raise DocpipeException(
-                f"Library with name '{name}' not found",
-                status_code=404,
-                error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
-            )
-
-        logger.info(msg=f"Successfully retrieved library by name: {name}")
+        logger.info("Successfully retrieved library %s", library_id)
         return library
 
     def update_library(
@@ -294,9 +266,9 @@ class DocumentLibraryService:
         library.validate()
 
         # Save updates
-        updated_library = self.repository.update(library=library)
+        updated_library = self._repository.update(asset=library)
 
-        logger.info(msg=f"Successfully updated library {library_id}")
+        logger.info("Successfully updated library %s", library_id)
         return updated_library
 
     def delete_library(self, *, library_id: str) -> bool:
@@ -321,12 +293,12 @@ class DocumentLibraryService:
         """
         self._validate_library_id(library_id=library_id)
 
-        deleted = self.repository.delete(library_id=library_id)
+        deleted = self._repository.delete(asset_id=library_id)
 
         if deleted:
-            logger.info(msg=f"Successfully deleted library {library_id}")
+            logger.info("Successfully deleted library %s", library_id)
         else:
-            logger.warning(msg=f"Library {library_id} not found for deletion")
+            logger.warning("Library %s not found for deletion", library_id)
 
         return deleted
 
@@ -358,47 +330,10 @@ class DocumentLibraryService:
             >>> # Get second page
             >>> page2 = service.list_libraries(limit=10, offset=10)
         """
-        libraries = self.repository.list_all(limit=limit, offset=offset)
+        libraries = self._repository.list_all(limit=limit, offset=offset)
 
-        logger.info(msg=f"Retrieved {len(libraries)} libraries")
+        logger.info("Retrieved %d libraries", len(libraries))
         return libraries
-
-    def library_exists(self, *, library_id: str) -> bool:
-        """Check if a document library exists.
-
-        Lightweight existence check without loading full library data.
-
-        Args:
-            library_id: ID of the library to check
-
-        Returns:
-            True if library exists, False otherwise
-
-        Raises:
-            DocumentLibraryStorageException: If check fails
-
-        Example:
-            >>> if service.library_exists(library_id="abc-123"):
-            ...     print("Library exists")
-        """
-        self._validate_library_id(library_id=library_id)
-        return self.repository.exists(library_id=library_id)
-
-    def library_exists_by_name(self, *, name: str) -> bool:
-        """Check if a library with given name exists.
-
-        Args:
-            name: Name to check
-
-        Returns:
-            True if library with name exists, False otherwise
-
-        Raises:
-            DocumentLibraryStorageException: If check fails
-        """
-        if not name or not name.strip():
-            return False
-        return self.repository.exists_by_name(name=name)
 
     def add_document_set(self, *, library_id: str, document_set_id: str) -> DocumentLibrary:
         """Add a document set to a library.
@@ -429,7 +364,7 @@ class DocumentLibraryService:
 
         # Validate document set exists (lightweight check)
         if self.document_set_service is not None:
-            if not self.document_set_service.document_set_exists(document_set_id=document_set_id):
+            if not self.document_set_service.exists(asset_id=document_set_id):
                 raise DocpipeException(
                     f"Document set '{document_set_id}' does not exist",
                     status_code=404,
@@ -440,13 +375,10 @@ class DocumentLibraryService:
         library = self.get_library(library_id=library_id)
         library.add_document_set(document_set_id=document_set_id)
 
-        # Persist junction table entry
-        self.repository.add_document_set_to_library(
-            library_id=library_id,
-            document_set_id=document_set_id,
-        )
+        # Persist the updated domain object
+        self._repository.update(asset=library)
 
-        logger.info(msg=f"Added document set {document_set_id} to library {library_id}")
+        logger.info("Added document set %s to library %s", document_set_id, library_id)
 
         # Return updated in-memory library (no DB call needed)
         return library
@@ -481,13 +413,10 @@ class DocumentLibraryService:
         library = self.get_library(library_id=library_id)
         library.remove_document_set(document_set_id=document_set_id)
 
-        # Remove junction table entry
-        self.repository.remove_document_set_from_library(
-            library_id=library_id,
-            document_set_id=document_set_id,
-        )
+        # Persist the updated domain object
+        self._repository.update(asset=library)
 
-        logger.info(msg=f"Removed document set {document_set_id} from library {library_id}")
+        logger.info("Removed document set %s from library %s", document_set_id, library_id)
 
         # Return updated in-memory library (no DB call needed)
         return library
@@ -516,7 +445,7 @@ class DocumentLibraryService:
         self._validate_library_id(library_id=library_id)
 
         if not document_set_ids:
-            logger.warning(msg=f"No document sets provided for bulk add to library {library_id}")
+            logger.warning("No document sets provided for bulk add to library %s", library_id)
             return
 
         # Get library to verify it exists
@@ -525,7 +454,7 @@ class DocumentLibraryService:
         # Validate document sets exist (lightweight check)
         if self.document_set_service is not None:
             for document_set_id in document_set_ids:
-                if not self.document_set_service.document_set_exists(document_set_id=document_set_id):
+                if not self.document_set_service.exists(asset_id=document_set_id):
                     raise DocpipeException(
                         f"Document set '{document_set_id}' does not exist",
                         status_code=404,
@@ -540,8 +469,11 @@ class DocumentLibraryService:
                 succeeded.append(document_set_id)
             except Exception as e:
                 logger.error(
-                    msg=f"Failed to add document set {document_set_id} to library {library_id}. "
-                    f"Succeeded: {len(succeeded)}/{len(document_set_ids)}",
+                    "Failed to add document set %s to library %s. Succeeded: %d/%d",
+                    document_set_id,
+                    library_id,
+                    len(succeeded),
+                    len(document_set_ids),
                     exc_info=True,
                 )
                 # Re-raise DocpipeException directly, don't wrap it
@@ -554,20 +486,19 @@ class DocumentLibraryService:
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 ) from e
 
-        # Perform bulk insert in single DB operation
+        # Persist in a single update call
         try:
-            self.repository.add_document_sets_bulk(
-                library_id=library_id,
-                document_set_ids=document_set_ids,
-            )
+            self._repository.update(asset=library)
         except Exception:
             logger.error(
-                msg=f"Failed to bulk insert document sets to library {library_id}. Count: {len(document_set_ids)}",
+                "Failed to bulk insert document sets to library %s. Count: %d",
+                library_id,
+                len(document_set_ids),
                 exc_info=True,
             )
             raise
 
-        logger.info(msg=f"Added {len(document_set_ids)} document sets to library {library_id}")
+        logger.info("Added %d document sets to library %s", len(document_set_ids), library_id)
 
     def remove_document_sets_bulk(self, *, library_id: str, document_set_ids: list[str]) -> None:
         """Remove multiple document sets from a library in bulk.
@@ -593,7 +524,7 @@ class DocumentLibraryService:
         self._validate_library_id(library_id=library_id)
 
         if not document_set_ids:
-            logger.warning(msg=f"No document sets provided for bulk remove from library {library_id}")
+            logger.warning("No document sets provided for bulk remove from library %s", library_id)
             return
 
         # Get library to verify it exists
@@ -607,8 +538,11 @@ class DocumentLibraryService:
                 succeeded.append(document_set_id)
             except Exception as e:
                 logger.error(
-                    msg=f"Failed to remove document set {document_set_id} from library {library_id}. "
-                    f"Succeeded: {len(succeeded)}/{len(document_set_ids)}",
+                    "Failed to remove document set %s from library %s. Succeeded: %d/%d",
+                    document_set_id,
+                    library_id,
+                    len(succeeded),
+                    len(document_set_ids),
                     exc_info=True,
                 )
                 # Re-raise DocpipeException directly, don't wrap it
@@ -621,20 +555,19 @@ class DocumentLibraryService:
                     error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
                 ) from e
 
-        # Perform bulk delete in single DB operation
+        # Persist in a single update call
         try:
-            self.repository.remove_document_sets_bulk(
-                library_id=library_id,
-                document_set_ids=document_set_ids,
-            )
+            self._repository.update(asset=library)
         except Exception:
             logger.error(
-                msg=f"Failed to bulk delete document sets from library {library_id}. Count: {len(document_set_ids)}",
+                "Failed to bulk delete document sets from library %s. Count: %d",
+                library_id,
+                len(document_set_ids),
                 exc_info=True,
             )
             raise
 
-        logger.info(msg=f"Removed {len(document_set_ids)} document sets from library {library_id}")
+        logger.info("Removed %d document sets from library %s", len(document_set_ids), library_id)
 
     def get_document_sets(self, *, library_id: str) -> list[str]:
         """Get all document set IDs associated with a library.
@@ -655,24 +588,8 @@ class DocumentLibraryService:
         """
         self._validate_library_id(library_id=library_id)
 
-        doc_sets = self.repository.get_document_sets_for_library(library_id=library_id)
+        library = self.get_library(library_id=library_id)
+        doc_sets = list(library.document_set_ids)
 
-        logger.info(msg=f"Retrieved {len(doc_sets)} document sets for library {library_id}")
+        logger.info("Retrieved %d document sets for library %s", len(doc_sets), library_id)
         return doc_sets
-
-    def count_libraries(self) -> int:
-        """Count total number of document libraries.
-
-        Returns:
-            Total count of libraries
-
-        Raises:
-            DocumentLibraryStorageException: If count fails
-
-        Example:
-            >>> total = service.count_libraries()
-            >>> print(f"Total libraries: {total}")
-        """
-        count = self.repository.count_all()
-        logger.info(msg=f"Total libraries count: {count}")
-        return count

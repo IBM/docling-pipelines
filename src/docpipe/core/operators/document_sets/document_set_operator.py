@@ -10,9 +10,11 @@ from typing import Any
 
 import pyarrow as pa
 
+from docpipe.core.assets.common.factories.repository_factory import RepositoryFactory
 from docpipe.core.assets.document_sets import adapters  # noqa: F401
 from docpipe.core.assets.document_sets.application.services.document_set_service import DocumentSetService
-from docpipe.core.assets.document_sets.factories import DataStoreFactory, MetadataRepositoryFactory
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.core.assets.document_sets.factories import DataStoreFactory
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -184,38 +186,40 @@ class DocumentSetOperator(AbstractOperator):
                 - Metadata dictionary with storage info and metrics
         """
         # Extract metadata storage type from config (set by orchestrator)
-        self.metadata_storage_type = self.config.get(
+        # Runtime value from global_config — passed as override so it is honoured
+        # exactly as before, without changing observable behaviour.
+        metadata_storage_type = self.config.get(
             DocpipeConstants.METADATA_STORAGE_TYPE, DocpipeConstants.DEFAULT_METADATA_STORAGE_TYPE
         )
 
         logger.info(
             "Using metadata storage type: %s, data storage type: %s",
-            self.metadata_storage_type,
+            metadata_storage_type,
             self.data_backend,
             extra=self.common_log_arguments,
         )
 
-        # Create metadata repository using global metadata storage type
-        metadata_repo_config: dict[str, Any] = {
-            OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path,
-        }
-
-        metadata_repository = MetadataRepositoryFactory.create(
-            adapter_name=self.metadata_storage_type,  # Use global metadata storage type
-            config=metadata_repo_config,
+        # Create metadata repository — adapter_name from global_config wins over YAML,
+        # database_path from operator config wins over YAML.
+        #
+        # These factory calls are intentionally here rather than in __init__ because:
+        # 1. metadata_storage_type comes from self.config which is set by the orchestrator
+        #    and available here, but the executor constructs a new operator instance per
+        #    batch (PythonOperatorExecutor.get_operator()), so __init__ runs per batch anyway.
+        # 2. DuckDBKeyValueStorage and DuckDBTableStorage are per-path singletons — repeated
+        #    factory calls with the same database_path return the cached instance with no
+        #    new connection or I/O. The cost here is two dict lookups per batch.
+        metadata_repository = RepositoryFactory.create_repository(
+            asset_type=DocumentSet,
+            adapter_name=metadata_storage_type,
+            config_override={OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path},
         )
-
-        # Create data store using operator-specific backend
-        data_store_config: dict[str, Any] = {
-            OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path,
-        }
 
         data_store = DataStoreFactory.create(
-            adapter_name=self.data_backend,  # Use operator config
-            config=data_store_config,
+            adapter_name=self.data_backend,
+            config={OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path},
         )
 
-        # Create service with port interfaces
         service = DocumentSetService(
             metadata_repository=metadata_repository,
             data_store=data_store,
@@ -229,7 +233,7 @@ class DocumentSetOperator(AbstractOperator):
         # Add storage-specific metadata
         metadata[OperatorConstants.DocumentSet.META_DOCUMENT_SET_NAME] = self.document_set_name
         metadata[OperatorConstants.DocumentSet.META_DATABASE_PATH] = self.database_path
-        metadata[DocpipeConstants.METADATA_STORAGE_TYPE] = self.metadata_storage_type
+        metadata[DocpipeConstants.METADATA_STORAGE_TYPE] = metadata_storage_type
         metadata["data_storage_type"] = self.data_backend
 
         # Handle empty table

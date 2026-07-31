@@ -2,17 +2,17 @@
 
 Provides business logic orchestration for document sets, coordinating between
 the metadata repository and storage layers.
-"""
 
-from uuid import uuid4
+Extends AssetService[DocumentSet] to inherit common operations (get_by_id,
+get_by_name, delete, exists, exists_by_name, list_all, count_all, health_check).
+"""
 
 import pyarrow as pa
 
+from docpipe.core.assets.common.application.services.asset_service import AssetService
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
-from docpipe.core.assets.document_sets.domain.ports import (
-    DocumentSetMetadataRepository,
-    DocumentSetStorage,
-)
+from docpipe.core.assets.document_sets.domain.ports import DocumentSetStorage
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.exceptions.error_messages import ValidationCodeMessages
@@ -21,21 +21,26 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger(__name__)
 
 
-class DocumentSetService:
+class DocumentSetService(AssetService[DocumentSet]):
     """Application service for document set business logic orchestration.
 
-    Coordinates between the metadata repository and storage layers to provide
-    high-level document set operations.
+    Extends AssetService[DocumentSet] for unified architecture participation.
+    Inherits: get_by_id, get_by_name, delete, exists, exists_by_name,
+    list_all, count_all, health_check.
+
+    Adds DocumentSet-specific operations for data management:
+    create_document_set, update_document_set, store_data, preview_data,
+    compute_and_update_metrics, delete_document_set (with data deletion).
 
     Attributes:
-        _metadata_repository: Repository port for document set metadata operations.
-        _storage: Storage port for document data operations.
+        _repository: Metadata repository port (AssetRepository[DocumentSet]).
+        _storage: Storage port for PyArrow table data operations.
     """
 
     def __init__(
         self,
         *,
-        metadata_repository: DocumentSetMetadataRepository,
+        metadata_repository: AssetRepository[DocumentSet],
         data_store: DocumentSetStorage,
     ) -> None:
         """Initialize the service with port dependencies.
@@ -44,7 +49,7 @@ class DocumentSetService:
             metadata_repository: Repository port for document set metadata CRUD.
             data_store: Storage port for document data operations.
         """
-        self._metadata_repository = metadata_repository
+        super().__init__(repository=metadata_repository)
         self._storage = data_store
         logger.debug(
             "DocumentSetService initialized with metadata_repository: %s, data_store: %s",
@@ -70,18 +75,16 @@ class DocumentSetService:
         Raises:
             DocpipeException: If validation fails or a database operation fails.
         """
-        try:
-            existing = self._metadata_repository.get_by_name(name=name)
-            if existing:
-                logger.info(
-                    "Document set with name '%s' already exists (ID: %s), returning existing",
-                    name,
-                    existing.asset_id,
-                )
-                return existing
-        except DocpipeException as e:
-            if e.status_code != 404:
-                raise
+        existing = self._repository.find_by_name(name=name)
+        if existing:
+            logger.info(
+                "Document set with name '%s' already exists (ID: %s), returning existing",
+                name,
+                existing.asset_id,
+            )
+            return existing
+
+        from uuid import uuid4
 
         document_set = DocumentSet(
             asset_id=str(uuid4()),
@@ -89,24 +92,22 @@ class DocumentSetService:
             description=description,
             metadata=metadata or {},
         )
-
         document_set.validate()
 
         logger.info("Creating document set with name: %s", name)
 
         try:
-            created = self._metadata_repository.create(document_set=document_set)
+            created = self._repository.save(asset=document_set)
             logger.info("Successfully created document set %s with name %s", created.asset_id, created.name)
             return created
-        except DocpipeException:
-            raise
-        except Exception as e:
-            error_msg = str(e).lower()
-            if "unique" in error_msg or "constraint" in error_msg or "duplicate" in error_msg:
-                logger.info("Document set '%s' was created by another process, retrieving", name)
-                existing = self._metadata_repository.get_by_name(name=name)
+        except DocpipeException as e:
+            if e.status_code == 409:
+                # Race condition: created by another process between check and save
+                existing = self._repository.find_by_name(name=name)
                 if existing:
                     return existing
+            raise
+        except Exception as e:
             raise DocpipeException(
                 ValidationCodeMessages.DOCUMENT_SET_STORAGE_ERROR.format(details=str(e)),
                 status_code=500,
@@ -134,7 +135,7 @@ class DocumentSetService:
                 "document_set_id cannot be empty", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA
             )
 
-        existing = self._metadata_repository.get_by_id(document_set_id=document_set_id)
+        existing = self._repository.find_by_id(asset_id=document_set_id)
         if existing is None:
             raise DocpipeException(
                 ValidationCodeMessages.DOCUMENT_SET_NOT_FOUND.format(document_set_id=document_set_id),
@@ -148,7 +149,7 @@ class DocumentSetService:
             existing.metadata = metadata
 
         existing.validate()
-        updated = self._metadata_repository.update(document_set=existing)
+        updated = self._repository.update(asset=existing)
         logger.info("Successfully updated document set %s", document_set_id)
         return updated
 
@@ -169,7 +170,7 @@ class DocumentSetService:
                 "document_set_id cannot be empty", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA
             )
 
-        document_set = self._metadata_repository.get_by_id(document_set_id=document_set_id)
+        document_set = self._repository.find_by_id(asset_id=document_set_id)
         if document_set is None:
             raise DocpipeException(
                 ValidationCodeMessages.DOCUMENT_SET_NOT_FOUND.format(document_set_id=document_set_id),
@@ -178,47 +179,6 @@ class DocumentSetService:
             )
 
         logger.info("Successfully retrieved document set %s", document_set_id)
-        return document_set
-
-    def document_set_exists(self, *, document_set_id: str) -> bool:
-        """Check if a document set exists.
-
-        Args:
-            document_set_id: Unique identifier to check.
-
-        Returns:
-            True if document set exists, False otherwise.
-        """
-        if not document_set_id or not document_set_id.strip():
-            return False
-        return self._metadata_repository.exists(document_set_id=document_set_id)
-
-    def get_document_set_by_name(self, *, name: str) -> DocumentSet:
-        """Retrieve a document set by name.
-
-        Args:
-            name: Unique name of the document set.
-
-        Returns:
-            DocumentSet with all metadata.
-
-        Raises:
-            DocpipeException: If the document set is not found.
-        """
-        if not name or not name.strip():
-            raise DocpipeException(
-                "name cannot be empty", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA
-            )
-
-        document_set = self._metadata_repository.get_by_name(name=name)
-        if document_set is None:
-            raise DocpipeException(
-                ValidationCodeMessages.DOCUMENT_SET_NOT_FOUND.format(document_set_id=name),
-                status_code=404,
-                error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
-            )
-
-        logger.info("Successfully retrieved document set by name: %s", name)
         return document_set
 
     def list_document_sets(self, *, limit: int | None = None, offset: int | None = None) -> list[DocumentSet]:
@@ -241,12 +201,7 @@ class DocumentSetService:
                 "offset must be >= 0", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA
             )
 
-        document_sets = self._metadata_repository.list_all()
-
-        if offset is not None:
-            document_sets = document_sets[offset:]
-        if limit is not None:
-            document_sets = document_sets[:limit]
+        document_sets = self._repository.list_all(limit=limit, offset=offset)
 
         logger.info("Listed %d document sets (limit=%s, offset=%s)", len(document_sets), limit, offset)
         return document_sets
@@ -283,7 +238,7 @@ class DocumentSetService:
                 logger.error("Failed to delete data for document set %s: %s", document_set_id, e)
                 raise
 
-        deleted = self._metadata_repository.delete(document_set_id=document_set_id)
+        deleted = self._repository.delete(asset_id=document_set_id)
         if deleted:
             logger.info("Successfully deleted document set %s", document_set_id)
             return True
@@ -321,9 +276,8 @@ class DocumentSetService:
             storage_ref = self._storage.store(doc_set_name=document_set.name, data=data)
             logger.info("Stored %d rows for document set %s", len(data), document_set_id)
 
-            # Persist the StorageReference returned by the adapter
             document_set.storage_reference = storage_ref
-            self._metadata_repository.update(document_set=document_set)
+            self._repository.update(asset=document_set)
 
             updated = self.compute_and_update_metrics(document_set_id=document_set_id)
             logger.info("Successfully stored data and updated metrics for document set %s", document_set_id)
@@ -409,12 +363,12 @@ class DocumentSetService:
             total_size_bytes=metrics.get("total_size_bytes", 0),
             total_pages=metrics.get("total_pages", 0),
         )
-        updated = self._metadata_repository.update(document_set=document_set)
+        updated = self._repository.update(asset=document_set)
         logger.info("Computed and updated metrics for document set %s: %s", document_set_id, metrics)
         return updated
 
     def _validate_pyarrow_table(self, data: pa.Table) -> None:
-        """Validate that the PyArrow table is non-None, the correct type, and has an id column."""
+        """Validate that data is a non-None PyArrow Table with an id column."""
         if data is None:
             raise DocpipeException(
                 "Data cannot be None", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA

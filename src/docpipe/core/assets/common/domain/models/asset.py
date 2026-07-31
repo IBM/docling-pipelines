@@ -6,6 +6,7 @@ Only truly common attributes are included here. Asset-specific attributes are de
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -46,6 +47,30 @@ class Asset(ABC):
         """
         pass
 
+    @staticmethod
+    @abstractmethod
+    def get_config_key() -> str:
+        """Return the YAML config key used to look up this asset's repository config.
+
+        Example: "flow", "documentset", "documentlibrary"
+
+        Returns:
+            str: Key used under assets_management.<key>_repository in YAML config
+        """
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_collection_name() -> str:
+        """Return the DuckDB collection (table) name for this asset type.
+
+        Example: "document_sets", "document_libraries"
+
+        Returns:
+            str: Collection name used by DuckDBAssetRepository
+        """
+        pass
+
     def validate(self) -> None:
         """Validate the asset's data.
 
@@ -77,6 +102,32 @@ class Asset(ABC):
         they expose (e.g. ``modified_on`` on Flow, ``updated_at`` on DocumentSet).
         """
         pass
+
+    def get_created_at(self) -> datetime | None:
+        """Return the creation timestamp for this asset, if available.
+
+        Default implementation returns None (e.g. DocumentLibrary has no
+        creation timestamp). Subclasses that track creation time override this:
+        - DocumentSet overrides to return self.created_at
+        - Flow overrides to return self.created_on
+
+        The generic repository uses this method for sorting, so it never
+        needs to know the concrete timestamp field name.
+        """
+        return None
+
+    def get_updated_at(self) -> datetime | None:
+        """Return the last-modified timestamp for this asset, if available.
+
+        Default implementation returns None (e.g. DocumentLibrary has no
+        update timestamp). Subclasses that track modification time override this:
+        - DocumentSet overrides to return self.updated_at
+        - Flow overrides to return self.modified_on
+
+        The generic repository uses this method for sorting, so it never
+        needs to know the concrete timestamp field name.
+        """
+        return None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize asset to dictionary.

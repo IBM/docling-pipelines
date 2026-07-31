@@ -10,9 +10,19 @@ from functools import lru_cache
 from fastapi import Depends
 
 from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
-from docpipe.core.assets.common.factories.repository_factory import RepositoryFactory
+from docpipe.core.assets.common.factories.repository_factory import RepositoryFactory, RepositoryType
+from docpipe.core.assets.document_libraries.application.services.document_library_service import (
+    DocumentLibraryService,
+)
+from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
+from docpipe.core.assets.document_sets.application.services.document_set_service import DocumentSetService
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.core.assets.document_sets.domain.ports.data_store import DocumentSetStorage as DocumentSetDataStore
+from docpipe.core.assets.document_sets.domain.types import DataStoreConfig
+from docpipe.core.assets.document_sets.factories import DataStoreFactory
 from docpipe.core.assets.flows.application.services import FlowService
 from docpipe.core.assets.flows.domain.models.flow import Flow
+from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.core.job_management.application.services import JobManagementService
 from docpipe.core.job_management.domain.ports import JobStatsService
@@ -108,3 +118,91 @@ def get_project_service(
         flow_repository=flow_repository,
         flow_service=flow_service,
     )
+
+
+@lru_cache(maxsize=1)
+def get_document_set_repository() -> AssetRepository[DocumentSet]:
+    """
+    Dependency provider for DocumentSet Repository (singleton).
+
+    Uses RepositoryFactory to create repository based on configuration from
+    docling-pipelines-config.yaml. This enables:
+    - OSS: DuckDBDocumentSetMetadataRepository (database-based)
+    - Future: PostgreSQL or other storage backends
+
+    Returns:
+        AssetRepository[DocumentSet]: Configured document set repository instance (cached singleton)
+    """
+    return RepositoryFactory.create_repository(asset_type=DocumentSet)
+
+
+@lru_cache(maxsize=1)
+def get_document_set_data_store() -> DocumentSetDataStore:
+    """
+    Dependency provider for DocumentSet Data Store (singleton).
+
+    Creates the data store for PyArrow table operations. This is separate from
+    the metadata repository as it handles document content storage.
+
+    The adapter name and database path are resolved from
+    docling-pipelines-config.yaml (assets_management.document_set_repository),
+    keeping the API DI provider consistent with the operator's YAML-driven config.
+    Falls back to "duckdb" / DOCUMENT_SET_DEFAULT_DB_PATH if not configured.
+
+    Returns:
+        DocumentSetDataStore: Configured data store instance (cached singleton)
+    """
+    from typing import cast
+
+    _, repo_config = RepositoryFactory._get_repository_config(asset_type_name=DocumentSet.get_config_key())
+    adapter_name: str = repo_config.get("storage_adapter", RepositoryType.DUCKDB.value)
+    database_path: str = repo_config.get("database_path", DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH)
+    data_config: DataStoreConfig = {"database_path": database_path}
+    data_store = DataStoreFactory.create(adapter_name=adapter_name, config=data_config)
+    return cast(DocumentSetDataStore, data_store)
+
+
+def get_document_set_service(
+    repository: AssetRepository[DocumentSet] = Depends(get_document_set_repository),  # noqa: B008
+    data_store: DocumentSetDataStore = Depends(get_document_set_data_store),  # noqa: B008
+) -> DocumentSetService:
+    """Dependency provider for document set service.
+
+    Args:
+        repository: Injected repository instance (metadata operations)
+        data_store: Injected data store instance (PyArrow table operations)
+
+    Returns:
+        DocumentSetService: Service instance with injected dependencies
+    """
+    return DocumentSetService(
+        metadata_repository=repository,
+        data_store=data_store,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_document_library_repository() -> AssetRepository[DocumentLibrary]:
+    """Dependency provider for DocumentLibrary Repository (singleton).
+
+    Uses RepositoryFactory to create repository based on configuration from
+    docling-pipelines-config.yaml.
+
+    Returns:
+        AssetRepository[DocumentLibrary]: Configured repository instance (cached singleton)
+    """
+    return RepositoryFactory.create_repository(asset_type=DocumentLibrary)
+
+
+def get_document_library_service(
+    repository: AssetRepository[DocumentLibrary] = Depends(get_document_library_repository),  # noqa: B008
+) -> DocumentLibraryService:
+    """Dependency provider for document library service.
+
+    Args:
+        repository: Injected repository instance
+
+    Returns:
+        DocumentLibraryService: Service instance with injected repository
+    """
+    return DocumentLibraryService(repository=repository)

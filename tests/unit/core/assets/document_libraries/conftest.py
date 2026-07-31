@@ -5,13 +5,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.document_libraries.application.services.document_library_service import (
     DocumentLibraryService,
 )
 from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
-from docpipe.core.assets.document_libraries.domain.ports.document_library_repository import (
-    DocumentLibraryRepository,
-)
 
 
 @pytest.fixture
@@ -61,13 +59,13 @@ def sample_library_with_sets() -> DocumentLibrary:
 
 @pytest.fixture
 def mock_document_library_repository() -> Mock:
-    """Mock DocumentLibraryRepository for testing."""
-    mock_repo = Mock(spec=DocumentLibraryRepository)
+    """Mock AssetRepository[DocumentLibrary] for testing."""
+    mock_repo = Mock(spec=AssetRepository)
 
     # Configure default return values
-    mock_repo.create.return_value = None  # Will be set by individual tests
-    mock_repo.get_by_id.return_value = None
-    mock_repo.get_by_name.return_value = None
+    mock_repo.save.return_value = None  # Will be set by individual tests
+    mock_repo.find_by_id.return_value = None
+    mock_repo.find_by_name.return_value = None
     mock_repo.list_all.return_value = []
     mock_repo.update.return_value = None
     mock_repo.delete.return_value = True

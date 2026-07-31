@@ -1,10 +1,5 @@
-"""Port interfaces for document set domain.
-
-This module exports the abstract port interfaces that define the contracts
-for external adapters in the hexagonal architecture.
-"""
+"""Port interfaces for document set domain."""
 
 from .data_store import DocumentSetStorage
-from .metadata_repository import DocumentSetMetadataRepository
 
-__all__ = ["DocumentSetMetadataRepository", "DocumentSetStorage"]
+__all__ = ["DocumentSetStorage"]

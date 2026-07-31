@@ -12,24 +12,27 @@ Tests cover:
 import pyarrow as pa
 import pytest
 
+from docpipe.core.assets.common.adapters.repositories.duckdb_asset_repository import DuckDBAssetRepository
 from docpipe.core.assets.document_sets.adapters.duckdb.data_store import (
     DuckDBDocumentSetStorage,
-)
-from docpipe.core.assets.document_sets.adapters.duckdb.metadata_repository import (
-    DuckDBDocumentSetMetadataRepository,
 )
 from docpipe.core.assets.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.storage.factory import StorageFactory
 
 
 @pytest.fixture
 def metadata_repository(*, temp_duckdb_path):
-    """Create a DuckDBDocumentSetMetadataRepository instance with dependency injection."""
+    """Create DuckDBAssetRepository[DocumentSet] with pinned collection."""
     key_value_storage = StorageFactory.create_key_value_storage(storage_type="duckdb", database_path=temp_duckdb_path)
-    return DuckDBDocumentSetMetadataRepository(key_value_storage=key_value_storage, database_path=temp_duckdb_path)
+    repo = DuckDBAssetRepository(
+        asset_type=DocumentSet, key_value_storage=key_value_storage, database_path=temp_duckdb_path
+    )
+    repo._collection = "document_sets"
+    return repo
 
 
 @pytest.fixture
@@ -42,7 +45,10 @@ def data_store(*, temp_duckdb_path):
 @pytest.fixture
 def service(metadata_repository, data_store):
     """Create a DocumentSetService instance."""
-    return DocumentSetService(metadata_repository=metadata_repository, data_store=data_store)
+    return DocumentSetService(
+        metadata_repository=metadata_repository,
+        data_store=data_store,
+    )
 
 
 @pytest.fixture
@@ -72,8 +78,8 @@ class TestCreateDocumentSetService:
         assert doc_set.asset_id is not None
         assert doc_set.name == "Test Documents"
         assert doc_set.description == "Test description"
-        assert doc_set.storage_reference is not None
-        assert doc_set.storage_reference.table_name == "test_documents"
+        # storage_reference is None at creation; it is populated by store_data()
+        assert doc_set.storage_reference is None
         assert doc_set.metadata == {"source": "test"}
 
     def test_create_document_set_duplicate_name_returns_existing(self, service):
@@ -98,12 +104,13 @@ class TestCreateDocumentSetService:
                 description="Test",
             )
 
-    def test_create_document_set_sanitizes_table_name(self, service):
-        """Test that table name is sanitized from document set name."""
+    def test_create_document_set_sanitizes_table_name(self, service, sample_table):
+        """Test that the table name derived from the document set name is sanitized."""
         doc_set = service.create_document_set(name="My Documents", description="Test")
+        stored = service.store_data(document_set_id=doc_set.asset_id, data=sample_table)
 
-        assert doc_set.storage_reference is not None
-        assert doc_set.storage_reference.table_name == "my_documents"
+        assert stored.storage_reference is not None
+        assert stored.storage_reference.table_name == "my_documents"
 
 
 class TestStoreData:
@@ -232,11 +239,12 @@ class TestComputeAndUpdateMetrics:
     def test_compute_and_update_metrics(self, service, sample_table):
         """Test recomputing metrics from stored data."""
         doc_set = service.create_document_set(name="Test Documents", description="Test")
-        service.store_data(document_set_id=doc_set.asset_id, data=sample_table)
+        stored = service.store_data(document_set_id=doc_set.asset_id, data=sample_table)
 
-        # Manually zero out metrics via repository
-        doc_set.total_documents = 0
-        service._metadata_repository.update(document_set=doc_set)
+        # Manually zero out metrics via repository — use the post-store object
+        # so storage_reference is preserved in the record
+        stored.total_documents = 0
+        service._repository.update(asset=stored)
 
         # Recompute
         updated = service.compute_and_update_metrics(document_set_id=doc_set.asset_id)
@@ -268,7 +276,7 @@ class TestDeleteDocumentSetWithData:
         result = service.delete_document_set(document_set_id=doc_set.asset_id, delete_data=True)
 
         assert result is True
-        assert service.document_set_exists(document_set_id=doc_set.asset_id) is False
+        assert service.exists(asset_id=doc_set.asset_id) is False
 
     def test_delete_document_set_preserve_data(self, service, sample_table):
         """Test deleting document set metadata but preserving data table."""
@@ -280,7 +288,7 @@ class TestDeleteDocumentSetWithData:
 
         assert result is True
         # Metadata is gone
-        assert service.document_set_exists(document_set_id=doc_set.asset_id) is False
+        assert service.exists(asset_id=doc_set.asset_id) is False
 
     def test_delete_nonexistent_document_set(self, service):
         """Test deleting nonexistent document set."""
@@ -345,7 +353,7 @@ class TestGetDocumentSetByName:
         """Test retrieving document set by name."""
         created = service.create_document_set(name="Test Documents", description="Test")
 
-        retrieved = service.get_document_set_by_name(name="Test Documents")
+        retrieved = service.get_by_name(name="Test Documents")
 
         assert retrieved.asset_id == created.asset_id
         assert retrieved.name == created.name
@@ -353,12 +361,12 @@ class TestGetDocumentSetByName:
     def test_get_document_set_by_name_not_found(self, service):
         """Test retrieving nonexistent document set by name."""
         with pytest.raises(DocpipeException):
-            service.get_document_set_by_name(name="Nonexistent Name")
+            service.get_by_name(name="Nonexistent Name")
 
     def test_get_document_set_by_name_empty(self, service):
         """Test retrieving with empty name."""
         with pytest.raises(DocpipeException):
-            service.get_document_set_by_name(name="")
+            service.get_by_name(name="")
 
 
 class TestListDocumentSets:

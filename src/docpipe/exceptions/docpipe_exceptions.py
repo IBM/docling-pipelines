@@ -1,5 +1,5 @@
 from json import JSONEncoder
-from typing import Any
+from typing import Any, ClassVar
 
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.exceptions.error_messages import ValidationMessage
@@ -250,6 +250,13 @@ class AssetNotFoundException(DocpipeException):
     DocumentLibrary, and other asset types.
     """
 
+    # Map asset type names to their specific error codes
+    _ERROR_CODE_MAP: ClassVar[dict[str, ErrorCode]] = {
+        "Flow": ErrorCode.FLOW_NOT_FOUND,
+        "DocumentSet": ErrorCode.DOCUMENT_SET_NOT_FOUND,
+        # Add more as needed: "DocumentLibrary": ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+    }
+
     def __init__(
         self,
         message: str,
@@ -258,10 +265,14 @@ class AssetNotFoundException(DocpipeException):
     ):
         if asset_id and asset_type and not message:
             message = f"{asset_type.capitalize()} {asset_id} not found"
+
+        # Determine error code based on asset type
+        error_code = self._ERROR_CODE_MAP.get(asset_type or "Flow", ErrorCode.FLOW_NOT_FOUND)
+
         super().__init__(
             message,
             status_code=404,
-            error_code=ErrorCode.FLOW_NOT_FOUND,  # Reuse existing error code
+            error_code=error_code,
         )
         self.asset_id = asset_id
         self.asset_type = asset_type
@@ -275,6 +286,13 @@ class AssetAlreadyExistsException(DocpipeException):
     Works for Flow, DocumentSet, DocumentLibrary, and other asset types.
     """
 
+    # Map asset type names to their specific error codes
+    _ERROR_CODE_MAP: ClassVar[dict[str, ErrorCode]] = {
+        "Flow": ErrorCode.FLOW_ALREADY_EXISTS,
+        "DocumentSet": ErrorCode.DOCUMENT_SET_ALREADY_EXISTS,
+        # Add more as needed: "DocumentLibrary": ErrorCode.DOCUMENT_LIBRARY_ALREADY_EXISTS,
+    }
+
     def __init__(
         self,
         message: str,
@@ -282,10 +300,13 @@ class AssetAlreadyExistsException(DocpipeException):
         asset_name: str | None = None,
         asset_type: str | None = None,
     ):
+        # Determine error code based on asset type
+        error_code = self._ERROR_CODE_MAP.get(asset_type or "Flow", ErrorCode.FLOW_ALREADY_EXISTS)
+
         super().__init__(
             message,
             status_code=409,
-            error_code=ErrorCode.FLOW_ALREADY_EXISTS,  # Reuse existing error code
+            error_code=error_code,
         )
         self.asset_id = asset_id
         self.asset_name = asset_name

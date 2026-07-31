@@ -3,13 +3,11 @@
 import pyarrow as pa
 import pytest
 
+from docpipe.core.assets.common.adapters.repositories.duckdb_asset_repository import DuckDBAssetRepository
 from docpipe.core.assets.document_sets.adapters.duckdb.data_store import (
     DuckDBDocumentSetStorage,
 )
 from docpipe.core.assets.document_sets.adapters.duckdb.duckdb_utils import sanitize_table_name
-from docpipe.core.assets.document_sets.adapters.duckdb.metadata_repository import (
-    DuckDBDocumentSetMetadataRepository,
-)
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
 from docpipe.core.assets.document_sets.domain.models.storage_reference import StorageReference
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
@@ -25,9 +23,13 @@ def temp_db_path(*, tmp_path):
 
 @pytest.fixture
 def metadata_repository(*, temp_db_path):
-    """Create metadata repository for testing with dependency injection."""
+    """Create DuckDBAssetRepository[DocumentSet] with pinned collection."""
     key_value_storage = StorageFactory.create_key_value_storage(storage_type="duckdb", database_path=temp_db_path)
-    return DuckDBDocumentSetMetadataRepository(key_value_storage=key_value_storage, database_path=temp_db_path)
+    repo = DuckDBAssetRepository(
+        asset_type=DocumentSet, key_value_storage=key_value_storage, database_path=temp_db_path
+    )
+    repo._collection = "document_sets"
+    return repo
 
 
 @pytest.fixture
@@ -47,11 +49,16 @@ def sample_document_set():
 
 
 class TestDuckDBMetadataRepository:
-    """Test DuckDBDocumentSetMetadataRepository adapter."""
+    """Test DuckDBAssetRepository[DocumentSet] adapter."""
 
-    def test_create_document_set(self, *, metadata_repository, sample_document_set):
-        """Test creating a document set."""
-        created = metadata_repository.create(document_set=sample_document_set)
+    def test_create_document_set(self, *, metadata_repository, sample_document_set, temp_db_path):
+        """Test saving a document set — StorageReference must be set before save."""
+        sample_document_set.storage_reference = StorageReference(
+            backend_type="duckdb",
+            database_path=temp_db_path,
+            table_name=sanitize_table_name(sample_document_set.name),
+        )
+        created = metadata_repository.save(asset=sample_document_set)
 
         assert created.asset_id == sample_document_set.asset_id
         assert created.name == sample_document_set.name
@@ -64,11 +71,17 @@ class TestDuckDBMetadataRepository:
             asset_id="test-id-2",
             name="Test Set Two",
             description="Test",
+            storage_reference=StorageReference(
+                backend_type="duckdb",
+                database_path=temp_db_path,
+                table_name="test_set_two",
+            ),
         )
-        metadata_repository.create(document_set=doc_set)
+        metadata_repository.save(asset=doc_set)
 
-        retrieved = metadata_repository.get_by_id(document_set_id="test-id-2")
+        retrieved = metadata_repository.find_by_id(asset_id="test-id-2")
 
+        assert retrieved is not None
         assert retrieved.asset_id == doc_set.asset_id
         assert retrieved.name == doc_set.name
         assert retrieved.storage_reference.database_path == temp_db_path
@@ -80,26 +93,23 @@ class TestDuckDBMetadataRepository:
             name="Unique Name",
             description="Test",
         )
-        metadata_repository.create(document_set=doc_set)
+        metadata_repository.save(asset=doc_set)
 
-        retrieved = metadata_repository.get_by_name(name="Unique Name")
+        retrieved = metadata_repository.find_by_name(name="Unique Name")
 
+        assert retrieved is not None
         assert retrieved.asset_id == doc_set.asset_id
         assert retrieved.name == "Unique Name"
 
     def test_get_nonexistent_raises_error(self, *, metadata_repository):
-        """Test getting nonexistent document set raises error."""
-        with pytest.raises(DocpipeException) as exc_info:
-            metadata_repository.get_by_id(document_set_id="nonexistent")
-
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
+        """Test getting nonexistent document set returns None."""
+        result = metadata_repository.find_by_id(asset_id="nonexistent")
+        assert result is None
 
     def test_get_by_name_nonexistent_raises_error(self, *, metadata_repository):
-        """Test getting nonexistent document set by name raises error."""
-        with pytest.raises(DocpipeException) as exc_info:
-            metadata_repository.get_by_name(name="missing_name")
-
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
+        """Test getting nonexistent document set by name returns None."""
+        result = metadata_repository.find_by_name(name="missing_name")
+        assert result is None
 
     def test_list_all(self, *, metadata_repository):
         """Test listing all document sets."""
@@ -109,7 +119,7 @@ class TestDuckDBMetadataRepository:
                 name=f"Test Set {i}",
                 description=f"Test {i}",
             )
-            metadata_repository.create(document_set=doc_set)
+            metadata_repository.save(asset=doc_set)
 
         all_sets = metadata_repository.list_all()
 
@@ -127,19 +137,20 @@ class TestDuckDBMetadataRepository:
             name="Original Name",
             description="Original description",
         )
-        created = metadata_repository.create(document_set=doc_set)
+        created = metadata_repository.save(asset=doc_set)
 
         created.description = "Updated description"
-        updated = metadata_repository.update(document_set=created)
+        updated = metadata_repository.update(asset=created)
 
         assert updated.description == "Updated description"
         assert updated.name == "Original Name"
 
-        retrieved = metadata_repository.get_by_id(document_set_id="test-id-update")
+        retrieved = metadata_repository.find_by_id(asset_id="test-id-update")
+        assert retrieved is not None
         assert retrieved.description == "Updated description"
 
     def test_update_nonexistent_document_set_raises_error(self, *, metadata_repository):
-        """Test that updating a nonexistent document set raises an error."""
+        """Test that updating a nonexistent document set raises AssetNotFoundException."""
         doc_set = DocumentSet(
             asset_id="missing-id",
             name="Missing Name",
@@ -147,7 +158,8 @@ class TestDuckDBMetadataRepository:
         )
 
         with pytest.raises(DocpipeException) as exc_info:
-            metadata_repository.update(document_set=doc_set)
+            metadata_repository.update(asset=doc_set)
+        # AssetNotFoundException maps "DocumentSet" -> DOCUMENT_SET_NOT_FOUND
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
 
     def test_delete_document_set(self, *, metadata_repository):
@@ -157,30 +169,28 @@ class TestDuckDBMetadataRepository:
             name="To Delete",
             description="Will be deleted",
         )
-        metadata_repository.create(document_set=doc_set)
+        metadata_repository.save(asset=doc_set)
 
-        result = metadata_repository.delete(document_set_id="test-id-delete")
+        result = metadata_repository.delete(asset_id="test-id-delete")
 
         assert result is True
-        with pytest.raises(DocpipeException) as exc_info:
-            metadata_repository.get_by_id(document_set_id="test-id-delete")
-        assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_NOT_FOUND
+        assert metadata_repository.find_by_id(asset_id="test-id-delete") is None
 
     def test_delete_nonexistent_document_set_returns_false(self, *, metadata_repository):
         """Test deleting nonexistent document set returns False."""
-        result = metadata_repository.delete(document_set_id="missing-id")
+        result = metadata_repository.delete(asset_id="missing-id")
         assert result is False
 
     def test_exists(self, *, metadata_repository, sample_document_set):
         """Test checking document set existence."""
-        assert metadata_repository.exists(document_set_id=sample_document_set.asset_id) is False
+        assert metadata_repository.exists(asset_id=sample_document_set.asset_id) is False
 
-        metadata_repository.create(document_set=sample_document_set)
+        metadata_repository.save(asset=sample_document_set)
 
-        assert metadata_repository.exists(document_set_id=sample_document_set.asset_id) is True
+        assert metadata_repository.exists(asset_id=sample_document_set.asset_id) is True
 
     def test_create_duplicate_name_raises_error(self, *, metadata_repository):
-        """Test creating document sets with duplicate name raises error."""
+        """Test saving document sets with duplicate name raises error."""
         first = DocumentSet(
             asset_id="test-id-a",
             name="Duplicate Name",
@@ -192,10 +202,10 @@ class TestDuckDBMetadataRepository:
             description="Second",
         )
 
-        metadata_repository.create(document_set=first)
+        metadata_repository.save(asset=first)
 
         with pytest.raises(DocpipeException) as exc_info:
-            metadata_repository.create(document_set=second)
+            metadata_repository.save(asset=second)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_ALREADY_EXISTS
 
@@ -203,16 +213,14 @@ class TestDuckDBMetadataRepository:
         """Test health check returns success."""
         result = metadata_repository.health_check()
 
-        assert result["healthy"] is True
+        assert result["status"] == "healthy"
         assert result["details"]["database_path"] == temp_db_path
 
     def test_validate_config(self):
-        """Test config validation."""
-        assert DuckDBDocumentSetMetadataRepository.validate_config(config={"database_path": "test.db"}) == []
-        assert DuckDBDocumentSetMetadataRepository.validate_config(config={}) == [
-            "Missing required configuration: 'database_path'"
-        ]
-        assert DuckDBDocumentSetMetadataRepository.validate_config(config={"database_path": ""}) == [
+        """Test config validation on DuckDBAssetRepository."""
+        assert DuckDBAssetRepository.validate_config(config={"database_path": "test.db"}) == []
+        assert DuckDBAssetRepository.validate_config(config={}) == ["Missing required configuration: 'database_path'"]
+        assert DuckDBAssetRepository.validate_config(config={"database_path": ""}) == [
             "Configuration 'database_path' cannot be empty"
         ]
 

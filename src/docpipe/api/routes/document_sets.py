@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 import docpipe.core.assets.document_sets.adapters.duckdb  # noqa: F401
+from docpipe.api.dependencies import get_document_set_service
 from docpipe.api.dto.document_set_dto import (
     DocumentSetCreateRequest,
     DocumentSetListResponse,
@@ -27,15 +28,6 @@ from docpipe.api.routes.document_set_utils import (
 from docpipe.core.assets.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
-from docpipe.core.assets.document_sets.domain.types import (
-    DataStoreConfig,
-    RepositoryConfig,
-)
-from docpipe.core.assets.document_sets.factories import (
-    DataStoreFactory,
-    MetadataRepositoryFactory,
-)
-from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -95,31 +87,7 @@ def get_pagination_params(
     return limit, offset
 
 
-def get_document_set_service() -> DocumentSetService:
-    """Create a document set service with factory-created components."""
-    database_path = DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH
-
-    # Create metadata repository using factory
-    metadata_config: RepositoryConfig = {"database_path": database_path}
-    metadata_repository = MetadataRepositoryFactory.create(
-        adapter_name="duckdb",
-        config=metadata_config,  # type: ignore[arg-type]
-    )
-
-    # Create data store using factory
-    data_config: DataStoreConfig = {"database_path": database_path}
-    data_store = DataStoreFactory.create(
-        adapter_name="duckdb",
-        config=data_config,  # type: ignore[arg-type]
-    )
-
-    # Create service with port interfaces
-    return DocumentSetService(
-        metadata_repository=metadata_repository,  # type: ignore[arg-type]
-        data_store=data_store,  # type: ignore[arg-type]
-    )
-
-
+# Dependency injection now handled in api/dependencies.py
 DocumentSetServiceDep = Annotated[DocumentSetService, Depends(get_document_set_service)]
 PaginationDep = Annotated[tuple[int, int], Depends(get_pagination_params)]
 

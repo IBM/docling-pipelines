@@ -178,6 +178,21 @@ class AssetRepository[T: Asset](ABC):
         """
         pass
 
+    # ==================== Listing ====================
+
+    @abstractmethod
+    def list_all(self, *, limit: int | None = None, offset: int | None = None) -> list[T]:
+        """Retrieve all assets with optional pagination, sorted newest-first.
+
+        Args:
+            limit: Maximum number of assets to return (None for all)
+            offset: Number of assets to skip (None / 0 for none)
+
+        Returns:
+            List of assets sorted by creation date newest-first
+        """
+        pass
+
     # ==================== Utility Operations ====================
 
     @abstractmethod

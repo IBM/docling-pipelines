@@ -95,6 +95,16 @@ class Flow(Asset):
         if self.tags is None:
             self.tags = []
 
+    @staticmethod
+    def get_config_key() -> str:
+        """Return YAML config key for flow repository lookup."""
+        return "flow"
+
+    @staticmethod
+    def get_collection_name() -> str:
+        """Return DuckDB collection name — flows use local filesystem, not DuckDB."""
+        return "flows"
+
     def get_asset_type(self) -> AssetType:
         """Return the asset type identifier.
 
@@ -152,6 +162,14 @@ class Flow(Asset):
     def update_timestamp(self) -> None:
         """Update the modified_on timestamp."""
         self.modified_on = datetime.now(UTC)
+
+    def get_created_at(self) -> datetime | None:
+        """Return the creation timestamp for sorting in the generic repository."""
+        return self.created_on
+
+    def get_updated_at(self) -> datetime | None:
+        """Return the last-modified timestamp for sorting in the generic repository."""
+        return self.modified_on
 
     def to_dict(self) -> dict[str, Any]:
         """Convert flow to dictionary representation.

@@ -3,6 +3,8 @@
 This is a domain entity without framework dependencies (no Pydantic).
 Represents the core business concept of a DocumentSet in the system.
 
+Now extends the unified Asset base class for consistency across all asset types.
+
 Exception Handling:
 The validate() method raises AssetInvalidDataException for validation failures,
 ensuring consistent exception handling across the application layers.
@@ -61,7 +63,17 @@ class DocumentSet(Asset):
     _NAME_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"^[a-zA-Z][a-zA-Z0-9_ ]*$")
     _MAX_NAME_LENGTH: ClassVar[int] = 128
 
-    def __post_init__(self):
+    @property
+    def id(self) -> str | None:
+        """Backward compatibility: id aliases asset_id."""
+        return self.asset_id
+
+    @id.setter
+    def id(self, value: str | None) -> None:
+        """Backward compatibility: setting id sets asset_id."""
+        self.asset_id = value
+
+    def __post_init__(self) -> None:
         """Post-initialization to set default values."""
         super().__post_init__()
         if self.created_at is None:
@@ -70,6 +82,16 @@ class DocumentSet(Asset):
             self.updated_at = datetime.now(UTC)
         if self.metadata is None:
             self.metadata = {}
+
+    @staticmethod
+    def get_config_key() -> str:
+        """Return YAML config key for document set repository lookup."""
+        return "documentset"
+
+    @staticmethod
+    def get_collection_name() -> str:
+        """Return DuckDB collection name for document sets."""
+        return "document_sets"
 
     def get_asset_type(self) -> AssetType:
         """Return the asset type identifier.
@@ -85,33 +107,23 @@ class DocumentSet(Asset):
         Calls parent Asset.validate() first for common field validation, then
         performs DocumentSet-specific validation.
 
-        Validation Rules:
-        - Name: Non-empty, starts with alphabetic character, contains only
-          letters/digits/spaces/underscores, ≤128 characters
-        - Description: ≤2000 characters if provided (validated by Asset base)
-        - Numeric fields: Non-negative
-
         Raises:
             AssetInvalidDataException: If validation fails.
         """
-        # Call parent validation (name non-empty, name ≤255, description ≤2000)
         super().validate()
 
-        # Stricter name: must start with alphabetic character
         if not self.name[0].isalpha():
             raise AssetInvalidDataException(
                 message="Document set name must start with an alphabetic character",
                 field_name="name",
             )
 
-        # Stricter name: letters, digits, spaces, underscores only
         if not self._NAME_PATTERN.match(self.name):
             raise AssetInvalidDataException(
                 message="Document set name can only contain letters, digits, spaces, and underscores",
                 field_name="name",
             )
 
-        # Stricter name: ≤128 characters
         if len(self.name) > self._MAX_NAME_LENGTH:
             raise AssetInvalidDataException(
                 message=f"Document set name cannot exceed {self._MAX_NAME_LENGTH} characters",
@@ -140,6 +152,14 @@ class DocumentSet(Asset):
         """Update the updated_at timestamp."""
         self.updated_at = datetime.now(UTC)
 
+    def get_created_at(self) -> datetime | None:
+        """Return the creation timestamp for sorting in the generic repository."""
+        return self.created_at
+
+    def get_updated_at(self) -> datetime | None:
+        """Return the last-modified timestamp for sorting in the generic repository."""
+        return self.updated_at
+
     def update_statistics(
         self,
         *,
@@ -163,11 +183,7 @@ class DocumentSet(Asset):
         self.update_timestamp()
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert document set to dictionary representation.
-
-        Returns:
-            Dictionary representation of the document set
-        """
+        """Convert document set to dictionary representation."""
         return {
             "asset_id": self.asset_id,
             "asset_type": self.get_asset_type().value,
@@ -188,11 +204,7 @@ class DocumentSet(Asset):
     def from_dict(cls, *, data: dict[str, Any]) -> "DocumentSet":
         """Create DocumentSet from dictionary representation.
 
-        Args:
-            data: Dictionary containing document set data
-
-        Returns:
-            DocumentSet instance
+        Accepts both asset_id and id keys for backward compatibility.
         """
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -210,8 +222,11 @@ class DocumentSet(Asset):
         if data.get("data_card"):
             data_card = DataCard.from_dict(data["data_card"])
 
+        # Support both asset_id and id for backward compatibility
+        asset_id = data.get("asset_id") or data.get("id")
+
         return cls(
-            asset_id=data.get("asset_id"),
+            asset_id=asset_id,
             name=data["name"],
             description=data.get("description"),
             storage_backend=data.get("storage_backend", "duckdb"),

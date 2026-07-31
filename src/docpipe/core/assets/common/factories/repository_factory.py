@@ -50,6 +50,7 @@ class RepositoryType(AbstractRepositoryType):
     """Enumeration of available repository types in OSS."""
 
     LOCAL = "local"
+    DUCKDB = "duckdb"
 
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[5] / "docling-pipelines-config.yaml"
@@ -98,10 +99,16 @@ class RepositoryFactory:
 
         Example:
             {
-                RepositoryType.LOCAL: LocalAssetRepository
+                RepositoryType.LOCAL:  LocalAssetRepository,
+                RepositoryType.DUCKDB: DuckDBAssetRepository,
             }
         """
-        return {RepositoryType.LOCAL: LocalAssetRepository}
+        from docpipe.core.assets.common.adapters.repositories.duckdb_asset_repository import DuckDBAssetRepository
+
+        return {
+            RepositoryType.LOCAL: LocalAssetRepository,
+            RepositoryType.DUCKDB: DuckDBAssetRepository,
+        }
 
     @classmethod
     def _get_valid_types(cls) -> list[str]:
@@ -166,15 +173,28 @@ class RepositoryFactory:
         return repo_type_str, resolved_config
 
     @classmethod
-    def create_repository(cls, *, asset_type: type[T]) -> AssetRepository[T]:
+    def create_repository(
+        cls,
+        *,
+        asset_type: type[T],
+        adapter_name: str | None = None,
+        config_override: dict | None = None,
+    ) -> AssetRepository[T]:
         """Create a repository for the specified asset type based on configuration.
 
         Uses a registry pattern to dynamically instantiate repository implementations.
-        This allows extended implementations to add additional repository types
-        without modifying existing code.
+        Each repository class implements from_config() to handle its own construction.
 
         Args:
             asset_type: The asset type class (Flow, DocumentSet, DocumentLibrary, etc.)
+            adapter_name: Optional runtime override for the adapter/repository type.
+                          When supplied it takes precedence over YAML/env config.
+                          Use this when the caller has a runtime value (e.g.
+                          global_config.metadata_storage_type from a flow).
+            config_override: Optional dict of config values that are merged on top of
+                             the YAML/env resolved config. Individual keys in this dict
+                             take precedence over YAML. Use this when the caller has
+                             runtime config values (e.g. database_path from an operator).
 
         Note:
             This is a classmethod to support inheritance. When called on a subclass,
@@ -190,20 +210,30 @@ class RepositoryFactory:
         Example:
             from docpipe.core.assets.flows.domain.models.flow import Flow
             flow_repo = RepositoryFactory.create_repository(asset_type=Flow)
-        """
-        # Get asset type name for config lookup (e.g., "flow" from Flow class)
-        asset_type_name = asset_type.__name__.lower()
 
-        repo_type_str, repository_config = cls._get_repository_config(asset_type_name=asset_type_name)
+            # With runtime override:
+            repo = RepositoryFactory.create_repository(
+                asset_type=DocumentSet, adapter_name=metadata_storage_type
+            )
+        """
+        config_key = asset_type.get_config_key()
+        repo_type_str, repository_config = cls._get_repository_config(asset_type_name=config_key)
+
+        # Runtime override wins over YAML/env
+        if adapter_name is not None:
+            repo_type_str = adapter_name
+
+        # Merge caller-supplied config on top of YAML/env resolved config
+        if config_override:
+            repository_config = {**repository_config, **config_override}
+
         available_types = cls.get_available_repository_types()
         valid_types = cls._get_valid_types()
 
-        logger.info(f"Creating {asset_type_name} repository of type: '{repo_type_str}'")
+        logger.info("Creating %s repository of type: '%s'", config_key, repo_type_str)
 
         if repo_type_str.lower() not in valid_types:
-            logger.error(
-                f"Invalid repository type: '{repo_type_str}'. Must be one of: {', '.join(valid_types)}",
-            )
+            logger.error("Invalid repository type: '%s'. Must be one of: %s", repo_type_str, ", ".join(valid_types))
             raise RepositoryConfigurationException(
                 f"Invalid repository type: '{repo_type_str}'. Must be one of: {', '.join(valid_types)}",
                 repository_type=repo_type_str,
@@ -224,29 +254,15 @@ class RepositoryFactory:
                 valid_types=valid_types,
             )
 
-        # Get repository class from registry and instantiate
         repository_class = available_types[repository_type]
 
         try:
-            if repository_type == RepositoryType.LOCAL:
-                # For LocalAssetRepository, pass asset_type and storage_path
-                # Default storage path based on asset type
-                default_base_dir = {
-                    "flow": "sample_flows",
-                    "documentset": "document_sets",
-                    "documentlibrary": "document_libraries",
-                }.get(asset_type_name, "assets")
-
-                storage_path = repository_config.get("base_dir", default_base_dir)
-                # LocalAssetRepository requires asset_type and storage_path as keyword args
-                return repository_class(asset_type=asset_type, storage_path=storage_path)
-
-            # For other repository types (CAMS, etc.), pass all configuration
-            # Enterprise implementations will define their own constructor signatures
-            return repository_class(asset_type=asset_type, **repository_config)
-        except TypeError as e:
+            return repository_class.from_config(asset_type=asset_type, config=repository_config)  # type: ignore[attr-defined]
+        except RepositoryConfigurationException:
+            raise
+        except Exception as e:
             raise RepositoryConfigurationException(
-                f"Failed to instantiate repository '{repository_type.value}' for {asset_type_name}: {e}",
+                f"Failed to instantiate repository '{repository_type.value}' for {config_key}: {e}",
                 repository_type=repository_type.value,
                 valid_types=valid_types,
             ) from e
