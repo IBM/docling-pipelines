@@ -14,9 +14,9 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 ## Key Features
 
 - Three write modes covering the most common output use cases
-- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem`, `s3`, and `ibm_cos`
+- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem`, `s3`, `ibm_cos`, and `sharepoint`
 - Path templating with per-document variables (`{doc_id}`, `{name}`, `{year}`, `{month}`, `{day}`, `{relative_dir}`)
-- Hierarchical output that mirrors the source directory tree across filesystem and S3 sources
+- Hierarchical output that mirrors the source directory tree; when multiple source paths are configured each root is namespaced by its folder name
 - Overwrite control — skip existing files and record `skipped` status per document
 - Automatic subdirectory creation (`create_dirs`)
 - Per-document write outcome tracked in output columns (`write_status`, `write_error`, etc.)
@@ -67,7 +67,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, or `ibm_cos` |
+| `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, `ibm_cos`, or `sharepoint` |
 | `provider_config` | object | Yes | — | Provider-specific connection parameters (see below) |
 | `credentials` | object | No | `{}` | Provider-specific credentials |
 
@@ -116,6 +116,28 @@ needed.
 | `create_dirs` | bool | No | `true` | When `false`, prefix must already contain at least one object |
 
 **`credentials`** — same as `s3` (HMAC access key and secret key).
+
+### Provider: `sharepoint`
+
+Writes to a SharePoint document library via the Microsoft Graph API (client credentials flow).
+Requires the `msal` and `requests` packages.
+
+**`provider_config`**
+
+| Field | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `drive_id` | string | Yes | — | Microsoft Graph drive ID of the SharePoint document library |
+| `folder_path` | string | No | `""` | Destination folder within the drive, e.g. `/Processed Documents`. Leave empty to write to the drive root. |
+| `create_dirs` | bool | No | `true` | When `false`, validate_destination checks the folder already exists |
+| `graph_api_version` | string | No | `v1.0` | Microsoft Graph API version: `v1.0` or `beta` |
+
+**`credentials`**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `client_id` | string | Yes | Azure AD application (client) ID. Supports `"${ENV_VAR}"` resolution |
+| `client_secret` | string | Yes | Azure AD client secret. Supports `"${ENV_VAR}"` resolution |
+| `tenant_id` | string | Yes | Azure AD tenant (directory) ID. Supports `"${ENV_VAR}"` resolution |
 
 ### `output_format`
 
@@ -282,7 +304,38 @@ endpoint URL.
 ```
 
 
-### Example 5: Full compliance export with metadata sidecar (filesystem)
+### Example 5: Write extracted content to SharePoint
+
+```json
+{
+  "type": "storage_output",
+  "name": "write_to_sharepoint",
+  "config": {
+    "mode": "processed_content",
+    "destination_config": {
+      "provider": "sharepoint",
+      "provider_config": {
+        "drive_id": "${SHAREPOINT_DRIVE_ID}",
+        "folder_path": "/Processed Documents",
+        "create_dirs": true
+      },
+      "credentials": {
+        "client_id": "${SHAREPOINT_CLIENT_ID}",
+        "client_secret": "${SHAREPOINT_CLIENT_SECRET}",
+        "tenant_id": "${SHAREPOINT_TENANT_ID}"
+      }
+    },
+    "output_format": { "content_format": "md" },
+    "output_structure": {
+      "type": "hierarchical",
+      "overwrite_existing": true
+    }
+  },
+  "depends_on": ["extract"]
+}
+```
+
+### Example 6: Full compliance export with metadata sidecar (filesystem)
 
 ```json
 {
@@ -320,11 +373,12 @@ Output layout per document:
 of `processed_content`, `refetch_original`, or `comprehensive_export`.
 
 **`ValueError: Unknown destination adapter: 'xyz'`** — The `provider` field in `destination_config`
-does not match any registered adapter. Use `filesystem`, `s3`, or `ibm_cos`.
+does not match any registered adapter. Use `filesystem`, `s3`, `ibm_cos`, or `sharepoint`.
 
 **`write_status = failed` with `destination directory does not exist and create_dirs is disabled`** —
-The output directory (filesystem) or prefix (S3) does not exist and `create_dirs` is `false`. Set
-`create_dirs: true` or create the path manually before running the flow.
+The output directory (filesystem), prefix (S3/IBM COS), or folder path (SharePoint) does not exist
+and `create_dirs` is `false`. Set `create_dirs: true` or create the path manually before running the
+flow.
 
 **`write_status = failed` with `S3 destination bucket '...' is not accessible`** — The S3 bucket is
 not reachable. Check that the bucket name, region, credentials, and network access are correct. For
@@ -339,6 +393,25 @@ shell before running the flow.
 
 **`ValueError: Missing required S3 destination path: set 'prefix'`** — The `prefix` field is absent
 from `provider_config`. Writing to the S3 bucket root is not permitted; set a non-empty prefix.
+
+**`write_status = failed` with `SharePoint document library '...' is not accessible`** — The Graph
+API could not reach the drive. Verify `drive_id`, the Azure AD app credentials, and that the app
+has `Files.ReadWrite.All` or `Sites.ReadWrite.All` permission granted in the tenant.
+
+**`write_status = failed` with `destination folder path does not exist and create_dirs is disabled`**
+— The `folder_path` does not exist in the drive and `create_dirs` is `false`. Set `create_dirs:
+true` or create the folder in SharePoint before running the flow.
+
+**`write_status = failed` with `Microsoft Graph dependencies are not installed`** — The `sharepoint`
+provider requires `msal` and `requests`. Install with `uv pip install msal requests`.
+
+**`ValueError: Missing required SharePoint credential: 'client_id'`** — A required Azure AD
+credential field is absent. Ensure all three fields (`client_id`, `client_secret`, `tenant_id`) are
+present in `credentials` and that any `${ENV_VAR}` references are set in the shell.
+
+**`ValueError: Missing required SharePoint connection parameter: 'drive_id'`** — The `drive_id`
+field is missing from `provider_config`. Obtain it from the SharePoint site's document library
+settings or via the Microsoft Graph `GET /sites/{site-id}/drives` endpoint.
 
 **`write_status = failed` with `Could not fetch binary content for 'name' from source`** — Modes
 `refetch_original` and `comprehensive_export` re-fetch binaries via the upstream ingest source.
@@ -359,16 +432,16 @@ implementation selected by [`DestinationAdapterFactory`](../../../src/docpipe/co
 graph LR
     SOO[StorageOutputOperator] --> FAC[DestinationAdapterFactory]
     FAC --> FSA[FilesystemDestinationAdapter]
-    FAC --> S3A[S3DestinationAdapter]
+    FAC --> SPA[SharePointDestinationAdapter]
     FSA --> FS[Local Filesystem]
-    S3A --> S3[Amazon S3 / S3-compatible]
+    SPA --> SP[SharePoint via Graph API]
 
     style SOO fill:#e1f5ff
     style FAC fill:#fff4e1
     style FSA fill:#f3e6ff
-    style S3A fill:#f3e6ff
+    style SPA fill:#f3e6ff
     style FS fill:#e8f5e9
-    style S3 fill:#e8f5e9
+    style SP fill:#e8f5e9
 ```
 
 New destination adapters self-register via the `@register_destination_adapter` decorator and

@@ -9,7 +9,8 @@ import pyarrow as pa
 
 # Import adapters so they self-register via @register_destination_adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.filesystem.adapter
-import docpipe.core.operators.storage.adapters.outbound.destinations.s3.adapter  # noqa: F401
+import docpipe.core.operators.storage.adapters.outbound.destinations.s3.adapter
+import docpipe.core.operators.storage.adapters.outbound.destinations.sharepoint.adapter  # noqa: F401
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -93,11 +94,18 @@ def _extract_source_relative_path(
     *,
     source_prefix: str | None = None,
     ingest_root: str | None = None,
+    hierarchical: bool = False,
+    source_paths: list[str] | None = None,
 ) -> str | None:
     """Extract ``relative_path`` from the row.
 
     Resolution order:
     1. ``metadata["relative_path"]`` — set by ``ingest_source`` filesystem adapter.
+       When ``hierarchical=True`` and multiple ``source_paths`` are configured, the
+       matching source root's folder name is prepended so each root gets its own
+       sub-directory at the destination (e.g. ``source_files/report.pdf`` or
+       ``sub01/report.pdf``).  The absolute file path is resolved from
+       ``metadata["absolute_path"]`` or ``row["path"]`` for the match.
     2. ``metadata["key"]`` stripped of ``source_prefix`` — for S3 ``ingest_source`` rows.
     3. ``row["path"]`` stripped of ``ingest_root`` — for ``ingest_local`` rows which have
        no ``metadata`` column but carry the absolute path in ``path``.
@@ -114,6 +122,21 @@ def _extract_source_relative_path(
     # 1. Prefer an explicitly stored relative_path (ingest_source filesystem adapter sets this).
     explicit = parsed.get("relative_path")
     if explicit:
+        if hierarchical and source_paths:
+            # Determine which configured source root owns this file and prefix its
+            # folder name so each root gets its own sub-directory at the destination.
+            # Each source path is treated as an independent root regardless of any
+            # parent/child relationship between them.  We reconstruct the expected
+            # absolute path as src_path / explicit and compare it directly against
+            # the file's own absolute path — this is an exact match and cannot be
+            # fooled by one source path being a subdirectory of another.
+            abs_path_str = parsed.get("absolute_path") or row.get("path") or ""
+            if abs_path_str:
+                abs_path_resolved = Path(abs_path_str)
+                for src in source_paths:
+                    src_path = Path(src)
+                    if src_path / explicit == abs_path_resolved:
+                        return f"{src_path.name}/{explicit}"
         return explicit
 
     # 2. Fall back to deriving relative path from the S3 key by stripping the source prefix.
@@ -302,7 +325,10 @@ class StorageOutputOperator(AbstractOperator):
         # relative paths for cloud sources (e.g. S3) that don't store relative_path
         # directly in document metadata.
         ingest_source = self._global_config.get(OperatorConstants.Config.INGEST_SOURCE, {})
-        source_prefix: str | None = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS, {}).get("prefix")
+        connection_params = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
+        source_prefix: str | None = connection_params.get("prefix")
+        # Source paths list — used in hierarchical mode to prefix each root's folder name.
+        source_paths: list[str] | None = connection_params.get("paths") or None
 
         # For ingest_local rows there is no metadata column.  Derive the ingest root from
         # the common directory ancestor of all absolute paths in the batch so that the
@@ -335,6 +361,7 @@ class StorageOutputOperator(AbstractOperator):
                     overwrite=overwrite,
                     hierarchical=hierarchical,
                     source_prefix=source_prefix,
+                    source_paths=source_paths,
                     ingest_root=ingest_root,
                     doc_id=doc_id,
                     doc_name=doc_name,
@@ -362,7 +389,9 @@ class StorageOutputOperator(AbstractOperator):
 
             except Exception as e:
                 logger.error(
-                    f"Unexpected error writing document {doc_name}: {e}",
+                    "Unexpected error writing document %s: %s",
+                    doc_name,
+                    e,
                     extra=self.common_log_arguments,
                 )
                 row_write_results.append(
@@ -405,6 +434,7 @@ class StorageOutputOperator(AbstractOperator):
         overwrite: bool,
         hierarchical: bool,
         source_prefix: str | None,
+        source_paths: list[str] | None,
         ingest_root: str | None,
         doc_id: str,
         doc_name: str,
@@ -419,6 +449,7 @@ class StorageOutputOperator(AbstractOperator):
                 overwrite=overwrite,
                 hierarchical=hierarchical,
                 source_prefix=source_prefix,
+                source_paths=source_paths,
                 ingest_root=ingest_root,
                 doc_id=doc_id,
                 doc_name=doc_name,
@@ -432,6 +463,7 @@ class StorageOutputOperator(AbstractOperator):
                 overwrite=overwrite,
                 hierarchical=hierarchical,
                 source_prefix=source_prefix,
+                source_paths=source_paths,
                 ingest_root=ingest_root,
                 doc_id=doc_id,
                 doc_name=doc_name,
@@ -446,6 +478,7 @@ class StorageOutputOperator(AbstractOperator):
                 overwrite=overwrite,
                 hierarchical=hierarchical,
                 source_prefix=source_prefix,
+                source_paths=source_paths,
                 ingest_root=ingest_root,
                 doc_id=doc_id,
                 doc_name=doc_name,
@@ -463,6 +496,7 @@ class StorageOutputOperator(AbstractOperator):
         overwrite: bool,
         hierarchical: bool,
         source_prefix: str | None,
+        source_paths: list[str] | None,
         ingest_root: str | None,
         doc_id: str,
         doc_name: str,
@@ -488,7 +522,11 @@ class StorageOutputOperator(AbstractOperator):
             ext=content_format,
             hierarchical=hierarchical,
             source_relative_path=_extract_source_relative_path(
-                row, source_prefix=source_prefix, ingest_root=ingest_root
+                row,
+                source_prefix=source_prefix,
+                source_paths=source_paths,
+                ingest_root=ingest_root,
+                hierarchical=hierarchical,
             ),
         )
         base_path = Path(adapter.resolve_destination_path(relative_path=relative_path, config=dest_cfg))
@@ -511,6 +549,7 @@ class StorageOutputOperator(AbstractOperator):
         overwrite: bool,
         hierarchical: bool,
         source_prefix: str | None,
+        source_paths: list[str] | None,
         ingest_root: str | None,
         doc_id: str,
         doc_name: str,
@@ -523,7 +562,11 @@ class StorageOutputOperator(AbstractOperator):
             ext=ext,
             hierarchical=hierarchical,
             source_relative_path=_extract_source_relative_path(
-                row, source_prefix=source_prefix, ingest_root=ingest_root
+                row,
+                source_prefix=source_prefix,
+                source_paths=source_paths,
+                ingest_root=ingest_root,
+                hierarchical=hierarchical,
             ),
         )
         destination_path = adapter.resolve_destination_path(relative_path=relative_path, config=dest_cfg)
@@ -556,6 +599,7 @@ class StorageOutputOperator(AbstractOperator):
         overwrite: bool,
         hierarchical: bool,
         source_prefix: str | None,
+        source_paths: list[str] | None,
         ingest_root: str | None,
         doc_id: str,
         doc_name: str,
@@ -583,7 +627,11 @@ class StorageOutputOperator(AbstractOperator):
             ext=ext_original,
             hierarchical=hierarchical,
             source_relative_path=_extract_source_relative_path(
-                row, source_prefix=source_prefix, ingest_root=ingest_root
+                row,
+                source_prefix=source_prefix,
+                source_paths=source_paths,
+                ingest_root=ingest_root,
+                hierarchical=hierarchical,
             ),
         )
         base_path = Path(adapter.resolve_destination_path(relative_path=base_relative, config=dest_cfg))

@@ -4561,7 +4561,7 @@ Operators are organized by category (defined in `OperatorCategory` enum). For co
 - **Functional**: Data transformation (chunking, embeddings, branching, merging)
 - **Quality**: Data quality checks (deduplication, classification, PII detection)
 - **VectorDB**: Vector storage (OpenSearch, Milvus)
-- **Storage**: Persistent storage (DocumentSet with DuckDB)
+- **Storage**: Persistent storage (DocumentSet with DuckDB) and file export to destinations (StorageOutputOperator — filesystem, S3, IBM COS, SharePoint)
 
 **Architecture Highlights:**
 - Hexagonal architecture (ports & adapters) for extensibility

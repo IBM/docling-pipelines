@@ -1,0 +1,51 @@
+{
+  "flow_name": "refetch-original-sharepoint",
+  "description": "Ingest documents from a local filesystem, re-fetch the original binaries, and archive them to a SharePoint site. Skips files already present at the destination.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "/path/to/source_files_01",
+            "/path/to/source_files_02"
+          ],
+          "recursive": true
+        },
+        "include_filter": ["pdf"],
+        "credentials": {}
+      }
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "refetch_original",
+        "destination_config": {
+          "provider": "sharepoint",
+          "provider_config": {
+            "drive_id": "${SHAREPOINT_DRIVE_ID}",
+            "folder_path": "dest_files",
+            "create_dirs": true
+          },
+          "credentials": {
+            "tenant_id": "${SHAREPOINT_TENANT_ID}",
+            "client_id": "${SHAREPOINT_CLIENT_ID}",
+            "client_secret": "${SHAREPOINT_CLIENT_SECRET}"
+          }
+        },
+        "output_structure": {
+          "type": "hierarchical"
+        }
+      },
+      "depends_on": ["ingest"]
+    }
+  ]
+}
