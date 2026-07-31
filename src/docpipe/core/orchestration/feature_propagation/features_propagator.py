@@ -291,6 +291,9 @@ class FeaturePropagator:
         available_for_filter_key = OperatorConstants.Config.AVAILABLE_FOR_FILTER
         available_for_vector_db_key = OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB
 
+        # Cache constant key to avoid repeated attribute lookups
+        mandatory_for_vector_db_key = OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB
+
         # Start with input features in metadata, preserving upstream metadata shape
         for feature_name, feature_def in input_features.items():
             result.add_feature(
@@ -300,6 +303,7 @@ class FeaturePropagator:
                 tags=feature_def.get("tags", []),
                 available_for_filter=feature_def.get(available_for_filter_key, False),
                 available_for_vector_db=feature_def.get(available_for_vector_db_key, False),
+                mandatory_for_vector_db=feature_def.get(mandatory_for_vector_db_key, False),
                 type=feature_def.get("type", OperatorConstants.Types.TYPE_STRING),
             )
 
@@ -323,6 +327,10 @@ class FeaturePropagator:
                 available_for_vector_db=feature_def.get(
                     available_for_vector_db_key,
                     input_feature.get(available_for_vector_db_key, False),
+                ),
+                mandatory_for_vector_db=feature_def.get(
+                    mandatory_for_vector_db_key,
+                    input_feature.get(mandatory_for_vector_db_key, False),
                 ),
                 type=feature_def.get("type", input_feature.get("type", OperatorConstants.Types.TYPE_STRING)),
             )
@@ -506,6 +514,7 @@ class FeaturePropagator:
             "type": feature_meta.type,
             OperatorConstants.Config.AVAILABLE_FOR_FILTER: feature_meta.available_for_filter,
             OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: feature_meta.available_for_vector_db,
+            OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: feature_meta.mandatory_for_vector_db,
         }
 
         if feature_meta.node_id:

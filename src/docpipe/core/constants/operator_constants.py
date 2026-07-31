@@ -414,6 +414,13 @@ class OperatorConstants:
         OPENSEARCH: Final[str] = "opensearch"
         VECTOR_DB_NAME: Final[str] = "vector_db_name"
 
+        # Response metadata keys written into node.parameters by FlowEnrichmentService
+        AVAILABLE_RESOURCES: Final[str] = "available_resources"
+        SELECTED_RESOURCE_SCHEMA: Final[str] = "selected_resource_schema"
+        FEATURE_MAPPINGS_RESPONSE: Final[str] = "feature_mappings"
+        IS_DOCPIPE_SUPPORTED_RESOURCE: Final[str] = "is_docpipe_supported_resource"
+        STORED_RESOURCE_METADATA: Final[str] = "stored_resource_metadata"
+
         # OpenSearch-specific parameters
         ENGINE: Final[str] = "engine"
         ALGORITHM: Final[str] = "algorithm"
@@ -963,6 +970,7 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         FEATURE_ATTR_DESCRIPTION: Final[str] = "description"
         FEATURE_ATTR_AVAILABLE_FOR_FILTER: Final[str] = "available_for_filter"
         FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB: Final[str] = "available_for_vector_db"
+        FEATURE_ATTR_MANDATORY_FOR_VECTOR_DB: Final[str] = "mandatory_for_vector_db"
         FEATURE_ATTR_NODE_ID: Final[str] = "node_id"
         VALUE_DATA_TYPE: Final[str] = "value_data_type"
 

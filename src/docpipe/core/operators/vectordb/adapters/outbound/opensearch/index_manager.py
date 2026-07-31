@@ -720,6 +720,7 @@ class OpenSearchIndexManager:
                             "algorithm": self.algorithm,
                             "space_type": self.space_type,
                             "created_by": "docling-pipelines",
+                            "feature_mappings": self.feature_mappings,
                         }
                     )
 
@@ -841,6 +842,7 @@ class OpenSearchIndexManager:
                     "algorithm": self.algorithm,
                     "space_type": self.space_type,
                     "created_by": "docling-pipelines",
+                    "feature_mappings": self.feature_mappings,
                 },
             }
         }
@@ -939,6 +941,27 @@ class OpenSearchIndexManager:
 
         return index_body
 
+    def update_feature_mappings_in_index(self) -> None:
+        """Write feature_mappings into the index _meta block.
+
+        Mirrors enterprise _update_new_feature_mappings_in_index(): called after
+        every index create or validate so that _meta.feature_mappings always reflects
+        the mappings active on the current run. This is the value Source 3 of
+        VectorDBMetadataFetcher._resolve_opensearch_feature_mappings() reads back.
+
+        Silently skips if index does not exist or if feature_mappings is empty.
+        """
+        if not self.feature_mappings:
+            return
+        try:
+            self.client.indices.put_mapping(
+                index=self.index_name,
+                body={OperatorConstants.VectorDB.SCHEMA_KEY_META: {"feature_mappings": self.feature_mappings}},
+            )
+            logger.debug("Updated _meta.feature_mappings for index %s", self.index_name)
+        except Exception as exc:
+            logger.warning("Failed to update _meta.feature_mappings for index %s: %s", self.index_name, exc)
+
     def create_index(self, *, dimension_mapping: dict[str, int]) -> None:
         """
         Create the OpenSearch index if it doesn't exist.
@@ -952,6 +975,7 @@ class OpenSearchIndexManager:
         if self.client.indices.exists(index=self.index_name):
             logger.info(f"Index {self.index_name} already exists")
             self.validate_existing_index(dimension_mapping=dimension_mapping)
+            self.update_feature_mappings_in_index()
             return
 
         try:
@@ -963,6 +987,9 @@ class OpenSearchIndexManager:
             # Create index
             self.client.indices.create(index=self.index_name, body=index_body)
             logger.info(f"Created index {self.index_name} with engine {self.engine} and algorithm {self.algorithm}")
+            # feature_mappings already baked into _meta by build_index_body;
+            # call update to keep _meta in sync if mappings changed since last run
+            self.update_feature_mappings_in_index()
         except Exception as exc:
             # Handle race condition where another worker created the index between our check and create call
             error_msg = str(exc).lower()
@@ -981,6 +1008,7 @@ class OpenSearchIndexManager:
             if is_already_exists:
                 logger.info(f"Index '{self.index_name}' was created by another worker, validating and proceeding.")
                 self.validate_existing_index(dimension_mapping=dimension_mapping)
+                self.update_feature_mappings_in_index()
                 return
 
             # 2. Diagnostic logging for genuine failures

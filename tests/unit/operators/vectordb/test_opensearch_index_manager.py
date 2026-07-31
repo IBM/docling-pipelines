@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-"""
-Unit tests for OpenSearchIndexManager
-"""
+"""Unit tests for OpenSearchIndexManager."""
 
 from unittest.mock import MagicMock
 
@@ -9,6 +6,7 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
     OpenSearchIndexManager,
 )
@@ -469,7 +467,7 @@ class TestIndexMapping:
             available_features=features,
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
@@ -494,7 +492,7 @@ class TestIndexMapping:
             available_features=features,
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
@@ -540,7 +538,7 @@ class TestIndexCreation:
             index_settings=custom_settings,
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         manager.create_index(dimension_mapping=dimension_mapping)
 
         call_args = mock_client.indices.create.call_args
@@ -557,7 +555,7 @@ class TestIndexCreation:
             index_name="test_index",
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         manager.create_index(dimension_mapping=dimension_mapping)
 
         call_args = mock_client.indices.create.call_args
@@ -574,7 +572,7 @@ class TestIndexCreation:
             index_name="test_index",
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         manager.create_index(dimension_mapping=dimension_mapping)
 
         mock_client.indices.create.assert_not_called()
@@ -803,6 +801,84 @@ class TestIndexOperations:
 
         # Should not raise exception
         manager.refresh_index()
+
+
+class TestUpdateFeatureMappingsInIndex:
+    """update_feature_mappings_in_index() writes _meta.feature_mappings via put_mapping."""
+
+    def _manager(self, *, mock_client: MagicMock, feature_mappings: dict | None = None) -> OpenSearchIndexManager:
+        return OpenSearchIndexManager(
+            mock_client,
+            index_name="test_index",
+            feature_mappings=feature_mappings,
+        )
+
+    def test_calls_put_mapping_with_correct_body(self, mock_client):
+        manager = self._manager(
+            mock_client=mock_client,
+            feature_mappings={"doc_id_hash": "pk", "embeddings": "vector_embeddings"},
+        )
+        manager.update_feature_mappings_in_index()
+
+        mock_client.indices.put_mapping.assert_called_once_with(
+            index="test_index",
+            body={
+                OperatorConstants.VectorDB.SCHEMA_KEY_META: {
+                    "feature_mappings": {"doc_id_hash": "pk", "embeddings": "vector_embeddings"}
+                }
+            },
+        )
+
+    def test_skips_put_mapping_when_feature_mappings_empty(self, mock_client):
+        manager = self._manager(mock_client=mock_client, feature_mappings={})
+        manager.update_feature_mappings_in_index()
+        mock_client.indices.put_mapping.assert_not_called()
+
+    def test_skips_put_mapping_when_feature_mappings_is_none(self, mock_client):
+        manager = self._manager(mock_client=mock_client, feature_mappings=None)
+        manager.update_feature_mappings_in_index()
+        mock_client.indices.put_mapping.assert_not_called()
+
+    def test_does_not_raise_on_put_mapping_exception(self, mock_client):
+        """put_mapping failure must be swallowed (logged as warning) — never raise."""
+        mock_client.indices.put_mapping.side_effect = Exception("connection refused")
+        manager = self._manager(mock_client=mock_client, feature_mappings={"feat": "col"})
+        manager.update_feature_mappings_in_index()  # must not raise
+
+    def test_create_index_calls_update_on_new_index(self, mock_client):
+        """create_index() calls update_feature_mappings_in_index() after creating a new index."""
+        mock_client.indices.exists.return_value = False
+        mock_client.indices.create.return_value = {}
+
+        manager = self._manager(
+            mock_client=mock_client,
+            feature_mappings={"doc_id_hash": "pk"},
+        )
+        manager.update_feature_mappings_in_index = MagicMock()
+        manager.create_index(dimension_mapping={})
+
+        manager.update_feature_mappings_in_index.assert_called()
+
+    def test_create_index_calls_update_on_existing_index(self, mock_client):
+        """create_index() calls update_feature_mappings_in_index() for an already-existing index."""
+        mock_client.indices.exists.return_value = True
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "_meta": {"engine": "faiss", "algorithm": "hnsw"},
+                    "properties": {"vector_embeddings": {"type": "knn_vector", "dimension": 384}},
+                }
+            }
+        }
+
+        manager = self._manager(
+            mock_client=mock_client,
+            feature_mappings={"doc_id_hash": "pk"},
+        )
+        manager.update_feature_mappings_in_index = MagicMock()
+        manager.create_index(dimension_mapping={"vector_embeddings": 384})
+
+        manager.update_feature_mappings_in_index.assert_called()
 
 
 if __name__ == "__main__":

@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Callable
 
 from docpipe.core.assets.flows.application.services.validation_service import ValidationService
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
 from docpipe.core.orchestration.flow_validator import FlowValidator
+from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.orchestration.elyra_converter import ElyraConstants
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 def _default_validator_factory(
@@ -167,6 +167,7 @@ class FlowEnrichmentService:
 
     @staticmethod
     def _normalise_feature_map(
+        *,
         feature_map: dict[str, Any],
         fallback_node_id: str,
     ) -> dict[str, Any]:
@@ -191,6 +192,9 @@ class FlowEnrichmentService:
                 ),
                 OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB: feature_meta.get(
                     OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, False
+                ),
+                OperatorConstants.Misc.FEATURE_ATTR_MANDATORY_FOR_VECTOR_DB: feature_meta.get(
+                    OperatorConstants.Misc.FEATURE_ATTR_MANDATORY_FOR_VECTOR_DB, False
                 ),
                 OperatorConstants.Misc.TYPE: feature_meta.get(OperatorConstants.Misc.TYPE, "string"),
                 OperatorConstants.Misc.FEATURE_ATTR_NODE_ID: feature_meta.get("source_node_id", fallback_node_id),
@@ -230,7 +234,7 @@ class FlowEnrichmentService:
             # No upstream nodes wired yet — return the flat available_feature_map
             # from the propagator snapshot as a best-effort fallback.
             flat_map = node_feature_result.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
-            return self._normalise_feature_map(flat_map, node_id), None
+            return self._normalise_feature_map(feature_map=flat_map, fallback_node_id=node_id), None
 
         operator_config = node_feature_result.get("operator_config", {})
         input_links = operator_config.get(OperatorConstants.Merge.INPUT_LINKS, [])
@@ -242,8 +246,8 @@ class FlowEnrichmentService:
 
         def _to_normalised(features: dict) -> dict[str, Any]:
             return self._normalise_feature_map(
-                {k: self._propagator.feature_metadata_to_dict(feature_meta=v) for k, v in features.items()},
-                node_id,
+                feature_map={k: self._propagator.feature_metadata_to_dict(feature_meta=v) for k, v in features.items()},
+                fallback_node_id=node_id,
             )
 
         concat_normalised = _to_normalised(
@@ -348,6 +352,9 @@ class FlowEnrichmentService:
         # Holds the output_features for merge nodes (active strategy bucket).
         # Stays None for all other operators, which use the propagator snapshot.
         merge_output_features: dict[str, Any] | None = None
+        # Holds live VectorDB metadata; None for all non-vectordb operators so the
+        # five VDB keys are omitted entirely from non-vectordb node responses.
+        vdb_meta: dict[str, Any] | None = None
 
         if operator_type == OperatorConstants.Operators.SQL_FILTER:
             # available_features for sql_filter = the features the UI should surface in
@@ -361,14 +368,12 @@ class FlowEnrichmentService:
                 for k, v in input_feature_map.items()
                 if v.get(OperatorConstants.Config.AVAILABLE_FOR_FILTER, False)
             }
-            available_features = self._normalise_feature_map(filterable_features, node_id)
+            available_features = self._normalise_feature_map(feature_map=filterable_features, fallback_node_id=node_id)
         elif operator_type == OperatorConstants.Operators.VECTORDB:
-            # TODO: available_features for vectordb should also include adapter-level
-            # metadata: available_resources (index/collection names), selected_resource_schema
-            # (field-level schema for the configured resource), feature_mappings, and
-            # is_docpipe_supported_resource. These require a live OpenSearch/Milvus
-            # connection and are not yet populated.
-            available_features = self._normalise_feature_map(available_feature_map, node_id)
+            available_features = self._normalise_feature_map(
+                feature_map=available_feature_map, fallback_node_id=node_id
+            )
+            vdb_meta = self._fetch_vectordb_metadata(node_feature_result=node_feature_result)
         elif operator_type == OperatorConstants.Operators.MERGE:
             available_features, merge_output_features = self._build_merge_available_features(
                 node_id=node_id,
@@ -377,14 +382,57 @@ class FlowEnrichmentService:
         else:
             available_features = {}
 
-        return {
+        result: dict[str, Any] = {
             OperatorConstants.Config.AVAILABLE_FEATURES: available_features,
-            OperatorConstants.Config.INPUT_FEATURES: self._normalise_feature_map(input_feature_map, node_id),
+            OperatorConstants.Config.INPUT_FEATURES: self._normalise_feature_map(
+                feature_map=input_feature_map, fallback_node_id=node_id
+            ),
             OperatorConstants.Config.OUTPUT_FEATURES: (
                 # Merge nodes: use the strategy bucket matching the configured merge_type.
                 # All other nodes: use the propagator snapshot (features new to this node).
                 merge_output_features
                 if merge_output_features is not None
-                else self._normalise_feature_map(output_feature_map, node_id)
+                else self._normalise_feature_map(feature_map=output_feature_map, fallback_node_id=node_id)
             ),
         }
+        if vdb_meta is not None:
+            result.update(vdb_meta)
+        return result
+
+    def _fetch_vectordb_metadata(
+        self,
+        *,
+        node_feature_result: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Attempt a live VectorDB metadata fetch for a vectordb operator node.
+
+        Returns a dict with five keys when provider_config is present, or None
+        when provider_config is absent (caller omits all VDB keys from the response,
+        allowing the UI to distinguish "not configured" from "configured but empty").
+
+        Never raises. Connection failures return the empty-value fallback dict.
+
+        Args:
+            node_feature_result: Per-node snapshot from propagate_features_per_node().
+                                 Must contain "operator_config" key.
+        """
+        from docpipe.core.operators.vectordb.metadata_fetcher import VectorDBMetadataFetcher
+
+        operator_config = node_feature_result.get("operator_config", {})
+        provider_config = operator_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        if not provider_config:
+            return None
+
+        adapter_name: str = operator_config.get(
+            OperatorConstants.Config.PROVIDER,
+            OperatorConstants.VectorDB.OPENSEARCH,
+        )
+        # available_features lives in the propagator snapshot, not in operator_config.
+        # Pass it explicitly so the fetcher can derive default feature_mappings for new indices.
+        available_features: dict = node_feature_result.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+        return VectorDBMetadataFetcher().fetch_metadata(
+            adapter_name=adapter_name,
+            operator_config=operator_config,
+            available_features=available_features,
+        )

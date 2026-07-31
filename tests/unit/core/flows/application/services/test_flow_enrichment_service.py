@@ -2,10 +2,10 @@
 
 from typing import Any
 from unittest.mock import MagicMock, patch
-from unittest.mock import patch as _patch
 
 import pytest
 
+import docpipe.core.operators.vectordb.metadata_fetcher as _mf_mod
 from docpipe.core.assets.flows.application.services.flow_enrichment_service import FlowEnrichmentService
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
@@ -411,22 +411,25 @@ def _build_merge_result(
 ) -> dict:
     """Call _build_node_feature_metadata for a merge node.
 
-    FeaturePropagator.__init__ is bypassed to avoid loading the full operator
-    registry (which requires the optional 're2' native library).
+    FeaturePropagator.__init__ is bypassed via patch to avoid loading the
+    full operator registry (which requires the optional 're2' native library).
+    A real FeaturePropagator instance (via __new__) is assigned so that
+    feature_metadata_to_dict() and merge_features() work normally.
     """
-    with _patch.object(FeaturePropagator, "__init__", lambda self: None):
-        service = FlowEnrichmentService.__new__(FlowEnrichmentService)
-        # _propagator must be set explicitly because __new__ skips __init__.
-        service._propagator = FeaturePropagator()
-        node_feature_result = _make_node_feature_result(available=available or {})
-        node_feature_result["parent_results"] = parent_results
-        if operator_config is not None:
-            node_feature_result["operator_config"] = operator_config
-        return service._build_node_feature_metadata(
-            node_id="merge-node",
-            node_feature_result=node_feature_result,
-            operator_type=OperatorConstants.Operators.MERGE,
-        )
+    with patch.object(FeaturePropagator, "__init__", lambda self: None):
+        propagator = FeaturePropagator()
+        service = _make_service(node_features={})
+        service._propagator = propagator
+
+    node_feature_result = _make_node_feature_result(available=available or {})
+    node_feature_result["parent_results"] = parent_results
+    if operator_config is not None:
+        node_feature_result["operator_config"] = operator_config
+    return service._build_node_feature_metadata(
+        node_id="merge-node",
+        node_feature_result=node_feature_result,
+        operator_type=OperatorConstants.Operators.MERGE,
+    )
 
 
 class TestMergeAvailableFeaturesThreeStrategy:
@@ -504,7 +507,7 @@ class TestMergeAvailableFeaturesThreeStrategy:
 
     def test_fallback_to_flat_dict_when_no_parent_results(self):
         """When parent_results is absent/empty, falls back to flat dict from available_feature_map."""
-        service = FlowEnrichmentService.__new__(FlowEnrichmentService)
+        service = _make_service(node_features={})
         available = {"id": _make_feature()}
         node_feature_result = _make_node_feature_result(available=available)
         # no "parent_results" key
@@ -643,3 +646,87 @@ class TestMergeOutputFeaturesSelection:
             operator_type=OperatorConstants.Operators.MERGE,
         )
         assert "chunk" in result[OperatorConstants.Config.OUTPUT_FEATURES]
+
+
+# ---------------------------------------------------------------------------
+# Tests: _fetch_vectordb_metadata
+# ---------------------------------------------------------------------------
+
+
+class TestFetchVectordbMetadata:
+    """_fetch_vectordb_metadata returns None when no provider_config, or a five-key dict."""
+
+    def _call_fetch(self, *, node_feature_result: dict) -> Any:
+        service = FlowEnrichmentService.__new__(FlowEnrichmentService)
+        return service._fetch_vectordb_metadata(node_feature_result=node_feature_result)
+
+    def test_returns_none_when_provider_config_absent(self):
+        """UI distinguishes 'not configured' from 'configured but empty'."""
+        result = self._call_fetch(node_feature_result={"operator_config": {}})
+        assert result is None
+
+    def test_returns_none_when_operator_config_missing(self):
+        result = self._call_fetch(node_feature_result={})
+        assert result is None
+
+    def test_returns_dict_with_five_keys_when_provider_config_present(self):
+        expected = _mf_mod.VectorDBMetadataFetcher._empty_result()
+        node_result = {
+            "operator_config": {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.VectorDB.OPENSEARCH,
+                OperatorConstants.Config.PROVIDER_CONFIG: {"host": "localhost"},
+            },
+            OperatorConstants.Config.AVAILABLE_FEATURES: {},
+        }
+
+        # VectorDBMetadataFetcher is lazy-imported inside _fetch_vectordb_metadata;
+        # patch it at the module where it lives (the import target).
+        with patch.object(_mf_mod, "VectorDBMetadataFetcher") as mock_cls:
+            mock_fetcher = MagicMock()
+            mock_fetcher.fetch_metadata.return_value = expected
+            mock_cls.return_value = mock_fetcher
+
+            result = self._call_fetch(node_feature_result=node_result)
+
+        assert result is expected
+        assert OperatorConstants.VectorDB.AVAILABLE_RESOURCES in result
+        assert OperatorConstants.VectorDB.FEATURE_MAPPINGS_RESPONSE in result
+
+    def test_passes_available_features_to_fetcher(self):
+        """available_features from propagator snapshot (not operator_config) is forwarded."""
+        node_result = {
+            "operator_config": {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.VectorDB.OPENSEARCH,
+                OperatorConstants.Config.PROVIDER_CONFIG: {"host": "localhost"},
+            },
+            OperatorConstants.Config.AVAILABLE_FEATURES: {"content": {"type": "string"}},
+        }
+
+        with patch.object(_mf_mod, "VectorDBMetadataFetcher") as mock_cls:
+            mock_fetcher = MagicMock()
+            mock_fetcher.fetch_metadata.return_value = {}
+            mock_cls.return_value = mock_fetcher
+
+            self._call_fetch(node_feature_result=node_result)
+
+        call_kwargs = mock_fetcher.fetch_metadata.call_args.kwargs
+        assert call_kwargs["available_features"] == {"content": {"type": "string"}}
+
+    def test_defaults_adapter_name_to_opensearch_when_provider_absent(self):
+        """If operator_config has no 'provider' key, adapter defaults to 'opensearch'."""
+        node_result = {
+            "operator_config": {
+                OperatorConstants.Config.PROVIDER_CONFIG: {"host": "localhost"},
+            },
+            OperatorConstants.Config.AVAILABLE_FEATURES: {},
+        }
+
+        with patch.object(_mf_mod, "VectorDBMetadataFetcher") as mock_cls:
+            mock_fetcher = MagicMock()
+            mock_fetcher.fetch_metadata.return_value = {}
+            mock_cls.return_value = mock_fetcher
+
+            self._call_fetch(node_feature_result=node_result)
+
+        call_kwargs = mock_fetcher.fetch_metadata.call_args.kwargs
+        assert call_kwargs["adapter_name"] == OperatorConstants.VectorDB.OPENSEARCH

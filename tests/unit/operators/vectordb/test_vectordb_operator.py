@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-"""
-Unit tests for VectorDB operator with OpenSearch adapter
-"""
+"""Unit tests for VectorDB operator with OpenSearch adapter."""
 
 from unittest.mock import MagicMock, Mock, patch
 
@@ -361,6 +358,96 @@ class TestMetadata:
         assert metadata["is_operator_available"] is True
         assert "features" in metadata
         assert "attributes" in metadata
+
+
+class TestVectorDBOperatorValidateMandatoryFeatureMappings:
+    """validate() reports an error when a mandatory_for_vector_db feature lacks a mapping."""
+
+    def _config_with(
+        self,
+        *,
+        feature_mappings: dict | None = None,
+        available_features: dict | None = None,
+    ) -> dict:
+        """Build a minimal config that passes __init__ (no real adapter needed)."""
+        return {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.VectorDB.INDEX_NAME: "test_index",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"host": "localhost"},
+            OperatorConstants.Config.FEATURE_MAPPINGS: feature_mappings or {},
+            OperatorConstants.Config.AVAILABLE_FEATURES: available_features or {},
+        }
+
+    def _run_validate(self, *, config: dict) -> tuple[list, list]:
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
+            operator = VectorDBOperator(config)
+        errors: list = []
+        warnings: list = []
+        operator.validate(errors=errors, warnings=warnings, available_features=[])
+        return errors, warnings
+
+    def test_mandatory_feature_with_mapping_produces_no_error(self):
+        config = self._config_with(
+            feature_mappings={"doc_id_hash": "pk"},
+            available_features={
+                "doc_id_hash": {
+                    OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
+                }
+            },
+        )
+        errors, _ = self._run_validate(config=config)
+        mandatory_errors = [e for e in errors if "mandatory" in e.lower()]
+        assert not mandatory_errors
+
+    def test_mandatory_feature_missing_mapping_produces_error(self):
+        config = self._config_with(
+            feature_mappings={"content": "text"},
+            available_features={
+                "doc_id_hash": {
+                    OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
+                },
+                "content": {
+                    OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: False,
+                },
+            },
+        )
+        errors, _ = self._run_validate(config=config)
+        assert any("mandatory" in e.lower() for e in errors)
+        assert any("doc_id_hash" in e for e in errors)
+
+    def test_multiple_mandatory_features_missing_all_reported(self):
+        config = self._config_with(
+            feature_mappings={"content": "text"},
+            available_features={
+                "doc_id_hash": {OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True},
+                "embeddings": {OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True},
+                "content": {OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: False},
+            },
+        )
+        errors, _ = self._run_validate(config=config)
+        assert any("doc_id_hash" in e and "embeddings" in e for e in errors)
+
+    def test_skips_check_when_feature_mappings_empty(self):
+        """No feature_mappings configured → skip the mandatory check entirely."""
+        config = self._config_with(
+            feature_mappings={},
+            available_features={
+                "doc_id_hash": {OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True},
+            },
+        )
+        errors, _ = self._run_validate(config=config)
+        mandatory_errors = [e for e in errors if "mandatory" in e.lower()]
+        assert not mandatory_errors
+
+    def test_skips_check_when_available_features_empty(self):
+        """No available_features in config → skip the mandatory check entirely."""
+        config = self._config_with(
+            feature_mappings={"doc_id_hash": "pk"},
+            available_features={},
+        )
+        errors, _ = self._run_validate(config=config)
+        mandatory_errors = [e for e in errors if "mandatory" in e.lower()]
+        assert not mandatory_errors
 
 
 if __name__ == "__main__":

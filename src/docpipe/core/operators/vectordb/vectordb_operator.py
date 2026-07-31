@@ -113,12 +113,23 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
             # Add operator-level parameters that the adapter needs
             adapter_config[OperatorConstants.VectorDB.INDEX_NAME] = self.index_name
-            adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = self.config.get(
-                OperatorConstants.Config.AVAILABLE_FEATURES, {}
-            )
-            adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = self.config.get(
-                OperatorConstants.Config.FEATURE_MAPPINGS, {}
-            )
+            available_features = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+            adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = available_features
+
+            # Use user-provided feature_mappings when present; otherwise compute defaults
+            # from available_features so _meta.feature_mappings is never stored as {}.
+            # Mirrors enterprise behaviour: operator always has non-empty mappings before
+            # passing them to the adapter and writing them into the index at creation time.
+            user_mappings = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+            if not user_mappings and available_features:
+                from docpipe.core.operators.vectordb.metadata_fetcher import compute_default_feature_mappings
+
+                user_mappings = compute_default_feature_mappings(available_features)
+                logger.debug(
+                    "No feature_mappings provided — computed defaults from available_features for index %s",
+                    self.index_name,
+                )
+            adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = user_mappings
             # Add sparse vector configuration if present (Milvus-specific)
             if OperatorConstants.VectorDB.ADD_SPARSE_VECTOR in self.config:
                 adapter_config[OperatorConstants.VectorDB.ADD_SPARSE_VECTOR] = self.config[
@@ -157,6 +168,20 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         if self.should_validate_field(field_value=self.index_name):
             if not self.index_name:
                 errors.append("index_name is required for VectorDBOperator")
+
+        # Validate that every mandatory_for_vector_db feature has a feature mapping.
+        # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
+        # will fail at runtime if a mandatory feature has no mapped column.
+        feature_mappings: dict = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+        op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+        if feature_mappings and op_available_features:
+            mandatory_missing = [
+                name
+                for name, meta in op_available_features.items()
+                if meta.get(OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB, False) and name not in feature_mappings
+            ]
+            if mandatory_missing:
+                errors.append("Mappings are missing for mandatory features: " + ", ".join(sorted(mandatory_missing)))
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
