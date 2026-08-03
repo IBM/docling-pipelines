@@ -20,3 +20,5 @@ merge_protections:
       - "#approved-reviews-by >= 1"
 merge_protections_settings:
   reporting_method: check-runs
+queue_rules:
+  - name: label queue
