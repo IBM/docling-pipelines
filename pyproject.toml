@@ -75,7 +75,7 @@ dependencies = [
     "prefect==3.7.1",
     "psycopg2-binary==2.9.12",
     "pyarrow==24.0.0",
-    "pyasn1==0.6.3",
+    "pyasn1==0.6.4",  # CVE-2026-59884: Security fix for pyasn1 BER/CER/DER decoder DoS
     "pydantic==2.12.5",
     "pydantic-settings==2.14.0",
     "pygments==2.20.0",
