@@ -9,6 +9,7 @@ class SessionInfo:
 
     def __init__(
         self,
+        cli_mode=False,
         orchestrator=None,
         job_id=None,
         job_run_id=None,
@@ -17,6 +18,7 @@ class SessionInfo:
         track_perf: Any | None = False,
         application=None,
     ):  # NOSONAR
+        self.cli_mode = cli_mode
         self.orchestrator = orchestrator
         self.job_id = job_id
         self.job_run_id = job_run_id
@@ -36,6 +38,7 @@ session_info_var: ContextVar[SessionInfo | None] = ContextVar("session_info", de
 
 
 def create_session_info(
+    cli_mode=False,
     orchestrator=None,
     job_id=None,
     job_run_id=None,
@@ -44,6 +47,7 @@ def create_session_info(
     track_perf: Any | None = False,
 ):  # NOSONAR
     session_info = SessionInfo(
+        cli_mode=cli_mode,
         orchestrator=orchestrator,
         job_id=job_id,
         job_run_id=job_run_id,

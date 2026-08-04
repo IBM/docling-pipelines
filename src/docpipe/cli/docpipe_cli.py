@@ -121,7 +121,7 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
     )
 
     session_info: SessionInfo = create_session_info(
-        job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
+        cli_mode=True, job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
     )
     set_session_info(session_info)
 
