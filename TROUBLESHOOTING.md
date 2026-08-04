@@ -182,6 +182,59 @@ uv sync --extra dev
 
 ---
 
+#### Issue: `fasttext-wheel` Build Failure on macOS 15+ (Sequoia / Tahoe)
+
+**Symptoms:**
+
+```
+× Failed to build `fasttext-wheel==0.9.2`
+...
+fatal error: 'istream' file not found
+error: command '/usr/bin/c++' failed with exit code 1
+```
+
+**Cause:**
+
+`fasttext-wheel` 0.9.2 compiles a C++ extension from source. On macOS 15+ with clang 17, the
+compiler no longer resolves the C++ standard library headers at the deployment target hardcoded
+by `fasttext-wheel` (`-mmacosx-version-min=11.0`). No pre-built binary is available for arm64.
+
+**Solution:**
+
+Set these environment variables before running `uv sync`:
+
+```bash
+CPLUS_INCLUDE_PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include \
+CXXFLAGS="-isysroot $(xcrun --show-sdk-path) -mmacosx-version-min=14.0" \
+uv sync --extra dev
+```
+
+To avoid setting these every time, add them to a `.envrc` in the project root (if you use
+[direnv](https://direnv.net/)) or to your `~/.zshrc`:
+
+```bash
+export CPLUS_INCLUDE_PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
+export CXXFLAGS="-isysroot $(xcrun --show-sdk-path) -mmacosx-version-min=14.0"
+```
+
+**Verify Xcode CLT is installed:**
+
+```bash
+xcode-select --print-path
+# Expected: /Library/Developer/CommandLineTools
+
+xcrun --show-sdk-path
+# Expected: /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
+```
+
+If `xcode-select` prints nothing, install the tools first:
+
+```bash
+xcode-select --install
+```
+
+---
+
 #### Issue: Permission Denied During Setup
 
 **Symptoms:**
