@@ -14,6 +14,7 @@ Architecture:
 import json
 from datetime import UTC, datetime
 from logging import Logger
+from pathlib import Path
 from typing import Any
 
 from docpipe.core.constants.constants import TERMINAL_JOB_STATUSES, TERMINAL_NODE_STATES, ExecutionStatus, Metrics
@@ -1216,11 +1217,9 @@ class JobTrackerService(JobStatsService):
         Raises:
             IOError: If file write fails
         """
-        import os
-
         try:
             # Ensure directory exists
-            os.makedirs(name=os.path.dirname(job_log_path), exist_ok=True)
+            Path(job_log_path).parent.mkdir(parents=True, exist_ok=True)
 
             # Convert job stats to dict
             job_stats_dict: Any

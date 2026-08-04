@@ -22,16 +22,16 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Path bootstrap — makes this file importable from any working directory
 # ---------------------------------------------------------------------------
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_SRC = os.path.join(_HERE, "../../src")
-for _p in (_HERE, _SRC):
+_HERE = Path(__file__).resolve().parent
+_SRC = _HERE / "../../src"
+for _p in (str(_HERE), str(_SRC)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 
@@ -55,9 +56,7 @@ class Document:
             self.size = len(self.content)
 
         if self.extension is None and self.name:
-            import os
-
-            self.extension = os.path.splitext(self.name)[1].lower()
+            self.extension = Path(self.name).suffix.lower()
 
         if self.acl is None:
             self.acl = DocumentACL()

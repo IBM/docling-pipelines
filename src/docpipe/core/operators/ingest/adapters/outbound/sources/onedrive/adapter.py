@@ -1,7 +1,7 @@
 """OneDrive source adapter using Microsoft Graph API."""
 
-import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, AsyncGenerator, cast
 
 from pydantic import BaseModel
@@ -151,7 +151,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                         pass
 
                 source_url = item.get("webUrl", f"https://onedrive.live.com/?cid={doc_id}")
-                extension = os.path.splitext(doc_name)[1].lower()
+                extension = Path(doc_name).suffix.lower()
 
                 document = Document(
                     id=doc_id,
@@ -209,7 +209,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
 
                 # Apply file extension filter if specified
                 if onedrive_config.file_extensions:
-                    file_ext = os.path.splitext(doc_name)[1].lower()
+                    file_ext = Path(doc_name).suffix.lower()
                     if file_ext not in onedrive_config.file_extensions:
                         continue
 
@@ -234,7 +234,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 source_url = item.get("webUrl", f"https://onedrive.live.com/?cid={doc_id}")
 
                 # Get file extension
-                extension = os.path.splitext(doc_name)[1].lower()
+                extension = Path(doc_name).suffix.lower()
 
                 # Create domain document WITHOUT binary content (lazy loading)
                 document = Document(

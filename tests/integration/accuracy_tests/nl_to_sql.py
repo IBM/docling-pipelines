@@ -60,16 +60,16 @@ python tests/integration/opensearch/nl_to_sql.py --test-filter edge_case
 
 import argparse
 import json
-import os
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Callable
 
 from opensearchpy import OpenSearch, helpers
 
 # Add the examples/retrieval directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval"))
+sys.path.insert(0, str(Path(__file__).parent / "../../../examples/retrieval"))
 
 from nl_query_generator import get_comprehensive_test_queries  # type: ignore
 from ollama_nl_to_sql_converter import OllamaNLToSQLConverter  # type: ignore

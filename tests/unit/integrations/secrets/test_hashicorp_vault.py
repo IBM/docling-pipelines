@@ -7,6 +7,7 @@ external dependencies.
 
 import os
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,7 +44,7 @@ class TestReadEnvOrFile:
                     # File takes precedence over direct env var
                     assert result == "file_value"
             finally:
-                os.unlink(f.name)
+                Path(f.name).unlink()
 
     def test_file_path_not_existing_falls_back_to_env(self):
         with patch.dict(
@@ -384,7 +385,7 @@ class TestHashiCorpVaultProvider:
             session = provider._build_session()
             assert session.verify == f.name
         finally:
-            os.unlink(f.name)
+            Path(f.name).unlink()
 
     def test_tls_skip_verify(self):
         """Test that tls_skip_verify sets verify=False."""
@@ -409,8 +410,8 @@ class TestHashiCorpVaultProvider:
             session = provider._build_session()
             assert session.cert == (cert_f.name, key_f.name)
         finally:
-            os.unlink(cert_f.name)
-            os.unlink(key_f.name)
+            Path(cert_f.name).unlink()
+            Path(key_f.name).unlink()
 
     def test_namespace_header_set(self):
         """Test that Vault namespace is set as header."""

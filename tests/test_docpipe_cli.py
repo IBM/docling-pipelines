@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -113,7 +114,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 mock_exit.assert_called_once_with(1)
         finally:
             # Clean up the temporary file
-            os.unlink(temp_file_path)
+            Path(temp_file_path).unlink()
 
     @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
     def test_flow_execution_failure(self, mock_create_orchestrator):

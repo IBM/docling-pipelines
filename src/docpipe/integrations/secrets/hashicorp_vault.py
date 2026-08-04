@@ -34,6 +34,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import requests
 
@@ -65,7 +66,7 @@ def _read_env_or_file(env_var: str, *, default: str = "") -> str:
         The resolved value.
     """
     file_path = os.environ.get(f"{env_var}_FILE")
-    if file_path and os.path.isfile(file_path):
+    if file_path and Path(file_path).is_file():
         with open(file_path) as f:
             return f.read().strip()
 
@@ -189,7 +190,7 @@ class HashiCorpVaultProvider(SecretProvider):
         if self._config.tls_skip_verify:
             session.verify = False
         elif self._config.ca_cert:
-            if not os.path.isfile(self._config.ca_cert):
+            if not Path(self._config.ca_cert).is_file():
                 raise ConfigurationError(f"VAULT_CA_CERT path does not exist: {self._config.ca_cert}")
             session.verify = self._config.ca_cert
         else:
@@ -197,13 +198,13 @@ class HashiCorpVaultProvider(SecretProvider):
 
         # Client certificate for mTLS
         if self._config.client_cert and self._config.client_key:
-            if not os.path.isfile(self._config.client_cert):
+            if not Path(self._config.client_cert).is_file():
                 raise ConfigurationError(f"VAULT_CLIENT_CERT path does not exist: {self._config.client_cert}")
-            if not os.path.isfile(self._config.client_key):
+            if not Path(self._config.client_key).is_file():
                 raise ConfigurationError(f"VAULT_CLIENT_KEY path does not exist: {self._config.client_key}")
             session.cert = (self._config.client_cert, self._config.client_key)
         elif self._config.client_cert:
-            if not os.path.isfile(self._config.client_cert):
+            if not Path(self._config.client_cert).is_file():
                 raise ConfigurationError(f"VAULT_CLIENT_CERT path does not exist: {self._config.client_cert}")
             session.cert = self._config.client_cert
 

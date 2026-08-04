@@ -3,8 +3,8 @@
 import asyncio
 import fnmatch
 import mimetypes
-import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import boto3
@@ -401,13 +401,13 @@ class S3SourceAdapter(DocumentSourcePort):
 
         # Apply file extension filter
         if config.file_extensions:
-            file_ext = os.path.splitext(key)[1].lower()
+            file_ext = Path(key).suffix.lower()
             if file_ext not in config.file_extensions:
                 return True
 
         # Apply exclude patterns
         if config.exclude_patterns:
-            filename = os.path.basename(key)
+            filename = Path(key).name
             for pattern in config.exclude_patterns:
                 if fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(key, pattern):
                     logger.debug(f"Skipping {key}: matches exclude pattern '{pattern}'")
@@ -470,12 +470,12 @@ class S3SourceAdapter(DocumentSourcePort):
                 http_url = f"https://{config.bucket}.s3.{region}.amazonaws.com/{key}"
 
             # Determine file extension
-            extension = os.path.splitext(key)[1].lower()
+            extension = Path(key).suffix.lower()
 
             # Create domain document WITHOUT binary content (lazy loading)
             document = Document(
                 id=key,
-                name=os.path.basename(key),
+                name=Path(key).name,
                 content=b"",  # Empty - binary loaded on-demand by downstream operators
                 source_url=s3_uri,
                 modified_time=modified_time,

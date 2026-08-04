@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import uuid
+from pathlib import Path
 from typing import Any
 
 from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
@@ -216,8 +217,8 @@ def validate_flow_definition(flow_file: str) -> bool:
         return True
 
     except FileNotFoundError:
-        cwd = os.getcwd()
-        abs_path = os.path.abspath(flow_file)
+        cwd = Path.cwd()
+        abs_path = Path(flow_file).resolve()
         logger.error("Flow definition file not found")
         logger.error("  Searched for: %s", abs_path)
         logger.error("  Current directory: %s", cwd)
@@ -424,8 +425,8 @@ Examples:
     try:
         original_flow_json, flow_def = load_flow_definition(file_path=args.flow_file)
     except FileNotFoundError:
-        cwd = os.getcwd()
-        abs_path = os.path.abspath(args.flow_file)
+        cwd = Path.cwd()
+        abs_path = Path(args.flow_file).resolve()
         logger.error("Flow definition file not found")
         logger.error("  Searched for: %s", abs_path)
         logger.error("  Current directory: %s", cwd)

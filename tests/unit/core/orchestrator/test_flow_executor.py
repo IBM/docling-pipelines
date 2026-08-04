@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -31,9 +32,7 @@ class TestFlowExecutor:
             assert executor.flow_def["name"] == "Test Flow"
             assert executor.flow_def["description"] == "Test Description"
         finally:
-            import os
-
-            os.unlink(temp_path)
+            Path(temp_path).unlink()
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
     def test_init_with_flow_def_dict(self, mock_session):

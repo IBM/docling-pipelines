@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
@@ -15,8 +16,8 @@ DOC_CONTENT_COLUMN_KEY: str = "doc_content_column"
 TEXT_LANG_KEY: str = "text_lang"
 DEFAULT_TEXT_LANG: str = "en"
 BAD_WORD_FILEPATH_KEY: str = "bad_word_filepath"
-BASE_PATH: str = os.path.dirname(__file__)
-BAD_WORD_FILEPATH_VALUE: str = os.path.join(BASE_PATH, "en")
+BASE_PATH: str = str(Path(__file__).parent)
+BAD_WORD_FILEPATH_VALUE: str = str(Path(__file__).parent / "en")
 if os.getenv("RUNTIME") == "CLOUD" and os.getenv("IS_SPARK_RUNTIME"):
     BAD_WORD_FILEPATH_VALUE = BAD_WORD_FILEPATH_VALUE.replace(
         "/docpipe_core.zip/docpipe_core/operators/language/readability", ""

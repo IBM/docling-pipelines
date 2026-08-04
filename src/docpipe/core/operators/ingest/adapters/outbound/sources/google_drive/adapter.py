@@ -1,6 +1,5 @@
 """Google Drive source adapter using Google Drive API."""
 
-import os
 import pickle
 from collections import deque
 from datetime import datetime
@@ -157,7 +156,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         mime_type = file_metadata.get("mimeType", "application/octet-stream")
 
         # Get file extension
-        extension = os.path.splitext(doc_name)[1].lower()
+        extension = Path(doc_name).suffix.lower()
 
         # For Google Workspace files, derive extension from MIME type
         if not extension and mime_type.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
@@ -312,7 +311,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
             # Apply file extension filter if specified
             if config.file_extensions:
-                file_ext = os.path.splitext(file_name)[1].lower()
+                file_ext = Path(file_name).suffix.lower()
 
                 # For Google Workspace files, derive extension from MIME type
                 if not file_ext and file_mime.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):

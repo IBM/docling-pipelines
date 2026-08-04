@@ -292,7 +292,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             # Recursive walk
             for dirpath, dirnames, filenames in os.walk(root_path, followlinks=config.follow_symlinks):
                 # Filter out excluded directories
-                dirnames[:] = [d for d in dirnames if not self._is_excluded(os.path.join(dirpath, d), config)]
+                dirnames[:] = [d for d in dirnames if not self._is_excluded(str(Path(dirpath) / d), config)]
 
                 for filename in filenames:
                     file_path = Path(dirpath) / filename

@@ -1,6 +1,6 @@
-import os
 import uuid
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Literal, cast
 
 import pyarrow as pa
@@ -1330,7 +1330,7 @@ class ChunkerOperator(AbstractOperator):
                     else:
                         # Fallback to UUID if doc_id not available
                         chunks_filename = f"chunks_{uuid.uuid4().hex}.bin"
-                    chunks_filepath = os.path.join(chunks_dir, chunks_filename)
+                    chunks_filepath = str(Path(chunks_dir) / chunks_filename)
 
                     # Write chunks to binary file
                     write_chunks_to_file(chunks_list=chunks_list, filepath=chunks_filepath)

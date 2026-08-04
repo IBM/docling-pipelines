@@ -4,7 +4,6 @@ Unit tests for IngestLocalOperator
 Tests path-only metadata ingest behavior.
 """
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -236,8 +235,8 @@ def test_single_file_ingest():
 
     finally:
         # Cleanup
-        if os.path.exists(temp_file):
-            os.unlink(temp_file)
+        if Path(temp_file).exists():
+            Path(temp_file).unlink()
 
 
 def test_multiple_files_list():
@@ -279,8 +278,8 @@ def test_multiple_files_list():
     finally:
         # Cleanup
         for temp_file in temp_files:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
+            if Path(temp_file).exists():
+                Path(temp_file).unlink()
 
 
 if __name__ == "__main__":

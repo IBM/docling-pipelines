@@ -6,9 +6,9 @@ notebooks, or embedded applications.
 """
 
 import json
-import os
 import tempfile
 import uuid
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -83,7 +83,7 @@ def temp_flow_file(simple_flow):
         json.dump(simple_flow, f)
         temp_path = f.name
     yield temp_path
-    os.unlink(temp_path)
+    Path(temp_path).unlink()
 
 
 @pytest.fixture
@@ -93,7 +93,7 @@ def temp_elyra_format_file(elyra_format_flow):
         json.dump(elyra_format_flow, f)
         temp_path = f.name
     yield temp_path
-    os.unlink(temp_path)
+    Path(temp_path).unlink()
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ def temp_invalid_json_file():
         f.write("{invalid json content")
         temp_path = f.name
     yield temp_path
-    os.unlink(temp_path)
+    Path(temp_path).unlink()
 
 
 @pytest.fixture

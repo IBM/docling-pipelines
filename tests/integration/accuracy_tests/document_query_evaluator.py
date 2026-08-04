@@ -17,16 +17,16 @@ Usage:
 import argparse
 import csv
 import json
-import os
 import sys
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from opensearchpy import OpenSearch
 
 # Add the examples/retrieval directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval"))
+sys.path.insert(0, str(Path(__file__).parent / "../../../examples/retrieval"))
 
 try:
     from ollama_nl_to_sql_converter import OllamaNLToSQLConverter  # type: ignore

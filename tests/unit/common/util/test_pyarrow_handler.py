@@ -3,7 +3,7 @@ Unit tests for PyArrow table handler utilities.
 Tests for reading, writing, and transforming Parquet tables.
 """
 
-import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pyarrow as pa
@@ -66,7 +66,7 @@ class TestCpdParquetTableHandler:
         """Test saving and reading a Parquet table."""
         # Save table
         handler.save_table(path=temp_parquet_file, table=sample_table)
-        assert os.path.exists(temp_parquet_file)
+        assert Path(temp_parquet_file).exists()
 
         # Read table
         read_table = handler.read_table(path=temp_parquet_file)
@@ -107,7 +107,7 @@ class TestCpdParquetTableHandler:
 
         # Delete rows where active is False
         def delete_filter(table):
-            return pc.equal(table["active"], False)
+            return pc.equal(table["active"], False)  # type: ignore[attr-defined]
 
         handler.delete_rows(path=temp_parquet_file, delete_filter_fn=delete_filter)
 
@@ -122,7 +122,7 @@ class TestCpdParquetTableHandler:
         handler.save_table(path=temp_parquet_file, table=empty_table)
 
         def delete_filter(table):
-            return pc.equal(table["id"], 1)
+            return pc.equal(table["id"], 1)  # type: ignore[attr-defined]
 
         # Should not raise error
         handler.delete_rows(path=temp_parquet_file, delete_filter_fn=delete_filter)
@@ -135,7 +135,7 @@ class TestCpdParquetTableHandler:
         nonexistent_path = str(tmp_path / "nonexistent.parquet")
 
         def delete_filter(table):
-            return pc.equal(table["id"], 1)
+            return pc.equal(table["id"], 1)  # type: ignore[attr-defined]
 
         # Should not raise error
         handler.delete_rows(path=nonexistent_path, delete_filter_fn=delete_filter)
@@ -154,10 +154,10 @@ class TestCpdParquetTableHandler:
     def test_delete_file(self, handler, sample_table, temp_parquet_file):
         """Test deleting a Parquet file."""
         handler.save_table(path=temp_parquet_file, table=sample_table)
-        assert os.path.exists(temp_parquet_file)
+        assert Path(temp_parquet_file).exists()
 
         handler.delete_file(path=temp_parquet_file)
-        assert not os.path.exists(temp_parquet_file)
+        assert not Path(temp_parquet_file).exists()
 
     def test_delete_nonexistent_file(self, handler, tmp_path):
         """Test deleting a non-existent file logs warning."""
@@ -191,7 +191,7 @@ class TestCpdParquetTableHandler:
 
         # Lock file may or may not exist after operation (depends on cleanup)
         # Just verify the main file exists
-        assert os.path.exists(temp_parquet_file)
+        assert Path(temp_parquet_file).exists()
 
     def test_read_table_with_unicode_data(self, handler, temp_parquet_file):
         """Test reading and writing tables with Unicode characters."""
@@ -219,7 +219,7 @@ class TestCpdParquetTableHandler:
 
         # Delete all rows
         def delete_all_filter(table):
-            return pc.equal(table["id"], table["id"])  # All True
+            return pc.equal(table["id"], table["id"])  # type: ignore[attr-defined]  # All True
 
         handler.delete_rows(path=temp_parquet_file, delete_filter_fn=delete_all_filter)
 
@@ -232,7 +232,7 @@ class TestCpdParquetTableHandler:
 
         # Delete no rows
         def delete_none_filter(table):
-            return pc.equal(table["id"], -1)  # All False
+            return pc.equal(table["id"], -1)  # type: ignore[attr-defined]  # All False
 
         handler.delete_rows(path=temp_parquet_file, delete_filter_fn=delete_none_filter)
 

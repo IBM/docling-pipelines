@@ -1,6 +1,6 @@
 """Configuration model for the filesystem destination adapter."""
 
-import os
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator
@@ -15,7 +15,7 @@ class FilesystemDestinationConfig(BaseModel):
     @field_validator("root_path")
     @classmethod
     def expand_root_path(cls, v: str) -> str:
-        return os.path.expanduser(v)
+        return str(Path(v).expanduser())
 
     class Config:
         json_schema_extra: ClassVar[dict] = {

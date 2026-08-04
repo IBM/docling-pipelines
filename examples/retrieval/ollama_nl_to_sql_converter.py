@@ -5,7 +5,7 @@ Uses local Ollama service for converting NL queries to OpenSearch SQL
 
 import json
 import logging
-import os
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -14,7 +14,7 @@ from requests.models import Response
 logger = logging.getLogger(__name__)
 
 # Path to the shared document schemas file (same directory as this module)
-_SCHEMAS_FILE = os.path.join(os.path.dirname(__file__), "document_schemas.json")
+_SCHEMAS_FILE = Path(__file__).parent / "document_schemas.json"
 
 
 class OllamaNLToSQLConverter:
@@ -213,7 +213,7 @@ class OllamaNLToSQLConverter:
             json.JSONDecodeError: If the file is not valid JSON.
             ValueError: If the requested dataclass is not found in the schemas file.
         """
-        if not os.path.isfile(_SCHEMAS_FILE):
+        if not _SCHEMAS_FILE.is_file():
             raise FileNotFoundError(
                 f"Schema file not found: {_SCHEMAS_FILE}. "
                 "Ensure document_schemas.json is present in the same directory."

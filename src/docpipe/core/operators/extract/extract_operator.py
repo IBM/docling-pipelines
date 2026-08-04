@@ -101,7 +101,6 @@ Example Usage:
 
 import json
 import logging
-import os
 import time
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -544,7 +543,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
 
             # Extract file extension from name
             if name and isinstance(name, str):
-                _, ext = os.path.splitext(name)
+                ext = Path(name).suffix
                 format_key = ext.lower()[1:] if ext else OperatorConstants.Misc.UNKNOWN
             else:
                 format_key = OperatorConstants.Misc.UNKNOWN

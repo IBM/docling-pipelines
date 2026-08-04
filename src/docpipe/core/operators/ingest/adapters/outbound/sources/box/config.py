@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator
@@ -48,7 +49,7 @@ class BoxSourceConfig(BaseModel):
         resolved = os.path.expandvars(v)
 
         # Then expand user home directory
-        return os.path.expanduser(resolved)
+        return str(Path(resolved).expanduser())
 
         # Just expand the path, don't validate existence here
         # The actual file access will happen during authentication

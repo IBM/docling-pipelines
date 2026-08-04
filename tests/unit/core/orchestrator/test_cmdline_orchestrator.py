@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 from docpipe.cli.docpipe_cli import (
     load_flow_definition,
@@ -105,7 +106,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 load_flow_definition(file_path=temp_file_path)
         finally:
             # Clean up the temporary file
-            os.unlink(temp_file_path)
+            Path(temp_file_path).unlink()
 
     def test_flow_execution_failure(self):
         """

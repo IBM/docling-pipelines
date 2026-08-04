@@ -6,8 +6,8 @@ Supports watsonx and litellm (which provides access to 100+ providers including 
 """
 
 import json
-import os
 import uuid
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -964,7 +964,7 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                         else:
                             # Fallback to UUID if doc_id not available
                             embeddings_filename = f"embeddings_{uuid.uuid4().hex}.bin"
-                        embeddings_filepath = os.path.join(embeddings_dir, embeddings_filename)
+                        embeddings_filepath = str(Path(embeddings_dir) / embeddings_filename)
 
                         # Write embeddings to memmap file
                         write_content_to_file(content_list=embeddings, filepath=embeddings_filepath)
