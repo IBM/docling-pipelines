@@ -9,6 +9,7 @@ import pyarrow as pa
 
 # Import adapters so they self-register via @register_destination_adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.filesystem.adapter
+import docpipe.core.operators.storage.adapters.outbound.destinations.google_drive.adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.s3.adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.sharepoint.adapter  # noqa: F401
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics

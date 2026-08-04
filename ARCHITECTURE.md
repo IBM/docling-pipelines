@@ -2916,7 +2916,7 @@ graph TB
   "name": "ingest_s3",
   "config": {
     "provider": "s3",
-    "connection_params": {
+    "provider_config": {
       "bucket": "my-documents",
       "prefix": "invoices/"
     },
@@ -2939,7 +2939,7 @@ graph TB
   "name": "ingest_ibm_cos",
   "config": {
     "provider": "ibm_cos",
-    "connection_params": {
+    "provider_config": {
       "bucket": "enterprise-docs",
       "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
       "prefix": "contracts/"
@@ -2961,7 +2961,7 @@ graph TB
   "name": "ingest_sharepoint",
   "config": {
     "provider": "sharepoint",
-    "connection_params": {
+    "provider_config": {
       "drive_id": "b!abc123...",
       "folder_path": "/Shared Documents/Projects",
       "recursive": true
@@ -2985,7 +2985,7 @@ graph TB
   "name": "ingest_onedrive",
   "config": {
     "provider": "onedrive",
-    "connection_params": {
+    "provider_config": {
       "drive_id": "b!xyz789...",
       "folder_path": "/Documents/Reports",
       "recursive": false
@@ -3008,7 +3008,7 @@ graph TB
   "name": "ingest_google_drive",
   "config": {
     "provider": "google_drive",
-    "connection_params": {
+    "provider_config": {
       "folder_id": "1a2b3c4d5e6f7g8h9i0j",
       "recursive": true
     },
@@ -3027,7 +3027,7 @@ graph TB
   "name": "ingest_web",
   "config": {
     "provider": "web",
-    "connection_params": {
+    "provider_config": {
       "urls": ["https://example.com", "https://www.iana.org/domains/reserved"],
       "max_depth": 2,
       "prevent_outside": true,
@@ -4561,7 +4561,7 @@ Operators are organized by category (defined in `OperatorCategory` enum). For co
 - **Functional**: Data transformation (chunking, embeddings, branching, merging)
 - **Quality**: Data quality checks (deduplication, classification, PII detection)
 - **VectorDB**: Vector storage (OpenSearch, Milvus)
-- **Storage**: Persistent storage (DocumentSet with DuckDB) and file export to destinations (StorageOutputOperator — filesystem, S3, IBM COS, SharePoint)
+- **Storage**: Persistent storage (DocumentSet with DuckDB) and file export to destinations (StorageOutputOperator — filesystem, S3, IBM COS, SharePoint, OneDrive, Google Drive)
 
 **Architecture Highlights:**
 - Hexagonal architecture (ports & adapters) for extensibility

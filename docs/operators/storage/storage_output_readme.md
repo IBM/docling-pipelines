@@ -413,6 +413,25 @@ present in `credentials` and that any `${ENV_VAR}` references are set in the she
 field is missing from `provider_config`. Obtain it from the SharePoint site's document library
 settings or via the Microsoft Graph `GET /sites/{site-id}/drives` endpoint.
 
+**`write_status = failed` with `SharePoint document library '...' is not accessible`** — The Graph
+API could not reach the drive. Verify `drive_id`, the Azure AD app credentials, and that the app
+has `Files.ReadWrite.All` or `Sites.ReadWrite.All` permission granted in the tenant.
+
+**`write_status = failed` with `destination folder path does not exist and create_dirs is disabled`**
+— The `folder_path` does not exist in the drive and `create_dirs` is `false`. Set `create_dirs:
+true` or create the folder in SharePoint before running the flow.
+
+**`write_status = failed` with `Microsoft Graph dependencies are not installed`** — The `sharepoint`
+provider requires `msal` and `requests`. Install with `uv pip install msal requests`.
+
+**`ValueError: Missing required SharePoint credential: 'client_id'`** — A required Azure AD
+credential field is absent. Ensure all three fields (`client_id`, `client_secret`, `tenant_id`) are
+present in `credentials` and that any `${ENV_VAR}` references are set in the shell.
+
+**`ValueError: Missing required SharePoint connection parameter: 'drive_id'`** — The `drive_id`
+field is missing from `provider_config`. Obtain it from the SharePoint site's document library
+settings or via the Microsoft Graph `GET /sites/{site-id}/drives` endpoint.
+
 **`write_status = failed` with `Could not fetch binary content for 'name' from source`** — Modes
 `refetch_original` and `comprehensive_export` re-fetch binaries via the upstream ingest source.
 Ensure the `ingest_source` global config is populated and the source is accessible.
@@ -432,7 +451,6 @@ implementation selected by [`DestinationAdapterFactory`](../../../src/docpipe/co
 graph LR
     SOO[StorageOutputOperator] --> FAC[DestinationAdapterFactory]
     FAC --> FSA[FilesystemDestinationAdapter]
-    FAC --> S3A[S3DestinationAdapter]
     FAC --> SPA[SharePointDestinationAdapter]
     FSA --> FS[Local Filesystem]
     S3A --> S3[Amazon S3 / IBM COS]

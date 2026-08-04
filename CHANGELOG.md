@@ -17,6 +17,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - `SharePointDestinationAdapter` — writes to SharePoint document libraries via Microsoft Graph API (client credentials flow) with pre-flight drive/folder validation, overwrite control, and hierarchical path support.
 - Hierarchical multi-source path namespacing — when `ingest_source` is configured with multiple `paths`, each source root is namespaced by its folder name at the destination to avoid collisions.
 - `onedrive` provider alias — routes to `SharePointDestinationAdapter`; identical `connection_params` and `credentials` to `sharepoint`. Suitable for personal and organisational OneDrive drives.
+- `GoogleDriveDestinationAdapter` — writes to Google Drive folders via the Drive API v3 with resumable uploads, lazy sub-folder creation with instance-level caching, overwrite control, and both Service Account and OAuth2 authentication.
 - Initial public open-source release preparation
 - Release process documentation (`RELEASE_PROCESS.md`)
 - Deprecation policy (`docs/guides/DEPRECATION_POLICY.md`)

@@ -657,6 +657,3 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 | [`sample_flows/storage_output/sharepoint/processed_content_sharepoint.json`](../../../sample_flows/storage_output/sharepoint/processed_content_sharepoint.json) | Extract markdown → write to SharePoint |
 | [`sample_flows/storage_output/sharepoint/refetch_original_sharepoint.json`](../../../sample_flows/storage_output/sharepoint/refetch_original_sharepoint.json) | Archive originals from SharePoint source → SharePoint destination |
 | [`sample_flows/storage_output/sharepoint/comprehensive_export_sharepoint.json`](../../../sample_flows/storage_output/sharepoint/comprehensive_export_sharepoint.json) | Full compliance export → SharePoint |
-| [`sample_flows/storage_output/onedrive/processed_content_onedrive.json`](../../../sample_flows/storage_output/onedrive/processed_content_onedrive.json) | Extract markdown → write to OneDrive |
-| [`sample_flows/storage_output/onedrive/refetch_original_onedrive.json`](../../../sample_flows/storage_output/onedrive/refetch_original_onedrive.json) | Archive originals from filesystem source → OneDrive destination |
-| [`sample_flows/storage_output/onedrive/comprehensive_export_onedrive.json`](../../../sample_flows/storage_output/onedrive/comprehensive_export_onedrive.json) | Full compliance export → OneDrive |

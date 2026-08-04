@@ -1,0 +1,49 @@
+{
+  "flow_name": "refetch-original-google-drive",
+  "description": "Ingest documents from a local filesystem, re-fetch the original binaries, and archive them to a Google Drive folder. Skips files already present at the destination.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "provider_config": {
+          "paths": [
+            "/path/to/source_files_01",
+            "/path/to/source_files_02"
+          ],
+          "recursive": true
+        },
+        "include_filter": ["pdf"],
+        "credentials": {}
+      }
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "refetch_original",
+        "destination_config": {
+          "provider": "google_drive",
+          "provider_config": {
+            "drive_id": "${GDRIVE_DRIVE_ID}",
+            "folder_id": "${GDRIVE_FOLDER_ID}",
+            "create_dirs": true
+          },
+          "credentials": {
+            "service_account_json_path": "${GDRIVE_SA_JSON_PATH}"
+          }
+        },
+        "output_structure": {
+          "type": "hierarchical"
+        }
+      },
+      "depends_on": ["ingest"]
+    }
+  ]
+}
