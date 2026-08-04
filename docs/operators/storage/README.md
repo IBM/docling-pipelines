@@ -73,7 +73,7 @@ Requires an upstream ingest_source operator.
 
 | Field | Type | Description |
 |---|---|---|
-| `provider` | string | Adapter name: `filesystem`, `s3`, `ibm_cos`, or `sharepoint` |
+| `provider` | string | Adapter name: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, or `onedrive` |
 | `provider_config` | object | Provider-specific connection parameters |
 | `credentials` | object | Provider-specific credentials |
 
@@ -243,6 +243,41 @@ Credentials must reference environment variables. Never hard-code Azure AD secre
 #### `destination_path` format
 
 For SharePoint writes the `destination_path` output column contains the `webUrl` returned by the Graph API (e.g. `https://tenant.sharepoint.com/sites/MySite/...`).
+
+---
+
+### OneDrive
+
+Writes to a Microsoft OneDrive drive via the Microsoft Graph API. Uses the SharePoint adapter internally — the configuration shape, credentials, and API endpoints are identical. Set `"provider": "onedrive"` in `destination_config`.
+
+**Prerequisites:** Install `msal` and `requests`:
+
+```bash
+uv pip install msal requests
+```
+
+Credentials must reference environment variables. Never hard-code Azure AD secrets in flow JSON files.
+
+#### `provider_config`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `drive_id` | string | required | Microsoft Graph drive ID for the OneDrive drive (e.g. `b!abc123...`) |
+| `folder_path` | string | `""` | Destination folder within the drive (e.g. `dest_files`). Leave empty to write to the drive root |
+| `create_dirs` | bool | `true` | When `false`, `validate_destination` checks the target folder already exists before writing |
+| `graph_api_version` | string | `v1.0` | Microsoft Graph API version: `v1.0` or `beta` |
+
+#### `credentials`
+
+| Field | Type | Description |
+|---|---|---|
+| `client_id` | string | Azure AD application (client) ID — use `${ENV_VAR}` syntax |
+| `client_secret` | string | Azure AD application client secret — use `${ENV_VAR}` syntax |
+| `tenant_id` | string | Azure AD tenant (directory) ID — use `${ENV_VAR}` syntax |
+
+#### `destination_path` format
+
+For OneDrive writes the `destination_path` output column contains the `webUrl` returned by the Graph API.
 
 ## Examples
 
@@ -527,6 +562,85 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 }
 ```
 
+---
+
+### OneDrive — export extracted markdown
+
+```json
+{
+  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
+  "operator_params": {
+    "mode": "processed_content",
+    "destination_config": {
+      "provider": "onedrive",
+      "provider_config": {
+        "drive_id": "${ONEDRIVE_DRIVE_ID}",
+        "folder_path": "dest_files",
+        "create_dirs": true
+      },
+      "credentials": {
+        "tenant_id": "${ONEDRIVE_TENANT_ID}",
+        "client_id": "${ONEDRIVE_CLIENT_ID}",
+        "client_secret": "${ONEDRIVE_CLIENT_SECRET}"
+      }
+    },
+    "output_format": { "content_format": "md" },
+    "output_structure": { "type": "hierarchical" }
+  }
+}
+```
+
+### OneDrive — copy original files to archive
+
+```json
+{
+  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
+  "operator_params": {
+    "mode": "refetch_original",
+    "destination_config": {
+      "provider": "onedrive",
+      "provider_config": {
+        "drive_id": "${ONEDRIVE_DRIVE_ID}",
+        "folder_path": "dest_files",
+        "create_dirs": true
+      },
+      "credentials": {
+        "tenant_id": "${ONEDRIVE_TENANT_ID}",
+        "client_id": "${ONEDRIVE_CLIENT_ID}",
+        "client_secret": "${ONEDRIVE_CLIENT_SECRET}"
+      }
+    },
+    "output_structure": { "type": "hierarchical" }
+  }
+}
+```
+
+### OneDrive — full compliance export
+
+```json
+{
+  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
+  "operator_params": {
+    "mode": "comprehensive_export",
+    "destination_config": {
+      "provider": "onedrive",
+      "provider_config": {
+        "drive_id": "${ONEDRIVE_DRIVE_ID}",
+        "folder_path": "dest_files",
+        "create_dirs": true
+      },
+      "credentials": {
+        "tenant_id": "${ONEDRIVE_TENANT_ID}",
+        "client_id": "${ONEDRIVE_CLIENT_ID}",
+        "client_secret": "${ONEDRIVE_CLIENT_SECRET}"
+      }
+    },
+    "output_format": { "content_format": "txt", "include_metadata_sidecar": true },
+    "output_structure": { "type": "hierarchical" }
+  }
+}
+```
+
 ## Sample Flow Files
 
 | Flow | Description |
@@ -543,3 +657,6 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 | [`sample_flows/storage_output/sharepoint/processed_content_sharepoint.json`](../../../sample_flows/storage_output/sharepoint/processed_content_sharepoint.json) | Extract markdown → write to SharePoint |
 | [`sample_flows/storage_output/sharepoint/refetch_original_sharepoint.json`](../../../sample_flows/storage_output/sharepoint/refetch_original_sharepoint.json) | Archive originals from SharePoint source → SharePoint destination |
 | [`sample_flows/storage_output/sharepoint/comprehensive_export_sharepoint.json`](../../../sample_flows/storage_output/sharepoint/comprehensive_export_sharepoint.json) | Full compliance export → SharePoint |
+| [`sample_flows/storage_output/onedrive/processed_content_onedrive.json`](../../../sample_flows/storage_output/onedrive/processed_content_onedrive.json) | Extract markdown → write to OneDrive |
+| [`sample_flows/storage_output/onedrive/refetch_original_onedrive.json`](../../../sample_flows/storage_output/onedrive/refetch_original_onedrive.json) | Archive originals from filesystem source → OneDrive destination |
+| [`sample_flows/storage_output/onedrive/comprehensive_export_onedrive.json`](../../../sample_flows/storage_output/onedrive/comprehensive_export_onedrive.json) | Full compliance export → OneDrive |

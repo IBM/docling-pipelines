@@ -14,7 +14,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 ## Key Features
 
 - Three write modes covering the most common output use cases
-- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem`, `s3`, `ibm_cos`, and `sharepoint`
+- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem`, `s3`, `ibm_cos`, `sharepoint`, and `onedrive`
 - Path templating with per-document variables (`{doc_id}`, `{name}`, `{year}`, `{month}`, `{day}`, `{relative_dir}`)
 - Hierarchical output that mirrors the source directory tree; when multiple source paths are configured each root is namespaced by its folder name
 - Overwrite control — skip existing files and record `skipped` status per document
@@ -67,7 +67,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, `ibm_cos`, or `sharepoint` |
+| `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, or `onedrive` |
 | `provider_config` | object | Yes | — | Provider-specific connection parameters (see below) |
 | `credentials` | object | No | `{}` | Provider-specific credentials |
 
@@ -373,7 +373,7 @@ Output layout per document:
 of `processed_content`, `refetch_original`, or `comprehensive_export`.
 
 **`ValueError: Unknown destination adapter: 'xyz'`** — The `provider` field in `destination_config`
-does not match any registered adapter. Use `filesystem`, `s3`, `ibm_cos`, or `sharepoint`.
+does not match any registered adapter. Use `filesystem`, `s3`, `ibm_cos`, `sharepoint`, or `onedrive`.
 
 **`write_status = failed` with `destination directory does not exist and create_dirs is disabled`** —
 The output directory (filesystem), prefix (S3/IBM COS), or folder path (SharePoint) does not exist
@@ -432,15 +432,19 @@ implementation selected by [`DestinationAdapterFactory`](../../../src/docpipe/co
 graph LR
     SOO[StorageOutputOperator] --> FAC[DestinationAdapterFactory]
     FAC --> FSA[FilesystemDestinationAdapter]
+    FAC --> S3A[S3DestinationAdapter]
     FAC --> SPA[SharePointDestinationAdapter]
     FSA --> FS[Local Filesystem]
-    SPA --> SP[SharePoint via Graph API]
+    S3A --> S3[Amazon S3 / IBM COS]
+    SPA --> SP[SharePoint / OneDrive via Graph API]
 
     style SOO fill:#e1f5ff
     style FAC fill:#fff4e1
     style FSA fill:#f3e6ff
+    style S3A fill:#f3e6ff
     style SPA fill:#f3e6ff
     style FS fill:#e8f5e9
+    style S3 fill:#e8f5e9
     style SP fill:#e8f5e9
 ```
 

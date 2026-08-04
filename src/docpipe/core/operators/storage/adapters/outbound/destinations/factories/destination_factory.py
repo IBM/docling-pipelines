@@ -17,8 +17,10 @@ class DestinationAdapterFactory:
 
     # Alias provider names that map to an existing canonical adapter.
     # ibm_cos uses the S3 adapter with a custom endpoint_url — no separate adapter needed.
+    # onedrive uses the SharePoint adapter — identical Graph API drive endpoints, same config shape.
     _ALIASES: ClassVar[dict[str, str]] = {
         "ibm_cos": "s3",
+        "onedrive": "sharepoint",
     }
 
     @classmethod

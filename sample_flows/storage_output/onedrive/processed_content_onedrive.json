@@ -1,0 +1,62 @@
+{
+  "flow_name": "export-markdown-onedrive",
+  "description": "Ingest documents from a local filesystem, extract text with Docling, and write extracted markdown to a OneDrive drive. Credentials are read from environment variables.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "provider_config": {
+          "paths": ["/path/to/source_files"],
+          "recursive": true
+        },
+        "include_filter": ["pdf"],
+        "credentials": {}
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": ["ingest"]
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "processed_content",
+        "destination_config": {
+          "provider": "onedrive",
+          "provider_config": {
+            "drive_id": "${ONEDRIVE_DRIVE_ID}",
+            "folder_path": "dest_files",
+            "create_dirs": true
+          },
+          "credentials": {
+            "tenant_id": "${ONEDRIVE_TENANT_ID}",
+            "client_id": "${ONEDRIVE_CLIENT_ID}",
+            "client_secret": "${ONEDRIVE_CLIENT_SECRET}"
+          }
+        },
+        "output_format": {
+          "content_format": "md"
+        },
+        "output_structure": {
+          "type": "hierarchical"
+        }
+      },
+      "depends_on": ["extract"]
+    }
+  ]
+}
