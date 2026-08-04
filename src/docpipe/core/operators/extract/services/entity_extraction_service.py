@@ -136,7 +136,7 @@ class EntityExtractionService:
             Tuple of (list of transformed tables, metadata dictionary)
         """
         # Prepare schemas and document tasks
-        document_types, schema_templates = self._prepare_schemas(table=table)
+        document_types, schema_templates = self.prepare_schemas(table=table)
         doc_tasks = self._prepare_document_tasks(table, document_types, metadata)
         entities_list: list[dict[str, Any]] = [{} for _ in range(table.num_rows)]
 
@@ -156,7 +156,7 @@ class EntityExtractionService:
 
         return [table], metadata
 
-    def _prepare_schemas(self, *, table: pa.Table) -> tuple[list[str], dict[str, dict]]:
+    def prepare_schemas(self, *, table: pa.Table) -> tuple[list[str], dict[str, dict]]:
         """Prepare document types and load schema templates.
 
         Args:
@@ -425,7 +425,7 @@ class EntityExtractionService:
         if processed_count > 0:
             # Optionally expand entities into individual columns
             if self.expand_extracted_data and entities_list:
-                table = self._expand_entities_columns(table=table, entities_list=entities_list)
+                table = self.expand_entities_columns(table=table, entities_list=entities_list)
 
             # Add entities column - convert to JSON strings for PyArrow compatibility
             entities_json_list: list[str] = [json.dumps(entity) if entity else "{}" for entity in entities_list]
@@ -618,7 +618,7 @@ class EntityExtractionService:
         if schema_templates:
             logger.info("Successfully loaded schemas for: %s", list(schema_templates.keys()))
 
-    def _expand_entities_columns(self, *, table: pa.Table, entities_list: list[dict[str, Any]]) -> pa.Table:
+    def expand_entities_columns(self, *, table: pa.Table, entities_list: list[dict[str, Any]]) -> pa.Table:
         """Expand entity dict into individual columns, one per entity key.
 
         Args:

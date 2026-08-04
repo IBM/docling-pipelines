@@ -89,9 +89,6 @@ class EntityExtractionAdapterFactory:
         Raises:
             ValueError: If mode is unsupported or configuration is invalid
         """
-        # Common configuration for all entity providers
-        from docpipe.core.constants.constants import DocpipeConstants
-
         # Extract provider_config from nested structure
         provider_config = entity_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
@@ -105,11 +102,10 @@ class EntityExtractionAdapterFactory:
             ),
             "custom_schema": entity_extraction_config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {}),
             "common_log_arguments": entity_extraction_config.get("common_log_arguments", {}),
-            # Job tracking context for progress updates
-            DocpipeConstants.JOB_RUN_ID: entity_extraction_config.get(DocpipeConstants.JOB_RUN_ID),
-            DocpipeConstants.NODE_ID: entity_extraction_config.get(DocpipeConstants.NODE_ID),
-            DocpipeConstants.NODE_NAME: entity_extraction_config.get(DocpipeConstants.NODE_NAME),
-            DocpipeConstants.BATCH_ID: entity_extraction_config.get(DocpipeConstants.BATCH_ID),
+            # Job-tracking fields (job_run_id, node_id, node_name, batch_id) are NOT read
+            # from entity_extraction_config — they are never present there (they come from
+            # the orchestrator via global_config).  Reading them here produces None values
+            # that would overwrite the real values already in global_config at line 184.
         }
 
         # Add mode-specific configuration from provider_config

@@ -295,6 +295,8 @@ For full details on the priority system, override behaviour, and registering cus
 
 **Class:** `core.operators.extract.extract_operator.ExtractOperator`
 
+> **Streaming execution:** When `entity_extraction` is enabled, text and entity extraction run concurrently. Each document is submitted for entity extraction as soon as its text extraction finishes, without waiting for the full batch. When entity extraction is disabled the operator behaves as before.
+
 | Parameter                                                     | Type   |    Required | Default                 | Supported Providers             | Description                                                                                        |
 |---------------------------------------------------------------|--------|------------:|-------------------------|---------------------------------|----------------------------------------------------------------------------------------------------|
 | `text_extraction`                                             | object |          No | `{}`                    | All                             | Text extraction configuration (see below)                                                          |

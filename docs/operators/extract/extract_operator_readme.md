@@ -27,6 +27,7 @@ This architecture enables:
 - **Dual-Mode Operation**: Supports both text extraction and entity extraction in a single operator
 - **Multiple Text Extraction Strategies**: Docling Library (with optional VLM and ASR pipeline) and Docling Serve API
 - **Multiple Entity Extraction Strategies**: LiteLLM (including Ollama via openai/ prefix), Docling template-based, and WatsonX
+- **Streaming Pipeline**: When entity extraction is enabled, each document is submitted for entity extraction immediately after its text extraction completes, without waiting for the full batch. The two stages run concurrently, reducing end-to-end latency on large batches.
 - **Estimated Page Count Calculation**: Automatically calculates estimated page counts for extracted text
 - **Parallel Processing**: Automatic worker optimization based on CPU count
 - **Flexible Configuration**: Provider-specific parameters with sensible defaults

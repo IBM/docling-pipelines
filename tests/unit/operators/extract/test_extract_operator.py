@@ -57,7 +57,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     test_files = sample_pdf_files[:1]  # Test with first file
 
     # Prepare data for PyArrow table
-    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
         with open(file_path, "rb") as f:
@@ -128,7 +128,7 @@ def test_extract_operator_multi_format_output(sample_pdf_files):
     test_files = sample_pdf_files[:1]  # Test with first file
 
     # Prepare data for PyArrow table
-    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
         with open(file_path, "rb") as f:
@@ -203,7 +203,7 @@ def test_extract_operator_default_format(sample_pdf_files):
     test_files = sample_pdf_files[:1]
 
     # Prepare data for PyArrow table
-    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
         with open(file_path, "rb") as f:
@@ -257,7 +257,7 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
     test_files = sample_pdf_files[:1]
 
     # Prepare data for PyArrow table
-    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
         with open(file_path, "rb") as f:
@@ -398,7 +398,7 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
     test_files = sample_pdf_files[:1]
 
     # Prepare data for PyArrow table
-    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
         with open(file_path, "rb") as f:
@@ -2060,74 +2060,51 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
         assert skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"
 
 
-@patch("docpipe.core.operators.extract.ports.outbound.text_extraction.TextExtractionPort.transform")
-def test_extract_operator_stage_progress_metadata(mock_text_transform):
-    """Test that extract operator reports stage-based progress in metadata."""
-    import pyarrow as pa
+@pytest.mark.unit
+def test_streaming_pipeline_stage_progress_in_metadata():
+    """extraction_stage_progress must be written at the top level of the returned metadata
+    by the streaming path (entity enabled, no content reuse)."""
+    from unittest.mock import MagicMock
 
-    from docpipe.core.constants.operator_constants import OperatorConstants
-    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+    operator = _make_operator_with_mocks()
 
-    # Create test table with content column (required by doc_id_hash)
-    table = pa.table(
-        {
-            "id": ["doc1", "doc2"],
-            "name": ["test1.pdf", "test2.pdf"],
-            "content": ["extracted text 1", "extracted text 2"],
-        }
+    table = _make_table(n=2)
+    metadata = operator.create_base_metadata(total_docs_count=table.num_rows)
+
+    operator.text_adapter.extract_single_document = MagicMock(
+        side_effect=lambda *, file_path, binary_content, **kw: _fake_text_result(content=f"text for {file_path}")
+    )
+    operator.entity_adapter.extract_entities_single = MagicMock(return_value=_fake_entity_result())
+
+    _, result_meta = operator._run_streaming_pipeline(table=table, metadata=metadata)
+
+    # extraction_stage_progress lives directly in the returned metadata dict,
+    # not nested under node_metadata.
+    assert OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS in result_meta, (
+        "extraction_stage_progress must be present at the top level of the returned metadata"
     )
 
-    # Mock the text extraction to return table with stage progress
-    mock_text_transform.return_value = (
-        [table],
-        {
-            OperatorConstants.Metadata.NODE_METADATA: {
-                OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: {
-                    "text_extraction": {
-                        "status": "completed",
-                        "documents_total": 2,
-                        "documents_completed": 2,
-                        "documents_failed": 0,
-                        "progress_percentage": 100.0,
-                    }
-                }
-            }
-        },
+    stage_progress = result_meta[OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS]
+
+    # Both stages must be reported
+    assert OperatorConstants.Extraction.STAGE_TEXT_EXTRACTION in stage_progress
+    assert OperatorConstants.Extraction.STAGE_ENTITY_EXTRACTION in stage_progress
+
+    text_stage = stage_progress[OperatorConstants.Extraction.STAGE_TEXT_EXTRACTION]
+    assert text_stage[OperatorConstants.Extraction.STAGE_STATUS] == OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
+    assert text_stage[OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] == 2
+    assert text_stage[OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] == 2
+    assert text_stage[OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED] == 0
+    assert text_stage[OperatorConstants.Extraction.STAGE_PROGRESS_PERCENTAGE] == 100.0
+
+    entity_stage = stage_progress[OperatorConstants.Extraction.STAGE_ENTITY_EXTRACTION]
+    assert (
+        entity_stage[OperatorConstants.Extraction.STAGE_STATUS] == OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
     )
-
-    # Configure operator with text extraction only
-    config = {
-        "text_extraction": {
-            "provider": "docling_library",
-        },
-        "entity_extraction": {
-            "provider": "none",
-        },
-        "job_id": "test-job",
-        "job_run_id": "test-run",
-        "node_id": "test-node",
-        "batch_id": "test-batch",
-    }
-
-    operator = ExtractOperator(config=config)
-    _, metadata = operator.transform(table, "test_file")
-
-    # Check that metadata contains stage progress
-    assert OperatorConstants.Metadata.NODE_METADATA in metadata
-    node_metadata = metadata[OperatorConstants.Metadata.NODE_METADATA]
-
-    # Should have extraction_stage_progress
-    assert OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS in node_metadata
-    stage_progress = node_metadata[OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS]
-
-    # Should have text_extraction stage
-    assert "text_extraction" in stage_progress
-    text_stage = stage_progress["text_extraction"]
-    assert text_stage["status"] == "completed"
-    assert text_stage["documents_total"] == 2
-    assert text_stage["documents_completed"] == 2
-    assert text_stage["documents_failed"] == 0
-    assert text_stage["progress_percentage"] == 100.0
+    assert entity_stage[OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] == 2
+    assert entity_stage[OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] == 2
+    assert entity_stage[OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED] == 0
+    assert entity_stage[OperatorConstants.Extraction.STAGE_PROGRESS_PERCENTAGE] == 100.0
 
 
 @pytest.mark.unit
@@ -2175,3 +2152,333 @@ def test_extract_content_reuse_with_temp_pages_and_hash():
     assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result_table.column_names
     hash_column = result_table[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert all(h is not None for h in hash_column)
+
+
+# =============================================================================
+# Streaming pipeline tests  (_run_streaming_pipeline)
+# =============================================================================
+
+
+def _make_operator_with_mocks(*, custom_schema=None):
+    """Helper: build an ExtractOperator with both adapters pointing at mocks.
+
+    Uses patch.object on LiteLLMLLMClient.__init__ to avoid a live network call
+    during operator construction. patch.object is preferred over string-path patch()
+    because it fails fast if the import path changes during a refactor.
+    """
+    from unittest.mock import patch
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+    from docpipe.integrations.litellm.client import LiteLLMLLMClient
+
+    config = {
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+        },
+        "entity_extraction": {
+            "provider": "litellm",
+            "provider_config": {
+                "model_id": "openai/llama3.2",
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "test",  # pragma: allowlist secret
+                "temperature": 0.0,
+                "max_tokens": 256,
+            },
+            "custom_schema": custom_schema or {"title": "string"},
+        },
+        "max_workers": 2,
+    }
+    with patch.object(LiteLLMLLMClient, "__init__", return_value=None):
+        return ExtractOperator(config=config)
+
+
+def _make_table(*, n: int = 2):
+    """Helper: minimal PyArrow table accepted by the streaming pipeline."""
+    import pyarrow as pa
+
+    return pa.table(
+        {
+            "id": [f"doc_{i}" for i in range(n)],
+            "name": [f"doc_{i}.txt" for i in range(n)],
+            "path": [f"/tmp/doc_{i}.txt" for i in range(n)],
+            "binary_content": [f"content {i}".encode() for i in range(n)],
+        }
+    )
+
+
+def _fake_text_result(*, content: str = "hello world") -> dict:
+    """Simulated successful text-extraction result.
+
+    The key for the extracted text must match OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+    which is "content", not the operator's doc_column name.
+    """
+    return {
+        "success": True,
+        "content": content,  # must be DOC_COLUMN_DEFAULT = "content"
+        "metadata": {"page_count": 1},
+    }
+
+
+def _fake_text_failure(*, error: str = "network timeout") -> dict:
+    """Simulated failed text-extraction result.
+
+    Uses a non-recoverable-keyword-free error message so the minimal test table
+    (which lacks id/modified_time columns) does not trigger process_non_recoverable_errors.
+    """
+    return {
+        "success": False,
+        "content": None,
+        "error": error,
+        "metadata": {},
+    }
+
+
+def _fake_entity_result(*, entities: dict | None = None) -> dict:
+    """Simulated successful entity-extraction result."""
+    return {
+        "success": True,
+        "entities": entities or {"title": "Test Document"},
+        "error": None,
+    }
+
+
+@pytest.mark.unit
+def test_streaming_pipeline_happy_path():
+    """All documents succeed in both text and entity extraction."""
+    import json
+    from unittest.mock import MagicMock
+
+    operator = _make_operator_with_mocks()
+
+    table = _make_table(n=3)
+    metadata = operator.create_base_metadata(total_docs_count=table.num_rows)
+
+    # Patch both single-document extraction methods
+    operator.text_adapter.extract_single_document = MagicMock(
+        side_effect=lambda *, file_path, binary_content, **kw: _fake_text_result(content=f"text for {file_path}")
+    )
+    operator.entity_adapter.extract_entities_single = MagicMock(return_value=_fake_entity_result())
+
+    result_tables, result_meta = operator._run_streaming_pipeline(table=table, metadata=metadata)
+
+    result = result_tables[0]
+
+    # All three rows should survive
+    assert result.num_rows == 3
+    # Correct columns exist
+    assert "doc_content" in result.column_names
+    assert "entities" in result.column_names
+    assert "doc_id_hash" in result.column_names
+    assert "pages_processed" in result.column_names
+
+    # Every document has non-empty text content
+    for row_content in result["doc_content"].to_pylist():
+        assert row_content and "text for" in row_content
+
+    # Every entity column is valid JSON
+    for row_entities in result["entities"].to_pylist():
+        parsed = json.loads(row_entities)
+        assert isinstance(parsed, dict)
+
+    # Entity method was called once per document
+    assert operator.entity_adapter.extract_entities_single.call_count == 3
+
+    # Metadata counts are correct
+    from docpipe.core.constants.constants import Metrics
+
+    assert result_meta[Metrics.External.PROCESSED_DOCS] == 3
+    assert result_meta[Metrics.External.FAILED_DOCS_COUNT] == 0
+
+
+@pytest.mark.unit
+def test_streaming_pipeline_text_failure_blocks_entity():
+    """A document that fails text extraction must not reach entity extraction."""
+    from unittest.mock import MagicMock
+
+    from docpipe.core.constants.constants import Metrics
+
+    operator = _make_operator_with_mocks()
+
+    table = _make_table(n=3)
+    metadata = operator.create_base_metadata(total_docs_count=table.num_rows)
+
+    call_count = {"n": 0}
+
+    def text_side_effect(*, file_path, binary_content, **kw):
+        call_count["n"] += 1
+        # Fail the second document (use a plain non-recoverable-free message)
+        if "doc_1" in file_path:
+            return _fake_text_failure(error="network timeout for doc_1")
+        return _fake_text_result(content=f"ok content {file_path}")
+
+    operator.text_adapter.extract_single_document = MagicMock(side_effect=text_side_effect)
+    operator.entity_adapter.extract_entities_single = MagicMock(return_value=_fake_entity_result())
+
+    result_tables, result_meta = operator._run_streaming_pipeline(table=table, metadata=metadata)
+
+    # One row should have been removed
+    assert result_tables[0].num_rows == 2
+
+    # Entity extraction called only for the 2 successful docs
+    assert operator.entity_adapter.extract_entities_single.call_count == 2
+
+    # Failure recorded in metadata
+    assert result_meta[Metrics.External.FAILED_DOCS_COUNT] == 1
+
+
+@pytest.mark.unit
+def test_streaming_pipeline_all_text_fail_raises():
+    """When every document fails text extraction a ValueError must be raised."""
+    from unittest.mock import MagicMock
+
+    operator = _make_operator_with_mocks()
+
+    table = _make_table(n=2)
+    metadata = operator.create_base_metadata(total_docs_count=table.num_rows)
+
+    operator.text_adapter.extract_single_document = MagicMock(return_value=_fake_text_failure(error="all broken"))
+    operator.entity_adapter.extract_entities_single = MagicMock()
+
+    with pytest.raises(ValueError, match="failed text extraction"):
+        operator._run_streaming_pipeline(table=table, metadata=metadata)
+
+    # Entity extraction must never have been called
+    operator.entity_adapter.extract_entities_single.assert_not_called()
+
+
+@pytest.mark.unit
+def test_streaming_pipeline_entity_failure_does_not_drop_row():
+    """A document that fails entity extraction stays in the table with empty entities."""
+    import json
+    from unittest.mock import MagicMock
+
+    from docpipe.core.constants.constants import Metrics
+
+    operator = _make_operator_with_mocks()
+
+    table = _make_table(n=2)
+    metadata = operator.create_base_metadata(total_docs_count=table.num_rows)
+
+    operator.text_adapter.extract_single_document = MagicMock(
+        side_effect=lambda *, file_path, binary_content, **kw: _fake_text_result()
+    )
+
+    call_index = {"n": 0}
+
+    def entity_side_effect(*, doc_id, doc_name, content, schema=None):
+        idx = call_index["n"]
+        call_index["n"] += 1
+        if idx == 0:
+            # First doc entity extraction fails
+            return {"success": False, "entities": {}, "error": "LLM timeout"}
+        return _fake_entity_result()
+
+    operator.entity_adapter.extract_entities_single = MagicMock(side_effect=entity_side_effect)
+
+    result_tables, result_meta = operator._run_streaming_pipeline(table=table, metadata=metadata)
+
+    result = result_tables[0]
+
+    # Both rows survive (entity failure does not remove the row)
+    assert result.num_rows == 2
+
+    # Both rows have an entities column (failed one gets '{}')
+    entities_col = result["entities"].to_pylist()
+    assert all(e is not None for e in entities_col)
+    parsed = [json.loads(e) for e in entities_col]
+    assert any(p == {} for p in parsed)  # at least one empty
+    assert any(p != {} for p in parsed)  # at least one success
+
+    # The entity failure is recorded in metadata
+    assert result_meta[Metrics.External.FAILED_DOCS_COUNT] >= 1
+
+
+@pytest.mark.unit
+def test_streaming_pipeline_not_invoked_when_entity_disabled():
+    """When entity_adapter is None the streaming pipeline must not be called."""
+    from unittest.mock import patch
+
+    import pyarrow as pa
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    config = {
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+        },
+        "entity_extraction": {"provider": "none"},
+        "max_workers": 2,
+    }
+
+    operator = ExtractOperator(config=config)
+    assert operator.entity_adapter is None
+
+    table = _make_table(n=1)
+
+    # Patch text_adapter.transform (the sequential path) instead of the streaming method
+    with (
+        patch.object(operator, "_run_streaming_pipeline") as mock_streaming,
+        patch.object(operator.text_adapter, "transform") as mock_text_transform,
+    ):
+        mock_text_transform.return_value = (
+            [table.append_column("doc_content", pa.array(["hello"]))],
+            operator.create_base_metadata(total_docs_count=1),
+        )
+
+        operator.transform(table)
+
+    # Streaming pipeline should not have been called
+    mock_streaming.assert_not_called()
+
+
+@pytest.mark.unit
+def test_streaming_pipeline_writes_progress_periodically():
+    """_write_streaming_progress fires at least once per drain loop.
+
+    time.time() is patched to return a strictly increasing sequence so the
+    5-second interval check is always satisfied for every document: values step
+    by 10 seconds on each call, so (t_now - t_last) >= 5 is always True.
+    """
+    from itertools import count
+    from unittest.mock import MagicMock, patch
+
+    import docpipe.core.operators.extract.extract_operator as _mod
+
+    operator = _make_operator_with_mocks()
+
+    table = _make_table(n=2)
+    metadata = operator.create_base_metadata(total_docs_count=table.num_rows)
+
+    operator.text_adapter.extract_single_document = MagicMock(
+        side_effect=lambda *, file_path, binary_content, **kw: _fake_text_result(content=f"text for {file_path}")
+    )
+    operator.entity_adapter.extract_entities_single = MagicMock(return_value=_fake_entity_result())
+
+    # Each call to time.time() returns the next multiple of 10: 0, 10, 20, ...
+    # so (current - last) is always 10 >= 5, and last_progress_update is updated
+    # to the current value, then the next call is 10 seconds later — always fires.
+    time_counter = count(0, 10)
+
+    # Patch time.time in the extract_operator module so the interval check always fires.
+    # Patch _write_streaming_progress to avoid a real DB call.
+    with (
+        patch.object(_mod.time, "time", side_effect=lambda: next(time_counter)),
+        patch.object(operator, "_write_streaming_progress") as mock_write,
+    ):
+        result_tables, _ = operator._run_streaming_pipeline(table=table, metadata=metadata)
+
+    # Both drain loops (text + entity) each processed 2 documents and the timer
+    # fires on every document — expect >= 2 calls total (at minimum one per loop).
+    assert mock_write.call_count >= 2
+
+    # Pipeline must still deliver correct results regardless of progress writes.
+    assert result_tables[0].num_rows == 2
+
+    # Verify the kwargs passed to the last call contain both stage counter keys
+    last_call_kwargs = mock_write.call_args.kwargs
+    assert "text_completed" in last_call_kwargs
+    assert "entity_completed" in last_call_kwargs
+    assert "text_total" in last_call_kwargs
+    assert "entity_total" in last_call_kwargs

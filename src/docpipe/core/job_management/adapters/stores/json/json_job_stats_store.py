@@ -390,6 +390,48 @@ class JsonJobStatsStore(JobStatsStore):
                 operation="get_batch_node_stats",
             ) from e
 
+    def try_store_node_stats(self, *, job_run_id: str, node_stats: NodeStats, lock_timeout: float) -> bool:
+        """Store node statistics with a caller-supplied lock timeout.
+
+        Unlike ``store_node_stats``, this method returns ``False`` instead of
+        raising when the lock cannot be acquired within ``lock_timeout`` seconds.
+        Intended for best-effort intermediate progress writes that must not
+        block the caller (e.g. periodic live-progress updates from inside a
+        running operator).
+
+        Args:
+            job_run_id: Job run identifier
+            node_stats: Node statistics to store
+            lock_timeout: Maximum seconds to wait for the lock. Pass a small
+                value (e.g. 0.5) to make the call non-blocking in practice.
+
+        Returns:
+            ``True`` if the write succeeded, ``False`` if the lock was busy.
+
+        Raises:
+            JobStatsStoreWriteException: On any error other than a lock timeout.
+        """
+        lock_path = self._get_node_stats_lock_path(job_run_id=job_run_id)
+        lock = FileLock(str(lock_path))
+
+        try:
+            with lock.acquire(timeout=lock_timeout):
+                node_id = node_stats.id
+                batch_id = getattr(node_stats, "batch_id", None)
+                path = self._get_node_stats_path(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)
+                self._atomic_write_json(path=path, data=node_stats.model_dump(by_alias=True))
+                logger.debug("try_store_node_stats: wrote node_id=%s job_run_id=%s", node_id, job_run_id)
+                return True
+        except Timeout:
+            return False
+        except Exception as e:
+            logger.error("try_store_node_stats failed: %s", e)
+            raise JobStatsStoreWriteException(
+                message=f"Failed to store node stats: {e}",
+                job_run_id=job_run_id,
+                operation="try_store_node_stats",
+            ) from e
+
     def bulk_store_node_stats(self, *, job_run_id: str, node_stats_list: list[NodeStats]) -> None:
         """
         Bulk store multiple node statistics (micro-batching) with file-level locking.
