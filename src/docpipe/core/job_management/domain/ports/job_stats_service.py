@@ -490,6 +490,7 @@ class JobStatsService(ABC):
         self,
         *,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[Any]:
@@ -497,7 +498,8 @@ class JobStatsService(ABC):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (bulk lookup, uses IN clause in SQL stores)
             status: Optional filter by status
             limit: Maximum number of results
 

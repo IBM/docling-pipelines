@@ -8,6 +8,7 @@ import pytest
 from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.core.assets.flows.domain.models.flow import Flow
+from docpipe.core.job_management.domain.ports.job_stats_service import JobStatsService
 from docpipe.core.projects.domain.models.project import Project
 from docpipe.core.projects.domain.ports.project_repository import ProjectRepository
 
@@ -87,6 +88,12 @@ def mock_flow_service() -> Mock:
         "total_failed": 0,
     }
     return svc
+
+
+@pytest.fixture
+def mock_job_stats_service() -> Mock:
+    """Mock JobStatsService for ProjectService instantiation."""
+    return Mock(spec=JobStatsService)
 
 
 @pytest.fixture

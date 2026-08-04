@@ -735,6 +735,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
     def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -742,7 +743,8 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (adds WHERE job_id IN (...) clause)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -761,6 +763,11 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                 if job_id:
                     where_clauses.append("job_id = ?")
                     params.append(job_id)
+
+                if job_ids:
+                    placeholders = ", ".join("?" * len(job_ids))
+                    where_clauses.append(f"job_id IN ({placeholders})")
+                    params.extend(job_ids)
 
                 if status:
                     status_value = status.value if isinstance(status, ExecutionStatus) else status

@@ -145,6 +145,7 @@ class FlowService(AssetService[Flow]):
         name_filter: str | None = None,
         tags_filter: list[str] | None = None,
         is_hidden: bool | None = None,
+        container_id: str | None = None,
     ) -> list[Flow]:
         """Apply filters to a list of flows.
 
@@ -153,6 +154,7 @@ class FlowService(AssetService[Flow]):
             name_filter: Optional case-insensitive name substring filter
             tags_filter: Optional list of tags (flow must have at least one)
             is_hidden: Optional filter by hidden status
+            container_id: Optional filter by container_id (project/space UUID)
 
         Returns:
             List[Flow]: Filtered list of flows
@@ -166,6 +168,9 @@ class FlowService(AssetService[Flow]):
 
         if is_hidden is not None:
             flows = [f for f in flows if f.is_hidden == is_hidden]
+
+        if container_id is not None:
+            flows = [f for f in flows if f.container_id == container_id]
 
         return flows
 
@@ -474,6 +479,7 @@ class FlowService(AssetService[Flow]):
         name_filter: str | None = None,
         tags_filter: list[str] | None = None,
         is_hidden: bool | None = None,
+        container_id: str | None = None,
     ) -> list[Flow]:
         """List flows with pagination and filtering.
 
@@ -543,7 +549,7 @@ class FlowService(AssetService[Flow]):
             raise FlowInvalidDataException("limit must be > 0", field_name="limit")
 
         all_flows = self._repository.find_all()
-        filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden)
+        filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden, container_id)
         paginated_flows = filtered_flows[skip : skip + limit]
 
         logger.info(
@@ -559,6 +565,7 @@ class FlowService(AssetService[Flow]):
         name_filter: str | None = None,
         tags_filter: list[str] | None = None,
         is_hidden: bool | None = None,
+        container_id: str | None = None,
     ) -> int:
         """Count flows matching filters.
 
@@ -609,7 +616,7 @@ class FlowService(AssetService[Flow]):
             - Useful for pagination UI (total pages, showing X of Y, etc.)
         """
         all_flows = self._repository.find_all()
-        filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden)
+        filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden, container_id)
 
         logger.info("Counted %d flows (filtered from %d)", len(filtered_flows), len(all_flows))
         return len(filtered_flows)

@@ -381,6 +381,7 @@ class PostgresJobStatsStore(JobStatsStore):
     def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -388,7 +389,8 @@ class PostgresJobStatsStore(JobStatsStore):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (adds WHERE job_id IN (...) clause)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -400,7 +402,10 @@ class PostgresJobStatsStore(JobStatsStore):
         """
         try:
             job_run_stats_list = self._job_stats_dal.list_job_runs(
-                job_id=job_id, status=status.value if isinstance(status, ExecutionStatus) else status, limit=limit
+                job_id=job_id,
+                job_ids=job_ids,
+                status=status.value if isinstance(status, ExecutionStatus) else status,
+                limit=limit,
             )
 
             return [PostgresModelMapper.to_domain_job_stats(db_model=jrs) for jrs in job_run_stats_list]

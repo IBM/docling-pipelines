@@ -339,7 +339,9 @@ class TestPostgresJobStatsStoreInterface:
             # Verify result
             assert len(result) == 1
             assert result[0].job_id == test_job_id
-            store._job_stats_dal.list_job_runs.assert_called_once_with(job_id=test_job_id, status=None, limit=10)
+            store._job_stats_dal.list_job_runs.assert_called_once_with(
+                job_id=test_job_id, job_ids=None, status=None, limit=10
+            )
 
 
 class TestPostgresJobStatsStoreInjectedModel:

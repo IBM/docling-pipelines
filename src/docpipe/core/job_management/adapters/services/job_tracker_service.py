@@ -1258,6 +1258,7 @@ class JobTrackerService(JobStatsService):
         self,
         *,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -1265,7 +1266,8 @@ class JobTrackerService(JobStatsService):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (bulk lookup, uses IN clause in SQL stores)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -1273,7 +1275,7 @@ class JobTrackerService(JobStatsService):
             List of JobStats matching filters (sorted by start_time desc)
         """
         # Delegate to store
-        return self.job_stats_store.list_job_runs(job_id=job_id, status=status, limit=limit)
+        return self.job_stats_store.list_job_runs(job_id=job_id, job_ids=job_ids, status=status, limit=limit)
 
     def get_formatted_job_stats(self, *, job_run_id: str, include_logs: bool = False) -> Any:
         """

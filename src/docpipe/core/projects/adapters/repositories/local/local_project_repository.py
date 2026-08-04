@@ -1,15 +1,17 @@
 """LocalProjectRepository — filesystem-based project persistence adapter.
 
-Stores each project as a single JSON file:
-    ~/Documents/pipeline/projects/{project_id}.json
+Stores each project as a single JSON file under the configured base directory:
+    <base_dir>/{project_id}.json
 
-Named 'local' to contrast with future remote/cloud adapters
-(e.g. CamsProjectRepository, PostgresProjectRepository), consistent with how
-LocalAssetRepository is named in the assets layer. The underlying file
-format being JSON is an implementation detail, not a differentiator.
+Default base directory: ~/Documents/pipeline/projects
 
-Uses filelock for write-safety under concurrent access, matching the
-pattern used by JsonJobStatsStore.
+Implements the ProjectRepository port for the projects bounded context.
+This adapter is used when DOCPIPE_STORAGE_BACKEND is not set or is set to
+the default local filesystem mode. Swap it for a different adapter
+(e.g. PostgresProjectRepository) without touching any application or domain code.
+
+File writes are protected by a per-project filelock to prevent data corruption
+under concurrent API requests.
 """
 
 import json
@@ -27,16 +29,17 @@ _DEFAULT_PROJECTS_PATH = Path.home() / "Documents" / "pipeline" / "projects"
 
 
 class LocalProjectRepository(ProjectRepository):
-    """Filesystem-based project repository.
+    """Concrete ProjectRepository that persists projects as JSON files.
 
-    One JSON file per project stored at:
-        ~/Documents/pipeline/projects/{project_id}.json
+    Each project is stored as a single file named {project_id}.json in the
+    base directory. Operations on different projects are independent — only
+    the specific file for a given project_id is read or written per call.
 
     Args:
-        base_dir: Optional custom storage directory. Defaults to
-            ~/Documents/pipeline/projects, consistent with how
-            LocalAssetRepository stores flows under
-            ~/Documents/pipeline/assets.
+        base_dir: Directory in which to store project JSON files.
+            Defaults to ~/Documents/pipeline/projects. Override via the
+            DOCPIPE_CONFIG_PATH YAML (projects.base_dir) or the
+            DOCPIPE_PROJECTS_BASE_DIR environment variable.
     """
 
     def __init__(self, *, base_dir: str | Path | None = None) -> None:
@@ -58,7 +61,7 @@ class LocalProjectRepository(ProjectRepository):
         """Write project to disk as JSON. Acquires a file-level lock."""
         path = self._file_path(project.project_id)
         with FileLock(self._lock_path(project.project_id)):
-            path.write_text(project.to_json(), encoding="utf-8")
+            path.write_text(json.dumps(project.to_dict(), indent=2), encoding="utf-8")
         logger.info("Saved project %s (%s)", project.project_id, project.name)
         return project
 
@@ -69,7 +72,7 @@ class LocalProjectRepository(ProjectRepository):
             return None
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            return Project.from_storage_dict(data)
+            return Project.from_dict(data=data)
         except Exception as exc:
             logger.warning("Failed to load project %s: %s", project_id, exc)
             return None
@@ -80,7 +83,7 @@ class LocalProjectRepository(ProjectRepository):
         for path in self._base_dir.glob("*.json"):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
-                projects.append(Project.from_storage_dict(data))
+                projects.append(Project.from_dict(data=data))
             except Exception as exc:
                 logger.warning("Skipping unreadable project file %s: %s", path, exc)
         return projects

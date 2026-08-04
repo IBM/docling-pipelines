@@ -129,6 +129,7 @@ class JobStatsDAL:
         self,
         *,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: str | None = None,
         limit: int = 100,
     ):
@@ -136,7 +137,8 @@ class JobStatsDAL:
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (adds WHERE job_id IN (...) clause)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -152,6 +154,8 @@ class JobStatsDAL:
 
             if job_id:
                 query = query.where(model.job_id == job_id)
+            if job_ids:
+                query = query.where(model.job_id.in_(job_ids))  # type: ignore[attr-defined]
             if status:
                 query = query.where(model.status == status)
 

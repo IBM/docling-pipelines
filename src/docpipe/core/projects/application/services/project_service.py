@@ -3,14 +3,19 @@
 Coordinates between:
 - ProjectRepository: persistence of project entities
 - AssetRepository[Flow]: read-only access for flow_count computation
-- FlowService: cascade-deletion of flows on project delete
+- FlowService: cascade-deletion of flows on project delete, and project-scoped flow listing
+- JobStatsService: job run summary enrichment for project flow lists
 """
 
+from collections import defaultdict
 from typing import ClassVar
 
 from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.core.assets.flows.domain.models.flow import Flow
+from docpipe.core.job_management.domain.models.job_stats import JobStats
+from docpipe.core.job_management.domain.ports.job_stats_service import JobStatsService
+from docpipe.core.projects.domain.models.flow_job_run_summary import FlowJobRunSummary
 from docpipe.core.projects.domain.models.project import Project
 from docpipe.core.projects.domain.ports.project_repository import ProjectRepository
 from docpipe.exceptions.docpipe_exceptions import (
@@ -21,6 +26,8 @@ from docpipe.exceptions.docpipe_exceptions import (
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
+
+_MAX_BULK_RUN_FETCH = 10_000
 
 
 class ProjectService:
@@ -53,10 +60,12 @@ class ProjectService:
         repository: ProjectRepository,
         flow_repository: AssetRepository[Flow],
         flow_service: FlowService,
+        job_stats_service: JobStatsService,
     ) -> None:
         self._repository = repository
         self._flow_repository = flow_repository
         self._flow_service = flow_service
+        self._job_stats_service = job_stats_service
         logger.debug("ProjectService initialised with repository: %s", type(repository).__name__)
 
     # ── CREATE ───────────────────────────────────────────────────────
@@ -256,6 +265,144 @@ class ProjectService:
 
         self._repository.delete(project_id=project_id)
         logger.info("Deleted project %s", project_id)
+
+    # ── PROJECT FLOWS — GET /api/v1/projects/{project_id}/flows ───────
+
+    def get_project_flows_with_run_summary(
+        self,
+        *,
+        project_id: str,
+        skip: int = 0,
+        limit: int = 100,
+        name_filter: str | None = None,
+        tags_filter: list[str] | None = None,
+        is_hidden: bool | None = None,
+    ) -> tuple[list[Flow], dict[str, FlowJobRunSummary], int]:
+        """Return a paginated page of project flows, their run summaries, and the total count.
+
+        Makes exactly three downstream calls:
+          1. Existence check via repository.exists() — cheap 404 guard.
+          2. FlowService.list_flows(container_id=project_id, ...) — scoped,
+             paginated, filtered flow list.
+          3. FlowService.count_flows(container_id=project_id, ...) — total count
+             for the same filters, used to populate PaginatedProjectFlowResponse.total_count.
+          4. _build_job_run_summaries(flow_ids=[...]) — single scoped
+             JobStatsService call that produces one FlowJobRunSummary per flow
+             that has at least one run.
+
+        Returning flows, summaries, and total_count together eliminates the need
+        for a separate count_project_flows() call in the route handler and ensures
+        both the page and its count are computed from the same filter state.
+
+        Args:
+            project_id: UUID of the project. Raises ProjectNotFoundException if absent.
+            skip: Number of flows to skip (pagination offset).
+            limit: Maximum number of flows to return per page.
+            name_filter: Case-insensitive substring match on flow name.
+                         None returns flows with any name.
+            tags_filter: Returns flows that carry at least one of these tags.
+                         None returns flows with any tags.
+            is_hidden: True/False filters by visibility; None returns all.
+
+        Returns:
+            Tuple of:
+              - list[Flow]: Paginated, filtered flows belonging to the project.
+              - dict[str, FlowJobRunSummary]: Summaries keyed by flow_id.
+                Flows with no recorded runs are absent from this dict.
+              - int: Total number of flows matching all filters (before pagination).
+
+        Raises:
+            ProjectNotFoundException: If project_id does not correspond to a
+                                      known project.
+        """
+        if not self._repository.exists(project_id=project_id):
+            raise ProjectNotFoundException(project_id=project_id)
+
+        flows = self._flow_service.list_flows(
+            skip=skip,
+            limit=limit,
+            name_filter=name_filter,
+            tags_filter=tags_filter,
+            is_hidden=is_hidden,
+            container_id=project_id,
+        )
+        total = self._flow_service.count_flows(
+            name_filter=name_filter,
+            tags_filter=tags_filter,
+            is_hidden=is_hidden,
+            container_id=project_id,
+        )
+        summaries = self._build_job_run_summaries(flow_ids=[f.flow_id for f in flows if f.flow_id])
+        logger.debug(
+            "Listed %d flows for project %s with %d run summaries (total=%d)",
+            len(flows),
+            project_id,
+            len(summaries),
+            total,
+        )
+        return flows, summaries, total
+
+    def _build_job_run_summaries(
+        self,
+        *,
+        flow_ids: list[str],
+    ) -> dict[str, FlowJobRunSummary]:
+        """Aggregate job run statistics for a set of flows using a single scoped fetch.
+
+        Implementation notes:
+        - Issues one JobStatsService.list_job_runs(job_ids=flow_ids) call scoped
+          to the flows on this page.  SQL stores translate this to a WHERE job_id
+          IN (...) clause; the JSON store skips non-matching files during iteration.
+          This avoids both full-table scans and N+1 per-flow queries.
+        - In the standard OSS execution path, JobStats.job_id is set to the flow's
+          UUID.  Grouping by run.job_id therefore partitions runs by flow.
+        - Runs within each group are sorted by start_time descending; the first
+          entry becomes the "latest run" fields on FlowJobRunSummary.
+        - Flows absent from the returned dict had no matching runs and will have
+          job_run_summary=None in the API response.
+        - _MAX_BULK_RUN_FETCH caps the result set.  A warning is logged if the
+          limit is hit, as summaries would then be incomplete for high-volume flows.
+
+        Args:
+            flow_ids: UUIDs of the flows whose run stats are needed.  An empty
+                      list short-circuits immediately and returns {}.
+
+        Returns:
+            Dict mapping flow_id (str) → FlowJobRunSummary.
+            Only flows that have at least one recorded JobStats entry appear.
+        """
+        if not flow_ids:
+            return {}
+
+        all_runs = self._job_stats_service.list_job_runs(
+            job_ids=flow_ids,
+            limit=_MAX_BULK_RUN_FETCH,
+        )
+        if len(all_runs) == _MAX_BULK_RUN_FETCH:
+            logger.warning(
+                "Job run fetch hit limit of %d; summaries for project flows may be incomplete",
+                _MAX_BULK_RUN_FETCH,
+            )
+
+        runs_by_flow: dict[str, list[JobStats]] = defaultdict(list)
+        for run in all_runs:
+            runs_by_flow[run.job_id].append(run)
+
+        summaries: dict[str, FlowJobRunSummary] = {}
+        for flow_id, runs in runs_by_flow.items():
+            sorted_runs = sorted(runs, key=lambda r: r.start_time, reverse=True)
+            latest = sorted_runs[0]
+            status_counts: dict[str, int] = defaultdict(int)
+            for r in runs:
+                status_counts[str(r.status)] += 1
+            summaries[flow_id] = FlowJobRunSummary(
+                total_runs=len(runs),
+                last_run_id=latest.job_run_id,
+                last_run_status=str(latest.status),
+                last_run_start_time=latest.start_time if latest.start_time is not None else None,
+                status_counts=dict(status_counts),
+            )
+        return summaries
 
     # ── PRIVATE ──────────────────────────────────────────────────────
 

@@ -98,17 +98,20 @@ def get_project_service(
     repository: ProjectRepository = Depends(get_project_repository),  # noqa: B008
     flow_repository: AssetRepository[Flow] = Depends(get_flow_repository),  # noqa: B008
     flow_service: FlowService = Depends(get_flow_service),  # noqa: B008
+    job_stats_service: JobStatsService = Depends(get_job_stats_service),  # noqa: B008
 ) -> ProjectService:
     """
     Dependency provider for ProjectService.
 
-    Injects the ProjectRepository, flow repository (for flow_count reads), and
-    FlowService (for cascade-deletion of flows on project delete).
+    Injects the ProjectRepository, flow repository (for flow_count reads),
+    FlowService (for cascade-deletion of flows on project delete), and
+    JobStatsService (for job run summary enrichment on project flow lists).
 
     Args:
         repository: Injected ProjectRepository singleton
         flow_repository: Injected flow repository singleton (read-only)
         flow_service: Injected FlowService for cascade-deleting linked flows
+        job_stats_service: Injected JobStatsService for job run summary enrichment
 
     Returns:
         ProjectService: Service instance with injected dependencies
@@ -117,6 +120,7 @@ def get_project_service(
         repository=repository,
         flow_repository=flow_repository,
         flow_service=flow_service,
+        job_stats_service=job_stats_service,
     )
 
 

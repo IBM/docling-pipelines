@@ -640,6 +640,7 @@ class JsonJobStatsStore(JobStatsStore):
     def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -647,7 +648,8 @@ class JsonJobStatsStore(JobStatsStore):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (evaluated as set membership during iteration)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -658,6 +660,8 @@ class JsonJobStatsStore(JobStatsStore):
 
         if not self._base_dir.exists():
             return result
+
+        job_ids_set = set(job_ids) if job_ids else None
 
         try:
             # Iterate through all job run directories
@@ -685,6 +689,8 @@ class JsonJobStatsStore(JobStatsStore):
 
                             # Apply filters
                             if job_id and job_stats.job_id != job_id:
+                                continue
+                            if job_ids_set and job_stats.job_id not in job_ids_set:
                                 continue
                             if status and job_stats.status != status:
                                 continue

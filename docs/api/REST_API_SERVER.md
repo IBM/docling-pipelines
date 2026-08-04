@@ -66,6 +66,7 @@ Manage projects that group and organise flows. Deleting a project cascade-delete
 | `PUT` | `/api/v1/projects/{project_id}` | Fully replace a project |
 | `PATCH` | `/api/v1/projects/{project_id}` | Partially update a project |
 | `DELETE` | `/api/v1/projects/{project_id}` | Delete a project (cascade-deletes linked flows) |
+| `GET` | `/api/v1/projects/{project_id}/flows` | List flows belonging to a project, each enriched with aggregated job run status |
 
 ### Flows — `/api/v1/flows`
 

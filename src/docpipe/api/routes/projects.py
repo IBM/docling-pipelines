@@ -7,6 +7,7 @@ GET    /api/v1/projects/{project_id}     — get project by ID
 PUT    /api/v1/projects/{project_id}     — full replace
 PATCH  /api/v1/projects/{project_id}     — partial update
 DELETE /api/v1/projects/{project_id}     — delete project
+GET    /api/v1/projects/{project_id}/flows — list flows for a project with job run status
 
 Error handling is delegated to the service layer which raises typed
 DocpipeException subclasses; the existing docpipe_exception_handler
@@ -32,6 +33,7 @@ from docpipe.api.dto.field_definitions import (
     UUID_LENGTH,
     UUID_PATTERN,
 )
+from docpipe.api.dto.mappers.project_flow_mapper import ProjectFlowMapper
 from docpipe.api.dto.mappers.project_mapper import ProjectMapper
 from docpipe.api.dto.project_dto import (
     PaginatedProjectResponse,
@@ -40,6 +42,7 @@ from docpipe.api.dto.project_dto import (
     ProjectResponse,
     ProjectUpdateRequest,
 )
+from docpipe.api.dto.project_flow_dto import PaginatedProjectFlowResponse
 from docpipe.core.projects.application.services.project_service import ProjectService
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -340,3 +343,129 @@ async def delete_project(
     service.delete_project(project_id=project_id)
     logger.info("Deleted project %s", project_id)
     return
+
+
+@projects_router.get(
+    "/{project_id}/flows",
+    response_model=PaginatedProjectFlowResponse,
+    operation_id="list_project_flows",
+    summary="List flows belonging to a project with job run status",
+    responses={
+        200: {
+            "description": "Flows retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "flows": [
+                            {
+                                "flow_id": "7159c2c9-6058-4dad-98a4-e47bb1359ddc",
+                                "name": "Invoice Processing Pipeline",
+                                "tags": ["invoice", "extraction"],
+                                "created_on": "2026-04-01T11:00:00Z",
+                                "modified_on": "2026-04-01T12:30:00Z",
+                                "created_by": "user@example.com",
+                                "modified_by": "user@example.com",
+                                "job_run_summary": {
+                                    "total_runs": 3,
+                                    "last_run_id": "9a5137a7-15d5-431c-b945-b147a3043694",
+                                    "last_run_status": "Completed",
+                                    "last_run_start_time": 1743508800000,
+                                    "status_counts": {"Completed": 3},
+                                },
+                            },
+                            {
+                                "flow_id": "b4346642-a642-4b33-83e8-4ad9816d45c4",
+                                "name": "Customer Support Triage",
+                                "tags": ["support"],
+                                "created_on": "2026-04-02T09:00:00Z",
+                                "modified_on": "2026-04-02T09:00:00Z",
+                                "created_by": "user@example.com",
+                                "modified_by": None,
+                                "job_run_summary": None,
+                            },
+                        ],
+                        "total_count": 2,
+                        "offset": 0,
+                        "limit": 100,
+                        "first": "http://localhost:8080/api/v1/projects/142a2ba2-d67a-439e-95e6-b718d715e1dd/flows?offset=0&limit=100",
+                        "next": None,
+                        "prev": None,
+                    }
+                }
+            },
+        },
+        400: {"model": ErrorResponse, "description": "Invalid project_id or query parameters"},
+        404: {"model": ErrorResponse, "description": "Project not found"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+)
+async def list_project_flows(
+    request: Request,
+    project_id: ProjectIdPath,
+    service: ProjectServiceDep,
+    limit: _LimitQuery = 100,
+    offset: _OffsetQuery = 0,
+    name: _NameQuery = None,
+    tags: _TagsQuery = None,
+    is_hidden: bool | None = Query(default=None, description="Filter by visibility status"),
+) -> PaginatedProjectFlowResponse:
+    """List flows belonging to a project, each enriched with aggregated job run status.
+
+    Delegates entirely to ProjectService — never calls FlowService or
+    JobStatsService directly.  The service performs two queries (flows scoped by
+    container_id=project_id, then a bulk job-run fetch) and returns both; this
+    handler zips them via ProjectFlowMapper.to_dto() and wraps the result in
+    PaginatedProjectFlowResponse with offset/limit navigation links.
+
+    Each flow item (ProjectFlowSummary) contains identity, provenance, tags, and
+    job_run_summary.  job_run_summary is null for flows never executed.
+    The flow definition payload is intentionally excluded.
+
+    Args:
+        request:    FastAPI request — used to derive the base URL for pagination links.
+        project_id: UUID of the project whose flows are listed.  400 if the value
+                    is not a valid UUID; 404 if the project does not exist.
+        service:    Injected ProjectService instance.
+        limit:      Maximum number of flows to return (default 100).
+        offset:     Number of flows to skip for pagination (default 0).
+        name:       Case-insensitive substring filter on flow name.
+        tags:       Any-match tag filter — flows must carry at least one of these tags.
+        is_hidden:  Visibility filter; None returns flows regardless of visibility.
+
+    Returns:
+        PaginatedProjectFlowResponse with flows, total_count, offset, limit,
+        and first/next/prev navigation links.
+    """
+    logger.debug("Listing flows for project %s (offset=%d limit=%d)", project_id, offset, limit)
+
+    flows, summaries, total = service.get_project_flows_with_run_summary(
+        project_id=project_id,
+        skip=offset,
+        limit=limit,
+        name_filter=name,
+        tags_filter=tags,
+        is_hidden=is_hidden,
+    )
+
+    first_link = str(request.url.include_query_params(offset=0, limit=limit))
+    next_link = (
+        str(request.url.include_query_params(offset=offset + limit, limit=limit))
+        if (offset + len(flows)) < total
+        else None
+    )
+    prev_link = (
+        str(request.url.include_query_params(offset=max(0, offset - limit), limit=limit)) if offset > 0 else None
+    )
+
+    logger.info("Listed %d flows for project %s (total=%d)", len(flows), project_id, total)
+    return PaginatedProjectFlowResponse(
+        flows=[
+            ProjectFlowMapper.to_dto(flow=f, summary=summaries.get(f.flow_id) if f.flow_id else None) for f in flows
+        ],
+        total_count=total,
+        offset=offset,
+        limit=limit,
+        first=first_link,
+        next=next_link,
+        prev=prev_link,
+    )
