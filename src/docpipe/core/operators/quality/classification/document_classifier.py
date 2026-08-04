@@ -20,6 +20,7 @@ from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.operators.quality.classification.classification_service import ClassificationService
 from docpipe.core.operators.quality.classification.domain.models import ClassificationRequest
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
@@ -518,7 +519,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                             )
                         continue
 
-                    future = executor.submit(
+                    future = submit_task_with_context_propagation(
+                        executor,
                         OperatorUtils.extract_content,
                         task["doc_name"],
                         task["binary_content"],
@@ -594,7 +596,9 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     classifications[idx] = None
                     continue
 
-                future = executor.submit(self._classify_document, content=content, doc_name=doc_name)
+                future = submit_task_with_context_propagation(
+                    executor, self._classify_document, content=content, doc_name=doc_name
+                )
 
                 future_to_task[future] = {"idx": idx, "doc_name": doc_name, "doc_id": doc_id}
 

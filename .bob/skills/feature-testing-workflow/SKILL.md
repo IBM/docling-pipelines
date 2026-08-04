@@ -100,7 +100,17 @@ Before executing this workflow, ensure:
 - Determine appropriate test fixtures from `tests/fixtures/`
 - Define expected outcomes and validation criteria
 
-### 2. Create Test Flow
+### 2. Run existing unit tests first
+Before building an integration test flow, run the unit test suites for all operators and services touched by the change. This is faster, requires no external services, and confirms the change didn't break existing behaviour.
+
+```bash
+source .venv/bin/activate
+pytest tests/unit/operators/<operator_dir>/ -v
+```
+
+If tests fail, stop and fix them before proceeding to integration testing. If tests pass, record the result (suite name, count passed/failed) — this becomes the primary testing evidence in the PR description. Only proceed to the integration flow in steps 3–7 when the feature requires end-to-end validation that unit tests cannot provide (e.g. verifying data written to OpenSearch, testing the full ingest→extract→embed pipeline with real documents).
+
+### 3. Create Test Flow
 Create a JSON flow file with:
 - **Operator 1**: IngestLocalOperator pointing to test fixtures
 - **Operator 2**: ExtractOperator with Docling configuration
@@ -162,7 +172,7 @@ Create a JSON flow file with:
 }
 ```
 
-### 3. Confirm Flow with User
+### 4. Confirm Flow with User
 **CRITICAL:** Always present the flow configuration to the user for review before execution.
 
 Ask:
@@ -172,7 +182,7 @@ Ask:
 
 **Do NOT execute without explicit user confirmation.**
 
-### 4. Execute Test Flow
+### 5. Execute Test Flow
 Run:
 ```bash
 source .venv/bin/activate
@@ -185,7 +195,7 @@ Monitor execution for:
 - Integration service connectivity
 - Error messages or warnings
 
-### 5. Validate Results
+### 6. Validate Results
 Check for:
 - **Successful completion** of all operators
 - **Data in OpenSearch** (if using VectorDBOperator)
@@ -193,7 +203,7 @@ Check for:
 - **No errors** in logs
 - **Performance metrics** within acceptable ranges
 
-### 6. Document Findings
+### 7. Document Findings
 Record:
 - Test flow location
 - Execution results (success/failure)

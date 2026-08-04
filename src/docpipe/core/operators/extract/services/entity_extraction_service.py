@@ -21,6 +21,7 @@ from docpipe.core.operators.extract.ports.outbound.entity_extraction import Enti
 from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.document_class_utils import DocumentClassUtils
+from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
@@ -359,7 +360,8 @@ class EntityExtractionService:
                 schema_to_use = schema_templates[doc_type]
                 logger.debug("Using schema for document type '%s' for %s", doc_type, task["doc_name"])
         content = task.get("content", task.get("binary_content", b""))
-        return executor.submit(
+        return submit_task_with_context_propagation(
+            executor,
             self.adapter.extract_entities_single,
             doc_id=task["doc_id"],
             doc_name=task["doc_name"],

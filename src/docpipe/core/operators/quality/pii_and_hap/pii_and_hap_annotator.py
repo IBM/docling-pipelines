@@ -37,6 +37,7 @@ from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_helper import (
 )
 from docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
 from docpipe.utils.core.strings import split_text_into_chunks
+from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -585,7 +586,8 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
             )
 
             futures = [
-                executor.submit(self._perform_detections_for_single_document, doc_info) for doc_info in doc_info_list
+                submit_task_with_context_propagation(executor, self._perform_detections_for_single_document, doc_info)
+                for doc_info in doc_info_list
             ]
 
             _ = [future.result() for future in futures]

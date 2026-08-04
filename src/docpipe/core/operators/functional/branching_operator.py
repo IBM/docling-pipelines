@@ -153,6 +153,7 @@ class BranchingOperator(AbstractOperator):
         metadata["branches"][branch_id] = {
             "result_index": idx,
             "processed_docs": filtered_table.num_rows,
+            "docs_filtered": total_docs - filtered_table.num_rows,
             "skipped_docs_count": len(skipped_docs),
             "failed_docs_count": len(failed_docs),
         }
