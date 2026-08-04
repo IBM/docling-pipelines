@@ -5,7 +5,7 @@ description = "This repository contains the docpipe operators."
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "accelerate==1.13.0",
-    "aiohttp==3.14.1",
+    "aiohttp==3.14.3",
     "alembic==1.18.4",
     "azure-storage-blob==12.28.0",
     "babel==2.18.0",
@@ -165,6 +165,9 @@ override-dependencies = [
     "httplib2>=0.32.0",
     # CVE-2026-49476, CVE-2026-49477: Security fix for soupsieve vulnerability (transitive via beautifulsoup4).
     "soupsieve>=2.8.4",
+    # CVE-2026-69247 (GHSA-g6cj-pr64-35w5): Security fix for cryptography Bleichenbacher oracle vulnerability
+    # (transitive via python-jose[cryptography], pyopenssl).
+    "cryptography>=50.0.0",
 ]
 
 [tool.ruff]
