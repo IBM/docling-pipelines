@@ -67,7 +67,7 @@ After the containers are running, load the test users into LDAP:
 ldapadd -x -H ldap://localhost:1389 -D "cn=admin,dc=abc,dc=com" -w changeme -f abc_users.ldif
 ```
 
-**Note:** 
+**Note:**
 - Replace `changeme` with your `LDAP_ADMIN_PASSWORD` from `.env` if you changed it
 - If you see "Already exists" errors, the users are already loaded. This is normal if you've run these commands before.
 
@@ -196,7 +196,7 @@ ldapsearch -x -H ldap://localhost:1389 -D "cn=admin,dc=abc,dc=com" -w changeme \
 
 **Issue**: Port conflicts (8085, 1389, or 1636 already in use)
 
-**Solution**: 
+**Solution**:
 - Check what's using the ports: `lsof -i :8085` or `netstat -an | grep 8085`
 - Stop conflicting services or modify ports in `docker-compose.yml`
 
@@ -277,15 +277,27 @@ Once LDAP is running, configure docpipe to use it for authentication:
 
 1. Set environment variables in your docpipe `.env`:
    ```
-   LDAP_SERVER=localhost
-   LDAP_PORT=1389
+   LDAP_SERVER=ldap://localhost:1389
    LDAP_BASE_DN=dc=abc,dc=com
    LDAP_USER_DN=ou=People,dc=abc,dc=com
    LDAP_BIND_DN=cn=admin,dc=abc,dc=com
    LDAP_BIND_PASSWORD=changeme
    ```
 
-2. Test authentication with docpipe API using test user credentials
+2. Test authentication with the docpipe API:
+   ```bash
+   curl -X POST http://localhost:8080/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username": "abaker", "password": "changeme"}' # pragma: allowlist secret
+   ```
+   A successful response returns a JWT token:
+   ```json
+   {"access_token": "<jwt-token>", "token_type": "bearer"}
+   ```
+   Use the token in subsequent requests:
+   ```bash
+   curl -H "Authorization: Bearer <jwt-token>" http://localhost:8080/api/v1/flows
+   ```
 
 3. For OAuth2 integration, refer to [OAuth2 Authentication Guide](../../docs/api/OAUTH2_AUTHENTICATION.md)
 
