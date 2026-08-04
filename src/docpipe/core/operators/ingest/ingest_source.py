@@ -946,6 +946,7 @@ class IngestSourceOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Config.VALID_VALUES: sorted(ADAPTER_MANAGED_PROVIDERS | {"custom"}),
                 },
                 CONNECTION_PARAMS_KEY: {
                     OperatorConstants.Columns.NAME: "Connection Parameters",
