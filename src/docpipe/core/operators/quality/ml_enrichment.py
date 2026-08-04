@@ -97,12 +97,6 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
             }
         )
 
-        # Add any custom column name mappings from config
-        for feature_key in DEFAULT_TEXT_ENRICHER_DICT.keys():
-            column_name_key = f"{feature_key}_column_name"
-            if column_name_key in config:
-                config[column_name_key] = config[column_name_key]
-
         # Call both parent constructors
         super().__init__(config=config)
 

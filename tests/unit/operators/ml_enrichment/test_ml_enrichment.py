@@ -6,6 +6,7 @@ import pyarrow as pa
 import pytest
 
 from docpipe.core.constants import Metrics, OperatorConstants
+from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.operators.quality.ml_enrichment import (
     ENRICHMENT_COLUMNS_KEY,
     FEATURES_ADDED_KEY,
@@ -114,7 +115,7 @@ Numbers: 1234567890""",
 
     def test_operator_initialization_with_defaults(self):
         """Test operator initialization with default values"""
-        config = {}
+        config: dict[str, str] = {}
         operator = MLEnrichmentOperator(config)
 
         assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
@@ -480,8 +481,8 @@ Numbers: 1234567890""",
         """Test validation when required document column is missing"""
         operator = MLEnrichmentOperator(sample_config)
 
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["lang_name", "doc_id", "name"]  # Missing 'content'
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
@@ -495,8 +496,8 @@ Numbers: 1234567890""",
         """Test validation when language column is missing (should warn, not error)"""
         operator = MLEnrichmentOperator(sample_config)
 
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["content", "doc_id", "name"]  # Missing 'lang_name'
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
@@ -510,8 +511,8 @@ Numbers: 1234567890""",
         """Test validation when output columns already exist"""
         operator = MLEnrichmentOperator(sample_config)
 
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         # Include some output columns that would be generated
         available_features = ["content", "lang_name", "ml_num_words", "ml_num_chars"]
 
@@ -526,8 +527,8 @@ Numbers: 1234567890""",
         """Test validation when all required columns are present"""
         operator = MLEnrichmentOperator(sample_config)
 
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         available_features = ["content", "lang_name", "doc_id", "name"]
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
@@ -542,6 +543,131 @@ Numbers: 1234567890""",
         assert isinstance(required, list)
         assert len(required) == 1
         assert OperatorConstants.Columns.DOC_COLUMN_DEFAULT in required
+
+    # ------------------------------------------------------------------
+    # Validation-phase short-circuit (validating_flow=True)
+    # ------------------------------------------------------------------
+
+    def test_validate_skips_field_checks_when_validating_flow(self, sample_config):
+        """When validating_flow=True, should_validate_field returns False and
+        both the lang-column and output-conflict checks are skipped."""
+        sample_config[DocpipeConstants.VALIDATING_FLOW] = True
+        operator = MLEnrichmentOperator(sample_config)
+
+        errors: list[str] = []
+        warnings: list[str] = []
+        # Missing lang column and pre-existing output column — neither should warn
+        available_features = ["content"]
+
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        assert len(errors) == 0
+        assert len(warnings) == 0
+
+    # ------------------------------------------------------------------
+    # transform() — error-column path (COMPLETED_WITH_ERRORS)
+    # ------------------------------------------------------------------
+
+    def test_transform_records_failed_docs_via_error_column(self):
+        """When error_column_name is set and the output table has error values,
+        failed documents must be recorded and node status set to COMPLETED_WITH_ERRORS."""
+        from unittest.mock import patch
+
+        from docpipe.core.constants.constants import ExecutionStatus
+
+        config = {
+            OperatorConstants.Columns.DOC_COLUMN: "content",
+            OperatorConstants.Columns.LANG_COLUMN: "lang_name",
+            OperatorConstants.Columns.OUTPUT_COLUMN_PREFIX: "",
+            OperatorConstants.Columns.ERROR_COLUMN_NAME: "enrichment_error",
+        }
+
+        operator = MLEnrichmentOperator(config)
+
+        input_table = pa.Table.from_arrays(
+            [
+                pa.array(["id1", "id2"]),
+                pa.array(["text one", "text two"]),
+                pa.array(["en", "en"]),
+                pa.array(["a.txt", "b.txt"]),
+            ],
+            names=[OperatorConstants.Columns.ID, "content", "lang_name", OperatorConstants.Columns.NAME],
+        )
+
+        # Build a fake output table that already contains the error column
+        output_with_errors = input_table.append_column("enrichment_error", pa.array(["parse failed", None]))
+
+        with patch.object(
+            type(operator).__mro__[1],  # EnrichmentTransform
+            "transform",
+            return_value=([output_with_errors], {}),
+        ):
+            _result_tables, metadata = operator.transform(input_table)
+
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
+
+    def test_transform_completed_with_errors_status_set_once_per_failing_row(self):
+        """NODE_STATUS is set for every failing row; final value must be COMPLETED_WITH_ERRORS."""
+        from unittest.mock import patch
+
+        from docpipe.core.constants.constants import ExecutionStatus
+
+        config = {
+            OperatorConstants.Columns.DOC_COLUMN: "content",
+            OperatorConstants.Columns.ERROR_COLUMN_NAME: "err",
+        }
+        operator = MLEnrichmentOperator(config)
+
+        input_table = pa.Table.from_arrays(
+            [
+                pa.array(["x1", "x2", "x3"]),
+                pa.array(["a", "b", "c"]),
+                pa.array(["f1", "f2", "f3"]),
+            ],
+            names=[OperatorConstants.Columns.ID, "content", OperatorConstants.Columns.NAME],
+        )
+        output_with_errors = input_table.append_column("err", pa.array(["err_a", "err_b", None]))
+
+        with patch.object(
+            type(operator).__mro__[1],
+            "transform",
+            return_value=([output_with_errors], {}),
+        ):
+            _, metadata = operator.transform(input_table)
+
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 2
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
+
+    # ------------------------------------------------------------------
+    # transform() — empty output_tables guard
+    # ------------------------------------------------------------------
+
+    def test_transform_handles_empty_output_tables_from_parent(self):
+        """If EnrichmentTransform.transform returns an empty list, metadata rows
+        and enrichment-column counts must default to 0 without raising."""
+        from unittest.mock import patch
+
+        config = {
+            OperatorConstants.Columns.DOC_COLUMN: "content",
+        }
+        operator = MLEnrichmentOperator(config)
+
+        input_table = pa.Table.from_arrays(
+            [pa.array(["id1"]), pa.array(["hello"]), pa.array(["file.txt"])],
+            names=[OperatorConstants.Columns.ID, "content", OperatorConstants.Columns.NAME],
+        )
+
+        with patch.object(
+            type(operator).__mro__[1],
+            "transform",
+            return_value=([], {}),
+        ):
+            _result_tables, metadata = operator.transform(input_table)
+
+        assert metadata[Metrics.External.PROCESSED_ROWS] == 0
+        assert metadata[FEATURES_ADDED_KEY] == 0
+        assert metadata[ENRICHMENT_COLUMNS_KEY] == []
 
 
 if __name__ == "__main__":

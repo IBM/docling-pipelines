@@ -17,6 +17,7 @@ Supports configurable batch data transfer:
 
 import asyncio
 import base64
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -385,10 +386,8 @@ class WorkPoolAdapter(BatchExecutionPort):
         finally:
             # Cancel poller and wait for clean shutdown
             poller_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await poller_task  # Wait for cancellation to complete
-            except asyncio.CancelledError:
-                pass  # Expected when cancelling
 
             # CRITICAL: If we break due to failure (or an exception occurs),
             # we must cancel ALL background tasks that haven't finished yet.
