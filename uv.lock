@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = "==3.12.*"
 resolution-markers = [
     "sys_platform == 'darwin'",
@@ -11,7 +11,6 @@ required-markers = [
 
 [manifest]
 overrides = [
-    { name = "cryptography", specifier = ">=50.0.0" },
     { name = "httplib2", specifier = ">=0.32.0" },
     { name = "numpy", specifier = ">=1.25.0,<2.0.0" },
     { name = "rapidocr", specifier = "==3.9.0" },
@@ -1210,6 +1209,7 @@ dependencies = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "box-sdk-gen" },
+    { name = "cryptography" },
     { name = "data-prep-toolkit-transforms" },
     { name = "datatrove" },
     { name = "datefinder" },
@@ -1340,6 +1340,7 @@ requires-dist = [
     { name = "boto3", specifier = "==1.42.55" },
     { name = "botocore", specifier = "==1.42.55" },
     { name = "box-sdk-gen", specifier = "==1.17.0" },
+    { name = "cryptography", specifier = ">=50.0.0" },
     { name = "data-prep-toolkit-transforms", specifier = "==1.1.8" },
     { name = "datatrove", specifier = "==0.3.0" },
     { name = "datefinder", specifier = "==1.0.0" },
@@ -1408,7 +1409,7 @@ requires-dist = [
     { name = "pyiceberg-core", specifier = "==0.7.0" },
     { name = "pyjwt", specifier = "==2.13.0" },
     { name = "pymilvus", specifier = "==2.6.13" },
-    { name = "pyopenssl", specifier = "==26.3.0" },
+    { name = "pyopenssl", specifier = ">=26.3.0" },
     { name = "pypdf", specifier = "==6.14.2" },
     { name = "pyphen", specifier = "==0.17.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.0.2" },
@@ -1417,7 +1418,7 @@ requires-dist = [
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = "==3.15.1" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = "==3.6.1" },
     { name = "python-dotenv", specifier = "==1.2.2" },
-    { name = "python-jose", extras = ["cryptography"], specifier = "==3.5.0" },
+    { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
     { name = "python-ldap", specifier = "==3.4.5" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "requests", specifier = "==2.32.5" },
@@ -4849,15 +4850,15 @@ wheels = [
 
 [[package]]
 name = "pyopenssl"
-version = "26.3.0"
+version = "26.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/b7/da07bae88f5a9506b4def6f2f4903cf4c3b8831e560dba8fa18ca08f758f/pyopenssl-26.3.0.tar.gz", hash = "sha256:589de7fae1c9ea670d18422ed00fc04da787bbde8e1454aea872aa57b49ad341", size = 182024, upload-time = "2026-06-12T20:28:07.458Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/e8/7325d258199b159eb2c03fe32107533e2832e70e63f4fb88a6aa00023201/pyopenssl-26.4.0.tar.gz", hash = "sha256:28dfcce0162b9211413e26dfbfdf1d24317fbeba18fc93c12400a1856b2a0bc7", size = 182046, upload-time = "2026-08-01T19:50:50.512Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/18/1dd71c9b43192ab83f1d531ad6002dc81108ac36c475f79fb7a295abe2f4/pyopenssl-26.3.0-py3-none-any.whl", hash = "sha256:46367f8f66b92271e6d218da9c87607e1ef5a0bc5c8dea5bb3db82f395c385a3", size = 56008, upload-time = "2026-06-12T20:28:05.999Z" },
+    { url = "https://files.pythonhosted.org/packages/51/ad/2cf6d3fa2fae5c79e1ed9960c0d42badd0f94d81dd12b50604cdc839e648/pyopenssl-26.4.0-py3-none-any.whl", hash = "sha256:f0eb0cb2d581d3ad2b9c489468485e7f2ab6727d08401bcf9d824c3caddf3c1c", size = 56026, upload-time = "2026-08-01T19:50:48.94Z" },
 ]
 
 [[package]]
