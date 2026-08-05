@@ -257,6 +257,7 @@ docker-compose -f docker-compose.docling-serve.yml up -d
   - `accurate`: High accuracy (slower)
   - `fast`: Fast processing (less accurate)
 - **Image Export Options**:
+  - `placeholder`: Replace images with a placeholder (default)
   - `embedded`: Embed images in output
   - `referenced`: Reference images by path
   - `none`: Skip image export
@@ -568,12 +569,13 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `text_extraction.provider_config.timeout`              | integer  | `300`                     | Request timeout in seconds                                    |
 | `text_extraction.provider_config.poll_interval`        | integer  | `2`                       | Polling interval in seconds                                   |
 | `text_extraction.provider_config.max_retries`          | integer  | `3`                       | Maximum retry attempts                                        |
+| `text_extraction.provider_config.additional_formats`   | array    | `[]`                      | Additional output formats beyond markdown (e.g., `["html", "json", "text", "doctags", "doclang"]`) |
 | `text_extraction.provider_config.do_ocr`               | boolean  | `true`                    | Enable OCR processing                                         |
-| `text_extraction.provider_config.ocr_engine`           | string   | `"easyocr"`               | OCR engine: `"easyocr"` or `"tesseract"`                      |
+| `text_extraction.provider_config.ocr_engine`           | string   | `null`                    | OCR engine: `"easyocr"` or `"tesseract"`. Not set by default; the Docling Serve instance uses its own default. |
 | `text_extraction.provider_config.ocr_languages`        | array    | `null`                    | List of OCR languages (e.g., `["en", "es"]`)                  |
 | `text_extraction.provider_config.pdf_backend`          | string   | `"dlparse_v2"`            | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
-| `text_extraction.provider_config.table_mode`           | string   | `"fast"`                  | Table extraction mode: `"accurate"` or `"fast"`               |
-| `text_extraction.provider_config.image_export_mode`    | string   | `"placeholder"`           | Image export mode: `"embedded"`, `"referenced"`, or `"none"`  |
+| `text_extraction.provider_config.table_mode`           | string   | `null`                    | Table extraction mode: `"accurate"` or `"fast"`. Not set by default; the Docling Serve instance uses its own default. |
+| `text_extraction.provider_config.image_export_mode`    | string   | `"placeholder"`           | Image export mode: `"placeholder"`, `"embedded"`, `"referenced"`, or `"none"` |
 
 ### Docling Entity Extraction Parameters
 
@@ -583,30 +585,37 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 
 **vlm_pipeline Structure:**
 
-For inline models (HuggingFace):
+Only `"inline"` models (HuggingFace) are supported. API model types are not supported by Docling's `DocumentExtractor`; use `entity_extraction.provider: "litellm"` for API-based extraction instead.
+
+Example (all fields shown with their defaults; only `repo_id` is required):
 ```json
 {
   "model_type": "inline",
-  "model_name": "ibm-granite/granite-3.0-8b-instruct",
-  "backend": "transformers|vllm|mlx",
-  "device": "cuda|cpu|mps",
-  "quantization": "4bit|8bit|none",
-  "temperature": 0.0,
-  "max_new_tokens": 2048
+  "inline_model": {
+    "repo_id": "numind/NuExtract-2.0-2B",
+    "inference_framework": "transformers",
+    "scale": 2.0,
+    "temperature": 0.0,
+    "max_new_tokens": 4096,
+    "load_in_8bit": true,
+    "torch_dtype": "bfloat16",
+    "prompt": "",
+    "response_format": "markdown"
+  }
 }
 ```
 
-For API models (Ollama, vLLM, OpenAI-compatible):
-```json
-{
-  "model_type": "api",
-  "model_name": "ibm/granite-docling:258m",
-  "api_url": "http://localhost:11434/v1/chat/completions",
-  "api_key": "optional-api-key",  # pragma: allowlist secret
-  "temperature": 0.0,
-  "max_new_tokens": 2048
-}
-```
+| `inline_model` field      | Type    | Default        | Description                                                              |
+|---------------------------|---------|----------------|--------------------------------------------------------------------------|
+| `repo_id`                 | string  | required       | HuggingFace repository ID (e.g., `"numind/NuExtract-2.0-2B"`)           |
+| `inference_framework`     | string  | `"transformers"` | Inference backend: `"transformers"`, `"vllm"`, or `"mlx"`             |
+| `scale`                   | float   | `2.0`          | Image scale factor for rendering                                         |
+| `temperature`             | float   | `0.0`          | Sampling temperature                                                     |
+| `max_new_tokens`          | integer | `4096`         | Maximum tokens to generate                                               |
+| `load_in_8bit`            | boolean | `false`        | Load model in 8-bit quantization                                         |
+| `torch_dtype`             | string  | `"bfloat16"`   | Torch data type: `"bfloat16"`, `"float16"`, `"float32"`                 |
+| `prompt`                  | string  | `""`           | Custom prompt override (leave empty to use model default)                |
+| `response_format`         | string  | `"markdown"`   | Expected response format from the model                                  |
 
 ### LiteLLM Entity Extraction Parameters
 
