@@ -1223,3 +1223,161 @@ def test_sanitize_doc_id_for_filename_multiple_slashes():
 
     assert result == "path__to___file.txt"
     assert "/" not in result
+
+
+# ---------------------------------------------------------------------------
+# DocumentConverter singleton cache tests
+# ---------------------------------------------------------------------------
+
+
+class TestConverterCacheKey:
+    """Tests for _converter_cache_key()."""
+
+    def test_none_config_returns_default(self):
+        from docpipe.core.operators.operator_utils import _converter_cache_key
+
+        assert _converter_cache_key(None) == "default"
+
+    def test_empty_dict_returns_default(self):
+        from docpipe.core.operators.operator_utils import _converter_cache_key
+
+        assert _converter_cache_key({}) == "default"
+
+    def test_no_format_options_key_returns_default(self):
+        from docpipe.core.operators.operator_utils import _converter_cache_key
+
+        assert _converter_cache_key({"other_key": "value"}) == "default"
+
+    def test_format_options_produces_hex_digest(self):
+        from unittest.mock import MagicMock
+
+        from docpipe.core.operators.operator_utils import _converter_cache_key
+
+        opt = MagicMock()
+        opt.__class__.__name__ = "PdfFormatOption"
+        key = _converter_cache_key({"format_options": {"pdf": opt}})
+        assert key != "default"
+        assert len(key) == 32  # MD5 hex digest length
+
+    def test_same_config_produces_same_key(self):
+        from unittest.mock import MagicMock
+
+        from docpipe.core.operators.operator_utils import _converter_cache_key
+
+        opt = MagicMock()
+        opt.__class__.__name__ = "PdfFormatOption"
+        config = {"format_options": {"pdf": opt}}
+        assert _converter_cache_key(config) == _converter_cache_key(config)
+
+    def test_different_option_types_produce_different_keys(self):
+        from unittest.mock import MagicMock
+
+        from docpipe.core.operators.operator_utils import _converter_cache_key
+
+        opt_pdf = MagicMock()
+        opt_pdf.__class__.__name__ = "PdfFormatOption"
+        opt_vlm = MagicMock()
+        opt_vlm.__class__.__name__ = "VlmPipelineOption"
+
+        key_pdf = _converter_cache_key({"format_options": {"pdf": opt_pdf}})
+        key_vlm = _converter_cache_key({"format_options": {"pdf": opt_vlm}})
+        assert key_pdf != key_vlm
+
+
+class TestGetOrCreateConverter:
+    """Tests for _get_or_create_converter() — cache-miss, cache-hit, multi-config isolation."""
+
+    def setup_method(self):
+        """Clear the module-level cache before each test for isolation."""
+        import docpipe.core.operators.operator_utils as ou
+
+        ou._converter_cache.clear()
+
+    def teardown_method(self):
+        """Clear the cache after each test so other tests start clean."""
+        import docpipe.core.operators.operator_utils as ou
+
+        ou._converter_cache.clear()
+
+    def test_cache_miss_creates_default_converter(self):
+        """First call with no config constructs a new DocumentConverter."""
+        from unittest.mock import MagicMock, patch
+
+        mock_converter = MagicMock()
+        with patch(
+            "docpipe.core.operators.operator_utils.DocumentConverter",
+            return_value=mock_converter,
+        ) as mock_cls:
+            from docpipe.core.operators.operator_utils import _get_or_create_converter
+
+            result = _get_or_create_converter(None)
+
+        mock_cls.assert_called_once_with()
+        assert result is mock_converter
+
+    def test_cache_hit_does_not_recreate_converter(self):
+        """Second call with the same config returns the cached instance without constructing again."""
+        from unittest.mock import MagicMock, patch
+
+        mock_converter = MagicMock()
+        with patch(
+            "docpipe.core.operators.operator_utils.DocumentConverter",
+            return_value=mock_converter,
+        ) as mock_cls:
+            from docpipe.core.operators.operator_utils import _get_or_create_converter
+
+            first = _get_or_create_converter(None)
+            second = _get_or_create_converter(None)
+
+        # DocumentConverter constructed exactly once
+        assert mock_cls.call_count == 1
+        assert first is second
+
+    def test_different_configs_produce_independent_cache_entries(self):
+        """Distinct format_options produce separate cache entries."""
+        from unittest.mock import MagicMock, patch
+
+        mock_default = MagicMock(name="default_converter")
+        mock_vlm = MagicMock(name="vlm_converter")
+        side_effects = [mock_default, mock_vlm]
+
+        opt = MagicMock()
+        opt.__class__.__name__ = "VlmPipelineOption"
+        vlm_config = {"format_options": {"pdf": opt}}
+
+        with patch(
+            "docpipe.core.operators.operator_utils.DocumentConverter",
+            side_effect=side_effects,
+        ) as mock_cls:
+            from docpipe.core.operators.operator_utils import _get_or_create_converter
+
+            default_converter = _get_or_create_converter(None)
+            vlm_converter = _get_or_create_converter(vlm_config)
+
+        assert mock_cls.call_count == 2
+        assert default_converter is mock_default
+        assert vlm_converter is mock_vlm
+        assert default_converter is not vlm_converter
+
+    def test_cache_populates_for_config_with_format_options(self):
+        """A converter built with format_options is stored under the correct key."""
+        from unittest.mock import MagicMock, patch
+
+        import docpipe.core.operators.operator_utils as ou
+
+        opt = MagicMock()
+        opt.__class__.__name__ = "PdfFormatOption"
+        config = {"format_options": {"pdf": opt}}
+
+        mock_converter = MagicMock()
+        with patch(
+            "docpipe.core.operators.operator_utils.DocumentConverter",
+            return_value=mock_converter,
+        ):
+            from docpipe.core.operators.operator_utils import _converter_cache_key, _get_or_create_converter
+
+            _get_or_create_converter(config)
+            expected_key = _converter_cache_key(config)
+
+        assert expected_key in ou._converter_cache
+        assert ou._converter_cache[expected_key] is mock_converter

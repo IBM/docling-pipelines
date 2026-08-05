@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,63 @@ status_codes = {
 
 hash_functions = hashlib.sha3_512
 logger = get_logger()
+
+# ---------------------------------------------------------------------------
+# DocumentConverter singleton cache
+# ---------------------------------------------------------------------------
+# Keyed by a stable MD5 hash of the format_options configuration so that
+# different pipeline configs (e.g. standard vs VLM) map to separate entries.
+# Access must be protected by _converter_cache_lock (double-checked locking).
+_converter_cache: dict[str, "DocumentConverter"] = {}
+_converter_cache_lock = threading.Lock()
+
+
+def _converter_cache_key(converter_config: dict | None) -> str:
+    """Return a stable MD5 cache key for a given DocumentConverter configuration.
+
+    Args:
+        converter_config: Dict optionally containing ``format_options`` key.
+
+    Returns:
+        A hex digest string that uniquely identifies the configuration.
+    """
+    if not converter_config or "format_options" not in converter_config:
+        return "default"
+    key_parts = {str(fmt): type(opt).__name__ for fmt, opt in converter_config["format_options"].items()}
+    return hashlib.md5(json.dumps(key_parts, sort_keys=True).encode()).hexdigest()
+
+
+def _get_or_create_converter(converter_config: dict | None) -> "DocumentConverter":
+    """Return a cached DocumentConverter, constructing it once per unique config.
+
+    Uses double-checked locking so that only one thread constructs a converter
+    for a given config, even under high concurrency.
+
+    Args:
+        converter_config: Optional dict with ``format_options`` for the converter.
+
+    Returns:
+        A ``DocumentConverter`` instance (shared across threads).
+    """
+    cache_key = _converter_cache_key(converter_config)
+
+    # Fast path — cache hit without acquiring the lock
+    if cache_key in _converter_cache:
+        logger.debug("DocumentConverter cache hit for key: %s", cache_key)
+        return _converter_cache[cache_key]
+
+    # Slow path — acquire lock and construct if still absent
+    with _converter_cache_lock:
+        if cache_key not in _converter_cache:
+            logger.info("Creating DocumentConverter for cache key: %s", cache_key)
+            if converter_config and "format_options" in converter_config:
+                _converter_cache[cache_key] = DocumentConverter(format_options=converter_config["format_options"])
+            else:
+                _converter_cache[cache_key] = DocumentConverter()
+        else:
+            logger.debug("DocumentConverter cache hit (after lock) for key: %s", cache_key)
+
+    return _converter_cache[cache_key]
 
 
 def sanitize_doc_id_for_filename(doc_id: str) -> str:
@@ -1204,11 +1262,9 @@ class OperatorUtils:
                     additional_formats=additional_formats,
                 )
 
-            # Initialize converter with optional configuration
-            if converter_config and "format_options" in converter_config:
-                converter = DocumentConverter(format_options=converter_config["format_options"])
-            else:
-                converter = DocumentConverter()
+            # Retrieve (or lazily construct) the singleton converter for this config.
+            # Model weights are loaded once per unique format_options per process.
+            converter = _get_or_create_converter(converter_config)
 
             # Create DocumentStream from binary content (no temporary file needed)
             audio_video_suffixes = {f".{extension.lower()}" for extension in FormatToExtensions[InputFormat.AUDIO]}
