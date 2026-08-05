@@ -38,9 +38,9 @@ class TestSanitizeSensitiveData:
         }
         result = sanitize_sensitive_data(data)
 
-        assert result["Authorization"] == "[REDACTED]"
-        assert result["api_key"] == "[REDACTED]"
-        assert result["token"] == "[REDACTED]"
+        assert result["Authorization"] == "***REDACTED***"
+        assert result["api_key"] == "***REDACTED***"
+        assert result["token"] == "***REDACTED***"
         assert result["other"] == "safe_value"
 
     def test_redact_passwords_in_dict(self):
@@ -52,8 +52,8 @@ class TestSanitizeSensitiveData:
         }
         result = sanitize_sensitive_data(data)
 
-        assert result["password"] == "[REDACTED]"
-        assert result["user_password"] == "[REDACTED]"
+        assert result["password"] == "***REDACTED***"
+        assert result["user_password"] == "***REDACTED***"
         assert result["username"] == "john"
 
     def test_redact_bearer_tokens_in_strings(self):
@@ -62,7 +62,7 @@ class TestSanitizeSensitiveData:
         data = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
         result = sanitize_sensitive_data(data)
 
-        assert "Bearer [REDACTED]" in result
+        assert "Bearer ***REDACTED***" in result
         assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result
 
     def test_redact_basic_auth_in_strings(self):
@@ -71,13 +71,33 @@ class TestSanitizeSensitiveData:
         data = "Basic dXNlcjpwYXNzd29yZA=="
         result = sanitize_sensitive_data(data)
 
-        assert "Basic [REDACTED]" in result
+        assert "Basic ***REDACTED***" in result
         assert "dXNlcjpwYXNzd29yZA==" not in result
 
     def test_handle_none_input(self):
         """Test handling None input."""
         result = sanitize_sensitive_data(None)
         assert result is None
+
+    def test_redact_list_items(self):
+        """Test that list items are sanitized recursively."""
+        data = [
+            {"token": "secret123"},  # pragma: allowlist secret
+            {"safe": "value"},
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        ]
+        result = sanitize_sensitive_data(data)
+
+        assert result[0]["token"] == "***REDACTED***"
+        assert result[1]["safe"] == "value"
+        assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result[2]
+
+    def test_custom_redact_value(self):
+        """Test custom redact_value parameter."""
+        data = {"password": "secret123"}  # pragma: allowlist secret
+        result = sanitize_sensitive_data(data, redact_value="<hidden>")
+
+        assert result["password"] == "<hidden>"
 
     def test_nested_dict_sanitization(self):
         """Test nested dictionary sanitization."""
@@ -93,9 +113,9 @@ class TestSanitizeSensitiveData:
         }
         result = sanitize_sensitive_data(data)
 
-        assert result["config"]["api_key"] == "[REDACTED]"
+        assert result["config"]["api_key"] == "***REDACTED***"
         assert result["config"]["endpoint"] == "https://api.example.com"
-        assert result["headers"]["Authorization"] == "[REDACTED]"
+        assert result["headers"]["Authorization"] == "***REDACTED***"
         assert result["headers"]["Content-Type"] == "application/json"
 
     def test_string_with_multiple_patterns(self):
@@ -106,7 +126,7 @@ class TestSanitizeSensitiveData:
         assert "abc123" not in result
         assert "secret" not in result
         assert "xyz789" not in result
-        assert "[REDACTED]" in result
+        assert "***REDACTED***" in result
 
 
 class TestRestClientConfig:

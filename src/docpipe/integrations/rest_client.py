@@ -9,7 +9,6 @@ This module provides a flexible REST client that supports:
 - Configurable timeouts and SSL verification
 """
 
-import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -26,8 +25,9 @@ from tenacity import (
 
 from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
 from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.utils.infrastructure.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RestMethod(Enum):
@@ -70,23 +70,22 @@ METHOD_CONFIG: dict[RestMethod, MethodConfig] = {
 }
 
 
-def sanitize_sensitive_data(data: dict[str, Any] | str) -> dict[str, Any] | str:
+def sanitize_sensitive_data(data: Any, redact_value: str = "***REDACTED***") -> Any:
     """
     Redact sensitive information from data for logging purposes.
 
     Args:
-        data: Dictionary or string containing potentially sensitive data
+        data: Dictionary, list, string, or other value containing potentially sensitive data
+        redact_value: The string to substitute for redacted values (default: "***REDACTED***")
 
     Returns:
         Sanitized copy of the data with sensitive values redacted
     """
-    redacted = "[REDACTED]"
-
-    # Patterns to match sensitive data
+    # Patterns to match sensitive data in strings
     sensitive_patterns = [
-        (r'(token|password|api[_-]?key|secret|authorization)[\s:=]+["\']?([^"\'\s,}]+)', r"\1: " + redacted),
-        (r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer " + redacted),
-        (r"Basic\s+[A-Za-z0-9+/]+=*", "Basic " + redacted),
+        (r'(token|password|api[_-]?key|secret|authorization)[\s:=]+["\']?([^"\'\s,}]+)', r"\1: " + redact_value),
+        (r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer " + redact_value),
+        (r"Basic\s+[A-Za-z0-9+/]+=*", "Basic " + redact_value),
     ]
 
     if isinstance(data, dict):
@@ -94,14 +93,13 @@ def sanitize_sensitive_data(data: dict[str, Any] | str) -> dict[str, Any] | str:
         for key, value in data.items():
             # Check if key contains sensitive keywords
             if any(keyword in key.lower() for keyword in ["token", "password", "key", "secret", "auth"]):
-                sanitized[key] = redacted
-            elif isinstance(value, dict):
-                sanitized[key] = sanitize_sensitive_data(value)
-            elif isinstance(value, str):
-                sanitized[key] = sanitize_sensitive_data(value)
+                sanitized[key] = redact_value
             else:
-                sanitized[key] = value
+                sanitized[key] = sanitize_sensitive_data(value, redact_value)
         return sanitized
+
+    if isinstance(data, list):
+        return [sanitize_sensitive_data(item, redact_value) for item in data]
 
     if isinstance(data, str):
         sanitized_str = data
@@ -241,7 +239,7 @@ class RestClient:
         try:
             return response.json()
         except ValueError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
+            logger.error("Failed to parse JSON response: %s", e)
             raise ExternalServiceError(
                 message=f"Response is not valid JSON: {e!s}",
                 error_code=ErrorCode.INVALID_RESPONSE,
@@ -282,15 +280,17 @@ class RestClient:
             expected_status_codes = METHOD_CONFIG[method]["expected_status_codes"]
 
         # Log request details (don't log file content)
-        log_msg = f"Making {method.value} multipart request to {url}"
         if params:
-            log_msg += f" with params: {sanitize_sensitive_data(params)}"
-        logger.info(log_msg)
-        logger.debug(f"Headers: {sanitize_sensitive_data(request_headers)}")
+            logger.info(
+                "Making %s multipart request to %s with params: %s", method.value, url, sanitize_sensitive_data(params)
+            )
+        else:
+            logger.info("Making %s multipart request to %s", method.value, url)
+        logger.debug("Headers: %s", sanitize_sensitive_data(request_headers))
         if data:
-            logger.debug(f"Form data: {sanitize_sensitive_data(data)}")
+            logger.debug("Form data: %s", sanitize_sensitive_data(data))
         if files:
-            logger.debug(f"Files: {list(files.keys())}")
+            logger.debug("Files: %s", list(files.keys()))
 
         try:
             response = self.session.request(
@@ -305,8 +305,8 @@ class RestClient:
             )
 
             # Log response
-            logger.info(f"Response status: {response.status_code}")
-            logger.debug(f"Response headers: {dict(response.headers)}")
+            logger.info("Response status: %s", response.status_code)
+            logger.debug("Response headers: %s", dict(response.headers))
 
             # Check status code
             if expected_status_codes and response.status_code not in expected_status_codes:
@@ -322,14 +322,14 @@ class RestClient:
             try:
                 return response.json()
             except ValueError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
+                logger.error("Failed to parse JSON response: %s", e)
                 raise ExternalServiceError(
                     message=f"Response is not valid JSON: {e!s}",
                     error_code=ErrorCode.INVALID_RESPONSE,
                 ) from e
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e!s}")
+            logger.error("Request failed: %s", e)
             raise ExternalServiceError(
                 message=f"REST request failed: {e!s}",
                 error_code=ErrorCode.CONNECTION_ERROR,
@@ -370,15 +370,15 @@ class RestClient:
             expected_status_codes = METHOD_CONFIG[method]["expected_status_codes"]
 
         # Log request details with sanitized data
-        log_msg = f"Making {method.value} request to {url}"
         if params:
-            log_msg += f" with params: {sanitize_sensitive_data(params)}"
-        logger.info(log_msg)
-        logger.debug(f"Headers: {sanitize_sensitive_data(request_headers)}")
+            logger.info("Making %s request to %s with params: %s", method.value, url, sanitize_sensitive_data(params))
+        else:
+            logger.info("Making %s request to %s", method.value, url)
+        logger.debug("Headers: %s", sanitize_sensitive_data(request_headers))
         if json_data:
-            logger.debug(f"Body: {sanitize_sensitive_data(json_data)}")
+            logger.debug("Body: %s", sanitize_sensitive_data(json_data))
         if form_data:
-            logger.debug(f"Form data: {sanitize_sensitive_data(form_data)}")
+            logger.debug("Form data: %s", sanitize_sensitive_data(form_data))
 
         try:
             response = self._call_rest_method(
@@ -391,8 +391,8 @@ class RestClient:
             )
 
             # Log response
-            logger.info(f"Response status: {response.status_code}")
-            logger.debug(f"Response headers: {dict(response.headers)}")
+            logger.info("Response status: %s", response.status_code)
+            logger.debug("Response headers: %s", dict(response.headers))
 
             # Check status code
             if expected_status_codes and response.status_code not in expected_status_codes:
@@ -407,7 +407,7 @@ class RestClient:
             return response
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e!s}")
+            logger.error("Request failed: %s", e)
             raise ExternalServiceError(
                 message=f"REST request failed: {e!s}",
                 error_code=ErrorCode.CONNECTION_ERROR,
