@@ -22,6 +22,7 @@ maintainers = [
     { name = "Manish Soni", email = "Manish.Soni3@ibm.com" },
     { name = "Docling Pipeline Team", email = "docling_pipeline_team-dg@ibm.com" },
 ]
+
 dependencies = [
     "accelerate==1.13.0",
     "aiohttp==3.14.1",
@@ -142,6 +143,12 @@ vlm_asr = [
 [project.scripts]
 docling-pipelines-api = "docpipe.api.main:app"
 docling-pipelines = "docpipe.cli.docpipe_cli:main"
+
+[project.urls]
+Homepage = "https://github.com/IBM/docling-pipelines"
+Documentation = "https://github.com/IBM/docling-pipelines/blob/main/docs/README.md"
+Source = "https://github.com/IBM/docling-pipelines"
+"Bug Tracker" = "https://github.com/IBM/docling-pipelines/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/docpipe"]

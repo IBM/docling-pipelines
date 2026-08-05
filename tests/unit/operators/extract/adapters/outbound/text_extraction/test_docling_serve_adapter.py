@@ -622,3 +622,187 @@ class TestDoclingServeAdapter:
         config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
         adapter = DoclingServeAdapter(config=config)
         assert adapter.verify_ssl is True
+
+
+class TestDoclingServeAdapterV2Response:
+    """Tests for _extract_from_v2_response (docling-serve artifact URI format)."""
+
+    @pytest.fixture
+    def adapter(self):
+        return DoclingServeAdapter(
+            config={
+                "docling_serve_config": {
+                    "base_url": "http://localhost:5001",
+                    "timeout": 300,
+                    "poll_interval": 2,
+                    "max_retries": 3,
+                }
+            }
+        )
+
+    @pytest.fixture
+    def adapter_with_html(self):
+        return DoclingServeAdapter(
+            config={
+                "docling_serve_config": {
+                    "base_url": "http://localhost:5001",
+                    "timeout": 300,
+                    "poll_interval": 2,
+                    "max_retries": 3,
+                },
+                "additional_formats": ["html"],
+            }
+        )
+
+    def _make_v2_result(self, artifacts: list) -> dict:
+        return {"documents": [{"artifacts": artifacts}]}
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_response_extracts_markdown(self, mock_get, adapter):
+        """Happy path: markdown artifact URI is fetched and stored as doc content."""
+        mock_get.return_value = MagicMock(text="# Hello World", raise_for_status=MagicMock())
+        result = {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "https://s3/md"}]}]}
+
+        result_dict, formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
+
+        mock_get.assert_called_once_with("https://s3/md", timeout=60, verify=True)
+        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Hello World"
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN in formats
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_response_fetches_additional_format(self, mock_get, adapter_with_html):
+        """Additional format (html) URI is fetched and stored in the correct column."""
+        mock_get.side_effect = [
+            MagicMock(text="# Markdown", raise_for_status=MagicMock()),
+            MagicMock(text="<h1>HTML</h1>", raise_for_status=MagicMock()),
+        ]
+        result = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "markdown", "uri": "https://s3/md"},
+                        {"artifact_type": "html", "uri": "https://s3/html"},
+                    ]
+                }
+            ]
+        }
+
+        result_dict, formats = adapter_with_html._extract_from_v2_response(result=result, file_path="doc.pdf")
+
+        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
+        assert result_dict[OperatorConstants.Columns.CONTENT_HTML] == "<h1>HTML</h1>"
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_HTML in formats
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_response_skips_unrequested_formats(self, mock_get, adapter):
+        """Artifacts for formats not requested are not fetched."""
+        mock_get.return_value = MagicMock(text="# Markdown", raise_for_status=MagicMock())
+        result = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "markdown", "uri": "https://s3/md"},
+                        {"artifact_type": "html", "uri": "https://s3/html"},
+                    ]
+                }
+            ]
+        }
+
+        _result_dict, formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
+
+        # html was not requested — only one fetch for markdown
+        assert mock_get.call_count == 1
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_HTML not in formats
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_response_skips_artifact_with_missing_uri(self, mock_get, adapter):
+        """Artifact with empty URI is skipped gracefully without crashing."""
+        result = {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": ""}]}]}
+
+        result_dict, _formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
+
+        mock_get.assert_not_called()
+        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_response_failed_fetch_is_skipped(self, mock_get, adapter):
+        """A fetch error on an artifact is logged and skipped; extraction continues."""
+        mock_get.side_effect = Exception("network error")
+        result = {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "https://s3/md"}]}]}
+
+        result_dict, _formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
+
+        assert result_dict[OperatorConstants.Extraction.SUCCESS] is True
+        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
+
+    def test_v2_response_empty_documents_list(self, adapter):
+        """v2 response with no documents returns empty markdown content."""
+        result = {"documents": []}
+
+        result_dict, formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
+
+        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN in formats
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_response_json_artifact_is_serialised(self, mock_get, adapter):
+        """JSON artifact content is parsed and re-serialised to a string."""
+        adapter_json = DoclingServeAdapter(
+            config={
+                "docling_serve_config": {"base_url": "http://localhost:5001"},
+                "additional_formats": ["json"],
+            }
+        )
+        mock_get.side_effect = [
+            MagicMock(text="# Markdown", raise_for_status=MagicMock()),
+            MagicMock(text='{"key": "value"}', raise_for_status=MagicMock()),
+        ]
+        result = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "markdown", "uri": "https://s3/md"},
+                        {"artifact_type": "json", "uri": "https://s3/json"},
+                    ]
+                }
+            ]
+        }
+
+        result_dict, _formats = adapter_json._extract_from_v2_response(result=result, file_path="doc.pdf")
+
+        json_col = OperatorConstants.Columns.CONTENT_JSON
+        assert json_col in result_dict
+        import json
+
+        parsed = json.loads(result_dict[json_col])
+        assert parsed["key"] == "value"
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_routes_to_v2_when_documents_key_present(self, mock_client_class, adapter):
+        """extract_single_document uses v2 path when 'documents' key is in the API response."""
+        mock_instance = MagicMock()
+        mock_instance.process_document.return_value = {
+            "documents": [{"artifacts": [{"artifact_type": "markdown", "uri": ""}]}],
+            "processing_time": 1.0,
+        }
+        mock_client_class.return_value = mock_instance
+
+        result = adapter.extract_single_document(file_path="doc.pdf", binary_content=b"data")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Metadata.METADATA in result
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_routes_to_v1_when_document_key_present(self, mock_client_class, adapter):
+        """extract_single_document uses v1 path when 'document' key is in the API response."""
+        mock_instance = MagicMock()
+        mock_instance.process_document.return_value = {
+            "document": {"md_content": "# V1 Content"},
+            "processing_time": 0.8,
+        }
+        mock_client_class.return_value = mock_instance
+
+        result = adapter.extract_single_document(file_path="doc.pdf", binary_content=b"data")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# V1 Content"

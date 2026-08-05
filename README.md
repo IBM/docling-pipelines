@@ -66,38 +66,38 @@ Log verbosity is controlled via `DS_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`).
 
 ## Documentation
 
-Check out the full [documentation](docs/README.md) for installation, flow authoring, operator reference, and more:
+Check out the full [documentation](https://github.com/IBM/docling-pipelines/blob/main/docs/README.md) for installation, flow authoring, operator reference, and more:
 
-- [Quick Start Guide](QUICKSTART.md) — first pipeline in under 5 minutes
-- [Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) — complete setup with Ollama, OpenSearch, and flow examples
-- [Flow Authoring Format](docs/guides/FLOW_AUTHORING_FORMAT.md) — declarative flow authoring
-- [Operator Reference](docs/reference/OPERATORS.md) — full parameter specs for all operators
-- [Architecture](ARCHITECTURE.md) — system design and distributed execution patterns
-- [Troubleshooting](TROUBLESHOOTING.md) — common issues and solutions
+- [Quick Start Guide](https://github.com/IBM/docling-pipelines/blob/main/QUICKSTART.md) — first pipeline in under 5 minutes
+- [Pipeline Setup Guide](https://github.com/IBM/docling-pipelines/blob/main/USER_GUIDE_PIPELINE_SETUP.md) — complete setup with Ollama, OpenSearch, and flow examples
+- [Flow Authoring Format](https://github.com/IBM/docling-pipelines/blob/main/docs/guides/FLOW_AUTHORING_FORMAT.md) — declarative flow authoring
+- [Operator Reference](https://github.com/IBM/docling-pipelines/blob/main/docs/reference/OPERATORS.md) — full parameter specs for all operators
+- [Architecture](https://github.com/IBM/docling-pipelines/blob/main/ARCHITECTURE.md) — system design and distributed execution patterns
+- [Troubleshooting](https://github.com/IBM/docling-pipelines/blob/main/TROUBLESHOOTING.md) — common issues and solutions
 
 ## Available Operators
 
 | Category | Operators |
 |---|---|
-| **Ingest** | Local File Ingest (`ingest_local`), Remote Source Ingest (`ingest_source`) — [S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, CSV, web](docs/operators/ingest_source/README.md) |
+| **Ingest** | Local File Ingest (`ingest_local`), Remote Source Ingest (`ingest_source`) — [S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, CSV, web](https://github.com/IBM/docling-pipelines/blob/main/docs/operators/ingest_source/README.md) |
 | **Extract** | Document Extractor (`extract_operator`), ACL Extraction (`acl_operator`) |
 | **Functional** | Chunking (`chunker`), Embeddings (`embeddings`), Branching Operator (`branching`), Merge Operator (`merge`), Document ID Hash (`doc_id_hash`), Entity Curation (`entity_curation`), No-op (`noop`) |
 | **Quality** | Language Annotator (`lang_detect`), Readability Operator (`readability`), PII and HAP Annotator (`pii_and_hap`), Document Classifier (`document_classifier`), Annotation Filter (`sql_filter`), Redaction (`redaction`), De-duplicator (`ededup`), ML Text Enrichment (`ml_enrichment`), Document Quality (`doc_quality`) |
 | **VectorDB** | Vector Database (`vectordb`) — OpenSearch, Milvus |
 | **Storage** | Document Set (`document_set`) — DuckDB-backed document collections |
 
-For per-operator configuration guides, see [Operator Configuration Guides](docs/reference/OPERATORS.md).
+For per-operator configuration guides, see [Operator Configuration Guides](https://github.com/IBM/docling-pipelines/blob/main/docs/reference/OPERATORS.md).
 
 ## Examples
 
-Explore [sample flows](examples/) and [DocpipeFlowManager examples](examples/docpipe_flow_manager/) for common pipeline patterns.
+Explore [sample flows](https://github.com/IBM/docling-pipelines/tree/main/examples/) and [DocpipeFlowManager examples](https://github.com/IBM/docling-pipelines/tree/main/examples/docpipe_flow_manager/) for common pipeline patterns.
 
-For interactive, hands-on tutorials, see the [Jupyter notebook examples](examples/notebooks/README.md).
+For interactive, hands-on tutorials, see the [Jupyter notebook examples](https://github.com/IBM/docling-pipelines/blob/main/examples/notebooks/README.md).
 
 ## Contributing
 
-Please read [Contributing to Docling pipelines](CONTRIBUTING.md) for development setup, code standards, testing requirements, and the pull request process.
+Please read [Contributing to Docling pipelines](https://github.com/IBM/docling-pipelines/blob/main/CONTRIBUTING.md) for development setup, code standards, testing requirements, and the pull request process.
 
 ## License
 
-The Docling pipelines codebase is under the [MIT License](LICENSE).
+The Docling pipelines codebase is under the [MIT License](https://github.com/IBM/docling-pipelines/blob/main/LICENSE).
