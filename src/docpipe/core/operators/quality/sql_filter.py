@@ -411,6 +411,7 @@ class SQLFilterOperator(AbstractOperator):
     @staticmethod
     def get_metadata() -> dict[str, Any]:
         return {
+            OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: SQLFilterOperator.is_available(),
             OperatorConstants.Misc.CATEGORY: SQLFilterOperator.category.value,
             OperatorConstants.Misc.LABEL: "Annotation Filter",
