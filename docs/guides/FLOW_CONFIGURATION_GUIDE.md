@@ -305,12 +305,12 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
   "depends_on": ["embeddings"],
   "config": {
     "provider": "opensearch",
-    "index_name": "documents",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
     "vector_dimension": 384,
     "provider_config": {
+      "index_name": "documents",
       "host": "localhost",
       "port": 9200,
       "username": "admin",
@@ -367,13 +367,13 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 #### Required Parameters
 
 - **provider**: Type of vector database (uses "opensearch" by default)
-- **index_name**: Name of the OpenSearch index
+- **provider_config**: All connection parameters and the resource name for the target backend. The resource name key is provider-specific.
 - **available_features**: Defines which columns to store and their types. **Embeddings field is mandatory.**
   - Must include `embeddings` with `"type": "vector"` and `"available_for_vector_db": true`
   - Other fields are optional but recommended: content, doc_name, doc_id_hash
   - Supported types: vector, string, integer, float, boolean
-- **feature_mappings**: Maps PyArrow column names to OpenSearch field names
-  - Format: `{"pyarrow_column": "opensearch_field"}`
+- **feature_mappings**: Maps PyArrow column names to vector DB field names
+  - Format: `{"pyarrow_column": "vector_db_field"}`
   - Must include all fields defined in available_features
 
 #### Optional Provider Configurations (provider_config)
@@ -429,12 +429,12 @@ Schema templates provide reusable index configurations with consistent settings 
   "depends_on": ["embeddings"],
   "config": {
     "provider": "opensearch",
-    "index_name": "document_chunks",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
     "vector_dimension": 384,
     "provider_config": {
+      "index_name": "document_chunks",
       "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,
@@ -610,11 +610,11 @@ This creates a dependency where the `extract` operator will only run after the `
       "depends_on": ["embeddings"],
       "config": {
         "provider": "opensearch",
-        "index_name": "documents",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 768,
         "provider_config": {
+          "index_name": "documents",
           "host": "localhost",
           "port": 9200,
           "username": "admin",

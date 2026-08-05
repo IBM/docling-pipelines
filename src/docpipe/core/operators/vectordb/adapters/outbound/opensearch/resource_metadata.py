@@ -43,7 +43,7 @@ class OpenSearchResourceMetadata:
 
         Args:
             provider_config: Connection parameters (host, port, username, …).
-            operator_config: Full operator config; index_name is at top level.
+            operator_config: Full operator config; index_name is inside provider_config.
             available_features: Propagated feature map from the DAG snapshot.
                 Used as Source 4 fallback for feature_mappings when no saved
                 or stored mappings exist.
@@ -84,7 +84,7 @@ class OpenSearchResourceMetadata:
             cat_response = client.cat.indices(format="json", h="index")
             available_resources: list[str] = [e["index"] for e in cat_response if not e["index"].startswith(".")]
 
-            index_name: str = operator_config.get(OperatorConstants.VectorDB.INDEX_NAME, "")
+            index_name: str = provider_config.get(OperatorConstants.VectorDB.INDEX_NAME, "")
             selected_resource_schema: dict[str, Any] = {}
             stored_resource_metadata: dict[str, Any] = {"vector_similarity": None, "dimension_size": None}
 

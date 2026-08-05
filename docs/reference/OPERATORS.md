@@ -1938,15 +1938,14 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Class:** `core.operators.vectordb.vectordb_operator.VectorDBOperator`
 
-| Parameter            | Type   | Required | Default       | Description                                          |
-| -------------------- | ------ | -------: | ------------- | ---------------------------------------------------- |
-| `provider`           | string |      Yes | -             | VectorDB backend (`opensearch` or `milvus`)          |
-| `index_name`         | string |      Yes | -             | Target index/collection name                         |
-| `doc_id_column`      | string |       No | `doc_id_hash` | Primary document id column                           |
-| `create_index`       | bool   |       No | `true`        | Auto-create index                                    |
-| `provider_config`    | object |      Yes | -             | Provider-specific configuration (see examples below) |
-| `available_features` | object |       No | -             | Feature definitions for vector DB schema             |
-| `feature_mappings`   | object |       No | -             | Mapping of PyArrow columns to vector DB fields       |
+| Parameter            | Type   | Required | Default       | Description                                                                 |
+| -------------------- | ------ | -------: | ------------- | --------------------------------------------------------------------------- |
+| `provider`           | string |      Yes | -             | VectorDB backend (`opensearch` or `milvus`)                                 |
+| `doc_id_column`      | string |       No | `doc_id_hash` | Primary document id column                                                  |
+| `create_index`       | bool   |       No | `true`        | Auto-create index/collection if it does not exist                           |
+| `provider_config`    | object |      Yes | -             | Connection parameters and resource name for the backend (see examples below)|
+| `available_features` | object |       No | -             | Feature definitions for vector DB schema                                    |
+| `feature_mappings`   | object |       No | -             | Mapping of PyArrow columns to vector DB fields                              |
 
 **Multi-Model Embeddings Support:**
 
@@ -1999,9 +1998,9 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",
-    "index_name": "my_documents",
     "create_index": true,
     "provider_config": {
+      "index_name": "my_documents",
       "host": "localhost",
       "port": 9200,
       "engine": "nmslib",
@@ -2020,10 +2019,10 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "my_collection",
     "create_index": true,
     "add_sparse_vector": false,
     "provider_config": {
+      "collection_name": "my_collection",
       "auth_type": "standalone",
       "host": "localhost",
       "port": 19530,
@@ -2072,10 +2071,10 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "wxdata_collection",
     "add_sparse_vector": false,
     "create_index": true,
     "provider_config": {
+      "collection_name": "wxdata_collection",
       "auth_type": "grpc",
       "host": "YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud",
       "port": 32671,
@@ -2105,10 +2104,10 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "wxdata_token_collection",
     "create_index": true,
     "add_sparse_vector": false,
     "provider_config": {
+      "collection_name": "wxdata_token_collection",
       "auth_type": "token",
       "host": "YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud",
       "port": 32671,
@@ -2258,8 +2257,8 @@ Basic usage with default schema:
   "operator_type": "docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator",
   "operator_params": {
     "provider": "opensearch",
-    "index_name": "my_documents",
     "provider_config": {
+      "index_name": "my_documents",
       "host": "localhost",
       "port": 9200,
       "engine": "faiss",
@@ -2277,8 +2276,8 @@ Using a schema template:
   "operator_type": "docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator",
   "operator_params": {
     "provider": "opensearch",
-    "index_name": "document_chunks",
     "provider_config": {
+      "index_name": "document_chunks",
       "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,

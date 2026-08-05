@@ -45,19 +45,19 @@ class OpenSearchAdapter(VectorStorePort):
     def __init__(self, **adapter_config: Any) -> None:
         """Initialize OpenSearch adapter.
 
-        All parameters are extracted from adapter_config, which contains the merged
-        provider_config and operator-level parameters.
+        All parameters are extracted from adapter_config, which is the provider_config
+        dict passed directly from VectorDBOperator.
 
         Args:
-            **adapter_config: Configuration dictionary containing:
-                Operator-level parameters (added by VectorDBOperator):
-                - index_name: Name of the index
+            **adapter_config: Configuration dictionary (from provider_config) containing:
+                Resource configuration:
+                - index_name: Name of the index (required)
                 - vector_dimension: Dimension of vector embeddings
                 - embeddings_column: Name of embeddings column
                 - available_features: Feature configuration
                 - feature_mappings: Column to field mappings
 
-                Provider-specific parameters (from provider_config):
+                Connection and provider-specific parameters:
                 - host: OpenSearch server host (default: localhost)
                 - port: OpenSearch server port (default: 9200)
                 - username: Username for basic authentication (optional)
@@ -76,6 +76,8 @@ class OpenSearchAdapter(VectorStorePort):
         """
         # Extract operator-level parameters (added by VectorDBOperator)
         self.index_name = adapter_config.get(OperatorConstants.VectorDB.INDEX_NAME)
+        if not self.index_name:
+            raise ValueError("provider_config.index_name is required for the OpenSearch adapter")
         available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         feature_mappings = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
 

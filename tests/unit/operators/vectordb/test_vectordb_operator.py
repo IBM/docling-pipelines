@@ -17,10 +17,11 @@ def basic_config():
     """Basic configuration for VectorDB operator with OpenSearch adapter"""
     env_config = get_opensearch_config()
 
-    # The config structure now has all connection params in provider_config
+    # The config structure now has all connection params and resource name in provider_config
+    provider_cfg = env_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+    provider_cfg["index_name"] = "test_index"
     return {
         OperatorConstants.Config.PROVIDER: "opensearch",
-        OperatorConstants.VectorDB.INDEX_NAME: "test_index",
         OperatorConstants.VectorDB.CREATE_INDEX: True,
         OperatorConstants.Columns.DOC_ID_COLUMN: env_config.get(OperatorConstants.Columns.DOC_ID_COLUMN, "doc_id_hash"),
         OperatorConstants.Config.AVAILABLE_FEATURES: {
@@ -48,7 +49,7 @@ def basic_config():
             "content": "text",
             "embeddings": "vector_embeddings",
         },
-        OperatorConstants.Config.PROVIDER_CONFIG: env_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}),
+        OperatorConstants.Config.PROVIDER_CONFIG: provider_cfg,
     }
 
 
@@ -78,21 +79,33 @@ class TestVectorDBOperatorInitialization:
         """Test basic operator initialization"""
         with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
             operator = VectorDBOperator(basic_config)
-            assert operator.index_name == "test_index"
             assert operator.provider == "opensearch"
             assert operator.adapter is not None
 
-    def test_missing_required_index_name(self, basic_config):
-        """Test that missing index name raises error"""
+    def test_missing_index_name_in_provider_config_raises(self, basic_config):
+        """OpenSearch: missing index_name inside provider_config raises ValueError."""
         config = basic_config.copy()
-        del config[OperatorConstants.VectorDB.INDEX_NAME]
+        provider_cfg = dict(config[OperatorConstants.Config.PROVIDER_CONFIG])
+        provider_cfg.pop("index_name", None)
+        config[OperatorConstants.Config.PROVIDER_CONFIG] = provider_cfg
 
-        operator = VectorDBOperator(config=config)
-        errors: list = []
-        operator.validate(errors=errors, warnings=[], available_features=[])
+        with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
+            VectorDBOperator(config=config)
 
-        assert len(errors) > 0
-        assert any("index_name is required" in str(error) for error in errors)
+    def test_missing_collection_name_in_provider_config_raises(self):
+        """Milvus: missing collection_name inside provider_config raises ValueError."""
+        config = {
+            OperatorConstants.Config.PROVIDER: "milvus",
+            OperatorConstants.VectorDB.CREATE_INDEX: True,
+            OperatorConstants.Columns.DOC_ID_COLUMN: "doc_id_hash",
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                "host": "localhost",
+                "port": 19530,
+                # collection_name intentionally absent
+            },
+        }
+        with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
+            VectorDBOperator(config=config)
 
     def test_invalid_provider(self, basic_config):
         """Test that invalid provider raises error"""
@@ -337,11 +350,11 @@ class TestMetadata:
         """Test get_metadata returns correct structure"""
         config = {
             "provider": "opensearch",
-            "index_name": "test_index",
             "doc_id_column": "doc_id_hash",
             "embeddings_column": "embeddings",
             "vector_dimension": 384,
             "provider_config": {
+                "index_name": "test_index",
                 "host": "localhost",
                 "port": 9200,
                 "engine": "faiss",
@@ -372,8 +385,7 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
         """Build a minimal config that passes __init__ (no real adapter needed)."""
         return {
             OperatorConstants.Config.PROVIDER: "opensearch",
-            OperatorConstants.VectorDB.INDEX_NAME: "test_index",
-            OperatorConstants.Config.PROVIDER_CONFIG: {"host": "localhost"},
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "test_index", "host": "localhost"},
             OperatorConstants.Config.FEATURE_MAPPINGS: feature_mappings or {},
             OperatorConstants.Config.AVAILABLE_FEATURES: available_features or {},
         }

@@ -66,7 +66,11 @@ def get_opensearch_config() -> dict:
     if jwt_token:
         provider_config[OperatorConstants.VectorDB.JWT_TOKEN] = jwt_token
 
-    # Operator-level configuration (not provider-specific)
+    # Add resource name into provider_config — each provider owns its resource key
+    provider_config[OperatorConstants.VectorDB.INDEX_NAME] = os.getenv(
+        OperatorConstants.VectorDB.OPENSEARCH_INDEX_NAME, "docpipe_test"
+    )
+
     return {
         # Vector dimension
         OperatorConstants.VectorDB.VECTOR_DIMENSION: int(
@@ -75,9 +79,6 @@ def get_opensearch_config() -> dict:
         # Index settings
         OperatorConstants.VectorDB.CREATE_INDEX: str_to_bool(
             os.getenv(OperatorConstants.VectorDB.OPENSEARCH_CREATE_INDEX, "true")
-        ),
-        OperatorConstants.VectorDB.INDEX_NAME: os.getenv(
-            OperatorConstants.VectorDB.OPENSEARCH_INDEX_NAME, "docpipe_test"
         ),
         OperatorConstants.Columns.DOC_ID_COLUMN: os.getenv(
             OperatorConstants.VectorDB.OPENSEARCH_DOC_ID_COLUMN, "doc_id_hash"
@@ -147,7 +148,11 @@ def get_milvus_config() -> dict:
     if ssl_certificate:
         provider_config[OperatorConstants.VectorDB.SSL_CERTIFICATE] = ssl_certificate
 
-    # Operator-level configuration (not provider-specific)
+    # Add resource name into provider_config — each provider owns its resource key
+    provider_config[OperatorConstants.VectorDB.COLLECTION_NAME] = os.getenv(
+        OperatorConstants.VectorDB.MILVUS_COLLECTION_NAME, "docpipe_test"
+    )
+
     return {
         # Vector dimension
         OperatorConstants.VectorDB.VECTOR_DIMENSION: int(
@@ -156,9 +161,6 @@ def get_milvus_config() -> dict:
         # Collection settings
         OperatorConstants.VectorDB.CREATE_INDEX: str_to_bool(
             os.getenv(OperatorConstants.VectorDB.MILVUS_CREATE_INDEX, "true")
-        ),
-        OperatorConstants.VectorDB.INDEX_NAME: os.getenv(
-            OperatorConstants.VectorDB.MILVUS_COLLECTION_NAME, "docpipe_test"
         ),
         OperatorConstants.Columns.DOC_ID_COLUMN: os.getenv(
             OperatorConstants.VectorDB.MILVUS_DOC_ID_COLUMN, "doc_id_hash"

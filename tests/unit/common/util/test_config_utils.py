@@ -25,11 +25,11 @@ class TestGetOpensearchConfig:
 
             # Operator-level params
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is True
-            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "docpipe_test"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "doc_id_hash"
 
-            # Provider-specific params are in provider_config
+            # Provider-specific params and resource name are in provider_config
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+            assert provider_config[OperatorConstants.VectorDB.INDEX_NAME] == "docpipe_test"
             assert provider_config[OperatorConstants.VectorDB.HOST] == "localhost"
             assert provider_config[OperatorConstants.VectorDB.PORT] == 9200
             assert provider_config[OperatorConstants.VectorDB.USE_SSL] is False
@@ -64,11 +64,11 @@ class TestGetOpensearchConfig:
 
             # Operator-level params
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is False
-            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_index"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "custom_id"
 
-            # Provider-specific params are in provider_config
+            # Provider-specific params and resource name are in provider_config
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+            assert provider_config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_index"
             assert provider_config[OperatorConstants.VectorDB.HOST] == "custom-host"
             assert provider_config[OperatorConstants.VectorDB.PORT] == 9300
             assert provider_config[OperatorConstants.VectorDB.USE_SSL] is True

@@ -21,7 +21,6 @@ class TestMultiModelEmbeddings:
         """Configuration for VectorDB operator with multiple embedding columns."""
         return {
             OperatorConstants.Config.PROVIDER: "opensearch",
-            OperatorConstants.VectorDB.INDEX_NAME: "multi_model_test",
             OperatorConstants.VectorDB.CREATE_INDEX: True,
             OperatorConstants.Columns.DOC_ID_COLUMN: "doc_id_hash",
             OperatorConstants.Config.AVAILABLE_FEATURES: {
@@ -57,6 +56,7 @@ class TestMultiModelEmbeddings:
                 "text": "text",
             },
             OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.VectorDB.INDEX_NAME: "multi_model_test",
                 OperatorConstants.VectorDB.HOST: "localhost",
                 OperatorConstants.VectorDB.PORT: 9200,
                 OperatorConstants.VectorDB.ENGINE: "faiss",
@@ -273,7 +273,6 @@ class TestMilvusMultiModelInterface:
         """Configuration for Milvus adapter."""
         return {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "test_collection",
             OperatorConstants.VectorDB.CREATE_INDEX: True,
             OperatorConstants.Columns.DOC_ID_COLUMN: "doc_id_hash",
             OperatorConstants.Config.AVAILABLE_FEATURES: {
@@ -296,6 +295,7 @@ class TestMilvusMultiModelInterface:
                 "embeddings": "vector_embeddings",
             },
             OperatorConstants.Config.PROVIDER_CONFIG: {
+                "collection_name": "test_collection",
                 "auth_type": "standalone",
                 "host": "localhost",
                 "port": 19530,

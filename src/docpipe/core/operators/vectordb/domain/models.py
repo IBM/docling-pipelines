@@ -14,12 +14,10 @@ class IndexRequest:
 
     Attributes:
         documents: List of (doc_id, document_dict) tuples to index
-        index_name: Name of the index
-        create_index: Whether to create index if it doesn't exist
+        create_index: Whether to create the resource if it doesn't exist
     """
 
     documents: list[tuple[str, dict[str, Any]]]
-    index_name: str
     create_index: bool = True
 
 
@@ -47,12 +45,10 @@ class QueryRequest:
     Attributes:
         doc_names: List of document names to query
         fields: Optional list of fields to return
-        index_name: Name of the index to query
     """
 
     doc_names: list[str]
     fields: list[str] | None
-    index_name: str
 
 
 @dataclass
@@ -74,11 +70,9 @@ class DeleteRequest:
 
     Attributes:
         doc_ids: List of document IDs to delete
-        index_name: Name of the index
     """
 
     doc_ids: list[str]
-    index_name: str
 
 
 @dataclass

@@ -446,8 +446,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "depends_on": ["embed"],
       "config": {
         "provider": "opensearch",
-        "index_name": "documents",
-        "vector_dimension": 768
+        "vector_dimension": 768,
+        "provider_config": {
+          "index_name": "documents"
+        }
       }
     }
   ],
@@ -587,8 +589,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "depends_on": ["embed"],
       "config": {
         "provider": "opensearch",
-        "index_name": "documents",
-        "vector_dimension": 384
+        "vector_dimension": 384,
+        "provider_config": {
+          "index_name": "documents"
+        }
       }
     }
   ],

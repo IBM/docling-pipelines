@@ -189,12 +189,12 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "depends_on": ["generate_embeddings"],
                 "config": {
                     "provider": "opensearch",
-                    "index_name": index_name,
                     "doc_id_column": "doc_id_hash",
                     "embeddings_column": "embeddings",
                     "vector_dimension": 768,
                     "create_index": True,
                     "provider_config": {
+                        "index_name": index_name,
                         "host": "localhost",
                         "port": 9200,
                         "username": "admin",

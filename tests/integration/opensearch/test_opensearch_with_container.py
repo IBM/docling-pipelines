@@ -58,8 +58,8 @@ def is_docker_compose_available():
 def start_opensearch_container():
     """Start OpenSearch using docker-compose"""
     # Get path to docker-compose file
-    project_root = Path(__file__).parent.parent.parent
-    compose_file = project_root / "docker-compose.opensearch.yml"
+    project_root = Path(__file__).parent.parent.parent.parent
+    compose_file = project_root / "docker" / "docker-compose.opensearch.yml"
 
     if not compose_file.exists():
         pytest.skip(f"docker-compose file not found: {compose_file}")
@@ -106,8 +106,8 @@ def start_opensearch_container():
 
 def stop_opensearch_container():
     """Stop OpenSearch using docker-compose"""
-    project_root = Path(__file__).parent.parent.parent
-    compose_file = project_root / "docker-compose.opensearch.yml"
+    project_root = Path(__file__).parent.parent.parent.parent
+    compose_file = project_root / "docker" / "docker-compose.opensearch.yml"
 
     try:
         subprocess.run(

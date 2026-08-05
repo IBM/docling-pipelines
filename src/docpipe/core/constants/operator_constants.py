@@ -385,10 +385,14 @@ class OperatorConstants:
         AUTH_TYPE_URI: Final[str] = "uri"
         AUTH_TYPE_TOKEN: Final[str] = "token"
 
-        # OpenSearch Index Configuration
+        # Provider resource name keys — each provider declares its resource name
+        # inside provider_config using the key appropriate for that backend.
+        INDEX_NAME: Final[str] = "index_name"
+        COLLECTION_NAME: Final[str] = "collection_name"
+
+        # Index / collection configuration
         CREATE_INDEX: Final[str] = "create_index"
         INDEX_MAPPINGS: Final[str] = "index_mappings"
-        INDEX_NAME: Final[str] = "index_name"
         INDEX_SETTINGS: Final[str] = "index_settings"
         INDEX_TYPE: Final[str] = "index_type"
         OPENSEARCH_FEATURE_MAPPINGS: Final[str] = "opensearch_feature_mappings"

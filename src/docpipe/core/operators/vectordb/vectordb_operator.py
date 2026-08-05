@@ -85,7 +85,6 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         self.provider: str = config.get(OperatorConstants.Config.PROVIDER, PROVIDER_DEFAULT)
 
         # Extract common configuration
-        self.index_name: str | None = config.get(OperatorConstants.VectorDB.INDEX_NAME)
         self.doc_id_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_COLUMN, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
@@ -96,38 +95,34 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
         # Initialize adapter using factory
         try:
-            # Extract provider_config (adapter-specific config like host, port, engine, etc.)
+            # provider_config carries all provider-specific parameters including the
+            # resource name. Each adapter is responsible for validating its own required keys.
             adapter_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
             # Validate that provider_config is not empty
             if not adapter_config:
                 raise DocpipeException(
                     message=(
-                        f"'provider_config' is required but missing or empty. "
-                        f"Connection parameters (host, port, use_ssl, etc.) must be inside 'provider_config'. "
-                        f"Example: {{'provider': '{self.provider}', 'provider_config': {{'host': 'localhost', 'port': 9200, 'use_ssl': false}}}}"
+                        f"'provider_config' is required but missing or empty for provider '{self.provider}'. "
+                        f"Connection parameters and the resource name must be supplied inside 'provider_config'."
                     ),
                     status_code=400,
                     error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
                 )
 
-            # Add operator-level parameters that the adapter needs
-            adapter_config[OperatorConstants.VectorDB.INDEX_NAME] = self.index_name
             available_features = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
             adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = available_features
 
             # Use user-provided feature_mappings when present; otherwise compute defaults
             # from available_features so _meta.feature_mappings is never stored as {}.
-            # Mirrors enterprise behaviour: operator always has non-empty mappings before
-            # passing them to the adapter and writing them into the index at creation time.
             user_mappings = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
             if not user_mappings and available_features:
                 from docpipe.core.operators.vectordb.metadata_fetcher import compute_default_feature_mappings
 
                 user_mappings = compute_default_feature_mappings(available_features)
                 logger.debug(
-                    "No feature_mappings provided — computed defaults from available_features for index %s",
-                    self.index_name,
+                    "No feature_mappings provided — computed defaults from available_features for provider '%s'",
+                    self.provider,
                 )
             adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = user_mappings
             # Add sparse vector configuration if present (Milvus-specific)
@@ -150,7 +145,8 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             ) from e
 
         logger.info(
-            f"Initialized VectorDBOperator with adapter: {self.provider}, index: {self.index_name}",
+            "Initialized VectorDBOperator with adapter: %s",
+            self.provider,
             extra=self.common_log_arguments,
         )
 
@@ -163,11 +159,6 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             available_features: List of available features from previous operators
         """
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
-
-        # Validate index_name
-        if self.should_validate_field(field_value=self.index_name):
-            if not self.index_name:
-                errors.append("index_name is required for VectorDBOperator")
 
         # Validate that every mandatory_for_vector_db feature has a feature mapping.
         # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
@@ -284,7 +275,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             try:
                 if self.adapter.index_exists():
                     logger.info(
-                        f"Index '{self.index_name}' already exists, validating schema",
+                        "Resource already exists, validating schema",
                         extra=self.common_log_arguments,
                     )
                     self.adapter.validate_existing_schema(dimension_mapping=dimension_mapping)
@@ -654,12 +645,6 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.VectorDB.INDEX_NAME: {
-                    OperatorConstants.Misc.NAME: "Index Name",
-                    OperatorConstants.Config.DESCRIPTION: "Name of the vector database index/collection",
-                    OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
                 OperatorConstants.Columns.DOC_ID_COLUMN: {
                     OperatorConstants.Misc.NAME: "Document ID Column",
                     OperatorConstants.Config.DESCRIPTION: "Column containing document IDs",
@@ -703,7 +688,12 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider-Specific Parameters",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration parameters (JSON object). For OpenSearch: engine, algorithm, space_type, engine_parameters, index_settings, aws_auth, aws_region, etc.",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Provider-specific configuration parameters (JSON object). "
+                        "Must include the resource name key required by the target backend "
+                        "(e.g. index_name, collection_name, table_name). "
+                        "Also accepts all connection and index parameters specific to the provider."
+                    ),
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },

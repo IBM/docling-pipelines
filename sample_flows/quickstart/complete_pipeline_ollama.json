@@ -69,12 +69,12 @@
       "name": "opensearch_vector_store",
       "config": {
         "provider": "opensearch",
-        "index_name": "sample-documents-index",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 768,
         "create_index": true,
         "provider_config": {
+          "index_name": "sample-documents-index",
           "host": "localhost",
           "port": 9200,
           "username": "${OPENSEARCH_USERNAME}",

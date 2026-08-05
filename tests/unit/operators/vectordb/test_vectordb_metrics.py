@@ -30,7 +30,6 @@ class TestVectorDBMetrics:
         """Create VectorDB operator configuration."""
         return {
             "provider": "opensearch",
-            "index_name": "test_index",
             "doc_id_column": "doc_id_hash",
             "embeddings_column": "embeddings",
             "create_index": False,
@@ -57,6 +56,7 @@ class TestVectorDBMetrics:
                 },
             },
             "provider_config": {
+                "index_name": "test_index",
                 "host": "localhost",
                 "port": 9200,
             },

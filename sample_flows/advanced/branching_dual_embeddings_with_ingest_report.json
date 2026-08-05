@@ -133,10 +133,10 @@
       "name": "store_in_opensearch",
       "config": {
         "provider": "opensearch",
-        "index_name": "dual-embeddings-index",
         "doc_id_column": "doc_id_hash",
         "create_index": true,
         "provider_config": {
+          "index_name": "dual-embeddings-index",
           "host": "localhost",
           "port": 9200,
           "username": "${OPENSEARCH_USERNAME}",
