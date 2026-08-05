@@ -115,3 +115,130 @@ class TestBoxSourceAdapter:
         adapter = BoxSourceAdapter()
         schema = adapter.get_config_schema()
         assert schema == BoxSourceConfig
+
+
+class TestBoxSourceConfigFolderIdEnvVar:
+    """Test folder_id environment variable expansion in BoxSourceConfig."""
+
+    def test_folder_id_env_var_expanded(self, monkeypatch):
+        """folder_id containing ${VAR} is resolved at config creation time."""
+        monkeypatch.setenv("BOX_SOURCE_FOLDER_ID", "400527909052")
+        config = BoxSourceConfig(
+            credentials_path="/tmp/box_config.json",
+            folder_id="${BOX_SOURCE_FOLDER_ID}",
+        )
+        assert config.folder_id == "400527909052"
+
+    def test_folder_id_literal_value_unchanged(self):
+        """A plain numeric folder_id is kept as-is."""
+        config = BoxSourceConfig(
+            credentials_path="/tmp/box_config.json",
+            folder_id="12345678",
+        )
+        assert config.folder_id == "12345678"
+
+    def test_folder_id_unset_env_var_left_as_literal(self, monkeypatch):
+        """If the referenced env var is not set, expandvars returns the literal string."""
+        monkeypatch.delenv("BOX_MISSING_VAR", raising=False)
+        config = BoxSourceConfig(
+            credentials_path="/tmp/box_config.json",
+            folder_id="${BOX_MISSING_VAR}",
+        )
+        # os.path.expandvars leaves unresolved vars as-is
+        assert "${BOX_MISSING_VAR}" in config.folder_id
+
+
+class TestBoxSourceAdapterComputeRelativePath:
+    """Test BoxSourceAdapter._compute_relative_path."""
+
+    def _make_path_collection(self, entries):
+        """Build a simple namespace to mimic Box path_collection."""
+        import types
+
+        return types.SimpleNamespace(entries=entries)
+
+    def _make_entry(self, entry_id, name):
+        import types
+
+        return types.SimpleNamespace(id=entry_id, name=name)
+
+    def _make_file_info(self, *, name, path_entries):
+        import types
+
+        return types.SimpleNamespace(
+            name=name,
+            path_collection=self._make_path_collection(path_entries),
+        )
+
+    def test_single_level_subfolder(self):
+        """File inside one sub-folder below the root is returned with subfolder prefix."""
+        root_folder_id = "400527909052"
+        path_entries = [
+            self._make_entry("0", "All Files"),
+            self._make_entry("11111", "vt_workspace"),
+            self._make_entry(root_folder_id, "source_files"),
+            self._make_entry("99999", "sub01"),
+        ]
+        file_info = self._make_file_info(name="TR-INV_001.pdf", path_entries=path_entries)
+
+        result = BoxSourceAdapter()._compute_relative_path(file_info=file_info, root_folder_id=root_folder_id)
+        assert result == "sub01/TR-INV_001.pdf"
+
+    def test_file_at_root_folder(self):
+        """File directly inside the root folder has no sub-folder prefix."""
+        adapter = BoxSourceAdapter()
+        root_folder_id = "400527909052"
+        path_entries = [
+            self._make_entry("0", "All Files"),
+            self._make_entry(root_folder_id, "source_files"),
+        ]
+        file_info = self._make_file_info(name="direct.pdf", path_entries=path_entries)
+
+        result = adapter._compute_relative_path(file_info=file_info, root_folder_id=root_folder_id)
+        assert result == "direct.pdf"
+
+    def test_nested_two_levels(self):
+        """File two levels deep returns both subfolder segments."""
+        adapter = BoxSourceAdapter()
+        root_folder_id = "root_id"
+        path_entries = [
+            self._make_entry("0", "All Files"),
+            self._make_entry(root_folder_id, "root"),
+            self._make_entry("level1", "sub01"),
+            self._make_entry("level2", "sub02"),
+        ]
+        file_info = self._make_file_info(name="deep.pdf", path_entries=path_entries)
+
+        result = adapter._compute_relative_path(file_info=file_info, root_folder_id=root_folder_id)
+        assert result == "sub01/sub02/deep.pdf"
+
+    def test_root_folder_id_not_in_ancestry_returns_none(self):
+        """When root_folder_id is absent from path_collection, None is returned."""
+        adapter = BoxSourceAdapter()
+        path_entries = [
+            self._make_entry("0", "All Files"),
+            self._make_entry("other_id", "other_folder"),
+        ]
+        file_info = self._make_file_info(name="orphan.pdf", path_entries=path_entries)
+
+        result = adapter._compute_relative_path(file_info=file_info, root_folder_id="missing_root")
+        assert result is None
+
+    def test_missing_path_collection_returns_none(self):
+        """file_info with no path_collection attribute returns None."""
+        import types
+
+        adapter = BoxSourceAdapter()
+        file_info = types.SimpleNamespace(name="test.pdf", path_collection=None)
+        result = adapter._compute_relative_path(file_info=file_info, root_folder_id="any_id")
+        assert result is None
+
+    def test_empty_filename_returns_none(self):
+        """file_info with an empty name returns None."""
+        adapter = BoxSourceAdapter()
+        root_folder_id = "root_id"
+        path_entries = [self._make_entry(root_folder_id, "root")]
+        file_info = self._make_file_info(name="", path_entries=path_entries)
+
+        result = adapter._compute_relative_path(file_info=file_info, root_folder_id=root_folder_id)
+        assert result is None

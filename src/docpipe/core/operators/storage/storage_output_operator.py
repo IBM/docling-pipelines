@@ -8,6 +8,7 @@ from typing import Any
 import pyarrow as pa
 
 # Import adapters so they self-register via @register_destination_adapter
+import docpipe.core.operators.storage.adapters.outbound.destinations.box.adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.filesystem.adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.google_drive.adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.s3.adapter
@@ -351,6 +352,18 @@ class StorageOutputOperator(AbstractOperator):
         for row in rows:
             doc_id = row.get("id", "")
             doc_name = row.get("name", "")
+            # For cloud sources (e.g. Box, OneDrive) the `name` column holds the
+            # source URL rather than the actual filename.  When the path has no
+            # recognisable file extension, prefer the human-readable name stored
+            # in the row's metadata (set by the source adapter).
+            if doc_name and not Path(doc_name).suffix:
+                try:
+                    meta = json.loads(row.get("metadata") or "{}")
+                    friendly = meta.get("name") or meta.get("box_name")
+                    if friendly and Path(friendly).suffix:
+                        doc_name = friendly
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
             try:
                 result = self._write_row(
@@ -503,6 +516,16 @@ class StorageOutputOperator(AbstractOperator):
         doc_name: str,
     ) -> WriteResult:
         content_str: str = row.get("content", "") or ""
+
+        if not content_str:
+            result = WriteResult(
+                doc_id=doc_id,
+                doc_name=doc_name,
+                success=False,
+                error_message="No extracted content available — document may have been skipped by an upstream operator",
+            )
+            result.write_status = "skipped"
+            return result
 
         if content_format == ContentFormat.JSON:
             payload = {

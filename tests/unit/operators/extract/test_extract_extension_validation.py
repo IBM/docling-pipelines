@@ -194,6 +194,39 @@ class TestExtractOperatorExtensionValidation:
         # Should return empty set when name column is missing
         assert len(skipped_indices) == 0
 
+    def test_validate_extensions_fallback_to_document_format_for_url_names(self, docling_library_config):
+        """Test that document_format column is used when name is a URL without a file extension.
+
+        This covers cloud sources like Box and OneDrive where the 'name' column
+        is set to the source URL (e.g. https://app.box.com/file/12345) which has
+        no file extension.
+        """
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": [
+                    "https://app.box.com/file/2350816183103",  # URL — no suffix
+                    "https://app.box.com/file/9999999999999",  # URL — no suffix, unsupported format
+                ],
+                "path": [
+                    "https://app.box.com/file/2350816183103",
+                    "https://app.box.com/file/9999999999999",
+                ],
+                "document_format": ["pdf", "xyz"],
+            }
+        )
+
+        with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=False):
+            operator = ExtractOperator(config=docling_library_config)
+            metadata = operator.create_base_metadata(total_docs_count=table.num_rows)
+
+            skipped_indices = operator._validate_extensions(table=table, metadata=metadata)
+
+            # pdf should be accepted via document_format fallback
+            assert 0 not in skipped_indices
+            # xyz is unsupported even via document_format fallback
+            assert 1 in skipped_indices
+
     def test_validate_extensions_error_message_includes_mode(self, docling_library_config, mock_table_with_extensions):
         """Test that error messages include the extraction mode."""
         with patch("docpipe.core.operators.operator_utils.is_asr_available", return_value=False):

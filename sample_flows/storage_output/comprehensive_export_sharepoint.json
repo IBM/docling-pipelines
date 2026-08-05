@@ -1,6 +1,6 @@
 {
-  "flow_name": "refetch-original-sharepoint",
-  "description": "Ingest documents from a local filesystem, re-fetch the original binaries, and archive them to a SharePoint site. Skips files already present at the destination.",
+  "flow_name": "comprehensive-export-sharepoint",
+  "description": "Ingest documents from a local filesystem, extract text, then write a complete archive per document to a SharePoint site: original binary + extracted markdown + metadata JSON sidecar. Useful for compliance, QA, and data handoff.",
   "global_config": {
     "execute_type": "local",
     "force_ingest": true,
@@ -12,22 +12,37 @@
       "name": "ingest",
       "config": {
         "provider": "filesystem",
-        "connection_params": {
+        "provider_config": {
           "paths": [
             "/path/to/source_files_01",
             "/path/to/source_files_02"
           ],
-          "recursive": true
+          "recursive": false
         },
-        "include_filter": ["pdf"],
+        "include_filter": [
+          "pdf"
+        ],
         "credentials": {}
       }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
     },
     {
       "type": "storage_output",
       "name": "storage_output",
       "config": {
-        "mode": "refetch_original",
+        "mode": "comprehensive_export",
         "destination_config": {
           "provider": "sharepoint",
           "provider_config": {
@@ -41,11 +56,17 @@
             "client_secret": "${SHAREPOINT_CLIENT_SECRET}"
           }
         },
+        "output_format": {
+          "content_format": "txt",
+          "include_metadata_sidecar": true
+        },
         "output_structure": {
           "type": "hierarchical"
         }
       },
-      "depends_on": ["ingest"]
+      "depends_on": [
+        "extract"
+      ]
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "flow_name": "export-markdown-sharepoint",
-  "description": "Ingest documents from a local filesystem, extract text with Docling, and write extracted markdown to a SharePoint site. Credentials are read from environment variables.",
+  "flow_name": "comprehensive-export-box",
+  "description": "Ingest documents from a Box folder, extract text, then write a complete archive per document to a Box destination folder: original binary + extracted markdown + metadata JSON sidecar. Useful for compliance, QA, and data handoff.",
   "global_config": {
     "execute_type": "local",
     "force_ingest": true,
@@ -11,13 +11,15 @@
       "type": "ingest_source",
       "name": "ingest",
       "config": {
-        "provider": "filesystem",
+        "provider": "box_driver",
         "connection_params": {
-          "paths": ["/path/to/source_files"],
+          "folder_id": "${BOX_SOURCE_FOLDER_ID}",
           "recursive": true
         },
         "include_filter": ["pdf"],
-        "credentials": {}
+        "credentials": {
+          "credentials_json_path": "${BOX_CONFIG_PATH}"
+        }
       }
     },
     {
@@ -35,22 +37,20 @@
       "type": "storage_output",
       "name": "storage_output",
       "config": {
-        "mode": "processed_content",
+        "mode": "comprehensive_export",
         "destination_config": {
-          "provider": "sharepoint",
+          "provider": "box",
           "provider_config": {
-            "drive_id": "${SHAREPOINT_DRIVE_ID}",
-            "folder_path": "dest_files",
+            "folder_id": "${BOX_DEST_FOLDER_ID}",
             "create_dirs": true
           },
           "credentials": {
-            "tenant_id": "${SHAREPOINT_TENANT_ID}",
-            "client_id": "${SHAREPOINT_CLIENT_ID}",
-            "client_secret": "${SHAREPOINT_CLIENT_SECRET}"
+            "credentials_json_path": "${BOX_CONFIG_PATH}"
           }
         },
         "output_format": {
-          "content_format": "md"
+          "content_format": "txt",
+          "include_metadata_sidecar": true
         },
         "output_structure": {
           "type": "hierarchical"

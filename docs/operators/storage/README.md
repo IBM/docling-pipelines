@@ -32,8 +32,9 @@ Requires an upstream ingest_source operator.
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "processed_content",
 
     "destination_config": {
@@ -52,7 +53,7 @@ Requires an upstream ingest_source operator.
     },
 
     "output_structure": {
-      "path_template": "{year}/{month}/{doc_id}.{ext}"
+      "path_template": "{year}/{month}/{name}.{ext}"
     }
   }
 }
@@ -285,8 +286,9 @@ For OneDrive writes the `destination_path` output column contains the `webUrl` r
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "processed_content",
     "destination_config": {
       "provider": "filesystem",
@@ -305,15 +307,16 @@ Modes `refetch_original` and `comprehensive_export` re-fetch the original binary
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "refetch_original",
     "destination_config": {
       "provider": "filesystem",
       "provider_config": { "root_path": "/archive/originals", "overwrite_existing": false },
       "credentials": {}
     },
-    "output_structure": { "path_template": "{doc_id}.{ext}" }
+    "output_structure": { "path_template": "{name}.{ext}" }
   }
 }
 ```
@@ -322,8 +325,9 @@ Modes `refetch_original` and `comprehensive_export` re-fetch the original binary
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "comprehensive_export",
     "destination_config": {
       "provider": "filesystem",
@@ -352,8 +356,9 @@ Credentials are supplied as environment variable references (`${ENV_VAR}`).
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "processed_content",
     "destination_config": {
       "provider": "s3",
@@ -378,8 +383,9 @@ Credentials are supplied as environment variable references (`${ENV_VAR}`).
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "refetch_original",
     "destination_config": {
       "provider": "s3",
@@ -403,8 +409,9 @@ Credentials are supplied as environment variable references (`${ENV_VAR}`).
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "comprehensive_export",
     "destination_config": {
       "provider": "s3",
@@ -436,8 +443,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "processed_content",
     "destination_config": {
       "provider": "ibm_cos",
@@ -462,8 +470,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "comprehensive_export",
     "destination_config": {
       "provider": "ibm_cos",
@@ -489,8 +498,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "processed_content",
     "destination_config": {
       "provider": "sharepoint",
@@ -515,8 +525,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "refetch_original",
     "destination_config": {
       "provider": "sharepoint",
@@ -540,8 +551,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "comprehensive_export",
     "destination_config": {
       "provider": "sharepoint",
@@ -568,8 +580,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "processed_content",
     "destination_config": {
       "provider": "onedrive",
@@ -594,8 +607,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "refetch_original",
     "destination_config": {
       "provider": "onedrive",
@@ -619,8 +633,9 @@ s3://my-compliance-bucket/exports/contracts/2026/06/abc123/
 
 ```json
 {
-  "operator_type": "docpipe.core.operators.storage.storage_output_operator.StorageOutputOperator",
-  "operator_params": {
+  "type": "storage_output",
+  "name": "storage_output",
+  "config": {
     "mode": "comprehensive_export",
     "destination_config": {
       "provider": "onedrive",

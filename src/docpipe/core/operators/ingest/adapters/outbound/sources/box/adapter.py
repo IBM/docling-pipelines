@@ -1,12 +1,12 @@
 """Box source adapter using Box SDK directly."""
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-from box_sdk_gen import BoxClient, BoxJWTAuth, JWTConfig
+from box_sdk_gen import BoxClient
 
+from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
 from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
 from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from docpipe.core.operators.ingest.domain.models import Document
@@ -26,32 +26,7 @@ class BoxSourceAdapter(DocumentSourcePort):
 
     def _get_box_client(self, *, config: BoxSourceConfig) -> BoxClient:
         """Get authenticated Box client from JWT config."""
-        credentials_path = Path(config.credentials_path)
-
-        try:
-            if not credentials_path.exists():
-                raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
-            if not credentials_path.is_file():
-                raise ValueError(f"Credentials path is not a file: {credentials_path}")
-
-            with open(credentials_path, encoding="utf-8") as config_file:
-                box_config = json.load(config_file)
-
-            jwt_config = JWTConfig.from_config_json_string(json.dumps(box_config))
-            auth = BoxJWTAuth(config=jwt_config)
-            return BoxClient(auth=auth)
-
-        except PermissionError as e:
-            raise PermissionError(
-                f"Permission denied accessing credentials file: {credentials_path}. "
-                f"Ensure the current user/process has read access to the file and that any OS security controls "
-                f"allow access to this location. Original error: {e}"
-            ) from e
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in credentials file {credentials_path}: {e}") from e
-        except Exception as e:
-            logger.error(f"Error creating Box client: {e}", exc_info=True)
-            raise ValueError(f"Failed to authenticate with Box: {e}") from e
+        return get_box_client(credentials_path=config.credentials_path)
 
     def _should_include_file(self, file_name: str, file_size_bytes: int, config: BoxSourceConfig) -> bool:
         """Check whether a Box file passes extension and size filters."""
@@ -104,6 +79,37 @@ class BoxSourceAdapter(DocumentSourcePort):
             logger.error(f"Error iterating Box files: {e}", exc_info=True)
             raise
 
+    def _compute_relative_path(self, *, file_info, root_folder_id: str) -> str | None:
+        """Compute the path of a file relative to the configured root folder.
+
+        Uses the ``path_collection`` returned by the Box API to locate the
+        root folder in the ancestry chain and return only the sub-folder
+        segments below it, joined with the filename.
+
+        Example:
+            root_folder_id = "400527909052"  (source_files)
+            path_collection = [All Files, vt_workspace, source_files, sub01]
+            file name        = "TR-INV_001_3_2.1.pdf"
+            → relative_path  = "sub01/TR-INV_001_3_2.1.pdf"
+        """
+        doc_name = getattr(file_info, "name", "")
+        path_collection = getattr(file_info, "path_collection", None)
+        path_entries = getattr(path_collection, "entries", []) if path_collection else []
+
+        # Find the index of the root folder in the ancestry chain.
+        root_idx = None
+        for idx, entry in enumerate(path_entries):
+            if str(getattr(entry, "id", "")) == root_folder_id:
+                root_idx = idx
+                break
+
+        if root_idx is None:
+            return None
+
+        # Segments *below* the root folder.
+        sub_segments = [str(entry.name) for entry in path_entries[root_idx + 1 :] if getattr(entry, "name", None)]
+        return "/".join([*sub_segments, doc_name]) if doc_name else None
+
     def _download_file_content(self, *, client: BoxClient, file_id: str) -> bytes:
         """Download Box file content."""
         try:
@@ -129,7 +135,7 @@ class BoxSourceAdapter(DocumentSourcePort):
         except (ValueError, AttributeError, TypeError):
             return None
 
-    def _prepare_document(self, *, client: BoxClient, file_info) -> Document:
+    def _prepare_document(self, *, client: BoxClient, file_info, root_folder_id: str) -> Document:
         """Convert a Box file object to the domain document model."""
         doc_id = str(getattr(file_info, "id", ""))
         doc_name = getattr(file_info, "name", "unknown")
@@ -157,6 +163,8 @@ class BoxSourceAdapter(DocumentSourcePort):
         modified_at = getattr(file_info, "modified_at", None)
         modified_at_str = modified_at.isoformat() if isinstance(modified_at, datetime) else None
 
+        relative_path = self._compute_relative_path(file_info=file_info, root_folder_id=root_folder_id)
+
         return Document(
             id=doc_id,
             name=doc_name,
@@ -175,6 +183,7 @@ class BoxSourceAdapter(DocumentSourcePort):
                 "created_at": created_at_str,
                 "modified_at": modified_at_str,
                 "owned_by": getattr(getattr(file_info, "owned_by", None), "login", None),
+                "relative_path": relative_path,
             },
         )
 
@@ -187,7 +196,7 @@ class BoxSourceAdapter(DocumentSourcePort):
             if config.file_id:
                 logger.info(f"Fetching single file from Box: file_id={config.file_id}")
                 file_info = client.files.get_file_by_id(config.file_id)
-                document = self._prepare_document(client=client, file_info=file_info)
+                document = self._prepare_document(client=client, file_info=file_info, root_folder_id="")
                 yield document
                 return
 
@@ -198,7 +207,11 @@ class BoxSourceAdapter(DocumentSourcePort):
                 if config.max_files is not None and doc_count >= config.max_files:
                     break
 
-                document = self._prepare_document(client=client, file_info=file_info)
+                document = self._prepare_document(
+                    client=client,
+                    file_info=file_info,
+                    root_folder_id=config.folder_id,
+                )
                 yield document
                 doc_count += 1
 

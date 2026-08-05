@@ -490,6 +490,16 @@ class TestFlowValidatorIntegration:
 
         orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
         orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
+
+        # Replace the Prefect-based flow engine with a simple sequential walker so
+        # the validation traversal never starts an ephemeral Prefect API server.
+        def _sequential_execute_non_execute_flow(*, flow_name: str, task, dag):
+            result = None
+            for node in dag:
+                node_name = node.get("name", "")
+                result = task(node_name, node, result, None)
+
+        orch.flow_engine.execute_non_execute_flow = _sequential_execute_non_execute_flow
         return orch
 
     @pytest.fixture

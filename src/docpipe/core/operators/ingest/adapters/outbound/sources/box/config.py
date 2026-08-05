@@ -55,6 +55,12 @@ class BoxSourceConfig(BaseModel):
         # The actual file access will happen during authentication
         # This avoids permission errors during config validation
 
+    @field_validator("folder_id")
+    @classmethod
+    def validate_folder_id(cls, v: str) -> str:
+        """Resolve environment variable references in folder_id (e.g. ${BOX_SOURCE_FOLDER_ID})."""
+        return os.path.expandvars(v)
+
     @field_validator("file_extensions")
     @classmethod
     def validate_extensions(cls, v: list[str]) -> list[str]:

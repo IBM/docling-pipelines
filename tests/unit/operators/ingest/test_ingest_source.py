@@ -852,5 +852,86 @@ class TestIntegrationScenarios:
         assert "binary_content" not in df.columns
 
 
+class TestIngestSourceOperatorProcessDocumentUrlExtensionFallback:
+    """Test process_document fallback to metadata['name'] for URL-based sources without extension."""
+
+    def _make_operator(self, include_filter: str | None = None):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        config: dict = {
+            "provider": "s3",
+            "connection_params": {"bucket": "test-bucket", "prefix": ""},
+            "credentials": {"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
+        }
+        if include_filter:
+            config["include_filter"] = include_filter
+        return IngestSourceOperator(config)
+
+    def test_box_url_with_pdf_name_accepted_when_pdf_included(self):
+        """Box URL as source + 'name' = .pdf → document passes the .pdf include filter."""
+        operator = self._make_operator(include_filter=".pdf")
+        metadata = operator.create_base_metadata(total_docs_count=1)
+
+        doc = Document(
+            page_content="content",
+            metadata={
+                "source": "https://app.box.com/file/2350816183103",
+                "name": "TR-INV_001.pdf",
+            },
+        )
+
+        result = operator.process_document(doc, 0, metadata)
+        assert result is not None, "Document should not be filtered out"
+
+    def test_box_url_with_unsupported_name_filtered_when_pdf_included(self):
+        """Box URL as source + 'name' = .xyz → document is filtered out when only .pdf is included."""
+        operator = self._make_operator(include_filter=".pdf")
+        metadata = operator.create_base_metadata(total_docs_count=1)
+
+        doc = Document(
+            page_content="content",
+            metadata={
+                "source": "https://app.box.com/file/9999",
+                "name": "unsupported.xyz",
+            },
+        )
+
+        result = operator.process_document(doc, 0, metadata)
+        assert result is None, "Document with unsupported extension via name should be filtered"
+
+    def test_plain_filepath_source_uses_source_directly(self):
+        """Regular filepath source (has extension) is filtered on the path directly."""
+        operator = self._make_operator(include_filter=".pdf")
+        metadata = operator.create_base_metadata(total_docs_count=1)
+
+        doc = Document(
+            page_content="content",
+            metadata={
+                "source": "/data/report.pdf",
+                "name": "report.pdf",
+            },
+        )
+
+        result = operator.process_document(doc, 0, metadata)
+        assert result is not None
+
+    def test_box_url_with_no_name_metadata_falls_through(self):
+        """Box URL with no 'name' in metadata should not raise — filter runs on the URL itself."""
+        operator = self._make_operator(include_filter=".pdf")
+        metadata = operator.create_base_metadata(total_docs_count=1)
+
+        doc = Document(
+            page_content="content",
+            metadata={
+                "source": "https://app.box.com/file/2350816183103",
+                # no 'name' key
+            },
+        )
+
+        # Should not raise; the URL has no extension so it won't match .pdf — document is skipped
+        result = operator.process_document(doc, 0, metadata)
+        assert result is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

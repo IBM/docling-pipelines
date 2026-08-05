@@ -286,6 +286,40 @@ class TestStorageOutputOperatorProcessedContent:
         assert output_tables[0].num_rows == 0
         assert metadata["total_docs_count"] == 0
 
+    def test_empty_content_is_skipped_not_uploaded(self, tmp_path):
+        """Documents with no extracted content must be skipped, not written as 0-byte files.
+
+        This covers the case where extraction is skipped upstream (e.g. unsupported
+        file extension) so the content column is absent or empty.
+        """
+        op = StorageOutputOperator(_base_config(tmp_path))
+        table = _make_table(
+            [
+                {
+                    "id": "doc1",
+                    "name": "https://app.box.com/file/123",
+                    "content": "",  # extraction was skipped — no content
+                    "path": "https://app.box.com/file/123",
+                    "metadata": '{"box_name": "TR-INV_001.pdf"}',
+                    "document_format": "pdf",
+                },
+            ]
+        )
+
+        output_tables, metadata = op.transform(table)
+        out = output_tables[0]
+
+        # No file should have been written to disk
+        assert list(tmp_path.iterdir()) == []
+
+        # Row must be counted as skipped, not processed or failed
+        assert metadata["processed_docs"] == 0
+        assert metadata["skipped_docs_count"] == 1
+        assert metadata["failed_docs_count"] == 0
+
+        # write_status column must reflect "skipped"
+        assert out["write_status"][0].as_py() == "skipped"
+
 
 # ---------------------------------------------------------------------------
 # Tests for refetch_original mode

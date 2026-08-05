@@ -648,7 +648,9 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
             # Fall back to extracting from filename if not available
             file_ext = ""
             if "document_format" in table.column_names:
-                file_ext = table["document_format"][idx].as_py() or ""
+                doc_fmt = table["document_format"][idx].as_py() or ""
+                if doc_fmt:
+                    file_ext = f".{doc_fmt.lstrip('.')}"
 
             if not file_ext:
                 file_ext = Path(doc_name).suffix.lower()
