@@ -10,6 +10,7 @@ can be swapped without modifying this module.
 
 import csv
 import io
+import re
 import time
 import typing
 from datetime import UTC
@@ -138,7 +139,7 @@ class JobReportGenerator:
             create_csv_streaming_response,
             read_report_from_storage,
         )
-        from docpipe.core.models.session_info import SessionInfo, set_session_info
+        from docpipe.core.models.session_info import update_session_info
         from docpipe.exceptions.docpipe_exceptions import JobRunOperationFailedException
         from docpipe.utils.orchestration.dag_utils import extract_dag_nodes
 
@@ -162,7 +163,7 @@ class JobReportGenerator:
         # Populate SessionInfo so all storage helpers (read_report_from_storage,
         # check_parquet_availability, save_report_to_file) resolve the correct
         # job_id/job_run_id from context rather than falling back to None.
-        set_session_info(SessionInfo(job_id=job_stats.job_id, job_run_id=job_run_id))
+        update_session_info(job_id=job_stats.job_id, job_run_id=job_run_id)
 
         # Step 2: Check if report already exists (fast path after status validation)
         report_content = read_report_from_storage()
@@ -415,21 +416,27 @@ class JobReportGenerator:
 
     def _get_timestamp_from_modified_time(self, modified_time: Any, doc_id: str) -> str:
         """
-        Convert modified_time to ISO 8601 UTC string.
+        Convert modified_time to YYYY-MM-DD:HH:MM:SS format.
+
+        Handles both epoch-seconds (int/float) and string timestamps.
+        For numeric timestamps ≥ 1e10, assumes milliseconds and divides by 1000.
 
         Args:
             modified_time: Timestamp value (int, float, or string)
             doc_id: Document ID for logging
 
         Returns:
-            ISO 8601 formatted timestamp string
+            Formatted timestamp string in YYYY-MM-DD:HH:MM:SS format, or empty string on error
         """
         try:
             if isinstance(modified_time, (int, float)):
                 from datetime import datetime
 
-                dt = datetime.fromtimestamp(modified_time, tz=UTC)
-                return dt.isoformat()
+                # Epoch-ms if value >= 1e10 (CAMS/CPD assets returns milliseconds;
+                # local/S3 operators return seconds). Divide by 1000 to normalise.
+                ts = modified_time / 1000.0 if modified_time >= 1e10 else float(modified_time)
+                dt = datetime.fromtimestamp(ts, tz=UTC)
+                return dt.strftime("%Y-%m-%d:%H:%M:%S")
             if isinstance(modified_time, str):
                 return modified_time
             return ""
@@ -698,67 +705,106 @@ class JobReportGenerator:
         logger.info(f"Calculated processing time for {len(doc_to_processing_time)} documents")
         return doc_to_processing_time
 
+    def _get_required_columns(self, node_id: str) -> list[str]:
+        """
+        Get list of columns required for report generation based on node type.
+
+        Args:
+            node_id: Node identifier
+
+        Returns:
+            List of column names to read from parquet
+        """
+        # Identify node types from DAG
+        ingest_id, extract_id = self._identify_key_node_ids()
+
+        # Ingest node: document metadata
+        if node_id == ingest_id:
+            return ["id", "name", "modified_time"]
+
+        # Extract node: page counts
+        if node_id == extract_id:
+            return ["id", "pages_processed"]
+
+        # Default: return id only
+        return ["id"]
+
+    def _identify_key_node_ids(self) -> tuple[str | None, str | None]:
+        """
+        Identify ingest and extract node IDs from DAG.
+
+        Returns:
+            Tuple of (ingest_node_id, extract_node_id)
+        """
+        ingest_id = self._get_ingest_node_id()
+        extract_id, _ = self._find_extract_operator()
+        return ingest_id, extract_id
+
     def _read_parquet_file(
         self, node_id: str, batch_num: int | None = None, branch_index: int = 0
     ) -> dict[str, dict[str, Any]]:
         """
-        Read parquet file for a node and extract document information.
+        Read parquet file for a node with column projection for performance.
+
+        Only reads columns needed for report generation:
+        - Ingest node: id, name, modified_time
+        - Extract node: id, pages
 
         Args:
-            node_id: Node ID to read parquet file for
-            batch_num: Optional batch number for batched operators
-            branch_index: Branch index (default 0) - appended to node name
+            node_id: Node identifier
+            batch_num: Batch number (for micro-batched flows)
+            branch_index: Branch index (for branching flows)
 
         Returns:
-            Dictionary mapping doc_id to document data from parquet
+            Dictionary of {doc_id: row_data}
         """
         doc_data: dict[str, dict[str, Any]] = {}
 
         try:
-            # Get node name from node_id
             node_name = self.node_id_to_name.get(node_id, node_id)
 
-            # Append branch index to node name (e.g., "ingest" becomes "ingest_0")
-            node_name_with_branch = f"{node_name}_{branch_index}"
-
-            # Construct parquet file path following DataAccessUtils logic:
-            # Base: data/{job_id}/{job_run_id}/data/{node_name}_{branch_index}/output.parquet
-            # With batching: data/{job_id}/{job_run_id}/data/{node_name}_{branch_index}/{batch_num}/output.parquet
-            base_path = Path("data") / self.job_id / self.job_run_id / "data" / node_name_with_branch
+            # Sanitize exactly as add_node_name_to_output_folder does so the
+            # folder name matches what the orchestrator actually wrote
+            sanitized_name = re.sub(r"\W+", "_", node_name)
+            node_name_with_branch = f"{sanitized_name}_{branch_index}"
 
             if batch_num is not None:
-                parquet_path = base_path / str(batch_num) / "output.parquet"
+                file_path = (
+                    f"data/{self.job_id}/{self.job_run_id}/data/{node_name_with_branch}/{batch_num}/output.parquet"
+                )
             else:
-                parquet_path = base_path / "output.parquet"
+                file_path = f"data/{self.job_id}/{self.job_run_id}/data/{node_name_with_branch}/output.parquet"
 
-            logger.info(f"Node ID: {node_id}, Node Name: {node_name}, Branch: {branch_index}, Batch: {batch_num}")
-            logger.info(f"Attempting to read parquet file: {parquet_path}")
-            logger.info(f"Parquet file exists: {parquet_path.exists()}")
+            logger.info(
+                "Reading parquet: file=%s (node=%s branch=%s batch=%s)",
+                file_path,
+                node_name,
+                branch_index,
+                batch_num,
+            )
 
-            if not parquet_path.exists():
-                logger.warning(f"Parquet file not found: {parquet_path}")
+            if not Path(file_path).exists():
+                logger.warning("Parquet file not found: %s", file_path)
                 return doc_data
 
-            # Read parquet file
-            table = pq.read_table(str(parquet_path))
-            logger.info(f"Parquet table schema: {table.schema}")
-            logger.info(f"Parquet table columns: {table.column_names}")
-            logger.info(f"Parquet table num_rows: {table.num_rows}")
+            # Read only required columns for performance
+            columns = self._get_required_columns(node_id)
+            table = pq.read_table(file_path, columns=columns)
 
-            # Convert to list of dicts
-            pylist = table.to_pylist()
-            logger.info(f"First row sample (if available): {pylist[0] if pylist else 'No rows'}")
-
-            for row in pylist:
+            for row in table.to_pylist():
                 doc_id = row.get("id")
                 if doc_id:
                     doc_data[doc_id] = row
-                    logger.debug(f"Read doc_id={doc_id}, keys={list(row.keys())}")
 
-            logger.info(f"Successfully read {len(doc_data)} documents from {parquet_path}")
+            logger.info(
+                "Read %d documents from %s (columns=%s)",
+                len(doc_data),
+                file_path,
+                columns,
+            )
 
         except Exception as e:
-            logger.error(f"Error reading parquet file for node {node_id}: {e}", exc_info=True)
+            logger.error("Error reading parquet for node %s: %s", node_id, e, exc_info=True)
 
         return doc_data
 
@@ -788,9 +834,8 @@ class JobReportGenerator:
 
         if not ingest_data:
             error_msg = (
-                f"No data found in ingest parquet file for node {ingest_node_id}. "
-                f"Report generation requires parquet files (data_storage_type='local'). "
-                f"If using in-memory storage, parquet files are not available and reports cannot be generated."
+                f"No documents found in ingest parquet file for node {ingest_node_id}. "
+                f"Ensure the flow completed successfully and generated parquet output files."
             )
             logger.warning(error_msg)
             raise ValueError(error_msg)

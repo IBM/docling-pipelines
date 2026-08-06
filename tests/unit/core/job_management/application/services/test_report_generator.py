@@ -370,7 +370,7 @@ class TestTimestampConversion:
     """Test timestamp conversion methods."""
 
     def test_get_timestamp_from_modified_time_integer(self):
-        """Convert integer timestamp to ISO 8601 string."""
+        """Convert integer timestamp to YYYY-MM-DD:HH:MM:SS format."""
         job_stats = JobStats(
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
@@ -384,9 +384,27 @@ class TestTimestampConversion:
         timestamp = 1704067200
         result = generator._get_timestamp_from_modified_time(timestamp, "doc1")
 
-        # Should be ISO 8601 format
-        assert "2024-01-01" in result
-        assert "T" in result
+        # Should match the CSV format: YYYY-MM-DD:HH:MM:SS
+        assert result == "2024-01-01:00:00:00"
+
+    def test_get_timestamp_from_modified_time_epoch_ms(self):
+        """Convert epoch-millisecond timestamp to YYYY-MM-DD:HH:MM:SS format."""
+        job_stats = JobStats(
+            job_id=JOB_ID,
+            job_run_id=JOB_RUN_ID,
+            status=ExecutionStatus.COMPLETED,
+            node_stats={},
+        )
+
+        generator = JobReportGenerator(job_stats=job_stats)
+
+        # Epoch-ms timestamp (≥ 1e10): 1704067200000
+        # Should divide by 1000 to get seconds: 1704067200 = 2024-01-01 00:00:00 UTC
+        timestamp_ms = 1704067200000
+        result = generator._get_timestamp_from_modified_time(timestamp_ms, "doc1")
+
+        # Should match the CSV format: YYYY-MM-DD:HH:MM:SS
+        assert result == "2024-01-01:00:00:00"
 
     def test_get_timestamp_from_modified_time_string(self):
         """Return string timestamp as-is."""

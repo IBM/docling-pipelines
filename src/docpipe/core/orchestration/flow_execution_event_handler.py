@@ -7,6 +7,7 @@ from docpipe.core.models.session_info import get_session_info
 from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.orchestration.abstract_flow_execution_event_handler import AbstractFlowExecutionEventHandler
 from docpipe.core.orchestration.batch_manager import BatchInfo
+from docpipe.core.orchestration.executor_pool import thread_pool_executor
 from docpipe.utils.infrastructure.filesystem import get_data_path
 from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
 from docpipe.utils.infrastructure.logging import get_logger
@@ -628,14 +629,17 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
     def _start_background_report_generation(self, *, job_stats, op_flow) -> None:
         """
-        Start background thread for report generation.
+        Start background report generation using the shared thread pool executor.
+
+        Submits report generation to the module-level ThreadPoolExecutor rather than
+        spawning a raw daemon thread. This ensures the future is tracked by the executor
+        and is not killed by a pod shutdown before it completes (the executor's work queue
+        is drained before the process exits).
 
         Args:
             job_stats: JobStats object with complete statistics
             op_flow: Flow definition DAG nodes
         """
-        import threading
-
         if not self.job_stats_service or not self.job_run_id:
             logger.warning(
                 "Cannot generate report: job_stats_service or job_run_id not available", extra=self.common_log_arguments
@@ -645,10 +649,10 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         try:
             from docpipe.core.models.session_info import get_session_info
 
-            # Capture all data needed before the thread starts.
+            # Capture all data needed before submitting to the executor.
             # SessionInfo is captured explicitly because ContextVar is not inherited by threads.
             # node_metadata_list must be captured here while it still exists in node_stats
-            # (it may not be available after the thread starts if node_stats is cleared).
+            # (it may not be available after the executor picks up the task if node_stats is cleared).
             session_info_ref = get_session_info()
             dag_nodes_ref = op_flow
             batch_node_stats_ref = job_stats.batch_node_stats
@@ -660,19 +664,20 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 extra=self.common_log_arguments,
             )
 
-            # Start background thread
-            report_thread = threading.Thread(
-                target=lambda: self._generate_report_async(
-                    session_info_ref, dag_nodes_ref, batch_node_stats_ref, node_metadata_list_ref
-                ),
-                name=f"ReportGen-{self.job_run_id}",
-                daemon=False,
+            thread_pool_executor.submit(
+                self._generate_report_async,
+                session_info_ref,
+                dag_nodes_ref,
+                batch_node_stats_ref,
+                node_metadata_list_ref,
             )
-            report_thread.start()
-            logger.info("Job report generation started in background thread", extra=self.common_log_arguments)
+            logger.info("Job report generation submitted to thread pool executor", extra=self.common_log_arguments)
         except Exception as e:
             logger.warning(
-                f"Failed to start background report generation: {e}", extra=self.common_log_arguments, exc_info=True
+                "Failed to submit background report generation: %s",
+                str(e),
+                extra=self.common_log_arguments,
+                exc_info=True,
             )
 
     @staticmethod

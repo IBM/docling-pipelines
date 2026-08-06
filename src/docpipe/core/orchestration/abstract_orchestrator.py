@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from queue import Queue
 from typing import Any, ParamSpec, TypeVar
@@ -34,7 +33,6 @@ logger = get_logger()
 
 R = TypeVar("R")  # The return type of the user's function
 P = ParamSpec("P")
-thread_pool_executor = ThreadPoolExecutor(max_workers=20)
 
 
 class AbstractOrchestrator(ABC):

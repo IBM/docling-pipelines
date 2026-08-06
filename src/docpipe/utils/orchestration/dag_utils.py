@@ -9,6 +9,7 @@ from typing import Any
 from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.orchestration.elyra_converter import ElyraConstants, ElyraConverter
 
 logger = get_logger()
 
@@ -122,6 +123,27 @@ def _reconstruct_dag_nodes_from_authoring(
     return dag_nodes
 
 
+def _convert_elyra_to_dag(
+    *,
+    flow_definition: dict[str, Any],
+) -> list[dict[str, Any]] | None:
+    """
+    Convert an Elyra/CPD pipeline snapshot to a DAG node list.
+
+    Returns the converted dag list on success, or None if the conversion raises
+    so the caller can fall through to the warning branch.
+    """
+    try:
+        converter = ElyraConverter()
+        result = converter.transform_elyra_to_internal(elyra_json=flow_definition, flow_id="report-snapshot")
+        dag = result.get(DocpipeConstants.FLOW, {}).get(DocpipeConstants.DAG, [])
+        logger.info("Converted Elyra pipeline snapshot to %d DAG nodes for report generation", len(dag))
+        return dag
+    except Exception as exc:
+        logger.warning("Failed to convert Elyra pipeline snapshot: %s", exc, exc_info=True)
+        return None
+
+
 def extract_dag_nodes(
     *,
     flow_definition: dict[str, Any] | None,
@@ -130,7 +152,7 @@ def extract_dag_nodes(
     """
     Extract the list of runtime DAG nodes from a flow definition.
 
-    Handles two formats that may be stored on disk:
+    Handles three formats that may be stored on disk:
 
     1. Runtime DAG format (compiled):
        ``{"dag": [{...}, ...], ...}``
@@ -142,6 +164,12 @@ def extract_dag_nodes(
        that will never match the UUIDs stored in ``node_stats``.  Instead, the dag
        nodes are reconstructed from ``node_stats`` (real UUIDs + operator names)
        combined with the ``depends_on`` graph from the authoring ``flow`` list.
+
+    3. Elyra / CPD pipeline format (Enterprise snapshot):
+       ``{"doc_type": "pipeline", "pipelines": [{...}], ...}``
+       Converted via ``ElyraConverter.transform_elyra_to_internal()`` and the
+       resulting ``dag`` list is returned directly.  Node UUIDs in this format
+       are the original Elyra node IDs and already match ``node_stats`` keys.
 
     Args:
         flow_definition: Flow definition dict as returned by
@@ -160,6 +188,12 @@ def extract_dag_nodes(
     dag = flow_definition.get(DocpipeConstants.DAG)
     if isinstance(dag, list):
         return dag
+
+    # Elyra / CPD pipeline format — convert then return the dag list directly
+    if flow_definition.get(ElyraConstants.DOC_TYPE) == "pipeline" and ElyraConstants.PIPELINES in flow_definition:
+        converted = _convert_elyra_to_dag(flow_definition=flow_definition)
+        if converted is not None:
+            return converted
 
     # Authoring format — rebuild from node_stats to preserve real UUIDs
     if DocpipeConstants.FLOW not in flow_definition:

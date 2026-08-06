@@ -2,10 +2,11 @@
 Unit tests for DAG utility functions.
 
 Tests cover:
-- DAG node extraction from runtime and authoring flow formats
+- DAG node extraction from runtime, authoring, and Elyra flow formats
 """
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from docpipe.utils.orchestration.dag_utils import extract_dag_nodes
 
@@ -173,3 +174,68 @@ class TestExtractDagNodes:
         # branch_for_embeddings must have embeddings_model_1 as its output edge
         assert len(by_name["branch_for_embeddings"]["output_edges"]) == 1
         assert by_name["branch_for_embeddings"]["output_edges"][0]["node_id_ref"] == embed_uuid
+
+    def test_elyra_format_returns_converted_dag(self):
+        """Elyra pipeline snapshot is converted and its dag list returned."""
+        elyra_dag = [
+            {
+                "id": "node-uuid-1",
+                "name": "ingest",
+                "operator": "ingest_local",
+                "input_edges": [],
+                "output_edges": [{"node_id_ref": "node-uuid-2"}],
+            },
+            {
+                "id": "node-uuid-2",
+                "name": "extract",
+                "operator": "extract_operator",
+                "input_edges": [{"node_id_ref": "node-uuid-1"}],
+                "output_edges": [],
+            },
+        ]
+        elyra_flow_definition = {
+            "doc_type": "pipeline",
+            "pipelines": [{"id": "pipe-1", "nodes": []}],
+        }
+
+        mock_converter = MagicMock()
+        mock_converter.transform_elyra_to_internal.return_value = {"flow": {"dag": elyra_dag, "name": "test-flow"}}
+
+        with patch(
+            "docpipe.utils.orchestration.dag_utils.ElyraConverter",
+            return_value=mock_converter,
+        ):
+            result = extract_dag_nodes(flow_definition=elyra_flow_definition)
+
+        assert result == elyra_dag
+        mock_converter.transform_elyra_to_internal.assert_called_once_with(
+            elyra_json=elyra_flow_definition, flow_id="report-snapshot"
+        )
+
+    def test_elyra_format_conversion_failure_falls_through_to_warning(self):
+        """If Elyra conversion raises, returns empty list (no crash)."""
+        elyra_flow_definition = {
+            "doc_type": "pipeline",
+            "pipelines": [{"id": "pipe-1"}],
+        }
+
+        mock_converter = MagicMock()
+        mock_converter.transform_elyra_to_internal.side_effect = RuntimeError("bad pipeline")
+
+        with patch(
+            "docpipe.utils.orchestration.dag_utils.ElyraConverter",
+            return_value=mock_converter,
+        ):
+            result = extract_dag_nodes(flow_definition=elyra_flow_definition)
+
+        assert result == []
+
+    def test_elyra_format_not_triggered_without_pipelines_key(self):
+        """doc_type=pipeline without 'pipelines' key does not attempt Elyra conversion."""
+        flow_definition = {"doc_type": "pipeline"}  # missing 'pipelines'
+
+        with patch("docpipe.utils.orchestration.dag_utils.ElyraConverter") as mock_cls:
+            result = extract_dag_nodes(flow_definition=flow_definition)
+
+        mock_cls.assert_not_called()
+        assert result == []

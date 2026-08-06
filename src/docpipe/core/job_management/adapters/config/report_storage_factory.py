@@ -11,151 +11,166 @@ Additional storage backends can be registered at import time.
 from __future__ import annotations
 
 import os
-from enum import StrEnum
+import threading
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import yaml
 
-from docpipe.core.constants import DocpipeConfigKeys
-from docpipe.core.constants.constants import EnvironmentVariables, _find_project_root
+from docpipe.core.constants import DocpipeConfigKeys, EnvironmentVariables
+from docpipe.core.constants.constants import _find_project_root
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.storage.file_system.content_file_system_storage import ContentFileSystemStorage
-from docpipe.storage.interfaces.content_storage_port import ContentStoragePort
 from docpipe.utils.infrastructure.filesystem import get_data_path
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
+DEFAULT_STORAGE_BACKEND = "filesystem"
+DEFAULT_CONFIG_PATH = _find_project_root() / "docling-pipelines-config.yaml"
+ENV_CONFIG_PATH_KEY = EnvironmentVariables.DOCPIPE_CONFIG_PATH
 
-@runtime_checkable
-class _ContentStorageConstructor(Protocol):
-    """Protocol for ContentStoragePort implementations that accept ``base_dir``."""
-
-    def __call__(self, *, base_dir: str) -> ContentStoragePort: ...
-
-
-class ContentStorageType(StrEnum):
-    """Supported content storage backends."""
-
-    FILESYSTEM = "filesystem"
-
-
-# Registry mapping storage type strings to ContentStoragePort implementations.
-# Additional backends can be registered at import time:
-#
-#   from docpipe.core.job_management.adapters.config.report_storage_factory import (
-#       CONTENT_STORAGE_REGISTRY,
-#   )
-#   CONTENT_STORAGE_REGISTRY["cos"] = COSContentStorage
-#
-CONTENT_STORAGE_REGISTRY: dict[str, _ContentStorageConstructor] = {
-    ContentStorageType.FILESYSTEM: ContentFileSystemStorage,  # type: ignore[dict-item]
-}
+if TYPE_CHECKING:
+    from docpipe.storage.interfaces.content_storage_port import ContentStoragePort
 
 
 class ContentStorageFactory:
-    """
-    Registry-based factory for instantiating ContentStoragePort adapters.
+    """Adapter registry for report content storage."""
 
-    Configuration is read from the ``job_run_report.storage`` section of
-    docling-pipelines-config.yaml:
-
-    .. code-block:: yaml
-
-        job_run_report:
-          storage:
-            type: filesystem
-            config:
-              data_root: ./data
-
-    Additional backends are registered in CONTENT_STORAGE_REGISTRY before
-    the factory is instantiated.
-
-    Usage::
-
-        adapter = ContentStorageFactory().create_storage()
-        content = adapter.read_text(collection=job_id, file_name="report.csv")
-    """
-
-    def __init__(
-        self,
-        *,
-        storage_type: ContentStorageType = ContentStorageType.FILESYSTEM,
-        config: dict[str, Any] | None = None,
-    ) -> None:
-        self.storage_type = storage_type
-        self.config = config or {}
-
-    def create_storage(self) -> ContentStoragePort:
-        """
-        Instantiate the configured ContentStoragePort adapter.
-
-        Returns:
-            ContentStoragePort implementation
-
-        Raises:
-            ValueError: If the storage type is not registered
-        """
-        adapter_constructor = CONTENT_STORAGE_REGISTRY.get(self.storage_type)
-        if adapter_constructor is None:
-            supported = list(CONTENT_STORAGE_REGISTRY.keys())
-            raise ValueError(f"Unknown content storage type '{self.storage_type}'. Supported: {supported}")
-
-        data_root = self.config.get("data_root") or get_data_path()
-        adapter = adapter_constructor(base_dir=str(data_root))
-        logger.info("Created %s for content storage", type(adapter).__name__)
-        return adapter
+    _stores: ClassVar[dict[str, type[ContentStoragePort]]] = {
+        DEFAULT_STORAGE_BACKEND: ContentFileSystemStorage,
+    }
 
     @classmethod
-    def from_config_file(cls, config_path: str) -> ContentStorageFactory:
-        """
-        Build a factory from a YAML configuration file.
+    def clear_registry(cls) -> None:
+        """Clear all registered backends. Intended for test teardown only."""
+        cls._stores.clear()
 
-        Reads the ``job_run_report.storage`` section.
-        Falls back to the filesystem adapter with defaults when absent.
-        """
+    @classmethod
+    def register(cls, store_class: type[ContentStoragePort]) -> type[ContentStoragePort]:
+        """Register a content storage class."""
+        if not hasattr(store_class, "STORAGE_BACKEND"):
+            raise TypeError(f"Content storage class {store_class.__name__} must define STORAGE_BACKEND")
+
+        backend_name: str = store_class.STORAGE_BACKEND  # type: ignore[attr-defined]
+
+        if backend_name in cls._stores:
+            logger.warning("Content storage backend '%s' is already registered. Overwriting.", backend_name)
+
+        cls._stores[backend_name] = store_class
+        logger.debug("Registered content storage backend: %s", backend_name)
+        return store_class
+
+    @classmethod
+    def list_backends(cls) -> list[str]:
+        """Return all registered backend names."""
+        return list(cls._stores.keys())
+
+    def __init__(self, *, backend: str, config: dict[str, Any] | None = None) -> None:
+        self._backend = backend
+        self._config: dict[str, Any] = config or {}
+        self._store: ContentStoragePort | None = None
+
+    def get_store(self) -> ContentStoragePort:
+        """Return the singleton store, creating it on first call."""
+        if self._store is None:
+            if self._backend not in ContentStorageFactory._stores:
+                available = ", ".join(ContentStorageFactory._stores.keys()) or "none"
+                raise DocpipeException(
+                    f"Unknown report content storage backend: '{self._backend}'. Available backends: {available}"
+                )
+
+            store_class = ContentStorageFactory._stores[self._backend]
+            base_dir = self._config.get("data_root") or self._config.get(DocpipeConfigKeys.BASE_DIR) or get_data_path()
+            self._store = store_class(base_dir=str(base_dir))  # type: ignore[call-arg]
+            logger.info("Created report content storage: backend=%s", self._backend)
+        return self._store
+
+    @classmethod
+    def from_config_file(cls, *, config_path: str) -> ContentStorageFactory:
+        """Build a factory from a YAML configuration file."""
         config_file = Path(config_path)
         if not config_file.exists():
-            logger.warning("Config file not found at %s, using default filesystem content storage", config_path)
-            return cls()
+            logger.warning("Config file not found: %s. Using default report storage configuration.", config_path)
+            return cls._default_backend_factory()
 
         try:
             with open(config_file) as f:
-                yaml_config = yaml.safe_load(f) or {}
+                yaml_config = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML configuration: {e}") from e
+            raise DocpipeException(f"Invalid YAML configuration: {e}") from e
 
-        report_section = yaml_config.get(DocpipeConfigKeys.JOB_RUN_REPORT, {}) or {}
-        storage_section = report_section.get(DocpipeConfigKeys.STORAGE, {}) or {}
+        if not yaml_config:
+            logger.warning("Empty configuration file: %s. Using defaults.", config_path)
+            return cls._default_backend_factory()
 
-        storage_type_str = storage_section.get(DocpipeConfigKeys.TYPE, ContentStorageType.FILESYSTEM.value)
-        storage_config = storage_section.get(DocpipeConfigKeys.CONFIG, {}) or {}
-
-        try:
-            storage_type = ContentStorageType(storage_type_str)
-        except ValueError:
-            supported = [e.value for e in ContentStorageType]
-            raise ValueError(f"Invalid content storage type '{storage_type_str}'. Supported: {supported}") from None
-
-        logger.info("Loaded content storage configuration from %s: type=%s", config_path, storage_type)
-        return cls(storage_type=storage_type, config=storage_config)
+        backend, config = _resolve_backend_and_config(yaml_config=yaml_config)
+        logger.info("Report storage factory from %s: backend=%s", config_path, backend)
+        return cls(backend=backend, config=config)
 
     @classmethod
     def from_default_sources(cls) -> ContentStorageFactory:
-        """
-        Build a factory from the default config file location.
-
-        Reads DOCPIPE_CONFIG_PATH env var for a custom config path.
-        Falls back to ``{project_root}/docling-pipelines-config.yaml`` when the
-        env var is not set.
-        """
-        default_config_path = _find_project_root() / "docling-pipelines-config.yaml"
-        config_path = Path(os.getenv(EnvironmentVariables.DOCPIPE_CONFIG_PATH, str(default_config_path)))
+        """Build a factory from the standard config-file / env-var path."""
+        config_path = Path(os.getenv(ENV_CONFIG_PATH_KEY, str(DEFAULT_CONFIG_PATH)))
         if config_path.exists():
-            return cls.from_config_file(str(config_path))
+            try:
+                return cls.from_config_file(config_path=str(config_path))
+            except Exception as e:
+                logger.warning("Failed to load config from %s: %s. Using defaults.", config_path, e)
+        else:
+            logger.warning("Config file not found at %s. Using defaults.", config_path)
+        return cls._default_backend_factory()
 
-        logger.warning("Config file not found at %s. Using default filesystem content storage.", config_path)
-        return cls()
+    @classmethod
+    def _default_backend_factory(cls) -> ContentStorageFactory:
+        if DEFAULT_STORAGE_BACKEND not in cls._stores:
+            available = ", ".join(cls._stores.keys()) or "none"
+            raise RuntimeError(
+                f"Default storage backend '{DEFAULT_STORAGE_BACKEND}' is not registered. "
+                f"Ensure the filesystem store module is imported before calling this. "
+                f"Available backends: {available}"
+            )
+        return cls(backend=DEFAULT_STORAGE_BACKEND)
+
+
+# ---------------------------------------------------------------------------
+# Decorator
+# ---------------------------------------------------------------------------
+
+
+def register_content_storage(store_class: type[ContentStoragePort]) -> type[ContentStoragePort]:
+    """Register a ContentStoragePort implementation via decorator."""
+    return ContentStorageFactory.register(store_class)
+
+
+# ---------------------------------------------------------------------------
+# Internal config helper
+# ---------------------------------------------------------------------------
+
+
+def _resolve_backend_and_config(*, yaml_config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Extract backend name and merged config dict from a parsed YAML document."""
+    global_storage_config = yaml_config.get(DocpipeConfigKeys.GLOBAL_STORAGE, {})
+    report_config = yaml_config.get(DocpipeConfigKeys.JOB_RUN_REPORT, {})
+    storage_config: Any | dict[Any, Any] = report_config.get(DocpipeConfigKeys.STORAGE, {}) or {}
+
+    backend = (
+        storage_config.get(DocpipeConfigKeys.TYPE)
+        or global_storage_config.get(DocpipeConfigKeys.TYPE)
+        or DEFAULT_STORAGE_BACKEND
+    )
+
+    available_backends = ContentStorageFactory.list_backends()
+    if backend not in available_backends:
+        available = ", ".join(available_backends) or "none"
+        raise DocpipeException(f"Invalid report storage backend '{backend}'. Available: {available}")
+
+    merged: dict[str, Any] = {}
+    if global_storage_config:
+        merged.update(global_storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
+    merged.update(storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
+
+    return backend, merged
 
 
 # ---------------------------------------------------------------------------
@@ -163,27 +178,27 @@ class ContentStorageFactory:
 # ---------------------------------------------------------------------------
 
 _default_factory: ContentStorageFactory | None = None
-_default_adapter: ContentStoragePort | None = None
+_default_factory_lock: threading.Lock = threading.Lock()
+
+
+def get_default_factory() -> ContentStorageFactory:
+    """Return the process-wide singleton ``ContentStorageFactory``."""
+    global _default_factory
+
+    if _default_factory is None:
+        with _default_factory_lock:
+            if _default_factory is None:
+                _default_factory = ContentStorageFactory.from_default_sources()
+
+    return _default_factory
 
 
 def get_report_storage() -> ContentStoragePort:
-    """
-    Return the singleton ContentStoragePort adapter.
-
-    Built from the default configuration sources on first call.
-    """
-    global _default_factory, _default_adapter
-
-    if _default_adapter is None:
-        if _default_factory is None:
-            _default_factory = ContentStorageFactory.from_default_sources()
-        _default_adapter = _default_factory.create_storage()
-
-    return _default_adapter
+    """Return the singleton ContentStoragePort adapter for report generation."""
+    return get_default_factory().get_store()
 
 
 def reset_report_storage() -> None:
     """Reset singleton instances (useful for testing)."""
-    global _default_factory, _default_adapter
+    global _default_factory
     _default_factory = None
-    _default_adapter = None

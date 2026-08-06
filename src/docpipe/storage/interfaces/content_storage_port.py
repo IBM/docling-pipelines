@@ -57,6 +57,12 @@ class ContentStoragePort(ABC):
         Raises:
             StorageValidationError: If collection or file_name is invalid
             DocpipeException: If the read operation fails
+
+        Note:
+            Implementations must return an empty string rather than raising
+            when the file does not exist. This ensures consistent behavior across
+            backends and allows callers to distinguish between "file not found"
+            and actual read failures.
         """
 
     @abstractmethod
