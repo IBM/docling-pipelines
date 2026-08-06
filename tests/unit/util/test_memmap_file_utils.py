@@ -1,5 +1,4 @@
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -52,13 +51,13 @@ class TestMemmapFileUtils:
 
     def test_write_and_read_embeddings(self, *, temp_dir, sample_embeddings):
         """Test writing and reading embeddings to/from memmap file."""
-        filepath = os.path.join(temp_dir, "test_embeddings.bin")
+        filepath = str(Path(temp_dir) / "test_embeddings.bin")
 
         # Write embeddings
         write_content_to_file(content_list=sample_embeddings, filepath=filepath)
 
         # Verify file exists
-        assert os.path.exists(filepath)
+        assert Path(filepath).exists()
 
         # Read embeddings back
         loaded_embeddings = load_embeddings_from_memmap_file(filepath=filepath)
@@ -70,7 +69,7 @@ class TestMemmapFileUtils:
 
     def test_write_and_read_embedding_metadata(self, *, temp_dir):
         """Test writing and reading embedding metadata."""
-        filepath = os.path.join(temp_dir, "test_embeddings.bin")
+        filepath = str(Path(temp_dir) / "test_embeddings.bin")
         dim = 128
 
         # Write metadata
@@ -78,7 +77,7 @@ class TestMemmapFileUtils:
 
         # Verify metadata file exists
         metadata_path = filepath + DocpipeConstants.METADATA_SUFFIX
-        assert os.path.exists(metadata_path)
+        assert Path(metadata_path).exists()
 
         # Read metadata back
         loaded_dim = read_embedding_metadata(filepath=filepath)
@@ -88,7 +87,7 @@ class TestMemmapFileUtils:
 
     def test_yield_embeddings_from_memmap_file(self, *, temp_dir, sample_embeddings):
         """Test streaming embeddings using generator."""
-        filepath = os.path.join(temp_dir, "test_embeddings.bin")
+        filepath = str(Path(temp_dir) / "test_embeddings.bin")
 
         # Write embeddings
         write_content_to_file(content_list=sample_embeddings, filepath=filepath)
@@ -107,13 +106,13 @@ class TestMemmapFileUtils:
 
     def test_write_and_read_chunks(self, *, temp_dir, sample_chunks):
         """Test writing and reading chunks to/from binary file."""
-        filepath = os.path.join(temp_dir, "test_chunks.bin")
+        filepath = str(Path(temp_dir) / "test_chunks.bin")
 
         # Write chunks
         write_chunks_to_file(chunks_list=sample_chunks, filepath=filepath)
 
         # Verify file exists
-        assert os.path.exists(filepath)
+        assert Path(filepath).exists()
 
         # Read chunks back
         loaded_chunks = load_chunks_from_file(filepath=filepath)
@@ -125,7 +124,7 @@ class TestMemmapFileUtils:
 
     def test_yield_chunks_from_file(self, *, temp_dir, sample_chunks):
         """Test streaming chunks using generator."""
-        filepath = os.path.join(temp_dir, "test_chunks.bin")
+        filepath = str(Path(temp_dir) / "test_chunks.bin")
 
         # Write chunks
         write_chunks_to_file(chunks_list=sample_chunks, filepath=filepath)
@@ -143,7 +142,7 @@ class TestMemmapFileUtils:
 
     def test_replace_memmap_paths_combined_with_embeddings(self, *, temp_dir, sample_embeddings):
         """Test replacing memmap paths with actual embeddings data in PyArrow table."""
-        filepath = os.path.join(temp_dir, "test_embeddings.bin")
+        filepath = str(Path(temp_dir) / "test_embeddings.bin")
 
         # Write embeddings
         write_content_to_file(content_list=sample_embeddings, filepath=filepath)
@@ -170,7 +169,7 @@ class TestMemmapFileUtils:
 
     def test_replace_memmap_paths_combined_with_chunks(self, *, temp_dir, sample_chunks):
         """Test replacing memmap paths with actual chunks data in PyArrow table."""
-        filepath = os.path.join(temp_dir, "test_chunks.bin")
+        filepath = str(Path(temp_dir) / "test_chunks.bin")
 
         # Write chunks
         write_chunks_to_file(chunks_list=sample_chunks, filepath=filepath)
@@ -197,8 +196,8 @@ class TestMemmapFileUtils:
 
     def test_replace_memmap_paths_combined_with_both(self, *, temp_dir, sample_embeddings, sample_chunks):
         """Test replacing both embeddings and chunks memmap paths in PyArrow table."""
-        embeddings_filepath = os.path.join(temp_dir, "test_embeddings.bin")
-        chunks_filepath = os.path.join(temp_dir, "test_chunks.bin")
+        embeddings_filepath = str(Path(temp_dir) / "test_embeddings.bin")
+        chunks_filepath = str(Path(temp_dir) / "test_chunks.bin")
 
         # Write both embeddings and chunks
         write_content_to_file(content_list=sample_embeddings, filepath=embeddings_filepath)
@@ -248,24 +247,24 @@ class TestMemmapFileUtils:
         job_run_id = "test_run"
 
         # Create directory structure
-        chunks_dir = os.path.join(temp_dir, "chunks_files", job_id, job_run_id)
-        embeddings_dir = os.path.join(temp_dir, "embeddings_files", job_id, job_run_id)
-        os.makedirs(chunks_dir, exist_ok=True)
-        os.makedirs(embeddings_dir, exist_ok=True)
+        chunks_dir = str(Path(temp_dir) / "chunks_files" / job_id / job_run_id)
+        embeddings_dir = str(Path(temp_dir) / "embeddings_files" / job_id / job_run_id)
+        Path(chunks_dir).mkdir(parents=True, exist_ok=True)
+        Path(embeddings_dir).mkdir(parents=True, exist_ok=True)
 
         # Create some test files
-        Path(os.path.join(chunks_dir, "test_chunk.bin")).touch()
-        Path(os.path.join(embeddings_dir, "test_embedding.bin")).touch()
+        (Path(chunks_dir) / "test_chunk.bin").touch()
+        (Path(embeddings_dir) / "test_embedding.bin").touch()
 
         # Verify directories exist
-        assert os.path.exists(chunks_dir)
-        assert os.path.exists(embeddings_dir)
+        assert Path(chunks_dir).exists()
+        assert Path(embeddings_dir).exists()
 
         # Mock get_data_path to return our temp directory
         from unittest.mock import patch
 
         def mock_get_data_path(*, sub_dir):
-            return os.path.join(temp_dir, sub_dir.lstrip("/"))
+            return str(Path(temp_dir) / sub_dir.lstrip("/"))
 
         # Use patch to mock get_data_path from the filesystem module
         with patch("docpipe.utils.infrastructure.filesystem.get_data_path", side_effect=mock_get_data_path):
@@ -273,55 +272,55 @@ class TestMemmapFileUtils:
             cleanup_memmap_files(job_id=job_id, job_run_id=job_run_id)
 
             # Verify directories were removed
-            assert not os.path.exists(chunks_dir)
-            assert not os.path.exists(embeddings_dir)
+            assert not Path(chunks_dir).exists()
+            assert not Path(embeddings_dir).exists()
 
     def test_write_embeddings_creates_directory(self, *, temp_dir, sample_embeddings):
         """Test that writing embeddings creates necessary directories."""
-        nested_path = os.path.join(temp_dir, "nested", "dir", "test_embeddings.bin")
+        nested_path = str(Path(temp_dir) / "nested" / "dir" / "test_embeddings.bin")
 
         # Write embeddings (should create directories)
         write_content_to_file(content_list=sample_embeddings, filepath=nested_path)
 
         # Verify file and directories exist
-        assert os.path.exists(nested_path)
-        assert os.path.exists(os.path.dirname(nested_path))
+        assert Path(nested_path).exists()
+        assert Path(nested_path).parent.exists()
 
     def test_write_chunks_creates_directory(self, *, temp_dir, sample_chunks):
         """Test that writing chunks creates necessary directories."""
-        nested_path = os.path.join(temp_dir, "nested", "dir", "test_chunks.bin")
+        nested_path = str(Path(temp_dir) / "nested" / "dir" / "test_chunks.bin")
 
         # Write chunks (should create directories)
         write_chunks_to_file(chunks_list=sample_chunks, filepath=nested_path)
 
         # Verify file and directories exist
-        assert os.path.exists(nested_path)
-        assert os.path.exists(os.path.dirname(nested_path))
+        assert Path(nested_path).exists()
+        assert Path(nested_path).parent.exists()
 
     def test_empty_embeddings_list(self, *, temp_dir):
         """Test handling of empty embeddings list."""
-        filepath = os.path.join(temp_dir, "empty_embeddings.bin")
+        filepath = str(Path(temp_dir) / "empty_embeddings.bin")
 
         # Write empty list
         write_content_to_file(content_list=[], filepath=filepath)
 
         # File is created but empty
-        assert os.path.exists(filepath)
-        assert os.path.getsize(filepath) == 0
+        assert Path(filepath).exists()
+        assert Path(filepath).stat().st_size == 0
 
         # No metadata file should be created for empty list
         metadata_path = filepath + DocpipeConstants.METADATA_SUFFIX
-        assert not os.path.exists(metadata_path)
+        assert not Path(metadata_path).exists()
 
     def test_empty_chunks_list(self, *, temp_dir):
         """Test handling of empty chunks list."""
-        filepath = os.path.join(temp_dir, "empty_chunks.bin")
+        filepath = str(Path(temp_dir) / "empty_chunks.bin")
 
         # Write empty list
         write_chunks_to_file(chunks_list=[], filepath=filepath)
 
         # File should still be created
-        assert os.path.exists(filepath)
+        assert Path(filepath).exists()
 
         # Reading should return empty list
         loaded = load_chunks_from_file(filepath=filepath)

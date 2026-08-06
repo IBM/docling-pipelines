@@ -1,7 +1,7 @@
 """PyArrow table handling utilities for reading, writing, and transforming Parquet tables."""
 
-import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -119,7 +119,7 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
         self.logger.info(f"Reading table from: {path}")
         lock = FileLock(_lock_path(path=path), timeout=LOCK_TIMEOUT)
         with lock:
-            if not os.path.exists(path):
+            if not Path(path).exists():
                 self.logger.debug(f"Table not found from: {path}")
                 return None
             return pq.read_table(path, columns=columns, filters=filters)
@@ -144,8 +144,8 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
         try:
             self.logger.info(f"Deleting file: {path}")
             with FileLock(_lock_path(path=path), timeout=LOCK_TIMEOUT):
-                if os.path.exists(path):
-                    os.remove(path)
+                if Path(path).exists():
+                    Path(path).unlink()
                     self.logger.info(f"File deleted successfully {path}")
                 else:
                     self.logger.warning("File does not exist.")

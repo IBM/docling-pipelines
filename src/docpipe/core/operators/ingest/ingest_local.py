@@ -130,7 +130,7 @@ class IngestLocalOperator(AbstractOperator):
         for path in self.paths:
             if not path or not isinstance(path, str):
                 raise ValueError(f"Each path must be a non-empty string, got: {path}")
-            if not os.path.exists(path):
+            if not Path(path).exists():
                 raise ValueError(f"Path does not exist: {path}")
 
         # Validate max_files
@@ -237,10 +237,10 @@ class IngestLocalOperator(AbstractOperator):
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=0)
 
         # Process single file
-        if os.path.isfile(root_folder):
+        if Path(root_folder).is_file():
             examined_count = 1
             single_doc: dict[str, Any] | None = self.process_file(
-                os.path.dirname(root_folder), os.path.basename(root_folder), metadata
+                str(Path(root_folder).parent), Path(root_folder).name, metadata
             )
             if single_doc:
                 processed_count = 1
@@ -309,8 +309,8 @@ class IngestLocalOperator(AbstractOperator):
         Returns:
             Document dictionary if processed successfully, None otherwise
         """
-        abs_path: str = os.path.join(root, file)
-        stats: os.stat_result = os.stat(abs_path)
+        abs_path: str = str(Path(root) / file)
+        stats: os.stat_result = Path(abs_path).stat()
         if not self.check_constraints(
             file=file,
             file_stats=stats,

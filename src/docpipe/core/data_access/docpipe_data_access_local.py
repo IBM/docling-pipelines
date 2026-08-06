@@ -6,7 +6,7 @@ This module provides a Docpipe implementation of DataAccessLocal that ensures:
 - Persistent parquet files store actual expanded data (portable and complete)
 """
 
-import os
+from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
@@ -68,13 +68,13 @@ class DocpipeDataAccessLocal(DataAccessLocal):
             expanded_table = replace_memmap_paths_combined(table=table)
 
             # Step 3: Write expanded table to parquet format
-            dir_path = os.path.dirname(path)
-            if dir_path:
-                os.makedirs(dir_path, exist_ok=True)
+            path_obj = Path(path)
+            if path_obj.parent.name:
+                path_obj.parent.mkdir(parents=True, exist_ok=True)
             pq.write_table(expanded_table, path)
 
             # Get file size and create file_info
-            file_info = {"name": os.path.basename(path), "size": os.path.getsize(path)}
+            file_info = {"name": path_obj.name, "size": path_obj.stat().st_size}
             logger.info(f"Saved table with data to: {path}")
             return size_in_memory, file_info, 0
 

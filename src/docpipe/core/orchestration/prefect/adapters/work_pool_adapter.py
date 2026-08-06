@@ -495,10 +495,10 @@ class WorkPoolAdapter(BatchExecutionPort):
 
     def _transfer_batch_local(self, *, batch_table: pa.Table, batch_num: int, job_run_id: str) -> dict[str, Any]:
         """Write batch to local shared filesystem and return path."""
-        batch_dir = os.path.join(self.batch_storage_path, job_run_id)
-        os.makedirs(batch_dir, exist_ok=True)
+        batch_dir = Path(self.batch_storage_path) / job_run_id
+        batch_dir.mkdir(parents=True, exist_ok=True)
 
-        local_path = os.path.join(batch_dir, f"batch-{batch_num}.parquet")
+        local_path = str(batch_dir / f"batch-{batch_num}.parquet")
 
         try:
             # Replace memmap paths with actual data before writing to local storage
@@ -871,7 +871,7 @@ class WorkPoolAdapter(BatchExecutionPort):
         if EnvironmentVariables.PREFECT_MODE not in env:
             env[EnvironmentVariables.PREFECT_MODE] = "server"
         if EnvironmentVariables.PYTHONPATH not in env:
-            env[EnvironmentVariables.PYTHONPATH] = deployment_path or os.getcwd()
+            env[EnvironmentVariables.PYTHONPATH] = deployment_path or str(Path.cwd())
         if EnvironmentVariables.OLLAMA_HOST not in env:
             env[EnvironmentVariables.OLLAMA_HOST] = os.getenv(
                 EnvironmentVariables.OLLAMA_HOST, "http://localhost:11434"
@@ -986,10 +986,10 @@ class WorkPoolAdapter(BatchExecutionPort):
             #
             # If deployment_path is None (default), we fall back to os.getcwd().
             if isinstance(self.work_pool_runtime_config, ProcessWorkPoolConfig):
-                worker_code_dir = self.work_pool_runtime_config.deployment_path or os.getcwd()
+                worker_code_dir = self.work_pool_runtime_config.deployment_path or str(Path.cwd())
                 self.prefect_engine.logger.info(
                     f"Process work pool: worker code directory = {worker_code_dir}"
-                    f" (source={'config' if self.work_pool_runtime_config.deployment_path else 'os.getcwd()'})"
+                    f" (source={'config' if self.work_pool_runtime_config.deployment_path else 'Path.cwd()'})"
                 )
 
                 deployment_params = {
@@ -1071,8 +1071,8 @@ class WorkPoolAdapter(BatchExecutionPort):
             try:
                 import shutil
 
-                batch_dir = os.path.join(self.batch_storage_path, job_run_id)
-                if os.path.exists(batch_dir):
+                batch_dir = Path(self.batch_storage_path) / job_run_id
+                if batch_dir.exists():
                     shutil.rmtree(batch_dir)
                     self.prefect_engine.logger.info(
                         f"Cleaned up batch storage: {batch_dir}", extra={"job_run_id": job_run_id}

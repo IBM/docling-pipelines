@@ -1,5 +1,5 @@
-import os
 import unittest
+from pathlib import Path
 
 import pyarrow as pa
 from data_processing.test_support import get_tables_in_folder
@@ -27,13 +27,13 @@ class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
 
     def get_test_transform_fixtures(self) -> list[tuple]:
         # Use the correct path relative to the test file location
-        basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../fixtures"))
-        input_dir = os.path.join(basedir, "ededup_input")
-        expected_dir = os.path.join(basedir, "ededup_expected")
+        basedir = Path(__file__).resolve().parent / "../../../fixtures"
+        input_dir = str(basedir / "ededup_input")
+        expected_dir = str(basedir / "ededup_expected")
 
         # Create directories if they don't exist
-        os.makedirs(input_dir, exist_ok=True)
-        os.makedirs(expected_dir, exist_ok=True)
+        Path(input_dir).mkdir(parents=True, exist_ok=True)
+        Path(expected_dir).mkdir(parents=True, exist_ok=True)
 
         input_tables = get_tables_in_folder(input_dir)
         expected_tables = get_tables_in_folder(expected_dir)

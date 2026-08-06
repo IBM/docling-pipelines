@@ -1,6 +1,6 @@
 """Configuration model for Google Drive source adapter."""
 
-import os
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -90,7 +90,7 @@ class GoogleDriveSourceConfig(BaseModel):
             return None
         # Only expand user home directory (~), don't make relative paths absolute
         # This allows the path to be resolved relative to where the command is run
-        return os.path.expanduser(v)
+        return str(Path(v).expanduser())
 
     @field_validator("file_extensions")
     @classmethod
@@ -109,12 +109,11 @@ class GoogleDriveSourceConfig(BaseModel):
     def get_token_path(self) -> str:
         """Get the token path, using credentials directory if not specified."""
         if self.token_path:
-            return os.path.expanduser(self.token_path)
+            return str(Path(self.token_path).expanduser())
 
         # Use same directory as credentials (only for OAuth)
         if self.credentials_path:
-            creds_dir = os.path.dirname(os.path.expanduser(self.credentials_path))
-            return os.path.join(creds_dir, "token.json")
+            return str(Path(self.credentials_path).expanduser().parent / "token.json")
 
         # For service account, token path is not used
         return ""

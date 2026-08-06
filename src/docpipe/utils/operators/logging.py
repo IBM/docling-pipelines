@@ -1,7 +1,7 @@
 import copy
 import datetime
 import json
-import os
+from pathlib import Path
 from typing import Any
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
@@ -38,17 +38,14 @@ def get_log_and_job_file_path(*, job_id, jobrun_id):
     job_log_file_name = "job_stats.json"
     log_location_path = get_data_path()
 
-    stats_dir = os.path.join(log_location_path, job_id, str(jobrun_id), log_app_location)
+    stats_dir = Path(log_location_path) / job_id / str(jobrun_id) / log_app_location
 
-    log_final_path = os.path.join(stats_dir, log_job_run_file_name)
-    job_log_final_path = os.path.join(stats_dir, job_log_file_name)
-    aggregated_job_log_path = os.path.join(stats_dir, "flow_execute_aggregated.json")
+    log_final_path = str(stats_dir / log_job_run_file_name)
+    job_log_final_path = str(stats_dir / job_log_file_name)
+    aggregated_job_log_path = str(stats_dir / "flow_execute_aggregated.json")
 
-    nodes_metadata_final_path = os.path.join(
-        log_location_path,
-        job_id,
-        str(jobrun_id),
-        OperatorConstants.Config.NODES_METADATA_FILE,
+    nodes_metadata_final_path = str(
+        Path(log_location_path) / job_id / str(jobrun_id) / OperatorConstants.Config.NODES_METADATA_FILE
     )
     return (
         log_final_path,
@@ -75,15 +72,15 @@ def retrieve_operator_logs(*, job_id, jobrun_id):
     # # If database returns empty, try aggregated file (new format) or fall back to old sequential flow format
     # if not content:
     # Try new aggregated format first
-    if os.path.exists(aggregated_job_log_path):
+    if Path(aggregated_job_log_path).exists():
         aggregated_content = read_json_if_exists(path=aggregated_job_log_path)
         if aggregated_content:
             # Aggregated file has complete structure, return it
             return aggregated_content
 
     # Fall back to old sequential flow format (backward compatibility)
-    if os.path.exists(log_final_path):
-        with open(log_final_path) as file:
+    if Path(log_final_path).exists():
+        with Path(log_final_path).open() as file:
             content = file.read()
 
     return get_logs(
@@ -95,8 +92,8 @@ def retrieve_operator_logs(*, job_id, jobrun_id):
 
 def read_json_if_exists(*, path):
     """Reads and returns JSON if file exists."""
-    if path and os.path.exists(path):
-        with open(path) as f:
+    if path and Path(path).exists():
+        with Path(path).open() as f:
             return json.load(f)
     return None
 

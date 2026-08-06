@@ -4,6 +4,7 @@ import json
 import os
 import threading
 import tracemalloc
+from pathlib import Path
 
 from docpipe.core.constants.constants import DocpipeConstants, OrchestratorType
 from docpipe.core.models.session_info import get_session_info
@@ -45,7 +46,7 @@ class FlowExecutor:
         self.__orchestrator = orchestrator
         self.original_flow_def = original_flow_def
         if flow_def_file is not None:
-            with open(flow_def_file) as json_file:
+            with Path(flow_def_file).open() as json_file:
                 self.flow_def = json.load(json_file).get("flow")
         else:
             self.flow_def = flow_def
@@ -170,7 +171,6 @@ class FlowExecutor:
         Print the memory usage information including top n memory consumers
         """
         import linecache
-        import os
 
         gc_stats = gc.get_stats()
         logger.info(f"GC stats: {gc_stats}", extra=self.common_log_arguments)
@@ -187,7 +187,7 @@ class FlowExecutor:
             for index, stat in enumerate(top_stats[:limit], 1):
                 frame = stat.traceback[0]
                 # replace "/path/to/module/file.py" with "module/file.py"
-                filename = os.sep.join(frame.filename.split(os.sep)[-2:])
+                filename = str(Path(*Path(frame.filename).parts[-2:]))
                 logger.info(
                     f"| #{index}: {filename}:{frame.lineno}: {stat.size / 1024:.1f} KiB",
                     extra=self.common_log_arguments,

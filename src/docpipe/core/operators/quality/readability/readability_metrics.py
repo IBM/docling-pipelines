@@ -4,8 +4,8 @@ Provides all standard readability formulas using pyphen and basic regex for toke
 """
 
 import math
-import os
 import re
+from pathlib import Path
 from typing import Any
 
 from pyphen import Pyphen
@@ -31,9 +31,8 @@ def split_sentences(text: str) -> list[str]:
 
 
 # Load easy words list
-current_dir = os.path.dirname(os.path.abspath(__file__))
-easy_words_path = os.path.join(current_dir, "easy_words.txt")
-with open(easy_words_path) as _f:
+easy_words_path = Path(__file__).resolve().parent / "easy_words.txt"
+with easy_words_path.open() as _f:
     EASY_WORDS: set[str] = {word.strip() for word in _f if word.strip()}
 
 

@@ -188,6 +188,7 @@ select = [
     "SIM",   # flake8-simplify
     "RUF",   # Ruff-specific rules
     "RET",   # flake8-return
+    "PTH",   # flake8-use-pathlib (issue #6399)
 ]
 # Ignore specific rules if needed
 ignore = [

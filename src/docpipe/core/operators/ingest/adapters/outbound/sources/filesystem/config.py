@@ -1,6 +1,6 @@
 """Configuration model for filesystem source adapter."""
 
-import os
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator
@@ -47,10 +47,10 @@ class FilesystemSourceConfig(BaseModel):
             raise ValueError("paths must contain at least one path")
         validated: list[str] = []
         for path in v:
-            expanded = os.path.expanduser(path)
-            if not os.path.exists(expanded):
+            expanded = Path(path).expanduser()
+            if not expanded.exists():
                 raise ValueError(f"Root path does not exist: {path}")
-            validated.append(expanded)
+            validated.append(str(expanded))
         return validated
 
     @field_validator("file_extensions")

@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import Any
 
 from docpipe.core.constants import TERMINAL_JOB_STATUSES, TERMINAL_NODE_STATES, DocpipeConstants, ExecutionStatus
@@ -746,16 +746,11 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         log_location_path = get_data_path()
         log_app_location = DocpipeConstants.DOCPIPE_LOGS
 
-        log_job_location = os.path.join(
-            log_location_path,
-            job_id,
-            str(self.job_run_id),
-            log_app_location,
-        )
-        os.makedirs(log_job_location, exist_ok=True)
+        log_job_location = Path(log_location_path) / job_id / str(self.job_run_id) / log_app_location
+        log_job_location.mkdir(parents=True, exist_ok=True)
         if type_ == "flow":
             log_job_run_file_name = "flow_execute.log"
         elif type_ == "job":
             log_job_run_file_name = "job_stats.json"
 
-        return os.path.join(log_job_location, log_job_run_file_name)
+        return str(log_job_location / log_job_run_file_name)
