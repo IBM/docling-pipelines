@@ -705,7 +705,7 @@ def test_transform_metadata_contains_processed_docs():
 
 
 def test_transform_metadata_contains_total_docs():
-    """transform() metadata contains total_docs_count key."""
+    """transform() metadata contains documents_in_scope key."""
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]})
     _, metadata = operator.transform(table)

@@ -260,7 +260,7 @@ class TestOpenSearchWithDockerCompose:
         # Verify results
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 3
-        assert metadata["total_docs_count"] == 3
+        assert metadata["documents_in_scope"] == 3
         assert metadata["processed_docs"] == 3
         assert metadata["failed_docs_count"] == 0
 

@@ -600,7 +600,7 @@ class TestMetadata:
         assert "processed_docs" in branch_meta
 
     def test_metadata_contains_total_docs(self):
-        """runner() metadata contains total_docs_count."""
+        """runner() metadata contains documents_in_scope."""
         table = make_table()
         branches = [make_branch(link_id="b1", link_name="all")]
         operator = make_operator(branches)
@@ -687,7 +687,8 @@ class TestValidate:
             make_branch(link_id="b1", link_name="only_branch", criteria_list=["score > 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -710,7 +711,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="high", criteria_list=["score > 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -738,7 +740,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="other", criteria_list=["score <= 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -768,7 +771,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="other", criteria_list=["score <= 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -791,7 +795,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="copy_b"),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, available_features=["id", "name", "content", "score"])
 
         assert len(errors) == 0, f"Unexpected errors: {errors}"

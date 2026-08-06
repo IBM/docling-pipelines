@@ -206,7 +206,7 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
         "IPAddress": 1,
         "PhoneNumber": 1,
         "SocialSecurityNumber": 1,
-        "total_docs_count": 3,
+        "documents_in_scope": 3,
         "processed_docs": 3,
         "failed_docs_count": 0,
         "failed_docs": [],
@@ -293,7 +293,7 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
         "IPAddress": 0,
         "PhoneNumber": 1,
         "SocialSecurityNumber": 1,
-        "total_docs_count": 2,
+        "documents_in_scope": 2,
         "processed_docs": 2,
         "failed_docs_count": 0,
         "failed_docs": [],
@@ -552,7 +552,7 @@ def test_empty_input_table(mock_pii_hap_service):
     _, metadata = operator.transform(input_table)
 
     # 4. Verify metadata for empty input
-    assert metadata["total_docs_count"] == 0
+    assert metadata["documents_in_scope"] == 0
     assert metadata["processed_docs"] == 0
     assert metadata["node_status"] == "Completed"
 

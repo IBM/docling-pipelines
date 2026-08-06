@@ -194,7 +194,7 @@ class TestStorageOutputOperatorProcessedContent:
 
         _, metadata = op.transform(table)
 
-        assert metadata["total_docs_count"] == 2
+        assert metadata["documents_in_scope"] == 2
         assert metadata["processed_docs"] == 2
         assert metadata["failed_docs_count"] == 0
 
@@ -284,7 +284,7 @@ class TestStorageOutputOperatorProcessedContent:
         output_tables, metadata = op.transform(table)
 
         assert output_tables[0].num_rows == 0
-        assert metadata["total_docs_count"] == 0
+        assert metadata["documents_in_scope"] == 0
 
     def test_empty_content_is_skipped_not_uploaded(self, tmp_path):
         """Documents with no extracted content must be skipped, not written as 0-byte files.

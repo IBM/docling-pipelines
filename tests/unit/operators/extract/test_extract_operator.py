@@ -109,7 +109,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     assert first_pages > 0, "Pages processed should be greater than 0"
 
     # Check metadata
-    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["documents_in_scope"] == table.num_rows, "Total docs should match input rows"
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
     assert "page_type_stats" in metadata, "Metadata should contain page_type_stats"
     assert "total_pages_converted" in metadata, "Metadata should contain total_pages_converted"
@@ -188,7 +188,7 @@ def test_extract_operator_multi_format_output(sample_pdf_files):
     assert isinstance(json_data, dict), "JSON content should be a dictionary"
 
     # Check metadata
-    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["documents_in_scope"] == table.num_rows, "Total docs should match input rows"
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
 
 
@@ -308,7 +308,7 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
     assert len(first_content) > 0, "Content should not be empty"
 
     # Check metadata
-    assert metadata["total_docs_count"] == table.num_rows
+    assert metadata["documents_in_scope"] == table.num_rows
     assert metadata["processed_docs"] > 0
 
 
@@ -744,7 +744,7 @@ def test_extract_operator_asr_with_audio_file():
     # Assertions
     assert "doc_content" in result_table.column_names
     assert result_table["doc_content"][0].as_py() is not None
-    assert metadata["total_docs_count"] == 1
+    assert metadata["documents_in_scope"] == 1
 
 
 @pytest.mark.unit
@@ -966,7 +966,7 @@ def test_extract_operator_empty_table():
     # Should handle empty table gracefully
     assert len(result_tables) == 1
     assert result_tables[0].num_rows == 0
-    assert metadata["total_docs_count"] == 0
+    assert metadata["documents_in_scope"] == 0
 
 
 def _build_pdf_input_table(*, sample_pdf_files, max_files: int = 1):
@@ -1082,7 +1082,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
     assert "entities" in result_table.column_names
     assert "doc_id_hash" in result_table.column_names
     assert result_table.num_rows == 1
-    assert metadata["total_docs_count"] == table.num_rows
+    assert metadata["documents_in_scope"] == table.num_rows
     assert metadata["processed_docs"] == 1
     assert metadata[Metrics.External.NODE_STATUS] in {
         ExecutionStatus.COMPLETED.value,

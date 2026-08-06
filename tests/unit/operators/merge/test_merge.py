@@ -396,7 +396,7 @@ def test_transform_returns_metadata():
 
 
 def test_metadata_contains_total_docs():
-    """Metadata contains total_docs_count."""
+    """Metadata contains documents_in_scope."""
     table1 = make_table(num_rows=2, id_prefix="a")
     table2 = make_table(num_rows=2, id_prefix="b")
 

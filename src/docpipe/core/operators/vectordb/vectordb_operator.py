@@ -193,7 +193,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
         Important: If ANY chunk of a document fails to index, the entire document is marked as failed.
         """
-        # Count unique documents (not chunks) for accurate total_docs_count
+        # Count unique documents (not chunks) for accurate documents_in_scope
         # Also build mapping from doc_id_hash to original id for failure tracking
         unique_doc_ids: set[str] = set()
         doc_hash_to_id: dict[str, str] = {}

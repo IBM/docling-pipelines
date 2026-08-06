@@ -209,9 +209,11 @@ def _count_and_remove_lists(*, node_info: dict, keys_to_count: list) -> None:
     """
     Converts lists in node_info to count values and removes the original lists.
     """
+    _key_rename = {"total_docs": Metrics.External.TOTAL_DOCS}
     for key in keys_to_count:
         if key in node_info and isinstance(node_info[key], list):
-            node_info[f"{key}_count"] = len(node_info[key])
+            count_key = _key_rename.get(key, f"{key}_count")
+            node_info[count_key] = len(node_info[key])
             del node_info[key]
 
 

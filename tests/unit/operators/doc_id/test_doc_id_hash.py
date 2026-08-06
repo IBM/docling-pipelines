@@ -415,7 +415,7 @@ def test_empty_table_metadata():
 
 
 def test_transform_metadata_contains_total_docs():
-    """transform() metadata contains total_docs_count."""
+    """transform() metadata contains documents_in_scope."""
     table = make_table()
     operator = make_operator()
     _, metadata = operator.transform(table)

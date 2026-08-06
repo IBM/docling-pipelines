@@ -405,7 +405,7 @@ class DoclingClientConfigConstants:
 class Metrics:
     class External:
         JOB_RUN_STATUS = "job_run_status"
-        TOTAL_DOCS = "total_docs_count"
+        TOTAL_DOCS = "documents_in_scope"
         COMPLETED_DOCS_COUNT = "completed_docs_count"
         TOTAL_DOCS_COUNT_FROM_LOGS = "total_docs"
         PROCESSED_DOCS = "processed_docs"

@@ -67,7 +67,7 @@ def test_real_pii_detection_with_ollama():
 
     # Verify basic structure
     assert len(table_list) > 0
-    assert metadata["total_docs_count"] == 1
+    assert metadata["documents_in_scope"] == 1
     assert metadata["processed_docs"] == 1
     assert metadata["node_status"] == "Completed"
 
@@ -108,7 +108,7 @@ def test_real_hap_detection_with_ollama():
 
     # Verify basic structure
     assert len(table_list) > 0
-    assert metadata["total_docs_count"] == 2
+    assert metadata["documents_in_scope"] == 2
     assert metadata["processed_docs"] == 2
     assert metadata["node_status"] == "Completed"
 
@@ -154,7 +154,7 @@ def test_real_combined_pii_and_hap_with_ollama():
     assert len(table_list) > 0
     table = table_list[0]
 
-    assert metadata["total_docs_count"] == 2
+    assert metadata["documents_in_scope"] == 2
     assert metadata["processed_docs"] == 2
     assert metadata["node_status"] == "Completed"
 
@@ -208,7 +208,7 @@ def test_real_openai_compatible_api():
 
     # Verify basic structure
     assert len(table_list) > 0
-    assert metadata["total_docs_count"] == 1
+    assert metadata["documents_in_scope"] == 1
     assert metadata["processed_docs"] == 1
     assert metadata["node_status"] == "Completed"
 

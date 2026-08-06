@@ -160,7 +160,7 @@ class TestBatchProcessing:
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 3
-        assert metadata["total_docs_count"] == 3
+        assert metadata["documents_in_scope"] == 3
         assert metadata["processed_docs"] == 3
         assert metadata["failed_docs_count"] == 0
 
@@ -190,7 +190,7 @@ class TestBatchProcessing:
         operator = VectorDBOperator(basic_config)
         _result_tables, metadata = operator.transform(empty_table)
 
-        assert metadata["total_docs_count"] == 0
+        assert metadata["documents_in_scope"] == 0
         assert metadata["processed_docs"] == 0
 
     def test_transform_validates_existing_schema_before_insert(self, basic_config, sample_table):

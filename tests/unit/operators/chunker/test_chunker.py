@@ -485,7 +485,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
 
         # Should return empty table
         self.assertEqual(result_tables[0].num_rows, 0)
-        self.assertEqual(metadata["total_docs_count"], 0)
+        self.assertEqual(metadata["documents_in_scope"], 0)
 
     def test_multiple_documents(self):
         """Test chunking with multiple documents"""
@@ -513,7 +513,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
 
         # Should process all documents
         self.assertEqual(result_table.num_rows, 3)
-        self.assertEqual(metadata["total_docs_count"], 3)
+        self.assertEqual(metadata["documents_in_scope"], 3)
 
     def test_default_removes_original_content(self):
         """Test that original content is removed by default"""
@@ -883,7 +883,7 @@ class TestDoclingChunking(unittest.TestCase):
 
         # Should process all documents
         self.assertEqual(result_table.num_rows, 3)
-        self.assertEqual(metadata["total_docs_count"], 3)
+        self.assertEqual(metadata["documents_in_scope"], 3)
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_default_removes_original_content(self, mock_hybrid_chunker_class):
@@ -1107,7 +1107,7 @@ class TestDoclingChunking(unittest.TestCase):
         _result_tables, metadata = operator.transform(input_table)
 
         # Should process successfully
-        self.assertEqual(metadata["total_docs_count"], 1)
+        self.assertEqual(metadata["documents_in_scope"], 1)
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_with_unicode(self, mock_hybrid_chunker_class):
@@ -1137,7 +1137,7 @@ class TestDoclingChunking(unittest.TestCase):
         _result_tables, metadata = operator.transform(input_table)
 
         # Should process successfully
-        self.assertEqual(metadata["total_docs_count"], 1)
+        self.assertEqual(metadata["documents_in_scope"], 1)
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_markdown_produces_structured_document(self, mock_hybrid_chunker_class):
@@ -1661,7 +1661,7 @@ class TestChunkerSummarization(unittest.TestCase):
         _result_tables, metadata = operator.transform(input_table)
 
         # Should handle empty content gracefully
-        self.assertEqual(metadata["total_docs_count"], 1)
+        self.assertEqual(metadata["documents_in_scope"], 1)
         # LLM should not be called for empty content
 
     def test_summarization_service_validation_called_on_init(self):

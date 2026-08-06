@@ -413,7 +413,7 @@ class TestStageBasedProgressAggregation:
         assert "5 of 5" in metadata["Entities Extracted"]
 
         # Should also have core document fields
-        assert metadata["total_docs_count"] == 5
+        assert metadata["documents_in_scope"] == 5
         assert metadata["processed_docs"] == 5
 
     def test_extraction_stage_progress_uses_started_batches_only_for_stage_totals(self):
@@ -500,7 +500,7 @@ class TestStageBasedProgressAggregation:
         metadata = aggregated.node_metadata["node_metadata"]
 
         # Overall document counts include all batches, including pending.
-        assert metadata["total_docs_count"] == 10
+        assert metadata["documents_in_scope"] == 10
         assert metadata["processed_docs"] == 6
         assert aggregated.docs_completed_count == 6
 
@@ -562,7 +562,7 @@ class TestStageBasedProgressAggregation:
         assert "progress_percentage" not in metadata
 
         # Check aggregated persistent fields (4 completed out of 5 total)
-        assert metadata["total_docs_count"] == 5
+        assert metadata["documents_in_scope"] == 5
         assert metadata["processed_docs"] == 4
 
         # Should have Documents Classified field showing progress
@@ -630,7 +630,7 @@ class TestStageBasedProgressAggregation:
         # Classification node should have aggregated progress
         classify_metadata = result[NODE_2_ID].node_metadata["node_metadata"]
         assert "classification_running" not in classify_metadata
-        assert classify_metadata["total_docs_count"] == 3
+        assert classify_metadata["documents_in_scope"] == 3
         assert classify_metadata["processed_docs"] == 2
         assert "Documents Classified" in classify_metadata
         assert "2 of 3" in classify_metadata["Documents Classified"]

@@ -430,7 +430,7 @@ def test_error_handling():
 
         _result, metadata = operator.transform(empty_table)
 
-        if metadata["total_docs_count"] == 0 and metadata["processed_docs"] == 0:
+        if metadata["documents_in_scope"] == 0 and metadata["processed_docs"] == 0:
             tests.append(("Empty table", True, "Handled gracefully"))
             print("  ✅ Correctly handled empty table")
         else:

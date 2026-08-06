@@ -126,7 +126,7 @@ def test_extract_operator_doclang_format_exact_match():
     _validate_doclang_structure(actual_doclang)
 
     # Verify metadata
-    assert metadata["total_docs_count"] == 1
+    assert metadata["documents_in_scope"] == 1
     assert metadata["processed_docs"] == 1
 
     print("\nDocLang format test passed!")

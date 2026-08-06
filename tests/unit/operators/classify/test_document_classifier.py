@@ -137,7 +137,7 @@ def test_document_classifier_basic_litellm():
             assert 1 <= confidence <= 10, f"Confidence should be between 1 and 10, got {confidence}"
 
         # Check metadata
-        assert metadata["total_docs_count"] == 3, "Should have 3 documents"
+        assert metadata["documents_in_scope"] == 3, "Should have 3 documents"
         assert metadata["processed_docs"] == 3, "Should have processed 3 documents"
 
 
@@ -157,7 +157,7 @@ def test_document_classifier_without_content_column():
         pytest.skip("Need at least 2 pdf files for this test")
 
     # Prepare data without content column
-    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
         with open(file_path, "rb") as f:
@@ -295,8 +295,8 @@ def test_document_classifier_validation_litellm():
     }
 
     operator = DocumentClassifierOperator(config)
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     operator.validate(errors, warnings, [])
 
     assert len(errors) == 0, "Should have no validation errors"
@@ -328,7 +328,7 @@ def test_document_classifier_empty_table():
 
     # Assertions
     assert result_table.num_rows == 0, "Result table should be empty"
-    assert metadata["total_docs_count"] == 0, "Should have 0 documents"
+    assert metadata["documents_in_scope"] == 0, "Should have 0 documents"
 
 
 @pytest.mark.unit

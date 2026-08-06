@@ -463,7 +463,7 @@ class TestTransform:
         # Check metadata - now follows AbstractOperator pattern
         assert metadata["node_status"] == "Completed"
         assert metadata["processed_docs"] == 3
-        assert metadata["total_docs_count"] == 3
+        assert metadata["documents_in_scope"] == 3
 
     @patch("docpipe.core.incremental_metadata.get_incremental_update_service")
     @patch("docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")

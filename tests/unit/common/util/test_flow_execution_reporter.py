@@ -297,7 +297,7 @@ class TestMetadataCategorization:
     def test_categorize_metadata_filters_standard_fields(self, reporter):
         """Test standard fields are filtered from metadata."""
         metadata = {
-            "total_docs_count": 100,
+            "documents_in_scope": 100,
             "processed_docs": 50,
             "custom_field": 42,
         }
@@ -305,7 +305,7 @@ class TestMetadataCategorization:
         categorized = reporter._categorize_metadata(metadata)
 
         assert "custom_field" in categorized["numeric"]
-        assert "total_docs_count" not in categorized["numeric"]
+        assert "documents_in_scope" not in categorized["numeric"]
         assert "processed_docs" not in categorized["numeric"]
 
     def test_categorize_metadata_handles_old_format(self, reporter):

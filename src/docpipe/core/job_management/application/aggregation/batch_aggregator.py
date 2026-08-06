@@ -381,7 +381,7 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
 
     Handles both:
     - Running batches: Have transient extraction_stage_progress metadata
-    - Completed batches: Have persistent total_docs_count/processed_docs metadata
+    - Completed batches: Have persistent documents_in_scope/processed_docs metadata
 
     Returns dict with structure:
     {
@@ -445,7 +445,7 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
             ExecutionStatus.COMPLETED_WITH_WARNINGS.value,
             ExecutionStatus.FAILED.value,
         ):
-            # For completed/failed batches, use total_docs_count and processed_docs from nested metadata
+            # For completed/failed batches, use documents_in_scope and processed_docs from nested metadata
             total_docs = metadata.get(Metrics.External.TOTAL_DOCS, 0)
             processed_docs = metadata.get(Metrics.External.PROCESSED_DOCS, 0)
 
@@ -492,7 +492,7 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
             continue
 
         if record.node_status == ExecutionStatus.RUNNING.value:
-            # Check for total_docs field (not total_docs_count which is for completed)
+            # Check for total_docs field (not documents_in_scope which is for completed)
             total_docs = metadata.get("total_docs", 0)
 
             if total_docs > 0:

@@ -28,7 +28,7 @@ class FlowExecutionReporter:
 
     # Fields already shown in header or schema section
     _STANDARD_FIELDS: ClassVar[set[str]] = {
-        "total_docs_count",
+        "documents_in_scope",
         "processed_docs",
         "failed_docs_count",
         "skipped_docs_count",

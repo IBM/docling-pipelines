@@ -98,9 +98,9 @@ class TestIngestLocalOperator:
         # Verify no excessive skipped documents are recorded
         assert metadata.get("skipped_docs_count", 0) == 0, "Should not have skipped docs when hitting max_files"
 
-        # If there are 2 files in temp_test_dir, total_docs_count should be 2 (max_files + 1)
-        # If there's only 1 file, total_docs_count should be 1
-        assert metadata["total_docs_count"] >= 1, "Should have counted at least the processed file"
+        # If there are 2 files in temp_test_dir, documents_in_scope should be 2 (max_files + 1)
+        # If there's only 1 file, documents_in_scope should be 1
+        assert metadata["documents_in_scope"] >= 1, "Should have counted at least the processed file"
 
     def test_get_metadata(self, temp_test_dir):
         """Test get_metadata method."""
@@ -149,9 +149,9 @@ class TestIngestLocalOperator:
 
             # Verify processing stops immediately after max_files is reached
             # With the new batch-fetch logic, we check BEFORE processing each file,
-            # so total_docs_count equals processed_docs when max_files is reached
-            assert metadata["total_docs_count"] == 10, (
-                "total_docs_count should equal max_files with new batch-fetch logic"
+            # so documents_in_scope equals processed_docs when max_files is reached
+            assert metadata["documents_in_scope"] == 10, (
+                "documents_in_scope should equal max_files with new batch-fetch logic"
             )
             assert metadata["processed_docs"] == 10, "Should process exactly max_files documents"
             assert table.num_rows == 10, "Should have exactly max_files rows in table"
@@ -225,7 +225,7 @@ def test_single_file_ingest():
         # Verify results
         assert len(tables) == 1, f"Expected 1 table, got {len(tables)}"
         assert tables[0].num_rows == 1, f"Expected 1 row, got {tables[0].num_rows}"
-        assert metadata["total_docs_count"] == 1, f"Expected 1 total doc, got {metadata['total_docs']}"
+        assert metadata["documents_in_scope"] == 1, f"Expected 1 total doc, got {metadata['total_docs']}"
         assert metadata["processed_docs"] == 1, f"Expected 1 processed doc, got {metadata['processed_docs']}"
 
         print("✓ Single file ingest test passed")
@@ -267,7 +267,7 @@ def test_multiple_files_list():
         # Verify results
         assert len(tables) == 1, f"Expected 1 table, got {len(tables)}"
         assert tables[0].num_rows == 2, f"Expected 2 rows, got {tables[0].num_rows}"
-        assert metadata["total_docs_count"] == 2, f"Expected 2 total docs, got {metadata['total_docs']}"
+        assert metadata["documents_in_scope"] == 2, f"Expected 2 total docs, got {metadata['total_docs']}"
         assert metadata["processed_docs"] == 2, f"Expected 2 processed docs, got {metadata['processed_docs']}"
 
         print("✓ Multiple files (list) test passed")

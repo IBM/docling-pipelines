@@ -301,7 +301,7 @@ async def list_job_runs(
                                 "node_metadata": {
                                     "node_status": "Completed",
                                     "processed_docs": 200,
-                                    "total_docs_count": 200,
+                                    "documents_in_scope": 200,
                                 },
                             }
                         ],
