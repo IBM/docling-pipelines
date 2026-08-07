@@ -57,6 +57,12 @@ CHUNK_MAX_SIZE: int = 5000  # Maximum chunk size in characters
 CHUNK_OVERLAP_MIN_SIZE: int = 0  # Minimum overlap size
 CHUNK_OVERLAP_MAX_SIZE: int = 512  # Maximum overlap size
 
+# Chunk Overlap Percentage Constants
+CHUNK_OVERLAP_PERCENTAGE_KEY: str = "chunk_overlap_percentage"
+CHUNK_OVERLAP_PERCENTAGE_DEFAULT: int = 20  # Warning threshold; values above this produce a validation warning
+CHUNK_OVERLAP_PERCENTAGE_MIN_SIZE: int = 0  # Minimum overlap percentage
+CHUNK_OVERLAP_PERCENTAGE_MAX_SIZE: int = 40  # Maximum overlap percentage
+
 # Semantic Chunking Constants
 SEMANTIC_EMBEDDINGS_MODEL_KEY: str = "semantic_embeddings_model"
 
@@ -214,6 +220,7 @@ class ChunkerOperator(AbstractOperator):
             OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT
         )
         self.chunk_overlap: int = config.get(CHUNK_OVERLAP_KEY, CHUNK_OVERLAP_DEFAULT)
+        self.chunk_overlap_percentage: int = config.get(CHUNK_OVERLAP_PERCENTAGE_KEY, CHUNK_OVERLAP_PERCENTAGE_DEFAULT)
         self.retain_original_content: bool = config.get(RETAIN_ORIGINAL_CONTENT_KEY, RETAIN_ORIGINAL_CONTENT_DEFAULT)
         self.semantic_embeddings_model: str | None = config.get(SEMANTIC_EMBEDDINGS_MODEL_KEY)
         self.breakpoint_threshold_type: str = config.get(
@@ -360,6 +367,17 @@ class ChunkerOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: CHUNK_OVERLAP_DEFAULT,
                     OperatorConstants.Filtering.MIN_VALUE: CHUNK_OVERLAP_MIN_SIZE,
                     OperatorConstants.Filtering.MAX_VALUE: CHUNK_OVERLAP_MAX_SIZE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                CHUNK_OVERLAP_PERCENTAGE_KEY: {
+                    OperatorConstants.Misc.NAME: "Chunk Overlap Percentage",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Overlap expressed as a percentage of chunk_size (0-40). Values above 20 produce a warning."
+                    ),
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: CHUNK_OVERLAP_PERCENTAGE_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: CHUNK_OVERLAP_PERCENTAGE_MIN_SIZE,
+                    OperatorConstants.Filtering.MAX_VALUE: CHUNK_OVERLAP_PERCENTAGE_MAX_SIZE,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 SEMANTIC_EMBEDDINGS_MODEL_KEY: {
@@ -546,6 +564,15 @@ class ChunkerOperator(AbstractOperator):
             should_validate_field_fn=self.should_validate_field,
             errors=errors,
         )
+
+        # Validate chunk_overlap_percentage (only meaningful for chunk types that use a fixed overlap window)
+        if self.chunk_type in (ChunkType.SIMPLE.value, ChunkType.HYBRID.value):
+            ChunkerValidator.validate_overlap_percentage(
+                chunk_overlap_percentage=self.chunk_overlap_percentage,
+                should_validate_field_fn=self.should_validate_field,
+                errors=errors,
+                warnings=warnings,
+            )
 
         # Validate semantic chunking parameters if using semantic chunking
         if self.chunk_type == ChunkType.SEMANTIC.value:

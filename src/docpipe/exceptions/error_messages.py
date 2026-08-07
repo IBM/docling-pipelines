@@ -78,6 +78,11 @@ class ValidationCodeMessages(StrEnum):
 
     CHUNKER_INVALID_CHUNK_TYPE = "Invalid chunk_type: {chunk_type}"
 
+    CHUNK_OVERLAP_EXCEEDS_THRESHOLD = (
+        "chunk_overlap_percentage exceeds the recommended threshold of {threshold}%. "
+        "High overlap may significantly increase processing time and storage."
+    )
+
     CHUNKER_OPERATOR_MISPLACED = "Invalid Flow definition. Chunking operator placed after Embeddings operator. Please rearrange the chunking operator in the flow"
 
     EMBEDDINGS_INVALID_TYPE = "Invalid embeddings type: {embeddings_type}"

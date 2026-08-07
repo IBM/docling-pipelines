@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pyarrow as pa
+import pytest
 
 # Mock langchain_experimental before any imports that might use it
 if "langchain_experimental" not in sys.modules:
@@ -461,6 +462,91 @@ class TestChunkerValidation(unittest.TestCase):
         error_messages = " ".join(errors)
         self.assertIn("semantic_embeddings_model", error_messages.lower())
         self.assertIn("percentile", error_messages.lower())
+
+    def test_validate_chunk_overlap_percentage_default(self):
+        """Test that chunk_overlap_percentage defaults to 20 and produces no errors or warnings"""
+        config = {"chunk_type": ChunkType.SIMPLE.value, "chunk_size": 1000, "doc_column": "content"}
+        operator = ChunkerOperator(config)
+        self.assertEqual(operator.chunk_overlap_percentage, 20)
+        errors: list = []
+        warnings: list = []
+        operator.validate(errors, warnings, ["content"])
+        self.assertEqual(len(errors), 0)
+        self.assertEqual(len(warnings), 0)
+
+
+@pytest.mark.parametrize("percentage", [0, 15, 20])
+def test_validate_chunk_overlap_percentage_valid_no_warning(percentage):
+    """chunk_overlap_percentage within range and <= 20 produces no errors or warnings"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap_percentage": percentage,
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    assert errors == []
+    assert warnings == []
+
+
+@pytest.mark.parametrize("percentage", [21, 30, 40])
+def test_validate_chunk_overlap_percentage_above_threshold_warns(percentage):
+    """chunk_overlap_percentage above 20 but within [0, 40] produces a warning, not an error"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap_percentage": percentage,
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    assert errors == []
+    assert len(warnings) == 1
+    assert "chunk_overlap_percentage" in str(warnings[0])
+
+
+@pytest.mark.parametrize("percentage", [-1, 41, 100])
+def test_validate_chunk_overlap_percentage_out_of_range_errors(percentage):
+    """chunk_overlap_percentage outside [0, 40] produces an error"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap_percentage": percentage,
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    assert len(errors) == 1
+    assert "chunk_overlap_percentage" in str(errors[0])
+
+
+def test_validate_chunk_overlap_percentage_ignored_for_semantic():
+    """chunk_overlap_percentage is not validated for semantic chunk type — it has no meaning there"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "chunk_overlap_percentage": 99,  # Out of range — would error if validated
+            "semantic_embeddings_model": "granite4",
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    overlap_errors = [e for e in errors if "chunk_overlap_percentage" in str(e)]
+    assert overlap_errors == [], (
+        f"chunk_overlap_percentage should not be validated for semantic chunking, got: {overlap_errors}"
+    )
 
 
 class TestChunkerEdgeCases(unittest.TestCase):
