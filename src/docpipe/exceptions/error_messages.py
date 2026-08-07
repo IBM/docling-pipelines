@@ -29,6 +29,17 @@ class ValidationMessage(BaseModel):
         """
         return cls(message=message, message_code=message_code, **kwargs)
 
+    def __str__(self) -> str:
+        """Return a readable string representation of the validation message."""
+        if self.message_code:
+            return f"{self.message_code}: {self.message}"
+        return self.message or ""
+
+    def __contains__(self, item: str) -> bool:
+        """Check if a string is contained in the message or message_code."""
+        message_str = str(self)
+        return item.lower() in message_str.lower()
+
 
 class ValidationCodeMessages(StrEnum):
     MISSING_FEATURES = """Not all required features for {operator_name} operator are available - required: {missing_features},
