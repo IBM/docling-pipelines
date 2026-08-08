@@ -60,7 +60,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))
@@ -131,7 +131,7 @@ def test_extract_operator_multi_format_output(sample_pdf_files):
     file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))
@@ -206,7 +206,7 @@ def test_extract_operator_default_format(sample_pdf_files):
     file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))
@@ -260,7 +260,7 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
     file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))
@@ -401,7 +401,7 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
     file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))
@@ -982,7 +982,7 @@ def _build_pdf_input_table(*, sample_pdf_files, max_files: int = 1):
     }
 
     for file_path in test_files:
-        with open(file_path, "rb") as file_handle:
+        with file_path.open("rb") as file_handle:
             binary_content = file_handle.read()
 
         file_data["id"].append(str(file_path))
@@ -2482,3 +2482,207 @@ def test_streaming_pipeline_writes_progress_periodically():
     assert "entity_completed" in last_call_kwargs
     assert "text_total" in last_call_kwargs
     assert "entity_total" in last_call_kwargs
+
+
+# =============================================================================
+# _build_doc_id_map tests
+# =============================================================================
+
+
+@pytest.mark.unit
+def test_build_doc_id_map_returns_id_keyed_dict():
+    """_build_doc_id_map indexes documents by their ID for O(1) lookup."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    operator = ExtractOperator(config={"text_extraction": {"provider": "docling_library"}})
+
+    doc_list = [
+        {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "err-a"},
+        {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "err-b"},
+    ]
+
+    result = operator._build_doc_id_map(doc_list=doc_list)
+
+    assert set(result.keys()) == {"doc-1", "doc-2"}
+    assert result["doc-1"][OperatorConstants.Misc.REASON] == "err-a"
+    assert result["doc-2"][OperatorConstants.Misc.REASON] == "err-b"
+
+
+@pytest.mark.unit
+def test_build_doc_id_map_preserves_first_match_on_duplicate_id():
+    """When the same ID appears twice, the first document wins (setdefault behaviour)."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    operator = ExtractOperator(config={"text_extraction": {"provider": "docling_library"}})
+
+    first = {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "first"}
+    second = {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "second"}
+
+    result = operator._build_doc_id_map(doc_list=[first, second])
+
+    assert len(result) == 1
+    assert result["doc-1"][OperatorConstants.Misc.REASON] == "first"
+
+
+@pytest.mark.unit
+def test_build_doc_id_map_falls_back_to_doc_id_column():
+    """_build_doc_id_map accepts the doc_id column as an alternative key."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    operator = ExtractOperator(config={"text_extraction": {"provider": "docling_library"}})
+
+    doc = {OperatorConstants.Columns.DOC_ID_COLUMN: "doc-99", "extra": "data"}
+
+    result = operator._build_doc_id_map(doc_list=[doc])
+
+    assert "doc-99" in result
+    assert result["doc-99"]["extra"] == "data"
+
+
+@pytest.mark.unit
+def test_build_doc_id_map_skips_non_dict_entries():
+    """Non-dict entries in the list are ignored without raising."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    operator = ExtractOperator(config={"text_extraction": {"provider": "docling_library"}})
+
+    doc_list = [
+        "not-a-dict",
+        None,
+        {OperatorConstants.Columns.ID: "doc-1"},
+    ]
+
+    result = operator._build_doc_id_map(doc_list=doc_list)  # type: ignore[arg-type]
+
+    assert list(result.keys()) == ["doc-1"]
+
+
+@pytest.mark.unit
+def test_build_doc_id_map_empty_list_returns_empty_dict():
+    """Empty input produces an empty map."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    operator = ExtractOperator(config={"text_extraction": {"provider": "docling_library"}})
+
+    assert operator._build_doc_id_map(doc_list=[]) == {}
+
+
+# =============================================================================
+# _add_page_statistics tests
+# =============================================================================
+
+
+@pytest.mark.unit
+def test_add_page_statistics_groups_by_extension():
+    """Pages are summed per file extension and stored in page_type_stats."""
+    import pyarrow as pa
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    table = pa.table(
+        {
+            OperatorConstants.Columns.NAME: ["a.pdf", "b.pdf", "c.txt"],
+            OperatorConstants.Columns.PAGES_PROCESSED: [3, 5, 1],
+        }
+    )
+
+    result = ExtractOperator._add_page_statistics(metadata={}, table=table)
+
+    assert result[OperatorConstants.Metadata.PAGE_TYPE_STATS] == {"pdf": 8, "txt": 1}
+    assert result[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] == 9
+
+
+@pytest.mark.unit
+def test_add_page_statistics_lowercases_extension():
+    """Mixed-case extensions are normalised to lowercase."""
+    import pyarrow as pa
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    table = pa.table(
+        {
+            OperatorConstants.Columns.NAME: ["report.PDF", "notes.Txt"],
+            OperatorConstants.Columns.PAGES_PROCESSED: [2, 4],
+        }
+    )
+
+    result = ExtractOperator._add_page_statistics(metadata={}, table=table)
+
+    stats = result[OperatorConstants.Metadata.PAGE_TYPE_STATS]
+    assert "pdf" in stats
+    assert "txt" in stats
+
+
+@pytest.mark.unit
+def test_add_page_statistics_no_extension_uses_unknown():
+    """Files with no extension get bucketed under the UNKNOWN sentinel."""
+    import pyarrow as pa
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    table = pa.table(
+        {
+            OperatorConstants.Columns.NAME: ["README", "Makefile"],
+            OperatorConstants.Columns.PAGES_PROCESSED: [1, 1],
+        }
+    )
+
+    result = ExtractOperator._add_page_statistics(metadata={}, table=table)
+
+    stats = result[OperatorConstants.Metadata.PAGE_TYPE_STATS]
+    assert OperatorConstants.Misc.UNKNOWN in stats
+    assert stats[OperatorConstants.Misc.UNKNOWN] == 2
+
+
+@pytest.mark.unit
+def test_add_page_statistics_missing_pages_column_returns_metadata_unchanged():
+    """Missing pages_processed column → warning logged, metadata returned as-is."""
+    import pyarrow as pa
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    table = pa.table({OperatorConstants.Columns.NAME: ["a.pdf"]})
+    original: dict = {"existing_key": "existing_value"}
+
+    result = ExtractOperator._add_page_statistics(metadata=original, table=table)
+
+    assert result is original
+    assert OperatorConstants.Metadata.PAGE_TYPE_STATS not in result
+
+
+@pytest.mark.unit
+def test_add_page_statistics_missing_name_column_returns_metadata_unchanged():
+    """Missing name column → warning logged, metadata returned as-is."""
+    import pyarrow as pa
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    table = pa.table({OperatorConstants.Columns.PAGES_PROCESSED: [1, 2]})
+    original: dict = {"existing_key": "existing_value"}
+
+    result = ExtractOperator._add_page_statistics(metadata=original, table=table)
+
+    assert result is original
+    assert OperatorConstants.Metadata.PAGE_TYPE_STATS not in result
+
+
+@pytest.mark.unit
+def test_add_page_statistics_preserves_existing_metadata_keys():
+    """Keys already in metadata are preserved alongside the new statistics."""
+    import pyarrow as pa
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    table = pa.table(
+        {
+            OperatorConstants.Columns.NAME: ["doc.docx"],
+            OperatorConstants.Columns.PAGES_PROCESSED: [7],
+        }
+    )
+    metadata = {"prior_key": "prior_value"}
+
+    result = ExtractOperator._add_page_statistics(metadata=metadata, table=table)
+
+    assert result["prior_key"] == "prior_value"
+    assert result[OperatorConstants.Metadata.PAGE_TYPE_STATS] == {"docx": 7}
+    assert result[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] == 7

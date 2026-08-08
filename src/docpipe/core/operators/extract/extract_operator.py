@@ -367,25 +367,27 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
 
         return doc_ids
 
-    def _find_document_by_id(self, *, doc_list: list[dict[str, Any]], doc_id: str) -> dict[str, Any] | None:
-        """Find a document by ID from the original list.
+    def _build_doc_id_map(self, *, doc_list: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        """Build a map of document IDs to document dictionaries for O(1) lookups.
 
         Args:
             doc_list: List of document dictionaries
-            doc_id: Normalized document ID to find
 
         Returns:
-            Matching document dictionary, if present
+            Dictionary mapping normalized document IDs to document dictionaries
         """
+        doc_map: dict[str, dict[str, Any]] = {}
         for doc in doc_list:
             if not isinstance(doc, dict):
                 continue
 
-            current_doc_id = doc.get(OperatorConstants.Columns.ID) or doc.get(OperatorConstants.Columns.DOC_ID_COLUMN)
-            if current_doc_id is not None and str(current_doc_id) == doc_id:
-                return doc
+            doc_id = doc.get(OperatorConstants.Columns.ID) or doc.get(OperatorConstants.Columns.DOC_ID_COLUMN)
+            if doc_id is not None:
+                # setdefault preserves the first occurrence, matching the old
+                # _find_document_by_id() behaviour which returned the first match.
+                doc_map.setdefault(str(doc_id), doc)
 
-        return None
+        return doc_map
 
     def _merge_document_maps(
         self,
@@ -410,12 +412,16 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         Returns:
             Merged document map with combined reasons where applicable
         """
+        # Build id-to-doc maps once for O(1) lookups instead of O(N) linear scans
+        text_doc_map = self._build_doc_id_map(doc_list=text_doc_list)
+        entity_doc_map = self._build_doc_id_map(doc_list=entity_doc_list)
+
         merged_map: dict[str, dict[str, Any]] = {}
         shared_doc_ids = text_doc_ids & entity_doc_ids
 
         for doc_id in shared_doc_ids:
-            text_doc = self._find_document_by_id(doc_list=text_doc_list, doc_id=doc_id)
-            entity_doc = self._find_document_by_id(doc_list=entity_doc_list, doc_id=doc_id)
+            text_doc = text_doc_map.get(doc_id)
+            entity_doc = entity_doc_map.get(doc_id)
             if text_doc is None or entity_doc is None:
                 continue
 
@@ -427,12 +433,12 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
             }
 
         for doc_id in text_doc_ids - shared_doc_ids:
-            text_doc = self._find_document_by_id(doc_list=text_doc_list, doc_id=doc_id)
+            text_doc = text_doc_map.get(doc_id)
             if text_doc is not None:
                 merged_map[doc_id] = text_doc
 
         for doc_id in entity_doc_ids - shared_doc_ids:
-            entity_doc = self._find_document_by_id(doc_list=entity_doc_list, doc_id=doc_id)
+            entity_doc = entity_doc_map.get(doc_id)
             if entity_doc is not None:
                 merged_map[doc_id] = entity_doc
 
@@ -510,7 +516,10 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
 
     @staticmethod
     def _add_page_statistics(*, metadata: dict[str, Any], table: pa.Table) -> dict[str, Any]:
-        """Add page statistics by format to metadata using PyArrow vectorized operations.
+        """Add page statistics by format to metadata using PyArrow C++ compute operations.
+
+        Extension extraction and grouping are performed entirely in PyArrow's C++ layer —
+        no Python loop over rows, no full table copy.
 
         Args:
             metadata: Existing metadata dictionary
@@ -519,7 +528,6 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         Returns:
             Updated metadata with page_type_stats and total_pages_converted statistics
         """
-
         if OperatorConstants.Columns.PAGES_PROCESSED not in table.column_names:
             logger.warning("Pages processed column not found in table, skipping page statistics")
             return metadata
@@ -528,30 +536,36 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
             logger.warning("Name column not found in table, skipping page statistics")
             return metadata
 
-        # Use PyArrow compute for total pages calculation
         pages_column = table.column(OperatorConstants.Columns.PAGES_PROCESSED)
         total_pages = pc.sum(pages_column).as_py()  # type: ignore[attr-defined]
 
-        # For page_type_stats, we still need to iterate since we need to group by file extension
-        # This is more efficient than converting entire table to pylist
-        name_column = table.column(OperatorConstants.Columns.NAME)
-        page_type_stats: dict[str, int] = {}
+        # Extract last extension entirely in C++ — no Python loop, no to_pylist()
+        name_column = pc.cast(table.column(OperatorConstants.Columns.NAME), pa.string())
+        extracted = pc.extract_regex(name_column, r"\.(?P<ext>[^.]+)$")  # type: ignore[attr-defined]
+        ext_col = pc.struct_field(extracted, "ext")  # type: ignore[attr-defined]
+        extensions = pc.if_else(  # type: ignore[attr-defined]
+            pc.invert(pc.is_null(ext_col)),  # type: ignore[attr-defined]
+            ext_col,
+            pa.scalar(OperatorConstants.Misc.UNKNOWN, pa.string()),
+        )
+        extensions = pc.utf8_lower(extensions)  # type: ignore[attr-defined]
 
-        for i in range(table.num_rows):
-            name = name_column[i].as_py()
-            pages = pages_column[i].as_py()
+        # Group on a 2-column mini-table — avoids copying the full input table
+        mini_table = pa.table(
+            {
+                "__ext": extensions,
+                OperatorConstants.Columns.PAGES_PROCESSED: pages_column,
+            }
+        )
+        grouped = mini_table.group_by(["__ext"]).aggregate([(OperatorConstants.Columns.PAGES_PROCESSED, "sum")])
+        page_type_stats: dict[str, int] = dict(
+            zip(
+                grouped.column("__ext").to_pylist(),
+                grouped.column(f"{OperatorConstants.Columns.PAGES_PROCESSED}_sum").to_pylist(),
+                strict=True,
+            )
+        )
 
-            # Extract file extension from name
-            if name and isinstance(name, str):
-                ext = Path(name).suffix
-                format_key = ext.lower()[1:] if ext else OperatorConstants.Misc.UNKNOWN
-            else:
-                format_key = OperatorConstants.Misc.UNKNOWN
-
-            # Accumulate page counts by format
-            page_type_stats[format_key] = page_type_stats.get(format_key, 0) + pages
-
-        # Add to metadata
         metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS] = page_type_stats
         metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = total_pages
         logger.info("Page statistics by format: %s, total pages: %d", page_type_stats, total_pages)
