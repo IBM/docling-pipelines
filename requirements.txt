@@ -67,6 +67,8 @@ beautifulsoup4==4.15.0
     # via
     #   docling-slim
     #   o365
+blis==1.3.3
+    # via thinc
 boto3==1.42.55
     # via
     #   data-prep-toolkit
@@ -88,6 +90,11 @@ cachetools==5.5.2
     #   py-key-value-aio
     #   pyiceberg
     #   pymilvus
+catalogue==2.0.10
+    # via
+    #   spacy
+    #   srsly
+    #   thinc
 certifi==2026.6.17
     # via
     #   apprise
@@ -109,8 +116,11 @@ click==8.4.2
     #   nltk
     #   prefect
     #   pyiceberg
+    #   spacy
     #   typer
     #   uvicorn
+cloudpathlib==0.24.0
+    # via weasel
 cloudpickle==3.1.2
     # via
     #   prefect
@@ -123,8 +133,14 @@ colorama==0.4.6
     #   loguru
     #   tqdm
     #   uvicorn
+    #   wasabi
 colorlog==6.10.1
     # via rapidocr
+confection==1.3.3
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
 coolname==5.0.0
     # via prefect
 cronsim==2.7
@@ -147,6 +163,11 @@ cuda-toolkit==13.0.3.0 ; sys_platform == 'linux'
     # via torch
 cyclopts==4.20.0
     # via prefect
+cymem==2.0.13
+    # via
+    #   preshed
+    #   spacy
+    #   thinc
 data-prep-toolkit==1.1.8
     # via data-prep-toolkit-transforms
 data-prep-toolkit-transforms==1.1.8
@@ -310,6 +331,7 @@ httpx==0.28.1
     #   ollama
     #   openai
     #   prefect
+    #   weasel
 httpx-sse==0.4.3
     # via langchain-community
 huggingface-hub==1.21.0
@@ -357,6 +379,7 @@ jinja2==3.1.6
     #   jinja2-humanize-extension
     #   litellm
     #   prefect
+    #   spacy
     #   torch
 jinja2-humanize-extension==0.4.0
     # via prefect
@@ -498,6 +521,11 @@ multiprocess==0.70.16
     # via
     #   datatrove
     #   mpire
+murmurhash==1.0.15
+    # via
+    #   preshed
+    #   spacy
+    #   thinc
 mypy-boto3-glue==1.43.37
     # via pyiceberg
 mypy-extensions==1.1.0
@@ -511,6 +539,7 @@ nltk==3.10.0
 numpy==1.26.4
     # via
     #   accelerate
+    #   blis
     #   data-prep-toolkit
     #   datatrove
     #   docling-ibm-models
@@ -527,6 +556,8 @@ numpy==1.26.4
     #   scipy
     #   sentence-transformers
     #   shapely
+    #   spacy
+    #   thinc
     #   torchvision
     #   transformers
 nvidia-cublas==13.1.1.3 ; sys_platform == 'linux'
@@ -615,7 +646,10 @@ packaging==26.2
     #   marshmallow
     #   onnxruntime
     #   prefect
+    #   spacy
+    #   thinc
     #   transformers
+    #   weasel
 pandas==2.3.3
     # via
     #   docling-core
@@ -650,6 +684,10 @@ polyfactory==3.3.0
     # via docling-slim
 prefect==3.7.1
     # via docling-pipelines
+preshed==3.0.13
+    # via
+    #   spacy
+    #   thinc
 prometheus-client==0.25.0
     # via
     #   prefect
@@ -717,7 +755,10 @@ pydantic==2.12.5
     #   pydantic-extra-types
     #   pydantic-settings
     #   pyiceberg
+    #   spacy
     #   sqlmodel
+    #   thinc
+    #   weasel
 pydantic-core==2.41.5
     # via
     #   prefect
@@ -757,7 +798,7 @@ pyparsing==3.3.2
     # via
     #   httplib2
     #   pyiceberg
-pypdf==6.14.2
+pypdf==6.15.0
     # via docling-pipelines
 pypdfium2==5.11.0
     # via docling-slim
@@ -865,6 +906,7 @@ requests==2.32.5
     #   rapidocr
     #   requests-oauthlib
     #   requests-toolbelt
+    #   spacy
     #   tiktoken
 requests-oauthlib==2.0.0
     # via
@@ -929,6 +971,8 @@ setuptools==83.0.0
     #   docling-pipelines
     #   fasttext-wheel
     #   pymilvus
+    #   spacy
+    #   thinc
     #   torch
 shapely==2.1.2
     # via rapidocr
@@ -942,6 +986,8 @@ six==1.17.0
     #   python-dateutil
     #   rapidocr
     #   rfc3339-validator
+smart-open==8.0.1
+    # via weasel
 sniffio==1.3.1
     # via
     #   asgi-lifespan
@@ -951,6 +997,12 @@ sortedcontainers==2.4.0
     # via pyiceberg
 soupsieve==2.8.4
     # via beautifulsoup4
+spacy==3.8.15
+    # via docling-pipelines
+spacy-legacy==3.0.12
+    # via spacy
+spacy-loggers==1.0.5
+    # via spacy
 sqlalchemy==2.0.49
     # via
     #   alembic
@@ -963,6 +1015,11 @@ sqlglot==27.13.2
     # via docling-pipelines
 sqlmodel==0.0.38
     # via docling-pipelines
+srsly==2.5.3
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
 starlette==1.3.1
     # via
     #   docling-pipelines
@@ -985,6 +1042,8 @@ tenacity==8.3.0
     #   pyiceberg
 text-unidecode==1.3
     # via python-slugify
+thinc==8.3.13
+    # via spacy
 threadpoolctl==3.6.0
     # via scikit-learn
 tiktoken==0.13.0
@@ -1022,6 +1081,7 @@ tqdm==4.68.3
     #   rapidocr
     #   semchunk
     #   sentence-transformers
+    #   spacy
     #   transformers
 transformers==5.8.1
     # via
@@ -1048,7 +1108,9 @@ typer==0.24.2
     #   docling-slim
     #   huggingface-hub
     #   pydocket
+    #   spacy
     #   transformers
+    #   weasel
 typing-extensions==4.15.0
     # via
     #   aiohttp
@@ -1132,10 +1194,17 @@ uvicorn==0.40.0
     #   prefect
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
+wasabi==1.1.3
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
 watchfiles==1.2.0
     # via uvicorn
 wcwidth==0.8.2
     # via ftfy
+weasel==1.0.0
+    # via spacy
 websockets==15.0.1
     # via
     #   docling-slim
@@ -1145,6 +1214,8 @@ websockets==15.0.1
     #   uvicorn
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
+wrapt==2.2.2
+    # via smart-open
 xlsxwriter==3.2.9
     # via python-pptx
 xxhash==3.8.0
