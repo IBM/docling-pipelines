@@ -551,3 +551,44 @@ class TestElyraConverter:
         assert dag[0]["id"] == "node-1"  # Ingest first (no dependencies)
         assert dag[1]["id"] == "node-2"  # Extract second (depends on ingest)
         assert dag[2]["id"] == "node-3"  # Chunker last (depends on extract)
+
+    def test_get_global_config_from_elyra_ds_flow(self, *, converter, simple_elyra_pipeline):
+        """Returns global_config from ds_flow when properties is absent."""
+        result = converter.get_global_config_from_elyra(elyra_json=simple_elyra_pipeline)
+        assert result == {"batch_size": 100}
+
+    def test_get_global_config_from_elyra_properties(self, *, converter):
+        """Returns global_config from app_data.properties (newer Elyra format)."""
+        elyra_json = {
+            "pipelines": [
+                {
+                    "id": "pipeline-1",
+                    "nodes": [],
+                    "app_data": {
+                        "properties": {"doc_column": "text", "storage": "in-memory"},
+                        "ds_flow": {"global_config": {"should_not_use": True}},
+                    },
+                }
+            ]
+        }
+        result = converter.get_global_config_from_elyra(elyra_json=elyra_json)
+        assert result == {"doc_column": "text", "storage": "in-memory"}
+
+    def test_get_global_config_from_elyra_empty_when_absent(self, *, converter):
+        """Returns empty dict when global_config is not present in either location."""
+        elyra_json = {
+            "pipelines": [
+                {
+                    "id": "pipeline-1",
+                    "nodes": [],
+                    "app_data": {"ds_flow": {"name": "no-config"}},
+                }
+            ]
+        }
+        result = converter.get_global_config_from_elyra(elyra_json=elyra_json)
+        assert result == {}
+
+    def test_get_global_config_from_elyra_no_pipeline(self, *, converter):
+        """Returns empty dict when there are no pipelines."""
+        result = converter.get_global_config_from_elyra(elyra_json={"pipelines": []})
+        assert result == {}

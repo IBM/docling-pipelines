@@ -208,6 +208,33 @@ class ElyraConverter:
             }
         }
 
+    def get_global_config_from_elyra(self, *, elyra_json: dict) -> dict:
+        """
+        Extract the global_config from an Elyra pipeline JSON.
+
+        Mirrors the lookup order used during conversion:
+        1. ``app_data.properties`` (newer Elyra format)
+        2. ``app_data.ds_flow.global_config`` (legacy ds_flow format)
+
+        Args:
+            elyra_json: Elyra pipeline definition
+
+        Returns:
+            global_config dict, or an empty dict if not present
+        """
+        pipeline = self._get_primary_pipeline(elyra_json=elyra_json)
+        if pipeline is None:
+            return {}
+
+        app_data = pipeline.get(ElyraConstants.APP_DATA, {})
+
+        global_config = app_data.get(ElyraConstants.PROPERTIES, {})
+        if global_config:
+            return global_config
+
+        flow_metadata = app_data.get(ElyraConstants.DS_FLOW, {})
+        return flow_metadata.get(ElyraConstants.GLOBAL_CONFIG, {})
+
     def _get_primary_pipeline(self, *, elyra_json: dict) -> dict | None:
         """
         Extract the primary pipeline from Elyra JSON structure.
