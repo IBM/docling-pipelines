@@ -125,7 +125,7 @@ class LiteLLMLLMClient(BaseLLMClient):
             return "openai"
         if model_name.startswith("claude-"):
             return "anthropic"
-        if model_name.startswith("command-") or model_name.startswith("embed-"):
+        if model_name.startswith(("command-", "embed-")):
             return "cohere"
         if model_name.startswith("ollama/"):
             return "ollama"
