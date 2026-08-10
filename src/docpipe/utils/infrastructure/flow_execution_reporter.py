@@ -4,7 +4,7 @@ This module provides reporting for flow execution using the logging system
 at INFO level. Users can control visibility via DS_LOG_LEVEL environment variable.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from docpipe.core.constants.operator_constants import OperatorConstants
@@ -53,7 +53,7 @@ class FlowExecutionReporter:
             flow_name: Name of the flow being executed
             operator_count: Number of operators in the flow
         """
-        self._flow_start_time = datetime.now()
+        self._flow_start_time = datetime.now(tz=UTC)
         logger.info("")
         logger.info("=" * 80)
         logger.info(f" FLOW: {flow_name}")

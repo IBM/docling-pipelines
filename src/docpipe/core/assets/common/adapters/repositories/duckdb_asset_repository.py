@@ -4,7 +4,7 @@ This module provides a unified DuckDB implementation that works for any asset ty
 (DocumentSet, DocumentLibrary, etc.) using the KeyValueStorage abstraction layer.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from docpipe.core.assets.common.domain.models.asset import Asset
@@ -299,7 +299,7 @@ class DuckDBAssetRepository[T: Asset](AssetRepository[T]):
             # Convert dicts to Asset objects
             assets: list[T] = [self._asset_type.from_dict(data=record) for record in all_records]  # type: ignore[misc]
 
-            assets.sort(key=lambda a: a.get_created_at() or datetime.min, reverse=True)
+            assets.sort(key=lambda a: a.get_created_at() or datetime.min.replace(tzinfo=UTC), reverse=True)
 
             logger.debug("Retrieved %d %s assets", len(assets), self._asset_type.__name__)
             return assets

@@ -14,7 +14,7 @@ def epoch_to_datetime(*, epoch_time):
     """Converts epoch time to a datetime object."""
     if not epoch_time:
         return ""
-    return datetime.datetime.fromtimestamp(epoch_time)
+    return datetime.datetime.fromtimestamp(epoch_time, tz=datetime.UTC)
 
 
 def _operator_log_split(*, value, operator_logs_combined):
@@ -235,11 +235,11 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
         metadata = node_info.get(OperatorConstants.Metadata.NODE_METADATA, {})
         if node_info.get(Metrics.External.START_TIME):
             node_info[Metrics.External.START_TIME] = datetime.datetime.fromtimestamp(
-                node_info[Metrics.External.START_TIME]
+                node_info[Metrics.External.START_TIME], tz=datetime.UTC
             ).strftime("%Y-%m-%d %H:%M:%S")
         if node_info.get(Metrics.External.END_TIME):
             node_info[Metrics.External.END_TIME] = datetime.datetime.fromtimestamp(
-                node_info[Metrics.External.END_TIME]
+                node_info[Metrics.External.END_TIME], tz=datetime.UTC
             ).strftime("%Y-%m-%d %H:%M:%S")
         # Extract and append document-level errors if present
         if metadata:

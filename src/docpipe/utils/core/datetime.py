@@ -1,6 +1,6 @@
 """Date and time utility functions."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 def get_current_timestamp():
@@ -10,4 +10,4 @@ def get_current_timestamp():
     Returns:
         Current timestamp in seconds since epoch, rounded to nearest integer
     """
-    return round(datetime.now().timestamp())
+    return round(datetime.now(tz=UTC).timestamp())

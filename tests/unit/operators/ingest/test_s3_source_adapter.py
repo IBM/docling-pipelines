@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import pytest
@@ -233,7 +233,7 @@ class TestS3SourceAdapter:
                 "Message": "The specified bucket does not exist",
             }
         }
-        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")
+        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")  # type: ignore[arg-type]
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
             with patch.object(adapter, "_get_aws_account_id", return_value=None):
@@ -247,7 +247,7 @@ class TestS3SourceAdapter:
         """Test connection test with access denied."""
         mock_client = Mock()
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}}
-        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")
+        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")  # type: ignore[arg-type]
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
             with patch.object(adapter, "_get_aws_account_id", return_value=None):
@@ -317,14 +317,14 @@ class TestS3SourceAdapter:
                     {
                         "Key": "documents/file1.pdf",
                         "Size": 1024,
-                        "LastModified": datetime(2024, 1, 1, 12, 0, 0),
+                        "LastModified": datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
                         "ETag": '"abc123"',
                         "StorageClass": "STANDARD",
                     },
                     {
                         "Key": "documents/file2.txt",
                         "Size": 512,
-                        "LastModified": datetime(2024, 1, 2, 12, 0, 0),
+                        "LastModified": datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC),
                         "ETag": '"def456"',
                         "StorageClass": "STANDARD",
                     },
@@ -434,7 +434,7 @@ class TestResolveAwsAccountId:
         """Raises RuntimeError when STS returns a ClientError and verify_expected_bucket_owner is True."""
         mock_sts = Mock()
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
-        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
+        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")  # type: ignore[arg-type]
 
         with patch("docpipe.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
             with pytest.raises(RuntimeError, match="STS GetCallerIdentity failed"):
@@ -450,7 +450,7 @@ class TestResolveAwsAccountId:
         """Gracefully returns None when STS returns a ClientError and verify is False."""
         mock_sts = Mock()
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
-        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
+        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")  # type: ignore[arg-type]
 
         with patch("docpipe.integrations.aws.s3_utils.boto3.client", return_value=mock_sts):
             account_id = adapter._get_aws_account_id(aws_config_no_verify)
@@ -541,7 +541,7 @@ class TestExpectedBucketOwnerPropagation:
                     {
                         "Key": "docs/file.pdf",
                         "Size": 1024,
-                        "LastModified": datetime(2024, 1, 1),
+                        "LastModified": datetime(2024, 1, 1, tzinfo=UTC),
                         "ETag": '"abc"',
                         "StorageClass": "STANDARD",
                     }

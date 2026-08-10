@@ -190,6 +190,7 @@ select = [
     "RUF",   # Ruff-specific rules
     "RET",   # flake8-return
     "PTH",   # flake8-use-pathlib (issue #6399)
+    "DTZ",   # flake8-datetimez — require timezone-aware datetimes (issue #6401)
 ]
 # Ignore specific rules if needed
 ignore = [

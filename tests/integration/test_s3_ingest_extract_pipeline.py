@@ -5,7 +5,7 @@ Tests the complete flow from S3 ingestion through extraction,
 verifying that binary_content column is properly handled.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import pyarrow as pa
@@ -27,7 +27,7 @@ class TestS3IngestExtractPipeline:
                 name="test-doc-1.pdf",
                 content=b"%PDF-1.4 Mock PDF content for testing",
                 source_url="s3://test-bucket/documents/test-doc-1.pdf",
-                modified_time=datetime(2024, 1, 1, 12, 0, 0),
+                modified_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
                 metadata={
                     "bucket": "test-bucket",
                     "key": "documents/test-doc-1.pdf",
@@ -40,7 +40,7 @@ class TestS3IngestExtractPipeline:
                 name="test-doc-2.pdf",
                 content=b"%PDF-1.4 Another mock PDF for testing",
                 source_url="s3://test-bucket/documents/test-doc-2.pdf",
-                modified_time=datetime(2024, 1, 2, 12, 0, 0),
+                modified_time=datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC),
                 metadata={
                     "bucket": "test-bucket",
                     "key": "documents/test-doc-2.pdf",

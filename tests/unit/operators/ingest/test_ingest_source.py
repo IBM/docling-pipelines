@@ -4,6 +4,7 @@ Unit tests for IngestSourceOperator.
 Tests the operator with various providers and configurations using mocks.
 """
 
+from datetime import UTC
 from unittest.mock import Mock, patch
 
 import pyarrow as pa
@@ -393,7 +394,7 @@ class TestTransform:
                 name="file1.txt",
                 content=b"",  # Empty - lazy loading
                 source_url="s3://test-bucket/test-prefix/file1.txt",
-                modified_time=datetime(2024, 1, 1, 12, 0, 0),
+                modified_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
                 metadata={"bucket": "test-bucket", "key": "test-prefix/file1.txt"},
             ),
             DomainDocument(
@@ -401,7 +402,7 @@ class TestTransform:
                 name="file2.txt",
                 content=b"",  # Empty - lazy loading
                 source_url="s3://test-bucket/test-prefix/file2.txt",
-                modified_time=datetime(2024, 1, 2, 12, 0, 0),
+                modified_time=datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC),
                 metadata={"bucket": "test-bucket", "key": "test-prefix/file2.txt"},
             ),
             DomainDocument(
@@ -409,7 +410,7 @@ class TestTransform:
                 name="file3.txt",
                 content=b"",  # Empty - lazy loading
                 source_url="s3://test-bucket/test-prefix/file3.txt",
-                modified_time=datetime(2024, 1, 3, 12, 0, 0),
+                modified_time=datetime(2024, 1, 3, 12, 0, 0, tzinfo=UTC),
                 metadata={"bucket": "test-bucket", "key": "test-prefix/file3.txt"},
             ),
         ]
@@ -589,7 +590,7 @@ class TestTransform:
             mimetype="text/plain",
             extension=".txt",
             size=len(mock_documents[0].page_content),
-            modified_time=datetime(2024, 1, 1, 12, 0, 0),
+            modified_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         )
 
         # Mock async generator for fetch_documents
@@ -797,7 +798,7 @@ class TestIntegrationScenarios:
                 name="inv_001.pdf",
                 content=b"",  # Empty - lazy loading
                 source_url="s3://my-bucket/invoices/inv_001.pdf",
-                modified_time=datetime(2024, 1, 1, 12, 0, 0),
+                modified_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
                 metadata={"bucket": "my-bucket", "key": "invoices/inv_001.pdf"},
             ),
             DomainDocument(
@@ -805,7 +806,7 @@ class TestIntegrationScenarios:
                 name="inv_002.pdf",
                 content=b"",  # Empty - lazy loading
                 source_url="s3://my-bucket/invoices/inv_002.pdf",
-                modified_time=datetime(2024, 1, 2, 12, 0, 0),
+                modified_time=datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC),
                 metadata={"bucket": "my-bucket", "key": "invoices/inv_002.pdf"},
             ),
         ]

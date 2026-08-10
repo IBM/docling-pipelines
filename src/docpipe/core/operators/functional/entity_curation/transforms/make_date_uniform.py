@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -79,7 +79,7 @@ def make_date_uniform(*, date_str: Any) -> str | None:
 
     for fmt in text_formats:
         try:
-            dt = datetime.strptime(value_str, fmt)
+            dt = datetime.strptime(value_str, fmt).replace(tzinfo=UTC)
             return dt.strftime("%Y-%m-%d")
         except ValueError:
             continue

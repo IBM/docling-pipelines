@@ -13,7 +13,7 @@ Extended Features:
 import argparse
 import json
 import random
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -509,7 +509,7 @@ class DocumentGenerator:
             },
             "chip_data": None,  # Binary data not included
             "security_features": "Hologram, UV ink, microprinting",
-            "status": random.choice(["active", "expired"]) if expiry_date < datetime.now() else "active",
+            "status": random.choice(["active", "expired"]) if expiry_date < datetime.now(tz=UTC) else "active",
             "previous_passport_number": f"{self.fake.random_letter().upper()}{self.fake.random_number(digits=8)}"
             if random.random() > 0.7
             else None,
@@ -1219,7 +1219,7 @@ class OpenSearchDocumentInserter:
             all_keys: list[Any] = sorted(keys)
 
             # Write to CSV
-            with open(csv_filepath, "w", newline="", encoding="utf-8") as csvfile:
+            with Path(csv_filepath).open("w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=all_keys)
                 writer.writeheader()
 
@@ -1335,7 +1335,7 @@ class OpenSearchDocumentInserter:
                     content = json.dumps(doc, indent=2)
 
                 # Write to file
-                with open(filepath, "w", encoding="utf-8") as f:
+                with Path(filepath).open("w", encoding="utf-8") as f:
                     f.write(content)
 
                 success_count += 1

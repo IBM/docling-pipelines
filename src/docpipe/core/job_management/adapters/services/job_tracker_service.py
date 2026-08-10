@@ -81,7 +81,7 @@ class JobTrackerService(JobStatsService):
             flow_id=flow_name,  # Store flow_name in flow_id field
             user_id=user_id,
             status=ExecutionStatus.RUNNING,
-            start_time=round(datetime.now().timestamp()),
+            start_time=round(datetime.now(tz=UTC).timestamp()),
             node_stats={},
             batch_node_stats={},
         )
@@ -191,7 +191,7 @@ class JobTrackerService(JobStatsService):
 
         # Update job stats
         job_stats.status = normalized_status
-        job_stats.end_time = round(number=datetime.now().timestamp())
+        job_stats.end_time = round(number=datetime.now(tz=UTC).timestamp())
         job_stats.duration = job_stats.end_time - job_stats.start_time
 
         if job_run_stats:
@@ -246,7 +246,7 @@ class JobTrackerService(JobStatsService):
         node_stats: NodeStats = NodeStats(
             id=node_id,
             name=node_name,
-            start_time=round(datetime.now().timestamp()),
+            start_time=round(datetime.now(tz=UTC).timestamp()),
             total_docs=total_docs,
             node_status=ExecutionStatus.RUNNING.value,
             batch_id=batch_id,
@@ -308,7 +308,7 @@ class JobTrackerService(JobStatsService):
         final_batch_num: int | None = batch_num if batch_num is not None else existing_node.batch_num
 
         # Calculate derived fields
-        end_time: int = round(number=datetime.now().timestamp())
+        end_time: int = round(number=datetime.now(tz=UTC).timestamp())
         time_taken: int = end_time - start_time
 
         # Ensure node_metadata has proper nested structure
@@ -401,7 +401,7 @@ class JobTrackerService(JobStatsService):
             error_message = error  # type: ignore
 
         # Calculate timing
-        end_time: int = round(datetime.now().timestamp())
+        end_time: int = round(datetime.now(tz=UTC).timestamp())
         start_time: int = (
             existing_node.start_time if existing_node and getattr(existing_node, "start_time", 0) > 0 else end_time
         )
@@ -469,7 +469,7 @@ class JobTrackerService(JobStatsService):
         )
 
         # Calculate timing
-        end_time: int = round(datetime.now().timestamp())
+        end_time: int = round(datetime.now(tz=UTC).timestamp())
         start_time: int = (
             existing_node.start_time if existing_node and getattr(existing_node, "start_time", 0) > 0 else end_time
         )
@@ -529,7 +529,7 @@ class JobTrackerService(JobStatsService):
         )
 
         # Calculate timing
-        end_time: int = round(datetime.now().timestamp())
+        end_time: int = round(datetime.now(tz=UTC).timestamp())
         start_time: int = (
             existing_node.start_time if existing_node and getattr(existing_node, "start_time", 0) > 0 else end_time
         )
@@ -595,7 +595,7 @@ class JobTrackerService(JobStatsService):
         )
 
         # Calculate timing
-        end_time: int = round(datetime.now().timestamp())
+        end_time: int = round(datetime.now(tz=UTC).timestamp())
         start_time: int = (
             existing_node.start_time if existing_node and getattr(existing_node, "start_time", 0) > 0 else end_time
         )
@@ -847,7 +847,7 @@ class JobTrackerService(JobStatsService):
 
         if job_stats.status == ExecutionStatus.CANCELING:
             job_stats.status = ExecutionStatus.CANCELED
-            job_stats.end_time = round(datetime.now().timestamp())
+            job_stats.end_time = round(datetime.now(tz=UTC).timestamp())
             self.job_stats_store.store_job_stats(job_stats)
 
             if job_log_path:
@@ -1245,7 +1245,7 @@ class JobTrackerService(JobStatsService):
                 job_stats_dict["node_stats"] = sorted_node_stats
 
             # Write to file
-            with open(job_log_path, "w") as f:
+            with Path(job_log_path).open("w") as f:
                 json.dump(job_stats_dict, f, indent=2)
 
             logger.info(f"Wrote job logs to: {job_log_path}")

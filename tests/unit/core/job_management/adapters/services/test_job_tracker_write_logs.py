@@ -88,7 +88,7 @@ class TestWriteJobLogsFromJobStatsModel:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         assert list(written["node_stats"].keys()) == ["node-a", "node-b", "node-c"]
 
@@ -103,7 +103,7 @@ class TestWriteJobLogsFromJobStatsModel:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         assert list(written["node_stats"].keys()) == ["node-a", "node-b"]
 
@@ -118,7 +118,7 @@ class TestWriteJobLogsFromJobStatsModel:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         assert list(written["node_stats"].keys()) == ["node-a", "node-z"]
 
@@ -130,7 +130,7 @@ class TestWriteJobLogsFromJobStatsModel:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         assert list(written["node_stats"].keys()) == ["node-x"]
 
@@ -141,7 +141,7 @@ class TestWriteJobLogsFromJobStatsModel:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         assert written["node_stats"] == {}
 
@@ -153,7 +153,7 @@ class TestWriteJobLogsFromJobStatsModel:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             content = f.read()
         # Must not raise
         parsed = json.loads(content)
@@ -188,7 +188,7 @@ class TestWriteJobLogsFromDict:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         assert list(written["node_stats"].keys()) == ["node-a", "node-b", "node-c"]
 
@@ -199,7 +199,7 @@ class TestWriteJobLogsFromDict:
 
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         assert written["job_id"] == JOB_ID
         assert "node_stats" not in written
@@ -216,7 +216,7 @@ class TestWriteJobLogsFromDict:
         # Must not raise
         service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
-        with open(log_path) as f:
+        with Path(log_path).open() as f:
             written = json.load(f)
         # node-b has start_time=0, node-a has start_time=100 → node-b comes first
         keys = list(written["node_stats"].keys())
@@ -232,11 +232,11 @@ class TestWriteJobLogsErrorHandling:
     """write_job_logs() raises OSError when the file cannot be written."""
 
     def test_raises_os_error_on_write_failure(self, service, tmp_path):
-        """An IOError during open() is re-raised as OSError."""
+        """An IOError during Path.open() is re-raised as OSError."""
         log_path = str(tmp_path / "job_stats.json")
         job_stats = _job_stats_model({})
 
-        with patch("builtins.open", side_effect=OSError("disk full")):
+        with patch("pathlib.Path.open", side_effect=OSError("disk full")):
             with pytest.raises(OSError, match="Failed to write job logs"):
                 service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
@@ -246,7 +246,7 @@ class TestWriteJobLogsErrorHandling:
         job_stats = _job_stats_model({})
         original = OSError("disk full")
 
-        with patch("builtins.open", side_effect=original):
+        with patch("pathlib.Path.open", side_effect=original):
             with pytest.raises(OSError) as exc_info:
                 service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 

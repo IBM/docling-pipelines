@@ -62,7 +62,7 @@ import argparse
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -97,7 +97,7 @@ class DeterministicPurchaseOrderGenerator:
         self.departments = ["IT", "Marketing", "Sales", "Operations", "HR", "Finance"]
 
         # Base date for consistent time-based queries
-        self.base_date = datetime(2026, 3, 1)
+        self.base_date = datetime(2026, 3, 1, tzinfo=UTC)
 
     def generate_test_purchase_orders(self) -> list[dict[str, Any]]:
         """
@@ -679,7 +679,7 @@ class NLToSQLQueryEvaluator:
         """
         self.client = client
         self.index_name = index_name
-        self.base_date = datetime(2026, 3, 1)
+        self.base_date = datetime(2026, 3, 1, tzinfo=UTC)
 
         # Initialize Ollama NL to SQL converter
         self.nl_converter = OllamaNLToSQLConverter(ollama_host=ollama_host, model=ollama_model, index_name=index_name)
@@ -1178,7 +1178,7 @@ def main():
 
     # Save results to file if requested
     if args.output:
-        with open(args.output, "w") as f:
+        with Path(args.output).open("w") as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to: {args.output}")
 

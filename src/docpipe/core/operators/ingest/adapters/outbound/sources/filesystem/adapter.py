@@ -2,7 +2,7 @@
 
 import mimetypes
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, AsyncGenerator, Generator
@@ -70,8 +70,8 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                         name=root_path.name,
                         content=b"",
                         source_url=f"file://{root_path.absolute()}",
-                        modified_time=datetime.fromtimestamp(stat.st_mtime),
-                        created_time=datetime.fromtimestamp(stat.st_ctime),
+                        modified_time=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                        created_time=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
                         mimetype=mimetype,
                         size=stat.st_size,
                         extension=root_path.suffix.lower(),
@@ -108,8 +108,8 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                             name=file_path.name,
                             content=b"",
                             source_url=f"file://{file_path.absolute()}",
-                            modified_time=datetime.fromtimestamp(stat.st_mtime),
-                            created_time=datetime.fromtimestamp(stat.st_ctime),
+                            modified_time=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                            created_time=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
                             mimetype=mimetype,
                             size=stat.st_size,
                             extension=file_path.suffix.lower(),
@@ -251,7 +251,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                 return None
 
             # Read and return file content
-            with open(file_path, "rb") as f:
+            with Path(file_path).open("rb") as f:
                 content = f.read()
 
             print(f"Successfully read {len(content)} bytes from: {file_path}")
