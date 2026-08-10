@@ -169,7 +169,7 @@ class DocpipeFlowManager:
             raise FileNotFoundError(f"Flow definition file '{file_path}' not found")
 
         try:
-            with open(path_obj) as f:
+            with Path(path_obj).open() as f:
                 flow_data = json.load(f)
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Invalid JSON in flow definition file: {e.msg}", e.doc, e.pos) from e

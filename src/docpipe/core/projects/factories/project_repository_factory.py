@@ -66,7 +66,7 @@ class ProjectRepositoryFactory:
         config_path = Path(os.getenv(EnvironmentVariables.DOCPIPE_CONFIG_PATH, str(_DEFAULT_CONFIG_PATH)))
         if config_path.exists():
             try:
-                with open(config_path) as fh:
+                with Path(config_path).open() as fh:
                     cfg = yaml.safe_load(fh) or {}
                 base_dir = (
                     ((cfg.get("projects_management") or {}).get("project_repository") or {}).get("config") or {}

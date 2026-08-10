@@ -155,7 +155,7 @@ def create_input_table(*, file_paths: list[Path]) -> pa.Table:
     }
 
     for file_path in file_paths:
-        with open(file_path, "rb") as f:
+        with Path(file_path).open("rb") as f:
             binary_content = f.read()
 
         data[OperatorConstants.Columns.ID].append(str(file_path))

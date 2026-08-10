@@ -61,7 +61,7 @@ class DocumentClassUtils:
         if not doc_class_path.exists():
             raise FileNotFoundError(f"Document class file not found: {doc_class_path}")
 
-        with open(doc_class_path, encoding="utf-8") as f:
+        with Path(doc_class_path).open(encoding="utf-8") as f:
             return json.load(f)
 
     @staticmethod
@@ -448,7 +448,7 @@ class DocumentClassUtils:
 
             for json_file in json_files:
                 try:
-                    with open(json_file, encoding="utf-8") as f:
+                    with Path(json_file).open(encoding="utf-8") as f:
                         data = json.load(f)
 
                     # Extract document_type and document_description from the schema
@@ -494,7 +494,7 @@ class DocumentClassUtils:
 
             file_name = doc_classes_dir / f"{DocumentClassUtils.normalize_filename(document_type)}.json"
             try:
-                with open(file_name, encoding="utf-8") as f:
+                with Path(file_name).open(encoding="utf-8") as f:
                     doc_cls = json.load(f)
                     doc_cls = doc_cls.get("document_class_schema", {}).get("document", {})
                     if doc_cls:

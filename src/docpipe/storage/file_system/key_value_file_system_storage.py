@@ -1,6 +1,7 @@
 """Filesystem key-value storage implementation."""
 
 import json
+from pathlib import Path
 from typing import IO, Any, ClassVar
 
 from docpipe.core.job_management.adapters.config.flow_definition_snapshot_storage_factory import (
@@ -90,7 +91,7 @@ class KeyValueFileSystemStorage(AbstractFileSystemStorage, KeyValueStoragePort):
             records = []
             for record_file in collection_dir.glob("*.json"):
                 try:
-                    with open(record_file, encoding="utf-8") as f:
+                    with Path(record_file).open(encoding="utf-8") as f:
                         records.append(json.load(f))
                 except Exception as e:
                     logger.warning("Failed to read %s: %s", record_file.name, e)

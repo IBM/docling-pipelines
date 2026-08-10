@@ -1,5 +1,6 @@
 """Filesystem content storage implementation."""
 
+from pathlib import Path
 from typing import IO, Any, ClassVar
 
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
@@ -65,7 +66,7 @@ class ContentFileSystemStorage(AbstractFileSystemStorage, ContentStoragePort):
             for file_path in collection_dir.iterdir():
                 if file_path.is_file():
                     try:
-                        with open(file_path, encoding="utf-8") as f:
+                        with Path(file_path).open(encoding="utf-8") as f:
                             contents.append(f.read())
                     except Exception as e:
                         logger.warning("Failed to read %s: %s", file_path.name, e)

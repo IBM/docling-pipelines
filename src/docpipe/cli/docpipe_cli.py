@@ -157,7 +157,7 @@ def load_flow_definition(*, file_path: str) -> tuple[dict[str, Any], dict[str, A
     from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
     from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
 
-    with open(file_path, encoding="utf-8") as file:
+    with Path(file_path).open(encoding="utf-8") as file:
         original_flow_json: dict[str, Any] = json.load(file)
 
     logger.info("Loading authoring format flow from %s", file_path)

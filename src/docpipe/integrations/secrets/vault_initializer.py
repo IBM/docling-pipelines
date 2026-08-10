@@ -69,7 +69,7 @@ def _initialize_secret_providers() -> None:
     yaml_config: dict = {}
     if config_path.exists():
         try:
-            with open(config_path) as fh:
+            with Path(config_path).open() as fh:
                 yaml_config = yaml.safe_load(fh) or {}
         except Exception as exc:
             logger.warning("Could not read config file %s: %s", config_path, exc)

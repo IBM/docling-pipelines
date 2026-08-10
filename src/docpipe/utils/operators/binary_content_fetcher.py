@@ -290,7 +290,7 @@ def _read_from_local_file(
             return None
 
         # Read binary content
-        with open(path, "rb") as f:
+        with Path(path).open("rb") as f:
             return f.read()
 
     except Exception as e:

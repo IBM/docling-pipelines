@@ -67,7 +67,7 @@ def _read_env_or_file(env_var: str, *, default: str = "") -> str:
     """
     file_path = os.environ.get(f"{env_var}_FILE")
     if file_path and Path(file_path).is_file():
-        with open(file_path) as f:
+        with Path(file_path).open() as f:
             return f.read().strip()
 
     return os.environ.get(env_var, default)

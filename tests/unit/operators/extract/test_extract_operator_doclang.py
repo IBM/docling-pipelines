@@ -86,7 +86,7 @@ def test_extract_operator_doclang_format_exact_match():
     if not test_file.exists():
         pytest.skip(f"Test file not found: {test_file}")
 
-    with open(test_file, "rb") as f:
+    with Path(test_file).open("rb") as f:
         binary_content = f.read()
 
     # Create PyArrow table
@@ -149,7 +149,7 @@ def test_extract_operator_doclang_structure_validation():
     if not test_file.exists():
         pytest.skip(f"Test file not found: {test_file}")
 
-    with open(test_file, "rb") as f:
+    with Path(test_file).open("rb") as f:
         binary_content = f.read()
 
     # Create PyArrow table
@@ -212,7 +212,7 @@ def test_extract_operator_doclang_not_generated_by_default():
     if not test_file.exists():
         pytest.skip(f"Test file not found: {test_file}")
 
-    with open(test_file, "rb") as f:
+    with Path(test_file).open("rb") as f:
         binary_content = f.read()
 
     # Create PyArrow table

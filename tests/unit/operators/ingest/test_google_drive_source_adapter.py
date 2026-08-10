@@ -105,7 +105,7 @@ class TestGoogleDriveSourceAdapter:
 
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch("builtins.open", mock_open(read_data=b"data")),
+            patch("pathlib.Path.open", mock_open(read_data=b"data")),
             patch("pickle.load", return_value=creds),
         ):
             result = adapter._get_credentials(config)
@@ -119,7 +119,9 @@ class TestGoogleDriveSourceAdapter:
 
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch("builtins.open", mock_open(read_data=b"data")),
+            patch("pathlib.Path.is_file", return_value=True),
+            patch("pathlib.Path.open", mock_open(read_data=b"data")),
+            patch("pathlib.Path.mkdir"),
             patch("pickle.load", return_value=creds),
             patch("pickle.dump"),
         ):

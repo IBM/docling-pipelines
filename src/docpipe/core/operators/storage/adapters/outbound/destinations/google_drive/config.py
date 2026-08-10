@@ -1,6 +1,6 @@
 """Configuration model for the Google Drive destination adapter."""
 
-import os
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -113,7 +113,7 @@ class GoogleDriveDestinationConfig(BaseModel):
         """Expand user home directory (~) in file paths."""
         if v is None:
             return None
-        return os.path.expanduser(v.strip())
+        return str(Path(v.strip()).expanduser())
 
     def is_service_account(self) -> bool:
         """Return True when using Service Account authentication."""
@@ -122,10 +122,10 @@ class GoogleDriveDestinationConfig(BaseModel):
     def get_token_path(self) -> str:
         """Return the token path, falling back to the credentials directory."""
         if self.token_path:
-            return os.path.expanduser(self.token_path)
+            return str(Path(self.token_path).expanduser())
         if self.credentials_path:
-            creds_dir = os.path.dirname(os.path.expanduser(self.credentials_path))
-            return os.path.join(creds_dir, "gdrive_token.pickle")
+            creds_dir = Path(self.credentials_path).expanduser().parent
+            return str(creds_dir / "gdrive_token.pickle")
         return ""
 
     class Config:

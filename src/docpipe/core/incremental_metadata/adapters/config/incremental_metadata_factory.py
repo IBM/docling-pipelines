@@ -165,7 +165,7 @@ class IncrementalMetadataFactory:
             return cls._default_backend_factory()
 
         try:
-            with config_file.open() as f:
+            with Path(config_file).open() as f:
                 yaml_config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise DocpipeException(f"Invalid YAML configuration: {e}") from e

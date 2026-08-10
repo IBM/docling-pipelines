@@ -11,9 +11,8 @@ class TestSchemaProcessor(unittest.TestCase):
         """Set up test fixtures"""
         self.processor = SchemaProcessor()
 
-    @patch("builtins.open", create=True)
     @patch("docpipe.core.operators.functional.entity_curation.schema_processor.Path")
-    def test_load_schemas_success(self, mock_path, mock_open):
+    def test_load_schemas_success(self, mock_path):
         """Test successful schema loading"""
         import json
         from unittest.mock import MagicMock
@@ -37,14 +36,12 @@ class TestSchemaProcessor(unittest.TestCase):
             }
         }
 
-        # Mock file operations
+        # Mock Path operations — open() is called on the Path instance, not builtins.open
         mock_file = mock_open_func(read_data=json.dumps(mock_schema_data))
-        mock_open.return_value = mock_file.return_value
-
-        # Mock Path operations
         mock_path_instance = MagicMock()
         mock_path.return_value = mock_path_instance
         mock_path_instance.__truediv__.return_value = mock_path_instance
+        mock_path_instance.open.return_value = mock_file.return_value
 
         self.processor.load_schemas(document_types=["invoice"])
 

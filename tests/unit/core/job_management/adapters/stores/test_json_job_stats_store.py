@@ -113,7 +113,7 @@ class TestFilePersistence:
         assert job_stats_file.exists()
 
         # Verify content
-        with open(job_stats_file) as f:
+        with Path(job_stats_file).open() as f:
             data = json.load(f)
             assert data["job_run_id"] == job_run_id
             assert data["processed_docs"] == 100

@@ -9,6 +9,7 @@ The queries are saved to a CSV file for use in accuracy testing.
 """
 
 import csv
+from pathlib import Path
 from typing import Any
 
 
@@ -397,7 +398,7 @@ class DocumentQueryGenerator:
             "max_score",
         ]
 
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+        with Path(filename).open("w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(queries)

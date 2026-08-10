@@ -41,7 +41,7 @@ class SchemaProcessor:
 
             file_name = doc_classes_dir / f"{DocumentClassUtils.normalize_filename(document_type)}.json"
             try:
-                with open(file_name, encoding="utf-8") as f:
+                with Path(file_name).open(encoding="utf-8") as f:
                     doc_cls = json.load(f)
                     # Get the full document_class_schema (includes both document and target_tables)
                     doc_cls_schema = doc_cls.get("document_class_schema", {})

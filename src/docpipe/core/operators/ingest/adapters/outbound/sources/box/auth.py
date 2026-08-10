@@ -32,7 +32,7 @@ def get_box_client(*, credentials_path: str) -> BoxClient:
         raise ValueError(f"Credentials path is not a file: {path}")
 
     try:
-        with open(path, encoding="utf-8") as config_file:
+        with Path(path).open(encoding="utf-8") as config_file:
             box_config = json.load(config_file)
     except PermissionError as e:
         raise PermissionError(

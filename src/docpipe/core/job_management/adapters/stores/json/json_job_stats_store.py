@@ -138,7 +138,7 @@ class JsonJobStatsStore(JobStatsStore):
 
         temp_path = path.with_suffix(".tmp")
         try:
-            with open(temp_path, "w", encoding="utf-8") as f:
+            with Path(temp_path).open("w", encoding="utf-8") as f:
                 json.dump(
                     data,
                     f,
@@ -170,7 +170,7 @@ class JsonJobStatsStore(JobStatsStore):
             return None
 
         try:
-            with open(path, encoding="utf-8") as f:
+            with Path(path).open(encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to read JSON file {path}: {e}")

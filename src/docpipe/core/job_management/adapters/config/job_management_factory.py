@@ -364,7 +364,7 @@ class JobManagementFactory:
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
         try:
-            with open(config_file) as f:
+            with Path(config_file).open() as f:
                 yaml_config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML configuration: {e}") from e

@@ -45,7 +45,7 @@ class OllamaNLToSQLConverter:
             return _default_schema
 
         try:
-            with open(_SCHEMAS_FILE, encoding="utf-8") as f:
+            with Path(_SCHEMAS_FILE).open(encoding="utf-8") as f:
                 all_schemas = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return _default_schema
@@ -119,7 +119,7 @@ class OllamaNLToSQLConverter:
             # Fall back: load the matching static schema from document_schemas.json
             table = cls.infer_schema_from_index(index_name)
             try:
-                with open(_SCHEMAS_FILE, encoding="utf-8") as f:
+                with Path(_SCHEMAS_FILE).open(encoding="utf-8") as f:
                     all_schemas = json.load(f)
                 for schema in all_schemas.get("schemas", []):
                     if schema.get("table") == table:
@@ -220,7 +220,7 @@ class OllamaNLToSQLConverter:
             )
 
         try:
-            with open(_SCHEMAS_FILE, encoding="utf-8") as f:
+            with Path(_SCHEMAS_FILE).open(encoding="utf-8") as f:
                 all_schemas = json.load(f)
         except json.JSONDecodeError as exc:
             raise json.JSONDecodeError(

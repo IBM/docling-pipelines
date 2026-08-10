@@ -135,7 +135,7 @@ class FastTextModelManager:
                     logger.warning(f"SSL verification failed ({ssl_error}), retrying with unverified context...")
                     ssl_context = ssl._create_unverified_context()  # NOSONAR
                     with urllib.request.urlopen(model_url, context=ssl_context) as response:
-                        with open(model_path, "wb") as out_file:
+                        with Path(model_path).open("wb") as out_file:
                             out_file.write(response.read())
                     logger.info("Model downloaded successfully with unverified SSL")
 

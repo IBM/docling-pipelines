@@ -93,7 +93,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
         if token_path.exists():
             try:
-                with open(token_path, "rb") as token:
+                with Path(token_path).open("rb") as token:
                     creds = pickle.load(token)
             except Exception:
                 pass
@@ -125,7 +125,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                     raise ValueError(f"Failed to load credentials from {credentials_path}: {e}") from e
 
             token_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(token_path, "wb") as token:
+            with Path(token_path).open("wb") as token:
                 pickle.dump(creds, token)
 
         return creds

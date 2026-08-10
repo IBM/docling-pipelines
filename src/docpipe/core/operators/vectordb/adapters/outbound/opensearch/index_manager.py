@@ -225,7 +225,7 @@ class OpenSearchIndexManager:
                     )
                     return None
 
-                with open(schema_path) as f:
+                with Path(schema_path).open() as f:
                     schema = json.load(f)
                 logger.info(f"Loaded schema template from filesystem: {schema_path}")
             else:
@@ -237,7 +237,7 @@ class OpenSearchIndexManager:
 
                     # Use as_file() for better compatibility with zipped wheels and containers
                     with as_file(resource) as resource_path:
-                        with open(resource_path) as f:
+                        with Path(resource_path).open() as f:
                             schema = json.load(f)
 
                     logger.info(f"Loaded schema template from package resources: schemas/{template_name}")

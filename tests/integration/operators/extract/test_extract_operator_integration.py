@@ -320,7 +320,7 @@ class TestExtractOperatorRealWorld:
         # Create table from real files
         documents = []
         for pdf_file in pdf_files[:3]:  # Test with first 3 files
-            with open(pdf_file, "rb") as f:
+            with Path(pdf_file).open("rb") as f:
                 content = f.read()
             documents.append(
                 {

@@ -202,7 +202,7 @@ class AbstractFileSystemStorage(ABC):
             file_path = self._get_file_path(collection=collection, file_name=file_name)
             temp_path = file_path.with_suffix(file_path.suffix + ".tmp")
 
-            with open(temp_path, "w", encoding="utf-8") as f:
+            with Path(temp_path).open("w", encoding="utf-8") as f:
                 self.save_file_content(file=f, data=data)
 
             temp_path.replace(file_path)
@@ -240,7 +240,7 @@ class AbstractFileSystemStorage(ABC):
                 logger.debug("File not found: %s/%s", collection, file_name)
                 return self._missing_file_value()
 
-            with open(file_path, encoding="utf-8") as f:
+            with Path(file_path).open(encoding="utf-8") as f:
                 data = self.load_file_content(file=f)
 
             logger.debug("Read file: %s/%s", collection, file_name)

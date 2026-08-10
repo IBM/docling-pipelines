@@ -16,13 +16,23 @@ from docpipe.core.constants.operator_constants import OperatorConstants
 class TestOpenSearchFlow(unittest.TestCase):
     """Test suite for OpenSearch flow configuration validation"""
 
+    flow_file: Path
+    flow_data: dict
+    flow_def: dict
+    dag: list
+    ingest_node: dict
+    doc_id_node: dict
+    chunker_node: dict
+    embeddings_node: dict
+    opensearch_node: dict
+
     @classmethod
     def setUpClass(cls):
         """Set up test fixtures"""
         cls.flow_file = Path(__file__).parent / "flow_with_opensearch.json"
 
         # Load flow definition
-        with open(cls.flow_file) as f:
+        with cls.flow_file.open() as f:
             cls.flow_data = json.load(f)
 
         cls.flow_def = cls.flow_data["flow"]

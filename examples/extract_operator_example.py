@@ -934,7 +934,7 @@ def main() -> int:
     logger.info(f"Processing file: {input_path}")
 
     # Read file
-    with open(input_path, "rb") as f:
+    with Path(input_path).open("rb") as f:
         binary_content = f.read()
 
     # Create PyArrow table

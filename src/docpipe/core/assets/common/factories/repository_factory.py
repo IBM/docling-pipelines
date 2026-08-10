@@ -137,7 +137,7 @@ class RepositoryFactory:
             return {}
 
         try:
-            with open(config_path) as file:
+            with Path(config_path).open() as file:
                 yaml_config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
             logger.warning(f"Invalid repository YAML configuration at {config_path}: {exc}")

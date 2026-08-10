@@ -160,7 +160,7 @@ def test_document_classifier_without_content_column():
     file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with open(file_path, "rb") as f:
+        with Path(file_path).open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))

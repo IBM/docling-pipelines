@@ -83,7 +83,7 @@ class PromptManager:
             return self._cached_prompt
 
         try:
-            with open(self.prompt_file, encoding="utf-8") as f:
+            with Path(self.prompt_file).open(encoding="utf-8") as f:
                 data = json.load(f)
         except FileNotFoundError as exc:
             logger.error(f"Prompt file not found: {self.prompt_file}")

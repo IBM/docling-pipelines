@@ -1,6 +1,7 @@
 import logging
 import os
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -57,7 +58,7 @@ if not database_url:
 
     config_path = os.getenv(ENV_CONFIG_PATH_KEY, str(DEFAULT_CONFIG_PATH))
     try:
-        with open(config_path) as f:
+        with Path(config_path).open() as f:
             app_config = yaml.safe_load(f) or {}
     except Exception as e:
         logging.getLogger("alembic").warning(f"Could not load config from {config_path}: {e}")

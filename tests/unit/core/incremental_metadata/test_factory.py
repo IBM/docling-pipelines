@@ -1,5 +1,7 @@
 """Tests for IncrementalMetadataFactory."""
 
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -70,7 +72,7 @@ class TestFromConfigFile:
                 "storage": {"type": "filesystem", "config": {"base_dir": str(tmp_path / "metadata")}}
             }
         }
-        with open(config_path, "w") as f:
+        with Path(config_path).open("w") as f:
             yaml.dump(config_data, f)
 
         factory = IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
@@ -82,7 +84,7 @@ class TestFromConfigFile:
         """Test factory uses global_storage as fallback."""
         config_path = tmp_path / "config.yaml"
         config_data = {"global_storage": {"type": "filesystem", "config": {"base_dir": str(tmp_path / "global")}}}
-        with open(config_path, "w") as f:
+        with Path(config_path).open("w") as f:
             yaml.dump(config_data, f)
 
         factory = IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
@@ -100,7 +102,7 @@ class TestFromConfigFile:
                 "storage": {"type": "filesystem", "config": {"base_dir": str(tmp_path / "specific")}}
             },
         }
-        with open(config_path, "w") as f:
+        with Path(config_path).open("w") as f:
             yaml.dump(config_data, f)
 
         factory = IncrementalMetadataFactory.from_config_file(config_path=str(config_path))
@@ -132,7 +134,7 @@ class TestFromConfigFile:
 
         config_path = tmp_path / "config.yaml"
         config_data = {"incremental_metadata": {"storage": {"type": "duckdb"}}}
-        with open(config_path, "w") as f:
+        with Path(config_path).open("w") as f:
             yaml.dump(config_data, f)
 
         with pytest.raises(DocpipeException, match="Invalid storage backend 'duckdb'"):
@@ -150,7 +152,7 @@ class TestGetDefaultFactory:
                 "storage": {"type": "filesystem", "config": {"base_dir": str(tmp_path / "metadata")}}
             }
         }
-        with open(config_path, "w") as f:
+        with Path(config_path).open("w") as f:
             yaml.dump(config_data, f)
 
         monkeypatch.setenv("DOCPIPE_CONFIG_PATH", str(config_path))

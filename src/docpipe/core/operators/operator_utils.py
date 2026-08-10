@@ -387,7 +387,7 @@ class OperatorUtils:
         _log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
 
         if Path(aggregated_job_log_path).exists():
-            with open(aggregated_job_log_path) as file:
+            with Path(aggregated_job_log_path).open() as file:
                 aggregated_flow_logs = json.load(file)
         else:
             return {"message": "Logs are not available.!"}

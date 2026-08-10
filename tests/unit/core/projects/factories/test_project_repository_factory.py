@@ -6,6 +6,8 @@ Covers the three resolution paths for base_dir:
   3. Built-in adapter default (neither env var nor YAML configured)
 """
 
+from pathlib import Path
+
 import yaml
 
 from docpipe.core.projects.adapters.repositories.local.local_project_repository import (
@@ -21,7 +23,7 @@ from docpipe.core.projects.factories.project_repository_factory import (
 
 def _write_yaml(path, content: dict) -> None:
     """Write a dict as YAML to *path*."""
-    with open(path, "w") as fh:
+    with Path(path).open("w") as fh:
         yaml.safe_dump(content, fh)
 
 

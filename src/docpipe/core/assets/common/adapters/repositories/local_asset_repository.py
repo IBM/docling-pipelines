@@ -95,7 +95,7 @@ class LocalAssetRepository(AssetRepository[T]):
 
         # Save to file
         file_path = self._get_file_path(asset_id=asset.asset_id)
-        with open(file_path, "w") as f:
+        with Path(file_path).open("w") as f:
             json.dump(asset.to_dict(), f, indent=2)
 
         logger.info(f"Saved {self._asset_type.__name__} {asset.asset_id}")
@@ -114,7 +114,7 @@ class LocalAssetRepository(AssetRepository[T]):
         if not file_path.exists():
             return None
 
-        with open(file_path) as f:
+        with Path(file_path).open() as f:
             data = json.load(f)
 
         return self._asset_type.from_dict(data=data)  # type: ignore
@@ -142,7 +142,7 @@ class LocalAssetRepository(AssetRepository[T]):
         assets = []
         for file_path in self._storage_path.glob("*.json"):
             try:
-                with open(file_path) as f:
+                with Path(file_path).open() as f:
                     data = json.load(f)
                 asset = self._asset_type.from_dict(data=data)  # type: ignore
                 assets.append(asset)
@@ -193,7 +193,7 @@ class LocalAssetRepository(AssetRepository[T]):
 
         # Save to file
         file_path = self._get_file_path(asset_id=asset.asset_id)
-        with open(file_path, "w") as f:
+        with Path(file_path).open("w") as f:
             json.dump(asset.to_dict(), f, indent=2)
 
         logger.info(f"Updated {self._asset_type.__name__} {asset.asset_id}")

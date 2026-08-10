@@ -113,7 +113,7 @@ class FlowDefinitionSnapshotStorageFactory:
                     f"Unknown flow Definition snapshot store backend: '{self._backend}'. Available backends: {available}"
                 )
             store_class = FlowDefinitionSnapshotStorageFactory._stores[self._backend]
-            base_dir = self._config.get( DocpipeConfigKeys.BASE_DIR) or get_data_path()
+            base_dir = self._config.get(DocpipeConfigKeys.BASE_DIR) or get_data_path()
             self._store = store_class(base_dir=base_dir)  # type: ignore[call-arg]
             logger.info("Created flow definition snapshot store: backend=%s", self._backend)
         return self._store
@@ -144,7 +144,7 @@ class FlowDefinitionSnapshotStorageFactory:
             return cls._default_backend_factory()
 
         try:
-            with open(config_file) as f:
+            with Path(config_file).open() as f:
                 yaml_config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise DocpipeException(f"Invalid YAML configuration: {e}") from e
@@ -193,7 +193,9 @@ class FlowDefinitionSnapshotStorageFactory:
 # ---------------------------------------------------------------------------
 
 
-def register_flow_definition_snapshot_storage(store_class: type[KeyValueStoragePort],) -> type[KeyValueStoragePort]:
+def register_flow_definition_snapshot_storage(
+    store_class: type[KeyValueStoragePort],
+) -> type[KeyValueStoragePort]:
     """Register a flow definition snapshot storage class via decorator.
 
     The decorated class must define a ``STORE_BACKEND`` class attribute whose
@@ -213,6 +215,7 @@ def register_flow_definition_snapshot_storage(store_class: type[KeyValueStorageP
 # Internal config helper
 # ---------------------------------------------------------------------------
 
+
 def _resolve_backend_and_config(*, yaml_config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """Extract backend name and merged config dict from a parsed YAML document."""
     global_storage_config = yaml_config.get(DocpipeConfigKeys.GLOBAL_STORAGE, {})
@@ -228,7 +231,9 @@ def _resolve_backend_and_config(*, yaml_config: dict[str, Any]) -> tuple[str, di
 
     if backend not in FlowDefinitionSnapshotStorageFactory._stores:
         available = ", ".join(FlowDefinitionSnapshotStorageFactory._stores.keys()) or "none"
-        raise DocpipeException(f"Invalid storage backend '{backend}' for flow definition snapshot storage. Available: {available}")
+        raise DocpipeException(
+            f"Invalid storage backend '{backend}' for flow definition snapshot storage. Available: {available}"
+        )
 
     # # Merge config: global_storage base, overridden by service-specific block.
     merged: dict[str, Any] = {}
