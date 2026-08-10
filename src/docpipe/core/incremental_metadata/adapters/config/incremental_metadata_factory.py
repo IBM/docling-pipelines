@@ -165,7 +165,7 @@ class IncrementalMetadataFactory:
             return cls._default_backend_factory()
 
         try:
-            with open(config_file) as f:
+            with config_file.open() as f:
                 yaml_config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise DocpipeException(f"Invalid YAML configuration: {e}") from e
@@ -289,6 +289,22 @@ def get_default_factory() -> IncrementalMetadataFactory:
                 _default_factory = IncrementalMetadataFactory.from_default_sources()
 
     return _default_factory
+
+
+def set_default_factory(factory: IncrementalMetadataFactory) -> None:
+    """Replace the process-wide singleton factory.
+
+    Intended for callers that need to install a pre-configured factory
+    before any component requests the singleton.  Thread-safe: acquires
+    the same lock used by get_default_factory().
+
+    Args:
+        factory: The IncrementalMetadataFactory instance to install as
+                 the process-wide singleton.
+    """
+    global _default_factory
+    with _default_factory_lock:
+        _default_factory = factory
 
 
 def get_incremental_update_service() -> IncrementalUpdateService:

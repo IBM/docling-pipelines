@@ -7,6 +7,7 @@ from .incremental_metadata_factory import (
     get_default_factory,
     get_incremental_update_service,
     register_incremental_update_store,
+    set_default_factory,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "get_default_factory",
     "get_incremental_update_service",
     "register_incremental_update_store",
+    "set_default_factory",
 ]
