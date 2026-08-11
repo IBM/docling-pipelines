@@ -1,9 +1,13 @@
 import json
 
 from docpipe.api.dto.node_stats_dto import NodeMetadataItem, NodeStatsDto
-from docpipe.core.constants.constants import STATUS_INDICATOR_MAP, TERMINAL_NODE_STATES, ExecutionStatus
+from docpipe.core.constants.constants import STATUS_INDICATOR_MAP, ExecutionStatus
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.job_management.domain.models import NodeStats
+
+_BORDER = "=" * 64
+_THIN = "-" * 64
+_END = f">>> {'=' * 61}"
 
 
 class NodeStatsMapper:
@@ -43,96 +47,125 @@ class NodeStatsMapper:
         )
 
     @staticmethod
-    def _build_batch_summary(batch_stats: dict[str, NodeStats]) -> list[str]:
-        """Build batch execution summary lines from per-batch NodeStats."""
-        if not batch_stats:
-            return []
+    def to_log_string(*, node_id: str, node_stat: NodeStats, batch_stats: dict[str, NodeStats] | None = None) -> str:
+        """Format NodeStats into a human-readable log string for API responses."""
+        status_value = (
+            node_stat.node_status.value if isinstance(node_stat.node_status, ExecutionStatus) else node_stat.node_status
+        )
+        error = (node_stat.error or "").replace("\n", " ").strip()
 
-        sorted_batches = sorted(
-            batch_stats.values(),
-            key=lambda b: b.batch_num or 0,
+        if status_value == ExecutionStatus.SKIPPED.value:
+            return NodeStatsMapper._format_skipped(node_id=node_id, name=node_stat.name, error=error)
+
+        return NodeStatsMapper._format_executed(
+            node_id=node_id,
+            node_stat=node_stat,
+            batch_stats=batch_stats,
+            status_value=status_value,
+            error=error,
         )
 
-        lines: list[str] = [f"\nBatch Execution Summary ({len(sorted_batches)} batches):"]
-        failed_batches: list[NodeStats] = []
-
-        for batch in sorted_batches:
-            status = batch.node_status or "Pending"
-            indicator = STATUS_INDICATOR_MAP.get(status, "•")
-            time_taken = batch.time_taken or 0
-            doc_count = len(batch.total_docs) if batch.total_docs else 0
-            doc_suffix = "s" if doc_count != 1 else ""
-            batch_line = (
-                f"  {indicator} Batch {batch.batch_num}: {status} ({time_taken:.2f}s, {doc_count} doc{doc_suffix})"
-            )
-            if status == ExecutionStatus.SKIPPED.value and batch.error:
-                batch_line += f" - Reason: {batch.error}"
-            lines.append(batch_line)
-            if status in (ExecutionStatus.FAILED.value, ExecutionStatus.COMPLETED_WITH_ERRORS.value) and batch.error:
-                failed_batches.append(batch)
-
-        if failed_batches:
-            lines.append("\nError Details:")
-            for batch in failed_batches:
-                lines.append(f"  Batch {batch.batch_num}: {batch.error}")
-
-        return lines
+    # ── private helpers ───────────────────────────────────────────────────────
 
     @staticmethod
-    def to_log_string(*, node_id: str, node_stat: NodeStats, batch_stats: dict[str, NodeStats] | None = None) -> str:
-        """Format NodeStats into a log string for API responses.
+    def _format_skipped(*, node_id: str, name: str, error: str) -> str:
+        """Top border + header + skip message. No footer — executor never ran."""
+        reason = error if error else "no input data available for processing"
+        return "\n".join(
+            [
+                _BORDER,
+                f"  Step: {name}",
+                f"  ID:   {node_id}",
+                _THIN,
+                f"Step ID: {node_id}",
+                f"Skipped execution for Step Name: {name} because {reason}",
+            ]
+        )
 
-        Args:
-            node_id: Node identifier.
-            node_stat: Aggregated NodeStats for the node.
-            batch_stats: Optional dict[batch_id, NodeStats] for micro-batching nodes.
-        """
+    @staticmethod
+    def _format_executed(
+        *,
+        node_id: str,
+        node_stat: NodeStats,
+        batch_stats: dict[str, NodeStats] | None,
+        status_value: str,
+        error: str,
+    ) -> str:
+        """Full block format for completed / failed / in-progress nodes."""
         name = node_stat.name
         time_taken = node_stat.time_taken or 0
-        col_names = node_stat.col_names or []
-        node_metadata = node_stat.node_metadata
-        node_status = node_stat.node_status
-        error = node_stat.error
+        indicator = STATUS_INDICATOR_MAP.get(status_value, "x")
 
-        terminal_states_values = frozenset(state.value for state in TERMINAL_NODE_STATES)
+        p: list[str] = []
+        p += NodeStatsMapper._section_header(node_id=node_id, name=name)
+        p += NodeStatsMapper._section_schema(col_names=node_stat.col_names or [])
+        p += NodeStatsMapper._section_batches(batch_stats=batch_stats)
+        p += NodeStatsMapper._section_metadata(node_metadata=node_stat.node_metadata)
+        p += NodeStatsMapper._section_error(error=error, batch_stats=batch_stats)
+        p += NodeStatsMapper._section_footer(
+            name=name, time_taken=time_taken, status_value=status_value, indicator=indicator
+        )
+        return "\n".join(p)
 
-        log_parts = []
-        # 1. Starting execution
-        log_parts.append(f"Starting execution: Step Name: {name}")
+    @staticmethod
+    def _section_header(*, node_id: str, name: str) -> list[str]:
+        return [_BORDER, f"  Step: {name}", f"  ID:   {node_id}", _THIN, f"Starting execution: Step Name: {name}"]
 
-        # 2. Schema information
-        if col_names:
-            log_parts.append("\nSchema:")
-            for col_name in col_names:
-                log_parts.append(f"{col_name}: string")
+    @staticmethod
+    def _section_schema(*, col_names: list[str]) -> list[str]:
+        if not col_names:
+            return []
+        return ["", "Schema:"] + [f"{col}: string" for col in col_names]
 
-        # 3. Batch execution summary (micro-batching nodes only)
-        if batch_stats:
-            log_parts.extend(NodeStatsMapper._build_batch_summary(batch_stats))
-
-        # 4. Operator metadata if available
-        if node_metadata:
-            log_parts.append("\nOperator Metadata:")
-            log_parts.append(
-                json.dumps(
-                    {OperatorConstants.Metadata.NODE_METADATA: node_metadata, "id": node_id, "operator": name}, indent=2
-                )
+    @staticmethod
+    def _section_batches(*, batch_stats: dict[str, NodeStats] | None) -> list[str]:
+        if not batch_stats:
+            return []
+        sorted_batches = sorted(batch_stats.values(), key=lambda b: b.batch_num or 0)
+        p = ["", f"Batch Execution Summary ({len(sorted_batches)} batches):"]
+        failed: list[NodeStats] = []
+        for batch in sorted_batches:
+            b_status = (
+                batch.node_status.value
+                if isinstance(batch.node_status, ExecutionStatus)
+                else (batch.node_status or "Pending")
             )
+            b_ind = STATUS_INDICATOR_MAP.get(b_status, "x")
+            b_time = batch.time_taken or 0
+            b_docs = len(batch.total_docs) if batch.total_docs else 0
+            p.append(
+                f"  {b_ind} Batch {batch.batch_num}: {b_status:<22} ({b_time:.2f}s, {b_docs} doc{'s' if b_docs != 1 else ''})"
+            )
+            if batch.error and b_status in (ExecutionStatus.FAILED.value, ExecutionStatus.COMPLETED_WITH_ERRORS.value):
+                failed.append(batch)
+        if failed:
+            p += ["", "Error Details:"] + [
+                f"  Batch {b.batch_num}: {b.error.replace(chr(10), ' ').strip()}" for b in failed
+            ]
+        return p
 
-        # 5. Completion status (only for terminal states)
-        status_value = node_status.value if isinstance(node_status, ExecutionStatus) else node_status
+    @staticmethod
+    def _section_metadata(*, node_metadata: dict | None) -> list[str]:
+        if not node_metadata:
+            return []
+        inner = node_metadata.get(OperatorConstants.Metadata.NODE_METADATA)
+        inner_meta = inner if isinstance(inner, dict) else node_metadata
+        if not inner_meta:
+            return []
+        return ["", "Operator Metadata", json.dumps(inner_meta, indent=4)]
 
-        if status_value in terminal_states_values:
-            if status_value == ExecutionStatus.FAILED.value:
-                log_parts.append(f"\nFailed execution: {name}, time= {time_taken:.2f} seconds")
-            elif status_value == ExecutionStatus.SKIPPED.value:
-                log_parts.append(f"\nSkipped execution: {name}, time= {time_taken:.2f} seconds")
-            else:
-                log_parts.append(f"\nCompleted execution: {name}, time= {time_taken:.2f} seconds")
+    @staticmethod
+    def _section_error(*, error: str, batch_stats: dict[str, NodeStats] | None) -> list[str]:
+        """Render a node-level error block for non-batched nodes only.
 
-        # 6. Error details if available
-        if error:
-            log_parts.append("\nError Details:")
-            log_parts.append(f"  {error}")
+        For batched nodes (batch_stats is non-empty), per-batch errors are already
+        rendered by _section_batches — emitting them here would duplicate output.
+        """
+        if not error or (batch_stats is not None and len(batch_stats) > 0):
+            return []
+        return ["", "Error Details", f"  {error}"]
 
-        return "\n".join(log_parts)
+    @staticmethod
+    def _section_footer(*, name: str, time_taken: float, status_value: str, indicator: str) -> list[str]:
+        verb = "Failed" if status_value == ExecutionStatus.FAILED.value else "Completed"
+        return ["", _THIN, f"{indicator} {verb} execution: {name},  time= {time_taken:.2f} seconds", _END]

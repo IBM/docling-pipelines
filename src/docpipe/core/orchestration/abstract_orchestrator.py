@@ -759,7 +759,30 @@ class AbstractOrchestrator(ABC):
 
         # Check if table is empty
         if ingested_table.num_rows == 0:
-            self.logger.info(">>> No data to process - skipping flow execution", extra=self.common_log_arguments)
+            self.logger.info(
+                ">>> No documents ingested — marking downstream nodes as skipped and exiting early",
+                extra=self.common_log_arguments,
+            )
+            downstream_nodes = op_flow[1:] if len(op_flow) > 1 else []
+            for downstream_node in downstream_nodes:
+                try:
+                    self.flow_execution_event_handler.after_node_skipped(
+                        node_id=downstream_node.get(OperatorConstants.Columns.ID),
+                        node_name=downstream_node.get(OperatorConstants.Columns.NAME),
+                        operator_type=downstream_node.get(OperatorConstants.Misc.OPERATOR),
+                        global_config=global_config,
+                        start_time=get_current_timestamp(),
+                        end_time=get_current_timestamp(),
+                        column_names=[],
+                        reason="Skipped - no documents ingested in previous step",
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to record skipped status for node %s: %s",
+                        downstream_node.get(OperatorConstants.Columns.NAME, "unknown"),
+                        e,
+                        extra=self.common_log_arguments,
+                    )
             clean_up_prefect_home()
             self._finalize_dag_flow(op_flow=op_flow, global_config=global_config)
             return

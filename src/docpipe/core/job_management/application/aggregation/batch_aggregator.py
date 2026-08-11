@@ -116,7 +116,29 @@ def _determine_aggregated_status(*, status_counts: dict[str, int], total_batches
     if status_counts[ExecutionStatus.SKIPPED.value] == total_batches:
         return ExecutionStatus.SKIPPED.value
 
-    has_failures = status_counts[ExecutionStatus.FAILED.value] > 0
+    canceled = status_counts[ExecutionStatus.CANCELED.value]
+    skipped = status_counts[ExecutionStatus.SKIPPED.value]
+    failed = status_counts[ExecutionStatus.FAILED.value]
+
+    if canceled > 0:
+        has_completed_variants = (
+            status_counts[ExecutionStatus.COMPLETED.value]
+            + status_counts[ExecutionStatus.COMPLETED_WITH_WARNINGS.value]
+            + status_counts[ExecutionStatus.COMPLETED_WITH_ERRORS.value]
+        ) > 0
+
+        # Canceled + Skipped only → Skipped (nothing actually executed)
+        if (canceled + skipped) == total_batches:
+            return ExecutionStatus.SKIPPED.value
+
+        # Canceled + any Completed variant (±Skipped) → CompletedWithWarnings
+        if has_completed_variants:
+            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+
+        # Only Canceled + Failed remain — no completed variants, no active states
+        return ExecutionStatus.FAILED.value
+
+    has_failures = failed > 0
     has_successes = (
         status_counts[ExecutionStatus.COMPLETED.value]
         + status_counts[ExecutionStatus.COMPLETED_WITH_WARNINGS.value]

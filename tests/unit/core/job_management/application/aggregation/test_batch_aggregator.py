@@ -157,6 +157,43 @@ class TestDetermineAggregatedStatus:
         # NOT Running (because no pending batches remain)
         assert result == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
+    def _make_counts(self, **kwargs: int) -> dict[str, int]:
+        """Helper: build a zero-initialised status_counts dict with overrides."""
+        base = {s.value: 0 for s in ExecutionStatus}
+        for key, val in kwargs.items():
+            base[key] = val
+        return base
+
+    def test_canceled_and_skipped_returns_skipped(self):
+        """Canceled + Skipped only (screenshot case) must resolve to Skipped."""
+        counts = self._make_counts(Canceled=10, Skipped=10)
+        result = _determine_aggregated_status(status_counts=counts, total_batches=20)
+        assert result == ExecutionStatus.SKIPPED.value
+
+    def test_all_canceled_returns_canceled(self):
+        """All-Canceled batches must resolve to Canceled."""
+        counts = self._make_counts(Canceled=5)
+        result = _determine_aggregated_status(status_counts=counts, total_batches=5)
+        assert result == ExecutionStatus.CANCELED.value
+
+    def test_canceled_and_completed_returns_completed_with_warnings(self):
+        """Canceled + Completed mixture must resolve to CompletedWithWarnings."""
+        counts = self._make_counts(Canceled=5, Completed=15)
+        result = _determine_aggregated_status(status_counts=counts, total_batches=20)
+        assert result == ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+
+    def test_canceled_skipped_and_completed_returns_completed_with_warnings(self):
+        """Canceled + Skipped + Completed mixture must resolve to CompletedWithWarnings."""
+        counts = self._make_counts(Canceled=5, Skipped=5, Completed=10)
+        result = _determine_aggregated_status(status_counts=counts, total_batches=20)
+        assert result == ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+
+    def test_canceled_failed_and_skipped_returns_failed(self):
+        """Canceled + Failed + Skipped (no completed) must resolve to Failed."""
+        counts = self._make_counts(Canceled=3, Failed=3, Skipped=4)
+        result = _determine_aggregated_status(status_counts=counts, total_batches=10)
+        assert result == ExecutionStatus.FAILED.value
+
 
 class TestCountBatchesByStatus:
     """Test count_batches_by_status function."""
