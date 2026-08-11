@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import Any
 
+import pyarrow as pa
 from data_processing.transform import AbstractTableTransform
 
 from docpipe.core.constants.constants import (
@@ -12,6 +13,7 @@ from docpipe.core.constants.constants import (
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.models.session_info import get_session_info
 from docpipe.core.operators.operator_utils import OperatorUtils
+from docpipe.types import FlowConfig, OperatorMetadata, OperatorOutputMetadata, TransformResult
 from docpipe.utils.infrastructure import get_telemetry_service
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -30,9 +32,9 @@ class OperatorCategory(StrEnum):
 class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
     short_name: str
     category: OperatorCategory
-    owner: str | None = None  # None indicates custom operator, specific value (e.g., "docpipe") for built-in operators
+    owner: str | None = None  # None indicates custom operator; specific value (e.g., "docpipe") for built-ins
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: FlowConfig) -> None:
         super().__init__(config)
         session_info = get_session_info()
         self.name = config.get(OperatorConstants.Misc.NAME)
@@ -156,11 +158,19 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
                 success=success,
             )
 
+    def transform(self, table: pa.Table) -> TransformResult:
+        """Transform the input table and return output tables with execution metadata.
+
+        Subclasses must implement this method. The return tuple is
+        (list[pa.Table], OperatorOutputMetadata).
+        """
+        raise NotImplementedError
+
     @staticmethod
     def is_available() -> bool:
         return True
 
-    def validate(self, errors: list[Any], warnings: list[Any], available_features: list[Any]) -> None:
+    def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
         # The concrete subclasses validates the parameters passed to the operators from the flow definition
         OperatorUtils.validate_columns(available_features, self.get_required_features(), self.short_name, errors)
 
@@ -170,7 +180,12 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
         return []
 
     @staticmethod
-    def get_metadata() -> dict[str, Any]:
+    def get_static_required_features() -> list[str]:
+        # Static companion to get_required_features() for operator discovery without instantiation.
+        return []
+
+    @staticmethod
+    def get_metadata() -> OperatorMetadata:
         # Returns operator metadata including owner
         return {}
 
@@ -183,7 +198,7 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
     @staticmethod
     def create_base_metadata(
         *, total_docs_count: int, node_status: str = ExecutionStatus.COMPLETED.value
-    ) -> dict[str, Any]:
+    ) -> OperatorOutputMetadata:
         # Create base metadata structure with all required fields initialized.
         return {
             Metrics.External.TOTAL_DOCS: total_docs_count,

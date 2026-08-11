@@ -13,7 +13,7 @@ class OperatorFactoryProvider:
 
     @staticmethod
     def get_operator_factory(
-        *, orchestrator: str, package_names: list | None = None, enable_custom_operators: bool = True
+        *, orchestrator: str, package_names: list[str] | None = None, enable_custom_operators: bool = True
     ) -> "OperatorFactory":
         """
         Get or create an operator factory with optional custom operator support.
@@ -53,7 +53,7 @@ class OperatorFactoryProvider:
 
     @staticmethod
     def refresh_operator_factory(
-        *, orchestrator: str, package_names: list | None = None, enable_custom_operators: bool = True
+        *, orchestrator: str, package_names: list[str] | None = None, enable_custom_operators: bool = True
     ) -> "OperatorFactory":
         """
         Refreshes the operator factory by reloading custom operator classes dynamically.
@@ -89,9 +89,9 @@ class OperatorFactory:
     def __init__(
         self,
         orchestrator: str,
-        package_names: list | None = None,
+        package_names: list[str] | None = None,
         enable_custom_operators: bool = True,
-    ):
+    ) -> None:
         """
         Initialize the factory with frozenset operators and optional custom packages.
 
@@ -106,7 +106,7 @@ class OperatorFactory:
 
         # Determine if custom operators are enabled
         # Priority: parameter > environment variable > default
-        if enable_custom_operators is None:
+        if enable_custom_operators is None:  # pragma: no cover
             env_value = os.getenv(EnvironmentVariables.DOCPIPE_ENABLE_CUSTOM_OPERATORS)
             if env_value is not None:
                 enable_custom_operators = env_value.lower() in ("true", "1", "yes")
@@ -340,7 +340,7 @@ class OperatorFactory:
             logger.error(f"Failed to refresh custom operators: {e}")
             raise
 
-    def get_operator(self, *, operator_name: str) -> type[AbstractOperator] | None:  # | Type[AbstractSparkOperator]:
+    def get_operator(self, *, operator_name: str) -> type[AbstractOperator] | None:
         return self.operators.get(operator_name)
 
 

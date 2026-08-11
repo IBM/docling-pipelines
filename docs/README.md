@@ -23,6 +23,7 @@ Task-oriented guides to help you accomplish specific goals:
 - **[Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)** - Build custom data source connectors
 - **[Custom Operators Guide](guides/CUSTOM_OPERATORS_GUIDE.md)** - Create your own operators
 - **[External Operator Integration](guides/EXTERNAL_OPERATOR_INTEGRATION.md)** - Integrate external operators
+- **[Testing Standards](guides/TESTING_STANDARDS.md)** - Coverage requirements, test organisation, fixtures, and naming conventions
 
 ### Advanced Topics
 - **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)** - Production deployment and optimization

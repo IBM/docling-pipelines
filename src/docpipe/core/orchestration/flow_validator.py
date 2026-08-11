@@ -24,6 +24,7 @@ from docpipe.exceptions.docpipe_exceptions import (
     ValidationAlert,
 )
 from docpipe.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
+from docpipe.types import FlowConfig
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.orchestration.flow_utils import add_validation_alert
 from docpipe.utils.orchestration.prefect_config import clean_up_prefect_home
@@ -203,7 +204,7 @@ class FlowValidator:
         # Use injected propagator when available to avoid a redundant metadata load.
         self.feature_propagator = feature_propagator if feature_propagator is not None else FeaturePropagator()
 
-    def validate(self, *, flow_def: dict, params: dict):
+    def validate(self, *, flow_def: FlowConfig, params: FlowConfig) -> None:
         """Main validation entry point for a flow definition.
 
         Performs basic structural validation without feature propagation.
@@ -242,7 +243,7 @@ class FlowValidator:
             )
         self.validate_dag(flow_def=flow_def, global_config=global_config)
 
-    def validate_dag(self, *, flow_def: dict, global_config: dict):
+    def validate_dag(self, *, flow_def: FlowConfig, global_config: FlowConfig) -> None:
         """Validate the DAG structure and all nodes.
 
         Performs comprehensive validation including structure checks, operator
@@ -366,7 +367,9 @@ class FlowValidator:
         if validate_results.errors or validate_results.warnings:
             raise FlowValidationException(errors=validate_results.errors, warnings=validate_results.warnings)
 
-    def validate_dag_with_features(self, *, flow_def: dict, global_config: dict) -> FeaturePropagationResult:
+    def validate_dag_with_features(
+        self, *, flow_def: FlowConfig, global_config: FlowConfig
+    ) -> FeaturePropagationResult:
         """Validate DAG and propagate features through all nodes.
 
         This method enhances the standard validate_dag() by adding feature propagation
@@ -755,7 +758,9 @@ class FlowValidator:
         if node_id in node_result.output_features_to_drop:
             propagation_result.output_features_to_drop[node_id] = node_result.output_features_to_drop[node_id]
 
-    def propagate_features_per_node(self, *, flow_def: dict, global_config: dict) -> dict[str, dict[str, Any]]:
+    def propagate_features_per_node(
+        self, *, flow_def: FlowConfig, global_config: FlowConfig
+    ) -> dict[str, dict[str, Any]]:
         """Propagate features through the DAG and return a per-node result dict.
 
         Unlike validate_dag_with_features(), this method does not raise on validation

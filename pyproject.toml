@@ -104,6 +104,7 @@ dev = [
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.0.0",
     "pytest-mock==3.15.1",
+    "pytest-timeout==2.3.1",
     "pytest-xdist==3.6.1",
     "ruff==0.15.20",
 ]
@@ -275,6 +276,28 @@ follow_imports = "silent"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.bandit]
+exclude_dirs = ["tests", "scripts"]
+skips = ["B101"]  # Allow assert statements in tests
+
+[tool.coverage.run]
+source = ["src/docpipe"]
+omit = [
+    "tests/*",
+    "**/__pycache__/*",
+    "src/docpipe/integrations/*",  # External integrations — covered by integration tests
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+    "raise NotImplementedError",
+]
 
 [dependency-groups]
 dev = [
