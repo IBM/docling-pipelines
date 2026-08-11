@@ -634,6 +634,45 @@ class TestMetadata:
 
         assert Metrics.External.FAILED_DOCS_COUNT in metadata
 
+    def test_branch_skipped_docs_count_equals_docs_filtered_for_each_branch(self):
+        """
+        With 5 docs (2 md, 3 txt), two non-overlapping branches must each report
+        skipped_docs_count == total_docs - processed_docs for that branch.
+        Branch 1 keeps 2 docs  → skipped_docs_count must be 3.
+        Branch 2 keeps 3 docs  → skipped_docs_count must be 2 (was incorrectly 0).
+        """
+        table = pa.table(
+            {
+                "id": ["1", "2", "3", "4", "5"],
+                "name": ["a.md", "b.md", "c.txt", "d.txt", "e.txt"],
+                "content": ["md1", "md2", "txt1", "txt2", "txt3"],
+                "score": [1.0, 2.0, 3.0, 4.0, 5.0],
+                "language": ["en", "en", "en", "en", "en"],
+                "word_count": [10, 20, 30, 40, 50],
+                "ext": ["md", "md", "txt", "txt", "txt"],
+            }
+        )
+        branches = [
+            make_branch(link_id="md_branch", link_name="md_files", criteria_list=["ext = 'md'"]),
+            make_branch(link_id="txt_branch", link_name="txt_files", criteria_list=["ext = 'txt'"]),
+        ]
+        operator = make_operator(branches)
+
+        _, metadata = operator.runner(table)
+
+        md_meta = metadata["branches"]["md_branch"]
+        txt_meta = metadata["branches"]["txt_branch"]
+
+        assert md_meta["processed_docs"] == 2
+        assert md_meta["skipped_docs_count"] == 3, (
+            f"md branch: expected skipped_docs_count=3, got {md_meta['skipped_docs_count']}"
+        )
+
+        assert txt_meta["processed_docs"] == 3
+        assert txt_meta["skipped_docs_count"] == 2, (
+            f"txt branch: expected skipped_docs_count=2, got {txt_meta['skipped_docs_count']}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # 8. get_metadata()

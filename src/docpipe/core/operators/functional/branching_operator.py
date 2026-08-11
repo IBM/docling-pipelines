@@ -154,7 +154,7 @@ class BranchingOperator(AbstractOperator):
             "result_index": idx,
             "processed_docs": filtered_table.num_rows,
             "docs_filtered": total_docs - filtered_table.num_rows,
-            "skipped_docs_count": len(skipped_docs),
+            "skipped_docs_count": total_docs - filtered_table.num_rows,
             "failed_docs_count": len(failed_docs),
         }
         metadata[Metrics.External.SKIPPED_DOCS] = skipped_docs
