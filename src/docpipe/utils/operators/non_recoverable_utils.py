@@ -91,7 +91,11 @@ def extract_non_recoverable_rows(*, table: pa.Table, non_recoverable_doc_ids: li
         >>> print(non_rec_table.column_names)
         ['id', 'name', 'modified_time']
     """
-    columns_to_keep = [OperatorConstants.ID, OperatorConstants.NAME, OperatorConstants.MODIFIED_TIME]
+    columns_to_keep = [
+        OperatorConstants.Columns.ID,
+        OperatorConstants.Columns.NAME,
+        OperatorConstants.Metadata.MODIFIED_TIME,
+    ]
 
     # Filter to only columns that exist in the table
     existing_columns = [col for col in columns_to_keep if col in table.column_names]
