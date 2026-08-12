@@ -164,8 +164,8 @@ headers = {
 
 # After sanitization (in logs)
 headers = {
-    "Authorization": "Bearer [REDACTED]",
-    "X-API-Key": "[REDACTED]"
+    "Authorization": "Bearer ***REDACTED***",
+    "X-API-Key": "***REDACTED***"
 }
 ```
 

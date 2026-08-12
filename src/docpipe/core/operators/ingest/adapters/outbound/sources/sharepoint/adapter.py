@@ -134,7 +134,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                 endpoint = f"/drives/{actual_drive_id}/items/{item_id}"
                 item = loader._rest_client.call_rest_json(
                     method=RestMethod.GET,
-                    endpoint=endpoint,
+                    url=endpoint,
                     headers=headers,
                 )
 
@@ -192,7 +192,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                 try:
                     data = loader._rest_client.call_rest_json(
                         method=RestMethod.GET,
-                        endpoint=endpoint,
+                        url=endpoint,
                         headers=headers,
                     )
                     folder_item_id = data.get(OperatorConstants.Columns.ID)
@@ -388,7 +388,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
             endpoint = f"/drives/{document_library_id}/items/{item_id}"
             item_data = loader._rest_client.call_rest_json(
                 method=RestMethod.GET,
-                endpoint=endpoint,
+                url=endpoint,
                 headers=headers,
             )
 
@@ -407,7 +407,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                 temp_client = RestClient(config=temp_config)
                 response = temp_client.call_rest(
                     method=RestMethod.GET,
-                    endpoint=download_url,
+                    url=download_url,
                 )
                 content = response.content
             else:
@@ -415,7 +415,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                 content_endpoint = f"/drives/{document_library_id}/items/{item_id}/content"
                 response = loader._rest_client.call_rest(
                     method=RestMethod.GET,
-                    endpoint=content_endpoint,
+                    url=content_endpoint,
                     headers=headers,
                     expected_status_codes=[200, 302],
                 )

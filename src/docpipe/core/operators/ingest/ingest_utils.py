@@ -105,7 +105,7 @@ def resolve_msgraph_file_id_to_item_id(
                     logger.debug("Trying /shares endpoint for path-based URL")
                     data = rest_client.call_rest_json(
                         method=RestMethod.GET,
-                        endpoint=shares_endpoint,
+                        url=shares_endpoint,
                         headers=headers,
                     )
                     item_id = data.get("id")
@@ -134,7 +134,7 @@ def resolve_msgraph_file_id_to_item_id(
             try:
                 data = rest_client.call_rest_json(
                     method=RestMethod.GET,
-                    endpoint=endpoint,
+                    url=endpoint,
                     headers=headers,
                 )
                 item_id = data.get("id")
@@ -152,7 +152,7 @@ def resolve_msgraph_file_id_to_item_id(
                                 endpoint = f"/drives/{drive_id}/root:/{stripped_path}"
                                 data = rest_client.call_rest_json(
                                     method=RestMethod.GET,
-                                    endpoint=endpoint,
+                                    url=endpoint,
                                     headers=headers,
                                 )
                                 item_id = data.get("id")
@@ -178,7 +178,7 @@ def resolve_msgraph_file_id_to_item_id(
                     logger.debug("Trying /shares endpoint with encoded URL")
                     data = rest_client.call_rest_json(
                         method=RestMethod.GET,
-                        endpoint=shares_endpoint,
+                        url=shares_endpoint,
                         headers=headers,
                     )
                     item_id = data.get("id")
@@ -205,7 +205,7 @@ def resolve_msgraph_file_id_to_item_id(
                 logger.debug(f"Trying direct access with GUID: {file_id}")
                 data = rest_client.call_rest_json(
                     method=RestMethod.GET,
-                    endpoint=endpoint,
+                    url=endpoint,
                     headers=headers,
                 )
                 item_id = data.get("id")
@@ -221,9 +221,9 @@ def resolve_msgraph_file_id_to_item_id(
                 logger.debug(f"Searching for file with GUID: {file_id}")
                 search_data = rest_client.call_rest_json(
                     method=RestMethod.GET,
-                    endpoint=search_endpoint,
+                    url=search_endpoint,
                     headers=headers,
-                    params={"q": file_id},
+                    query_params={"q": file_id},
                 )
 
                 items = search_data.get("value", [])

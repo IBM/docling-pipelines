@@ -256,7 +256,7 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
             # Make POST request with form data
             token_data = client.call_rest_json(
                 method=RestMethod.POST,
-                endpoint=IBM_CLOUD_IAM_TOKEN_URL,
+                url=IBM_CLOUD_IAM_TOKEN_URL,
                 form_data={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": api_key},
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )

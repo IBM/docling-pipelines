@@ -105,7 +105,7 @@ class TestBuildConfigFromOperatorParams:
             "client_secret": "test-client-secret",  # pragma: allowlist secret
             "tenant_id": "test-tenant-id",
         }
-        provider_metadata = {}
+        provider_metadata: dict[str, str] = {}
 
         config = adapter.build_config_from_operator_params(
             connection_params=connection_params, credentials=credentials, provider_metadata=provider_metadata
@@ -119,7 +119,7 @@ class TestBuildConfigFromOperatorParams:
         """Test drive_id can come from provider_metadata."""
         adapter = SharePointACLAdapter()
 
-        connection_params = {}
+        connection_params: dict[str, str] = {}
         credentials = {
             "client_id": "test-client-id",
             "client_secret": "test-client-secret",  # pragma: allowlist secret
@@ -139,7 +139,7 @@ class TestBuildConfigFromOperatorParams:
 
         connection_params = {"drive_id": "test-drive-id"}
         credentials = {"client_secret": "test-client-secret", "tenant_id": "test-tenant-id"}  # pragma: allowlist secret
-        provider_metadata = {}
+        provider_metadata: dict[str, str] = {}
 
         with pytest.raises(ConfigurationError) as exc_info:
             adapter.build_config_from_operator_params(
@@ -152,13 +152,13 @@ class TestBuildConfigFromOperatorParams:
         """Test that missing drive_id defaults to 'url-based' for URL-based lookups."""
         adapter = SharePointACLAdapter()
 
-        connection_params = {}
+        connection_params: dict[str, str] = {}
         credentials = {
             "client_id": "test-client-id",
             "client_secret": "test-client-secret",  # pragma: allowlist secret
             "tenant_id": "test-tenant-id",
         }
-        provider_metadata = {}
+        provider_metadata: dict[str, str] = {}
 
         config = adapter.build_config_from_operator_params(
             connection_params=connection_params, credentials=credentials, provider_metadata=provider_metadata

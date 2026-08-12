@@ -145,7 +145,7 @@ class TestWatsonXInferenceAdapter:
 
     def test_chat_empty_messages(self, adapter, mock_watsonx_client):
         """Test chat with empty messages list."""
-        messages = []
+        messages: list[dict[str, str]] = []
         mock_watsonx_client.chat.return_value = ""
 
         result = adapter.chat(messages=messages)
@@ -458,7 +458,7 @@ class TestWatsonXTextDetection:
         adapter.detect(text=text)
 
         call_args = mock_rest_client.call_rest_json.call_args
-        endpoint = call_args[1]["endpoint"]
+        endpoint = call_args[1]["url"]
         assert "/ml/v1/text/detection" in endpoint
 
     def test_detect_includes_container_id(self, adapter, mock_rest_client):

@@ -110,7 +110,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.assert_called_once()
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
         assert "files" in call_args.kwargs
-        assert "data" in call_args.kwargs
+        assert "form_data" in call_args.kwargs
 
     @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_with_binary_content(self, mock_rest_client_class):
@@ -342,13 +342,13 @@ class TestDoclingServeClient:
     @patch("docpipe.integrations.docling.client.time.sleep")
     def test_poll_status_pending_then_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with pending then success."""
+
         # Setup mock responses
-        responses = [
+        mock_call_rest_json.side_effect = [
             {"task_status": "PENDING"},
             {"task_status": "STARTED"},
             {"task_status": "SUCCESS"},
         ]
-        mock_call_rest_json.side_effect = responses
 
         # Execute
         client = DoclingServeClient(base_url="http://localhost:5001")

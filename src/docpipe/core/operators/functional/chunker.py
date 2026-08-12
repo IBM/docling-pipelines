@@ -757,7 +757,7 @@ class ChunkerOperator(AbstractOperator):
             )
             response = client.call_rest_json(
                 method=RestMethod.POST,
-                endpoint="/v1/chunk/hybrid/source",
+                url="/v1/chunk/hybrid/source",
                 json_data=payload,
                 headers=headers,
             )

@@ -113,7 +113,7 @@ class MicrosoftGraphLoader(BaseLoader):
             # Use RestClient for API call
             data = self._rest_client.call_rest_json(
                 method=RestMethod.GET,
-                endpoint=endpoint,
+                url=endpoint,
                 headers=headers,
             )
 
@@ -145,7 +145,7 @@ class MicrosoftGraphLoader(BaseLoader):
             endpoint = f"/drives/{self.drive_id}/items/{item['id']}/content"
             response = self._rest_client.call_rest(
                 method=RestMethod.GET,
-                endpoint=endpoint,
+                url=endpoint,
                 headers=headers,
                 expected_status_codes=[200, 302],  # 302 for redirects
             )
@@ -162,7 +162,7 @@ class MicrosoftGraphLoader(BaseLoader):
         temp_client = RestClient(config=temp_config)
         response = temp_client.call_rest(
             method=RestMethod.GET,
-            endpoint=download_url,
+            url=download_url,
         )
         return response.content
 
@@ -180,7 +180,7 @@ class MicrosoftGraphLoader(BaseLoader):
             try:
                 data = self._rest_client.call_rest_json(
                     method=RestMethod.GET,
-                    endpoint=endpoint,
+                    url=endpoint,
                     headers=headers,
                 )
                 folder_item_id = data.get("id")

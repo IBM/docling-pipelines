@@ -328,7 +328,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
                 # Fetch item details to get parent reference
                 endpoint = _GRAPH_ITEM_ENDPOINT.format(drive_id=config.drive_id, item_id=current_id)
 
-                item_data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+                item_data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
                 # Check if item has parent
                 parent_ref = item_data.get(_GRAPH_PARENT_REFERENCE)
@@ -376,7 +376,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
 
             # Handle pagination
             while endpoint:
-                data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+                data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
                 for member in data.get(_GRAPH_VALUE_KEY, []):
                     # Only include users, not nested groups
@@ -469,7 +469,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
 
             # Test by fetching drive details
             endpoint = f"/drives/{config.drive_id}"
-            rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+            rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
             logger.info(f"Successfully connected to SharePoint drive {config.drive_id}")
             return True
@@ -643,7 +643,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
 
             endpoint = _GRAPH_PERMISSIONS_ENDPOINT.format(drive_id=config.drive_id, item_id=item_id)
 
-            data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+            data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
             for perm in data.get(_GRAPH_VALUE_KEY, []):
                 permissions.extend(self._parse_graph_permission(permission=perm))
@@ -809,7 +809,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
             token = await self._get_token(config=config)
             headers = {"Authorization": f"Bearer {token}"}
 
-            data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+            data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
             item_id = data.get("id")
             if not item_id:

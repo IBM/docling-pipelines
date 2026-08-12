@@ -81,7 +81,7 @@ class SharePointDestinationAdapter(DestinationAdapterPort[SharePointDestinationC
             logger.info("Validating SharePoint drive access: drive_id=%s, endpoint=%s", config.drive_id, drive_endpoint)
             response = loader._rest_client.call_rest(
                 method=RestMethod.GET,
-                endpoint=drive_endpoint,
+                url=drive_endpoint,
                 headers=headers,
                 expected_status_codes=[200],
             )
@@ -104,7 +104,7 @@ class SharePointDestinationAdapter(DestinationAdapterPort[SharePointDestinationC
                 logger.info("Validating SharePoint folder access: endpoint=%s", folder_endpoint)
                 folder_response = loader._rest_client.call_rest(
                     method=RestMethod.GET,
-                    endpoint=folder_endpoint,
+                    url=folder_endpoint,
                     headers=headers,
                     expected_status_codes=[200, 404],
                 )
@@ -167,7 +167,7 @@ class SharePointDestinationAdapter(DestinationAdapterPort[SharePointDestinationC
             if not overwrite:
                 check_response = loader._rest_client.call_rest(
                     method=RestMethod.GET,
-                    endpoint=item_endpoint,
+                    url=item_endpoint,
                     headers=headers,
                     expected_status_codes=[200, 404],
                 )

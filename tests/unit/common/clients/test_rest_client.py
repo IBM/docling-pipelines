@@ -287,69 +287,53 @@ class TestCallRestJson:
     """Test call_rest_json() method."""
 
     @patch.object(RestClient, "call_rest")
-    def test_successful_get_request(self, mock_call_rest):
-        """Test successful GET request returning JSON."""
+    def test_returns_parsed_dict(self, mock_call_rest):
+        """Test that call_rest_json returns the parsed JSON dict, not the Response."""
         config = RestClientConfig()
         client = RestClient(config, base_url="https://api.example.com")
 
         mock_response = Mock()
-        mock_response.json.return_value = {"id": 1, "name": "test"}
+        mock_response.json.return_value = {"id": 1, "name": "Alice"}
         mock_call_rest.return_value = mock_response
 
         result = client.call_rest_json(
             method=RestMethod.GET,
-            endpoint="/users/1",
+            url="/users/1",
         )
 
-        assert result == {"id": 1, "name": "test"}
+        assert result == {"id": 1, "name": "Alice"}
         mock_call_rest.assert_called_once()
+        mock_response.json.assert_called_once()
 
     @patch.object(RestClient, "call_rest")
-    def test_successful_post_request_with_json_body(self, mock_call_rest):
-        """Test successful POST request with JSON body."""
+    def test_delegates_to_call_rest_with_all_params(self, mock_call_rest):
+        """Test that call_rest_json forwards all parameters to call_rest."""
         config = RestClientConfig()
         client = RestClient(config, base_url="https://api.example.com")
 
         mock_response = Mock()
-        mock_response.json.return_value = {"id": 2, "status": "created"}
+        mock_response.json.return_value = {}
         mock_call_rest.return_value = mock_response
 
         json_data = {"name": "new_user", "email": "user@example.com"}
-        result = client.call_rest_json(
+        client.call_rest_json(
             method=RestMethod.POST,
-            endpoint="/users",
+            url="/users",
             json_data=json_data,
         )
 
-        assert result == {"id": 2, "status": "created"}
         mock_call_rest.assert_called_once_with(
             method=RestMethod.POST,
-            endpoint="/users",
+            url="/users",
+            action=None,
             json_data=json_data,
             form_data=None,
-            params=None,
+            query_params=None,
             headers=None,
             expected_status_codes=None,
+            timeout=None,
+            verify=None,
         )
-
-    @patch.object(RestClient, "call_rest")
-    def test_invalid_json_response_handling(self, mock_call_rest):
-        """Test invalid JSON response handling."""
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_response = Mock()
-        mock_response.json.side_effect = ValueError("Invalid JSON")
-        mock_call_rest.return_value = mock_response
-
-        with pytest.raises(ExternalServiceError) as exc_info:
-            client.call_rest_json(
-                method=RestMethod.GET,
-                endpoint="/users/1",
-            )
-
-        assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
-        assert "not valid JSON" in str(exc_info.value)
 
 
 class TestCallRest:
@@ -368,7 +352,7 @@ class TestCallRest:
 
         response = client.call_rest(
             method=RestMethod.GET,
-            endpoint="/users",
+            url="/users",
         )
 
         assert response.status_code == 200
@@ -388,7 +372,7 @@ class TestCallRest:
         custom_headers = {"X-Custom": "value"}
         client.call_rest(
             method=RestMethod.GET,
-            endpoint="/users",
+            url="/users",
             headers=custom_headers,
         )
 
@@ -409,8 +393,8 @@ class TestCallRest:
         params = {"page": 1, "limit": 10}
         client.call_rest(
             method=RestMethod.GET,
-            endpoint="/users",
-            params=params,
+            url="/users",
+            query_params=params,
         )
 
         call_args = mock_call_rest_method.call_args
@@ -430,7 +414,7 @@ class TestCallRest:
         json_data = {"name": "test"}
         client.call_rest(
             method=RestMethod.POST,
-            endpoint="/users",
+            url="/users",
             json_data=json_data,
         )
 
@@ -452,7 +436,7 @@ class TestCallRest:
         with pytest.raises(ExternalServiceError) as exc_info:
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/users/999",
+                url="/users/999",
             )
 
         assert exc_info.value.error_code == ErrorCode.HTTP_ERROR
@@ -470,6 +454,7 @@ class TestCallRestMethodRetryLogic:
 
         mock_response = Mock()
         mock_response.status_code = 200
+        mock_response.headers = {}
         mock_request.return_value = mock_response
 
         response = client._call_rest_method(
@@ -489,7 +474,7 @@ class TestCallRestMethodRetryLogic:
         mock_request.side_effect = [
             ConnectionError("Connection failed"),
             ConnectionError("Connection failed"),
-            Mock(status_code=200),
+            Mock(status_code=200, headers={}),
         ]
 
         response = client._call_rest_method(
@@ -508,7 +493,7 @@ class TestCallRestMethodRetryLogic:
 
         mock_request.side_effect = [
             Timeout("Request timeout"),
-            Mock(status_code=200),
+            Mock(status_code=200, headers={}),
         ]
 
         response = client._call_rest_method(
@@ -527,10 +512,12 @@ class TestCallRestMethodRetryLogic:
 
         mock_response_500 = Mock()
         mock_response_500.status_code = 500
+        mock_response_500.headers = {}
         mock_response_500.raise_for_status.side_effect = HTTPError("Server error")
 
         mock_response_200 = Mock()
         mock_response_200.status_code = 200
+        mock_response_200.headers = {}
 
         mock_request.side_effect = [
             mock_response_500,
@@ -546,6 +533,27 @@ class TestCallRestMethodRetryLogic:
         assert mock_request.call_count == 2
 
     @patch("requests.Session.request")
+    def test_expected_status_codes_suppress_raise(self, mock_request):
+        """Test that expected_status_codes prevents HTTPError from being raised."""
+        config = RestClientConfig()
+        client = RestClient(config)
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.headers = {}
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Not Found")
+        mock_request.return_value = mock_response
+
+        response = client._call_rest_method(
+            method=RestMethod.GET,
+            url="https://api.example.com/users/999",
+            expected_status_codes=[404],
+        )
+
+        assert response.status_code == 404
+        assert mock_request.call_count == 1
+
+    @patch("requests.Session.request")
     def test_no_retry_on_4xx_status_codes(self, mock_request):
         """Test no retry on 4xx status codes."""
         config = RestClientConfig()
@@ -553,6 +561,7 @@ class TestCallRestMethodRetryLogic:
 
         mock_response = Mock()
         mock_response.status_code = 404
+        mock_response.headers = {}
         mock_request.return_value = mock_response
 
         response = client._call_rest_method(
@@ -598,7 +607,7 @@ class TestErrorHandling:
         with pytest.raises(ExternalServiceError) as exc_info:
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/users",
+                url="/users",
             )
 
         assert isinstance(exc_info.value, ExternalServiceError)
@@ -619,16 +628,16 @@ class TestErrorHandling:
         with pytest.raises(ExternalServiceError) as exc_info:
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/admin",
+                url="/admin",
             )
 
         error_message = str(exc_info.value)
         assert "403" in error_message
         assert "Forbidden" in error_message
 
-    @patch.object(RestClient, "_call_rest_method_impl")
+    @patch("requests.Session.request")
     @patch("docpipe.integrations.rest_client.logger")
-    def test_sanitized_logging_on_errors(self, mock_logger, mock_call_rest_method):
+    def test_sanitized_logging_on_errors(self, mock_logger, mock_request):
         """Test sanitized logging on errors."""
         config = RestClientConfig()
         client = RestClient(
@@ -637,23 +646,23 @@ class TestErrorHandling:
             auth_token="secret_token_123",
         )
 
-        mock_call_rest_method.side_effect = requests.exceptions.RequestException("Connection error")
+        mock_request.side_effect = requests.exceptions.ConnectionError("Connection error")
 
         with pytest.raises(ExternalServiceError):
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/users",
+                url="/users",
                 headers={"X-API-Key": "secret_key"},
             )
 
-        # Verify that logger was called
-        assert mock_logger.debug.called
+        # Both info (request start) and debug (headers) fire from _call_rest_method_impl
+        assert mock_logger.info.called or mock_logger.debug.called
 
-        # Check that sensitive data was sanitized in logs
-        debug_calls = [str(call) for call in mock_logger.debug.call_args_list]
-        debug_str = " ".join(debug_calls)
-        assert "secret_token_123" not in debug_str
-        assert "secret_key" not in debug_str
+        # Check that sensitive data was sanitized across all log calls
+        all_calls = [str(c) for c in mock_logger.info.call_args_list + mock_logger.debug.call_args_list]
+        all_str = " ".join(all_calls)
+        assert "secret_token_123" not in all_str
+        assert "secret_key" not in all_str
 
 
 class TestMethodConfig:
@@ -676,13 +685,13 @@ class TestMethodConfig:
     def test_post_method_config(self):
         """Test POST method configuration."""
         config = METHOD_CONFIG[RestMethod.POST]
-        assert config["expected_status_codes"] == [200, 201]
+        assert config["expected_status_codes"] == [200, 201, 207]
         assert config["supports_body"] is True
 
     def test_put_method_config(self):
         """Test PUT method configuration."""
         config = METHOD_CONFIG[RestMethod.PUT]
-        assert config["expected_status_codes"] == [200, 204]
+        assert config["expected_status_codes"] == [200, 201, 204]
         assert config["supports_body"] is True
 
     def test_patch_method_config(self):

@@ -205,10 +205,10 @@ class WatsonXClient(BaseLLMClient):
             logger.debug("Calling WatsonX chat API with model: %s", self.model_name)
             result = rest_client.call_rest_json(
                 method=RestMethod.POST,
-                endpoint=chat_url,
+                url=chat_url,
                 json_data=payload,
                 headers=headers,
-                params=params,
+                query_params=params,
                 expected_status_codes=[200],
             )
 

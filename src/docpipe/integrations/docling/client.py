@@ -320,9 +320,9 @@ class DoclingServeClient:
         try:
             result = self.rest_client.call_rest_multipart(
                 method=RestMethod.POST,
-                endpoint=endpoint,
+                url=endpoint,
                 files=files,
-                data=data,
+                form_data=data,
                 headers=self.custom_headers,
             )
         except DocpipeException as e:
@@ -472,7 +472,7 @@ class DoclingServeClient:
         try:
             return self.rest_client.call_rest_json(
                 method=RestMethod.GET,
-                endpoint=endpoint,
+                url=endpoint,
                 headers=self.custom_headers,
             )
         except DocpipeException as e:
@@ -504,7 +504,7 @@ class DoclingServeClient:
 
         result = self.rest_client.call_rest_json(
             method=RestMethod.GET,
-            endpoint=endpoint,
+            url=endpoint,
             headers=self.custom_headers,
         )
 
