@@ -39,6 +39,8 @@ result = manager.execute()
 
 ### Build slim wheel
 
+> **Note:** The command below is for local builds only. In CI, the slim wheel is built and pushed to Artifactory automatically by the `Build and Push Wheel` Jenkins stage alongside the main wheel. The published artifact is available at `dataconn-maven-local/docling-pipelines/<VERSION>/`.
+
 ```bash
 cd slim/
 uv build --wheel

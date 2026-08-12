@@ -152,6 +152,7 @@ timestamps {
                   export PATH="\${HOME}/.cargo/bin:\$PATH"
                   . .venv/bin/activate
 
+                  # ── Main wheel ──────────────────────────────────────────────
                   # Build the wheel using uv
                   uv build --wheel
 
@@ -167,6 +168,26 @@ timestamps {
                     "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/docling-pipelines/${VERSION}/\${WHEEL_FILENAME}"
 
                   echo "Wheel file pushed to Artifactory successfully"
+
+                  # ── Slim wheel ───────────────────────────────────────────────
+                  # Align slim version with the main build version
+                  sed -i "s/^version = .*/version = \\"${VERSION}\\"/" slim/pyproject.toml
+
+                  # Build the slim wheel from the slim/ sub-project
+                  uv build --wheel --project slim
+
+                  # Find the generated slim wheel file
+                  SLIM_WHEEL_FILE=\$(ls -t slim/dist/*.whl | head -n 1)
+                  SLIM_WHEEL_FILENAME=\$(basename "\$SLIM_WHEEL_FILE")
+
+                  echo "Built slim wheel: \$SLIM_WHEEL_FILENAME"
+
+                  # Push slim wheel to Artifactory (same folder as main wheel)
+                  curl -u "\${ARTIFACTORY_USERNAME}:\${ARTIFACTORY_PASSWORD}" \\
+                    -T "\$SLIM_WHEEL_FILE" \\
+                    "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/docling-pipelines/${VERSION}/\${SLIM_WHEEL_FILENAME}"
+
+                  echo "Slim wheel file pushed to Artifactory successfully"
                 """
               }
             }
