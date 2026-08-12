@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -10,9 +11,6 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.compute as pc
 from charset_normalizer import from_bytes
-from docling.datamodel.base_models import FormatToExtensions, InputFormat
-from docling.document_converter import DocumentConverter
-from docling_core.types.io import DocumentStream
 from pyarrow import Table
 
 from docpipe.core.constants.constants import (
@@ -55,7 +53,11 @@ logger = get_logger()
 # Keyed by a stable MD5 hash of the format_options configuration so that
 # different pipeline configs (e.g. standard vs VLM) map to separate entries.
 # Access must be protected by _converter_cache_lock (double-checked locking).
-_converter_cache: dict[str, "DocumentConverter"] = {}
+_DOCLING_AVAILABLE = importlib.util.find_spec("docling") is not None
+if _DOCLING_AVAILABLE:
+    from docling.document_converter import DocumentConverter
+
+_converter_cache: dict[str, Any] = {}
 _converter_cache_lock = threading.Lock()
 
 
@@ -74,7 +76,7 @@ def _converter_cache_key(converter_config: dict | None) -> str:
     return hashlib.md5(json.dumps(key_parts, sort_keys=True).encode()).hexdigest()
 
 
-def _get_or_create_converter(converter_config: dict | None) -> "DocumentConverter":
+def _get_or_create_converter(converter_config: dict | None) -> Any:
     """Return a cached DocumentConverter, constructing it once per unique config.
 
     Uses double-checked locking so that only one thread constructs a converter
@@ -85,7 +87,13 @@ def _get_or_create_converter(converter_config: dict | None) -> "DocumentConverte
 
     Returns:
         A ``DocumentConverter`` instance (shared across threads).
+
+    Raises:
+        RuntimeError: If docling is not installed.
     """
+    if not _DOCLING_AVAILABLE:
+        raise RuntimeError("docling is not installed. Install with: pip install 'docling-pipelines-slim[extract]'")
+
     cache_key = _converter_cache_key(converter_config)
 
     # Fast path — cache hit without acquiring the lock
@@ -1249,6 +1257,9 @@ class OperatorUtils:
         logger.info("Processing file with Docling (formats: %s): %s", all_formats, file_path)
 
         try:
+            from docling.datamodel.base_models import FormatToExtensions, InputFormat
+            from docling_core.types.io import DocumentStream
+
             # Determine the effective file extension
             file_suffix = Path(file_path).suffix.lower()
             if not file_suffix:
@@ -1292,10 +1303,10 @@ class OperatorUtils:
             try:
                 content_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = result.document.export_to_markdown()
                 formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN)
-                logger.info(f"Generated markdown format for {file_path}")
+                logger.info("Generated markdown format for %s", file_path)
             except Exception as e:
                 # Markdown is mandatory - if it fails, the entire extraction fails
-                logger.error(f"Failed to generate mandatory markdown format for {file_path}: {e}")
+                logger.error("Failed to generate mandatory markdown format for %s: %s", file_path, e)
                 return {
                     OperatorConstants.Extraction.SUCCESS: False,
                     OperatorConstants.Extraction.ERROR: f"Failed to generate mandatory markdown format: {e}",

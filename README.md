@@ -25,9 +25,7 @@ It connects to cloud document sources (S3, OneDrive, SharePoint, Google Drive, B
 - 🔌 **Extensible** — load custom operators from Python packages, local paths, or S3 without modifying core code
 - 🖥️ **Multiple interfaces** — CLI, Python API (`DocpipeFlowManager`), and REST API (FastAPI)
 
-## Quickstart
-
-### 1. Install
+## Installation
 
 ```bash
 pip install docling-pipelines
@@ -35,7 +33,13 @@ pip install docling-pipelines
 
 Requires Python 3.12. Works on macOS and Linux (x86_64 and arm64).
 
-### 2. Run a flow (CLI)
+### Lightweight variant
+
+For a lightweight version of docling-pipelines that excludes certain operator dependencies, see [docs/guides/SLIM_VARIANT.md](docs/guides/SLIM_VARIANT.md).
+
+## Quickstart
+
+### 1. Run a flow (CLI)
 
 ```bash
 docling-pipelines --flow-file path/to/flow.json
@@ -53,7 +57,7 @@ List all available operators:
 docling-pipelines --list-operators
 ```
 
-### 3. Python API
+### 2. Python API
 
 ```python
 from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager

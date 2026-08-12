@@ -142,3 +142,48 @@ The following checks are enforced by existing workspace rules. This file referen
 | 2 | `get_metadata()` must be `@staticmethod` | PROMPT | No | New operators |
 | 3 | Built-in operator must be registered | PROMPT | Yes | New built-in operators |
 | 4 | `get_required_features()` instance + static pair | ADVISORY | No | Modified operators |
+| 5 | Dependency changes mirrored in `slim/pyproject.toml` | PROMPT | Yes | `pyproject.toml` changes |
+
+---
+
+## Rule 5: Dependency changes in `pyproject.toml` must be mirrored in `slim/pyproject.toml`
+
+**Mode: PROMPT + AUTO-FIX**
+
+`slim/pyproject.toml` is a maintained mirror of `pyproject.toml` with a reduced dependency set.
+Any change to `[project].dependencies` or `[tool.uv].override-dependencies` in `pyproject.toml`
+— version bumps, new packages, security pins, removed packages — must be reflected in
+`slim/pyproject.toml` as well, or the two environments silently diverge.
+
+The sync target differs depending on whether the package is part of the extraction stack:
+
+| Package type | Where it lives in `pyproject.toml` | Where it must be synced in `slim/pyproject.toml` |
+|---|---|---|
+| Regular dependency | `[project].dependencies` | `[project].dependencies` (same section) |
+| Extraction stack package (`docling`, `sentence-transformers`, `transformers`, `accelerate`) | `[project].dependencies` | `[project.optional-dependencies].extract` — **never** in slim's base deps |
+| Override pin | `[tool.uv].override-dependencies` | `[tool.uv].override-dependencies` (same section) |
+
+### Extraction stack packages
+- `docling` (any extras or version)
+- `sentence-transformers`
+- `transformers`
+- `accelerate`
+
+### What to check
+Detect any diff touching `[project].dependencies` or `[tool.uv].override-dependencies` in `pyproject.toml`.
+
+For each changed line:
+- **Regular dependency** — check that the identical change exists in slim's `[project].dependencies`
+- **Extraction stack package** — check that the updated version exists in slim's `[project.optional-dependencies].extract`
+- **Override pin** — check that the identical change exists in slim's `[tool.uv].override-dependencies`
+
+### Workflow
+1. Collect all added, removed, or modified lines from the `pyproject.toml` diff in the sections above.
+2. For each changed line, determine whether it is a regular dep, an extraction stack dep, or an override.
+3. Check the corresponding target section in `slim/pyproject.toml`.
+4. If any target section is out of sync:
+   - Show the specific out-of-sync lines and their target locations to the developer.
+   - Ask: *"`slim/pyproject.toml` is out of sync with these dependency changes. Apply the same changes to slim now? (Yes / No)"*
+   - **Yes** — Bob applies each change to the correct target section in `slim/pyproject.toml`.
+   - **No** — Note the deviation in the PR body under **"Slim Sync Deviations"** and continue.
+5. If slim is already in sync, proceed without prompting.

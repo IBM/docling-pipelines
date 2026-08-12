@@ -9,10 +9,6 @@ extraction and supports template-based structured extraction.
 import logging
 from typing import Any
 
-from docling.datamodel.base_models import InputFormat
-from docling.document_converter import ImageFormatOption, PdfFormatOption
-from docling.pipeline.vlm_pipeline import VlmPipeline
-
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils, is_asr_available
@@ -199,6 +195,10 @@ class DoclingAdapter(TextExtractionPort):
             logger.info("Processing file with standard extraction: %s", file_path)
 
         try:
+            from docling.datamodel.base_models import InputFormat
+            from docling.document_converter import ImageFormatOption, PdfFormatOption
+            from docling.pipeline.vlm_pipeline import VlmPipeline
+
             # Prepare converter configuration
             converter_config = None
             format_options: dict[InputFormat, Any] = {}

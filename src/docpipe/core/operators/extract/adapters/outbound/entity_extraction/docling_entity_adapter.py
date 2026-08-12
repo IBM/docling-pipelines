@@ -10,8 +10,6 @@ import json
 from typing import Any
 
 import pyarrow as pa
-from docling.datamodel.base_models import InputFormat
-from docling_core.types.io import DocumentStream
 
 from docpipe.core.constants import OperatorConstants
 from docpipe.core.constants.constants import DoclingClientConfigConstants
@@ -281,7 +279,9 @@ class DoclingEntityAdapter(EntityExtractionPort):
         logger.info("Processing file with template: %s", doc_name)
 
         try:
+            from docling.datamodel.base_models import InputFormat
             from docling.document_extractor import DocumentExtractor
+            from docling_core.types.io import DocumentStream
 
             # Handle both str and bytes content
             content_bytes = content.encode("utf-8") if isinstance(content, str) else content
