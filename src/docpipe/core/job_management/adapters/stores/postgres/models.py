@@ -238,8 +238,7 @@ class NodeStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
         default=None,
         title="Batch ID",
         description="Unique identifier for the batch execution of the node",
-        min_length=36,
-        max_length=36,
+        max_length=256,
     )
     batch_num: int | None = Field(
         default=None,

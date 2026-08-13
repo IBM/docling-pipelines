@@ -96,6 +96,11 @@ DOCS_COUNT_MAX = 1000000000  # 1 billion documents
 DURATION_MIN = 0
 DURATION_MAX_SECONDS = 31536000  # 1 year in seconds
 
+# Batch ID
+BATCH_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
+"""Batch ID pattern — alphanumeric, underscores, hyphens. Accepts UUIDs and short deterministic keys."""
+BATCH_ID_MAX_LENGTH = 256
+
 # Batch Numbers
 BATCH_NUM_MIN = 0
 BATCH_NUM_MAX = 10000

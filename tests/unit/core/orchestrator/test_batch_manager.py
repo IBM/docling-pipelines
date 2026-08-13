@@ -334,8 +334,8 @@ class TestBatchDataAccess:
 class TestBatchUUIDPropagation:
     """Test batch UUID generation and propagation."""
 
-    def test_batch_info_has_uuid_batch_id(self):
-        """Verify each BatchInfo has a unique UUID batch_id."""
+    def test_batch_info_has_unique_batch_id(self):
+        """Verify each BatchInfo has a unique non-empty batch_id."""
         batch_manager = BatchManager()
         table = pa.table({"id": list(range(10)), "SIZE": [100] * 10})
 
@@ -345,15 +345,12 @@ class TestBatchUUIDPropagation:
         assert all(hasattr(b, "batch_id") for b in batches)
         assert all(b.batch_id is not None for b in batches)
 
+        # Verify all batch_ids are non-empty strings
+        assert all(isinstance(b.batch_id, str) and len(b.batch_id) > 0 for b in batches)
+
         # Verify all batch_ids are unique
         batch_ids = [b.batch_id for b in batches]
         assert len(batch_ids) == len(set(batch_ids)), "batch_ids should be unique"
-
-        # Verify batch_ids are valid UUIDs
-        import uuid
-
-        for batch_id in batch_ids:
-            uuid.UUID(batch_id)  # Raises ValueError if invalid
 
     def test_batch_num_sequential_after_filtering(self):
         """Verify batch_num remains sequential even after empty batch filtering."""
@@ -380,10 +377,8 @@ class TestBatchUUIDPropagation:
         assert len(batches) == 1
         assert hasattr(batches[0], "batch_id")
         assert batches[0].batch_id is not None
-        # Verify it's a valid UUID
-        import uuid
-
-        uuid.UUID(batches[0].batch_id)
+        # Verify it's a non-empty string
+        assert isinstance(batches[0].batch_id, str) and len(batches[0].batch_id) > 0
 
 
 class TestEmptyBatchFiltering:

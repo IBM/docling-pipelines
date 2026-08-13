@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 
 from docpipe.api.dto.field_definitions import (
     BATCH_ID_DESC,
+    BATCH_ID_MAX_LENGTH,
+    BATCH_ID_PATTERN,
     BATCH_NUM_DESC,
     BATCH_NUM_MAX,
     BATCH_NUM_MIN,
@@ -179,9 +181,9 @@ class NodeStatsDto(BaseModel):
     batch_id: str | None = Field(
         default=None,
         description=BATCH_ID_DESC,
-        min_length=UUID_LENGTH,
-        max_length=UUID_LENGTH,
-        pattern=UUID_PATTERN,
+        min_length=1,
+        max_length=BATCH_ID_MAX_LENGTH,
+        pattern=BATCH_ID_PATTERN,
     )
     batch_num: int | None = Field(
         default=None,
