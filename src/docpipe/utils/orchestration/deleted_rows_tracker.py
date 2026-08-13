@@ -98,7 +98,6 @@ def update_deleted_rows(
         previous_combined is None
         or current_combined is None
         or previous_combined.num_rows == 0
-        or current_combined.num_rows == 0
     ):
         return pa.table({})
 

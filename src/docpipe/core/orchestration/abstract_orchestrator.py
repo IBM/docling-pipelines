@@ -392,13 +392,17 @@ class AbstractOrchestrator(ABC):
                 deleted_rows_table_path = construct_deleted_rows_table_path(
                     job_id=self.job_id, job_run_id=self.job_run_id
                 )
-                parquet_table_handler: BaseParquetTableHandler = get_parquet_table_handler()
+                # This will be replaced by TableStoragePort as part of https://github.ibm.com/wdp-gov/datasift-tracker/issues/6899
+                parquet_table_handler: BaseParquetTableHandler = self.get_parquet_table_handler_impl()
                 # delete table if exists already
                 parquet_table_handler.delete_file(path=deleted_rows_table_path)
                 parquet_table_handler.save_table(path=deleted_rows_table_path, table=cumulative_deleted_rows)
                 self.logger.info(f"Successfully captured {cumulative_deleted_rows.num_rows} deleted documents.")
             except Exception as e:
                 self.logger.warning(f"Failed to save unprocessed docs table — skipping it. Error: {e}")
+
+    def get_parquet_table_handler_impl(self) -> BaseParquetTableHandler:
+        return get_parquet_table_handler()
 
     def _mark_pending_batches_as_skipped(self) -> None:
         """

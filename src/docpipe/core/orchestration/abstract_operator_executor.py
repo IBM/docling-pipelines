@@ -212,21 +212,24 @@ class AbstractOperatorExecutor:
             logger.warning(f"Job stats service not available for node '{node_id}'")
             return
 
+        # Remove 'non_recoverable_docs_table' from metadata before saving
+        metadata_copy = copy.deepcopy(metadata)
+        metadata_copy.pop(Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE, None)
         # Extract batch_id and batch_num from params if micro-batching is enabled
         batch_id = self._params.get(DocpipeConstants.BATCH_ID)
         batch_num = self._params.get(DocpipeConstants.BATCH_NUM)
 
         all_doc_ids = OperatorUtils.get_unique_ids(tables=tables) if tables else []
         failed_docs = [
-            doc.get("id", "") for doc in metadata.get(Metrics.External.FAILED_DOCS, []) if isinstance(doc, dict)
+            doc.get("id", "") for doc in metadata_copy.get(Metrics.External.FAILED_DOCS, []) if isinstance(doc, dict)
         ]
         skipped_docs = [
-            doc.get("id", "") for doc in metadata.get(Metrics.External.SKIPPED_DOCS, []) if isinstance(doc, dict)
+            doc.get("id", "") for doc in metadata_copy.get(Metrics.External.SKIPPED_DOCS, []) if isinstance(doc, dict)
         ]
         failed_and_skipped_set = set(failed_docs) | set(skipped_docs)
         docs_completed = [doc_id for doc_id in all_doc_ids if doc_id not in failed_and_skipped_set]
         col_names = tables[0].column_names if tables else []
-        node_status = metadata.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value)
+        node_status = metadata_copy.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value)
 
         logger.info(
             f"Node '{node_id}' stats summary: "
@@ -249,7 +252,7 @@ class AbstractOperatorExecutor:
             skipped_docs=skipped_docs,
             col_names=col_names,
             node_status=node_status,
-            node_metadata=metadata,
+            node_metadata=metadata_copy,
             batch_id=batch_id,
             batch_num=batch_num,
         )
