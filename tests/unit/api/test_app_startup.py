@@ -7,6 +7,8 @@ including health checks, API documentation, and middleware.
 import pytest
 from fastapi.testclient import TestClient
 
+from docpipe.api.auth.dependencies import get_current_user
+from docpipe.api.auth.models import User
 from docpipe.api.main import app
 
 
@@ -14,8 +16,11 @@ from docpipe.api.main import app
 def client() -> TestClient:
     """Create a test client for the FastAPI application.
 
-    Uses module scope for efficiency since the app doesn't change between tests.
+    Bypasses authentication so endpoint behaviour can be tested in isolation.
     """
+    app.dependency_overrides[get_current_user] = lambda: User(
+        username="testuser", email="test@example.com", full_name="Test User"
+    )
     return TestClient(app)
 
 

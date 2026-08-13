@@ -1385,7 +1385,11 @@ vlm-asr = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "anyio" },
+    { name = "httpx" },
     { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
     { name = "types-boto3" },
     { name = "types-python-dateutil" },
     { name = "types-requests" },
@@ -1507,7 +1511,11 @@ provides-extras = ["dev", "notebooks", "telemetry", "vlm-asr"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "anyio", specifier = "==4.14.1" },
+    { name = "httpx", specifier = "==0.28.1" },
+    { name = "mypy", specifier = "==2.1.0" },
+    { name = "pytest", specifier = "==9.0.2" },
+    { name = "pytest-asyncio", specifier = "==1.4.0" },
     { name = "types-boto3", specifier = "==1.43.0" },
     { name = "types-python-dateutil", specifier = "==2.9.0.20260408" },
     { name = "types-requests", specifier = "==2.33.0.20260408" },

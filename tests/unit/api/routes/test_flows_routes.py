@@ -6,6 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from docpipe.api.auth.dependencies import get_current_user
 from docpipe.api.routes.flows import flows_router, get_flow_service
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.exceptions.docpipe_exceptions import (
@@ -13,6 +14,7 @@ from docpipe.exceptions.docpipe_exceptions import (
     FlowNotFoundException,
     FlowStorageException,
 )
+from tests.unit.api.routes.conftest import mock_current_user
 
 
 @pytest.fixture
@@ -35,6 +37,7 @@ def app():
 
     app = FastAPI()
     app.include_router(flows_router)
+    app.dependency_overrides[get_current_user] = mock_current_user
 
     # Register exception handlers in same order as main.py
     app.add_exception_handler(DocpipeException, docpipe_exception_handler)
@@ -958,7 +961,7 @@ class TestPartialUpdateFlowEndpoint:
         """Test partially updating a flow with empty body returns 200."""
         # Arrange
         override_service.partial_update_flow.return_value = sample_flow_with_id
-        request_data = {}
+        request_data: dict[str, object] = {}
 
         # Act - Use is_elyra=true to match Elyra format fixtures
         response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)

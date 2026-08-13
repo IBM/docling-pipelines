@@ -301,7 +301,11 @@ exclude_lines = [
 
 [dependency-groups]
 dev = [
-    "mypy>=1.19.1",
+    "anyio==4.14.1",
+    "httpx==0.28.1",
+    "mypy==2.1.0",
+    "pytest==9.0.2",
+    "pytest-asyncio==1.4.0",
     "types-boto3==1.43.0",
     "types-python-dateutil==2.9.0.20260408",
     "types-requests==2.33.0.20260408",

@@ -5,6 +5,8 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
+from docpipe.api.auth.dependencies import get_current_user
+from docpipe.api.auth.models import User
 from docpipe.api.dependencies import get_job_management_service, get_job_stats_service
 from docpipe.api.main import app
 from docpipe.core.constants.constants import ExecutionStatus
@@ -13,8 +15,12 @@ from docpipe.exceptions.docpipe_exceptions import JobRunOperationFailedException
 
 @pytest.fixture
 def client():
-    """Create test client."""
-    return TestClient(app)
+    """Create test client with auth bypassed."""
+    app.dependency_overrides[get_current_user] = lambda: User(
+        username="testuser", email="test@example.com", full_name="Test User"
+    )
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture

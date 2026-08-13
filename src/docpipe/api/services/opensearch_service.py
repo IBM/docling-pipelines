@@ -3,6 +3,7 @@
 import logging
 
 from opensearchpy import OpenSearch
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -15,8 +16,8 @@ class OpenSearchConfig(BaseSettings):
     opensearch_port: int = 9200
     opensearch_use_ssl: bool = False
     opensearch_verify_certs: bool = False
-    opensearch_username: str = "admin"
-    opensearch_password: str = "admin"
+    opensearch_username: str = ""
+    opensearch_password: str = ""
     opensearch_default_index: str = "documents"
     opensearch_timeout: int = 30
     opensearch_max_retries: int = 3
@@ -26,16 +27,22 @@ class OpenSearchConfig(BaseSettings):
         extra="ignore",
     )
 
+    @model_validator(mode="after")
+    def validate_credentials(self) -> "OpenSearchConfig":
+        """Reject configuration with empty credentials."""
+        if not self.opensearch_username or not self.opensearch_password:
+            raise ValueError(
+                "OpenSearch credentials must be provided via environment variables "
+                "(OPENSEARCH_USERNAME and OPENSEARCH_PASSWORD)"
+            )
+        return self
+
 
 class OpenSearchService:
     """Service for managing OpenSearch connections and operations."""
 
     def __init__(self, *, config: OpenSearchConfig | None = None):
-        """Initialize OpenSearch service.
-
-        Args:
-            config: OpenSearch configuration. If None, loads from environment.
-        """
+        """Initialize the service, loading configuration from the environment if not provided."""
         self.config = config or OpenSearchConfig()
         self._client: OpenSearch | None = None
         logger.info(
@@ -115,7 +122,7 @@ class OpenSearchService:
             return False
 
     def close(self) -> None:
-        """Close OpenSearch client connection."""
+        """Close and release the OpenSearch client connection."""
         if self._client is not None:
             try:
                 self._client.close()

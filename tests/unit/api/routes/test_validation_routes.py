@@ -7,6 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from docpipe.api.auth.dependencies import get_current_user
 from docpipe.api.routes.validation import (
     get_flow_enrichment_service,
     get_validation_service,
@@ -15,6 +16,7 @@ from docpipe.api.routes.validation import (
 from docpipe.core.assets.flows.application.services.flow_enrichment_service import FlowEnrichmentService
 from docpipe.core.assets.flows.application.services.validation_service import ValidationService
 from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+from tests.unit.api.routes.conftest import mock_current_user
 
 
 @pytest.fixture
@@ -37,6 +39,7 @@ def app():
 
     app = FastAPI()
     app.include_router(validation_router)
+    app.dependency_overrides[get_current_user] = mock_current_user
 
     # Register exception handlers in same order as main.py
     app.add_exception_handler(DocpipeException, docpipe_exception_handler)

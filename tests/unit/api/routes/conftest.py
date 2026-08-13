@@ -5,7 +5,16 @@ from typing import Any
 
 import pytest
 
+from docpipe.api.auth.models import User
 from docpipe.core.assets.flows.domain.models.flow import Flow
+
+# 32-character minimum key required by the new JWT validator.
+VALID_JWT_SECRET = "a" * 32
+
+
+def mock_current_user() -> User:
+    """Return a stub authenticated user for dependency overrides in route tests."""
+    return User(username="testuser", email="test@example.com", full_name="Test User")
 
 
 @pytest.fixture

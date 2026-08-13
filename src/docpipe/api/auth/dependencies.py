@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2AuthorizationCodeBearer
 
-from .jwt_handler import JWTConfig, verify_token
+from .jwt_handler import JWTClaims, JWTConfig, verify_token
 from .models import User
 
 logger = logging.getLogger(__name__)
@@ -25,8 +25,17 @@ def get_jwt_config() -> JWTConfig:
 
     Returns:
         JWT configuration instance
+
+    Raises:
+        HTTPException: 503 if JWT configuration is missing or invalid.
     """
-    return JWTConfig()
+    try:
+        return JWTConfig()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not configured",
+        ) from exc
 
 
 def get_current_user(
@@ -56,7 +65,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    username = payload.get("username")
+    username = payload.get(JWTClaims.USERNAME)
     if username is None:
         logger.warning("Token missing username claim")
         raise HTTPException(
@@ -67,11 +76,11 @@ def get_current_user(
 
     user = User(
         username=username,
-        email=payload.get("email", ""),
-        full_name=payload.get("full_name", ""),
+        email=payload.get(JWTClaims.EMAIL, ""),
+        full_name=payload.get(JWTClaims.FULL_NAME, ""),
     )
 
-    logger.debug(f"Authenticated user: {username}")
+    logger.debug("Authenticated user: %s", username)
     return user
 
 
@@ -96,14 +105,14 @@ def get_current_user_oauth2(
     if payload is None:
         return None
 
-    username = payload.get("username")
+    username = payload.get(JWTClaims.USERNAME)
     if username is None:
         return None
 
     return User(
         username=username,
-        email=payload.get("email", ""),
-        full_name=payload.get("full_name", ""),
+        email=payload.get(JWTClaims.EMAIL, ""),
+        full_name=payload.get(JWTClaims.FULL_NAME, ""),
     )
 
 
@@ -130,24 +139,24 @@ def get_current_user_flexible(
         payload: dict[Any, Any] | None = verify_token(token, jwt_config)
 
         if payload is not None:
-            username = payload.get("username")
+            username = payload.get(JWTClaims.USERNAME)
             if username is not None:
                 return User(
                     username=username,
-                    email=payload.get("email", ""),
-                    full_name=payload.get("full_name", ""),
+                    email=payload.get(JWTClaims.EMAIL, ""),
+                    full_name=payload.get(JWTClaims.FULL_NAME, ""),
                 )
 
     if oauth2_token:
         payload = verify_token(oauth2_token, jwt_config)
 
         if payload is not None:
-            username = payload.get("username")
+            username = payload.get(JWTClaims.USERNAME)
             if username is not None:
                 return User(
                     username=username,
-                    email=payload.get("email", ""),
-                    full_name=payload.get("full_name", ""),
+                    email=payload.get(JWTClaims.EMAIL, ""),
+                    full_name=payload.get(JWTClaims.FULL_NAME, ""),
                 )
 
     logger.warning("No valid authentication token provided")

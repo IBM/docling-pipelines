@@ -244,7 +244,7 @@ class TestGenericOIDCProvider:
         """Test extracting user without any token raises error."""
         provider = GenericOIDCProvider(oauth2_config)
 
-        token_data = {}
+        token_data: dict[str, str] = {}
 
         with pytest.raises(Exception, match="No ID token or access token in response"):
             await provider.extract_user_from_token(token_data)
@@ -300,11 +300,14 @@ class TestOAuth2ProviderCommon:
     @pytest.mark.asyncio
     async def test_discover_endpoints_cached(self, oauth2_config):
         """Test that discovery results are cached."""
+        from datetime import UTC, datetime
+
         oauth2_config.oauth2_discovery_url = "https://provider.com/.well-known/openid-configuration"
         provider = GenericOIDCProvider(oauth2_config)
 
-        # Set cache
+        # Set cache with a fresh timestamp so TTL guard passes
         provider._discovery_cache = {"cached": "data"}
+        provider._discovery_cache_time = datetime.now(UTC)
 
         # Should return cached data without making HTTP request
         discovery = await provider.discover_endpoints()

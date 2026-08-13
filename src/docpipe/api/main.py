@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any, cast
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -24,17 +24,21 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from docpipe.api.api_router import api_router
 from docpipe.api.auth.dependencies import get_current_user
-from docpipe.api.auth.jwt_handler import JWTConfig, create_access_token
+from docpipe.api.auth.jwt_handler import JWTClaims, JWTConfig, create_access_token
 from docpipe.api.auth.ldap_auth import LDAPAuthenticator, LDAPConfig
 from docpipe.api.auth.models import LoginRequest, TokenResponse, User
 from docpipe.api.auth.oauth2_routes import router as oauth2_router
-from docpipe.api.middleware import validate_payload_size
 from docpipe.api.middleware.api_logging_middleware import ApiLoggingMiddleware
 from docpipe.api.middleware.error_handler import (
     docpipe_exception_handler,
     generic_exception_handler,
     http_exception_handler,
     validation_exception_handler,
+)
+from docpipe.api.middleware.payload_validation import PayloadValidationMiddleware
+from docpipe.api.middleware.rate_limit import (
+    RATE_LIMIT_WINDOW_SECONDS,
+    check_login_rate_limit,
 )
 from docpipe.api.middleware.transaction_middleware import TransactionMiddleware
 from docpipe.core.constants.constants import EnvironmentVariables
@@ -48,20 +52,17 @@ from docpipe.utils.infrastructure.logging import (
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Middleware to add security headers to all responses."""
+    """Add security headers to every response."""
 
     async def dispatch(self, request, call_next):
-        # Process request
         response = await call_next(request)
-
-        # Add security headers to all responses
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src 'self' https://cdn.jsdelivr.net; "
+            "style-src 'self' https://cdn.jsdelivr.net; "
             "img-src 'self' data: https:; "
             "font-src 'self' data:; "
             "connect-src 'self'; "
@@ -71,13 +72,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Configure DPK log level to match DS_LOG_LEVEL
 set_dpk_log_level_from_ds_log_level()
-
-# Install handlers on the root docpipe logger
 setup_logging()
-
-# Configure third-party loggers (uvicorn, prefect, etc.) to respect DS_LOG_LEVEL
 log_level_name = os.getenv(EnvironmentVariables.DS_LOG_LEVEL, "INFO").upper()
 log_level = logging.getLevelName(log_level_name)
 _handler = logging.StreamHandler(sys.stdout)
@@ -144,13 +140,11 @@ def custom_openapi():
     Returns:
         dict: OpenAPI schema with nullable keywords removed
     """
-    # Return cached schema if already generated
     if app.openapi_schema:
         return app.openapi_schema
 
     from fastapi.openapi.utils import get_openapi
 
-    # Generate base OpenAPI schema using FastAPI's standard generator
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
@@ -160,9 +154,7 @@ def custom_openapi():
         servers=app.servers,
     )
 
-    # IMPORTANT:
-    # Use relative root path
-    # This tells to use the SAME host from which Swagger UI was loaded
+    # Relative root so Swagger UI uses the same host it was loaded from.
     openapi_schema["servers"] = [{"url": "/"}]
 
     def remove_nullable_keywords(schema: dict) -> dict:
@@ -199,7 +191,6 @@ def custom_openapi():
 
         return schema
 
-    # Process component schemas
     if "components" in openapi_schema and "schemas" in openapi_schema["components"]:
         schemas = openapi_schema["components"]["schemas"]
 
@@ -215,7 +206,6 @@ def custom_openapi():
                 if "detail" not in required:
                     schema_def["required"] = sorted(required | {"detail"})
 
-    # Process path operation schemas
     if "paths" in openapi_schema:
         for path, path_item in openapi_schema["paths"].items():
             if not isinstance(path_item, dict):
@@ -250,7 +240,6 @@ def custom_openapi():
                                 if "schema" in content:
                                     content["schema"] = remove_nullable_keywords(content["schema"])
 
-    # Cache and return processed schema
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -258,20 +247,11 @@ def custom_openapi():
 # Override the default OpenAPI schema generator
 cast(Any, app).openapi = custom_openapi
 
+# Middleware registered in reverse execution order (last added = outermost).
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(ApiLoggingMiddleware)
+app.add_middleware(TransactionMiddleware)
 
-# Middleware execution order (reverse of registration):
-# 1. TransactionMiddleware - generates/extracts transaction ID, stores in request.state and async context
-# 2. ApiLoggingMiddleware - logs requests/responses with transaction ID from request.state
-# 3. SecurityHeadersMiddleware - adds security headers to responses
-# 4. CORSMiddleware - handles CORS preflight and headers
-
-# Register in reverse order (last registered = first executed)
-app.add_middleware(SecurityHeadersMiddleware)  # Executes third
-app.add_middleware(ApiLoggingMiddleware)  # Executes second - accesses transaction_id from request.state
-app.add_middleware(TransactionMiddleware)  # Executes first - sets transaction_id in context
-
-# Configure CORS
-# Get allowed origins from environment variable, default to localhost for development
 cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:3000")
 allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
 
@@ -283,7 +263,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize authentication configurations
 try:
     ldap_authenticator: LDAPAuthenticator | None = None
     ldap_config: LDAPConfig | None = LDAPConfig()
@@ -293,13 +272,12 @@ try:
     jwt_config: JWTConfig | None = JWTConfig()
     logger.info("Authentication configurations initialized successfully")
 except Exception as e:
-    logger.error(f"Failed to initialize authentication configurations: {e!s}")
+    logger.error("Failed to initialize authentication configurations: %s", e)
     ldap_config = None
     jwt_config = None
     ldap_authenticator = None
 
-# Register IBM Cloud standard error handlers
-# Order matters: more specific handlers first, then generic
+# More specific handlers first, then generic.
 app.add_exception_handler(DocpipeException, cast(Any, docpipe_exception_handler))
 app.add_exception_handler(StarletteHTTPException, cast(Any, http_exception_handler))
 app.add_exception_handler(RequestValidationError, cast(Any, validation_exception_handler))
@@ -333,11 +311,12 @@ async def health_check():
 
 
 @app.post("/auth/login", response_model=TokenResponse)
-async def login(credentials: LoginRequest):
+async def login(credentials: LoginRequest, request: Request):
     """Authenticate user via LDAP and return JWT token.
 
     Args:
         credentials: Login credentials (username and password)
+        request: FastAPI request object (used for rate limiting)
 
     Returns:
         TokenResponse with access token
@@ -345,6 +324,14 @@ async def login(credentials: LoginRequest):
     Raises:
         HTTPException: If authentication fails or LDAP is not configured
     """
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_login_rate_limit(client_ip=client_ip):
+        logger.warning("Rate limit exceeded for login from IP: %s", client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Please wait {RATE_LIMIT_WINDOW_SECONDS} seconds before retrying.",
+        )
+
     if ldap_authenticator is None or jwt_config is None:
         logger.error("Authentication not configured")
         raise HTTPException(
@@ -356,26 +343,26 @@ async def login(credentials: LoginRequest):
         user: User | None = ldap_authenticator.authenticate(credentials.username, credentials.password)
 
         if not user:
-            logger.warning(f"Failed login attempt for user: {credentials.username}")
+            logger.warning("Failed login attempt for user: %s", credentials.username)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
             )
 
         token_data = {
-            "username": user.username,
-            "email": user.email,
-            "full_name": user.full_name,
+            JWTClaims.USERNAME: user.username,
+            JWTClaims.EMAIL: user.email,
+            JWTClaims.FULL_NAME: user.full_name,
         }
         access_token: str = create_access_token(token_data, jwt_config)
 
-        logger.info(f"User logged in successfully: {credentials.username}")
+        logger.info("User logged in successfully: %s", credentials.username)
         return TokenResponse(access_token=access_token)
 
-    except HTTPException:
+    except (HTTPException, DocpipeException):
         raise
     except Exception as e:
-        logger.error(f"Login error for user {credentials.username}: {e!s}")
+        logger.error("Login error for user %s: %s", credentials.username, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication service error",
@@ -408,13 +395,8 @@ async def protected_route(current_user: Annotated[User, Depends(get_current_user
     return {"message": f"Hello {current_user.username}", "user": current_user}
 
 
-# Include OAuth2 router for OAuth2/OIDC authentication
 app.include_router(oauth2_router)
-
-# Register middleware
-app.middleware("http")(validate_payload_size)
-
-# Include routers
+app.add_middleware(PayloadValidationMiddleware)
 app.include_router(api_router)
 
 
