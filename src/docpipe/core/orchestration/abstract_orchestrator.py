@@ -387,9 +387,12 @@ class AbstractOrchestrator(ABC):
 
     def _check_and_upload_deleted_rows(self):
         if not self.deleted_rows_list.empty():
+            if not self.job_id or not self.job_run_id:
+                self.logger.warning("job id or job run id must be needed to save unprocessed docs")
+                return
             try:
                 cumulative_deleted_rows = combine_cumulative_deleted_rows(self.deleted_rows_list)
-                deleted_rows_table_path = construct_deleted_rows_table_path(
+                deleted_rows_table_path = self.get_deleted_rows_table_path_impl(
                     job_id=self.job_id, job_run_id=self.job_run_id
                 )
                 # This will be replaced by TableStoragePort as part of https://github.ibm.com/wdp-gov/datasift-tracker/issues/6899
@@ -403,6 +406,9 @@ class AbstractOrchestrator(ABC):
 
     def get_parquet_table_handler_impl(self) -> BaseParquetTableHandler:
         return get_parquet_table_handler()
+
+    def get_deleted_rows_table_path_impl(self, *, job_id: str, job_run_id: str) -> str:
+        return construct_deleted_rows_table_path(job_id=job_id, job_run_id=job_run_id)
 
     def _mark_pending_batches_as_skipped(self) -> None:
         """
