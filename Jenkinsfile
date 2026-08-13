@@ -170,9 +170,6 @@ timestamps {
                   echo "Wheel file pushed to Artifactory successfully"
 
                   # ── Slim wheel ───────────────────────────────────────────────
-                  # Align slim version with the main build version
-                  sed -i "s/^version = .*/version = \\"${VERSION}\\"/" slim/pyproject.toml
-
                   # Build the slim wheel from the slim/ sub-project
                   uv build --wheel --project slim
 
