@@ -123,6 +123,22 @@ timestamps {
         }
       }
 
+      stage('Coverage Check') {
+        script {
+          withCredentials([
+            usernamePassword(credentialsId: docpipetwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
+          ]) {
+            sh """
+              export PATH="\${HOME}/.cargo/bin:\$PATH"
+              . .venv/bin/activate
+
+              chmod +x scripts/check_pr_coverage.sh
+              ./scripts/check_pr_coverage.sh
+            """
+          }
+        }
+      }
+
       stage('Sonar') {
         script {
           withCredentials([string(credentialsId: 'sonarqube-auth-token-cio', variable: 'SONAR_PWD')]) {
