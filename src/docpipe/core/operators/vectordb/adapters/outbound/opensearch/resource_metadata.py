@@ -25,8 +25,8 @@ class OpenSearchResourceMetadata:
     than OpenSearchAdapter, which is write-path only and requires index_name
     and available_features at construction time.
 
-    All methods are stateless and take the raw client as a parameter so the
-    connection is established once by the caller and reused across calls.
+    All helper methods are stateless and accept the already-fetched mapping
+    dict so get_mapping() is called at most once per fetch() invocation.
     """
 
     def fetch(
@@ -43,13 +43,13 @@ class OpenSearchResourceMetadata:
 
         Args:
             provider_config: Connection parameters (host, port, username, …).
-            operator_config: Full operator config; index_name is inside provider_config.
+                index_name is also read from here (moved under provider_config).
+            operator_config: Full operator config dict from the DAG snapshot.
             available_features: Propagated feature map from the DAG snapshot.
                 Used as Source 4 fallback for feature_mappings when no saved
                 or stored mappings exist.
             normalise_feature_mappings: Callable — converts raw mappings to
-                list[dict] format. Injected by VectorDBMetadataFetcher to
-                keep the normalisation logic in one place.
+                list[dict] format. Injected by VectorDBMetadataFetcher.
             default_feature_mappings_from_features: Callable — computes
                 enterprise-style defaults from available_features. Injected
                 by VectorDBMetadataFetcher.
@@ -87,6 +87,9 @@ class OpenSearchResourceMetadata:
             index_name: str = provider_config.get(OperatorConstants.VectorDB.INDEX_NAME, "")
             selected_resource_schema: dict[str, Any] = {}
             stored_resource_metadata: dict[str, Any] = {"vector_similarity": None, "dimension_size": None}
+            # Fetch mapping once and reuse across schema, stored_metadata,
+            # is_supported, and feature_mappings — avoids 3 redundant network calls.
+            mapping: dict[str, Any] = {}
 
             if index_name and index_name in available_resources:
                 mapping = client.indices.get_mapping(index=index_name)
@@ -97,14 +100,14 @@ class OpenSearchResourceMetadata:
             is_supported = self._is_supported(
                 index_name=index_name,
                 available_resources=available_resources,
-                client=client,
+                mapping=mapping,
             )
             feature_mappings = self._resolve_feature_mappings(
                 operator_config=operator_config,
                 available_features=available_features,
                 index_name=index_name,
                 available_resources=available_resources,
-                client=client,
+                mapping=mapping,
                 normalise_feature_mappings=normalise_feature_mappings,
                 default_feature_mappings_from_features=default_feature_mappings_from_features,
             )
@@ -125,11 +128,13 @@ class OpenSearchResourceMetadata:
         *,
         index_name: str,
         available_resources: list[str],
-        client: Any,
+        mapping: dict[str, Any],
     ) -> dict[str, Any]:
         """Check whether the configured index is supported by docpipe.
 
-        Mirrors enterprise is_datasift_supported_index logic:
+        Uses the already-fetched mapping dict — no additional network call.
+
+        Logic:
           - empty name  → supported=True  (new index, will be created)
           - not in list → supported=True  (will be created)
           - exists but no knn_vector field → supported=False
@@ -139,24 +144,20 @@ class OpenSearchResourceMetadata:
             return {"index_name": "", "supported": True}
         if index_name not in available_resources:
             return {"index_name": index_name, "supported": True}
-        try:
-            mapping = client.indices.get_mapping(index=index_name)
-            props: dict[str, Any] = (
-                mapping.get(index_name, {})
-                .get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {})
-                .get(OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {})
-            )
-            has_knn = any(f.get("type") == OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR for f in props.values())
-            if not has_knn:
-                return {
-                    "index_name": index_name,
-                    "supported": False,
-                    "reason": "no knn_vector field found",
-                }
-            return {"index_name": index_name, "supported": True}
-        except Exception as exc:
-            logger.warning("is_supported check failed for index %s: %s", index_name, exc)
-            return {"index_name": index_name, "supported": False, "reason": str(exc)}
+
+        props: dict[str, Any] = (
+            mapping.get(index_name, {})
+            .get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {})
+            .get(OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {})
+        )
+        has_knn = any(f.get("type") == OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR for f in props.values())
+        if not has_knn:
+            return {
+                "index_name": index_name,
+                "supported": False,
+                "reason": "no knn_vector field found",
+            }
+        return {"index_name": index_name, "supported": True}
 
     @staticmethod
     def _stored_metadata(
@@ -194,11 +195,14 @@ class OpenSearchResourceMetadata:
         available_features: dict[str, Any],
         index_name: str,
         available_resources: list[str],
-        client: Any,
+        mapping: dict[str, Any],
         normalise_feature_mappings: Any,
         default_feature_mappings_from_features: Any,
     ) -> list[dict[str, str]]:
         """Resolve feature mappings using the enterprise priority chain.
+
+        Uses the already-fetched mapping dict for Source 3 — no additional
+        network call.
 
         Resolution order:
           1. operator_config["opensearch_feature_mappings"] — user-saved, highest priority
@@ -206,10 +210,6 @@ class OpenSearchResourceMetadata:
           3. mappings._meta.feature_mappings                — stored in index by docpipe
           4. defaults from propagated available_features    — enterprise-style defaults
           5. []                                             — fallback
-
-        Note on Source 3: written into _meta by index_manager at index creation /
-        on every run via update_feature_mappings_in_index(). For indices created
-        before that change, Source 4 fires instead.
         """
         # Source 1 — adapter-specific saved key
         saved = operator_config.get(OperatorConstants.VectorDB.OPENSEARCH_FEATURE_MAPPINGS)
@@ -223,22 +223,14 @@ class OpenSearchResourceMetadata:
 
         # Source 3 — stored in index _meta (existing index path)
         if index_name and index_name in available_resources:
-            try:
-                mapping = client.indices.get_mapping(index=index_name)
-                stored = (
-                    mapping.get(index_name, {})
-                    .get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {})
-                    .get(OperatorConstants.VectorDB.SCHEMA_KEY_META, {})
-                    .get(OperatorConstants.Config.FEATURE_MAPPINGS)
-                )
-                if stored:
-                    return normalise_feature_mappings(stored)
-            except Exception as exc:
-                logger.debug(
-                    "Could not read feature_mappings from index '%s' _meta; falling back to defaults. Error: %s",
-                    index_name,
-                    exc,
-                )
+            stored = (
+                mapping.get(index_name, {})
+                .get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {})
+                .get(OperatorConstants.VectorDB.SCHEMA_KEY_META, {})
+                .get(OperatorConstants.Config.FEATURE_MAPPINGS)
+            )
+            if stored:
+                return normalise_feature_mappings(stored)
 
         # Source 4 — derive defaults from propagated available_features
         if available_features:

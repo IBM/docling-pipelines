@@ -34,14 +34,18 @@ def _make_node_feature_result(
     available: dict | None = None,
     inputs: dict | None = None,
     outputs: dict | None = None,
+    operator_config: dict | None = None,
 ) -> dict[str, Any]:
     """Return a per-node feature result dict as returned by propagate_features_per_node."""
-    return {
+    result: dict[str, Any] = {
         OperatorConstants.Config.AVAILABLE_FEATURES: available or {},
         OperatorConstants.Config.INPUT_FEATURES: inputs or {},
         OperatorConstants.Config.OUTPUT_FEATURES: outputs or {},
         "dropped_features": [],
     }
+    if operator_config is not None:
+        result["operator_config"] = operator_config
+    return result
 
 
 def _make_service(node_features: dict[str, Any]) -> FlowEnrichmentService:
@@ -730,3 +734,120 @@ class TestFetchVectordbMetadata:
 
         call_kwargs = mock_fetcher.fetch_metadata.call_args.kwargs
         assert call_kwargs["adapter_name"] == OperatorConstants.VectorDB.OPENSEARCH
+
+
+# ---------------------------------------------------------------------------
+# Tests: _build_node_feature_metadata — VECTORDB branch key presence/absence
+# ---------------------------------------------------------------------------
+
+
+class TestBuildNodeFeatureMetadataVectorDB:
+    """End-to-end tests for the VECTORDB branch of _build_node_feature_metadata.
+
+    Verifies that VDB keys are present/absent based on provider_config state
+    and that VectorDBMetadataFetcher is called with the right arguments.
+    """
+
+    def _build(self, node_feature_result: dict[str, Any]) -> dict[str, Any]:
+        service = FlowEnrichmentService.__new__(FlowEnrichmentService)
+        return service._build_node_feature_metadata(
+            node_id="node-vdb",
+            node_feature_result=node_feature_result,
+            operator_type=OperatorConstants.Operators.VECTORDB,
+        )
+
+    def test_vdb_keys_absent_when_no_provider_config(self):
+        """VDB keys must be omitted entirely when provider_config is not set."""
+        nfr = _make_node_feature_result(
+            operator_config={"provider": "opensearch", "index_name": "x"},
+        )
+        block = self._build(nfr)
+        assert OperatorConstants.VectorDB.AVAILABLE_RESOURCES not in block
+        assert OperatorConstants.VectorDB.STORED_RESOURCE_METADATA not in block
+        assert OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA not in block
+        assert OperatorConstants.VectorDB.FEATURE_MAPPINGS_RESPONSE not in block
+        assert OperatorConstants.VectorDB.IS_DOCPIPE_SUPPORTED_RESOURCE not in block
+
+    def test_vdb_keys_absent_when_operator_config_missing_entirely(self):
+        """VDB keys must be omitted when the node has no operator_config at all."""
+        nfr = _make_node_feature_result()
+        block = self._build(nfr)
+        assert OperatorConstants.VectorDB.AVAILABLE_RESOURCES not in block
+
+    def test_all_five_vdb_keys_present_when_fetcher_returns_data(self):
+        fake_result = {
+            OperatorConstants.VectorDB.AVAILABLE_RESOURCES: ["my-docs"],
+            OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA: {"doc_id": {"type": "keyword"}},
+            OperatorConstants.VectorDB.FEATURE_MAPPINGS_RESPONSE: [
+                {"feature_name": "doc_id", "mapped_column_name": "doc_id"}
+            ],
+            OperatorConstants.VectorDB.IS_DOCPIPE_SUPPORTED_RESOURCE: {"index_name": "my-docs", "supported": True},
+            OperatorConstants.VectorDB.STORED_RESOURCE_METADATA: {"vector_similarity": "l2", "dimension_size": 384},
+        }
+        nfr = _make_node_feature_result(
+            operator_config={
+                "provider": "opensearch",
+                "provider_config": {"host": "localhost", "port": 9200},
+            }
+        )
+        with patch.object(_mf_mod, "VectorDBMetadataFetcher") as mock_cls:
+            mock_cls.return_value.fetch_metadata.return_value = fake_result
+            block = self._build(nfr)
+
+        assert block[OperatorConstants.VectorDB.AVAILABLE_RESOURCES] == ["my-docs"]
+        assert block[OperatorConstants.VectorDB.STORED_RESOURCE_METADATA] == {
+            "vector_similarity": "l2",
+            "dimension_size": 384,
+        }
+        assert block[OperatorConstants.VectorDB.FEATURE_MAPPINGS_RESPONSE] == [
+            {"feature_name": "doc_id", "mapped_column_name": "doc_id"}
+        ]
+
+    def test_vdb_keys_with_empty_values_on_connection_failure(self):
+        """When fetcher returns empty-value fallback, all five keys still appear."""
+        empty = _mf_mod.VectorDBMetadataFetcher._empty_result()
+        nfr = _make_node_feature_result(
+            operator_config={"provider": "opensearch", "provider_config": {"host": "bad-host"}},
+        )
+        with patch.object(_mf_mod, "VectorDBMetadataFetcher") as mock_cls:
+            mock_cls.return_value.fetch_metadata.return_value = empty
+            block = self._build(nfr)
+
+        assert block[OperatorConstants.VectorDB.AVAILABLE_RESOURCES] == []
+        assert block[OperatorConstants.VectorDB.STORED_RESOURCE_METADATA] == {
+            "vector_similarity": None,
+            "dimension_size": None,
+        }
+
+    def test_fetcher_called_with_correct_adapter_and_config(self):
+        """fetch_metadata receives adapter_name, operator_config, and available_features."""
+        op_cfg = {
+            "provider": "milvus",
+            "provider_config": {"host": "milvus-host", "port": 19530, "auth_type": "standalone"},
+        }
+        nfr = _make_node_feature_result(
+            available={"content": _make_feature()},
+            operator_config=op_cfg,
+        )
+        with patch.object(_mf_mod, "VectorDBMetadataFetcher") as mock_cls:
+            mock_cls.return_value.fetch_metadata.return_value = _mf_mod.VectorDBMetadataFetcher._empty_result()
+            self._build(nfr)
+
+        call_kwargs = mock_cls.return_value.fetch_metadata.call_args.kwargs
+        assert call_kwargs["adapter_name"] == OperatorConstants.VectorDB.MILVUS
+        assert call_kwargs["operator_config"] == op_cfg
+
+    def test_non_vectordb_nodes_have_no_vdb_keys(self):
+        """Non-vectordb operators must never have VDB keys in their response."""
+        for op in ("ingest_local", "chunker", "sql_filter", "merge", "embeddings"):
+            nfr = _make_node_feature_result(
+                operator_config={"provider_config": {"host": "localhost"}},
+            )
+            service = FlowEnrichmentService.__new__(FlowEnrichmentService)
+            block = service._build_node_feature_metadata(
+                node_id="n",
+                node_feature_result=nfr,
+                operator_type=op,
+            )
+            assert OperatorConstants.VectorDB.AVAILABLE_RESOURCES not in block, f"VDB key leaked into {op}"
+            assert OperatorConstants.VectorDB.STORED_RESOURCE_METADATA not in block, f"VDB key leaked into {op}"

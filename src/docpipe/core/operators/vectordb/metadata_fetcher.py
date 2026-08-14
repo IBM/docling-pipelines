@@ -127,6 +127,20 @@ class VectorDBMetadataFetcher:
                 empty_result=self._empty_result,
             )
 
+        if adapter_name == OperatorConstants.VectorDB.MILVUS:
+            from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import (
+                MilvusResourceMetadata,
+            )
+
+            return MilvusResourceMetadata().fetch(
+                provider_config=provider_config,
+                operator_config=operator_config,
+                available_features=available_features,
+                normalise_feature_mappings=self._normalise_feature_mappings,
+                default_feature_mappings_from_features=self._default_feature_mappings_from_features,
+                empty_result=self._empty_result,
+            )
+
         logger.warning("No metadata fetcher for VectorDB adapter: %s", adapter_name)
         return self._empty_result()
 

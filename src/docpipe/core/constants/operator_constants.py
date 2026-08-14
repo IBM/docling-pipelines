@@ -416,6 +416,7 @@ class OperatorConstants:
 
         # Vector DB General
         OPENSEARCH: Final[str] = "opensearch"
+        MILVUS: Final[str] = "milvus"
         VECTOR_DB_NAME: Final[str] = "vector_db_name"
 
         # Response metadata keys written into node.parameters by FlowEnrichmentService

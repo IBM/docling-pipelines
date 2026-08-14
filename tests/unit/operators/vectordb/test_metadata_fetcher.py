@@ -303,14 +303,203 @@ class TestFetchMetadataRouting:
         fetcher = VectorDBMetadataFetcher()
         with patch("docpipe.core.operators.vectordb.metadata_fetcher.logger") as mock_logger:
             fetcher.fetch_metadata(
-                adapter_name="milvus",
+                adapter_name="unsupported_db",
                 operator_config={},
                 available_features={},
             )
         mock_logger.warning.assert_called_once()
-        # logger.warning uses %s-style: args[0] is the format string, args[1:] are substitutions
         call_args = mock_logger.warning.call_args[0]
-        assert any("milvus" in str(a) for a in call_args)
+        assert any("unsupported_db" in str(a) for a in call_args)
+
+    def test_milvus_delegates_to_milvus_resource_metadata(self):
+        fetcher = VectorDBMetadataFetcher()
+        expected = VectorDBMetadataFetcher._empty_result()
+
+        with patch(
+            "docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata.MilvusResourceMetadata"
+        ) as mock_cls:
+            mock_instance = MagicMock()
+            mock_instance.fetch.return_value = expected
+            mock_cls.return_value = mock_instance
+
+            result = fetcher.fetch_metadata(
+                adapter_name=OperatorConstants.VectorDB.MILVUS,
+                operator_config={
+                    OperatorConstants.Config.PROVIDER_CONFIG: {"host": "localhost", "auth_type": "standalone"}
+                },
+                available_features={},
+            )
+
+        assert result is expected
+        mock_instance.fetch.assert_called_once()
+
+    def test_milvus_constant_equals_expected_string(self):
+        assert OperatorConstants.VectorDB.MILVUS == "milvus"
+
+    def test_fetch_passes_provider_config_to_adapter(self):
+        """fetch_metadata extracts provider_config from operator_config and forwards it."""
+        fetcher = VectorDBMetadataFetcher()
+        provider_cfg = {"host": "localhost", "port": 9200}
+        op_cfg = {OperatorConstants.Config.PROVIDER_CONFIG: provider_cfg}
+
+        with patch(
+            "docpipe.core.operators.vectordb.adapters.outbound.opensearch.resource_metadata.OpenSearchResourceMetadata"
+        ) as mock_cls:
+            mock_instance = MagicMock()
+            mock_instance.fetch.return_value = VectorDBMetadataFetcher._empty_result()
+            mock_cls.return_value = mock_instance
+
+            fetcher.fetch_metadata(
+                adapter_name=OperatorConstants.VectorDB.OPENSEARCH,
+                operator_config=op_cfg,
+                available_features={},
+            )
+
+        call_kwargs = mock_instance.fetch.call_args.kwargs
+        assert call_kwargs["provider_config"] == provider_cfg
+        assert call_kwargs["operator_config"] is op_cfg
+
+
+# ---------------------------------------------------------------------------
+# OpenSearchResourceMetadata.fetch()
+# ---------------------------------------------------------------------------
+
+
+class TestOpenSearchResourceMetadataFetch:
+    """Tests for OpenSearchResourceMetadata.fetch() — the full connection path."""
+
+    def _make_injected(self):
+        """Return the four callable injections used by fetch()."""
+        fetcher = VectorDBMetadataFetcher()
+        return {
+            "normalise_feature_mappings": fetcher._normalise_feature_mappings,
+            "default_feature_mappings_from_features": fetcher._default_feature_mappings_from_features,
+            "empty_result": fetcher._empty_result,
+        }
+
+    def _call(self, *, provider_config, operator_config=None, available_features=None):
+        inj = self._make_injected()
+        return OpenSearchResourceMetadata().fetch(
+            provider_config=provider_config,
+            operator_config=operator_config or {},
+            available_features=available_features or {},
+            normalise_feature_mappings=inj["normalise_feature_mappings"],
+            default_feature_mappings_from_features=inj["default_feature_mappings_from_features"],
+            empty_result=inj["empty_result"],
+        )
+
+    def test_returns_empty_result_when_host_absent(self):
+        """No host in provider_config → returns empty_result immediately."""
+        result = self._call(provider_config={})
+        assert result[OperatorConstants.VectorDB.AVAILABLE_RESOURCES] == []
+        assert result[OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA] == {}
+        assert result[OperatorConstants.VectorDB.IS_DOCPIPE_SUPPORTED_RESOURCE] == {}
+
+    def test_returns_empty_result_on_connection_failure(self):
+        """Exception during client construction → returns empty_result."""
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearchClient") as mock_cls:
+            mock_cls.side_effect = Exception("connection refused")
+            result = self._call(provider_config={"host": "localhost"})
+        assert result[OperatorConstants.VectorDB.AVAILABLE_RESOURCES] == []
+
+    def test_happy_path_no_index_configured(self):
+        """Connected, no index_name → resources listed, empty schema."""
+        mock_client = MagicMock()
+        mock_client.cat.indices.return_value = [
+            {"index": "my-index"},
+            {"index": ".system-index"},  # dot-prefixed must be filtered
+        ]
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearchClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(provider_config={"host": "localhost"})
+
+        assert result[OperatorConstants.VectorDB.AVAILABLE_RESOURCES] == ["my-index"]
+        assert result[OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA] == {}
+        assert result[OperatorConstants.VectorDB.STORED_RESOURCE_METADATA] == {
+            "vector_similarity": None,
+            "dimension_size": None,
+        }
+        mock_client.indices.get_mapping.assert_not_called()
+
+    def test_happy_path_index_present_fetches_schema_and_stored_metadata(self):
+        """index_name in available resources → mapping fetched, schema populated."""
+        mock_client = MagicMock()
+        mock_client.cat.indices.return_value = [{"index": "docs-index"}]
+        mock_client.indices.get_mapping.return_value = {
+            "docs-index": {
+                "mappings": {
+                    "_meta": {"vector_similarity": "cosine", "dimension_size": 768},
+                    "properties": {
+                        "embedding": {"type": "knn_vector", "dimension": 768},
+                        "content": {"type": "text"},
+                    },
+                }
+            }
+        }
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearchClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(provider_config={"host": "localhost", "index_name": "docs-index"})
+
+        assert "embedding" in result[OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA]
+        assert result[OperatorConstants.VectorDB.STORED_RESOURCE_METADATA]["vector_similarity"] == "cosine"
+        assert result[OperatorConstants.VectorDB.STORED_RESOURCE_METADATA]["dimension_size"] == 768
+        assert result[OperatorConstants.VectorDB.IS_DOCPIPE_SUPPORTED_RESOURCE]["supported"] is True
+        mock_client.indices.get_mapping.assert_called_once_with(index="docs-index")
+
+    def test_index_not_in_resources_skips_mapping_call(self):
+        """index_name not present in cluster → no get_mapping call, empty schema."""
+        mock_client = MagicMock()
+        mock_client.cat.indices.return_value = [{"index": "other-index"}]
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearchClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(provider_config={"host": "localhost", "index_name": "missing-index"})
+
+        assert result[OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA] == {}
+        assert result[OperatorConstants.VectorDB.IS_DOCPIPE_SUPPORTED_RESOURCE]["supported"] is True
+        mock_client.indices.get_mapping.assert_not_called()
+
+    def test_system_indices_filtered_from_available_resources(self):
+        """Dot-prefixed system indices are excluded from available_resources."""
+        mock_client = MagicMock()
+        mock_client.cat.indices.return_value = [
+            {"index": "user-index"},
+            {"index": ".kibana"},
+            {"index": ".opensearch-dashboards"},
+            {"index": "another-index"},
+        ]
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearchClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(provider_config={"host": "localhost"})
+
+        assert result[OperatorConstants.VectorDB.AVAILABLE_RESOURCES] == ["user-index", "another-index"]
+
+    def test_all_five_keys_present_in_result(self):
+        """fetch() always returns all five expected keys."""
+        mock_client = MagicMock()
+        mock_client.cat.indices.return_value = []
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearchClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(provider_config={"host": "localhost"})
+
+        expected_keys = {
+            OperatorConstants.VectorDB.AVAILABLE_RESOURCES,
+            OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA,
+            OperatorConstants.VectorDB.FEATURE_MAPPINGS_RESPONSE,
+            OperatorConstants.VectorDB.IS_DOCPIPE_SUPPORTED_RESOURCE,
+            OperatorConstants.VectorDB.STORED_RESOURCE_METADATA,
+        }
+        assert expected_keys == set(result.keys())
+
+    def test_get_mapping_called_only_once(self):
+        """Mapping is fetched once and reused — no redundant network calls."""
+        mock_client = MagicMock()
+        mock_client.cat.indices.return_value = [{"index": "docs-index"}]
+        mock_client.indices.get_mapping.return_value = {"docs-index": {"mappings": {"properties": {}}}}
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearchClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            self._call(provider_config={"host": "localhost", "index_name": "docs-index"})
+
+        mock_client.indices.get_mapping.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -319,22 +508,21 @@ class TestFetchMetadataRouting:
 
 
 class TestIsSupported:
-    """_is_supported mirrors enterprise is_datasift_supported_index logic."""
+    """_is_supported uses the pre-fetched mapping dict — no additional network call."""
 
     def test_empty_index_name_is_supported(self):
-        result = OpenSearchResourceMetadata._is_supported(index_name="", available_resources=[], client=MagicMock())
+        result = OpenSearchResourceMetadata._is_supported(index_name="", available_resources=[], mapping={})
         assert result["supported"] is True
 
     def test_index_not_in_resources_is_supported(self):
         result = OpenSearchResourceMetadata._is_supported(
-            index_name="new_index", available_resources=["other_index"], client=MagicMock()
+            index_name="new_index", available_resources=["other_index"], mapping={}
         )
         assert result["supported"] is True
         assert result["index_name"] == "new_index"
 
     def test_existing_index_with_knn_vector_is_supported(self):
-        mock_client = MagicMock()
-        mock_client.indices.get_mapping.return_value = {
+        mapping = {
             "my_index": {
                 "mappings": {
                     "properties": {"vector_embeddings": {"type": OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR}}
@@ -342,26 +530,22 @@ class TestIsSupported:
             }
         }
         result = OpenSearchResourceMetadata._is_supported(
-            index_name="my_index", available_resources=["my_index"], client=mock_client
+            index_name="my_index", available_resources=["my_index"], mapping=mapping
         )
         assert result["supported"] is True
 
     def test_existing_index_without_knn_vector_is_not_supported(self):
-        mock_client = MagicMock()
-        mock_client.indices.get_mapping.return_value = {
-            "my_index": {"mappings": {"properties": {"title": {"type": "text"}}}}
-        }
+        mapping = {"my_index": {"mappings": {"properties": {"title": {"type": "text"}}}}}
         result = OpenSearchResourceMetadata._is_supported(
-            index_name="my_index", available_resources=["my_index"], client=mock_client
+            index_name="my_index", available_resources=["my_index"], mapping=mapping
         )
         assert result["supported"] is False
         assert "reason" in result
 
-    def test_mapping_exception_returns_unsupported(self):
-        mock_client = MagicMock()
-        mock_client.indices.get_mapping.side_effect = Exception("connection refused")
+    def test_empty_mapping_for_existing_index_returns_unsupported(self):
+        """mapping={} for an index that is in available_resources → no knn field → unsupported."""
         result = OpenSearchResourceMetadata._is_supported(
-            index_name="my_index", available_resources=["my_index"], client=mock_client
+            index_name="my_index", available_resources=["my_index"], mapping={}
         )
         assert result["supported"] is False
 
@@ -427,14 +611,14 @@ class TestResolveFeatureMappings:
         available_features: dict | None = None,
         index_name: str = "",
         available_resources: list | None = None,
-        client: MagicMock | None = None,
+        mapping: dict | None = None,
     ) -> list:
         return OpenSearchResourceMetadata._resolve_feature_mappings(
             operator_config=operator_config or {},
             available_features=available_features or {},
             index_name=index_name,
             available_resources=available_resources or [],
-            client=client or MagicMock(),
+            mapping=mapping or {},
             normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
             default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
         )
@@ -453,14 +637,11 @@ class TestResolveFeatureMappings:
         assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
 
     def test_source3_meta_stored_mappings_used_when_index_exists(self):
-        mock_client = MagicMock()
-        mock_client.indices.get_mapping.return_value = {
-            "my_index": {"mappings": {"_meta": {OperatorConstants.Config.FEATURE_MAPPINGS: {"feat": "col"}}}}
-        }
+        mapping = {"my_index": {"mappings": {"_meta": {OperatorConstants.Config.FEATURE_MAPPINGS: {"feat": "col"}}}}}
         result = self._call(
             index_name="my_index",
             available_resources=["my_index"],
-            client=mock_client,
+            mapping=mapping,
         )
         assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
 
@@ -472,3 +653,422 @@ class TestResolveFeatureMappings:
     def test_empty_fallback_when_no_features_and_no_config(self):
         result = self._call()
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# MilvusResourceMetadata
+# ---------------------------------------------------------------------------
+
+
+class TestMilvusResourceMetadata:
+    """Tests for MilvusResourceMetadata — mirrors the spec's TestMilvus class."""
+
+    from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import (
+        MilvusResourceMetadata,
+    )
+
+    # helpers shared across tests
+    def _fetcher(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        return MilvusResourceMetadata()
+
+    def _call(self, provider_config: dict, operator_config: dict | None = None, available_features: dict | None = None):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        return MilvusResourceMetadata().fetch(
+            provider_config=provider_config,
+            operator_config=operator_config or {},
+            available_features=available_features or {},
+            normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
+            default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
+            empty_result=VectorDBMetadataFetcher._empty_result,
+        )
+
+    # ------------------------------------------------------------------
+    # Guard checks — skip fetch when connection info is absent
+    # ------------------------------------------------------------------
+
+    def test_returns_empty_result_when_no_host_or_uri(self):
+        result = self._call(provider_config={})
+        assert result == VectorDBMetadataFetcher._empty_result()
+
+    def test_returns_empty_result_on_connection_failure(self):
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient") as mock_cls:
+            mock_cls.return_value.get_client.side_effect = Exception("connection refused")
+            result = self._call(provider_config={"host": "bad-host", "auth_type": "standalone"})
+        assert result == VectorDBMetadataFetcher._empty_result()
+
+    def test_uri_accepted_in_place_of_host(self):
+        """fetch() must proceed to connect when only uri is provided (no host)."""
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient") as mock_cls:
+            mock_cls.return_value.get_client.side_effect = Exception("stop after connect attempt")
+            self._call(
+                provider_config={
+                    "uri": "https://user:key@milvus.host:19530",  # pragma: allowlist secret
+                    "auth_type": "uri",
+                }
+            )
+        mock_cls.assert_called_once()
+
+    # ------------------------------------------------------------------
+    # available_resources — all collections returned
+    # ------------------------------------------------------------------
+
+    def test_available_resources_returns_all_collections(self):
+        mock_client = MagicMock()
+        mock_client.list_collections.return_value = ["col_a", "col_b", "col_c"]
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(provider_config={"host": "localhost", "auth_type": "standalone"})
+        assert result[OperatorConstants.VectorDB.AVAILABLE_RESOURCES] == ["col_a", "col_b", "col_c"]
+
+    # ------------------------------------------------------------------
+    # selected_resource_schema — collection column extraction
+    # ------------------------------------------------------------------
+
+    def test_selected_resource_schema_empty_when_collection_absent(self):
+        mock_client = MagicMock()
+        mock_client.list_collections.return_value = ["other_col"]
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(
+                provider_config={"host": "localhost", "auth_type": "standalone", "collection_name": "missing_col"}
+            )
+        assert result[OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA] == {}
+
+    def test_selected_resource_schema_populated_for_configured_collection(self):
+        mock_client = MagicMock()
+        mock_client.list_collections.return_value = ["col_a"]
+        mock_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "pk", "dtype": "Int64", "is_primary": True, "description": "primary key"},
+                {
+                    "name": "vector",
+                    "dtype": "FLOAT_VECTOR",
+                    "is_primary": False,
+                    "description": "",
+                    "params": {"dim": 384},
+                    "indexes": [{"index_name": "idx", "index_type": "IVF_FLAT", "metric_type": "L2"}],
+                },
+                {"name": "text", "dtype": "VarChar", "is_primary": False, "description": ""},
+            ]
+        }
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient") as mock_cls:
+            mock_cls.return_value.get_client.return_value = mock_client
+            result = self._call(
+                provider_config={"host": "localhost", "auth_type": "standalone", "collection_name": "col_a"}
+            )
+        schema = result[OperatorConstants.VectorDB.SELECTED_RESOURCE_SCHEMA]
+        assert "pk" in schema
+        assert schema["pk"]["is_primary"] is True
+        assert "vector" in schema
+        assert schema["vector"]["dimension"] == 384
+        assert schema["vector"]["index_created"] is True
+        assert schema["vector"]["index_info"]["metric_type"] == "L2"
+        assert "text" in schema
+
+    # ------------------------------------------------------------------
+    # _stored_metadata
+    # ------------------------------------------------------------------
+
+    def test_stored_metadata_from_float_vector_field_with_index(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        schema = {
+            "pk": {"type": "Int64", "is_primary": True},
+            "vector": {
+                "type": "FLOAT_VECTOR",
+                "dimension": 384,
+                "index_info": {"index_name": "idx", "index_type": "IVF_FLAT", "metric_type": "L2"},
+                "index_created": True,
+            },
+        }
+        meta = MilvusResourceMetadata._stored_metadata(schema)
+        assert meta == {"vector_similarity": "L2", "dimension_size": 384}
+
+    def test_stored_metadata_returns_none_when_no_vector_field(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        schema = {"pk": {"type": "Int64", "is_primary": True}}
+        meta = MilvusResourceMetadata._stored_metadata(schema)
+        assert meta == {"vector_similarity": None, "dimension_size": None}
+
+    def test_stored_metadata_vector_similarity_none_when_no_index(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        schema = {"vector": {"type": "FLOAT_VECTOR", "dimension": 512}}
+        meta = MilvusResourceMetadata._stored_metadata(schema)
+        assert meta["dimension_size"] == 512
+        assert meta["vector_similarity"] is None
+
+    # ------------------------------------------------------------------
+    # _is_supported
+    # ------------------------------------------------------------------
+
+    def test_is_supported_empty_collection_name(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        result = MilvusResourceMetadata._is_supported(collection_name="", available_resources=[], schema={})
+        assert result["supported"] is True
+
+    def test_is_supported_collection_not_in_available(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        result = MilvusResourceMetadata._is_supported(collection_name="new_col", available_resources=[], schema={})
+        assert result["supported"] is True
+        assert result["collection_name"] == "new_col"
+
+    def test_is_supported_no_float_vector_field(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        schema = {"pk": {"type": "INT64", "is_primary": True}}
+        result = MilvusResourceMetadata._is_supported(collection_name="col", available_resources=["col"], schema=schema)
+        assert result["supported"] is False
+        assert "FLOAT_VECTOR" in result["reason"]
+
+    def test_is_supported_float_vector_without_index(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        schema = {"vector": {"type": "FLOAT_VECTOR", "dimension": 384}}
+        result = MilvusResourceMetadata._is_supported(collection_name="col", available_resources=["col"], schema=schema)
+        assert result["supported"] is False
+        assert "index" in result["reason"]
+
+    def test_is_supported_float_vector_with_index(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        schema = {"vector": {"type": "FLOAT_VECTOR", "dimension": 384, "index_created": True}}
+        result = MilvusResourceMetadata._is_supported(collection_name="col", available_resources=["col"], schema=schema)
+        assert result["supported"] is True
+
+    # ------------------------------------------------------------------
+    # _resolve_feature_mappings — priority chain
+    # ------------------------------------------------------------------
+
+    def test_feature_mappings_source1_milvus_specific_key(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        operator_config = {
+            "milvus_feature_mappings": {"feat": "col"},
+            OperatorConstants.Config.FEATURE_MAPPINGS: {"other": "other_col"},
+        }
+        result = MilvusResourceMetadata._resolve_feature_mappings(
+            operator_config=operator_config,
+            available_features={},
+            selected_resource_schema={},
+            normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
+            default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
+        )
+        assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
+
+    def test_feature_mappings_source2_generic_key(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        operator_config = {OperatorConstants.Config.FEATURE_MAPPINGS: {"feat": "col"}}
+        result = MilvusResourceMetadata._resolve_feature_mappings(
+            operator_config=operator_config,
+            available_features={},
+            selected_resource_schema={},
+            normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
+            default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
+        )
+        assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
+
+    def test_feature_mappings_source3_defaults_from_available_features(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        feats = {OperatorConstants.Columns.ID: _feature(available_for_vector_db=True)}
+        result = MilvusResourceMetadata._resolve_feature_mappings(
+            operator_config={},
+            available_features=feats,
+            selected_resource_schema={},
+            normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
+            default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
+        )
+        assert any(d["mapped_column_name"] == "document_id" for d in result)
+
+    def test_feature_mappings_empty_fallback(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        result = MilvusResourceMetadata._resolve_feature_mappings(
+            operator_config={},
+            available_features={},
+            selected_resource_schema={},
+            normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
+            default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
+        )
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# MilvusResourceMetadata._dtype_name — enum vs plain string
+# ---------------------------------------------------------------------------
+
+
+class TestMilvusDtypeName:
+    """_dtype_name must normalise both pymilvus DataType enums and plain strings.
+
+    Root cause of the original 'no FLOAT_VECTOR field' bug:
+    str(DataType.FLOAT_VECTOR) == "101", not "FLOAT_VECTOR".
+    _dtype_name() uses .name when the object has that attribute.
+    """
+
+    def test_datatype_enum_float_vector_resolved_to_name(self):
+        from pymilvus import DataType
+
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        assert MilvusResourceMetadata._dtype_name(DataType.FLOAT_VECTOR) == "FLOAT_VECTOR"
+
+    def test_datatype_enum_int64_resolved_to_name(self):
+        from pymilvus import DataType
+
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        assert MilvusResourceMetadata._dtype_name(DataType.INT64) == "INT64"
+
+    def test_datatype_enum_varchar_resolved_to_name(self):
+        from pymilvus import DataType
+
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        assert MilvusResourceMetadata._dtype_name(DataType.VARCHAR) == "VARCHAR"
+
+    def test_plain_string_uppercased(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        assert MilvusResourceMetadata._dtype_name("float_vector") == "FLOAT_VECTOR"
+
+    def test_raw_integer_does_not_produce_float_vector(self):
+        """Regression: if we used str() on the enum value, 101 → '101', not 'FLOAT_VECTOR'."""
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        assert "FLOAT_VECTOR" not in MilvusResourceMetadata._dtype_name(101)
+
+    def test_collection_columns_with_datatype_enum_sets_dimension(self):
+        """End-to-end: describe_collection fields with real DataType enums are handled."""
+        from pymilvus import DataType
+
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        desc = {
+            "fields": [
+                {"name": "pk", "dtype": DataType.INT64, "is_primary": True, "description": ""},
+                {
+                    "name": "vector",
+                    "dtype": DataType.FLOAT_VECTOR,
+                    "is_primary": False,
+                    "description": "",
+                    "params": {"dim": 768},
+                    "indexes": [{"index_name": "idx", "index_type": "IVF_FLAT", "metric_type": "COSINE"}],
+                },
+            ]
+        }
+        schema = MilvusResourceMetadata._collection_columns(desc)
+        assert schema["vector"]["type"] == "FLOAT_VECTOR"
+        assert schema["vector"]["dimension"] == 768
+        assert schema["vector"]["index_created"] is True
+        assert schema["vector"]["index_info"]["metric_type"] == "COSINE"
+
+
+# ---------------------------------------------------------------------------
+# MilvusResourceMetadata._apply_index_info
+# ---------------------------------------------------------------------------
+
+
+class TestMilvusApplyIndexInfo:
+    """_apply_index_info enriches FLOAT_VECTOR fields via list_indexes + describe_index.
+
+    This is the fallback for existing Milvus collections where describe_collection
+    returns an empty 'indexes' list even though the index exists.
+    """
+
+    def _schema_with_vector(self, index_created: bool = False) -> dict:
+        entry: dict = {"type": "FLOAT_VECTOR", "is_primary": False, "dimension": 384, "description": ""}
+        if index_created:
+            entry["index_created"] = True
+            entry["index_info"] = {"index_name": "idx", "index_type": "IVF_FLAT", "metric_type": "L2"}
+        return {"pk": {"type": "VARCHAR", "is_primary": True}, "vector": entry}
+
+    def test_sets_index_created_when_index_found_on_vector_field(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        mock_client = MagicMock()
+        mock_client.list_indexes.return_value = ["vector_idx"]
+        mock_client.describe_index.return_value = {
+            "field_name": "vector",
+            "index_type": "IVF_FLAT",
+            "metric_type": "COSINE",
+        }
+        schema = self._schema_with_vector()
+        MilvusResourceMetadata._apply_index_info(client=mock_client, collection_name="col", schema=schema)
+        assert schema["vector"]["index_created"] is True
+        assert schema["vector"]["index_info"]["metric_type"] == "COSINE"
+
+    def test_does_nothing_when_no_indexes_exist(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        mock_client = MagicMock()
+        mock_client.list_indexes.return_value = []
+        schema = self._schema_with_vector()
+        MilvusResourceMetadata._apply_index_info(client=mock_client, collection_name="col", schema=schema)
+        assert "index_created" not in schema["vector"]
+        mock_client.describe_index.assert_not_called()
+
+    def test_skips_field_when_index_not_on_that_field(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        mock_client = MagicMock()
+        mock_client.list_indexes.return_value = ["other_idx"]
+        mock_client.describe_index.return_value = {"field_name": "other_field"}
+        schema = self._schema_with_vector()
+        MilvusResourceMetadata._apply_index_info(client=mock_client, collection_name="col", schema=schema)
+        assert "index_created" not in schema["vector"]
+
+    def test_skips_non_vector_fields(self):
+        """Fields without 'dimension' (non FLOAT_VECTOR) must not be touched."""
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        mock_client = MagicMock()
+        mock_client.list_indexes.return_value = ["idx"]
+        mock_client.describe_index.return_value = {"field_name": "pk"}
+        schema = {"pk": {"type": "VARCHAR", "is_primary": True}}  # no 'dimension' key
+        MilvusResourceMetadata._apply_index_info(client=mock_client, collection_name="col", schema=schema)
+        assert "index_created" not in schema["pk"]
+
+    def test_does_not_overwrite_already_set_index_created(self):
+        """If _collection_columns already set index_created via embedded indexes, skip."""
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        mock_client = MagicMock()
+        mock_client.list_indexes.return_value = ["idx"]
+        schema = self._schema_with_vector(index_created=True)
+        original_info = schema["vector"]["index_info"].copy()
+        MilvusResourceMetadata._apply_index_info(client=mock_client, collection_name="col", schema=schema)
+        mock_client.describe_index.assert_not_called()
+        assert schema["vector"]["index_info"] == original_info
+
+    def test_list_indexes_failure_is_silently_ignored(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        mock_client = MagicMock()
+        mock_client.list_indexes.side_effect = Exception("network error")
+        schema = self._schema_with_vector()
+        # Must not raise
+        MilvusResourceMetadata._apply_index_info(client=mock_client, collection_name="col", schema=schema)
+        assert "index_created" not in schema["vector"]
+
+    def test_describe_index_failure_on_one_index_continues_to_next(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
+
+        mock_client = MagicMock()
+        mock_client.list_indexes.return_value = ["bad_idx", "good_idx"]
+        mock_client.describe_index.side_effect = [
+            Exception("timeout"),  # bad_idx fails
+            {"field_name": "vector", "index_type": "IVF_FLAT", "metric_type": "IP"},  # good_idx succeeds
+        ]
+        schema = self._schema_with_vector()
+        MilvusResourceMetadata._apply_index_info(client=mock_client, collection_name="col", schema=schema)
+        assert schema["vector"]["index_created"] is True
+        assert schema["vector"]["index_info"]["metric_type"] == "IP"
