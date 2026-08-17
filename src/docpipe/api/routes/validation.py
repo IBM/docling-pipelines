@@ -119,10 +119,11 @@ def validate_flow(
             "flow_name": "Simple Ingest Flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "Ingest Documents",
                     "config": {
-                        "folder_path": "/data/documents"
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["/data/documents"]}
                     },
                     "depends_on": []
                 }
@@ -275,7 +276,7 @@ def enrich_flow_features(
                 "version": "3.0",
                 "pipelines": [{
                     "nodes": [
-                        {"id": "node-1", "op": "ingest_local", "parameters": {}},
+                        {"id": "node-1", "op": "ingest_source", "parameters": {}},
                         {"id": "node-2", "op": "chunker", "parameters": {}}
                     ],
                     "app_data": {"ds_flow": {"name": "My Flow", "global_config": {}}}

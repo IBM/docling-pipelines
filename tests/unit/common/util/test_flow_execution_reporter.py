@@ -420,7 +420,7 @@ class TestIntegration:
         assert reporter._flow_start_time is not None
 
         # First operator
-        reporter.print_operator_start(step_name="ingest", operator_type="ingest_local")
+        reporter.print_operator_start(step_name="ingest", operator_type="ingest_source")
         reporter.print_operator_summary(step_name="ingest", node_stats=sample_node_stats, tables=[sample_pyarrow_table])
         assert reporter._current_tables == [sample_pyarrow_table]
 

@@ -54,9 +54,10 @@ def main():
         "flow": [
             {
                 "name": "ingest",
-                "type": "ingest_local",
+                "type": "ingest_source",
                 "config": {
-                    "paths": "./tests/fixtures/invoices",
+                    "provider": "filesystem",
+                    "paths": ["./tests/fixtures/invoices"],
                     "include_filter": "pdf",
                 },
             },

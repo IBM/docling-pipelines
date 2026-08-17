@@ -201,11 +201,11 @@ def main():
         "flow_name": "External App Pipeline",
         "flow": [
             {
-                "type": "ingest_local",
+                "type": "ingest_source",
                 "name": "ingest",
                 "config": {
-                    "paths": ["./sample_data"],
-                    "file_pattern": "*.txt"
+                    "provider": "filesystem",
+                    "connection_params": {"paths": ["./sample_data"]}
                 }
             },
             {
@@ -260,11 +260,11 @@ if __name__ == "__main__":
   "flow_name": "External App Example Flow",
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest",
       "config": {
-        "paths": ["./sample_data"],
-        "file_pattern": "*.txt"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_data"]}
       }
     },
     {
@@ -327,7 +327,7 @@ def test_operator_registration():
     assert "reverse" in short_names
 
     # Check docpipe operators are still present
-    assert "ingest_local" in short_names
+    assert "ingest_source" in short_names
     assert "noop" in short_names
 
 

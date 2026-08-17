@@ -40,8 +40,7 @@ Task-oriented guides to help you accomplish specific goals:
 Configuration examples and patterns for all operators:
 
 ### Core Pipeline Operators
-- **[IngestLocal](operators/ingest/ingest_local_readme.md)** - Ingest documents from local filesystem
-- **[IngestSource](operators/ingest/ingest_source_readme.md)** - Ingest from external sources (S3, SharePoint, etc.)
+- **[IngestSource](operators/ingest/ingest_source_readme.md)** - Ingest documents from local filesystem or external sources (S3, SharePoint, etc.)
 - **[Extract](operators/extract/extract_operator_readme.md)** - Extract text and entities from documents
 - **[Chunker](operators/functional/chunker_readme.md)** - Split documents into chunks
 - **[Embeddings](operators/functional/embeddings_readme.md)** - Generate vector embeddings

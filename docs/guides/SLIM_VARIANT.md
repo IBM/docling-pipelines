@@ -64,7 +64,7 @@ Core operators are available in slim. Optional operator support requires install
 
 | Operator | Default | Optional Group |
 |----------|---------|-----------------|
-| `ingest_local`, `ingest_source` | ✓ | — |
+| `ingest_source` | ✓ | — |
 | `extract_operator` | ✗ | `extract` |
 | `chunker` | ✓ | — |
 | `embeddings` (litellm, watsonx, ollama providers) | ✓ | — |

@@ -41,11 +41,12 @@ def valid_flow_dict_with_output(fixtures_customer_support_dir):
         "description": "Test flow for CLI validation",
         "flow": [
             {
-                "type": OperatorConstants.Operators.INGEST_LOCAL,
+                "type": OperatorConstants.Operators.INGEST_SOURCE,
                 "name": "ingest",
                 "depends_on": [],
                 "config": {
-                    "paths": str(fixtures_customer_support_dir),
+                    "provider": "filesystem",
+                    "connection_params": {"paths": [str(fixtures_customer_support_dir)]},
                     "include_filter": "txt",
                 },
             },
@@ -116,8 +117,8 @@ def elyra_format_file(tmp_path):
                         {
                             "id": "node1",
                             "type": "execution_node",
-                            "op": "ingest_local",
-                            "parameters": {"paths": "./data", "include_filter": "txt"},
+                            "op": "ingest_source",
+                            "parameters": {"provider": "filesystem", "paths": ["./data"], "include_filter": "txt"},
                         }
                     ],
                 }
@@ -339,7 +340,7 @@ class TestIntegrationScenarios:
 
         # Verify operators
         operators = [node["operator"] for node in flow_def["dag"]]
-        assert "ingest_local" in operators
+        assert "ingest_source" in operators
         assert "document_classifier" in operators
         assert "extract_operator" in operators
         assert "chunker" in operators
@@ -353,11 +354,12 @@ class TestIntegrationScenarios:
             "description": "Temporary test flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest",
                     "depends_on": [],
                     "config": {
-                        "paths": str(fixtures_customer_support_dir),
+                        "provider": "filesystem",
+                        "paths": [str(fixtures_customer_support_dir)],
                         "include_filter": "txt",
                     },
                 }
@@ -373,7 +375,7 @@ class TestIntegrationScenarios:
         # After compilation, should have runtime DAG format
         assert "dag" in loaded_flow
         assert len(loaded_flow["dag"]) == 1
-        assert loaded_flow["dag"][0]["operator"] == "ingest_local"
+        assert loaded_flow["dag"][0]["operator"] == "ingest_source"
 
     def test_empty_flow_validation_fails(self, tmp_path):
         """Test that empty flows (no operators) fail validation during load.
@@ -422,10 +424,11 @@ class TestValidateFlowDefinitionRealValidator:
             "description": "Flow with invalid operator config",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "bad_ingest",
                     "depends_on": [],
                     "config": {
+                        "provider": "filesystem",
                         # Missing required 'paths' parameter
                         "include_filter": "txt",
                     },

@@ -94,7 +94,7 @@ class TestFlowServiceCreate:
             name="Test Flow",
             definition={
                 "flow_name": "Test Flow",
-                "flow": [{"type": "ingest_local", "name": "node1", "config": {}, "depends_on": []}],
+                "flow": [{"type": "ingest_source", "name": "node1", "config": {}, "depends_on": []}],
                 "global_config": {},
                 "tags": [],
             },

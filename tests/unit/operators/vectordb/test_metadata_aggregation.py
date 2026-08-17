@@ -373,12 +373,12 @@ class TestMetadataAggregationIntegration:
             feature_mappings=feature_mappings,
         )
 
-        # Simulate row from IngestLocalOperator + ExtractOperator
+        # Simulate row from IngestSourceOperator + ExtractOperator
         row_data = {
             "doc_id_hash": "doc_123",
             "content": "This is a sample document content.",
             "embeddings": [0.1, 0.2, 0.3, 0.4],
-            # IngestLocalOperator columns
+            # IngestSourceOperator columns
             "name": "/data/documents/sample.pdf",
             "size": 2048000,
             "created_time": 1704067200,
@@ -430,12 +430,12 @@ class TestMetadataAggregationIntegration:
             feature_mappings=feature_mappings,
         )
 
-        # Simulate row from IngestLocalOperator (uses 'path' not 'source')
+        # Simulate row from IngestSourceOperator filesystem provider (uses 'path' not 'source')
         row_data = {
             "doc_id_hash": "doc_789",
             "content": "Local document content",
             "embeddings": [0.8, 0.9, 1.0],
-            "path": "/local/path/to/document.pdf",  # IngestLocalOperator uses 'path'
+            "path": "/local/path/to/document.pdf",  # IngestSourceOperator filesystem uses 'path'
             "name": "document.pdf",
             "size": 1024000,
         }

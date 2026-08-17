@@ -1126,10 +1126,11 @@ Message code: INGEST_OPERATOR_MISPLACED
 {
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_1",
       "config": {
-        "paths": "sample_documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["sample_documents"]}
       }
     }
   ]
@@ -1711,10 +1712,11 @@ Message code: EXTRACT_OPERATOR_MISSING
 {
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_1",
       "config": {
-        "paths": "./sample_documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]}
       }
     },
     {
@@ -2045,7 +2047,7 @@ docling-pipelines --flow-file my_flow.json > pipeline.log 2>&1
 ```bash
 # Each operator logs to the same output stream
 # Look for operator name in log messages:
-# [INFO] Operator: ingest_local_folder - Processing...
+# [INFO] Operator: ingest_source_filesystem - Processing...
 ```
 
 **Service logs:**
@@ -2070,8 +2072,8 @@ podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
 **Typical log format:**
 
 ```
-[2024-01-15 10:30:45] [INFO] [ingest_local_folder] Processing folder: sample_documents
-[2024-01-15 10:30:46] [INFO] [ingest_local_folder] Found 5 files
+[2024-01-15 10:30:45] [INFO] [ingest_source_filesystem] Processing folder: sample_documents
+[2024-01-15 10:30:46] [INFO] [ingest_source_filesystem] Found 5 files
 [2024-01-15 10:30:47] [INFO] [extract_operator] Extracting content from file1.pdf
 [2024-01-15 10:30:50] [ERROR] [extract_operator] Failed to extract: Connection refused
 ```

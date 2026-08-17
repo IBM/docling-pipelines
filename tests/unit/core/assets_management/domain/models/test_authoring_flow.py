@@ -15,7 +15,7 @@ class TestAuthoringOperator:
 
     def test_valid_operator(self):
         """Test creating a valid operator."""
-        op = AuthoringOperator(type="ingest_local", name="ingest_docs", config={"paths": "./data"}, depends_on=[])
+        op = AuthoringOperator(type="ingest_source", name="ingest_docs", config={"paths": "./data"}, depends_on=[])
 
         errors = op.validate(all_operator_names={"ingest_docs"}, operator_map={"ingest_docs": op})
 
@@ -32,7 +32,7 @@ class TestAuthoringOperator:
 
     def test_operator_name_with_spaces(self):
         """Test validation fails for operator name with spaces."""
-        op = AuthoringOperator(type="ingest_local", name="test op", config={}, depends_on=[])
+        op = AuthoringOperator(type="ingest_source", name="test op", config={}, depends_on=[])
 
         errors = op.validate(all_operator_names={"test op"}, operator_map={"test op": op})
 
@@ -41,7 +41,7 @@ class TestAuthoringOperator:
 
     def test_operator_name_with_branch_separator(self):
         """Test validation fails for operator name with branch separator."""
-        op = AuthoringOperator(type="ingest_local", name="test.op", config={}, depends_on=[])
+        op = AuthoringOperator(type="ingest_source", name="test.op", config={}, depends_on=[])
 
         errors = op.validate(all_operator_names={"test.op"}, operator_map={"test.op": op})
 
@@ -51,7 +51,7 @@ class TestAuthoringOperator:
     def test_invalid_config_type(self):
         """Test validation fails for non-dict config."""
         op = AuthoringOperator(
-            type="ingest_local",
+            type="ingest_source",
             name="test_op",
             config="invalid",  # type: ignore
             depends_on=[],
@@ -97,7 +97,7 @@ class TestAuthoringFlow:
             description="Test flow",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest", config={"paths": "./data"}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="ingest", config={"paths": "./data"}, depends_on=[]),
                 AuthoringOperator(type="extract_operator", name="extract", config={}, depends_on=["ingest"]),
             ],
             flow_source=FlowSource.CLI,
@@ -111,7 +111,7 @@ class TestAuthoringFlow:
             flow_name="",
             description="Test",
             global_config={},
-            flow=[AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[])],
+            flow=[AuthoringOperator(type="ingest_source", name="ingest", config={}, depends_on=[])],
             flow_source=FlowSource.CLI,
         )
 
@@ -138,7 +138,7 @@ class TestAuthoringFlow:
             description="Test",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="duplicate", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="duplicate", config={}, depends_on=[]),
                 AuthoringOperator(type="extract_operator", name="duplicate", config={}, depends_on=[]),
             ],
             flow_source=FlowSource.CLI,
@@ -157,7 +157,7 @@ class TestAuthoringFlow:
             global_config={},
             flow=[
                 AuthoringOperator(
-                    type="ingest_local",
+                    type="ingest_source",
                     name=None,  # type: ignore
                     config={},
                     depends_on=[],

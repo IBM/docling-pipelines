@@ -34,7 +34,7 @@ def get_binary_content(
 
     Strategy:
     1. If global_config contains ingest_source: Use cloud provider adapter to fetch on-demand
-    2. Otherwise: Read from local file path (existing IngestLocal behavior)
+    2. Otherwise: Read from local file path
 
     Args:
         doc_metadata: Document metadata containing 'path', 'source_id', 'source', etc.
@@ -256,7 +256,7 @@ def _read_from_local_file(
     Read binary content from local filesystem.
 
     This is an internal helper function that handles local file reading,
-    matching the existing IngestLocal behavior.
+    matching the existing IngestSource filesystem behavior.
 
     Args:
         doc_metadata: Document metadata containing 'path' or 'source' key

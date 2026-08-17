@@ -51,9 +51,9 @@ def sample_flow_data_authoring() -> dict[str, Any]:
         "description": "A test flow for unit testing",
         "flow": [
             {
-                "type": "ingest_local",
+                "type": "ingest_source",
                 "name": "ingest_node",
-                "config": {"paths": "./data"},
+                "config": {"provider": "filesystem", "connection_params": {"paths": ["/data/documents"]}},
                 "depends_on": [],
             },
             {
@@ -108,9 +108,9 @@ def sample_authoring_flow_with_id() -> Flow:
         "description": "A test flow for unit testing",
         "flow": [
             {
-                "type": "ingest_local",
+                "type": "ingest_source",
                 "name": "ingest_node",
-                "config": {"paths": "./data"},
+                "config": {"provider": "filesystem", "connection_params": {"paths": ["/data/documents"]}},
                 "depends_on": [],
             },
             {

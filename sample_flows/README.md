@@ -304,9 +304,10 @@ All flows follow this JSON structure:
 ```json
 {
   "name": "ingest",
-  "type": "ingest_local",
+  "type": "ingest_source",
   "config": {
-    "paths": "./your/documents/path",
+    "provider": "filesystem",
+    "connection_params": {"paths": ["./your/documents/path"]},
     "include_filter": "pdf,txt,docx"
   }
 }

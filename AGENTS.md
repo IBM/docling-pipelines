@@ -62,9 +62,8 @@ Flow engine (internal)::src/docpipe/core/orchestration/flow_executor.py::FlowExe
 | `docs/guides/CUSTOM_OPERATORS_GUIDE.md` | Step-by-step guide for creating custom operators |
 | `docs/guides/DOCUMENTATION_STYLE_GUIDE.md` | Operator doc template, file naming rules, Mermaid conventions |
 
-## Operator Registry — 22 OSS Operators
+## Operator Registry — 21 OSS Operators
 <!-- format: Class::short_name::Category::file (relative to src/docpipe/) -->
-IngestLocalOperator::ingest_local::Ingest::core/operators/ingest/ingest_local.py
 IngestSourceOperator::ingest_source::Ingest::core/operators/ingest/ingest_source.py
 ExtractOperator::extract_operator::Extract::core/operators/extract/extract_operator.py
 BranchingOperator::branching::Functional::core/operators/functional/branching_operator.py
@@ -149,7 +148,7 @@ Helper methods inherited from `AbstractOperator`:
     "max_concurrent_batches": 10
   },
   "flow": [
-    { "type": "ingest_local",     "name": "node_a", "config": { "paths": "./docs", "include_filter": "pdf,docx" } },
+    { "type": "ingest_source",    "name": "node_a", "config": { "provider": "filesystem", "connection_params": {"paths": ["./docs"]}, "include_filter": "pdf,docx" } },
     { "type": "extract_operator", "name": "node_b", "config": {}, "depends_on": ["node_a"] },
     { "type": "chunker",          "name": "node_c", "config": {}, "depends_on": ["node_b"] }
   ]
@@ -157,9 +156,9 @@ Helper methods inherited from `AbstractOperator`:
 ```
 
 Pipeline patterns (short_name values):
-- full: ingest_local → extract_operator → chunker → embeddings → vectordb
-- quality: ingest_local → extract_operator → lang_detect → redaction → chunker → embeddings
-- branch: ingest_local → extract_operator → branching → [branch_a, branch_b] → merge
+- full: ingest_source → extract_operator → chunker → embeddings → vectordb
+- quality: ingest_source → extract_operator → lang_detect → redaction → chunker → embeddings
+- branch: ingest_source → extract_operator → branching → [branch_a, branch_b] → merge
 
 ## DDD Layer Pattern
 

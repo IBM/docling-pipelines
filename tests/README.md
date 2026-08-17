@@ -62,10 +62,10 @@ uv run pytest tests/unit/operators/extract/ -v
 uv run pytest tests/unit/operators/chunker/ -v
 
 # Single test file
-uv run pytest tests/unit/operators/ingest/test_ingest_local.py -v
+uv run pytest tests/unit/operators/ingest/test_ingest_source.py -v
 
 # Single test function
-uv run pytest tests/unit/operators/ingest/test_ingest_local.py::TestIngestLocalOperator::test_metadata_only_mode -v
+uv run pytest tests/unit/operators/ingest/test_ingest_source.py::TestTransform::test_transform_success -v
 ```
 
 #### Integration Tests

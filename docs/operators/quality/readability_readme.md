@@ -75,8 +75,8 @@ Each score in `readability_score_list` produces one output column named `<score_
   "flow_name": "Readability Filter",
   "flow": [
     {
-      "name": "ingest", "type": "ingest_local",
-      "config": { "paths": "./documents" }
+      "name": "ingest", "type": "ingest_source",
+      "config": { "provider": "filesystem", "connection_params": {"paths": ["./documents"]} }
     },
     {
       "name": "extract", "type": "extract_operator",

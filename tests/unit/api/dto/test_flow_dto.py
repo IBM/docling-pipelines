@@ -240,7 +240,7 @@ class TestFlowCreateRequestValidation:
                             {
                                 "id": "node1",
                                 "type": "execution_node",
-                                "op": "ingest_local",
+                                "op": "ingest_source",
                                 "parameters": {"path": "/data"},
                                 "app_data": {"ui_data": {}},
                             }
@@ -431,7 +431,7 @@ class TestPaginatedFlowResponseValidation:
                 "nodes": [
                     {
                         "id": "node1",
-                        "operator": "ingest_local",
+                        "operator": "ingest_source",
                         "operator_params": {"path": "/data"},
                     }
                 ],
@@ -518,7 +518,7 @@ class TestAuthoringOperatorDTOValidation:
     def test_operator_minimal_and_complete_fields(self):
         """Test operator with minimal and complete field sets."""
         # Minimal
-        minimal = AuthoringOperatorDTO(type="ingest_local", name="ingest")
+        minimal = AuthoringOperatorDTO(type="ingest_source", name="ingest")
         assert minimal.config == {}
         assert minimal.depends_on == []
 
@@ -540,7 +540,7 @@ class TestAuthoringOperatorDTOValidation:
 
         # Empty name
         with pytest.raises(ValidationError, match="name"):
-            AuthoringOperatorDTO(type="ingest_local", name="")
+            AuthoringOperatorDTO(type="ingest_source", name="")
 
         # Type too long (>256 chars)
         with pytest.raises(ValidationError, match="type"):
@@ -548,7 +548,7 @@ class TestAuthoringOperatorDTOValidation:
 
         # Name too long (>256 chars)
         with pytest.raises(ValidationError, match="name"):
-            AuthoringOperatorDTO(type="ingest_local", name="x" * 257)
+            AuthoringOperatorDTO(type="ingest_source", name="x" * 257)
 
     def test_operator_complex_config_and_dependencies(self):
         """Test operator with nested config and multiple dependencies."""
@@ -574,7 +574,7 @@ class TestAuthoringFlowCreateRequestValidation:
         # Minimal
         minimal = AuthoringFlowCreateRequest(
             flow_name="simple",
-            flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest")],
+            flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest")],
         )
         assert minimal.description is None
         assert minimal.global_config == {}
@@ -585,7 +585,7 @@ class TestAuthoringFlowCreateRequestValidation:
             flow_name="complete-pipeline",
             description="Full pipeline",
             flow=[
-                AuthoringOperatorDTO(type="ingest_local", name="ingest", config={"path": "./data"}),
+                AuthoringOperatorDTO(type="ingest_source", name="ingest", config={"path": "./data"}),
                 AuthoringOperatorDTO(type="extract_operator", name="extract", depends_on=["ingest"]),
             ],
             global_config={"doc_column": "content"},
@@ -601,14 +601,14 @@ class TestAuthoringFlowCreateRequestValidation:
         with pytest.raises(ValidationError, match="flow_name"):
             AuthoringFlowCreateRequest(
                 flow_name="",
-                flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest")],
+                flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest")],
             )
 
         # flow_name too long (>256 chars)
         with pytest.raises(ValidationError, match="flow_name"):
             AuthoringFlowCreateRequest(
                 flow_name="x" * 257,
-                flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest")],
+                flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest")],
             )
 
         # Empty flow list
@@ -627,14 +627,14 @@ class TestAuthoringFlowCreateRequestValidation:
             AuthoringFlowCreateRequest(
                 flow_name="test",
                 description="x" * 10001,
-                flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest")],
+                flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest")],
             )
 
         # Too many tags (>36)
         with pytest.raises(ValidationError, match="tags"):
             AuthoringFlowCreateRequest(
                 flow_name="test",
-                flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest")],
+                flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest")],
                 tags=[f"tag{i}" for i in range(37)],
             )
 
@@ -643,7 +643,7 @@ class TestAuthoringFlowCreateRequestValidation:
         dto = AuthoringFlowCreateRequest(
             flow_name="branch-merge",
             flow=[
-                AuthoringOperatorDTO(type="ingest_local", name="ingest"),
+                AuthoringOperatorDTO(type="ingest_source", name="ingest"),
                 AuthoringOperatorDTO(
                     type="branching",
                     name="classify",
@@ -670,7 +670,7 @@ class TestAuthoringFlowCreateRequestValidation:
         dto = AuthoringFlowCreateRequest(
             flow_name="RAG Pipeline",
             flow=[
-                AuthoringOperatorDTO(type="ingest_local", name="ingest", config={"paths": "./docs"}),
+                AuthoringOperatorDTO(type="ingest_source", name="ingest", config={"paths": "./docs"}),
                 AuthoringOperatorDTO(type="extract_operator", name="extract", depends_on=["ingest"]),
                 AuthoringOperatorDTO(type="chunker", name="chunk", depends_on=["extract"], config={"chunk_size": 512}),
                 AuthoringOperatorDTO(type="embeddings", name="embed", depends_on=["chunk"]),
@@ -685,7 +685,7 @@ class TestAuthoringFlowCreateRequestValidation:
         """Test tag deduplication and order preservation."""
         dto = AuthoringFlowCreateRequest(
             flow_name="test",
-            flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest")],
+            flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest")],
             tags=["zebra", "alpha", "beta", "alpha", "zebra"],
         )
         assert dto.tags == ["zebra", "alpha", "beta"]
@@ -695,7 +695,7 @@ class TestAuthoringFlowCreateRequestValidation:
         # Default values when not provided
         dto = AuthoringFlowCreateRequest(
             flow_name="test",
-            flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest")],
+            flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest")],
         )
         assert dto.flow[0].config == {}
         assert dto.flow[0].depends_on == []
@@ -712,7 +712,7 @@ class TestAuthoringFlowCreateRequestValidation:
         # Unicode and special chars
         unicode_dto = AuthoringFlowCreateRequest(
             flow_name="Test 测试 🚀",
-            flow=[AuthoringOperatorDTO(type="ingest_local", name="ingest-docs_v2")],
+            flow=[AuthoringOperatorDTO(type="ingest_source", name="ingest-docs_v2")],
         )
         assert "测试" in unicode_dto.flow_name
         assert unicode_dto.flow[0].name == "ingest-docs_v2"

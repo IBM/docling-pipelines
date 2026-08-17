@@ -60,12 +60,12 @@ python examples/noop_operator_example.py
 
 ### Ingestion Operators
 
-#### [`ingest_local_folder_example.py`](ingest_local_folder_example.py)
+#### [`ingest_filesystem_example.py`](ingest_filesystem_example.py)
 
-Demonstrates ingesting documents from a local folder.
+Demonstrates ingesting documents from a local folder using `ingest_source` with the `filesystem` provider.
 
 ```bash
-python examples/ingest_local_folder_example.py
+python examples/ingest_filesystem_example.py
 ```
 
 #### [`ingest_source_example.py`](ingest_source_example.py)

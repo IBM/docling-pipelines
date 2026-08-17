@@ -120,18 +120,18 @@ When creating flows via the REST API, a `flow_id` is automatically generated and
 
 ## Operator Configuration
 
-### Operator 1: IngestLocalOperator
+### Operator 1: IngestSourceOperator
 
 Reads files from a local directory:
 
 ```json
 {
   "name": "ingest",
-  "type": "ingest_local",
+  "type": "ingest_source",
   "config": {
-    "paths": "./tests/fixtures/invoices",
-    "include_filter": ".pdf",
-    "max_workers": 2
+    "provider": "filesystem",
+    "connection_params": {"paths": ["./tests/fixtures/invoices"]},
+    "include_filter": ".pdf"
   }
 }
 ```
@@ -560,9 +560,10 @@ This creates a dependency where the `extract` operator will only run after the `
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
         "include_filter": ".pdf,.txt"
       }
     },
@@ -597,9 +598,10 @@ This creates a dependency where the `extract` operator will only run after the `
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
         "include_filter": ".pdf"
       }
     },

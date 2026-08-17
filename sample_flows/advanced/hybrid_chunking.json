@@ -15,9 +15,14 @@
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./tests/fixtures/customer_support_docs",
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./tests/fixtures/customer_support_docs"
+          ]
+        },
         "include_filter": "txt"
       }
     },

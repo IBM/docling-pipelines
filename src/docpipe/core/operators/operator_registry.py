@@ -26,7 +26,6 @@ from docpipe.core.operators.functional.merge import MergeOperator
 from docpipe.core.operators.functional.noop import NOOPOperator
 
 # Ingest Operators
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
 from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 # Quality Operators
@@ -53,7 +52,6 @@ DOCPIPE_OPERATORS = frozenset(
         # Extract
         ExtractOperator,
         # Ingest
-        IngestLocalOperator,
         IngestSourceOperator,
         # Functional
         BranchingOperator,

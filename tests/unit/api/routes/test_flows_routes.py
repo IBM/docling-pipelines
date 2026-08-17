@@ -218,7 +218,7 @@ class TestCreateFlowEndpoint:
             "flow_name": "Test Flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest_node",
                     "config": {"paths": "./data"},
                 },
@@ -274,7 +274,7 @@ class TestCreateFlowEndpoint:
             "flow_name": "Test Flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest_node",
                     "config": {"paths": "./data"},
                 },
@@ -306,7 +306,7 @@ class TestCreateFlowEndpoint:
             "flow_name": "complete-document-pipeline",
             "description": "Complete RAG pipeline",
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {"paths": "./docs"}},
+                {"type": "ingest_source", "name": "ingest", "config": {"paths": "./docs"}},
                 {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
                 {"type": "chunker", "name": "chunk", "depends_on": ["extract"], "config": {"chunk_size": 512}},
                 {"type": "embeddings", "name": "embed", "depends_on": ["chunk"]},
@@ -332,7 +332,7 @@ class TestCreateFlowEndpoint:
         request_data = {
             "flow_name": "branching-pipeline",
             "flow": [
-                {"type": "ingest_local", "name": "ingest"},
+                {"type": "ingest_source", "name": "ingest"},
                 {
                     "type": "branching",
                     "name": "classify",
@@ -361,7 +361,7 @@ class TestCreateFlowEndpoint:
         request_data = {
             "flow_name": "invalid-flow",
             "flow": [
-                {"type": "ingest_local", "config": {"paths": "./data"}},  # Missing 'name'
+                {"type": "ingest_source", "config": {"paths": "./data"}},  # Missing 'name'
             ],
         }
 
@@ -701,7 +701,7 @@ class TestUpdateFlowEndpoint:
         updated_flow.definition = {
             "flow_name": "updated-pipeline",
             "description": "Updated description",
-            "flow": [{"type": "ingest_local", "name": "ingest", "config": {}}],
+            "flow": [{"type": "ingest_source", "name": "ingest", "config": {}}],
             "global_config": {},
             "tags": ["updated"],
         }
@@ -711,7 +711,7 @@ class TestUpdateFlowEndpoint:
         request_data = {
             "flow_name": "updated-pipeline",
             "description": "Updated description",
-            "flow": [{"type": "ingest_local", "name": "ingest", "config": {}}],
+            "flow": [{"type": "ingest_source", "name": "ingest", "config": {}}],
             "global_config": {},
             "tags": ["updated"],
         }
@@ -791,7 +791,7 @@ class TestPartialUpdateFlowEndpoint:
         updated_flow.definition = {
             "flow_name": "new-flow-name",
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "ingest_source", "name": "ingest", "config": {}},
             ],
             "global_config": {"doc_column": "content"},
             "description": "Test flow",
@@ -818,7 +818,7 @@ class TestPartialUpdateFlowEndpoint:
         updated_flow.definition = {
             "flow_name": "test-flow",
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "ingest_source", "name": "ingest", "config": {}},
                 {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
             ],
             "global_config": {"doc_column": "content"},
@@ -828,7 +828,7 @@ class TestPartialUpdateFlowEndpoint:
         override_service.partial_update_flow.return_value = updated_flow
         request_data = {
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "ingest_source", "name": "ingest", "config": {}},
                 {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
             ],
             "global_config": {"doc_column": "content"},
@@ -961,7 +961,7 @@ class TestPartialUpdateFlowEndpoint:
         """Test partially updating a flow with empty body returns 200."""
         # Arrange
         override_service.partial_update_flow.return_value = sample_flow_with_id
-        request_data: dict[str, object] = {}
+        request_data: dict = {}
 
         # Act - Use is_elyra=true to match Elyra format fixtures
         response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)

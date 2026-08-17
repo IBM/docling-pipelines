@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from docpipe.core.operators.extract.extract_operator import ExtractOperator
 from docpipe.core.operators.functional.chunker import ChunkerOperator, ChunkType
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 
 def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
@@ -50,9 +50,10 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
     # 1. Ingest files
     # Use absolute path to avoid path issues
     fixtures_path = Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
-    ingest_operator: IngestLocalOperator = IngestLocalOperator(
+    ingest_operator: IngestSourceOperator = IngestSourceOperator(
         {
-            "paths": str(fixtures_path),
+            "provider": "filesystem",
+            "connection_params": {"paths": [str(fixtures_path)]},
             "include_filter": "pdf,txt",
             "force_ingest": True,
         }
@@ -65,7 +66,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
 
     # 2. Extract text content from binary
     extract_operator: ExtractOperator = ExtractOperator(
-        {
+        config={
             "text_extraction": {"provider": "docling_library", "doc_column": "content"},
             "entity_extraction": {"provider": "none"},
         }
@@ -162,9 +163,10 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
     # 1. Ingest files
     # Use absolute path to avoid path issues
     fixtures_path = Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
-    ingest_operator: IngestLocalOperator = IngestLocalOperator(
+    ingest_operator: IngestSourceOperator = IngestSourceOperator(
         {
-            "paths": str(fixtures_path),
+            "provider": "filesystem",
+            "connection_params": {"paths": [str(fixtures_path)]},
             "include_filter": "pdf,txt",
             "force_ingest": True,
         }
@@ -177,7 +179,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
 
     # 2. Extract text content from binary
     extract_operator: ExtractOperator = ExtractOperator(
-        {
+        config={
             "text_extraction": {"provider": "docling_library", "doc_column": "content"},
             "entity_extraction": {"provider": "none"},
         }

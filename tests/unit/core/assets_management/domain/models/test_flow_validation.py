@@ -239,7 +239,7 @@ class TestFlowDefinitionValidation:
         """Test validation passes with docling-pipelines format definition."""
         # Arrange
         definition = {
-            "nodes": [{"id": "node1", "operator_type": "IngestLocalFolder"}],
+            "nodes": [{"id": "node1", "operator_type": "IngestSourceOperator"}],
         }
         flow = Flow(name="Test", definition=definition)
 

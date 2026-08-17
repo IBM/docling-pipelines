@@ -118,9 +118,10 @@ Create a flow JSON file (`hello_flow.json`):
   "flow": [
     {
       "name": "ingest_1",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": ["./sample_documents"]
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]}
       }
     },
     {
@@ -476,9 +477,10 @@ Reference custom operators by their `short_name` in flow JSON files:
   "flow": [
     {
       "name": "ingest_1",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": ["./documents"]
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]}
       }
     },
     {

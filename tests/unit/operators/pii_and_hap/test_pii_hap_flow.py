@@ -25,7 +25,7 @@ def test_pii_hap_with_ollama():
 
     # Fix the paths to be absolute
     for node in flow_def["dag"]:
-        if node.get("operator") == "ingest_local" and "paths" in node.get("config", {}):
+        if node.get("operator") == "ingest_source" and "paths" in node.get("config", {}):
             relative_path = node["config"]["paths"]
             absolute_path = str(project_root / relative_path)
             node["config"]["paths"] = absolute_path

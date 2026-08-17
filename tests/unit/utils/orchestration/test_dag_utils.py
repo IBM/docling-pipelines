@@ -181,7 +181,7 @@ class TestExtractDagNodes:
             {
                 "id": "node-uuid-1",
                 "name": "ingest",
-                "operator": "ingest_local",
+                "operator": "ingest_source",
                 "input_edges": [],
                 "output_edges": [{"node_id_ref": "node-uuid-2"}],
             },

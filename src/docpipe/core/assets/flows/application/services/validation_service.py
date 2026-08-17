@@ -44,9 +44,12 @@ class ValidationService:
                 "flow_name": "My Pipeline",
                 "flow": [
                     {
-                        "type": "ingest_local",
+                        "type": "ingest_source",
                         "name": "Ingest",
-                        "config": {"folder_path": "/data"},
+                        "config": {
+                            "provider": "filesystem",
+                            "connection_params": {"paths": ["/data/documents"]}
+                        }
                         "depends_on": []
                     }
                 ]
@@ -266,7 +269,7 @@ class ValidationService:
                     "nodes": [
                         {
                             "id": "ingest-1",
-                            "operator_type": "IngestLocalOperator",
+                            "operator_type": "IngestSourceOperator",
                             "operator_params": {"folder_path": "/data"}
                         }
                     ],

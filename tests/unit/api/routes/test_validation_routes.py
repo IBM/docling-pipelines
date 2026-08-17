@@ -340,7 +340,7 @@ class TestValidationAlertDTOStructure:
                     "message_code": "operator.not_found",
                     "node_id": "550e8400-e29b-41d4-a716-446655440001",
                     "node_name": "Ingest Node",
-                    "operator": "IngestLocalOperator",
+                    "operator": "IngestSourceOperator",
                 }
             ],
             "warnings": [],
@@ -358,7 +358,7 @@ class TestValidationAlertDTOStructure:
         assert error["message_code"] == "operator.not_found"
         assert error["node_id"] == "550e8400-e29b-41d4-a716-446655440001"
         assert error["node_name"] == "Ingest Node"
-        assert error["operator"] == "IngestLocalOperator"
+        assert error["operator"] == "IngestSourceOperator"
 
     def test_validation_alert_dto_accepts_minimal_fields(self, client, override_service, sample_flow_data):
         """Test that ValidationAlertDTO works with minimal fields."""
@@ -504,7 +504,7 @@ def _minimal_elyra_flow(**extra: Any) -> dict[str, Any]:
         "pipelines": [
             {
                 "nodes": [
-                    {"id": "node-1", "op": "ingest_local", "parameters": {}},
+                    {"id": "node-1", "op": "ingest_source", "parameters": {}},
                     {"id": "node-2", "op": "chunker", "parameters": {}},
                 ],
                 "app_data": {"ds_flow": {"name": "Test Flow", "global_config": {}}},
@@ -524,7 +524,7 @@ def _enriched_flow() -> dict[str, Any]:
                 "nodes": [
                     {
                         "id": "node-1",
-                        "op": "ingest_local",
+                        "op": "ingest_source",
                         "parameters": {
                             "available_features": {},
                             "input_features": {},

@@ -29,7 +29,7 @@ def test_frozenset_loading():
     # Check that we have the expected operators
     expected_operators = [
         "extract_operator",
-        "ingest_local",
+        "ingest_source",
         "chunker",
         "embeddings",
         "noop",

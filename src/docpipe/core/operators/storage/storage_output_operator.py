@@ -109,7 +109,7 @@ def _extract_source_relative_path(
        ``sub01/report.pdf``).  The absolute file path is resolved from
        ``metadata["absolute_path"]`` or ``row["path"]`` for the match.
     2. ``metadata["key"]`` stripped of ``source_prefix`` — for S3 ``ingest_source`` rows.
-    3. ``row["path"]`` stripped of ``ingest_root`` — for ``ingest_local`` rows which have
+    3. ``row["path"]`` stripped of ``ingest_root`` — for ``ingest_source`` (filesystem) rows which have
        no ``metadata`` column but carry the absolute path in ``path``.
 
     Returns the relative path (e.g. ``sub01/report.pdf``) when it can be determined,
@@ -151,7 +151,7 @@ def _extract_source_relative_path(
             relative = normalised_key[len(normalised_prefix) :]
             return relative.lstrip("/") or None
 
-    # 3. For ingest_local rows: derive from the absolute path in the row using the ingest root.
+    # 3. For ingest_source (filesystem) rows: derive from the absolute path in the row using the ingest root.
     abs_path = row.get("path") or row.get("name")
     if abs_path and ingest_root:
         try:
@@ -332,7 +332,7 @@ class StorageOutputOperator(AbstractOperator):
         # Source paths list — used in hierarchical mode to prefix each root's folder name.
         source_paths: list[str] | None = connection_params.get("paths") or None
 
-        # For ingest_local rows there is no metadata column.  Derive the ingest root from
+        # For ingest_source (filesystem) rows there is no metadata column.  Derive the ingest root from
         # the common directory ancestor of all absolute paths in the batch so that the
         # sub-directory structure can be reconstructed at the destination.
         ingest_root: str | None = None

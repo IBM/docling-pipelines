@@ -118,7 +118,7 @@ class TestEnrichFlowWithFeaturesGuards:
             service = FlowEnrichmentService(validator_factory=lambda: mock_validator)
 
         with pytest.raises(FlowValidationException):
-            service.enrich_flow_with_features(flow_definition=_minimal_elyra_flow(("node-1", "ingest_local")))
+            service.enrich_flow_with_features(flow_definition=_minimal_elyra_flow(("node-1", "ingest_source")))
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +258,7 @@ class TestEnrichFlowWithFeaturesMetadataInjection:
         flow = {
             "doc_type": "pipeline",
             "pipelines": [
-                {"nodes": [{"id": "node-1", "op": "ingest_local", "parameters": {}}], "app_data": {}},
+                {"nodes": [{"id": "node-1", "op": "ingest_source", "parameters": {}}], "app_data": {}},
                 {"nodes": [{"id": "node-2", "op": "chunker", "parameters": {}}], "app_data": {}},
             ],
         }
@@ -345,7 +345,7 @@ class TestBuildNodeFeatureMetadataAvailableFeatures:
         for op in (
             OperatorConstants.Operators.CHUNKER,
             OperatorConstants.Operators.EMBEDDINGS,
-            OperatorConstants.Operators.INGEST_LOCAL,
+            OperatorConstants.Operators.INGEST_SOURCE,
             OperatorConstants.Operators.EXTRACT_OPERATOR,
             OperatorConstants.Operators.LANG_DETECT,
         ):

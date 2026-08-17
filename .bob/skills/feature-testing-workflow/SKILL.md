@@ -137,10 +137,11 @@ Create a JSON flow file with:
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_test_docs",
       "config": {
-        "paths": "tests/fixtures/customer_support_docs",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["tests/fixtures/customer_support_docs"]},
         "include_filter": "txt"
       }
     },

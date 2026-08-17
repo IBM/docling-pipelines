@@ -8,16 +8,23 @@
   "flow": [
     {
       "name": "ingest_1",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": ["./sample_documents/hello.txt"]
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./sample_documents/hello.txt"
+          ]
+        }
       }
     },
     {
       "name": "hello_1",
       "type": "hello",
       "config": {},
-      "depends_on": ["ingest_1"]
+      "depends_on": [
+        "ingest_1"
+      ]
     }
   ]
 }

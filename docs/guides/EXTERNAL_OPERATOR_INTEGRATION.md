@@ -100,9 +100,9 @@ flow_def = {
     "flow_name": "My Pipeline",
     "flow": [
         {
-            "type": "ingest_local",
+            "type": "ingest_source",
             "name": "ingest",
-            "config": {"paths": ["./data"]}
+            "config": {"provider": "filesystem", "connection_params": {"paths": ["./data"]}}
         },
         {
             "type": "my_custom_op",  # Your custom operator!

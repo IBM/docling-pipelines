@@ -643,7 +643,7 @@ Docpipe provides clean, formatted console output showing pipeline progress in re
  Started: 2024-01-15 10:30:00
 ================================================================================
 
-[ingest] Starting ingest_local...
+[ingest] Starting ingest_source...
 
 ================================================================================
  ingest (COMPLETED)

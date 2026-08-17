@@ -32,9 +32,10 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9500",
                     "name": "ingest",
-                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_SOURCE,
                     "config": {
-                        "paths": "tests/fixtures/customer_support_docs",
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["tests/fixtures/customer_support_docs"]},
                         "include_filter": "txt",
                     },
                     "input_edges": [],
@@ -153,9 +154,10 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9510",
                     "name": "ingest",
-                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_SOURCE,
                     "config": {
-                        "paths": "tests/fixtures/customer_support_docs",
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["tests/fixtures/customer_support_docs"]},
                         "include_filter": "txt",
                     },
                     "input_edges": [],

@@ -14,7 +14,6 @@ title: Operator Reference
     - [Common Operator Contract](#common-operator-contract)
       - [Operator Ownership Attribute](#operator-ownership-attribute)
     - [Ingest Operators](#ingest-operators)
-      - [IngestLocalOperator](#ingestlocaloperator)
       - [IngestSourceOperator](#ingestsourceoperator)
     - [Extract Operators](#extract-operators)
       - [ExtractOperator](#extractoperator)
@@ -154,58 +153,6 @@ owner: str = "custom"  # MUST be set for all custom operators
 For full details on the priority system, override behaviour, and registering custom tiers, see [CONTRIBUTING.md — Custom Operator Requirements](../../CONTRIBUTING.md#custom-operator-requirements) and [External Operator Integration — Operator Priority](../guides/EXTERNAL_OPERATOR_INTEGRATION.md#operator-priority-and-override).
 
 ### Ingest Operators
-
-#### IngestLocalOperator
-
-**Purpose:** Discover files in a local file or directory and collect metadata for downstream extraction.
-
-**Category:** Ingest
-
-**Class:** `core.operators.ingest.ingest_local.IngestLocalOperator`
-
-| Parameter             | Type        | Required | Default              | Description                                                                             |
-| --------------------- | ----------- | -------: | -------------------- | --------------------------------------------------------------------------------------- |
-| `paths`               | string/list |      Yes | `../test-data/input` | Path(s) to file(s) or folder(s) to ingest. Can be a single path string or list of paths |
-| `include_filter`      | string      |       No | -                    | Comma-separated extensions to include                                                   |
-| `exclude_filter`      | string      |       No | -                    | Comma-separated extensions to exclude                                                   |
-| `max_files`           | int         |       No | `100`                | Maximum number of files to ingest                                                       |
-| `max_file_size`       | int         |       No | `100`                | Maximum file size in MB                                                                 |
-| `force_ingest`        | bool        |       No | `false`              | Reprocess already-seen documents                                                        |
-| `retain_deleted_docs` | bool        |       No | project constant     | Retain source-deleted docs in incremental scenarios                                     |
-
-**Input Schema**
-
-- No input table required
-
-**Output Schema**
-
-- `id`
-- `name`
-- `size`
-- `created_time`
-- `modified_time`
-
-**Exceptions**
-
-- `ValueError`
-- file system errors
-- incremental update utility failures
-
-**Example**
-
-```json
-{
-  "id": "ingest-node",
-  "name": "ingest",
-  "operator": "ingest_local",
-  "config": {
-    "paths": "./tests/fixtures/invoices",
-    "include_filter": ".pdf"
-  }
-}
-```
-
----
 
 #### IngestSourceOperator
 
@@ -2439,7 +2386,7 @@ Common upstream fields from the sample flow:
 **Flow Pattern**
 
 ```text
-IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
+IngestSourceOperator -> ExtractOperator -> DocumentSetOperator
 ```
 
 **End-to-End Flow Example**
@@ -2454,10 +2401,11 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_documents",
       "config": {
-        "paths": "./documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
         "include_filter": "pdf,txt"
       }
     },
@@ -2595,7 +2543,7 @@ All input columns are passed through unchanged. The following columns are append
 **Flow Pattern**
 
 ```text
-IngestLocalOperator / IngestSourceOperator -> ExtractOperator -> StorageOutputOperator
+IngestSourceOperator -> ExtractOperator -> StorageOutputOperator
 ```
 
 For full provider reference, operating mode details, and per-provider examples see [`docs/operators/storage/storage_output_readme.md`](../operators/storage/storage_output_readme.md).

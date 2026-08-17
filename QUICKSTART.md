@@ -128,7 +128,7 @@ Docpipe provides clean, formatted console output showing pipeline progress in re
  Started: 2024-01-15 10:30:00
 ================================================================================
 
-[ingest] Starting ingest_local...
+[ingest] Starting ingest_source...
 
 ================================================================================
  ingest (COMPLETED)
@@ -154,7 +154,7 @@ Docpipe provides clean, formatted console output showing pipeline progress in re
  Operator Summary:
  Operator                       Status               Duration     Docs
  ------------------------------------------------------------------------------
- ingest_local_folder            Completed            < 1s         2/2
+ ingest_source_filesystem       Completed            < 1s         2/2
  extract_with_docling           Completed            < 1s         2/2
  simple_chunker                 Completed            1.00s        2/2
  ollama_embeddings              Completed            1.00s        2/2

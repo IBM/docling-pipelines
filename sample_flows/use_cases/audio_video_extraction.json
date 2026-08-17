@@ -11,9 +11,10 @@
   "flow": [
     {
       "name": "ingest_audio_video",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./sample_documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]},
         "include_filter": "wav,mp3,mp4,m4a"
       }
     },

@@ -39,7 +39,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         cls.dag = cls.flow_def["dag"]
 
         # Find nodes by operator type
-        cls.ingest_node = next(n for n in cls.dag if n["operator"] == "ingest_local")
+        cls.ingest_node = next(n for n in cls.dag if n["operator"] == "ingest_source")
         cls.doc_id_node = next(n for n in cls.dag if n["operator"] == "doc_id_hash")
         cls.chunker_node = next(n for n in cls.dag if n["operator"] == "chunker")
         cls.embeddings_node = next(n for n in cls.dag if n["operator"] == "embeddings")
@@ -55,7 +55,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         """Test that all nodes are properly configured"""
         # Test ingest node
         self.assertEqual(self.ingest_node["name"], "ingest_documents")
-        self.assertEqual(self.ingest_node["operator"], "ingest_local")
+        self.assertEqual(self.ingest_node["operator"], "ingest_source")
         self.assertIn("paths", self.ingest_node["config"])
 
         # Test OpenSearch node

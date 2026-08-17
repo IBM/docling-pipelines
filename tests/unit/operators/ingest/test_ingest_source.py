@@ -5,7 +5,7 @@ Tests the operator with various providers and configurations using mocks.
 """
 
 from datetime import UTC
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pyarrow as pa
 import pytest
@@ -936,3 +936,335 @@ class TestIngestSourceOperatorProcessDocumentUrlExtensionFallback:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestValidateExtensions:
+    """Tests for _validate_extensions — covers lines 363-378."""
+
+    def test_invalid_include_extension_raises(self):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        with pytest.raises(ValueError, match="Unsupported file extensions in include_filter"):
+            IngestSourceOperator(
+                {
+                    "provider": "s3",
+                    "connection_params": {"bucket": "b"},
+                    "credentials": {},
+                    "include_filter": ".xyz_unsupported_ext",
+                }
+            )
+
+    def test_invalid_exclude_extension_raises(self):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        with pytest.raises(ValueError, match="Unsupported file extensions in exclude_filter"):
+            IngestSourceOperator(
+                {
+                    "provider": "s3",
+                    "connection_params": {"bucket": "b"},
+                    "credentials": {},
+                    "exclude_filter": ".xyz_unsupported_ext",
+                }
+            )
+
+
+class TestIsHiddenPath:
+    """Tests for _is_hidden_path — covers lines 825-828."""
+
+    def _operator(self):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        return IngestSourceOperator({"provider": "s3", "connection_params": {"bucket": "b"}, "credentials": {}})
+
+    def test_hidden_component_is_hidden(self):
+        assert self._operator()._is_hidden_path("docs/.hidden/file.pdf") is True
+
+    def test_no_hidden_component_is_not_hidden(self):
+        assert self._operator()._is_hidden_path("docs/public/file.pdf") is False
+
+
+class TestProcessDocumentStringModifiedTime:
+    """Cover the modified_time string-parsing branch (lines 755-762)."""
+
+    def test_iso_string_modified_time_parsed(self):
+        from langchain_core.documents import Document
+
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        operator = IngestSourceOperator({"provider": "s3", "connection_params": {"bucket": "b"}, "credentials": {}})
+        metadata = operator.create_base_metadata(total_docs_count=1)
+
+        doc = Document(
+            page_content="",
+            metadata={
+                "source": "file.pdf",
+                "name": "file.pdf",
+                "last_modified": "2024-01-15T12:00:00Z",
+            },
+        )
+
+        result = operator.process_document(doc, 0, metadata)
+        assert result is not None
+        # modified_time should have been parsed from string to int
+        assert isinstance(result["modified_time"], int)
+        assert result["modified_time"] > 0
+
+    def test_unparseable_modified_time_defaults_to_zero(self):
+        from langchain_core.documents import Document
+
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        operator = IngestSourceOperator({"provider": "s3", "connection_params": {"bucket": "b"}, "credentials": {}})
+        metadata = operator.create_base_metadata(total_docs_count=1)
+
+        doc = Document(
+            page_content="",
+            metadata={
+                "source": "file.pdf",
+                "name": "file.pdf",
+                "last_modified": "not-a-date",
+            },
+        )
+
+        result = operator.process_document(doc, 0, metadata)
+        assert result is not None
+        assert result["modified_time"] == 0
+
+
+class TestProcessDocumentsCustomLoader:
+    """Cover the non-adapter (custom loader) code path in process_documents."""
+
+    @patch("docpipe.core.incremental_metadata.get_incremental_update_service")
+    def test_process_documents_via_custom_loader(self, mock_get_service):
+        from unittest.mock import patch as _patch
+
+        from langchain_core.documents import Document
+
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        mock_service = MagicMock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_get_service.return_value = mock_service
+
+        operator = IngestSourceOperator(
+            {
+                "provider": "custom",
+                "connection_params": {"loader_class_path": "fake.Loader"},
+                "credentials": {},
+                "force_ingest": True,
+            }
+        )
+
+        mock_loader = MagicMock()
+        mock_loader.lazy_load.return_value = iter(
+            [
+                Document(page_content="", metadata={"source": "doc.pdf", "name": "doc.pdf"}),
+            ]
+        )
+
+        with _patch.object(operator, "_get_loader", return_value=mock_loader):
+            doc_data = operator.process_documents({})
+
+        assert len(doc_data) == 1
+        assert doc_data[0]["name"] == "doc.pdf"
+
+
+# ---------------------------------------------------------------------------
+# MicrosoftGraphLoader tests — covers lines 56-227
+# ---------------------------------------------------------------------------
+
+
+class TestMicrosoftGraphLoaderInit:
+    def _make_loader(self, folder_path=None):
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        return MicrosoftGraphLoader(
+            drive_id="drive-1",
+            client_id="client-1",
+            client_secret="secret",  # pragma: allowlist secret
+            tenant_id="tenant-1",
+            folder_path=folder_path,
+            recursive=True,
+        )
+
+    def test_init_stores_params(self):
+        loader = self._make_loader()
+        assert loader.drive_id == "drive-1"
+        assert loader.client_id == "client-1"
+        assert loader.recursive is True
+        assert loader._token is None
+
+    @patch("msal.ConfidentialClientApplication")
+    def test_get_token_success(self, mock_msal_cls):
+        loader = self._make_loader()
+        mock_app = MagicMock()
+        mock_app.acquire_token_for_client.return_value = {"access_token": "tok123"}
+        mock_msal_cls.return_value = mock_app
+
+        token = loader._get_token()
+
+        assert token == "tok123"
+        assert loader._token == "tok123"  # cached
+
+    @patch("msal.ConfidentialClientApplication")
+    def test_get_token_returns_cached(self, mock_msal_cls):
+        loader = self._make_loader()
+        loader._token = "cached-tok"
+
+        token = loader._get_token()
+
+        assert token == "cached-tok"
+        mock_msal_cls.assert_not_called()
+
+    @patch("msal.ConfidentialClientApplication")
+    def test_get_token_missing_access_token_raises(self, mock_msal_cls):
+        loader = self._make_loader()
+        mock_app = MagicMock()
+        mock_app.acquire_token_for_client.return_value = {"error": "invalid_client"}
+        mock_msal_cls.return_value = mock_app
+
+        with pytest.raises(ValueError, match="Failed to acquire Microsoft Graph token"):
+            loader._get_token()
+
+    def test_list_files_no_folder(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        loader._rest_client.call_rest_json.return_value = {
+            "value": [
+                {"name": "file.pdf", "id": "f1", "size": 100},
+            ]
+        }
+
+        files = loader._list_files()
+
+        assert len(files) == 1
+        assert files[0]["name"] == "file.pdf"
+
+    def test_list_files_with_folder_item_id(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        loader._rest_client.call_rest_json.return_value = {"value": []}
+
+        files = loader._list_files(folder_item_id="folder-123")
+
+        assert files == []
+        call_url = loader._rest_client.call_rest_json.call_args.kwargs["url"]
+        assert "folder-123" in call_url
+
+    def test_list_files_recursive_subfolder(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        # First call returns a folder item; second call returns a real file
+        loader._rest_client.call_rest_json.side_effect = [
+            {"value": [{"folder": {}, "id": "sub1", "name": "subfolder"}]},
+            {"value": [{"name": "nested.pdf", "id": "n1", "size": 50}]},
+        ]
+
+        files = loader._list_files()
+
+        assert len(files) == 1
+        assert files[0]["name"] == "nested.pdf"
+
+    def test_list_files_pagination(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        loader._rest_client.call_rest_json.side_effect = [
+            {
+                "value": [{"name": "page1.pdf", "id": "p1"}],
+                "@odata.nextLink": "https://graph.microsoft.com/v1.0/drives/drive-1/root/children?$skiptoken=xxx",
+            },
+            {"value": [{"name": "page2.pdf", "id": "p2"}]},
+        ]
+
+        files = loader._list_files()
+
+        assert len(files) == 2
+
+    def test_download_file_with_direct_url(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        mock_response = MagicMock()
+        mock_response.content = b"pdf bytes"
+
+        with patch("docpipe.core.operators.ingest.ingest_source.RestClient") as mock_client_cls:
+            mock_client_cls.return_value.call_rest.return_value = mock_response
+            result = loader._download_file({"@microsoft.graph.downloadUrl": "https://cdn.example.com/file.pdf"})
+
+        assert result == b"pdf bytes"
+
+    def test_download_file_without_direct_url(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = b"fallback bytes"
+        loader._rest_client.call_rest.return_value = mock_response
+
+        result = loader._download_file({"id": "item-1"})
+
+        assert result == b"fallback bytes"
+
+    def test_load_returns_list_of_documents(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        loader._rest_client.call_rest_json.return_value = {"value": [{"name": "doc.pdf", "id": "d1", "size": 10}]}
+        mock_response = MagicMock()
+        mock_response.content = b"content"
+        loader._rest_client.call_rest.return_value = mock_response
+
+        docs = loader.load()
+
+        assert len(docs) == 1
+
+    def test_lazy_load_with_folder_path(self):
+        loader = self._make_loader(folder_path="/Documents/Reports")
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        # First call: resolve folder path
+        loader._rest_client.call_rest_json.side_effect = [
+            {"id": "folder-id-resolved"},  # folder path resolution
+            {"value": []},  # list files in resolved folder
+        ]
+
+        docs = list(loader.lazy_load())
+
+        assert docs == []
+
+    def test_lazy_load_file_download_error_yields_error_doc(self):
+        loader = self._make_loader()
+        loader._token = "tok"
+        loader._rest_client = MagicMock()
+        loader._rest_client.call_rest_json.return_value = {"value": [{"name": "bad.pdf", "id": "b1"}]}
+
+        with patch.object(loader, "_download_file", side_effect=Exception("download failed")):
+            docs = list(loader.lazy_load())
+
+        assert len(docs) == 1
+        assert docs[0].metadata.get("error") == "download failed"
+
+
+class TestIngestSourceValidateErrors:
+    """Tests for validate() error branches in IngestSourceOperator — covers lines 291-303."""
+
+    def test_validate_non_pydantic_error_appended(self):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        config = {
+            "provider": "filesystem",
+            "connection_params": {},
+            "credentials": {},
+            "validating_flow": True,
+        }
+        operator = IngestSourceOperator(config)
+        errors: list = []
+        warnings: list = []
+
+        with patch.object(operator, "_build_adapter_config", side_effect=RuntimeError("bad config")):
+            operator.validate(errors=errors, warnings=warnings, available_features=[])
+
+        assert any("Invalid configuration" in str(e) for e in errors)

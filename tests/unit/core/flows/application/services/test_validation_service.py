@@ -20,7 +20,7 @@ class TestValidationService:
             "flow_name": "test-flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest_node",
                     "config": {"folder_path": "/test/path"},
                     "depends_on": [],
@@ -91,7 +91,7 @@ class TestValidationService:
             "flow_name": "test-flow-with-warnings",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest_node",
                     "config": {"folder_path": "/test/path"},
                     "depends_on": [],
@@ -169,7 +169,7 @@ class TestValidationService:
         service = ValidationService()
         flow_def = {
             "flow_name": "test-flow",
-            "flow": [{"type": "ingest_local", "name": "ingest_node", "config": {}, "depends_on": []}],
+            "flow": [{"type": "ingest_source", "name": "ingest_node", "config": {}, "depends_on": []}],
         }
 
         # Act
@@ -193,7 +193,7 @@ class TestValidationService:
         service = ValidationService()
         flow_def = {
             "flow_name": "test-flow",
-            "flow": [{"type": "ingest_local", "name": "ingest_node", "config": {}, "depends_on": []}],
+            "flow": [{"type": "ingest_source", "name": "ingest_node", "config": {}, "depends_on": []}],
         }
 
         # Act
@@ -227,7 +227,7 @@ class TestValidationService:
         service = ValidationService()
         flow_def = {
             "flow_name": "test-flow",
-            "flow": [{"type": "ingest_local", "name": "ingest_node", "config": {}, "depends_on": []}],
+            "flow": [{"type": "ingest_source", "name": "ingest_node", "config": {}, "depends_on": []}],
         }
 
         # Act
@@ -257,7 +257,7 @@ class TestValidationService:
         service = ValidationService()
         flow_def = {
             "flow_name": "test-flow",
-            "flow": [{"type": "ingest_local", "name": "ingest_node", "config": {}, "depends_on": []}],
+            "flow": [{"type": "ingest_source", "name": "ingest_node", "config": {}, "depends_on": []}],
         }
 
         # Act
@@ -338,7 +338,7 @@ class TestValidationService:
         service = ValidationService()
         flow_def = {
             "flow_name": "test-flow",
-            "flow": [{"type": "ingest_local", "name": "ingest_node", "config": {}, "depends_on": []}],
+            "flow": [{"type": "ingest_source", "name": "ingest_node", "config": {}, "depends_on": []}],
         }
 
         # Act
@@ -487,7 +487,7 @@ class TestFlowValidatorEnhancements:
             {
                 "id": "node1",
                 "name": "Node 1",
-                "operator": "ingest_local",  # This is a registered operator
+                "operator": "ingest_source",  # This is a registered operator
                 "config": {},
             }
         ]
@@ -546,7 +546,7 @@ class TestMandatoryFeatureValidation:
         flow_def_missing_content = {
             "flow_name": "test-chunker-flow",
             "flow": [
-                {"type": "ingest_local", "name": "ingest_node", "config": {"folder_path": "/test"}, "depends_on": []},
+                {"type": "ingest_source", "name": "ingest_node", "config": {"folder_path": "/test"}, "depends_on": []},
                 {
                     "type": "chunker",
                     "name": "chunker_node",
@@ -590,7 +590,7 @@ class TestMandatoryFeatureValidation:
         flow_def_missing_content = {
             "flow_name": "test-embeddings-flow",
             "flow": [
-                {"type": "ingest_local", "name": "ingest_node", "config": {"folder_path": "/test"}, "depends_on": []},
+                {"type": "ingest_source", "name": "ingest_node", "config": {"folder_path": "/test"}, "depends_on": []},
                 {
                     "type": "embeddings",
                     "name": "embeddings_node",
@@ -632,7 +632,7 @@ class TestMandatoryFeatureValidation:
         flow_def_missing_embeddings = {
             "flow_name": "test-vectordb-flow",
             "flow": [
-                {"type": "ingest_local", "name": "ingest_node", "config": {"folder_path": "/test"}, "depends_on": []},
+                {"type": "ingest_source", "name": "ingest_node", "config": {"folder_path": "/test"}, "depends_on": []},
                 {
                     "type": "vectordb",
                     "name": "vectordb_node",

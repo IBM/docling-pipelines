@@ -135,8 +135,11 @@ class FlowValidator:
                 {
                     "id": "ingest-1",
                     "name": "Ingest",
-                    "operator": "ingest_local",
-                    "config": {"folder_path": "/data"},
+                    "operator": "ingest_source",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["/data/documents"]}
+                    },
                     "output_edges": [{"node_id_ref": "extract-1"}]
                 },
                 {
@@ -983,7 +986,7 @@ class FlowValidator:
     def _validate_acl_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate ACL operator placement in the DAG.
 
-        ACL operator must be placed immediately after an ingest operator (ingest_source or ingest_local).
+        ACL operator must be placed immediately after an ingest_source operator.
         Only one ACL operator is allowed per flow.
 
         Args:

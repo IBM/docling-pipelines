@@ -11,11 +11,11 @@ import pytest
 from docpipe.core.constants.constants import Metrics
 from docpipe.core.operators.extract.extract_operator import ExtractOperator
 from docpipe.core.operators.functional.chunker import ChunkerOperator
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 
 class TestIngestExtractChunkTxtIntegration:
-    """Integration tests for Ingest -> Extract -> Chunk sequence with .txt files"""
+    """Integration tests for IngestSource (filesystem) -> Extract -> Chunk sequence with .txt files"""
 
     @pytest.fixture
     def txt_fixtures_dir(self):
@@ -26,18 +26,19 @@ class TestIngestExtractChunkTxtIntegration:
         return str(fixtures_path)
 
     def test_txt_ingest_extract_chunk_sequence(self, txt_fixtures_dir):
-        """Test the complete sequence: IngestLocal -> ExtractOperator -> ChunkerOperator for .txt files"""
+        """Test the complete sequence: IngestSource (filesystem) -> ExtractOperator -> ChunkerOperator for .txt files"""
 
         # Step 1: Ingest .txt files
         print("\n=== Step 1: Ingesting .txt files ===")
         ingest_config = {
-            "paths": txt_fixtures_dir,
-            "include_filter": "txt",  # Only .txt files
+            "provider": "filesystem",
+            "connection_params": {"paths": [txt_fixtures_dir]},
+            "include_filter": "txt",
             "max_files": 5,
-            "force_ingest": True,  # Skip incremental processing for tests
+            "force_ingest": True,
         }
 
-        ingest_operator = IngestLocalOperator(config=ingest_config)
+        ingest_operator = IngestSourceOperator(config=ingest_config)
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -74,7 +75,6 @@ class TestIngestExtractChunkTxtIntegration:
         content_count = 0
         for idx in range(extract_table.num_rows):
             content = extract_table["doc_content"][idx].as_py()
-
             if content and len(content) > 0:
                 content_count += 1
                 print(f"  File {idx}: Content length = {len(content)} chars")
@@ -144,13 +144,14 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Step 1: Ingest both .txt and .pdf files
         ingest_config = {
-            "paths": str(parent_dir),
-            "include_filter": "txt,pdf",  # Both file types
+            "provider": "filesystem",
+            "connection_params": {"paths": [str(parent_dir)]},
+            "include_filter": "txt,pdf",
             "max_files": 5,
             "force_ingest": True,
         }
 
-        ingest_operator = IngestLocalOperator(config=ingest_config)
+        ingest_operator = IngestSourceOperator(config=ingest_config)
         ingest_tables, _ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -158,7 +159,6 @@ class TestIngestExtractChunkTxtIntegration:
             pytest.skip("No mixed files found for testing")
 
         print(f"Ingested {ingest_table.num_rows} files (mixed .txt and .pdf)")
-
         # Step 2: Extract content using unified ExtractOperator
         extract_config = {
             "text_extraction": {
@@ -191,7 +191,6 @@ class TestIngestExtractChunkTxtIntegration:
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
         _chunk_table = chunk_tables[0]
 
-        # Verify chunks were created
         assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0, "Should have created chunks"
         print(f"Created {chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0)} total chunks from mixed files")
 
@@ -205,15 +204,15 @@ def test_basic_txt_integration():
     if not txt_dir.exists():
         pytest.skip(f"Fixtures directory not found: {txt_dir}")
 
-    # Quick integration test
     ingest_config = {
-        "paths": str(txt_dir),
+        "provider": "filesystem",
+        "connection_params": {"paths": [str(txt_dir)]},
         "include_filter": "txt",
         "max_files": 2,
         "force_ingest": True,
     }
 
-    ingest_op = IngestLocalOperator(config=ingest_config)
+    ingest_op = IngestSourceOperator(config=ingest_config)
     ingest_tables, _ = ingest_op.transform(None)
 
     extract_config = {

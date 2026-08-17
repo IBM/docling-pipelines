@@ -140,17 +140,18 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
         },
         "flow": [
             {
-                "name": "ingest_local_folder",
-                "type": "ingest_local",
+                "name": "ingest_source_filesystem",
+                "type": "ingest_source",
                 "config": {
-                    "paths": input_folder,
+                    "provider": "filesystem",
+                    "connection_params": {"paths": [input_folder]},
                     "include_filter": "pdf,txt,docx"
                 }
             },
             {
                 "name": "extract_operator",
                 "type": "extract_operator",
-                "depends_on": ["ingest_local_folder"],
+                "depends_on": ["ingest_source_filesystem"],
                 "config": {
                     "text_extraction": {
                         "provider": "docling_library"

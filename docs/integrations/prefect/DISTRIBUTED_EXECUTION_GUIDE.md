@@ -622,9 +622,10 @@ volumes:
   "flow": [
     {
       "name": "ingest_documents",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "/data/input",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["/data/input"]},
         "include_filter": "pdf,txt,docx"
       }
     },

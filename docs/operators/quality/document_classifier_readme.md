@@ -463,9 +463,10 @@ The operator provides detailed processing statistics in metadata:
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]}
       }
     },
     {

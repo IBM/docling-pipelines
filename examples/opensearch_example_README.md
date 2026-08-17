@@ -149,13 +149,14 @@ To use OpenSearch in a complete pipeline:
 
 ```python
 # 1. Ingest documents
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 ingest_config = {
-    "paths": "/path/to/documents",
-    "file_extensions": [".pdf", ".docx", ".txt"]
+    "provider": "filesystem",
+    "connection_params": {"paths": ["/path/to/documents"]},
+    "include_filter": "pdf,docx,txt"
 }
-ingest_op = IngestLocalOperator(ingest_config)
+ingest_op = IngestSourceOperator(ingest_config)
 table = ingest_op.transform()
 
 # 2. Extract content

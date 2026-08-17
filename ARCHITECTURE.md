@@ -566,7 +566,7 @@ Docling-pipelines uses two distinct representations:
 1. **Authoring Format** (User-facing): Simplified JSON structure for defining flows
    - Uses `flow` array with operator definitions
    - Uses `depends_on` to declare dependencies by operator name
-   - Uses `type` with short operator names (e.g., `ingest_local`, `extract_operator`)
+   - Uses `type` with short operator names (e.g., `ingest_source`, `extract_operator`)
    - Uses `config` for operator-specific parameters
 
 2. **Runtime DAG** (Internal): Compiled execution graph with nodes and edges
@@ -582,16 +582,17 @@ Docling-pipelines uses two distinct representations:
   "description": "Ingest, extract, chunk, and embed documents",
   "flow": [
     {
-      "name": "ingest_local_folder",
-      "type": "ingest_local",
+      "name": "ingest_source_filesystem",
+      "type": "ingest_source",
       "config": {
-        "paths": "./sample_documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]}
       }
     },
     {
       "name": "extract_with_docling",
       "type": "extract_operator",
-      "depends_on": ["ingest_local_folder"],
+      "depends_on": ["ingest_source_filesystem"],
       "config": {
         "text_extraction": {
           "provider": "docling_library"
@@ -613,7 +614,7 @@ Docling-pipelines uses two distinct representations:
 - **flow_name**: Human-readable flow identifier
 - **flow**: Array of operator definitions with unique names
 - **depends_on**: Array of operator names that must execute before this operator
-- **type**: Short operator name (e.g., `ingest_local`, `chunker`, `embeddings`, `vectordb`)
+- **type**: Short operator name (e.g., `ingest_source`, `chunker`, `embeddings`, `vectordb`)
 - **config**: Operator-specific configuration parameters
 - **Automatic Compilation**: The system automatically generates the runtime DAG from the authoring format
 

@@ -148,7 +148,7 @@ def _validate_operator_type_format(operator_type: str) -> None:
         if not part or not (part[0].isalpha() or part[0] == "_"):
             raise ValueError(
                 f"operator_type '{operator_type}' contains invalid identifier '{part}'. "
-                "Must be valid Python class path (e.g., 'ingest_local' or 'core.operators.IngestLocal')"
+                "Must be valid Python class path (e.g., 'ingest_source' or 'core.operators.IngestSource')"
             )
 
 

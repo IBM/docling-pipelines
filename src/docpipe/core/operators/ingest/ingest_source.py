@@ -406,7 +406,7 @@ class IngestSourceOperator(AbstractOperator):
         if doc_data:
             output_table = pa.Table.from_pylist(doc_data)
         else:
-            # Create empty table with expected schema (matches IngestLocalOperator output)
+            # Create empty table with expected schema
             output_table = pa.Table.from_pydict(
                 {
                     "id": [],

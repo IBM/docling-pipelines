@@ -3,8 +3,14 @@
 import pytest
 
 from docpipe.utils.core.validation import (
+    _validate_dag_nodes,
+    _validate_operator_type_format,
     deduplicate_tags,
+    is_date_time_as_per_format,
+    is_value_in_range,
+    to_bool,
     validate_container_kind,
+    validate_database_path,
     validate_flow_definition,
     validate_uuid_format,
 )
@@ -273,3 +279,139 @@ class TestDeduplicateTags:
         tags = ["tag", " tag", "tag ", " tag "]
         result = deduplicate_tags(tags)
         assert result == ["tag", " tag", "tag ", " tag "]
+
+
+class TestToBool:
+    def test_true_bool(self):
+        assert to_bool(True) is True
+
+    def test_false_bool(self):
+        assert to_bool(False) is False
+
+    def test_string_true(self):
+        assert to_bool("true") is True
+
+    def test_string_true_case_insensitive(self):
+        assert to_bool("  TRUE  ") is True
+
+    def test_string_false_returns_false(self):
+        assert to_bool("false") is False
+
+    def test_non_bool_returns_false(self):
+        assert to_bool(1) is False
+        assert to_bool(None) is False
+        assert to_bool("1") is False
+
+
+class TestIsValueInRange:
+    def test_within_range(self):
+        assert is_value_in_range(value=5, min_value=1, max_value=10) is True
+
+    def test_at_boundaries(self):
+        assert is_value_in_range(value=1, min_value=1, max_value=10) is True
+        assert is_value_in_range(value=10, min_value=1, max_value=10) is True
+
+    def test_out_of_range(self):
+        assert is_value_in_range(value=0, min_value=1, max_value=10) is False
+        assert is_value_in_range(value=11, min_value=1, max_value=10) is False
+
+
+class TestIsDateTimeAsPerFormat:
+    def test_valid_date(self):
+        assert is_date_time_as_per_format("2024-01-15", "%Y-%m-%d") is True
+
+    def test_invalid_date(self):
+        assert is_date_time_as_per_format("not-a-date", "%Y-%m-%d") is False
+
+    def test_wrong_format(self):
+        assert is_date_time_as_per_format("15-01-2024", "%Y-%m-%d") is False
+
+
+class TestValidateOperatorTypeFormat:
+    def test_valid_simple_name(self):
+        _validate_operator_type_format("ingest_source")  # no raise
+
+    def test_valid_dotted_path(self):
+        _validate_operator_type_format("core.operators.MyOp")  # no raise
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty string"):
+            _validate_operator_type_format("")
+
+    def test_leading_dot_raises(self):
+        with pytest.raises(ValueError, match="invalid identifier"):
+            _validate_operator_type_format(".bad")
+
+    def test_digit_start_raises(self):
+        with pytest.raises(ValueError, match="invalid identifier"):
+            _validate_operator_type_format("valid.1bad")
+
+
+class TestValidateDagNodes:
+    def test_valid_nodes(self):
+        _validate_dag_nodes([{"id": "n1", "operator": "ingest_source"}])  # no raise
+
+    def test_not_a_list_raises(self):
+        with pytest.raises(ValueError, match="must be a list"):
+            _validate_dag_nodes({"id": "x"})
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="cannot be empty"):
+            _validate_dag_nodes([])
+
+    def test_missing_id_raises(self):
+        with pytest.raises(ValueError, match="missing required field 'id'"):
+            _validate_dag_nodes([{"operator": "ingest_source"}])
+
+    def test_duplicate_ids_raises(self):
+        nodes = [{"id": "n1", "operator": "a"}, {"id": "n1", "operator": "b"}]
+        with pytest.raises(ValueError, match="duplicate node id"):
+            _validate_dag_nodes(nodes)
+
+    def test_missing_operator_raises(self):
+        with pytest.raises(ValueError, match="missing required field 'operator'"):
+            _validate_dag_nodes([{"id": "n1"}])
+
+    def test_invalid_params_type_raises(self):
+        with pytest.raises(ValueError, match="invalid 'operator_params'"):
+            _validate_dag_nodes([{"id": "n1", "operator": "op", "config": "bad"}])
+
+
+class TestValidateFlowDefinitionExtraCases:
+    def test_authoring_empty_flow_name_raises(self):
+        with pytest.raises(ValueError, match="non-empty string"):
+            validate_flow_definition({"flow_name": "  ", "flow": []})
+
+    def test_authoring_missing_flow_key_raises(self):
+        with pytest.raises(ValueError, match="must contain 'flow' key"):
+            validate_flow_definition({"flow_name": "My Flow"})
+
+    def test_authoring_empty_flow_raises(self):
+        with pytest.raises(ValueError, match="cannot be empty"):
+            validate_flow_definition({"flow_name": "My Flow", "flow": []})
+
+    def test_authoring_operator_missing_key_raises(self):
+        with pytest.raises(ValueError, match="missing required field"):
+            validate_flow_definition({"flow_name": "My Flow", "flow": [{"type": "ingest", "name": "n"}]})
+
+
+class TestValidateDatabasePath:
+    def test_in_memory(self):
+        assert validate_database_path(":memory:") == ":memory:"
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="cannot be empty"):
+            validate_database_path("")
+
+    def test_traversal_raises(self):
+        with pytest.raises(ValueError, match="Path traversal"):
+            validate_database_path("../../etc/passwd")
+
+    def test_absolute_path_returned(self, tmp_path):
+        p = str(tmp_path / "test.db")
+        assert validate_database_path(p) == p
+
+    def test_base_dir_outside_raises(self, tmp_path):
+        other = str(tmp_path.parent / "other.db")
+        with pytest.raises(ValueError, match="must be within"):
+            validate_database_path(other, base_dir=str(tmp_path))

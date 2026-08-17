@@ -2,51 +2,51 @@
 
 import pytest
 
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
 from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 
-class TestIngestLocalExtensionValidation:
-    """Test extension validation for IngestLocalOperator."""
+def _filesystem_config(tmp_path, **kwargs) -> dict:
+    """Build an IngestSourceOperator config for the filesystem provider."""
+    config = {
+        "provider": "filesystem",
+        "connection_params": {"paths": [str(tmp_path)]},
+    }
+    config.update(kwargs)
+    return config
+
+
+class TestIngestSourceFilesystemExtensionValidation:
+    """Test extension validation for IngestSourceOperator with filesystem provider."""
 
     def test_unsupported_include_extension_raises_error(self, tmp_path):
         """Test that unsupported extensions in include_filter raise ValueError."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
 
-        config = {
-            "paths": [str(tmp_path)],
-            "include_filter": ".xyz,.abc",  # Unsupported extensions
-        }
+        config = _filesystem_config(tmp_path, include_filter=".xyz,.abc")
 
         with pytest.raises(ValueError, match="Unsupported file extensions in include_filter"):
-            IngestLocalOperator(config)
+            IngestSourceOperator(config)
 
     def test_unsupported_exclude_extension_raises_error(self, tmp_path):
         """Test that unsupported extensions in exclude_filter raise ValueError."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
 
-        config = {
-            "paths": [str(tmp_path)],
-            "exclude_filter": ".xyz,.abc",  # Unsupported extensions
-        }
+        config = _filesystem_config(tmp_path, exclude_filter=".xyz,.abc")
 
         with pytest.raises(ValueError, match="Unsupported file extensions in exclude_filter"):
-            IngestLocalOperator(config)
+            IngestSourceOperator(config)
 
     def test_supported_extensions_accepted(self, tmp_path):
         """Test that supported extensions are accepted."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
 
-        config = {
-            "paths": [str(tmp_path)],
-            "include_filter": ".pdf,.docx,.txt",  # Supported extensions
-        }
+        config = _filesystem_config(tmp_path, include_filter=".pdf,.docx,.txt")
 
         # Should not raise
-        operator = IngestLocalOperator(config)
+        operator = IngestSourceOperator(config)
         assert operator.included_extensions == [".pdf", ".docx", ".txt"]
 
     def test_no_include_filter_defaults_to_supported(self, tmp_path):
@@ -54,19 +54,16 @@ class TestIngestLocalExtensionValidation:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
 
-        config = {
-            "paths": [str(tmp_path)],
-        }
+        config = _filesystem_config(tmp_path)
 
-        operator = IngestLocalOperator(config)
-        # Should default to supported extensions
+        operator = IngestSourceOperator(config)
         assert operator.included_extensions is not None
         assert ".pdf" in operator.included_extensions
         assert ".docx" in operator.included_extensions
 
 
 class TestIngestSourceExtensionValidation:
-    """Test extension validation for IngestSourceOperator."""
+    """Test extension validation for IngestSourceOperator with cloud providers."""
 
     def test_unsupported_include_extension_raises_error(self):
         """Test that unsupported extensions in include_filter raise ValueError."""
@@ -74,7 +71,7 @@ class TestIngestSourceExtensionValidation:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket"},
             "credentials": {"access_key": "", "secret_key": ""},
-            "include_filter": ".xyz,.abc",  # Unsupported extensions
+            "include_filter": ".xyz,.abc",
         }
 
         with pytest.raises(ValueError, match="Unsupported file extensions in include_filter"):
@@ -86,7 +83,7 @@ class TestIngestSourceExtensionValidation:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket"},
             "credentials": {"access_key": "", "secret_key": ""},
-            "exclude_filter": ".xyz,.abc",  # Unsupported extensions
+            "exclude_filter": ".xyz,.abc",
         }
 
         with pytest.raises(ValueError, match="Unsupported file extensions in exclude_filter"):
@@ -98,10 +95,9 @@ class TestIngestSourceExtensionValidation:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket"},
             "credentials": {"access_key": "", "secret_key": ""},
-            "include_filter": ".pdf,.docx,.txt",  # Supported extensions
+            "include_filter": ".pdf,.docx,.txt",
         }
 
-        # Should not raise
         operator = IngestSourceOperator(config)
         assert operator.included_extensions == [".pdf", ".docx", ".txt"]
 
@@ -114,7 +110,6 @@ class TestIngestSourceExtensionValidation:
         }
 
         operator = IngestSourceOperator(config)
-        # Should default to supported extensions
         assert operator.included_extensions is not None
         assert ".pdf" in operator.included_extensions
         assert ".docx" in operator.included_extensions
@@ -125,7 +120,7 @@ class TestIngestSourceExtensionValidation:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket"},
             "credentials": {"access_key": "", "secret_key": ""},
-            "include_filter": ".pdf,.xyz",  # Mix of supported and unsupported
+            "include_filter": ".pdf,.xyz",
         }
 
         with pytest.raises(ValueError, match="Unsupported file extensions"):

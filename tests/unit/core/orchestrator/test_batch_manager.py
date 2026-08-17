@@ -203,7 +203,7 @@ class TestBatchConfiguration:
     def test_configure_batching_default(self):
         """Verify batching configuration with defaults."""
         batch_manager = BatchManager()
-        global_config: dict[str, Any] = {}
+        global_config: dict = {}
 
         enabled, size = batch_manager.configure_batching(global_config=global_config)
 
@@ -442,8 +442,8 @@ class TestIngestExclusionFromMicroBatching:
         full_op_flow = [
             {
                 "id": "ingest-1",
-                "name": "IngestLocal",
-                "operator_type": "IngestLocalOperator",
+                "name": "IngestSource",
+                "operator_type": "IngestSourceOperator",
             },
             {"id": "extract-1", "name": "Extract", "operator_type": "ExtractDocling"},
             {"id": "chunk-1", "name": "Chunk", "operator_type": "Chunker"},
@@ -462,7 +462,7 @@ class TestIngestExclusionFromMicroBatching:
         # Batch context is only added in batch_subflow_task (prefect_engine.py line 232-234)
 
         # Simulate ingest execution config (no batch context)
-        ingest_config = {
+        ingest_config: dict = {
             DocpipeConstants.JOB_ID: "job-1",
             DocpipeConstants.JOB_RUN_ID: "run-1",
             # Note: No BATCH_ID or BATCH_NUM

@@ -35,7 +35,7 @@ class AuthoringOperator:
     """Domain model for an operator in the authoring format.
 
     Attributes:
-        type: Operator type (e.g., 'ingest_local', 'extract_operator')
+        type: Operator type (e.g., 'ingest_source', 'extract_operator')
         name: Optional unique name for this operator instance
         depends_on: List of operator names this operator depends on
                    Supports dot notation for branch references (e.g., 'branch_op.branch_name')

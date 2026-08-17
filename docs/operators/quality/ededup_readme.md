@@ -59,8 +59,8 @@ This operator removes rows but adds no new columns. The output table has the sam
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
-      "config": { "paths": "./sample_documents" }
+      "type": "ingest_source",
+      "config": { "provider": "filesystem", "connection_params": {"paths": ["./sample_documents"]} }
     },
     {
       "name": "extract",

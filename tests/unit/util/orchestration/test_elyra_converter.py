@@ -30,7 +30,7 @@ class TestElyraConverter:
                     "nodes": [
                         {
                             "id": "node-1",
-                            "op": "ingest_local",
+                            "op": "ingest_source",
                             "app_data": {
                                 "ui_data": {
                                     "label": "Ingest Documents",
@@ -124,7 +124,7 @@ class TestElyraConverter:
                     "nodes": [
                         {
                             "id": "node-1",
-                            "op": "ingest_local",
+                            "op": "ingest_source",
                             "app_data": {
                                 "ui_data": {"label": "Ingest", "x": 100, "y": 200},
                                 "folder_path": "/data",
@@ -264,7 +264,7 @@ class TestElyraConverter:
 
         # Verify node order (topologically sorted)
         assert dag[0]["id"] == "node-1"
-        assert dag[0]["operator"] == "ingest_local"
+        assert dag[0]["operator"] == "ingest_source"
         assert dag[0]["name"] == "Ingest Documents"
         assert len(dag[0]["input_edges"]) == 0
         assert len(dag[0]["output_edges"]) == 1
@@ -351,7 +351,7 @@ class TestElyraConverter:
                     "nodes": [
                         {
                             "id": "node-1",
-                            "op": "ingest_local",
+                            "op": "ingest_source",
                             "app_data": {"ui_data": {"label": "Node 1"}},
                             "outputs": [{"id": "port-1"}],
                             "inputs": [
@@ -412,7 +412,7 @@ class TestElyraConverter:
                     "nodes": [
                         {
                             "id": "node-1",
-                            "op": "ingest_local",
+                            "op": "ingest_source",
                             "app_data": {"ui_data": {"label": "Node 1"}},
                             "outputs": [{"id": "port-1"}],
                             "inputs": [],
@@ -510,7 +510,7 @@ class TestElyraConverter:
                         },
                         {
                             "id": "node-1",
-                            "op": "ingest_local",
+                            "op": "ingest_source",
                             "app_data": {"ui_data": {"label": "Ingest"}},
                             "outputs": [{"id": "port-1"}],
                             "inputs": [],

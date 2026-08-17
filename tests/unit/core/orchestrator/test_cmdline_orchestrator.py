@@ -11,6 +11,8 @@ from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
 
 class TestCommandLineOrchestrator(unittest.TestCase):
     def setUp(self):
@@ -27,9 +29,12 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9500",
                     "name": "ingest",
-                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_SOURCE,
                     "config": {
-                        "paths": "tests/fixtures/customer_support_docs",
+                        "provider": "filesystem",
+                        "connection_params": {
+                            "paths": [str(_PROJECT_ROOT / "tests" / "fixtures" / "customer_support_docs")]
+                        },
                         "include_filter": "txt",
                     },
                     "input_edges": [],
@@ -54,7 +59,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         from docpipe.cli.docpipe_cli import load_flow_definition
 
-        filepath = "./sample_flows/quickstart/complete_pipeline_ollama.json"
+        filepath = str(_PROJECT_ROOT / "sample_flows" / "quickstart" / "complete_pipeline_ollama.json")
 
         original_flow, flow_def = load_flow_definition(file_path=filepath)
         # After compilation, should have runtime DAG format

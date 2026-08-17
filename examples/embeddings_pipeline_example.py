@@ -139,7 +139,7 @@ def main() -> int:
     try:
         from docpipe.core.operators.extract.extract_operator import ExtractOperator
         from docpipe.core.operators.functional.chunker import ChunkerOperator
-        from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
     except ImportError as e:
         logger.error(f"Failed to import required operators: {e}")
         print("\nError: Failed to import operators. Make sure you are running from the repository root.")
@@ -208,14 +208,15 @@ def main() -> int:
         print(f"  Ingesting all PDFs from directory: {ingest_path}")
 
     ingest_config: dict[str, Any] = {
-        "paths": ingest_path,
+        "provider": "filesystem",
+        "connection_params": {"paths": [ingest_path]},
         "include_filter": include_filter,
         "max_files": 10,
         "force_ingest": True,
     }
 
     try:
-        ingest_operator: Any = IngestLocalOperator(ingest_config)
+        ingest_operator: Any = IngestSourceOperator(ingest_config)
         ingest_tables: list[pa.Table]
         ingest_metadata: dict[str, Any]
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
@@ -272,7 +273,7 @@ def main() -> int:
     }
 
     try:
-        extract_operator: Any = ExtractOperator(extract_config)
+        extract_operator: Any = ExtractOperator(config=extract_config)
         extract_tables: list[pa.Table]
         extract_metadata: dict[str, Any]
         extract_tables, extract_metadata = extract_operator.transform(ingest_table)

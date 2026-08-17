@@ -26,7 +26,7 @@ JOB_RUN_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 _INGEST_NODE = {
     OperatorConstants.Columns.ID: "node-ingest",
     OperatorConstants.Columns.NAME: "ingest_step",
-    OperatorConstants.Misc.OPERATOR: "ingest_local",
+    OperatorConstants.Misc.OPERATOR: "ingest_source",
 }
 _CHUNKER_NODE = {
     OperatorConstants.Columns.ID: "node-chunker",

@@ -514,7 +514,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "ingest-1",
                     "name": "ingest_documents",
-                    "operator": "ingest_local",
+                    "operator": "ingest_source",
                     "config": {"paths": str(fixtures_invoices_dir)},
                     "input_edges": [],
                     "output_edges": [{"node_id_ref": "extract-1"}],
@@ -557,7 +557,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "ingest-1",
                     "name": "ingest_documents",
-                    "operator": "ingest_local",
+                    "operator": "ingest_source",
                     "config": {"paths": str(fixtures_invoices_dir)},
                     "input_edges": [],
                     "output_edges": [{"node_id_ref": "chunker-1"}],
@@ -588,7 +588,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "ingest-1",
                     "name": "ingest_documents",
-                    "operator": "ingest_local",
+                    "operator": "ingest_source",
                     "config": {"paths": str(fixtures_invoices_dir)},
                     "input_edges": [],
                     "output_edges": [{"node_id_ref": "extract-1"}],
@@ -689,7 +689,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "ingest-1",
                     "name": "duplicate_name",
-                    "operator": "ingest_local",
+                    "operator": "ingest_source",
                     "config": {"paths": str(fixtures_invoices_dir)},
                     "input_edges": [],
                     "output_edges": [{"node_id_ref": "extract-1"}],
@@ -720,7 +720,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "ingest-1",
                     "name": "ingest_documents",
-                    "operator": "ingest_local",
+                    "operator": "ingest_source",
                     "config": {"paths": str(fixtures_invoices_dir)},
                     "input_edges": [],
                     "output_edges": [],
@@ -751,7 +751,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "ingest-1",
                     "name": "ingest_documents",
-                    "operator": "ingest_local",
+                    "operator": "ingest_source",
                     "config": {"paths": str(fixtures_invoices_dir)},
                     "input_edges": [],
                     "output_edges": [{"node_id_ref": "extract-1"}],
@@ -831,7 +831,7 @@ class TestValidateStorageOutputOperatorPlacement:
 
     def test_refetch_original_without_ingest_source_fails(self):
         validator = self._make_validator()
-        dag = self._make_dag(ingest_op="ingest_local", storage_mode="refetch_original")
+        dag = self._make_dag(ingest_op="noop", storage_mode="refetch_original")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
@@ -841,7 +841,7 @@ class TestValidateStorageOutputOperatorPlacement:
 
     def test_comprehensive_export_without_ingest_source_fails(self):
         validator = self._make_validator()
-        dag = self._make_dag(ingest_op="ingest_local", storage_mode="comprehensive_export")
+        dag = self._make_dag(ingest_op="noop", storage_mode="comprehensive_export")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
@@ -852,7 +852,7 @@ class TestValidateStorageOutputOperatorPlacement:
     def test_processed_content_without_ingest_source_passes(self):
         """processed_content mode does not require ingest_source."""
         validator = self._make_validator()
-        dag = self._make_dag(ingest_op="ingest_local", storage_mode="processed_content")
+        dag = self._make_dag(ingest_op="noop", storage_mode="processed_content")
         results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         validator._validate_storage_output_operator_placement(dag=dag, validate_results=results)
@@ -865,7 +865,7 @@ class TestValidateStorageOutputOperatorPlacement:
             {
                 "id": "ingest-1",
                 "name": "ingest",
-                "operator": "ingest_local",
+                "operator": "noop",
                 "config": {},
                 "input_edges": [],
                 "output_edges": [],
@@ -1050,6 +1050,243 @@ class TestMergeParentInputFeatures:
         assert "content" in result
         assert "only_p1" in result
         assert "only_p2" in result
+
+
+class TestValidateAclOperatorPlacement:
+    """Tests for _validate_acl_operator_placement — covers lines 1006-1098."""
+
+    def _make_validator(self):
+        mock_orch = Mock()
+        mock_orch.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orch)
+
+    def test_no_acl_node_is_noop(self):
+        validator = self._make_validator()
+        dag = [{"id": "n1", "name": "ingest", "operator": "ingest_source", "config": {}}]
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+        validator._validate_acl_operator_placement(dag=dag, validate_results=results)
+        assert results.errors == []
+
+    def test_multiple_acl_nodes_raise_error(self):
+        validator = self._make_validator()
+        dag = [
+            {"id": "n1", "name": "n1", "operator": "acl_operator", "config": {}},
+            {"id": "n2", "name": "n2", "operator": "acl_operator", "config": {}},
+        ]
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+        validator._validate_acl_operator_placement(dag=dag, validate_results=results)
+        assert len(results.errors) >= 1
+
+    def test_acl_with_no_parent_raises_error(self):
+        validator = self._make_validator()
+        dag = [
+            {
+                "id": "acl-1",
+                "name": "acl",
+                "operator": "acl_operator",
+                "config": {},
+                "output_edges": [],
+            }
+        ]
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+        validator._validate_acl_operator_placement(dag=dag, validate_results=results)
+        assert len(results.errors) >= 1
+
+
+class TestValidateNoCycles:
+    """Tests for _validate_no_cycles — covers lines 1265-1306."""
+
+    def _make_validator(self):
+        mock_orch = Mock()
+        mock_orch.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orch)
+
+    def test_acyclic_dag_no_error(self):
+        validator = self._make_validator()
+        dag = [
+            {"id": "n1", "output_edges": [{"node_id_ref": "n2"}]},
+            {"id": "n2", "output_edges": []},
+        ]
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+        validator._validate_no_cycles(dag=dag, validate_results=results)
+        assert results.errors == []
+
+    def test_cyclic_dag_adds_error(self):
+        validator = self._make_validator()
+        # n1 -> n2 -> n1 cycle
+        dag = [
+            {"id": "n1", "name": "n1", "operator": "op", "output_edges": [{"node_id_ref": "n2"}]},
+            {"id": "n2", "name": "n2", "operator": "op", "output_edges": [{"node_id_ref": "n1"}]},
+        ]
+        results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+        validator._validate_no_cycles(dag=dag, validate_results=results)
+        assert len(results.errors) >= 1
+
+
+class TestGetRequiredNodeFieldsErrors:
+    """Tests for _get_required_node_fields error paths — covers lines 606-630."""
+
+    def _make_validator(self):
+        mock_orch = Mock()
+        mock_orch.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orch)
+
+    def test_missing_node_id_raises(self):
+        validator = self._make_validator()
+        with pytest.raises(FlowValidationException):
+            validator._get_required_node_fields(op_def={"operator": "ingest_source"})
+
+    def test_empty_node_id_raises(self):
+        validator = self._make_validator()
+        with pytest.raises(FlowValidationException):
+            validator._get_required_node_fields(op_def={"id": "", "operator": "ingest_source"})
+
+    def test_missing_operator_raises(self):
+        validator = self._make_validator()
+        with pytest.raises(FlowValidationException):
+            validator._get_required_node_fields(op_def={"id": "n1"})
+
+
+class TestValidateDagFlowEngineNone:
+    """validate_dag raises when flow_engine is None."""
+
+    def test_raises_when_flow_engine_none(self):
+        mock_orch = Mock()
+        mock_orch.common_log_arguments = {}
+        mock_orch.enable_custom_operators = False
+        mock_orch.custom_operator_packages = None
+        mock_orch.flow_engine = None
+
+        validator = FlowValidator(orchestrator=mock_orch)
+
+        # Patch all early-exit checks so we reach the flow_engine check
+        with (
+            patch.object(validator, "_validate_first_operator"),
+            patch.object(validator, "_validate_acl_operator_placement"),
+            patch.object(validator, "_validate_storage_output_operator_placement"),
+            patch.object(validator, "_validate_disjoint_operators"),
+            patch.object(validator, "_validate_no_cycles"),
+            patch.object(validator, "_validate_operator_availability"),
+        ):
+            with pytest.raises(FlowValidationException) as exc_info:
+                validator.validate_dag(
+                    flow_def={"dag": [{"id": "n1", "name": "n", "operator": "ingest_source"}]},
+                    global_config={},
+                )
+
+        assert any("FLOW_ENGINE_NOT_INITIALIZED" in str(e) for e in exc_info.value.errors)
+
+
+class TestValidateDagWithFeatures:
+    """Tests for validate_dag_with_features — covers lines 440-488."""
+
+    @pytest.fixture
+    def orchestrator(self):
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+
+        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
+        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
+
+        def _seq(*, flow_name, task, dag):
+            result = None
+            for node in dag:
+                result = task(node.get("name", ""), node, result, None)
+
+        orch.flow_engine.execute_non_execute_flow = _seq
+        return orch
+
+    def test_validate_dag_with_features_returns_result(self, orchestrator, fixtures_invoices_dir):
+        validator = FlowValidator(orchestrator=orchestrator)
+        flow_def = {
+            "dag": [
+                {
+                    "id": "ingest-1",
+                    "name": "ingest",
+                    "operator": "ingest_source",
+                    "config": {"paths": str(fixtures_invoices_dir)},
+                    "input_edges": [],
+                    "output_edges": [{"node_id_ref": "extract-1"}],
+                },
+                {
+                    "id": "extract-1",
+                    "name": "extract",
+                    "operator": "extract_operator",
+                    "config": {"text_extraction": {"provider": "docling_library", "doc_column": "content"}},
+                    "input_edges": [{"node_id_ref": "ingest-1"}],
+                    "output_edges": [{"node_id_ref": "vectordb-1"}],
+                },
+                {
+                    "id": "vectordb-1",
+                    "name": "vectordb",
+                    "operator": "vectordb",
+                    "config": {
+                        "provider": "opensearch",
+                        "vector_dimension": 384,
+                        "doc_id_column": "id",
+                        "embeddings_column": "embeddings",
+                        "provider_config": {"index_name": "idx", "host": "localhost", "port": 9200, "use_ssl": False},
+                    },
+                    "input_edges": [{"node_id_ref": "extract-1"}],
+                    "output_edges": [],
+                },
+            ]
+        }
+        from docpipe.core.orchestration.feature_propagation.models import FeaturePropagationResult
+
+        result = validator.validate_dag_with_features(flow_def=flow_def, global_config={})
+        assert isinstance(result, FeaturePropagationResult)
+
+    def test_validate_dag_with_features_raises_on_invalid_flow(self, orchestrator, fixtures_invoices_dir):
+        validator = FlowValidator(orchestrator=orchestrator)
+        flow_def: dict = {"dag": []}
+        with pytest.raises(FlowValidationException):
+            validator.validate_dag_with_features(flow_def=flow_def, global_config={})
+
+
+class TestPropagateFeaturesPerNode:
+    """Tests for propagate_features_per_node — covers lines 773-841."""
+
+    @pytest.fixture
+    def orchestrator(self):
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+
+        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
+        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
+
+        def _seq(*, flow_name, task, dag):
+            result = None
+            for node in dag:
+                result = task(node.get("name", ""), node, result, None)
+
+        orch.flow_engine.execute_non_execute_flow = _seq
+        return orch
+
+    def test_returns_per_node_snapshot(self, orchestrator, fixtures_invoices_dir):
+        validator = FlowValidator(orchestrator=orchestrator)
+        flow_def = {
+            "dag": [
+                {
+                    "id": "ingest-1",
+                    "name": "ingest",
+                    "operator": "ingest_source",
+                    "config": {},
+                    "input_edges": [],
+                    "output_edges": [{"node_id_ref": "extract-1"}],
+                },
+                {
+                    "id": "extract-1",
+                    "name": "extract",
+                    "operator": "extract_operator",
+                    "config": {},
+                    "input_edges": [{"node_id_ref": "ingest-1"}],
+                    "output_edges": [],
+                },
+            ]
+        }
+        result = validator.propagate_features_per_node(flow_def=flow_def, global_config={})
+        assert "ingest-1" in result
+        assert "extract-1" in result
+        assert "operator" in result["ingest-1"]
 
 
 if __name__ == "__main__":

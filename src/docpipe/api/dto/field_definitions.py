@@ -201,7 +201,7 @@ TYPE_PATTERN = r"^[^\x00-\x1F]+$"
 
 Rationale: Type identifiers must be non-empty and without control characters.
 Allows: All Unicode characters except ASCII control characters, minimum 1 character
-Example: "ingest_local", "extract_operator", "embeddings"
+Example: "ingest_source", "extract_operator", "embeddings"
 """
 
 DESCRIPTION_PATTERN = r"^[\s\S]*$"

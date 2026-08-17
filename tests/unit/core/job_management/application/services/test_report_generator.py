@@ -126,7 +126,7 @@ class TestNodeIdentification:
         )
 
         dag_nodes = [
-            {"id": INGEST_NODE_ID, "op": "ingest_local"},
+            {"id": INGEST_NODE_ID, "op": "ingest_source"},
             {"id": EXTRACT_NODE_ID, "op": "extract", "name": "ExtractOp"},
         ]
 
