@@ -4,6 +4,11 @@ This adapter implements the unified docling_library provider for document extrac
 It handles both standard Docling extraction and VLM (Vision Language Model) extraction
 when use_vlm_pipeline is enabled. The adapter uses Docling's DocumentExtractor for
 extraction and supports template-based structured extraction.
+
+GPU acceleration is supported for the standard pipeline via the ``device`` configuration
+key (mps, cuda, xpu). When a GPU device is specified the adapter builds one
+DocumentConverter at init time and reuses it for every document in this adapter
+execution, avoiding repeated model loading on the GPU.
 """
 
 import logging
@@ -70,6 +75,8 @@ class DoclingAdapter(TextExtractionPort):
                 - additional_formats: List of additional output formats beyond markdown (default: [])
                 - use_asr_pipeline: Enable ASR extraction for audio/video (default: False)
                 - asr_model_name: ASR model name (optional)
+                - device: GPU device for standard pipeline acceleration ("mps", "cuda", "xpu") (optional)
+                - num_threads: Thread count for GPU pipeline operations (optional)
         """
         self.use_vlm_pipeline = config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
         self.vlm_preset = config.get(OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT)
@@ -82,11 +89,29 @@ class DoclingAdapter(TextExtractionPort):
             OperatorConstants.Config.ASR_MODEL_NAME, OperatorConstants.Config.ASR_MODEL_DEFAULT
         )
 
+        # GPU acceleration config (standard pipeline only — incompatible with VLM)
+        self.gpu_device: str | None = config.get(OperatorConstants.Extraction.DEVICE)
+        self.gpu_num_threads: int | None = config.get(OperatorConstants.Extraction.NUM_THREADS)
+
+        # Pre-build and cache a converter when GPU acceleration is requested so that
+        # model weights are loaded once at adapter init rather than per document.
+        self._gpu_converter: Any = None
+        if self.gpu_device:
+            self._gpu_converter = self._build_gpu_converter()
+
         if self.use_vlm_pipeline:
             logger.info(
                 "Initialized DoclingAdapter with VLM enabled - preset: %s, engine: %s, additional formats: %s",
                 self.vlm_preset,
                 self.vlm_engine_type or "default",
+                self.additional_formats,
+            )
+        elif self.gpu_device:
+            logger.info(
+                "Initialized DoclingAdapter with GPU acceleration - device: %s, num_threads: %s, "
+                "additional formats: %s",
+                self.gpu_device,
+                self.gpu_num_threads,
                 self.additional_formats,
             )
         if self.use_asr_pipeline:
@@ -98,10 +123,89 @@ class DoclingAdapter(TextExtractionPort):
             logger.warning(
                 "ASR pipeline requested but dependencies not available. Install with: uv pip install -e '.[asr]'"
             )
-        if not self.use_vlm_pipeline and not self.use_asr_pipeline:
+        if not self.use_vlm_pipeline and not self.use_asr_pipeline and not self.gpu_device:
             logger.info(
                 "Initialized DoclingAdapter with standard extraction, additional formats: %s", self.additional_formats
             )
+
+    def _build_gpu_converter(self) -> Any:
+        """Build a DocumentConverter configured for GPU-accelerated standard pipeline extraction.
+
+        Uses the Docling 2105 mapping: AcceleratorOptions -> ThreadedPdfPipelineOptions ->
+        PdfFormatOption + ImageFormatOption (+ AudioFormatOption when ASR is enabled).
+
+        The converter is constructed once at adapter init and reused for all documents
+        processed by this adapter instance, so model weights are loaded onto the GPU
+        only once per adapter lifetime.
+
+        Returns:
+            DocumentConverter instance with AcceleratorOptions set, or None if docling
+            is not available.
+        """
+        try:
+            from docling.datamodel.base_models import InputFormat
+            from docling.datamodel.pipeline_options import (
+                AcceleratorDevice,
+                AcceleratorOptions,
+                ThreadedPdfPipelineOptions,
+            )
+            from docling.document_converter import DocumentConverter, ImageFormatOption, PdfFormatOption
+
+            # Normalise device string — validation already passed by factory, but cuda:N
+            # must map to the bare CUDA enum value (device index is handled at torch level).
+            normalised = (self.gpu_device or "").strip().lower()  # type: ignore[arg-type]
+            base_device_map = {
+                OperatorConstants.Extraction.DEVICE_MPS: AcceleratorDevice.MPS,
+                OperatorConstants.Extraction.DEVICE_CUDA: AcceleratorDevice.CUDA,
+                OperatorConstants.Extraction.DEVICE_XPU: AcceleratorDevice.XPU,
+            }
+            # cuda:N -> AcceleratorDevice.CUDA (index handled by torch runtime)
+            device_key = (
+                OperatorConstants.Extraction.DEVICE_CUDA
+                if normalised.startswith(OperatorConstants.Extraction.DEVICE_CUDA)
+                else normalised
+            )
+            accelerator_device = base_device_map.get(device_key)
+            if accelerator_device is None:
+                logger.warning("Unrecognised GPU device '%s' — falling back to default converter", self.gpu_device)
+                return DocumentConverter()
+
+            accelerator_options = AcceleratorOptions(
+                num_threads=self.gpu_num_threads if self.gpu_num_threads is not None else 4,
+                device=accelerator_device,
+            )
+            # Docling 2105 mapping: ThreadedPdfPipelineOptions carries AcceleratorOptions;
+            # both PDF and IMAGE format options share the same pipeline options instance.
+            threaded_options = ThreadedPdfPipelineOptions(accelerator_options=accelerator_options)
+
+            format_options: dict[Any, Any] = {
+                InputFormat.PDF: PdfFormatOption(pipeline_options=threaded_options),
+                InputFormat.IMAGE: ImageFormatOption(pipeline_options=threaded_options),
+            }
+
+            # Include AudioFormatOption only when ASR is enabled and installed
+            if self.use_asr_pipeline and _ASR_AVAILABLE:
+                try:
+                    from docling.document_converter import AudioFormatOption
+                    from docling.pipeline.asr_pipeline import AsrPipeline
+
+                    asr_opts = self._configure_asr_engine()
+                    format_options[InputFormat.AUDIO] = AudioFormatOption(
+                        pipeline_cls=AsrPipeline,
+                        pipeline_options=asr_opts,
+                    )
+                except ImportError as asr_exc:
+                    logger.warning("Could not add ASR to GPU converter: %s", asr_exc)
+
+            logger.info(
+                "Building GPU-accelerated DocumentConverter (device=%s, num_threads=%s)",
+                self.gpu_device,
+                accelerator_options.num_threads,
+            )
+            return DocumentConverter(format_options=format_options)
+        except ImportError as exc:
+            logger.warning("Docling GPU acceleration unavailable (%s). Falling back to standard converter.", exc)
+            return None
 
     def _configure_vlm_engine(self) -> Any:
         """Configure VLM pipeline options based on engine type.
@@ -191,6 +295,10 @@ class DoclingAdapter(TextExtractionPort):
                 self.vlm_engine_type or OperatorConstants.Config.DEFAULT,
                 file_path,
             )
+        elif self.gpu_device:
+            logger.info(
+                "Processing file with GPU-accelerated standard pipeline (device: %s): %s", self.gpu_device, file_path
+            )
         else:
             logger.info("Processing file with standard extraction: %s", file_path)
 
@@ -237,13 +345,28 @@ class DoclingAdapter(TextExtractionPort):
             if format_options:
                 converter_config = {OperatorConstants.Config.FORMAT_OPTIONS: format_options}
 
-            # Use common extraction method with output_formats
-            result = OperatorUtils.extract_content(
-                file_path=file_path,
-                binary_content=binary_content,
-                converter_config=converter_config,
-                additional_formats=self.additional_formats,
-            )
+            # When GPU acceleration is active use the pre-built converter directly so
+            # that model weights are not reloaded for every document.
+            if self.gpu_device and self._gpu_converter is not None:
+                result = OperatorUtils.extract_content(
+                    file_path=file_path,
+                    binary_content=binary_content,
+                    converter_config=None,
+                    additional_formats=self.additional_formats,
+                    converter=self._gpu_converter,
+                )
+            else:
+                # Use common extraction method with output_formats
+                result = OperatorUtils.extract_content(
+                    file_path=file_path,
+                    binary_content=binary_content,
+                    converter_config=converter_config,
+                    additional_formats=self.additional_formats,
+                )
+
+            # Add GPU-specific metadata if extraction succeeded and GPU was used
+            if self.gpu_device and result.get(OperatorConstants.Extraction.SUCCESS):
+                result[OperatorConstants.Metadata.METADATA][OperatorConstants.Extraction.DEVICE] = self.gpu_device
 
             # Add VLM-specific metadata if extraction succeeded and VLM was used
             if self.use_vlm_pipeline and result.get(OperatorConstants.Extraction.SUCCESS):

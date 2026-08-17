@@ -309,6 +309,10 @@ For full details on the priority system, override behaviour, and registering cus
 | `text_extraction.provider_config.vlm_pipeline.engine_options` | object |          No | `{}`                    | `docling_library`               | Engine-specific options (api_base, model_id, etc.)                                                 |
 | `text_extraction.provider_config.asr_pipeline`                | object |          No | `null`                  | `docling_library`               | ASR (Automatic Speech Recognition) pipeline configuration. When present, ASR processing is enabled. |
 | `text_extraction.provider_config.asr_pipeline.model_id`       | string |          No | `whisper_turbo`         | `docling_library`               | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
+| `text_extraction.provider_config.standard_pipeline`           | object |          No | `null`                  | `docling_library`               | Standard pipeline acceleration configuration. Omit entirely for default behaviour. |
+| `text_extraction.provider_config.standard_pipeline.accelerator` | object |         No | `null`                  | `docling_library`               | GPU accelerator options for PDF and image processing. When present, the adapter builds one `DocumentConverter` and reuses it across all documents. **Requires `max_workers: 1` and `use_processes: false`.** Cannot be combined with `vlm_pipeline`. |
+| `text_extraction.provider_config.standard_pipeline.accelerator.device` | string | No | auto-detected | `docling_library` | GPU device to use. Accepted values: `mps` (Apple Silicon), `cuda` (NVIDIA, any device), `cuda:<index>` (e.g. `cuda:0`), `xpu` (Intel). When omitted, the best available device is auto-detected via torch (CUDA → MPS → XPU). Device availability is checked at runtime via torch backends. |
+| `text_extraction.provider_config.standard_pipeline.accelerator.num_threads` | int | No | `4` | `docling_library` | Number of CPU-side threads for the Docling pipeline. Must be a positive integer. Booleans are rejected. |
 | `text_extraction.provider_config`                             | object |          No | `{}`                    | All                             | Provider-specific configuration                                               |
 | `text_extraction.provider_config.base_url`                    | string |         Yes | None                     | Docling Serve API endpoint (docling_serve mode). Required when using docling_serve provider.                                                                                                                                                                                                         |
 | `text_extraction.provider_config.api_key`                     | string |          No | `null`                  | `docling_serve`                 | Optional API key for authentication                                           |
@@ -413,6 +417,35 @@ The operator provides the following metadata after execution:
       "provider": "none"
     },
     "max_workers": 1
+  }
+}
+```
+
+**Example: GPU-Accelerated Text Extraction**
+
+```json
+{
+  "id": "extract-node",
+  "name": "extract",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "standard_pipeline": {
+          "accelerator": {
+            "device": "mps",
+            "num_threads": 6
+          }
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
+    "max_workers": 1,
+    "use_processes": false
   }
 }
 ```

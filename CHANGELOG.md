@@ -25,6 +25,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - Deprecation policy (`docs/guides/DEPRECATION_POLICY.md`)
 - Migration guide template (`docs/guides/MIGRATION_GUIDE_TEMPLATE.md`)
 - **HashiCorp Vault integration** — `vault://` URI scheme for resolving secrets in flow operator configs at runtime. Enable via `secrets.vault.enabled: true` in `docling-pipelines-config.yaml`. Credentials (`VAULT_ROLE_ID`, `VAULT_SECRET_ID`) supplied via environment variables. Supports AppRole auth, KV v1/v2, TLS, mTLS, Vault Enterprise namespaces, and Docker/Kubernetes file-backed secrets. See `sample_flows/vault/opensearch_with_vault.json` for a working example.
+- **GPU acceleration for `ExtractOperator`** — `docling_library` provider now supports GPU device selection via `standard_pipeline.accelerator` in `provider_config`. Accepted devices: `mps` (Apple Silicon), `cuda`, `cuda:<index>` (NVIDIA), `xpu` (Intel). When `device` is omitted from the accelerator block, the best available GPU is auto-detected at runtime via torch (CUDA → MPS → XPU). Validates device availability via torch backends before loading any model. Requires `max_workers: 1` and `use_processes: false`. One `DocumentConverter` is constructed per adapter execution and reused across all documents. Flows without accelerator config are unaffected.
 
 ---
 

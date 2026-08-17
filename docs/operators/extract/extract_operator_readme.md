@@ -100,6 +100,65 @@ Enable VLM pipeline for enhanced extraction with vision-language models:
 }
 ```
 
+**GPU Acceleration Configuration:**
+
+Enable GPU-accelerated standard pipeline processing for PDF and image documents. The adapter builds one `DocumentConverter` at initialization and reuses it across all documents — model weights are loaded onto the GPU once per adapter execution.
+
+> **Note:** Cannot be combined with `vlm_pipeline`. Requires `max_workers: 1` and `use_processes: false`.
+
+When `device` is omitted, the best available GPU is auto-detected at runtime via torch (CUDA → MPS → XPU). Specify `device` explicitly to pin a particular GPU.
+
+```json
+{
+  "max_workers": 1,
+  "use_processes": false,
+  "text_extraction": {
+    "provider": "docling_library",
+    "doc_column": "content",
+    "provider_config": {
+      "standard_pipeline": {
+        "accelerator": {
+          "num_threads": 6
+        }
+      }
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
+}
+```
+
+Or with an explicit device:
+
+```json
+{
+  "max_workers": 1,
+  "use_processes": false,
+  "text_extraction": {
+    "provider": "docling_library",
+    "doc_column": "content",
+    "provider_config": {
+      "standard_pipeline": {
+        "accelerator": {
+          "device": "cuda",
+          "num_threads": 6
+        }
+      }
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
+}
+```
+
+**Supported GPU Devices:**
+- `mps` — Apple Metal Performance Shaders (Apple Silicon: M1/M2/M3/M4)
+- `cuda` — NVIDIA CUDA (automatic device selection)
+- `cuda:<index>` — NVIDIA CUDA on a specific device (e.g. `cuda:0`, `cuda:1`)
+- `xpu` — Intel XPU
+
 **Supported VLM Engines:**
 - `transformers`: Local inference using Transformers library
 - `mlx`: Local inference optimized for macOS (Apple Silicon)
@@ -559,6 +618,10 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `text_extraction.provider_config.vlm_pipeline.engine_options` | object | `{}`        | Engine-specific options (api_base, model_id, etc.)                  |
 | `text_extraction.provider_config.asr_pipeline`        | object  | `null`              | ASR (Automatic Speech Recognition) pipeline configuration object. Provide empty dict `{}` to enable with defaults, or omit to disable. |
 | `text_extraction.provider_config.asr_pipeline.model_id` | string | `"whisper_turbo"` | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
+| `text_extraction.provider_config.standard_pipeline` | object | `null` | Standard pipeline acceleration block. Omit entirely to use default Docling behaviour. |
+| `text_extraction.provider_config.standard_pipeline.accelerator` | object | `null` | GPU accelerator options. When present, one `DocumentConverter` is built at init and reused. **Requires `max_workers: 1` and `use_processes: false`. Cannot be combined with `vlm_pipeline`.** |
+| `text_extraction.provider_config.standard_pipeline.accelerator.device` | string | auto-detected | GPU device. Accepted: `mps`, `cuda`, `cuda:<index>` (e.g. `cuda:0`), `xpu`. When omitted, best available device is auto-detected via torch (CUDA → MPS → XPU). Validated at runtime via torch backends. |
+| `text_extraction.provider_config.standard_pipeline.accelerator.num_threads` | int | `4` | CPU-side pipeline thread count. Must be a positive integer (booleans rejected). |
 
 ### Docling Serve Provider Parameters
 

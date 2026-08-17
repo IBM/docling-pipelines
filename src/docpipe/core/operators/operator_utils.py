@@ -73,7 +73,7 @@ def _converter_cache_key(converter_config: dict | None) -> str:
     if not converter_config or "format_options" not in converter_config:
         return "default"
     key_parts = {str(fmt): type(opt).__name__ for fmt, opt in converter_config["format_options"].items()}
-    return hashlib.md5(json.dumps(key_parts, sort_keys=True).encode()).hexdigest()
+    return hashlib.md5(json.dumps(key_parts, sort_keys=True).encode(), usedforsecurity=False).hexdigest()  # nosec B324
 
 
 def _get_or_create_converter(converter_config: dict | None) -> Any:
@@ -1209,6 +1209,7 @@ class OperatorUtils:
         binary_content: bytes,
         converter_config: dict[str, Any] | None = None,
         additional_formats: list[str] | None = None,
+        converter: Any = None,
     ) -> dict[str, Any]:
         """
         Common method for document extraction using Docling's DocumentConverter.
@@ -1229,6 +1230,10 @@ class OperatorUtils:
                                Options: 'html', 'json', 'text', 'doctags', 'doclang'.
                                Each format creates a separate column in the output.
                                Note: Markdown is ALWAYS generated and should NOT be included in this list.
+            converter: Optional pre-built DocumentConverter instance. When provided,
+                       ``converter_config`` is ignored and the supplied converter is used
+                       directly. Intended for GPU-accelerated adapters that construct the
+                       converter once and reuse it across documents.
 
         Returns:
             Dictionary containing:
@@ -1273,9 +1278,10 @@ class OperatorUtils:
                     additional_formats=additional_formats,
                 )
 
-            # Retrieve (or lazily construct) the singleton converter for this config.
-            # Model weights are loaded once per unique format_options per process.
-            converter = _get_or_create_converter(converter_config)
+            # Use supplied converter when provided (GPU path), otherwise retrieve
+            # (or lazily construct) the singleton converter for this config.
+            if converter is None:
+                converter = _get_or_create_converter(converter_config)
 
             # Create DocumentStream from binary content (no temporary file needed)
             audio_video_suffixes = {f".{extension.lower()}" for extension in FormatToExtensions[InputFormat.AUDIO]}

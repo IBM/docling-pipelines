@@ -243,6 +243,42 @@ For LLM-powered entity extraction using Ollama models, use `entity_extraction.pr
 
 This approach uses LiteLLM to access Ollama models for flexible, LLM-powered entity extraction. This is useful when you need to extract specific fields from structured documents like invoices, forms, or receipts.
 
+#### GPU-Accelerated Text Extraction
+
+For hardware-accelerated PDF and image extraction using a local GPU. The adapter builds one `DocumentConverter` at initialization and reuses it for every document — GPU model weights are loaded once per flow execution.
+
+> Requires `max_workers: 1` and `use_processes: false`. Cannot be combined with `vlm_pipeline`.
+
+When `device` is omitted, the best available GPU is auto-detected via torch at runtime (CUDA → MPS → XPU). Specify `device` explicitly to pin a particular GPU.
+
+```json
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "standard_pipeline": {
+          "accelerator": {
+            "num_threads": 6
+          }
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
+    "max_workers": 1,
+    "use_processes": false
+  }
+}
+```
+
+**Supported devices:** `mps` (Apple Silicon), `cuda` (NVIDIA), `cuda:<index>` (e.g. `cuda:0`), `xpu` (Intel). Auto-detected when `device` is not specified.
+
 ---
 
 ### Operator 3: ChunkerOperator

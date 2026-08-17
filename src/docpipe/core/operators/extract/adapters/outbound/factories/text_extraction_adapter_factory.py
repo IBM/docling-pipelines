@@ -96,6 +96,30 @@ class TextExtractionAdapterFactory:
         # Extract provider_config from nested structure
         provider_config = text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
+        # Schema checks: standard_pipeline and accelerator must be dicts when present
+        standard_pipeline_raw = provider_config.get(OperatorConstants.Extraction.STANDARD_PIPELINE)
+        if standard_pipeline_raw is not None and not isinstance(standard_pipeline_raw, dict):
+            raise ValueError(
+                f"provider_config.standard_pipeline must be a JSON object, got {type(standard_pipeline_raw).__name__}"
+            )
+        accelerator_raw = (
+            (standard_pipeline_raw or {}).get(OperatorConstants.Extraction.ACCELERATOR)
+            if isinstance(standard_pipeline_raw, dict)
+            else None
+        )
+        if accelerator_raw is not None and not isinstance(accelerator_raw, dict):
+            raise ValueError(
+                "provider_config.standard_pipeline.accelerator must be a JSON object, "
+                f"got {type(accelerator_raw).__name__}"
+            )
+        if isinstance(accelerator_raw, dict):
+            allowed_accel_keys = {OperatorConstants.Extraction.DEVICE, OperatorConstants.Extraction.NUM_THREADS}
+            unknown_keys = set(accelerator_raw.keys()) - allowed_accel_keys
+            if unknown_keys:
+                raise ValueError(
+                    f"Unknown accelerator key(s): {sorted(unknown_keys)}. Only 'device' and 'num_threads' are accepted."
+                )
+
         # Common configuration for all text providers
         adapter_config: dict[str, Any] = {
             OperatorConstants.Config.DOC_COLUMN: text_extraction_config.get(
@@ -140,6 +164,29 @@ class TextExtractionAdapterFactory:
                     ),
                 }
             )
+
+            # GPU / standard pipeline accelerator config from provider_config.standard_pipeline
+            standard_pipeline = provider_config.get(OperatorConstants.Extraction.STANDARD_PIPELINE, {})
+            accelerator = standard_pipeline.get(OperatorConstants.Extraction.ACCELERATOR, {})
+            gpu_device = accelerator.get(OperatorConstants.Extraction.DEVICE)
+            gpu_num_threads = accelerator.get(OperatorConstants.Extraction.NUM_THREADS)
+
+            # If the user included an accelerator block but omitted device, auto-detect
+            # the best available GPU so they don't have to specify it explicitly.
+            if accelerator and gpu_device is None:
+                gpu_device = TextExtractionAdapterFactory._auto_detect_device()
+                if gpu_device is not None:
+                    logger.info("No accelerator device specified — auto-detected: %s", gpu_device)
+                else:
+                    logger.warning(
+                        "Accelerator block present but no GPU device found via torch. "
+                        "Falling back to standard CPU extraction."
+                    )
+
+            if gpu_device is not None:
+                adapter_config[OperatorConstants.Extraction.DEVICE] = gpu_device
+            if gpu_num_threads is not None:
+                adapter_config[OperatorConstants.Extraction.NUM_THREADS] = gpu_num_threads
 
         elif mode == TextExtractionMode.DOCLING_SERVE:
             # Build docling_serve_config dictionary from provider_config
@@ -234,6 +281,7 @@ class TextExtractionAdapterFactory:
         if mode == TextExtractionMode.DOCLING_LIBRARY:
             # Check if VLM is enabled
             use_vlm = adapter_config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
+            gpu_device = adapter_config.get(OperatorConstants.Extraction.DEVICE)
 
             if use_vlm:
                 TextExtractionAdapterFactory._validate_vlm_config(adapter_config)
@@ -242,6 +290,17 @@ class TextExtractionAdapterFactory:
                     adapter_config.get(
                         OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
                     ),
+                    max_workers,
+                )
+            elif gpu_device:
+                TextExtractionAdapterFactory._validate_gpu_config(
+                    adapter_config=adapter_config,
+                    max_workers=max_workers,
+                    use_processes=use_processes,
+                )
+                logger.info(
+                    "Creating DoclingAdapter with GPU acceleration (device: %s) and %s workers",
+                    gpu_device,
                     max_workers,
                 )
             else:
@@ -263,6 +322,139 @@ class TextExtractionAdapterFactory:
         raise ValueError(
             f"Unsupported extraction provider: {mode}. Supported providers: {[m.value for m in TextExtractionMode]}"
         )
+
+    @staticmethod
+    def _validate_gpu_config(*, adapter_config: dict[str, Any], max_workers: int, use_processes: bool) -> None:
+        """Validate configuration for GPU-accelerated standard pipeline extraction.
+
+        GPU acceleration requires max_workers=1 and use_processes=False because
+        Docling's standard pipeline with a GPU accelerator device is not safe to
+        run across multiple threads or processes simultaneously.
+
+        Additionally, VLM and GPU acceleration cannot be combined — the VLM
+        pipeline has its own device management.
+
+        Args:
+            adapter_config: Adapter configuration dictionary (must contain 'device')
+            max_workers: Number of parallel workers configured by the caller
+            use_processes: Whether ProcessPoolExecutor was requested
+
+        Raises:
+            ValueError: If any GPU constraint is violated
+        """
+        import re
+
+        gpu_device = adapter_config.get(OperatorConstants.Extraction.DEVICE)
+
+        # Normalise and validate device string.
+        # Accepted forms: mps, cuda, cuda:<non-negative integer index>, xpu
+        if not isinstance(gpu_device, str):
+            raise ValueError(f"Invalid GPU device {gpu_device!r}. Must be a string.")
+
+        normalised = gpu_device.strip().lower()
+        base_devices = {
+            OperatorConstants.Extraction.DEVICE_MPS,
+            OperatorConstants.Extraction.DEVICE_CUDA,
+            OperatorConstants.Extraction.DEVICE_XPU,
+        }
+        cuda_index_pattern = re.compile(r"^cuda:\d+$")
+        if normalised not in base_devices and not cuda_index_pattern.match(normalised):
+            raise ValueError(
+                f"Invalid GPU device '{gpu_device}'. "
+                f"Supported forms: {sorted(base_devices)} or 'cuda:<index>' (e.g. 'cuda:0')."
+            )
+
+        if adapter_config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False):
+            raise ValueError(
+                "GPU acceleration (standard_pipeline.accelerator.device) cannot be combined "
+                "with VLM pipeline. Use one or the other."
+            )
+
+        if max_workers != 1:
+            raise ValueError(
+                f"GPU acceleration requires max_workers=1, got max_workers={max_workers}. "
+                "Set max_workers to 1 in text_extraction config when using a GPU device."
+            )
+
+        if use_processes:
+            raise ValueError(
+                "GPU acceleration requires use_processes=false. "
+                "ProcessPoolExecutor cannot share a GPU-loaded model across processes."
+            )
+
+        num_threads = adapter_config.get(OperatorConstants.Extraction.NUM_THREADS)
+        # isinstance(True, int) is True in Python — booleans must be rejected explicitly
+        if num_threads is not None and (
+            isinstance(num_threads, bool) or not isinstance(num_threads, int) or num_threads < 1
+        ):
+            raise ValueError(f"num_threads must be a positive integer, got: {num_threads!r}")
+
+        # Runtime device availability checks — fail early before any model is loaded
+        TextExtractionAdapterFactory._check_device_availability(normalised)
+
+    @staticmethod
+    def _auto_detect_device() -> str | None:
+        """Detect the best available GPU device using torch.
+
+        Probes torch backends in priority order: CUDA → MPS → XPU.
+        Returns the device string (e.g. ``"cuda"``, ``"mps"``, ``"xpu"``) or
+        ``None`` when torch is not installed or no supported GPU is found.
+        """
+        try:
+            import torch
+        except ImportError:
+            return None
+
+        if torch.cuda.is_available():
+            return OperatorConstants.Extraction.DEVICE_CUDA
+        if torch.backends.mps.is_built() and torch.backends.mps.is_available():
+            return OperatorConstants.Extraction.DEVICE_MPS
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            return OperatorConstants.Extraction.DEVICE_XPU
+        return None
+
+    @staticmethod
+    def _check_device_availability(normalised_device: str) -> None:
+        """Check that the requested GPU device is available at runtime via torch.
+
+        Args:
+            normalised_device: Lowercase device string (e.g. 'mps', 'cuda', 'cuda:0', 'xpu')
+
+        Raises:
+            ValueError: If torch is not installed or the device is unavailable
+        """
+        try:
+            import torch
+        except ImportError as exc:
+            raise ValueError(
+                "GPU acceleration requires torch to be installed. Install with: uv pip install torch"
+            ) from exc
+
+        if normalised_device == OperatorConstants.Extraction.DEVICE_MPS:
+            if not (torch.backends.mps.is_built() and torch.backends.mps.is_available()):
+                raise ValueError(
+                    "GPU device 'mps' is not available in this environment. "
+                    "MPS requires an Apple Silicon Mac with a compatible PyTorch build."
+                )
+        elif normalised_device.startswith(OperatorConstants.Extraction.DEVICE_CUDA):
+            if not torch.cuda.is_available():
+                raise ValueError(
+                    f"GPU device '{normalised_device}' is not available. "
+                    "CUDA requires a compatible NVIDIA GPU and CUDA-enabled PyTorch."
+                )
+            if ":" in normalised_device:
+                index = int(normalised_device.split(":")[1])
+                device_count = torch.cuda.device_count()
+                if index >= device_count:
+                    raise ValueError(
+                        f"CUDA device index {index} is out of range (available devices: 0-{device_count - 1})."
+                    )
+        elif normalised_device == OperatorConstants.Extraction.DEVICE_XPU:
+            if not (hasattr(torch, "xpu") and torch.xpu.is_available()):
+                raise ValueError(
+                    "GPU device 'xpu' is not available in this environment. "
+                    "XPU requires Intel hardware and a compatible PyTorch build."
+                )
 
     @staticmethod
     def _validate_docling_config(config: dict[str, Any]) -> None:

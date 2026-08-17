@@ -688,6 +688,16 @@ class OperatorConstants:
         STAGE_STATUS_RUNNING: Final[str] = "running"
         STAGE_STATUS_COMPLETED: Final[str] = "completed"
         STAGE_STATUS_FAILED: Final[str] = "failed"
+        # GPU Acceleration Configuration (Docling Library Standard Pipeline)
+        STANDARD_PIPELINE: Final[str] = "standard_pipeline"
+        ACCELERATOR: Final[str] = "accelerator"
+        DEVICE: Final[str] = "device"
+        NUM_THREADS: Final[str] = "num_threads"
+
+        # GPU Device Types
+        DEVICE_MPS: Final[str] = "mps"
+        DEVICE_CUDA: Final[str] = "cuda"
+        DEVICE_XPU: Final[str] = "xpu"
 
     class ExtractionModes:
         """Extraction mode constants for ExtractOperator."""
