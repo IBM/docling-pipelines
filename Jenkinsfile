@@ -178,7 +178,7 @@ timestamps {
 
                   echo "Built wheel: \$WHEEL_FILENAME"
 
-                  # Push to Artifactory
+                  # Push to Artifactory (versioned path)
                   curl -u "\${ARTIFACTORY_USERNAME}:\${ARTIFACTORY_PASSWORD}" \\
                     -T "\$WHEEL_FILE" \\
                     "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/docling-pipelines/${VERSION}/\${WHEEL_FILENAME}"
@@ -195,10 +195,15 @@ timestamps {
 
                   echo "Built slim wheel: \$SLIM_WHEEL_FILENAME"
 
-                  # Push slim wheel to Artifactory (same folder as main wheel)
+                  # Push slim wheel to Artifactory (versioned path)
                   curl -u "\${ARTIFACTORY_USERNAME}:\${ARTIFACTORY_PASSWORD}" \\
                     -T "\$SLIM_WHEEL_FILE" \\
                     "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/docling-pipelines/${VERSION}/\${SLIM_WHEEL_FILENAME}"
+
+                  # Push slim wheel to Artifactory (fixed path — always points to latest)
+                  curl -u "\${ARTIFACTORY_USERNAME}:\${ARTIFACTORY_PASSWORD}" \\
+                    -T "\$SLIM_WHEEL_FILE" \\
+                    "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/docling-pipelines/\${SLIM_WHEEL_FILENAME}"
 
                   echo "Slim wheel file pushed to Artifactory successfully"
                 """
