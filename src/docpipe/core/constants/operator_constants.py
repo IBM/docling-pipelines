@@ -418,6 +418,12 @@ class OperatorConstants:
         MILVUS: Final[str] = "milvus"
         VECTOR_DB_NAME: Final[str] = "vector_db_name"
 
+        # Default target field names — adapter-agnostic names used in feature mappings
+        DEFAULT_PRIMARY_KEY_FIELD: Final[str] = "pk"
+        DEFAULT_DOCUMENT_ID_FIELD: Final[str] = "document_id"
+        DEFAULT_DOCUMENT_NAME_FIELD: Final[str] = "document_name"
+        DEFAULT_TEXT_FIELD_NAME: Final[str] = "text"
+
         # Response metadata keys written into node.parameters by FlowEnrichmentService
         AVAILABLE_RESOURCES: Final[str] = "available_resources"
         SELECTED_RESOURCE_SCHEMA: Final[str] = "selected_resource_schema"
@@ -434,8 +440,6 @@ class OperatorConstants:
         # Milvus-specific parameters
         INDEX_PARAMETERS: Final[str] = "index_parameters"
         PRIMARY_KEY_FIELD: Final[str] = "primary_key_field"
-        DEFAULT_PRIMARY_KEY_FIELD: Final[str] = "pk"
-        DEFAULT_TEXT_FIELD_NAME: Final[str] = "text"
 
         # Environment Variable Keys for OpenSearch
         OPENSEARCH_HOST: Final[str] = "OPENSEARCH_HOST"

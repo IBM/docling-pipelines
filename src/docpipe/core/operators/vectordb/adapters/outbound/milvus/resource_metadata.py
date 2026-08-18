@@ -288,21 +288,85 @@ class MilvusResourceMetadata:
     ) -> list[dict[str, str]]:
         """Resolve feature mappings using the priority chain.
 
+        Milvus has no _meta storage for feature_mappings (unlike OpenSearch), so
+        Source 2 derives mappings directly from the live collection schema
+        (field type/flag matching) instead of reading stored data.
+        selected_resource_schema is non-empty only when the collection already exists.
+
         Resolution order:
-          1. operator_config["milvus_feature_mappings"]  — user-saved, highest priority
-          2. operator_config["feature_mappings"]         — backward-compat key
-          3. defaults from propagated available_features — enterprise-style defaults
+          1. operator_config["feature_mappings"]         — user-saved mappings
+          2. live collection schema (existing collection) — non-empty selected_resource_schema:
+               - primary field       → feature where is_primary=True or "primary" tag
+               - FLOAT_VECTOR field  → feature where type="vector"
+               - SPARSE_FLOAT_VECTOR → feature where type="vector_sparse" (add_sparse only)
+               - field name matches a feature name → identity mapping
+               - any other field     → skipped
+          3. defaults from propagated available_features — new collection fallback
           4. []                                          — fallback
         """
-        saved = operator_config.get("milvus_feature_mappings")
-        if saved:
-            return normalise_feature_mappings(saved)
-
+        # Source 1 — user-saved mappings
         saved_generic = operator_config.get(OperatorConstants.Config.FEATURE_MAPPINGS)
         if saved_generic:
             return normalise_feature_mappings(saved_generic)
 
+        # Source 2 — existing collection: derive from live schema (no _meta in Milvus).
+        # selected_resource_schema is only non-empty when the collection exists.
+        if selected_resource_schema and available_features:
+            add_sparse = operator_config.get(OperatorConstants.VectorDB.ADD_SPARSE_VECTOR, False)
+
+            primary_feature = next(
+                (
+                    n
+                    for n, m in available_features.items()
+                    if m.get(OperatorConstants.Misc.IS_PRIMARY)
+                    or OperatorConstants.Misc.PRIMARY in m.get(OperatorConstants.Misc.TAGS, [])
+                ),
+                None,
+            )
+            vector_feature = next(
+                (
+                    n
+                    for n, m in available_features.items()
+                    if m.get(OperatorConstants.Misc.TYPE) == OperatorConstants.Types.TYPE_VECTOR
+                ),
+                None,
+            )
+            sparse_feature = (
+                next(
+                    (
+                        n
+                        for n, m in available_features.items()
+                        if m.get(OperatorConstants.Misc.TYPE) == OperatorConstants.Types.TYPE_VECTOR_SPARSE
+                    ),
+                    None,
+                )
+                if add_sparse
+                else None
+            )
+
+            result: list[dict[str, str]] = []
+            covered: set[str] = set()
+
+            for field_name, field_meta in selected_resource_schema.items():
+                field_type: str = field_meta.get("type", "").upper()
+                if field_meta.get("is_primary") and primary_feature and primary_feature not in covered:
+                    result.append({"feature_name": primary_feature, "mapped_column_name": field_name})
+                    covered.add(primary_feature)
+                elif "SPARSE_FLOAT_VECTOR" in field_type and sparse_feature and sparse_feature not in covered:
+                    result.append({"feature_name": sparse_feature, "mapped_column_name": field_name})
+                    covered.add(sparse_feature)
+                elif "FLOAT_VECTOR" in field_type and vector_feature and vector_feature not in covered:
+                    result.append({"feature_name": vector_feature, "mapped_column_name": field_name})
+                    covered.add(vector_feature)
+                elif field_name in available_features and field_name not in covered:
+                    result.append({"feature_name": field_name, "mapped_column_name": field_name})
+                    covered.add(field_name)
+
+            if result:
+                return result
+
+        # Source 3 — new collection: derive defaults from propagated available_features
         if available_features:
-            return default_feature_mappings_from_features(available_features)
+            return default_feature_mappings_from_features(available_features, operator_config)
 
         return []

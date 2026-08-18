@@ -462,5 +462,258 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
         assert not mandatory_errors
 
 
+# ---------------------------------------------------------------------------
+# Shared helper — builds an operator with a fully mocked adapter
+# ---------------------------------------------------------------------------
+
+
+def _make_operator_with_mock_adapter(extra_config: dict | None = None) -> tuple["VectorDBOperator", Mock]:
+    """Return (operator, mock_adapter) with VectorStoreFactory.create patched."""
+    mock_adapter = Mock()
+    mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 384}
+    mock_adapter.index_exists.return_value = False
+    mock_adapter.index_documents.return_value = (0, [])
+    mock_adapter.refresh_index.return_value = None
+
+    base = {
+        OperatorConstants.Config.PROVIDER: "opensearch",
+        OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+        OperatorConstants.Config.AVAILABLE_FEATURES: {
+            "embeddings": {
+                OperatorConstants.Misc.TYPE: "vector",
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+            }
+        },
+        OperatorConstants.Config.FEATURE_MAPPINGS: {"embeddings": "vector_embeddings", "doc_id_hash": "pk"},
+    }
+    if extra_config:
+        base.update(extra_config)
+
+    with patch(
+        "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create", return_value=mock_adapter
+    ):
+        op = VectorDBOperator(base)
+    return op, mock_adapter
+
+
+# ---------------------------------------------------------------------------
+# __init__ — branch-specific config paths (this PR)
+# ---------------------------------------------------------------------------
+
+
+class TestVectorDBOperatorInitConfig:
+    """__init__ config extraction paths added/changed in this branch."""
+
+    def test_add_sparse_vector_forwarded_to_adapter_config(self):
+        """add_sparse_vector in config is forwarded into provider_config passed to the adapter factory."""
+        captured = {}
+
+        def capture_create(name, **kwargs):
+            captured.update(kwargs)
+            m = Mock()
+            m.detect_all_vector_dimensions.return_value = {}
+            m.index_exists.return_value = False
+            m.index_documents.return_value = (0, [])
+            m.refresh_index.return_value = None
+            return m
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.VectorDB.ADD_SPARSE_VECTOR: True,
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create", side_effect=capture_create
+        ):
+            VectorDBOperator(config)
+
+        assert captured.get(OperatorConstants.VectorDB.ADD_SPARSE_VECTOR) is True
+
+    def test_schema_template_path_forwarded_to_adapter_config(self):
+        """schema_template_path in config is forwarded into provider_config passed to the adapter factory."""
+        captured = {}
+
+        def capture_create(name, **kwargs):
+            captured.update(kwargs)
+            m = Mock()
+            m.detect_all_vector_dimensions.return_value = {}
+            m.index_exists.return_value = False
+            m.index_documents.return_value = (0, [])
+            m.refresh_index.return_value = None
+            return m
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            "schema_template_path": "/tmp/schema.json",
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create", side_effect=capture_create
+        ):
+            VectorDBOperator(config)
+
+        assert captured.get("schema_template_path") == "/tmp/schema.json"
+
+    def test_opensearch_import_error_falls_back_gracefully(self):
+        """ImportError during OpenSearch eager registration is caught and logged, not raised."""
+        with patch.dict("sys.modules", {"docpipe.core.operators.vectordb.adapters.outbound.opensearch.adapter": None}):
+            # Re-importing the module would raise — the try/except at module level means the
+            # operator is still constructable with a mocked factory.
+            with patch("docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create"):
+                op = VectorDBOperator(
+                    {
+                        OperatorConstants.Config.PROVIDER: "opensearch",
+                        OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+                    }
+                )
+            assert op.provider == "opensearch"
+
+
+# ---------------------------------------------------------------------------
+# transform() — error / edge-case paths
+# ---------------------------------------------------------------------------
+
+
+class TestVectorDBOperatorTransformEdgeCases:
+    """transform() branches not covered by existing tests."""
+
+    def _table_with_embeddings(self, *, doc_ids: list) -> pa.Table:
+        return pa.table(
+            {
+                "doc_id_hash": doc_ids,
+                "embeddings": [Mock() for _ in doc_ids],
+            }
+        )
+
+    def test_transform_no_vector_columns_dense_mode_returns_failed(self, basic_config):
+        """Dense-only mode with no vector-typed available_features → FAILED status."""
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "doc_id_hash": {
+                    OperatorConstants.Misc.TYPE: "string",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: {"doc_id_hash": "pk"},
+        }
+        mock_adapter = Mock()
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create", return_value=mock_adapter
+        ):
+            op = VectorDBOperator(config)
+
+        table = pa.table({"doc_id_hash": ["doc1"]})
+        _, metadata = op.transform(table)
+        assert metadata["node_status"] == "Failed"
+
+    def test_transform_dimension_detection_fails_returns_failed(self, basic_config):
+        """detect_all_vector_dimensions returns {} in dense mode → FAILED status."""
+        op, mock_adapter = _make_operator_with_mock_adapter()
+        mock_adapter.detect_all_vector_dimensions.return_value = {}
+
+        table = pa.table({"doc_id_hash": ["doc1"], "embeddings": [[0.1, 0.2]]})
+        _, metadata = op.transform(table)
+        assert metadata["node_status"] == "Failed"
+
+    def test_transform_index_creation_failure_marks_all_docs_failed(self, basic_config):
+        """Exception during create_index marks all documents as failed."""
+        op, mock_adapter = _make_operator_with_mock_adapter()
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.create_index.side_effect = RuntimeError("connection refused")
+
+        table = pa.table({"doc_id_hash": ["doc1", "doc2"], "embeddings": [[0.1], [0.2]]})
+        _, metadata = op.transform(table)
+
+        assert metadata["node_status"] == "Failed"
+        assert metadata["processed_docs"] == 0
+        assert metadata["failed_docs_count"] == 2
+
+    def test_transform_null_doc_id_row_is_skipped(self, basic_config):
+        """Rows where doc_id_hash is null are skipped, not failed."""
+        op, mock_adapter = _make_operator_with_mock_adapter()
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.index_documents.return_value = (1, [])
+
+        table = pa.table(
+            {
+                "doc_id_hash": pa.array([None, "doc2"], type=pa.string()),
+                "embeddings": [[0.1], [0.2]],
+            }
+        )
+        _, metadata = op.transform(table)
+        assert metadata.get("skipped_docs_count", 0) >= 1
+
+    def test_transform_refresh_index_exception_is_warned_not_failed(self, basic_config):
+        """refresh_index() raising does not change the final status to Failed."""
+        op, mock_adapter = _make_operator_with_mock_adapter()
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.index_documents.return_value = (1, [])
+        mock_adapter.refresh_index.side_effect = RuntimeError("refresh failed")
+
+        table = pa.table({"doc_id_hash": ["doc1"], "embeddings": [[0.1]]})
+        _, metadata = op.transform(table)
+        assert metadata.get("node_status") != "Failed"
+
+    def test_transform_table_with_id_column_builds_hash_to_id_map(self):
+        """Table with both doc_id_hash and id columns — hash-to-id mapping is built (lines 213-215)."""
+        op, mock_adapter = _make_operator_with_mock_adapter()
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.index_documents.return_value = (2, [])
+
+        table = pa.table(
+            {
+                "doc_id_hash": ["hash1", "hash2"],
+                "id": ["orig_id_1", "orig_id_2"],
+                "embeddings": [[0.1], [0.2]],
+            }
+        )
+        _, metadata = op.transform(table)
+        assert metadata["processed_docs"] == 2
+
+    def test_transform_index_documents_exception_marks_all_docs_failed(self):
+        """index_documents() raising marks all documents as failed (lines 538-557)."""
+        op, mock_adapter = _make_operator_with_mock_adapter()
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.index_documents.side_effect = RuntimeError("bulk write error")
+
+        table = pa.table({"doc_id_hash": ["doc1", "doc2"], "embeddings": [[0.1], [0.2]]})
+        _, metadata = op.transform(table)
+
+        assert metadata["node_status"] == "Failed"
+        assert metadata["processed_docs"] == 0
+
+    def test_transform_sparse_only_mode_no_dense_vectors(self):
+        """add_sparse_vector=True with no dense vector columns → pure sparse mode, no dimension detection."""
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.VectorDB.ADD_SPARSE_VECTOR: True,
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "doc_id_hash": {
+                    OperatorConstants.Misc.TYPE: "string",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: {"doc_id_hash": "pk"},
+        }
+        mock_adapter = Mock()
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.index_documents.return_value = (1, [])
+        mock_adapter.refresh_index.return_value = None
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create", return_value=mock_adapter
+        ):
+            op = VectorDBOperator(config)
+
+        table = pa.table({"doc_id_hash": ["doc1"]})
+        _, metadata = op.transform(table)
+
+        mock_adapter.detect_all_vector_dimensions.assert_not_called()
+        assert metadata.get("node_status") != "Failed"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

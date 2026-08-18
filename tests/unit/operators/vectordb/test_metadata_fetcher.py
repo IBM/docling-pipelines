@@ -31,12 +31,14 @@ def _feature(
     *,
     available_for_vector_db: bool = True,
     is_primary: bool = False,
+    mandatory_for_vector_db: bool = False,
     tags: list[str] | None = None,
     type_: str = "string",
 ) -> dict:
     f: dict = {
         OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: available_for_vector_db,
         OperatorConstants.Misc.IS_PRIMARY: is_primary,
+        OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: mandatory_for_vector_db,
         OperatorConstants.Misc.TAGS: tags or [],
         OperatorConstants.Misc.TYPE: type_,
     }
@@ -146,22 +148,78 @@ class TestComputeDefaultFeatureMappingsRule4Vector:
 
 
 # ---------------------------------------------------------------------------
-# compute_default_feature_mappings — Rule 5: remaining available → identity
+# compute_default_feature_mappings — Rule 5: Milvus sparse path
 # ---------------------------------------------------------------------------
 
 
-class TestComputeDefaultFeatureMappingsRule5Identity:
-    """Rule 5: remaining features with available_for_vector_db=True → identity mapping."""
+class TestComputeDefaultFeatureMappingsRule5Sparse:
+    """Rule 5: Milvus-only sparse path — only fires when add_sparse_vector=True."""
 
-    def test_available_feature_maps_to_itself(self):
+    def test_sparse_feature_maps_to_sparse_embeddings(self):
+        feats = {"sparse_embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR_SPARSE)}
+        result = compute_default_feature_mappings(feats, add_sparse_vector=True)
+        assert result["sparse_embeddings"] == OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
+
+    def test_content_maps_to_text_when_sparse(self):
+        feats = {"content": _feature(type_="string")}
+        result = compute_default_feature_mappings(feats, add_sparse_vector=True)
+        assert result["content"] == "text"
+
+    def test_custom_content_column_maps_to_text(self):
+        feats = {"my_text": _feature(type_="string")}
+        result = compute_default_feature_mappings(feats, add_sparse_vector=True, content_column="my_text")
+        assert result["my_text"] == "text"
+
+    def test_sparse_path_skipped_when_add_sparse_vector_false(self):
+        feats = {
+            "sparse_embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR_SPARSE),
+            "content": _feature(type_="string"),
+        }
+        result = compute_default_feature_mappings(feats, add_sparse_vector=False)
+        assert "sparse_embeddings" not in result
+        assert "content" not in result
+
+    def test_content_not_duplicated_if_already_covered(self):
+        # If content is also a primary key (unlikely but defensive), Rule 1 owns it
+        feats = {"content": _feature(is_primary=True)}
+        result = compute_default_feature_mappings(feats, add_sparse_vector=True)
+        assert result["content"] == "pk"
+        assert list(result.values()).count("text") == 0
+
+
+# ---------------------------------------------------------------------------
+# compute_default_feature_mappings — Rule 6: mandatory_for_vector_db safety net
+# ---------------------------------------------------------------------------
+
+
+class TestComputeDefaultFeatureMappingsRule6Mandatory:
+    """Rule 6: mandatory_for_vector_db=True features are always included via identity mapping.
+
+    available_for_vector_db=True alone is NOT enough — users must add those explicitly.
+    """
+
+    def test_mandatory_feature_maps_to_itself(self):
+        feats = {"custom_required": _feature(mandatory_for_vector_db=True)}
+        result = compute_default_feature_mappings(feats)
+        assert result.get("custom_required") == "custom_required"
+
+    def test_available_for_vector_db_only_feature_not_included(self):
         feats = {"title": _feature(available_for_vector_db=True)}
         result = compute_default_feature_mappings(feats)
-        assert result.get("title") == "title"
+        assert "title" not in result
 
-    def test_unavailable_feature_excluded(self):
-        feats = {"internal_flag": _feature(available_for_vector_db=False)}
+    def test_mandatory_already_covered_by_rule1_not_duplicated(self):
+        # primary key is already Rule 1; Rule 5 must not re-add it under its own name
+        feats = {"doc_hash": _feature(is_primary=True, mandatory_for_vector_db=True)}
         result = compute_default_feature_mappings(feats)
-        assert "internal_flag" not in result
+        assert result["doc_hash"] == "pk"
+        assert list(result.values()).count("doc_hash") == 0
+
+    def test_mandatory_already_covered_by_rule4_not_duplicated(self):
+        # vector type is already Rule 4; Rule 5 must not re-add it as identity
+        feats = {"embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR, mandatory_for_vector_db=True)}
+        result = compute_default_feature_mappings(feats)
+        assert result["embeddings"] == "vector_embeddings"
 
     def test_empty_features_returns_empty_dict(self):
         assert compute_default_feature_mappings({}) == {}
@@ -173,14 +231,16 @@ class TestComputeDefaultFeatureMappingsRule5Identity:
 
 
 class TestComputeDefaultFeatureMappingsCombined:
-    """Full enterprise feature set exercises all five rules at once."""
+    """Full feature set exercises all six rules."""
 
     def test_full_feature_set_all_rules_applied(self):
         feats = {
-            "doc_hash": _feature(is_primary=True, available_for_vector_db=True),
+            "doc_hash": _feature(is_primary=True, available_for_vector_db=True, mandatory_for_vector_db=True),
             OperatorConstants.Columns.ID: _feature(available_for_vector_db=True),
             OperatorConstants.Columns.NAME: _feature(available_for_vector_db=True),
-            "embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR, available_for_vector_db=True),
+            "embeddings": _feature(
+                type_=OperatorConstants.Types.TYPE_VECTOR, available_for_vector_db=True, mandatory_for_vector_db=True
+            ),
             "content": _feature(available_for_vector_db=True),
         }
         result = compute_default_feature_mappings(feats)
@@ -189,7 +249,37 @@ class TestComputeDefaultFeatureMappingsCombined:
         assert result[OperatorConstants.Columns.ID] == "document_id"
         assert result[OperatorConstants.Columns.NAME] == "document_name"
         assert result["embeddings"] == "vector_embeddings"
-        assert result["content"] == "content"
+        assert "content" not in result
+
+    def test_full_milvus_sparse_feature_set(self):
+        feats = {
+            "doc_hash": _feature(is_primary=True, mandatory_for_vector_db=True),
+            OperatorConstants.Columns.ID: _feature(available_for_vector_db=True),
+            OperatorConstants.Columns.NAME: _feature(available_for_vector_db=True),
+            "embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR, mandatory_for_vector_db=True),
+            "sparse_embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR_SPARSE),
+            "content": _feature(type_="string"),
+        }
+        result = compute_default_feature_mappings(feats, add_sparse_vector=True)
+
+        assert result["doc_hash"] == "pk"
+        assert result[OperatorConstants.Columns.ID] == "document_id"
+        assert result[OperatorConstants.Columns.NAME] == "document_name"
+        assert result["embeddings"] == "vector_embeddings"
+        assert result["sparse_embeddings"] == OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
+        assert result["content"] == "text"
+
+    def test_non_typed_mandatory_feature_included_via_rule6(self):
+        # A hypothetical future mandatory feature that is neither primary nor vector
+        feats = {
+            "doc_hash": _feature(is_primary=True, mandatory_for_vector_db=True),
+            "embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR, mandatory_for_vector_db=True),
+            "acl_field": _feature(mandatory_for_vector_db=True),
+        }
+        result = compute_default_feature_mappings(feats)
+        assert result["doc_hash"] == "pk"
+        assert result["embeddings"] == "vector_embeddings"
+        assert result["acl_field"] == "acl_field"
 
 
 # ---------------------------------------------------------------------------
@@ -846,23 +936,7 @@ class TestMilvusResourceMetadata:
     # _resolve_feature_mappings — priority chain
     # ------------------------------------------------------------------
 
-    def test_feature_mappings_source1_milvus_specific_key(self):
-        from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
-
-        operator_config = {
-            "milvus_feature_mappings": {"feat": "col"},
-            OperatorConstants.Config.FEATURE_MAPPINGS: {"other": "other_col"},
-        }
-        result = MilvusResourceMetadata._resolve_feature_mappings(
-            operator_config=operator_config,
-            available_features={},
-            selected_resource_schema={},
-            normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
-            default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
-        )
-        assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
-
-    def test_feature_mappings_source2_generic_key(self):
+    def test_feature_mappings_source1_feature_mappings_key(self):
         from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
 
         operator_config = {OperatorConstants.Config.FEATURE_MAPPINGS: {"feat": "col"}}
@@ -875,7 +949,7 @@ class TestMilvusResourceMetadata:
         )
         assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
 
-    def test_feature_mappings_source3_defaults_from_available_features(self):
+    def test_feature_mappings_source3_defaults_new_collection(self):
         from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
 
         feats = {OperatorConstants.Columns.ID: _feature(available_for_vector_db=True)}

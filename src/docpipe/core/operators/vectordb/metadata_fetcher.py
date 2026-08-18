@@ -18,20 +18,42 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger()
 
 
-def compute_default_feature_mappings(available_features: dict[str, Any]) -> dict[str, str]:
+def compute_default_feature_mappings(
+    available_features: dict[str, Any],
+    *,
+    add_sparse_vector: bool = False,
+    content_column: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+) -> dict[str, str]:
     """Compute default feature-to-column mappings when none are provided by the user.
 
     Returns a dict[str, str] in execution format {feature_name: mapped_column_name},
     which is what VectorDBOperator and the index_manager consume.
 
-    Mirrors enterprise get_default_feature_mappings_for_new_index() /
-    get_default_feature_mappings_for_any_new_store():
+    Rules applied in order:
 
       1. Feature with is_primary=True OR tagged "primary"  → "pk"
-      2. "id"                                              → "document_id"   (hardcoded)
-      3. "name"                                            → "document_name" (hardcoded)
+      2. "id"                                              → "document_id"
+      3. "name"                                            → "document_name"
       4. First feature with type="vector"                  → "vector_embeddings"
-      5. Remaining available_for_vector_db=True features   → identity mapping
+      5. [Milvus, add_sparse_vector=True only]
+         Feature with type="vector_sparse"                 → "sparse_embeddings"
+         content_column                                    → "text"
+      6. Remaining mandatory_for_vector_db=True features   → identity mapping
+         (safety net: a DB write would fail without a mapping for these)
+
+    Rule 6 is a defensive addition. In practice every mandatory_for_vector_db feature
+    is also a primary key (Rule 1) or a vector type (Rule 4), so it will already be
+    covered. Rule 6 ensures future features that are mandatory but typed differently
+    are never silently omitted.
+
+    Additional non-mandatory features must be explicitly mapped in the flow definition.
+
+    Args:
+        available_features: Propagated feature map from the DAG snapshot.
+        add_sparse_vector: When True (Milvus only), adds sparse_embeddings and
+            content_column to the defaults.
+        content_column: Name of the document content column. Defaults to "content".
+            Only used when add_sparse_vector=True.
 
     The primary check handles two formats:
     - Flow JSON config: ``"is_primary": True`` (set directly on the feature dict)
@@ -46,30 +68,44 @@ def compute_default_feature_mappings(available_features: dict[str, Any]) -> dict
             OperatorConstants.Misc.PRIMARY in meta.get(OperatorConstants.Misc.TAGS, [])
         )
         if is_primary:
-            result[name] = "pk"
+            result[name] = OperatorConstants.VectorDB.DEFAULT_PRIMARY_KEY_FIELD
             covered.add(name)
             break
 
     # Rule 2 — "id" → "document_id"
     if OperatorConstants.Columns.ID in available_features and OperatorConstants.Columns.ID not in covered:
-        result[OperatorConstants.Columns.ID] = "document_id"
+        result[OperatorConstants.Columns.ID] = OperatorConstants.VectorDB.DEFAULT_DOCUMENT_ID_FIELD
         covered.add(OperatorConstants.Columns.ID)
 
     # Rule 3 — "name" → "document_name"
     if OperatorConstants.Columns.NAME in available_features and OperatorConstants.Columns.NAME not in covered:
-        result[OperatorConstants.Columns.NAME] = "document_name"
+        result[OperatorConstants.Columns.NAME] = OperatorConstants.VectorDB.DEFAULT_DOCUMENT_NAME_FIELD
         covered.add(OperatorConstants.Columns.NAME)
 
     # Rule 4 — first feature with type=vector → "vector_embeddings"
     for name, meta in available_features.items():
         if name not in covered and meta.get(OperatorConstants.Misc.TYPE) == OperatorConstants.Types.TYPE_VECTOR:
-            result[name] = "vector_embeddings"
+            result[name] = OperatorConstants.Columns.DENSE_EMBEDDINGS_COLUMN_DEFAULT
             covered.add(name)
             break
 
-    # Rule 5 — remaining available_for_vector_db=True → identity mapping
+    # Rule 5 — Milvus sparse path (add_sparse_vector=True only)
+    if add_sparse_vector:
+        for name, meta in available_features.items():
+            if (
+                name not in covered
+                and meta.get(OperatorConstants.Misc.TYPE) == OperatorConstants.Types.TYPE_VECTOR_SPARSE
+            ):
+                result[name] = OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
+                covered.add(name)
+                break
+        if content_column in available_features and content_column not in covered:
+            result[content_column] = OperatorConstants.VectorDB.DEFAULT_TEXT_FIELD_NAME
+            covered.add(content_column)
+
+    # Rule 6 — remaining mandatory_for_vector_db=True → identity mapping
     for name, meta in available_features.items():
-        if name not in covered and meta.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB, False):
+        if name not in covered and meta.get(OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB, False):
             result[name] = name
             covered.add(name)
 
@@ -172,14 +208,25 @@ class VectorDBMetadataFetcher:
     @staticmethod
     def _default_feature_mappings_from_features(
         available_features: dict[str, Any],
+        operator_config: dict[str, Any] | None = None,
     ) -> list[dict[str, str]]:
         """Derive default feature mappings in list[dict] format for the API/UI response.
 
         Delegates to compute_default_feature_mappings() and converts dict→list.
+        Passes add_sparse_vector and content_column from operator_config when present.
         """
+        cfg = operator_config or {}
+        add_sparse_vector: bool = cfg.get(OperatorConstants.VectorDB.ADD_SPARSE_VECTOR, False)
+        content_column: str = cfg.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         return [
             {"feature_name": k, "mapped_column_name": v}
-            for k, v in compute_default_feature_mappings(available_features).items()
+            for k, v in compute_default_feature_mappings(
+                available_features,
+                add_sparse_vector=add_sparse_vector,
+                content_column=content_column,
+            ).items()
         ]
 
     @staticmethod

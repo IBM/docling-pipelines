@@ -119,7 +119,11 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             if not user_mappings and available_features:
                 from docpipe.core.operators.vectordb.metadata_fetcher import compute_default_feature_mappings
 
-                user_mappings = compute_default_feature_mappings(available_features)
+                user_mappings = compute_default_feature_mappings(
+                    available_features,
+                    add_sparse_vector=self.add_sparse_vector,
+                    content_column=self.doc_column,
+                )
                 logger.debug(
                     "No feature_mappings provided — computed defaults from available_features for provider '%s'",
                     self.provider,

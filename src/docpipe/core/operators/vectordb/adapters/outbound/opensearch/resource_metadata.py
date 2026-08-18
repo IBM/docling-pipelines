@@ -199,16 +199,16 @@ class OpenSearchResourceMetadata:
         normalise_feature_mappings: Any,
         default_feature_mappings_from_features: Any,
     ) -> list[dict[str, str]]:
-        """Resolve feature mappings using the enterprise priority chain.
+        """Resolve feature mappings using the priority chain.
 
         Uses the already-fetched mapping dict for Source 3 — no additional
         network call.
 
         Resolution order:
           1. operator_config["opensearch_feature_mappings"] — user-saved, highest priority
-          2. operator_config["feature_mappings"]            — backward-compat key
+          2. operator_config["feature_mappings"]            — saved mappings key
           3. mappings._meta.feature_mappings                — stored in index by docpipe
-          4. defaults from propagated available_features    — enterprise-style defaults
+          4. defaults computed from propagated available_features
           5. []                                             — fallback
         """
         # Source 1 — adapter-specific saved key
@@ -234,6 +234,6 @@ class OpenSearchResourceMetadata:
 
         # Source 4 — derive defaults from propagated available_features
         if available_features:
-            return default_feature_mappings_from_features(available_features)
+            return default_feature_mappings_from_features(available_features, operator_config)
 
         return []
