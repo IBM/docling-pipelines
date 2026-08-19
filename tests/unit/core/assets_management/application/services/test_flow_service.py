@@ -755,6 +755,145 @@ class TestFlowServiceCount:
         assert result == 3
 
 
+class TestFlowServiceListIsElyra:
+    """Tests for is_elyra format filter in list_flows."""
+
+    @pytest.fixture
+    def mixed_format_flows(self) -> list:
+        """Five flows: 3 authoring (have flow_name in definition), 2 Elyra (do not)."""
+        from datetime import UTC, datetime
+
+        from docpipe.core.assets.flows.domain.models.flow import Flow
+
+        flows = []
+        for i in range(3):
+            flows.append(
+                Flow(
+                    asset_id=f"authoring-id-{i}",
+                    name=f"Authoring Flow {i}",
+                    definition={"flow_name": f"Authoring Flow {i}", "flow": []},
+                    created_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                )
+            )
+        for i in range(2):
+            flows.append(
+                Flow(
+                    asset_id=f"elyra-id-{i}",
+                    name=f"Elyra Flow {i}",
+                    definition={"doc_type": "pipeline", "pipelines": []},
+                    created_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                )
+            )
+        return flows
+
+    def test_list_flows_is_elyra_none_returns_all(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=None returns all flows regardless of format."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(is_elyra=None)
+
+        assert len(result) == 5
+
+    def test_list_flows_is_elyra_false_returns_authoring_only(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=False returns only authoring-format flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(is_elyra=False)
+
+        assert len(result) == 3
+        assert all("flow_name" in f.definition for f in result)
+
+    def test_list_flows_is_elyra_true_returns_elyra_only(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=True returns only Elyra-format flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(is_elyra=True)
+
+        assert len(result) == 2
+        assert all("flow_name" not in f.definition for f in result)
+
+    def test_list_flows_is_elyra_filter_applied_before_pagination(self, mock_flow_repository, mixed_format_flows):
+        """Format filter is applied before pagination so limit/skip operate on the filtered set."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        # 3 authoring flows; skip=1, limit=1 should return 1 (not 0)
+        result = service.list_flows(is_elyra=False, skip=1, limit=1)
+
+        assert len(result) == 1
+        assert "flow_name" in result[0].definition
+
+
+class TestFlowServiceCountIsElyra:
+    """Tests for is_elyra format filter in count_flows."""
+
+    @pytest.fixture
+    def mixed_format_flows(self) -> list:
+        """Three authoring + two Elyra flows."""
+        from datetime import UTC, datetime
+
+        from docpipe.core.assets.flows.domain.models.flow import Flow
+
+        flows = []
+        for i in range(3):
+            flows.append(
+                Flow(
+                    asset_id=f"authoring-id-{i}",
+                    name=f"Authoring Flow {i}",
+                    definition={"flow_name": f"Authoring Flow {i}", "flow": []},
+                    created_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                )
+            )
+        for i in range(2):
+            flows.append(
+                Flow(
+                    asset_id=f"elyra-id-{i}",
+                    name=f"Elyra Flow {i}",
+                    definition={"doc_type": "pipeline", "pipelines": []},
+                    created_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                )
+            )
+        return flows
+
+    def test_count_flows_is_elyra_none_counts_all(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=None counts all flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(is_elyra=None) == 5
+
+    def test_count_flows_is_elyra_false_counts_authoring(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=False counts only authoring flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(is_elyra=False) == 3
+
+    def test_count_flows_is_elyra_true_counts_elyra(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=True counts only Elyra flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(is_elyra=True) == 2
+
+    def test_count_flows_is_elyra_consistent_with_list_flows(self, mock_flow_repository, mixed_format_flows):
+        """count_flows and list_flows return consistent totals for same filters."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        count = service.count_flows(is_elyra=False)
+        listed = service.list_flows(is_elyra=False)
+
+        assert count == len(listed)
+
+
 class TestFlowServiceExists:
     """Tests for FlowService.flow_exists method."""
 
@@ -798,3 +937,183 @@ class TestFlowServiceExists:
 
         # Assert
         assert result is False
+
+
+class TestFlowServiceValidateFlowId:
+    """Tests for FlowService._validate_flow_id."""
+
+    def test_validate_flow_id_raises_on_empty_string(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service._validate_flow_id("")
+
+    def test_validate_flow_id_raises_on_whitespace(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service._validate_flow_id("   ")
+
+    def test_validate_flow_id_returns_id_when_valid(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        assert service._validate_flow_id("abc-123") == "abc-123"
+
+
+class TestFlowServiceMigrateRootPath:
+    """Tests for FlowService._migrate_root_path."""
+
+    def test_migrate_root_path_converts_root_path_to_paths_list(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "flow": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"root_path": "/data/docs"},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["flow"][0]["config"]["connection_params"]
+        assert conn["paths"] == ["/data/docs"]
+        assert "root_path" not in conn
+
+    def test_migrate_root_path_skips_nodes_already_using_paths(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "flow": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["/already/migrated"]},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["flow"][0]["config"]["connection_params"]
+        assert conn["paths"] == ["/already/migrated"]
+        assert "root_path" not in conn
+
+    def test_migrate_root_path_skips_non_filesystem_nodes(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "flow": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "s3",
+                        "connection_params": {"root_path": "/bucket"},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["flow"][0]["config"]["connection_params"]
+        # Non-filesystem node must not be touched
+        assert "root_path" in conn
+        assert "paths" not in conn
+
+    def test_migrate_root_path_returns_non_dict_definition_unchanged(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        assert service._migrate_root_path(None) is None
+        assert service._migrate_root_path("raw-string") == "raw-string"
+
+    def test_migrate_root_path_uses_dag_key_when_flow_key_absent(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "dag": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"root_path": "/legacy"},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["dag"][0]["config"]["connection_params"]
+        assert conn["paths"] == ["/legacy"]
+        assert "root_path" not in conn
+
+
+class TestFlowServicePartialUpdateEdgeCases:
+    """Additional edge-case tests for partial_update_flow."""
+
+    def test_partial_update_flow_raises_on_empty_flow_id(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service.partial_update_flow("", {"description": "x"})
+
+    def test_partial_update_flow_raises_on_whitespace_flow_id(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service.partial_update_flow("   ", {"description": "x"})
+
+    def test_partial_update_flow_returns_existing_when_only_unknown_fields(
+        self, mock_flow_repository, sample_flow_with_id
+    ):
+        """When updates contain only unknown fields, the existing flow is returned unchanged."""
+        mock_flow_repository.find_by_id.return_value = sample_flow_with_id
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.partial_update_flow("test-flow-id-123", {"unknown_field_xyz": "value"})
+
+        assert result == sample_flow_with_id
+        mock_flow_repository.partial_update.assert_not_called()
+
+    def test_partial_update_flow_returns_existing_when_only_protected_fields(
+        self, mock_flow_repository, sample_flow_with_id
+    ):
+        """When updates contain only protected fields, the existing flow is returned unchanged."""
+        mock_flow_repository.find_by_id.return_value = sample_flow_with_id
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.partial_update_flow("test-flow-id-123", {"flow_id": "new-id", "created_by": "hacker"})
+
+        assert result == sample_flow_with_id
+        mock_flow_repository.partial_update.assert_not_called()
+
+
+class TestFlowServiceUpdateFlowIdWhitespace:
+    """Whitespace flow_id edge case for update_flow."""
+
+    def test_update_flow_with_whitespace_id_raises_error(self, mock_flow_repository, sample_flow_domain):
+        service = FlowService(repository=mock_flow_repository)
+        sample_flow_domain.flow_id = "   "
+        with pytest.raises(FlowInvalidDataException, match="Flow ID is required for update"):
+            service.update_flow(sample_flow_domain)
+
+
+class TestFlowServiceContainerIdFilter:
+    """Tests for container_id filtering in list_flows / count_flows."""
+
+    def test_list_flows_with_container_id_filter(self, mock_flow_repository, multiple_sample_flows):
+        """list_flows filters by container_id when provided."""
+        # Give one flow a specific container_id
+        multiple_sample_flows[0].container_id = "project-abc"
+        mock_flow_repository.find_all.return_value = multiple_sample_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(container_id="project-abc")
+
+        assert len(result) == 1
+        assert result[0].container_id == "project-abc"
+
+    def test_list_flows_container_id_no_match_returns_empty(self, mock_flow_repository, multiple_sample_flows):
+        mock_flow_repository.find_all.return_value = multiple_sample_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(container_id="nonexistent-container")
+
+        assert result == []
+
+    def test_count_flows_with_container_id_filter(self, mock_flow_repository, multiple_sample_flows):
+        multiple_sample_flows[1].container_id = "project-xyz"
+        multiple_sample_flows[2].container_id = "project-xyz"
+        mock_flow_repository.find_all.return_value = multiple_sample_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(container_id="project-xyz") == 2

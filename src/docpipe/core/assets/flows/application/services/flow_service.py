@@ -174,6 +174,22 @@ class FlowService(AssetService[Flow]):
 
         return flows
 
+    def _filter_flows_by_format(self, *, flows: list[Flow], is_elyra: bool | None) -> list[Flow]:
+        """Filter flows by format (authoring vs Elyra).
+
+        Args:
+            flows: List of hydrated Flow objects
+            is_elyra: True = Elyra only, False = Authoring only, None = all formats
+
+        Returns:
+            List[Flow]: Flows matching the requested format
+        """
+        if is_elyra is None:
+            return flows
+        if is_elyra:
+            return [f for f in flows if DocpipeConstants.FLOW_NAME not in f.definition]
+        return [f for f in flows if DocpipeConstants.FLOW_NAME in f.definition]
+
     def create_flow(self, *, flow: Flow, is_elyra: bool = False) -> Flow:
         """Create and store a new flow.
 
@@ -480,6 +496,7 @@ class FlowService(AssetService[Flow]):
         tags_filter: list[str] | None = None,
         is_hidden: bool | None = None,
         container_id: str | None = None,
+        is_elyra: bool | None = None,
     ) -> list[Flow]:
         """List flows with pagination and filtering.
 
@@ -550,6 +567,7 @@ class FlowService(AssetService[Flow]):
 
         all_flows = self._repository.find_all()
         filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden, container_id)
+        filtered_flows = self._filter_flows_by_format(flows=filtered_flows, is_elyra=is_elyra)
         paginated_flows = filtered_flows[skip : skip + limit]
 
         logger.info(
@@ -566,6 +584,7 @@ class FlowService(AssetService[Flow]):
         tags_filter: list[str] | None = None,
         is_hidden: bool | None = None,
         container_id: str | None = None,
+        is_elyra: bool | None = None,
     ) -> int:
         """Count flows matching filters.
 
@@ -617,6 +636,7 @@ class FlowService(AssetService[Flow]):
         """
         all_flows = self._repository.find_all()
         filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden, container_id)
+        filtered_flows = self._filter_flows_by_format(flows=filtered_flows, is_elyra=is_elyra)
 
         logger.info("Counted %d flows (filtered from %d)", len(filtered_flows), len(all_flows))
         return len(filtered_flows)

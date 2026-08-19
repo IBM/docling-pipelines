@@ -53,7 +53,7 @@ class RepositoryType(AbstractRepositoryType):
     DUCKDB = "duckdb"
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[5] / "docling-pipelines-config.yaml"
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[6] / "docling-pipelines-config.yaml"
 ENV_CONFIG_PATH_KEY = "DOCPIPE_CONFIG_PATH"
 
 

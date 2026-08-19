@@ -5,13 +5,13 @@ assets_management:
       # Set this to the directory where your flow definitions are stored (flow repository).
       base_dir: sample_flows
 
-  document_set_repository:
+  documentset_repository:
     type: duckdb
     config:
       # Database path for DuckDB storage
       database_path: data/duckdb/document_sets.duckdb
 
-  document_library_repository:
+  documentlibrary_repository:
     type: duckdb
     config:
       # Database path for DuckDB storage

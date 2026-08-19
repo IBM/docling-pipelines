@@ -622,8 +622,6 @@ async def list_flows(
     Raises:
         HTTPException: If list operation fails (400, 500)
     """
-    from docpipe.core.constants.constants import DocpipeConstants
-
     limit, offset = pagination
     name = filters["name"]
     tags = filters["tags"]
@@ -638,19 +636,11 @@ async def list_flows(
         f"is_hidden={is_hidden}, is_elyra={is_elyra}"
     )
 
-    # Get flows using service with pagination and filtering
-    flows = service.list_flows(skip=offset, limit=limit, name_filter=name, tags_filter=tags, is_hidden=is_hidden)
-
-    # Filter by format
-    if is_elyra:
-        # Return only Elyra format flows
-        flows = [f for f in flows if DocpipeConstants.FLOW_NAME not in f.definition]
-    else:
-        # Return only authoring format flows
-        flows = [f for f in flows if DocpipeConstants.FLOW_NAME in f.definition]
-
-    # Get total count from service
-    total = service.count_flows(name_filter=name, tags_filter=tags, is_hidden=is_hidden)
+    # Get flows and total — format filter applied inside the service before pagination
+    flows = service.list_flows(
+        skip=offset, limit=limit, name_filter=name, tags_filter=tags, is_hidden=is_hidden, is_elyra=is_elyra
+    )
+    total = service.count_flows(name_filter=name, tags_filter=tags, is_hidden=is_hidden, is_elyra=is_elyra)
 
     logger.info(f"Successfully retrieved {len(flows)} flows (format: {'Elyra' if is_elyra else 'Authoring'})")
 
