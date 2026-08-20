@@ -4,7 +4,7 @@ Unit tests for IngestSourceOperator.
 Tests the operator with various providers and configurations using mocks.
 """
 
-from datetime import UTC
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pyarrow as pa
@@ -336,6 +336,33 @@ class TestGetLoader:
 
         mock_import.assert_called_once_with("my_package.loaders")
         mock_loader_class.assert_called_once()
+
+    def test_get_loader_custom_passes_merged_init_kwargs(self):
+        """Test _get_loader merges connection params and credentials for custom loaders."""
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        mock_loader_class = Mock()
+        mock_module = Mock()
+        mock_module.CustomLoader = mock_loader_class
+
+        config = {
+            "provider": "custom",
+            "connection_params": {
+                "loader_class_path": "my_package.loaders.CustomLoader",
+                "custom_param": "value",
+            },
+            "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
+        }
+
+        with patch("importlib.import_module", return_value=mock_module):
+            operator = IngestSourceOperator(config)
+            operator._get_loader()
+
+        mock_loader_class.assert_called_once_with(
+            loader_class_path="my_package.loaders.CustomLoader",
+            custom_param="value",
+            api_key="test-api-key",  # pragma: allowlist secret
+        )
 
     def test_get_loader_custom_missing_path(self):
         """Test _get_loader raises error when custom provider missing loader_class_path."""
@@ -767,6 +794,60 @@ class TestTransform:
         # With the new adapter architecture, source_url is always provided
         assert source_ids[0] == "s3://test-bucket/file1.txt"
 
+    @patch("docpipe.core.incremental_metadata.get_incremental_update_service")
+    def test_transform_google_drive_single_file_uses_adapter_path(
+        self,
+        mock_get_service,
+        empty_input_table,
+    ):
+        """Test transform routes single-file Google Drive ingestion through the adapter path."""
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_get_service.return_value = mock_service
+
+        config = {
+            "provider": "google_drive",
+            "connection_params": {"file_id": "doc123", "folder_id": "test-folder-id", "recursive": False},
+            "credentials": {
+                "credentials_path": "/path/to/credentials.json",
+                "token_path": "/path/to/token.json",
+                "scopes": ["https://www.googleapis.com/auth/drive.readonly"],
+            },
+            "job_id": "test-job-123",
+            "job_run_id": "test-run-456",
+            "force_ingest": True,
+        }
+
+        operator = IngestSourceOperator(config)
+
+        processed_doc = {
+            "id": "hash123",
+            "name": "single.pdf",
+            "document_format": ".pdf",
+            "metadata": "{}",
+            "source_id": "doc123",
+            "path": "https://drive.google.com/file/d/doc123",
+            "modified_time": 0,
+        }
+
+        with (
+            patch.object(operator, "_process_documents_from_adapter", return_value=[processed_doc]) as mock_process,
+            patch(
+                "docpipe.core.operators.ingest.ingest_source.SourceAdapterFactory.is_registered",
+                return_value=True,
+            ),
+        ):
+            result_tables, metadata = operator.transform(empty_input_table)
+
+        mock_process.assert_called_once()
+        assert len(result_tables) == 1
+        assert result_tables[0].num_rows == 1
+        assert result_tables[0]["source_id"].to_pylist() == ["doc123"]
+        assert metadata["processed_docs"] == 1
+        assert metadata["node_status"] == "Completed"
+
 
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
@@ -932,6 +1013,325 @@ class TestIngestSourceOperatorProcessDocumentUrlExtensionFallback:
         # Should not raise; the URL has no extension so it won't match .pdf — document is skipped
         result = operator.process_document(doc, 0, metadata)
         assert result is None
+
+
+class TestMicrosoftGraphLoader:
+    @patch("docpipe.core.operators.ingest.ingest_source.RestClient")
+    def test_get_token_returns_cached_value(self, mock_rest_client):
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        loader = MicrosoftGraphLoader(
+            drive_id="drive1",
+            client_id="client",
+            client_secret="secret",  # pragma: allowlist secret
+            tenant_id="tenant",
+        )
+        loader._token = "cached-token"
+
+        assert loader._get_token() == "cached-token"
+        mock_rest_client.assert_called_once()
+
+    def test_process_items_splits_files_and_folders(self):
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        loader = MicrosoftGraphLoader(
+            drive_id="drive1",
+            client_id="client",
+            client_secret="secret",  # pragma: allowlist secret
+            tenant_id="tenant",
+        )
+        files: list[dict[str, object]] = []
+
+        folder_ids = loader._process_items(
+            items=[
+                {"id": "folder1", "folder": {}},
+                {"id": "file1", "name": "doc.txt"},
+            ],
+            files=files,
+        )
+
+        assert folder_ids == ["folder1"]
+        assert files == [{"id": "file1", "name": "doc.txt"}]
+
+    @patch("docpipe.core.operators.ingest.ingest_source.RestClient")
+    def test_download_file_uses_content_endpoint_without_download_url(self, mock_rest_client_cls):
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        rest_client = Mock()
+        response = Mock()
+        response.content = b"payload"
+        rest_client.call_rest.return_value = response
+        mock_rest_client_cls.return_value = rest_client
+
+        loader = MicrosoftGraphLoader(
+            drive_id="drive1",
+            client_id="client",
+            client_secret="secret",  # pragma: allowlist secret
+            tenant_id="tenant",
+        )
+        loader._token = "token"
+
+        content = loader._download_file({"id": "item123"})
+
+        assert content == b"payload"
+        rest_client.call_rest.assert_called_once()
+
+    @patch("docpipe.core.operators.ingest.ingest_source.RestClient")
+    def test_list_files_handles_pagination_and_recursion(self, mock_rest_client_cls):
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        rest_client = Mock()
+        rest_client.call_rest_json.side_effect = [
+            {
+                "value": [
+                    {"id": "folder1", "folder": {}},
+                    {"id": "file1", "name": "doc1.txt"},
+                ],
+                "@odata.nextLink": "https://graph.microsoft.com/v1.0/drives/drive1/root/children?$skiptoken=abc",
+            },
+            {
+                "value": [{"id": "file2", "name": "doc2.txt"}],
+            },
+            {
+                "value": [{"id": "nested", "name": "nested.txt"}],
+            },
+        ]
+        mock_rest_client_cls.return_value = rest_client
+
+        loader = MicrosoftGraphLoader(
+            drive_id="drive1",
+            client_id="client",
+            client_secret="secret",  # pragma: allowlist secret
+            tenant_id="tenant",
+            recursive=True,
+        )
+        loader._token = "token"
+
+        files = loader._list_files()
+
+        assert [item["id"] for item in files] == ["file1", "file2", "nested"]
+
+    @patch("docpipe.core.operators.ingest.ingest_source.RestClient")
+    def test_lazy_load_yields_error_document_on_download_failure(self, mock_rest_client_cls):
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        rest_client = Mock()
+        mock_rest_client_cls.return_value = rest_client
+
+        loader = MicrosoftGraphLoader(
+            drive_id="drive1",
+            client_id="client",
+            client_secret="secret",  # pragma: allowlist secret
+            tenant_id="tenant",
+        )
+        loader._token = "token"
+        loader._list_files = Mock(return_value=[{"id": "file1", "name": "doc1.txt"}])
+        loader._download_file = Mock(side_effect=RuntimeError("download failed"))
+
+        docs = list(loader.lazy_load())
+
+        assert len(docs) == 1
+        assert docs[0].metadata["error"] == "download failed"
+        assert docs[0].metadata["item_id"] == "file1"
+
+
+class TestIngestSourceOperatorAdditionalCoverage:
+    def _make_operator(self, **overrides):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        config = {
+            "provider": "custom",
+            "connection_params": {"loader_class_path": "pkg.Loader"},
+            "credentials": {},
+        }
+        config.update(overrides)
+        return IngestSourceOperator(config)
+
+    def test_validate_appends_adapter_validation_messages(self):
+        operator = self._make_operator(provider="onedrive")
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        with patch.object(operator, "_build_adapter_config", side_effect=ValueError("validation error: bad field")):
+            operator.validate(errors, warnings, [])
+
+        assert "Configuration validation failed" in errors[0]
+
+        errors.clear()
+        with patch.object(operator, "_build_adapter_config", side_effect=RuntimeError("bad config")):
+            operator.validate(errors, warnings, [])
+
+        assert "Invalid configuration" in errors[0]
+
+    def test_validate_extensions_rejects_unsupported_filters(self):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        with pytest.raises(ValueError, match="Unsupported file extensions in include_filter"):
+            IngestSourceOperator(
+                {
+                    "provider": "custom",
+                    "connection_params": {"loader_class_path": "pkg.Loader"},
+                    "credentials": {},
+                    "include_filter": ".unsupported",
+                }
+            )
+
+        with pytest.raises(ValueError, match="Unsupported file extensions in exclude_filter"):
+            IngestSourceOperator(
+                {
+                    "provider": "custom",
+                    "connection_params": {"loader_class_path": "pkg.Loader"},
+                    "credentials": {},
+                    "exclude_filter": ".unsupported",
+                }
+            )
+
+    def test_process_document_handles_excluded_and_previously_processed(self):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        operator = IngestSourceOperator(
+            {
+                "provider": "custom",
+                "connection_params": {"loader_class_path": "pkg.Loader"},
+                "credentials": {},
+                "include_filter": ".txt",
+                "exclude_filter": ".pdf",
+            }
+        )
+        metadata = operator.create_base_metadata(total_docs_count=1)
+        excluded_doc = Document(page_content="", metadata={"source": "file.pdf", "name": "file.pdf"})
+
+        assert operator.process_document(excluded_doc, 0, metadata) is None
+        assert metadata["skipped_docs_count"] == 1
+
+        operator.previously_processed_docs_dict = {"dummy": {}}
+        processed_metadata = operator.create_base_metadata(total_docs_count=1)
+        already_done_doc = Document(
+            page_content="",
+            metadata={
+                "source": "file.txt",
+                "name": "file.txt",
+                "last_modified": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
+            },
+        )
+
+        with patch(
+            "docpipe.core.operators.ingest.ingest_source.is_doc_previously_processed",
+            return_value=True,
+        ):
+            assert operator.process_document(already_done_doc, 1, processed_metadata) is None
+
+        assert processed_metadata["skipped_docs_count"] == 1
+
+    def test_process_document_handles_processing_exception(self):
+
+        operator = self._make_operator(include_filter=".txt")
+        metadata = operator.create_base_metadata(total_docs_count=1)
+
+        class BrokenMetadata:
+            def __init__(self):
+                self.failed = False
+
+            def get(self, key, default=None):
+                if key == "source":
+                    return "file.txt"
+                if not self.failed:
+                    self.failed = True
+                    raise RuntimeError("boom")
+                return default
+
+        doc = Mock()
+        doc.metadata = BrokenMetadata()
+
+        assert operator.process_document(doc, 2, metadata) is None
+        assert metadata["failed_docs_count"] == 1
+
+    def test_is_hidden_path_detects_hidden_components(self):
+        operator = self._make_operator()
+
+        assert operator._is_hidden_path("a/.hidden/file.txt") is True
+        assert operator._is_hidden_path("a/visible/file.txt") is False
+
+    def test_process_documents_non_adapter_loader_batches_results(self):
+        from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        operator = IngestSourceOperator(
+            {
+                "provider": "custom",
+                "connection_params": {"loader_class_path": "pkg.Loader"},
+                "credentials": {},
+                "max_files": 2,
+                "include_filter": ".txt",
+            }
+        )
+        metadata = operator.create_base_metadata(total_docs_count=0)
+        loader = Mock()
+        loader.lazy_load.return_value = iter(
+            [
+                Document(page_content="", metadata={"source": "a.txt", "name": "a.txt"}),
+                Document(page_content="", metadata={"source": "b.txt", "name": "b.txt"}),
+                Document(page_content="", metadata={"source": "c.txt", "name": "c.txt"}),
+            ]
+        )
+
+        with patch.object(operator, "_get_loader", return_value=loader):
+            result = operator.process_documents(metadata)
+
+        assert len(result) == 2
+        assert [item["name"] for item in result] == ["a.txt", "b.txt"]
+
+    def test_process_documents_records_loader_errors(self):
+        operator = self._make_operator()
+        metadata = operator.create_base_metadata(total_docs_count=0)
+
+        with patch.object(operator, "_get_loader", side_effect=RuntimeError("loader failed")):
+            result = operator.process_documents(metadata)
+
+        assert result == []
+        assert metadata["failed_docs_count"] == 1
+
+    def test_process_documents_from_adapter_processes_final_batch(self):
+        operator = self._make_operator(provider="google_drive", max_files=5, include_filter=".txt")
+        metadata = operator.create_base_metadata(total_docs_count=0)
+        from docpipe.core.operators.ingest.domain.models import Document as DomainDocument
+
+        domain_docs = [
+            DomainDocument(
+                id="1",
+                name="a.txt",
+                content=b"a",
+                source_url="https://example/a.txt",
+                modified_time=datetime(2024, 1, 1, tzinfo=UTC),
+                mimetype="text/plain",
+                size=10,
+                extension=".txt",
+                metadata={"tag": "a"},
+            ),
+            DomainDocument(
+                id="2",
+                name="b.txt",
+                content=b"b",
+                source_url="https://example/b.txt",
+                modified_time=datetime(2024, 1, 2, tzinfo=UTC),
+                mimetype="text/plain",
+                size=20,
+                extension=".txt",
+                metadata={"tag": "b"},
+            ),
+        ]
+
+        async def fetch_documents(_config):
+            for doc in domain_docs:
+                yield doc
+
+        adapter = Mock()
+        adapter.fetch_documents = fetch_documents
+
+        with patch.object(operator, "_build_adapter_config", return_value=(adapter, Mock())):
+            result = operator._process_documents_from_adapter(metadata)
+
+        assert len(result) == 2
+        assert [item["name"] for item in result] == ["a.txt", "b.txt"]
 
 
 if __name__ == "__main__":

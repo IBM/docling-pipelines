@@ -32,7 +32,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 MICROSOFT_LOGIN_URL = "https://login.microsoftonline.com"
 MICROSOFT_GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
 MICROSOFT_GRAPH_SCOPE = "https://graph.microsoft.com/.default"
-MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"
+MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"  # nosec B105 - URL path segment, not a credential
 
 
 class MicrosoftGraphLoader(BaseLoader):
@@ -98,6 +98,16 @@ class MicrosoftGraphLoader(BaseLoader):
         self._token = access_token
         return access_token
 
+    def _process_items(self, *, items: list[dict], files: list[dict]) -> list[str]:
+        """Separate folders from files and return folder IDs to recurse into."""
+        folder_ids = []
+        for item in items:
+            if "folder" in item:
+                folder_ids.append(item["id"])
+            else:
+                files.append(item)
+        return folder_ids
+
     def _list_files(self, folder_item_id: str | None = None) -> list[dict]:
         """Recursively list all files in the drive (or a specific folder)."""
         token = self._get_token()
@@ -108,29 +118,21 @@ class MicrosoftGraphLoader(BaseLoader):
         else:
             endpoint = f"/drives/{self.drive_id}/root/children"
 
-        files = []
+        files: list[dict] = []
         while endpoint:
-            # Use RestClient for API call
             data = self._rest_client.call_rest_json(
                 method=RestMethod.GET,
                 url=endpoint,
                 headers=headers,
             )
 
-            for item in data.get("value", []):
-                if "folder" in item:
-                    if self.recursive:
-                        files.extend(self._list_files(folder_item_id=item["id"]))
-                else:
-                    files.append(item)
+            folder_ids = self._process_items(items=data.get("value", []), files=files)
+            if self.recursive:
+                for folder_id in folder_ids:
+                    files.extend(self._list_files(folder_item_id=folder_id))
 
-            # Handle pagination - extract endpoint from nextLink
             next_link = data.get("@odata.nextLink")
-            if next_link:
-                # Extract the path after the base URL
-                endpoint = next_link.replace(MICROSOFT_GRAPH_API_BASE, "")
-            else:
-                endpoint = None  # type: ignore[assignment]
+            endpoint = next_link.replace(MICROSOFT_GRAPH_API_BASE, "") if next_link else None  # type: ignore[assignment]
 
         return files
 

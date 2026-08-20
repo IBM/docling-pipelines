@@ -62,26 +62,122 @@ class OneDriveSourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from OneDrive using Microsoft Graph API"
     SOURCE_VERSION = "1.0.0"
 
+    def _resolve_onedrive_item_id(
+        self,
+        *,
+        file_path: str,
+        drive_id: str,
+        loader: "MicrosoftGraphLoader",
+        token: str,
+    ) -> tuple[str | None, str]:
+        """Resolve a file path or URL to an (item_id, actual_drive_id) pair."""
+        if not file_path.startswith("http"):
+            logger.info("Using direct file path as item ID: %s", file_path)
+            return file_path, drive_id
+
+        file_id = extract_msgraph_file_id_from_url(file_path)
+        if not file_id:
+            raise ValueError(f"Could not extract file ID from URL: {file_path}")
+        logger.info("Extracted file ID from URL: %s", file_id)
+        item_id, actual_drive_id = resolve_msgraph_file_id_to_item_id(
+            file_id=file_id,
+            drive_id=drive_id,
+            rest_client=loader._rest_client,
+            token=token,
+            original_url=file_path,
+        )
+        return handle_msgraph_resolution_result(
+            file_id=file_id,
+            item_id=item_id,
+            actual_drive_id=actual_drive_id,
+            fallback_drive_id=drive_id,
+            allow_guid_fallback=False,
+            original_url=file_path,
+        )
+
+    def _build_onedrive_document(
+        self,
+        *,
+        item: dict,
+        drive_id: str,
+        config: "OneDriveSourceConfig",
+        is_single_file: bool = False,
+    ) -> Document:
+        """Build a lazy-loading Document from a Graph API item dict."""
+        doc_id = item.get(OperatorConstants.Columns.ID, "")
+        doc_name = item.get(OperatorConstants.Columns.NAME, "unknown")
+        file_size = item.get("size", 0)
+        source_url = item.get("webUrl", f"https://onedrive.live.com/?cid={doc_id}")
+        extension = Path(doc_name).suffix.lower()
+
+        modified_time = None
+        last_modified = item.get("lastModifiedDateTime")
+        if last_modified:
+            try:
+                modified_time = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        metadata: dict = {
+            "drive_id": drive_id,
+            "item_id": doc_id,
+            "file_size": file_size,
+            "mime_type": item.get("file", {}).get("mimeType"),
+            "created_time": item.get("createdDateTime"),
+            "web_url": source_url,
+            "client_id": config.client_id,
+            "client_secret": config.client_secret,
+            "tenant_id": config.tenant_id,
+        }
+        if not is_single_file:
+            metadata["source_id"] = doc_id  # Required by binary_content_fetcher
+
+        return Document(
+            id=doc_id,
+            name=doc_name,
+            content=b"",
+            source_url=source_url,
+            modified_time=modified_time,
+            mimetype=item.get("file", {}).get("mimeType", "application/octet-stream"),
+            size=file_size,
+            extension=extension,
+            metadata=metadata,
+        )
+
+    @staticmethod
+    def _should_skip_onedrive_item(*, doc_name: str, file_size: int, config: "OneDriveSourceConfig") -> bool:
+        """Return True if the item should be filtered out based on extension or size."""
+        if config.file_extensions and Path(doc_name).suffix.lower() not in config.file_extensions:
+            return True
+        if config.max_file_size_mb and file_size / (1024 * 1024) > config.max_file_size_mb:
+            return True
+        return False
+
+    @staticmethod
+    def _resolve_folder_item_id(
+        *, loader: "MicrosoftGraphLoader", drive_id: str, folder_path: str, headers: dict
+    ) -> str | None:
+        """Look up the item ID for a folder path in a drive."""
+        path = folder_path.strip("/")
+        try:
+            data = loader._rest_client.call_rest_json(
+                method=RestMethod.GET,
+                url=f"/drives/{drive_id}/root:/{path}",
+                headers=headers,
+            )
+            return data.get(OperatorConstants.Columns.ID)
+        except Exception as e:
+            raise ValueError(f"Folder path '{folder_path}' not found in drive '{drive_id}': {e!s}") from e
+
     async def fetch_documents(self, config: OneDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
         Fetch document metadata from OneDrive using Microsoft Graph API.
 
         This method implements lazy loading - it only fetches metadata, not binary content.
         Binary content is fetched on-demand by the Extract operator via fetch_binary_content().
-
-        Args:
-            config: Validated OneDrive configuration (OneDriveSourceConfig)
-
-        Yields:
-            Document: Domain documents with metadata only (content=b"")
-
-        Raises:
-            ImportError: If required dependencies (msal, requests) are not installed
-            ValueError: If authentication fails or folder not found
         """
         onedrive_config: OneDriveSourceConfig = config
         try:
-            # Create MicrosoftGraphLoader with configuration
             loader = MicrosoftGraphLoader(
                 drive_id=onedrive_config.drive_id,
                 client_id=onedrive_config.client_id,
@@ -91,177 +187,47 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 recursive=onedrive_config.recursive,
             )
 
-            # Single file mode
             if config.file_path:
                 token = loader._get_token()
+                item_id, actual_drive_id = self._resolve_onedrive_item_id(
+                    file_path=config.file_path,
+                    drive_id=config.drive_id,
+                    loader=loader,
+                    token=token,
+                )
                 headers = {"Authorization": f"Bearer {token}"}
-
-                # Use URL normalization to extract file ID from URL
-                item_id = None
-                actual_drive_id = config.drive_id
-
-                if config.file_path.startswith("http"):
-                    file_id = extract_msgraph_file_id_from_url(config.file_path)
-                    if not file_id:
-                        raise ValueError(f"Could not extract file ID from URL: {config.file_path}")
-                    logger.info(f"Extracted file ID from URL: {file_id}")
-
-                    # Try to resolve file_id to actual item_id using Graph API
-                    # Pass the original URL for better GUID resolution via /shares endpoint
-                    item_id, actual_drive_id = resolve_msgraph_file_id_to_item_id(
-                        file_id=file_id,
-                        drive_id=config.drive_id,
-                        rest_client=loader._rest_client,
-                        token=token,
-                        original_url=config.file_path,
-                    )
-
-                    item_id, actual_drive_id = handle_msgraph_resolution_result(
-                        file_id=file_id,
-                        item_id=item_id,
-                        actual_drive_id=actual_drive_id,
-                        fallback_drive_id=config.drive_id,
-                        allow_guid_fallback=False,
-                        original_url=config.file_path,
-                    )
-                else:
-                    # Direct file path provided - use it as item_id
-                    item_id = config.file_path
-                    logger.info(f"Using direct file path as item ID: {item_id}")
-
-                # Fetch item metadata using the actual drive_id and item_id
-                endpoint = f"/drives/{actual_drive_id}/items/{item_id}"
                 item = loader._rest_client.call_rest_json(
                     method=RestMethod.GET,
-                    url=endpoint,
+                    url=f"/drives/{actual_drive_id}/items/{item_id}",
                     headers=headers,
                 )
-
-                doc_id = item.get(OperatorConstants.Columns.ID, "")
-                doc_name = item.get(OperatorConstants.Columns.NAME, "unknown")
-                file_size = item.get("size", 0)
-
-                # Parse modified time
-                modified_time = None
-                last_modified = item.get("lastModifiedDateTime")
-                if last_modified:
-                    try:
-                        modified_time = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
-                    except (ValueError, AttributeError):
-                        pass
-
-                source_url = item.get("webUrl", f"https://onedrive.live.com/?cid={doc_id}")
-                extension = Path(doc_name).suffix.lower()
-
-                document = Document(
-                    id=doc_id,
-                    name=doc_name,
-                    content=b"",
-                    source_url=source_url,
-                    modified_time=modified_time,
-                    mimetype=item.get("file", {}).get("mimeType", "application/octet-stream"),
-                    size=file_size,
-                    extension=extension,
-                    metadata={
-                        "drive_id": actual_drive_id,
-                        "item_id": doc_id,
-                        "file_size": file_size,
-                        "mime_type": item.get("file", {}).get("mimeType"),
-                        "created_time": item.get("createdDateTime"),
-                        "web_url": source_url,
-                        "client_id": onedrive_config.client_id,
-                        "client_secret": onedrive_config.client_secret,
-                        "tenant_id": onedrive_config.tenant_id,
-                    },
+                yield self._build_onedrive_document(
+                    item=item, drive_id=actual_drive_id, config=onedrive_config, is_single_file=True
                 )
-                yield document
                 return
 
             # Folder mode
-            # List files to get metadata only (don't download binary content)
             token = loader._get_token()
             headers = {"Authorization": f"Bearer {token}"}
 
-            # Resolve folder path to item ID if specified
             folder_item_id = None
             if onedrive_config.folder_path:
-                path = onedrive_config.folder_path.strip("/")
-                endpoint = f"/drives/{onedrive_config.drive_id}/root:/{path}"
-                try:
-                    data = loader._rest_client.call_rest_json(
-                        method=RestMethod.GET,
-                        url=endpoint,
-                        headers=headers,
-                    )
-                    folder_item_id = data.get(OperatorConstants.Columns.ID)
-                except Exception as e:
-                    raise ValueError(
-                        f"Folder path '{onedrive_config.folder_path}' not found in drive '{onedrive_config.drive_id}': {e!s}"
-                    ) from e
-
-            # List files without downloading content
-            files = loader._list_files(folder_item_id=folder_item_id)
-
-            # Convert file metadata to domain documents
-            for item in files:
-                doc_id = item.get(OperatorConstants.Columns.ID, "")
-                doc_name = item.get(OperatorConstants.Columns.NAME, "unknown")
-
-                # Apply file extension filter if specified
-                if onedrive_config.file_extensions:
-                    file_ext = Path(doc_name).suffix.lower()
-                    if file_ext not in onedrive_config.file_extensions:
-                        continue
-
-                # Apply file size filter if specified
-                file_size = item.get("size", 0)
-                if onedrive_config.max_file_size_mb:
-                    file_size_mb = file_size / (1024 * 1024)
-                    if file_size_mb > onedrive_config.max_file_size_mb:
-                        continue
-
-                # Parse modified time if available
-                modified_time = None
-                last_modified = item.get("lastModifiedDateTime")
-                if last_modified:
-                    try:
-                        # Microsoft Graph returns ISO 8601 format
-                        modified_time = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
-                    except (ValueError, AttributeError):
-                        pass
-
-                # Build source URL
-                source_url = item.get("webUrl", f"https://onedrive.live.com/?cid={doc_id}")
-
-                # Get file extension
-                extension = Path(doc_name).suffix.lower()
-
-                # Create domain document WITHOUT binary content (lazy loading)
-                document = Document(
-                    id=doc_id,
-                    name=doc_name,
-                    content=b"",  # Empty - binary loaded on-demand by downstream operators
-                    source_url=source_url,
-                    modified_time=modified_time,
-                    mimetype=item.get("file", {}).get("mimeType", "application/octet-stream"),
-                    size=file_size,
-                    extension=extension,
-                    metadata={
-                        "source_id": doc_id,  # Required by binary_content_fetcher
-                        "drive_id": onedrive_config.drive_id,
-                        "item_id": doc_id,
-                        "file_size": file_size,
-                        "mime_type": item.get("file", {}).get("mimeType"),
-                        "created_time": item.get("createdDateTime"),
-                        "web_url": source_url,
-                        # Store credentials for lazy loading
-                        "client_id": onedrive_config.client_id,
-                        "client_secret": onedrive_config.client_secret,
-                        "tenant_id": onedrive_config.tenant_id,
-                    },
+                folder_item_id = self._resolve_folder_item_id(
+                    loader=loader,
+                    drive_id=onedrive_config.drive_id,
+                    folder_path=onedrive_config.folder_path,
+                    headers=headers,
                 )
 
-                logger.debug(f"Created document metadata for OneDrive file: {doc_name} ({file_size} bytes)")
+            for item in loader._list_files(folder_item_id=folder_item_id):
+                doc_name = item.get(OperatorConstants.Columns.NAME, "unknown")
+                file_size = item.get("size", 0)
+                if self._should_skip_onedrive_item(doc_name=doc_name, file_size=file_size, config=onedrive_config):
+                    continue
+                document = self._build_onedrive_document(
+                    item=item, drive_id=onedrive_config.drive_id, config=onedrive_config
+                )
+                logger.debug("Created document metadata for OneDrive file: %s (%s bytes)", doc_name, file_size)
                 yield document
 
         except ImportError as e:
