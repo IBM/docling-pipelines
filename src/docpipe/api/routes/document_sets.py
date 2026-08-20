@@ -148,8 +148,9 @@ async def create_document_set(
         description=payload.description,
         metadata=payload.metadata,
     )
+    attachment_ref = service.get_attachment_ref(document_set_id=document_set.asset_id)
     logger.info("Successfully created or retrieved document set %s", document_set.asset_id)
-    return document_set_to_response(document_set=document_set)
+    return document_set_to_response(document_set=document_set, attachment_ref=attachment_ref)
 
 
 @document_sets_router.get(
@@ -191,8 +192,9 @@ async def get_document_set(
     """Retrieve a document set by ID."""
     logger.debug("Retrieving document set: %s", document_set_id)
     document_set = service.get_document_set(document_set_id=document_set_id)
+    attachment_ref = service.get_attachment_ref(document_set_id=document_set_id)
     logger.info("Successfully retrieved document set %s", document_set_id)
-    return document_set_to_response(document_set=document_set)
+    return document_set_to_response(document_set=document_set, attachment_ref=attachment_ref)
 
 
 @document_sets_router.get(
@@ -244,7 +246,13 @@ async def list_document_sets(
     items = service.list_document_sets(limit=limit, offset=offset)
     logger.info("Successfully retrieved %s document sets", len(items))
     return DocumentSetListResponse(
-        items=[document_set_to_response(document_set=item) for item in items],
+        items=[
+            document_set_to_response(
+                document_set=item,
+                attachment_ref=service.get_attachment_ref(document_set_id=item.asset_id),
+            )
+            for item in items
+        ],
         total=len(items),
         limit=limit,
         offset=offset,
@@ -295,8 +303,9 @@ async def update_document_set(
         description=payload.description,
         metadata=payload.metadata,
     )
+    attachment_ref = service.get_attachment_ref(document_set_id=document_set_id)
     logger.info("Successfully updated document set %s", document_set_id)
-    return document_set_to_response(document_set=updated_document_set)
+    return document_set_to_response(document_set=updated_document_set, attachment_ref=attachment_ref)
 
 
 @document_sets_router.delete(

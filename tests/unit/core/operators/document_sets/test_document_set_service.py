@@ -13,6 +13,7 @@ import pyarrow as pa
 import pytest
 
 from docpipe.core.assets.common.adapters.repositories.duckdb_asset_repository import DuckDBAssetRepository
+from docpipe.core.assets.common.adapters.repositories.duckdb_attachment_repository import DuckDBAttachmentRepository
 from docpipe.core.assets.document_sets.adapters.duckdb.data_store import (
     DuckDBDocumentSetStorage,
 )
@@ -43,11 +44,17 @@ def data_store(*, temp_duckdb_path):
 
 
 @pytest.fixture
-def service(metadata_repository, data_store):
+def attachment_repository(*, temp_duckdb_path):
+    """Create a DuckDBAttachmentRepository instance."""
+    key_value_storage = StorageFactory.create_key_value_storage(storage_type="duckdb", database_path=temp_duckdb_path)
+    return DuckDBAttachmentRepository(key_value_storage=key_value_storage, database_path=temp_duckdb_path)
+
+
+@pytest.fixture
+def service(metadata_repository, data_store, attachment_repository):
     """Create a DocumentSetService instance."""
     return DocumentSetService(
-        metadata_repository=metadata_repository,
-        data_store=data_store,
+        metadata_repository=metadata_repository, data_store=data_store, attachment_repository=attachment_repository
     )
 
 
@@ -78,8 +85,6 @@ class TestCreateDocumentSetService:
         assert doc_set.asset_id is not None
         assert doc_set.name == "Test Documents"
         assert doc_set.description == "Test description"
-        # storage_reference is None at creation; it is populated by store_data()
-        assert doc_set.storage_reference is None
         assert doc_set.metadata == {"source": "test"}
 
     def test_create_document_set_duplicate_name_returns_existing(self, service):
@@ -104,15 +109,6 @@ class TestCreateDocumentSetService:
                 description="Test",
             )
 
-    def test_create_document_set_sanitizes_table_name(self, service, sample_table):
-        """Test that the table name derived from the document set name is sanitized."""
-        doc_set = service.create_document_set(name="My Documents", description="Test")
-        stored = service.store_data(document_set_id=doc_set.asset_id, data=sample_table)
-
-        assert stored.storage_reference is not None
-        assert stored.storage_reference.table_name == "my_documents"
-
-
 class TestStoreData:
     """Test data storage and metrics update."""
 
@@ -126,14 +122,14 @@ class TestStoreData:
         assert updated.total_size_bytes == 600
         assert updated.total_pages == 6
 
-    def test_store_data_creates_data(self, service, sample_table):
+    def test_store_data_creates_data(self, service, sample_table, attachment_repository):
         """Test that storing data creates the backing table."""
         doc_set = service.create_document_set(name="Test Documents", description="Test")
 
         updated = service.store_data(document_set_id=doc_set.asset_id, data=sample_table)
 
-        # Verify storage reference was populated and data exists
-        assert updated.storage_reference is not None
+        # Verify attachment ref was persisted and metrics reflect stored data
+        assert attachment_repository.get(asset_id=doc_set.asset_id) is not None
         assert updated.total_documents == 3
 
     def test_store_data_upserts(self, service):

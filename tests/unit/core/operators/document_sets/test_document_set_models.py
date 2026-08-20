@@ -2,7 +2,6 @@
 
 Tests cover:
 - DocumentSet creation and validation
-- StorageReference serialization
 - DataCard serialization
 - Statistics update methods
 - Invalid data handling
@@ -14,9 +13,6 @@ import pytest
 
 from docpipe.core.assets.document_sets.domain.models.data_card import DataCard
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
-from docpipe.core.assets.document_sets.domain.models.storage_reference import (
-    StorageReference,
-)
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 
@@ -73,18 +69,6 @@ class TestDocumentSetCreation:
         assert doc_set.total_documents == 100
         assert doc_set.total_size_bytes == 1024000
         assert doc_set.total_pages == 500
-
-    def test_document_set_with_storage_reference(self):
-        """Test creating a DocumentSet with an explicit StorageReference."""
-        ref = StorageReference(backend_type="duckdb", database_path="/data/test.db", table_name="test_table")
-        doc_set = DocumentSet(
-            name="Test Documents",
-            storage_reference=ref,
-        )
-
-        assert doc_set.storage_reference is ref
-        assert doc_set.storage_reference.database_path == "/data/test.db"
-        assert doc_set.storage_reference.table_name == "test_table"
 
 
 class TestDocumentSetValidation:
@@ -175,57 +159,6 @@ class TestDocumentSetValidation:
         with pytest.raises(DocpipeException) as exc_info:
             doc_set.validate()
         assert "Total pages cannot be negative" in str(exc_info.value)
-
-
-class TestStorageReferenceSerialization:
-    """Test StorageReference serialization and deserialization."""
-
-    def test_storage_reference_to_dict(self):
-        """Test StorageReference to_dict method."""
-        storage_ref = StorageReference(
-            backend_type="duckdb",
-            database_path="/data/test.db",
-            table_name="test_table",
-            schema_name="public",
-        )
-
-        result = storage_ref.to_dict()
-
-        assert result["backend_type"] == "duckdb"
-        assert result["database_path"] == "/data/test.db"
-        assert result["table_name"] == "test_table"
-        assert result["schema_name"] == "public"
-
-    def test_storage_reference_from_dict(self):
-        """Test StorageReference from_dict method."""
-        data = {
-            "backend_type": "duckdb",
-            "database_path": "/data/test.db",
-            "table_name": "test_table",
-            "schema_name": "public",
-        }
-
-        storage_ref = StorageReference.from_dict(data)
-
-        assert storage_ref.backend_type == "duckdb"
-        assert storage_ref.database_path == "/data/test.db"
-        assert storage_ref.table_name == "test_table"
-        assert storage_ref.schema_name == "public"
-
-    def test_storage_reference_roundtrip(self):
-        """Test StorageReference serialization roundtrip."""
-        original = StorageReference(
-            backend_type="duckdb",
-            database_path="/data/test.db",
-            table_name="test_table",
-        )
-
-        data = original.to_dict()
-        restored = StorageReference.from_dict(data)
-
-        assert restored.backend_type == original.backend_type
-        assert restored.database_path == original.database_path
-        assert restored.table_name == original.table_name
 
 
 class TestDataCardSerialization:

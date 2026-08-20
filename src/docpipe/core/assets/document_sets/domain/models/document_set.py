@@ -20,7 +20,6 @@ from docpipe.core.constants.asset_constants import AssetType
 from docpipe.exceptions.docpipe_exceptions import AssetInvalidDataException
 
 from .data_card import DataCard
-from .storage_reference import StorageReference
 
 
 @dataclass
@@ -40,8 +39,6 @@ class DocumentSet(Asset):
         - total_documents/total_size_bytes/total_pages: Statistics
         - created_at/updated_at: Timestamps
         - metadata: Optional additional metadata as key-value pairs
-        - storage_reference: Populated by the adapter after persistence; contains
-          backend-specific coordinates (database_path, table_name, etc.)
         - data_card: Optional data card for lineage tracking
 
     Validation:
@@ -56,7 +53,6 @@ class DocumentSet(Asset):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    storage_reference: StorageReference | None = None
     data_card: DataCard | None = None
 
     # Name validation pattern: starts with letter, letters/digits/spaces/underscores
@@ -196,7 +192,6 @@ class DocumentSet(Asset):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "metadata": self.metadata,
-            "storage_reference": self.storage_reference.to_dict() if self.storage_reference else None,
             "data_card": self.data_card.to_dict() if self.data_card else None,
         }
 
@@ -213,10 +208,6 @@ class DocumentSet(Asset):
         updated_at = data.get("updated_at")
         if isinstance(updated_at, str):
             updated_at = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-
-        storage_reference = None
-        if data.get("storage_reference"):
-            storage_reference = StorageReference.from_dict(data["storage_reference"])
 
         data_card = None
         if data.get("data_card"):
@@ -236,6 +227,5 @@ class DocumentSet(Asset):
             created_at=created_at,
             updated_at=updated_at,
             metadata=data.get("metadata", {}),
-            storage_reference=storage_reference,
             data_card=data_card,
         )

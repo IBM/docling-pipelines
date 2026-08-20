@@ -43,8 +43,6 @@
         "description": "Persistent storage of extracted document content with metadata tracking",
         "database_path": "./data/document_sets/extracted_docs.duckdb",
         "data_backend": "duckdb",
-        "metadata_backend": "duckdb",
-        "retain_deleted_docs": false,
         "metadata": {
           "pipeline_version": "1.0",
           "extraction_method": "docling",

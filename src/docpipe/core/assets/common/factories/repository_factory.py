@@ -28,6 +28,7 @@ import yaml
 from docpipe.core.assets.common.adapters.repositories.local_asset_repository import LocalAssetRepository
 from docpipe.core.assets.common.domain.models.asset import Asset
 from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
+from docpipe.core.constants.constants import _find_project_root
 from docpipe.exceptions.docpipe_exceptions import RepositoryConfigurationException
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class RepositoryType(AbstractRepositoryType):
     DUCKDB = "duckdb"
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[6] / "docling-pipelines-config.yaml"
+DEFAULT_CONFIG_PATH = _find_project_root() / "docling-pipelines-config.yaml"
 ENV_CONFIG_PATH_KEY = "DOCPIPE_CONFIG_PATH"
 
 
@@ -146,7 +147,7 @@ class RepositoryFactory:
         return yaml_config or {}
 
     @staticmethod
-    def _get_repository_config(*, asset_type_name: str) -> tuple[str, dict]:
+    def get_repository_config(*, asset_type_name: str) -> tuple[str, dict]:
         """Get repository configuration from environment and YAML for a specific asset type.
 
         Args:
@@ -217,7 +218,7 @@ class RepositoryFactory:
             )
         """
         config_key = asset_type.get_config_key()
-        repo_type_str, repository_config = cls._get_repository_config(asset_type_name=config_key)
+        repo_type_str, repository_config = cls.get_repository_config(asset_type_name=config_key)
 
         # Runtime override wins over YAML/env
         if adapter_name is not None:

@@ -1,7 +1,7 @@
 """Unit tests for DocumentSetService.
 
-All external dependencies (metadata repository, data store) are mocked.
-Tests verify observable service behaviour only — no real DuckDB, no disk I/O.
+All external dependencies (metadata repository, data store, attachment repository)
+are mocked.  Tests verify observable service behaviour only — no real DuckDB, no disk I/O.
 """
 
 from unittest.mock import Mock
@@ -9,11 +9,11 @@ from unittest.mock import Mock
 import pyarrow as pa
 import pytest
 
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
-from docpipe.core.assets.document_sets.domain.models.storage_reference import StorageReference
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 # ---------------------------------------------------------------------------
@@ -26,8 +26,12 @@ _ASSET_ID = "abc-123"
 _SET_NAME = "My Set"
 
 
-def _make_storage_ref() -> StorageReference:
-    return StorageReference(backend_type="duckdb", database_path=_DB_PATH, table_name=_TABLE_NAME)
+def _make_attachment_ref() -> AttachmentRef:
+    return AttachmentRef(
+        backend_type="duckdb",
+        name=_TABLE_NAME,
+        details={"database_path": _DB_PATH, "table_name": _TABLE_NAME},
+    )
 
 
 def _make_doc_set(*, total_documents: int = 0) -> DocumentSet:
@@ -35,7 +39,6 @@ def _make_doc_set(*, total_documents: int = 0) -> DocumentSet:
         asset_id=_ASSET_ID,
         name=_SET_NAME,
         total_documents=total_documents,
-        storage_reference=_make_storage_ref(),
     )
 
 
@@ -62,7 +65,7 @@ def mock_repo():
 def mock_store():
     """Mock DocumentSetStorage."""
     store = Mock()
-    store.store.return_value = _make_storage_ref()
+    store.store.return_value = _make_attachment_ref()
     store.exists.return_value = True
     store.load.return_value = pa.table({"id": ["1", "2"], "content": ["a", "b"]})
     store.get_metrics.return_value = {"total_documents": 2, "total_size_bytes": 512, "total_pages": 0}
@@ -70,10 +73,22 @@ def mock_store():
 
 
 @pytest.fixture
-def service(mock_repo, mock_store):
+def mock_attachment_repo():
+    """Mock AttachmentRepository."""
+    repo = Mock()
+    repo.get.return_value = _make_attachment_ref()
+    repo.save.return_value = None
+    repo.delete.return_value = True
+    repo.exists.return_value = True
+    return repo
+
+
+@pytest.fixture
+def service(mock_repo, mock_store, mock_attachment_repo):
     return DocumentSetService(
         metadata_repository=mock_repo,
         data_store=mock_store,
+        attachment_repository=mock_attachment_repo,
     )
 
 
@@ -132,12 +147,13 @@ class TestGetDocumentSet:
 
 
 class TestStoreData:
-    def test_stores_data_and_updates_metrics(self, service, mock_store):
+    def test_stores_data_and_updates_metrics(self, service, mock_store, mock_attachment_repo):
         table = pa.table({"id": ["1", "2"], "content": ["a", "b"]})
 
         result = service.store_data(document_set_id=_ASSET_ID, data=table)
 
         mock_store.store.assert_called_once()
+        mock_attachment_repo.save.assert_called_once()
         assert result.total_documents == 2
 
     def test_raises_400_when_data_missing_id_column(self, service):
@@ -161,9 +177,9 @@ class TestPreviewData:
         assert len(result) == 2
         mock_store.load.assert_called_once()
 
-    def test_returns_empty_table_when_storage_ref_absent(self, service, mock_repo, mock_store):
+    def test_returns_empty_table_when_attachment_ref_absent(self, service, mock_repo, mock_store, mock_attachment_repo):
         mock_repo.find_by_id.return_value = DocumentSet(asset_id=_ASSET_ID, name=_SET_NAME)
-        mock_store.exists.return_value = False
+        mock_attachment_repo.get.return_value = None
 
         result = service.preview_data(document_set_id=_ASSET_ID, limit=10)
 
@@ -177,11 +193,12 @@ class TestPreviewData:
 
 
 class TestDeleteDocumentSet:
-    def test_deletes_metadata_and_data(self, service, mock_repo, mock_store):
+    def test_deletes_data_attachment_and_metadata(self, service, mock_repo, mock_store, mock_attachment_repo):
         result = service.delete_document_set(document_set_id=_ASSET_ID)
 
         assert result is True
         mock_store.delete.assert_called_once()
+        mock_attachment_repo.delete.assert_called_once_with(asset_id=_ASSET_ID)
         mock_repo.delete.assert_called_once_with(asset_id=_ASSET_ID)
 
     def test_raises_400_for_empty_id(self, service):

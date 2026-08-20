@@ -23,7 +23,7 @@ point in a pipeline without disrupting downstream operators.
 - Upsert-based incremental updates keyed on `id`
 - Pass-through design — input table is returned unchanged
 - Idempotent: safe to re-run (get-or-create on `document_set_name`)
-- `StorageReference` captures adapter-specific coordinates (database path, table name) and is persisted alongside document set metadata
+- `AttachmentRef` captures adapter-specific storage coordinates and is managed independently of the document set metadata record
 
 ---
 
@@ -35,8 +35,7 @@ point in a pipeline without disrupting downstream operators.
   "name": "store_documents",
   "config": {
     "document_set_name": "research_papers",
-    "description": "Processed research papers",
-    "retain_deleted_docs": false
+    "description": "Processed research papers"
   },
   "depends_on": ["previous_operator"]
 }
@@ -53,7 +52,7 @@ point in a pipeline without disrupting downstream operators.
 | `metadata` | object | No | `{}` | Arbitrary JSON object stored as document set metadata |
 | `document_set_id` | string | No | — | UUID of an existing document set to update instead of creating a new one |
 | `database_path` | string | No | `data/duckdb/document_sets.duckdb` | File path for the DuckDB database (metadata + data share this file) |
-| `data_backend` | string | No | `duckdb` | Data store backend for PyArrow table data |
+| `data_backend` | string | No | `duckdb` | Data store backend for PyArrow table data. The metadata and attachment backend is configured separately via `assets_management.document_set_repository.type` in `docling-pipelines-config.yaml`. |
 
 ---
 
@@ -128,8 +127,8 @@ This operator does not add or remove columns. The original input table is return
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Error: Required column 'id' not found in table` | Input table is missing the `id` column | Ensure `DocIdHashOperator` runs before this operator |
-| `Error: Document set with ID 'xxx' not found` | The UUID passed in `document_set_id` does not exist | Verify the UUID, or omit `document_set_id` to create a new set |
+| `Error: Required column 'id' not found` | Input table is missing the `id` column | Ensure `DocIdHashOperator` runs before this operator |
+| `Error: Document set not found: <id>` | The UUID passed in `document_set_id` does not exist | Verify the UUID, or omit `document_set_id` to create a new set |
 | `Error: Invalid database path: Path traversal detected` | `database_path` contains `..` segments | Use an absolute path or a path relative to the workspace root |
 | `Error: Cannot evolve schema: incompatible types` | A column's type changed between runs | Ensure upstream operators produce stable schemas, or recreate the document set |
 | Duplicate documents accumulate across runs | Upsert requires a stable `id` per document | Use `DocIdHashOperator` to generate deterministic IDs |
@@ -142,14 +141,20 @@ This operator does not add or remove columns. The original input table is return
 
 ```
 DocumentSetOperator
-    └── DocumentSetService                (application layer)
-            ├── DataStoreFactory          → DuckDBDocumentSetStorage  (implements DocumentSetStorage port)
-            │                               └── DuckDBTableStorage    (columnar storage)
-            └── MetadataRepositoryFactory → DuckDBDocumentSetMetadataRepository
-                                            └── DuckDBKeyValueStorage (document set registry)
+    └── DocumentSetService                       (application layer)
+            ├── DataStoreFactory                 → DuckDBDocumentSetStorage
+            │                                      └── DuckDBTableStorage    (columnar storage)
+            ├── RepositoryFactory                → DuckDBAssetRepository[DocumentSet]
+            │                                      └── DuckDBKeyValueStorage (document set registry)
+            └── AttachmentRepositoryFactory      → DuckDBAttachmentRepository
+                                                   └── DuckDBKeyValueStorage (attachment coordinates)
 ```
 
-The adapter derives the physical `table_name` from the document set name (via `sanitize_table_name`) and returns a `StorageReference` that is persisted alongside the document set metadata. The service layer never constructs raw table names — it only holds the `StorageReference` returned by the adapter.
+The data store adapter derives the physical `table_name` from the document set name (via
+`sanitize_table_name`) and returns an `AttachmentRef`. The service persists that ref via the
+`AttachmentRepository`, which stores it in a separate KV collection
+(`document_set_attachments`). The metadata record and the attachment record have independent
+lifecycles — storage coordinates are never embedded in the metadata record.
 
 ### Pipeline placement
 

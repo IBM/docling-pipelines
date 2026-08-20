@@ -2,13 +2,11 @@
 
 Defines the abstract contract for the data-plane storage of document sets.
 Implementations write/read PyArrow table data to a backend-specific store and
-return a StorageReference describing where the data lives.
+return an AttachmentRef describing where the data lives.
 
 Example backends:
-  - DuckDB: writes to a DuckDB table, returns StorageReference with
-    database_path + table_name.
-  - Iceberg (example): writes to an Iceberg table, returns StorageReference
-    with connection_id + catalog path.
+  - DuckDB: writes to a DuckDB table, returns AttachmentRef with
+    name=table_name and details={"database_path": ..., "table_name": ...}.
 """
 
 from abc import ABC, abstractmethod
@@ -16,7 +14,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from docpipe.core.assets.document_sets.domain.models.storage_reference import StorageReference
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.document_sets.domain.types import HealthCheckResult
 
 
@@ -26,12 +24,12 @@ class DocumentSetStorage(ABC):
     Implementations handle writing and reading the actual PyArrow table data.
     The caller never specifies table names or database paths — the adapter
     derives those from ``doc_set_name`` and its own configuration, then returns
-    a ``StorageReference`` describing where the data was stored.
+    an ``AttachmentRef`` describing where the data was stored.
     """
 
     @abstractmethod
-    def store(self, *, doc_set_name: str, data: pa.Table) -> StorageReference:
-        """Write PyArrow table data and return a StorageReference.
+    def store(self, *, doc_set_name: str, data: pa.Table) -> AttachmentRef:
+        """Write PyArrow table data and return an AttachmentRef.
 
         Creates the backing table if it does not exist, otherwise upserts on
         the ``id`` column.
@@ -42,7 +40,7 @@ class DocumentSetStorage(ABC):
             data: PyArrow table to persist. Must contain an ``id`` column.
 
         Returns:
-            StorageReference populated with backend-specific coordinates.
+            AttachmentRef populated with backend-specific coordinates.
 
         Raises:
             DocpipeException: If the data is invalid or the write fails.
@@ -50,27 +48,27 @@ class DocumentSetStorage(ABC):
         pass
 
     @abstractmethod
-    def load(self, *, storage_ref: StorageReference, limit: int | None = None) -> pa.Table:
-        """Read PyArrow table data from the location described by storage_ref.
+    def load(self, *, attachment_ref: AttachmentRef, limit: int | None = None) -> pa.Table:
+        """Read PyArrow table data from the location described by attachment_ref.
 
         Args:
-            storage_ref: StorageReference returned by a previous ``store()`` call.
+            attachment_ref: AttachmentRef returned by a previous ``store()`` call.
             limit: Maximum number of rows to return, or None for all rows.
 
         Returns:
             PyArrow table containing the requested data.
 
         Raises:
-            DocpipeException: If the storage reference is invalid or the read fails.
+            DocpipeException: If the attachment ref is invalid or the read fails.
         """
         pass
 
     @abstractmethod
-    def delete(self, *, storage_ref: StorageReference) -> bool:
-        """Drop the backing table/resource described by storage_ref.
+    def delete(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Drop the backing table/resource described by attachment_ref.
 
         Args:
-            storage_ref: StorageReference identifying what to delete.
+            attachment_ref: AttachmentRef identifying what to delete.
 
         Returns:
             True if the resource existed and was deleted, False if it was absent.
@@ -81,26 +79,26 @@ class DocumentSetStorage(ABC):
         pass
 
     @abstractmethod
-    def get_metrics(self, *, storage_ref: StorageReference) -> dict[str, int]:
+    def get_metrics(self, *, attachment_ref: AttachmentRef) -> dict[str, int]:
         """Compute aggregate metrics for the stored data.
 
         Args:
-            storage_ref: StorageReference identifying the backing resource.
+            attachment_ref: AttachmentRef identifying the backing resource.
 
         Returns:
             Dictionary with keys: total_documents, total_size_bytes, total_pages.
 
         Raises:
-            DocpipeException: If the storage reference is invalid or computation fails.
+            DocpipeException: If the attachment ref is invalid or computation fails.
         """
         pass
 
     @abstractmethod
-    def exists(self, *, storage_ref: StorageReference) -> bool:
-        """Check whether the backing resource described by storage_ref exists.
+    def exists(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Check whether the backing resource described by attachment_ref exists.
 
         Args:
-            storage_ref: StorageReference to check.
+            attachment_ref: AttachmentRef to check.
 
         Returns:
             True if the resource exists, False otherwise.

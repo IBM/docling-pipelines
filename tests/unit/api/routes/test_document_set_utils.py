@@ -11,8 +11,8 @@ from docpipe.api.routes.document_set_utils import (
     make_json_serializable,
     table_to_preview_response,
 )
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
-from docpipe.core.assets.document_sets.domain.models.storage_reference import StorageReference
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -25,13 +25,12 @@ _DS_ID_2 = "550e8400-e29b-41d4-a716-446655440002"
 
 @pytest.fixture
 def minimal_document_set() -> DocumentSet:
-    """DocumentSet with no storage reference and no timestamps."""
+    """DocumentSet with no timestamps."""
     return DocumentSet(
         asset_id=_DS_ID_1,
         name="Test Dataset",
         description="A test document set",
         storage_backend="duckdb",
-        storage_reference=None,
         total_documents=0,
         total_size_bytes=0,
         total_pages=0,
@@ -43,24 +42,31 @@ def minimal_document_set() -> DocumentSet:
 
 @pytest.fixture
 def full_document_set() -> DocumentSet:
-    """DocumentSet with storage reference and timestamps."""
-    ref = StorageReference(
-        backend_type="duckdb",
-        database_path="/data/docsets.duckdb",
-        table_name="my_table",
-    )
+    """DocumentSet with timestamps."""
     return DocumentSet(
         asset_id=_DS_ID_2,
         name="Full Dataset",
         description="Full document set",
         storage_backend="duckdb",
-        storage_reference=ref,
         total_documents=42,
         total_size_bytes=1024,
         total_pages=5,
         created_at=datetime(2024, 3, 1, tzinfo=UTC),
         updated_at=datetime(2024, 3, 2, tzinfo=UTC),
         metadata={"source": "test"},
+    )
+
+
+@pytest.fixture
+def duckdb_attachment_ref() -> AttachmentRef:
+    """AttachmentRef as produced by DuckDBDocumentSetStorage."""
+    return AttachmentRef(
+        backend_type="duckdb",
+        name="full_dataset",
+        details={
+            "database_path": "/data/docsets.duckdb",
+            "table_name": "full_dataset",
+        },
     )
 
 
@@ -87,13 +93,13 @@ class TestDocumentSetToResponse:
         assert result.total_size_bytes == 1024
         assert result.total_pages == 5
 
-    def test_maps_storage_reference_fields(self, full_document_set):
-        result = document_set_to_response(document_set=full_document_set)
+    def test_maps_storage_coordinates_from_attachment_ref(self, full_document_set, duckdb_attachment_ref):
+        result = document_set_to_response(document_set=full_document_set, attachment_ref=duckdb_attachment_ref)
 
         assert result.database_path == "/data/docsets.duckdb"
-        assert result.table_name == "my_table"
+        assert result.table_name == "full_dataset"
 
-    def test_storage_reference_none_yields_null_fields(self, minimal_document_set):
+    def test_no_attachment_ref_yields_null_storage_fields(self, minimal_document_set):
         result = document_set_to_response(document_set=minimal_document_set)
 
         assert result.database_path is None

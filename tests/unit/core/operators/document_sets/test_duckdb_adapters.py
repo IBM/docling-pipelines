@@ -4,12 +4,12 @@ import pyarrow as pa
 import pytest
 
 from docpipe.core.assets.common.adapters.repositories.duckdb_asset_repository import DuckDBAssetRepository
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.document_sets.adapters.duckdb.data_store import (
     DuckDBDocumentSetStorage,
 )
 from docpipe.core.assets.document_sets.adapters.duckdb.duckdb_utils import sanitize_table_name
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
-from docpipe.core.assets.document_sets.domain.models.storage_reference import StorageReference
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.storage import StorageFactory
@@ -51,31 +51,19 @@ def sample_document_set():
 class TestDuckDBMetadataRepository:
     """Test DuckDBAssetRepository[DocumentSet] adapter."""
 
-    def test_create_document_set(self, *, metadata_repository, sample_document_set, temp_db_path):
-        """Test saving a document set — StorageReference must be set before save."""
-        sample_document_set.storage_reference = StorageReference(
-            backend_type="duckdb",
-            database_path=temp_db_path,
-            table_name=sanitize_table_name(sample_document_set.name),
-        )
+    def test_create_document_set(self, *, metadata_repository, sample_document_set):
+        """Test saving a document set."""
         created = metadata_repository.save(asset=sample_document_set)
 
         assert created.asset_id == sample_document_set.asset_id
         assert created.name == sample_document_set.name
-        assert created.storage_reference is not None
-        assert created.storage_reference.table_name == "test_set"
 
-    def test_get_by_id(self, *, metadata_repository, temp_db_path):
+    def test_get_by_id(self, *, metadata_repository):
         """Test retrieving document set by ID."""
         doc_set = DocumentSet(
             asset_id="test-id-2",
             name="Test Set Two",
             description="Test",
-            storage_reference=StorageReference(
-                backend_type="duckdb",
-                database_path=temp_db_path,
-                table_name="test_set_two",
-            ),
         )
         metadata_repository.save(asset=doc_set)
 
@@ -84,7 +72,6 @@ class TestDuckDBMetadataRepository:
         assert retrieved is not None
         assert retrieved.asset_id == doc_set.asset_id
         assert retrieved.name == doc_set.name
-        assert retrieved.storage_reference.database_path == temp_db_path
 
     def test_get_by_name(self, *, metadata_repository):
         """Test retrieving document set by name."""
@@ -228,17 +215,21 @@ class TestDuckDBMetadataRepository:
 class TestDuckDBDocumentSetStorage:
     """Test DuckDBDocumentSetStorage adapter."""
 
-    def _make_storage_ref(self, *, table_name: str, database_path: str) -> StorageReference:
-        return StorageReference(backend_type="duckdb", database_path=database_path, table_name=table_name)
+    def _make_attachment_ref(self, *, table_name: str, database_path: str) -> AttachmentRef:
+        return AttachmentRef(
+            backend_type="duckdb",
+            name=table_name,
+            details={"database_path": database_path, "table_name": table_name},
+        )
 
-    def test_store_creates_table_and_returns_reference(self, *, data_store, temp_db_path):
-        """Test that store() creates backing table and returns a StorageReference."""
+    def test_store_creates_table_and_returns_ref(self, *, data_store, temp_db_path):
+        """Test that store() creates backing table and returns an AttachmentRef."""
         data = pa.table({"id": ["1", "2"], "content": ["a", "b"]})
 
         ref = data_store.store(doc_set_name="My Documents", data=data)
 
-        assert ref.table_name == "my_documents"
-        assert ref.database_path == temp_db_path
+        assert ref.name == "my_documents"
+        assert ref.details["database_path"] == temp_db_path
         assert ref.backend_type == "duckdb"
 
     def test_store_without_id_column_raises_error(self, *, data_store):
@@ -252,22 +243,22 @@ class TestDuckDBDocumentSetStorage:
 
     def test_exists_returns_false_before_store(self, *, data_store, temp_db_path):
         """Test exists() returns False when table has not been created yet."""
-        ref = self._make_storage_ref(table_name="nonexistent_table", database_path=temp_db_path)
-        assert data_store.exists(storage_ref=ref) is False
+        ref = self._make_attachment_ref(table_name="nonexistent_table", database_path=temp_db_path)
+        assert data_store.exists(attachment_ref=ref) is False
 
-    def test_exists_returns_true_after_store(self, *, data_store, temp_db_path):
+    def test_exists_returns_true_after_store(self, *, data_store):
         """Test exists() returns True after store() has been called."""
         data = pa.table({"id": ["1"]})
         ref = data_store.store(doc_set_name="Exists Table", data=data)
 
-        assert data_store.exists(storage_ref=ref) is True
+        assert data_store.exists(attachment_ref=ref) is True
 
     def test_load_returns_stored_data(self, *, data_store):
         """Test load() returns the data written by store()."""
         data = pa.table({"id": ["1", "2", "3"], "value": [10, 20, 30]})
         ref = data_store.store(doc_set_name="Load Table", data=data)
 
-        loaded = data_store.load(storage_ref=ref)
+        loaded = data_store.load(attachment_ref=ref)
 
         assert loaded.num_rows == 3
 
@@ -276,33 +267,33 @@ class TestDuckDBDocumentSetStorage:
         data = pa.table({"id": ["1", "2", "3"], "value": [10, 20, 30]})
         ref = data_store.store(doc_set_name="Load Limit Table", data=data)
 
-        loaded = data_store.load(storage_ref=ref, limit=2)
+        loaded = data_store.load(attachment_ref=ref, limit=2)
 
         assert loaded.num_rows == 2
 
     def test_load_nonexistent_table_raises_error(self, *, data_store, temp_db_path):
         """Test load() raises an error when table does not exist."""
-        ref = self._make_storage_ref(table_name="missing_table", database_path=temp_db_path)
+        ref = self._make_attachment_ref(table_name="missing_table", database_path=temp_db_path)
 
         with pytest.raises(DocpipeException) as exc_info:
-            data_store.load(storage_ref=ref)
+            data_store.load(attachment_ref=ref)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
 
-    def test_delete_returns_true_for_existing_table(self, *, data_store, temp_db_path):
+    def test_delete_returns_true_for_existing_table(self, *, data_store):
         """Test delete() returns True when the table exists."""
         data = pa.table({"id": ["1"]})
         ref = data_store.store(doc_set_name="Delete Table", data=data)
 
-        result = data_store.delete(storage_ref=ref)
+        result = data_store.delete(attachment_ref=ref)
 
         assert result is True
-        assert data_store.exists(storage_ref=ref) is False
+        assert data_store.exists(attachment_ref=ref) is False
 
     def test_delete_returns_false_for_missing_table(self, *, data_store, temp_db_path):
         """Test delete() returns False when the table does not exist."""
-        ref = self._make_storage_ref(table_name="missing_table", database_path=temp_db_path)
-        assert data_store.delete(storage_ref=ref) is False
+        ref = self._make_attachment_ref(table_name="missing_table", database_path=temp_db_path)
+        assert data_store.delete(attachment_ref=ref) is False
 
     def test_get_metrics(self, *, data_store):
         """Test get_metrics() returns correct aggregates."""
@@ -316,7 +307,7 @@ class TestDuckDBDocumentSetStorage:
         )
         ref = data_store.store(doc_set_name="Metrics Table", data=data)
 
-        metrics = data_store.get_metrics(storage_ref=ref)
+        metrics = data_store.get_metrics(attachment_ref=ref)
 
         assert metrics["total_documents"] == 3
         assert metrics["total_size_bytes"] == 600
@@ -333,7 +324,7 @@ class TestDuckDBDocumentSetStorage:
         )
         ref = data_store.store(doc_set_name="Empty Metrics Table", data=data)
 
-        metrics = data_store.get_metrics(storage_ref=ref)
+        metrics = data_store.get_metrics(attachment_ref=ref)
 
         assert metrics["total_documents"] == 0
         assert metrics["total_size_bytes"] == 0
@@ -341,10 +332,10 @@ class TestDuckDBDocumentSetStorage:
 
     def test_get_metrics_nonexistent_table_raises_error(self, *, data_store, temp_db_path):
         """Test get_metrics() raises error for nonexistent table."""
-        ref = self._make_storage_ref(table_name="missing_table", database_path=temp_db_path)
+        ref = self._make_attachment_ref(table_name="missing_table", database_path=temp_db_path)
 
         with pytest.raises(DocpipeException) as exc_info:
-            data_store.get_metrics(storage_ref=ref)
+            data_store.get_metrics(attachment_ref=ref)
 
         assert exc_info.value.error_code == ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND
 

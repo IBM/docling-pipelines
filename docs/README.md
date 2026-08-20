@@ -91,6 +91,7 @@ Internal documentation for maintainers:
 
 - **[Metadata Aggregation Strategy](internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Metadata aggregation in micro-batching
 - **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
+- **[Unified Asset Architecture](internals/UNIFIED_ASSET_ARCHITECTURE.md)** - Complete reference for the common asset layer: domain models, ports, adapters, factories, and service wiring
 
 ## 🚀 Deployment
 

@@ -1,7 +1,7 @@
 """Application service for document set management operations.
 
 Provides business logic orchestration for document sets, coordinating between
-the metadata repository and storage layers.
+the metadata repository, attachment repository, and storage layers.
 
 Extends AssetService[DocumentSet] to inherit common operations (get_by_id,
 get_by_name, delete, exists, exists_by_name, list_all, count_all, health_check).
@@ -10,7 +10,9 @@ get_by_name, delete, exists, exists_by_name, list_all, count_all, health_check).
 import pyarrow as pa
 
 from docpipe.core.assets.common.application.services.asset_service import AssetService
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
+from docpipe.core.assets.common.domain.ports.attachment_repository import AttachmentRepository
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
 from docpipe.core.assets.document_sets.domain.ports import DocumentSetStorage
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
@@ -35,6 +37,7 @@ class DocumentSetService(AssetService[DocumentSet]):
     Attributes:
         _repository: Metadata repository port (AssetRepository[DocumentSet]).
         _storage: Storage port for PyArrow table data operations.
+        _attachment_repo: Repository port for attachment lifecycle management.
     """
 
     def __init__(
@@ -42,19 +45,23 @@ class DocumentSetService(AssetService[DocumentSet]):
         *,
         metadata_repository: AssetRepository[DocumentSet],
         data_store: DocumentSetStorage,
+        attachment_repository: AttachmentRepository,
     ) -> None:
         """Initialize the service with port dependencies.
 
         Args:
             metadata_repository: Repository port for document set metadata CRUD.
             data_store: Storage port for document data operations.
+            attachment_repository: Repository port for attachment lifecycle management.
         """
         super().__init__(repository=metadata_repository)
         self._storage = data_store
+        self._attachment_repo = attachment_repository
         logger.debug(
-            "DocumentSetService initialized with metadata_repository: %s, data_store: %s",
+            "DocumentSetService initialized with metadata_repository: %s, data_store: %s, attachment_repository: %s",
             type(metadata_repository).__name__,
             type(data_store).__name__,
+            type(attachment_repository).__name__,
         )
 
     def create_document_set(self, *, name: str, description: str | None, metadata: dict | None = None) -> DocumentSet:
@@ -62,7 +69,6 @@ class DocumentSetService(AssetService[DocumentSet]):
 
         Implements idempotent document set creation: if a document set with the
         given name already exists it is returned; otherwise a new one is created.
-        The adapter derives the physical table name and database path internally.
 
         Args:
             name: Unique name for the document set.
@@ -153,6 +159,17 @@ class DocumentSetService(AssetService[DocumentSet]):
         logger.info("Successfully updated document set %s", document_set_id)
         return updated
 
+    def get_attachment_ref(self, *, document_set_id: str) -> "AttachmentRef | None":
+        """Return the AttachmentRef for the given document set, or None if absent.
+
+        Args:
+            document_set_id: Unique identifier of the document set.
+
+        Returns:
+            The persisted AttachmentRef, or None if no data has been stored yet.
+        """
+        return self._attachment_repo.get(asset_id=document_set_id)
+
     def get_document_set(self, *, document_set_id: str) -> DocumentSet:
         """Retrieve a document set by ID.
 
@@ -209,6 +226,12 @@ class DocumentSetService(AssetService[DocumentSet]):
     def delete_document_set(self, *, document_set_id: str, delete_data: bool = True) -> bool:
         """Delete a document set and optionally its stored data.
 
+        Deletion order:
+        1. Retrieve AttachmentRef from the attachment repository.
+        2. If delete_data and the backing resource exists, delete it via storage.
+        3. If an attachment record exists, delete it from the attachment repository.
+        4. Delete the metadata record last.
+
         Args:
             document_set_id: Unique identifier of the document set to delete.
             delete_data: If True, also delete the backing data table (default: True).
@@ -224,20 +247,26 @@ class DocumentSetService(AssetService[DocumentSet]):
                 "document_set_id cannot be empty", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA
             )
 
-        document_set = self.get_document_set(document_set_id=document_set_id)
+        # Verify the document set exists before proceeding
+        self.get_document_set(document_set_id=document_set_id)
 
-        if (
-            delete_data
-            and document_set.storage_reference
-            and self._storage.exists(storage_ref=document_set.storage_reference)
-        ):
+        # Step 1: retrieve attachment ref
+        attachment_ref = self._attachment_repo.get(asset_id=document_set_id)
+
+        # Step 2: delete backing data if requested and it exists
+        if delete_data and attachment_ref and self._storage.exists(attachment_ref=attachment_ref):
             try:
-                self._storage.delete(storage_ref=document_set.storage_reference)
+                self._storage.delete(attachment_ref=attachment_ref)
                 logger.info("Deleted data for document set %s", document_set_id)
             except Exception as e:
                 logger.error("Failed to delete data for document set %s: %s", document_set_id, e)
                 raise
 
+        # Step 3: delete the attachment record
+        if attachment_ref:
+            self._attachment_repo.delete(asset_id=document_set_id)
+
+        # Step 4: delete the metadata record
         deleted = self._repository.delete(asset_id=document_set_id)
         if deleted:
             logger.info("Successfully deleted document set %s", document_set_id)
@@ -273,13 +302,14 @@ class DocumentSetService(AssetService[DocumentSet]):
         document_set = self.get_document_set(document_set_id=document_set_id)
 
         try:
-            storage_ref = self._storage.store(doc_set_name=document_set.name, data=data)
+            attachment_ref = self._storage.store(doc_set_name=document_set.name, data=data)
             logger.info("Stored %d rows for document set %s", len(data), document_set_id)
 
-            document_set.storage_reference = storage_ref
-            self._repository.update(asset=document_set)
+            self._attachment_repo.save(asset_id=document_set_id, data=attachment_ref)
 
-            updated = self.compute_and_update_metrics(document_set_id=document_set_id)
+            updated = self._compute_and_update_metrics_with_ref(
+                document_set_id=document_set_id, attachment_ref=attachment_ref
+            )
             logger.info("Successfully stored data and updated metrics for document set %s", document_set_id)
             return updated
         except Exception as e:
@@ -311,13 +341,16 @@ class DocumentSetService(AssetService[DocumentSet]):
                 "offset must be >= 0", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA
             )
 
-        document_set = self.get_document_set(document_set_id=document_set_id)
+        # Verify the document set exists
+        self.get_document_set(document_set_id=document_set_id)
 
-        if not document_set.storage_reference or not self._storage.exists(storage_ref=document_set.storage_reference):
+        attachment_ref = self._attachment_repo.get(asset_id=document_set_id)
+
+        if not attachment_ref or not self._storage.exists(attachment_ref=attachment_ref):
             logger.warning("Data does not exist for document set: %s", document_set_id)
             return pa.table({})
 
-        data = self._storage.load(storage_ref=document_set.storage_reference, limit=None)
+        data = self._storage.load(attachment_ref=attachment_ref, limit=None)
 
         if offset > 0:
             data = data.slice(offset)
@@ -350,13 +383,28 @@ class DocumentSetService(AssetService[DocumentSet]):
                 "document_set_id cannot be empty", status_code=400, error_code=ErrorCode.DOCUMENT_SET_INVALID_DATA
             )
 
+        attachment_ref = self._attachment_repo.get(asset_id=document_set_id)
+        return self._compute_and_update_metrics_with_ref(document_set_id=document_set_id, attachment_ref=attachment_ref)
+
+    def _compute_and_update_metrics_with_ref(
+        self, *, document_set_id: str, attachment_ref: AttachmentRef | None
+    ) -> DocumentSet:
+        """Recompute metrics using a pre-fetched AttachmentRef and update metadata.
+
+        Args:
+            document_set_id: Unique identifier of the document set.
+            attachment_ref: Pre-fetched AttachmentRef, or None if no data exists.
+
+        Returns:
+            Updated DocumentSet with refreshed metrics.
+        """
         document_set = self.get_document_set(document_set_id=document_set_id)
 
-        if not document_set.storage_reference or not self._storage.exists(storage_ref=document_set.storage_reference):
+        if not attachment_ref or not self._storage.exists(attachment_ref=attachment_ref):
             logger.warning("Data does not exist for metrics computation: %s", document_set_id)
             metrics: dict[str, int] = {"total_documents": 0, "total_size_bytes": 0, "total_pages": 0}
         else:
-            metrics = self._storage.get_metrics(storage_ref=document_set.storage_reference)
+            metrics = self._storage.get_metrics(attachment_ref=attachment_ref)
 
         document_set.update_statistics(
             total_documents=metrics.get("total_documents", 0),

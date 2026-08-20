@@ -119,7 +119,7 @@ Create a JSON flow file with:
 - **Operator 5**: VectorDBOperator with OpenSearch adapter
 - **Dependencies**: Use `depends_on` to define execution order
 
-**Flow location:** Create in `tests/fixtures/flows/`
+**Flow location:** Create as a temporary file directly in the workspace root (e.g. `test_flow.json`). Delete it after the test run completes. Do NOT commit test flows to `sample_flows/` — that directory is for shipped example flows only.
 
 **Configuration Reference**: For a complete list of available configuration flags and their usage, see [`GLOBAL_CONFIG.md`](../../docs/reference/GLOBAL_CONFIG.md). Key flags for testing include:
 - `force_ingest`: Re-process all documents

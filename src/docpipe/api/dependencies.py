@@ -10,6 +10,8 @@ from functools import lru_cache
 from fastapi import Depends
 
 from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
+from docpipe.core.assets.common.domain.ports.attachment_repository import AttachmentRepository
+from docpipe.core.assets.common.factories.attachment_repository_factory import AttachmentRepositoryFactory
 from docpipe.core.assets.common.factories.repository_factory import RepositoryFactory, RepositoryType
 from docpipe.core.assets.document_libraries.application.services.document_library_service import (
     DocumentLibraryService,
@@ -158,7 +160,7 @@ def get_document_set_data_store() -> DocumentSetDataStore:
     """
     from typing import cast
 
-    _, repo_config = RepositoryFactory._get_repository_config(asset_type_name=DocumentSet.get_config_key())
+    _, repo_config = RepositoryFactory.get_repository_config(asset_type_name=DocumentSet.get_config_key())
     adapter_name: str = repo_config.get("storage_adapter", RepositoryType.DUCKDB.value)
     database_path: str = repo_config.get("database_path", DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH)
     data_config: DataStoreConfig = {"database_path": database_path}
@@ -166,15 +168,37 @@ def get_document_set_data_store() -> DocumentSetDataStore:
     return cast(DocumentSetDataStore, data_store)
 
 
+@lru_cache(maxsize=1)
+def get_document_set_attachment_repository() -> AttachmentRepository:
+    """Dependency provider for DocumentSet AttachmentRepository (singleton).
+
+    Uses the same adapter name and database path resolved for the document set
+    repository so that the attachment KV store lives alongside the metadata store.
+    Falls back to "duckdb" / DOCUMENT_SET_DEFAULT_DB_PATH if not configured.
+
+    Returns:
+        AttachmentRepository: Configured attachment repository instance (cached singleton)
+    """
+    _, repo_config = RepositoryFactory.get_repository_config(asset_type_name=DocumentSet.get_config_key())
+    adapter_name: str = repo_config.get("storage_adapter", RepositoryType.DUCKDB.value)
+    database_path: str = repo_config.get("database_path", DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH)
+    return AttachmentRepositoryFactory.create(
+        adapter_name=adapter_name,
+        config={"database_path": database_path},
+    )
+
+
 def get_document_set_service(
     repository: AssetRepository[DocumentSet] = Depends(get_document_set_repository),  # noqa: B008
     data_store: DocumentSetDataStore = Depends(get_document_set_data_store),  # noqa: B008
+    attachment_repository: AttachmentRepository = Depends(get_document_set_attachment_repository),  # noqa: B008
 ) -> DocumentSetService:
     """Dependency provider for document set service.
 
     Args:
         repository: Injected repository instance (metadata operations)
         data_store: Injected data store instance (PyArrow table operations)
+        attachment_repository: Injected attachment repository instance
 
     Returns:
         DocumentSetService: Service instance with injected dependencies
@@ -182,6 +206,7 @@ def get_document_set_service(
     return DocumentSetService(
         metadata_repository=repository,
         data_store=data_store,
+        attachment_repository=attachment_repository,
     )
 
 

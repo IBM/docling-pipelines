@@ -114,11 +114,6 @@ class DocpipeConstants:
     TEMP_CONTENT_COLUMN = "_temp_content_for_extract"
     TEMP_PAGES_PROCESSED_COLUMN = "_temp_pages_processed"
 
-    # Storage configuration
-    METADATA_STORAGE_TYPE = "metadata_storage_type"
-    DEFAULT_METADATA_STORAGE_TYPE = "duckdb"
-    SUPPORTED_STORAGE_TYPES: ClassVar[list[str]] = ["duckdb", "filesystem"]
-
     # Custom Operator Control
     ENABLE_CUSTOM_OPERATORS = "enable_custom_operators"
     ENABLE_CUSTOM_OPERATORS_DEFAULT = True

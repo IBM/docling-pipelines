@@ -1,16 +1,17 @@
 """DuckDB implementation of DocumentSetStorage.
 
-Writes PyArrow table data to a DuckDB table and returns a StorageReference
-with the database_path and table_name. The table name is derived from the
-document set name via sanitize_table_name().
+Writes PyArrow table data to a DuckDB table and returns an AttachmentRef
+with the table name in the common ``name`` field and backend coordinates in
+``details``.  The table name is derived from the document set name via
+sanitize_table_name().
 """
 
 from typing import Any
 
 import pyarrow as pa
 
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.document_sets.adapters.duckdb.duckdb_utils import sanitize_table_name
-from docpipe.core.assets.document_sets.domain.models.storage_reference import StorageReference
 from docpipe.core.assets.document_sets.domain.ports.data_store import DocumentSetStorage
 from docpipe.core.assets.document_sets.domain.types import HealthCheckResult
 from docpipe.core.assets.document_sets.factories.data_store_factory import DataStoreFactory
@@ -28,12 +29,12 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
     """DuckDB implementation of the DocumentSetStorage port.
 
     Derives the physical table name from the document set name and returns a
-    fully-populated StorageReference so the service layer never needs to know
+    fully-populated AttachmentRef so the service layer never needs to know
     where or how the data is stored.
 
     Attributes:
         _storage: TableStoragePort backend for DuckDB operations.
-        _database_path: Path to the DuckDB file; embedded in returned StorageReferences.
+        _database_path: Path to the DuckDB file; embedded in returned AttachmentRefs.
     """
 
     def __init__(self, *, table_storage: TableStoragePort, database_path: str) -> None:
@@ -42,14 +43,14 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
         Args:
             table_storage: TableStoragePort implementation (DuckDB-based).
             database_path: Path to the DuckDB file; stored so it can be embedded
-                in returned StorageReferences.
+                in returned AttachmentRefs.
         """
         self._storage = table_storage
         self._database_path = database_path
         logger.info("DuckDBDocumentSetStorage initialised with database_path: %s", database_path)
 
-    def store(self, *, doc_set_name: str, data: pa.Table) -> StorageReference:
-        """Write PyArrow table data to DuckDB and return a StorageReference.
+    def store(self, *, doc_set_name: str, data: pa.Table) -> AttachmentRef:
+        """Write PyArrow table data to DuckDB and return an AttachmentRef.
 
         Creates the backing table if it does not exist, otherwise upserts on
         the ``id`` column.
@@ -59,7 +60,8 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
             data: PyArrow table to persist. Must contain an ``id`` column.
 
         Returns:
-            StorageReference with backend_type="duckdb", database_path, and table_name.
+            AttachmentRef with backend_type="duckdb", name=table_name, and
+            details containing database_path and table_name.
 
         Raises:
             DocpipeException: If the data is invalid or the write fails.
@@ -89,17 +91,20 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
                 error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-        return StorageReference(
+        return AttachmentRef(
             backend_type=OperatorConstants.DocumentSet.ADAPTER_DUCKDB,
-            database_path=self._database_path,
-            table_name=table_name,
+            name=table_name,
+            details={
+                OperatorConstants.DocumentSet.DATABASE_PATH: self._database_path,
+                "table_name": table_name,
+            },
         )
 
-    def load(self, *, storage_ref: StorageReference, limit: int | None = None) -> pa.Table:
+    def load(self, *, attachment_ref: AttachmentRef, limit: int | None = None) -> pa.Table:
         """Read PyArrow table data from DuckDB.
 
         Args:
-            storage_ref: StorageReference containing table_name.
+            attachment_ref: AttachmentRef containing table_name in details.
             limit: Maximum number of rows to return, or None for all.
 
         Returns:
@@ -108,7 +113,7 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
         Raises:
             DocpipeException: If the table does not exist or the read fails.
         """
-        table_name = storage_ref.table_name
+        table_name = attachment_ref.details["table_name"]
         try:
             if not self._storage.table_exists(table_name=table_name):
                 raise DocpipeException(
@@ -128,11 +133,11 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
                 error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-    def delete(self, *, storage_ref: StorageReference) -> bool:
-        """Drop the DuckDB table described by storage_ref.
+    def delete(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Drop the DuckDB table described by attachment_ref.
 
         Args:
-            storage_ref: StorageReference containing table_name.
+            attachment_ref: AttachmentRef containing table_name in details.
 
         Returns:
             True if deleted, False if the table was absent.
@@ -140,7 +145,7 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
         Raises:
             DocpipeException: If the deletion fails.
         """
-        table_name = storage_ref.table_name
+        table_name = attachment_ref.details["table_name"]
         try:
             if not self._storage.table_exists(table_name=table_name):
                 logger.info("Table not found for deletion: %s", table_name)
@@ -157,11 +162,11 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
                 error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-    def get_metrics(self, *, storage_ref: StorageReference) -> dict[str, int]:
+    def get_metrics(self, *, attachment_ref: AttachmentRef) -> dict[str, int]:
         """Compute aggregate metrics via DuckDB SQL aggregation.
 
         Args:
-            storage_ref: StorageReference containing table_name.
+            attachment_ref: AttachmentRef containing table_name in details.
 
         Returns:
             Dictionary with keys: total_documents, total_size_bytes, total_pages.
@@ -169,7 +174,7 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
         Raises:
             DocpipeException: If the table does not exist or the query fails.
         """
-        table_name = storage_ref.table_name
+        table_name = attachment_ref.details["table_name"]
         try:
             if not self._storage.table_exists(table_name=table_name):
                 raise DocpipeException(
@@ -219,11 +224,11 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
                 error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-    def exists(self, *, storage_ref: StorageReference) -> bool:
-        """Check whether the DuckDB table described by storage_ref exists.
+    def exists(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Check whether the DuckDB table described by attachment_ref exists.
 
         Args:
-            storage_ref: StorageReference containing table_name.
+            attachment_ref: AttachmentRef containing table_name in details.
 
         Returns:
             True if the table exists, False otherwise.
@@ -232,7 +237,7 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
             DocpipeException: If the check fails.
         """
         try:
-            return self._storage.table_exists(table_name=storage_ref.table_name)
+            return self._storage.table_exists(table_name=attachment_ref.details["table_name"])
         except DocpipeException:
             raise
         except Exception as e:

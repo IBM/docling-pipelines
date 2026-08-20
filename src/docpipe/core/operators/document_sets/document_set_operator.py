@@ -10,6 +10,8 @@ from typing import Any
 
 import pyarrow as pa
 
+from docpipe.core.assets.common import adapters as common_adapters  # noqa: F401
+from docpipe.core.assets.common.factories.attachment_repository_factory import AttachmentRepositoryFactory
 from docpipe.core.assets.common.factories.repository_factory import RepositoryFactory
 from docpipe.core.assets.document_sets import adapters  # noqa: F401
 from docpipe.core.assets.document_sets.application.services.document_set_service import DocumentSetService
@@ -66,7 +68,8 @@ class DocumentSetOperator(AbstractOperator):
                 - database_path (optional): Database path (default: from constants)
 
         Note:
-            Metadata storage type is passed via operator params from orchestrator
+            Metadata and attachment backend type is resolved from
+            docling-pipelines-config.yaml (assets_management.document_set_repository.type).
         """
         super().__init__(config)
 
@@ -89,9 +92,6 @@ class DocumentSetOperator(AbstractOperator):
 
             # Validate database path
             DuckDBTableStorage.validate_database_path(db_path=self.database_path)
-
-            # Metadata storage type will be set in transform() from params
-            self.metadata_storage_type: str | None = None
 
             # Data backend from operator config (operator-specific)
             self.data_backend: str = config.get(
@@ -145,9 +145,7 @@ class DocumentSetOperator(AbstractOperator):
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "duckdb",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Data store backend (default: duckdb). Metadata backend uses global_config.metadata_storage_type"
-                    ),
+                    OperatorConstants.Config.DESCRIPTION: ("Data store backend (default: duckdb)"),
                 },
                 "database_path": {
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
@@ -185,33 +183,29 @@ class DocumentSetOperator(AbstractOperator):
                 - List containing the original table (pass-through)
                 - Metadata dictionary with storage info and metrics
         """
-        # Extract metadata storage type from config (set by orchestrator)
-        # Runtime value from global_config — passed as override so it is honoured
-        # exactly as before, without changing observable behaviour.
-        metadata_storage_type = self.config.get(
-            DocpipeConstants.METADATA_STORAGE_TYPE, DocpipeConstants.DEFAULT_METADATA_STORAGE_TYPE
+        # Resolve backend type and config from docling-pipelines-config.yaml.
+        # database_path from operator config overrides the YAML value.
+        #
+        # Both the metadata repository and the attachment repository use the same backend
+        # and database_path — they must always be co-located.
+        #
+        # Factory calls are here rather than in __init__ because DuckDBKeyValueStorage and
+        # DuckDBTableStorage are per-path singletons — repeated calls with the same
+        # database_path return the cached instance at the cost of two dict lookups.
+        repo_type_str, repo_config = RepositoryFactory.get_repository_config(
+            asset_type_name=DocumentSet.get_config_key()
         )
+        attachment_repo_config = {**repo_config, OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path}
 
         logger.info(
             "Using metadata storage type: %s, data storage type: %s",
-            metadata_storage_type,
+            repo_type_str,
             self.data_backend,
             extra=self.common_log_arguments,
         )
 
-        # Create metadata repository — adapter_name from global_config wins over YAML,
-        # database_path from operator config wins over YAML.
-        #
-        # These factory calls are intentionally here rather than in __init__ because:
-        # 1. metadata_storage_type comes from self.config which is set by the orchestrator
-        #    and available here, but the executor constructs a new operator instance per
-        #    batch (PythonOperatorExecutor.get_operator()), so __init__ runs per batch anyway.
-        # 2. DuckDBKeyValueStorage and DuckDBTableStorage are per-path singletons — repeated
-        #    factory calls with the same database_path return the cached instance with no
-        #    new connection or I/O. The cost here is two dict lookups per batch.
         metadata_repository = RepositoryFactory.create_repository(
             asset_type=DocumentSet,
-            adapter_name=metadata_storage_type,
             config_override={OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path},
         )
 
@@ -220,9 +214,17 @@ class DocumentSetOperator(AbstractOperator):
             config={OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path},
         )
 
+        # Create attachment repository using same config as metadata repo
+        attachment_repo = AttachmentRepositoryFactory.create(
+            adapter_name=repo_type_str,
+            config=attachment_repo_config,
+        )
+
+        # Create service with port interfaces
         service = DocumentSetService(
             metadata_repository=metadata_repository,
             data_store=data_store,
+            attachment_repository=attachment_repo,
         )
 
         # Initialize metadata
@@ -233,7 +235,6 @@ class DocumentSetOperator(AbstractOperator):
         # Add storage-specific metadata
         metadata[OperatorConstants.DocumentSet.META_DOCUMENT_SET_NAME] = self.document_set_name
         metadata[OperatorConstants.DocumentSet.META_DATABASE_PATH] = self.database_path
-        metadata[DocpipeConstants.METADATA_STORAGE_TYPE] = metadata_storage_type
         metadata["data_storage_type"] = self.data_backend
 
         # Handle empty table
@@ -267,9 +268,10 @@ class DocumentSetOperator(AbstractOperator):
             metadata[OperatorConstants.DocumentSet.META_STORED_DOCUMENTS] = updated_doc_set.total_documents
             metadata[OperatorConstants.DocumentSet.META_TOTAL_SIZE_BYTES] = updated_doc_set.total_size_bytes
             metadata[OperatorConstants.DocumentSet.META_TOTAL_PAGES] = updated_doc_set.total_pages
-            metadata[OperatorConstants.DocumentSet.META_TABLE_NAME] = (
-                updated_doc_set.storage_reference.table_name if updated_doc_set.storage_reference else None
-            )
+
+            # Read the attachment ref to obtain the logical table name
+            ref = attachment_repo.get(asset_id=doc_set_id)
+            metadata[OperatorConstants.DocumentSet.META_TABLE_NAME] = ref.name if ref else None
             metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
 
             logger.info(

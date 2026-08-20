@@ -3205,33 +3205,35 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 ┌─────────────────────────────────────────────────────────────┐
 │                    DocumentSetOperator                      │
 │         (Orchestrates via DocumentSetService)               │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-        ┌────────────┴────────────┐
-        │                         │
-        ▼                         ▼
-┌──────────────────┐    ┌──────────────────┐
-│ Metadata Factory │    │ Data Store       │
-│                  │    │ Factory          │
-└────────┬─────────┘    └────────┬─────────┘
-         │                       │
-         ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐
-│ Metadata Port    │    │ Data Store Port  │
-│ (Interface)      │    │ (Interface)      │
-└────────┬─────────┘    └────────┬─────────┘
-         │                       │
-         ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐
-│ DuckDB Metadata  │    │ DuckDB Data      │
-│ Adapter          │    │ Adapter          │
-└────────┬─────────┘    └────────┬─────────┘
-         │                       │
-         ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐
-│ KeyValueStorage  │    │ TableStorage     │
-│ (Interface)      │    │ (Interface)      │
-└──────────────────┘    └──────────────────┘
+└──────────────┬──────────────────────────────────────────────┘
+               │
+   ┌───────────┼───────────────────┐
+   │           │                   │
+   ▼           ▼                   ▼
+┌──────────┐ ┌──────────────┐ ┌──────────────────┐
+│ Metadata │ │ Data Store   │ │ Attachment Repo  │
+│ Factory  │ │ Factory      │ │ Factory          │
+└────┬─────┘ └──────┬───────┘ └────────┬─────────┘
+     │               │                  │
+     ▼               ▼                  ▼
+┌──────────┐ ┌──────────────┐ ┌──────────────────┐
+│ Metadata │ │ Data Store   │ │ Attachment Repo  │
+│ Port     │ │ Port         │ │ Port             │
+└────┬─────┘ └──────┬───────┘ └────────┬─────────┘
+     │               │                  │
+     ▼               ▼                  ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────────┐
+│ DuckDB       │ │ DuckDB Data  │ │ DuckDB           │
+│ Metadata     │ │ Adapter      │ │ Attachment Repo  │
+│ Adapter      │ └──────┬───────┘ └────────┬─────────┘
+└──────┬───────┘        │                  │
+       │                ▼                  ▼
+       ▼         ┌──────────────┐ ┌──────────────────┐
+┌──────────────┐ │ TableStorage │ │ KeyValueStorage  │
+│ KeyValue     │ │ (Interface)  │ │ (Interface)      │
+│ Storage      │ └──────────────┘ └──────────────────┘
+│ (Interface)  │
+└──────────────┘
 ```
 
 #### Components
@@ -3240,15 +3242,21 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 
 - **Models** (`models/`): Pure Python domain entities
   - `DocumentSet`: Core entity for document collections
-  - `StorageReference`: Physical storage location metadata
   - `DataCard`: Lineage and provenance tracking
 - **Ports** (`ports/`): Abstract interfaces defining contracts
-  - `DocumentSetMetadataRepository`: Metadata CRUD operations
-  - `DocumentSetDataStore`: PyArrow table data operations
+  - `AssetRepository[DocumentSet]`: Metadata CRUD operations
+  - `DocumentSetStorage`: PyArrow table data operations
 - **Types** (`types/`): TypedDict-based configuration types
   - `RepositoryConfig`: Metadata repository configuration
   - `DataStoreConfig`: Data store configuration
   - `HealthCheckResult`: Health check response structure
+
+**1a. Common Domain Layer** (`src/docpipe/core/assets/common/`)
+
+- **Models** (`common/domain/models/`):
+  - `AttachmentRef`: Backend-agnostic storage coordinate. Holds a common envelope (`backend_type`, `name`) readable by the service and operator layers, plus a `details` dict opaque to everything except the adapter that created it.
+- **Ports** (`common/domain/ports/`):
+  - `AttachmentRepository`: Lifecycle management for `AttachmentRef` records — `save`, `get`, `delete`, `exists`.
 
 **2. Application Layer** (`src/docpipe/core/assets/document_sets/application/`)
 
@@ -3258,28 +3266,20 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 - Independent of concrete storage implementation
 - Injected with metadata repository and data store adapters
 
-**3. Adapter Layer** (`src/docpipe/core/assets/document_sets/adapters/`)
+**3. Adapter Layer**
 
-- **DuckDB Adapters** (`duckdb/`):
-  - **DuckDBDocumentSetMetadataRepository**: Metadata persistence
-    - Uses KeyValueStorage interface for JSON-based metadata
-    - Stores in 'document_sets' collection
-  - **DuckDBDocumentSetDataStore**: Data persistence
-    - Uses TableStorage interface for PyArrow tables
-    - Handles schema creation, upsert, preview, deletion
-- Registered via `@MetadataRepositoryFactory.register()` and `@DataStoreFactory.register()` decorators
-- Supports health checks and configuration validation
+- **DuckDB document set adapters** (`document_sets/adapters/duckdb/`):
+  - **DuckDBAssetRepository** (`common/adapters/repositories/`): Generic metadata persistence using `KeyValueStorage`; stores in the collection returned by `DocumentSet.get_collection_name()` (i.e. `document_sets`)
+  - **DuckDBDocumentSetStorage**: Data persistence using `TableStorage`; handles schema creation, upsert, preview, deletion; returns `AttachmentRef` from `store()`
+- **Common adapters** (`common/adapters/repositories/`):
+  - **DuckDBAttachmentRepository**: Persists `AttachmentRef` records in the `document_set_attachments` KV collection. Registered via `@AttachmentRepositoryFactory.register(name="duckdb")` and self-wires via its `create(*, config)` classmethod.
+- `DuckDBAssetRepository` is registered in `RepositoryFactory.get_available_repository_types()` as a dict entry (not a decorator). `DuckDBAttachmentRepository` uses the `@AttachmentRepositoryFactory.register()` decorator.
 
-**4. Factory Layer** (`src/docpipe/core/assets/document_sets/factories/`)
+**4. Factory Layer**
 
-- **MetadataRepositoryFactory**: Creates metadata repository adapters
-  - Decorator-based registration system
-  - Validates configuration before instantiation
-  - Supports multiple backends (currently: duckdb)
-- **DataStoreFactory**: Creates data store adapters
-  - Decorator-based registration system
-  - Validates configuration before instantiation
-  - Supports multiple backends (currently: duckdb)
+- **RepositoryFactory** (`common/factories/`): Creates `AssetRepository[DocumentSet]` adapters; reads backend type from `assets_management.document_set_repository.type` in `docling-pipelines-config.yaml`
+- **DataStoreFactory** (`document_sets/factories/`): Creates data store adapters
+- **AttachmentRepositoryFactory** (`common/factories/`): Decorator-registry factory for attachment repository adapters; adapter is selected by name matching `document_set_repository.type` in `docling-pipelines-config.yaml`
 
 #### Entry Points
 
@@ -3289,7 +3289,7 @@ Document sets can be managed through multiple entry points that share the same a
    - Persists PyArrow tables during flow execution
    - Returns the original input table unchanged for downstream operators
    - Uses factory-created metadata and data adapters
-   - Metadata storage backend configured via `global_config.metadata_storage_type`
+   - Storage backend configured via `assets_management.document_set_repository.type` in `docling-pipelines-config.yaml`
 
 2. **REST API** via `/api/v1/document-sets`
    - Creates, lists, retrieves, updates, deletes, and previews document sets
@@ -3347,14 +3347,21 @@ class PostgreSQLDataStore(DocumentSetDataStore):
     # ... implement port methods
 ```
 
-4. **Update Configuration**:
+4. **Update Configuration** in `docling-pipelines-config.yaml`:
+
+```yaml
+assets_management:
+  document_set_repository:
+    type: postgresql
+    config:
+      database_path: ./data/document_sets/extracted_docs.duckdb
+```
+
+And the flow JSON:
 
 ```json
 {
   "flow_name": "ingest-extract-documentset",
-  "global_config": {
-    "metadata_storage_type": "postgresql"
-  },
   "flow": [
     {
       "type": "document_set",
@@ -3385,9 +3392,6 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 ```json
 {
   "flow_name": "ingest-extract-documentset",
-  "global_config": {
-    "metadata_storage_type": "duckdb"
-  },
   "flow": [
     {
       "type": "document_set",
@@ -3414,23 +3418,31 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 ```
 Ingest → Extract → [Other Operators] → DocumentSetOperator → [Downstream Operators]
                                               │
-                                              ├─> MetadataRepositoryFactory → DuckDB adapter → KeyValueStorage
-                                              ├─> DataStoreFactory → DuckDB adapter → TableStorage
+                                              ├─> MetadataRepositoryFactory   → DuckDB adapter → KeyValueStorage
+                                              ├─> DataStoreFactory            → DuckDB adapter → TableStorage
+                                              ├─> AttachmentRepositoryFactory → DuckDB adapter → KeyValueStorage
                                               └─> Original table (pass-through)
 ```
 
+Storage coordinates (`AttachmentRef`) are persisted separately from the metadata record.
+The metadata record and the attachment record have independent lifecycles — deletion removes
+the backing data first, then the attachment record, then the metadata record last.
+
 #### Storage Type Configuration
 
-`global_config.metadata_storage_type` determines the storage backend for document set metadata:
+The metadata and attachment storage backend is configured via `docling-pipelines-config.yaml`:
 
-- **"duckdb"** (default): Uses DuckDB for metadata storage
-  - Metadata stored in key-value tables
-  - Single database file shared with data storage
-- **"filesystem"**: Uses filesystem for metadata (key-value only)
-  - Metadata stored as JSON files
-  - Suitable for development and small-scale deployments
+```yaml
+assets_management:
+  document_set_repository:
+    type: duckdb          # "duckdb" is the default
+    config:
+      database_path: data/duckdb/document_sets.duckdb
+```
 
-**Note**: The `data_backend` parameter in operator configuration is separate from `metadata_storage_type` and controls where PyArrow table data is stored.
+- **"duckdb"** (default): Metadata and attachment coordinates stored in DuckDB key-value tables alongside the data tables.
+
+**Note**: The `data_backend` parameter in the operator's flow config controls where PyArrow table data is stored, and is independent of the metadata/attachment backend in the YAML.
 
 ## Deployment Patterns
 
@@ -4369,8 +4381,12 @@ Hexagonal architecture implementation for document set management:
 **Domain Layer** (`domain/models/`):
 
 - **DocumentSet**: Core entity for named document collections
-- **StorageReference**: Physical storage location metadata
 - **DataCard**: Lineage and provenance tracking
+
+**Common Domain Layer** (`common/domain/`):
+
+- **AttachmentRef**: Backend-agnostic storage coordinate for asset attachments
+- **AttachmentRepository**: Port for attachment lifecycle management
 
 **Domain Ports** (`domain/ports/`):
 
