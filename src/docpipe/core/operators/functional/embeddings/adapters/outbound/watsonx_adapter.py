@@ -5,6 +5,8 @@
 
 from typing import Any
 
+from pydantic import BaseModel
+
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.models.session_info import get_session_info
 from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
@@ -124,6 +126,13 @@ class WatsonxLLMAdapter(LLMServicePort):
             f"batch_size={batch_size}, enable_rate_limiting={enable_rate_limiting}, "
             f"job_run_id={job_run_id or 'shared'}"
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.shared.llm_provider_config import WatsonxProviderConfig
+
+        return WatsonxProviderConfig
 
     def generate_embeddings(self, text: str) -> list[float]:
         """Generate embeddings using watsonx.ai.

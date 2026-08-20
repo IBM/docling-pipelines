@@ -60,6 +60,7 @@ from docpipe.api.dto.field_definitions import (
     OPERATOR_FEATURE_NAME_PATTERN,
     OPERATOR_FEATURE_OPENSEARCH_DESC,
     OPERATOR_FEATURE_PROPERTIES_DESC,
+    OPERATOR_FEATURE_PROVIDERS_DESC,
     OPERATOR_FEATURE_REQUIRED_DESC,
     OPERATOR_FEATURE_TAGS_DESC,
     OPERATOR_FEATURE_VALID_VALUES_DESC,
@@ -157,6 +158,7 @@ class OperatorFeature(BaseModel):
     tags: list[str] | None = Field(default=None, description=OPERATOR_FEATURE_TAGS_DESC)
     properties: dict[str, Any] | None = Field(default=None, description=OPERATOR_FEATURE_PROPERTIES_DESC)
     valid_values: list[Any] | None = Field(default=None, description=OPERATOR_FEATURE_VALID_VALUES_DESC)
+    providers: dict[str, Any] | None = Field(default=None, description=OPERATOR_FEATURE_PROVIDERS_DESC)
 
 
 class OperatorMetadataItem(BaseModel):

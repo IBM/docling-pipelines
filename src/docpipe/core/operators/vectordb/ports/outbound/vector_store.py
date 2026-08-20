@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 
 class VectorStorePort(ABC):
@@ -23,6 +24,12 @@ class VectorStorePort(ABC):
 
     ADAPTER_NAME: str
     ADAPTER_DISPLAY_NAME: str
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        pass
 
     @abstractmethod
     def index_documents(self, documents: list[tuple[str, dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:

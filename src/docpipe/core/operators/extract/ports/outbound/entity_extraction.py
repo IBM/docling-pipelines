@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.utils.infrastructure.logging import get_logger
@@ -130,6 +131,12 @@ class EntityExtractionPort(ABC):
         Args:
             config: Full configuration dictionary
         """
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
         pass
 
     @abstractmethod

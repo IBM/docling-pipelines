@@ -205,8 +205,10 @@ class OperatorConstants:
         PRESET: Final[str] = "preset"
         PROPERTIES: Final[str] = "properties"
         PROVIDER: Final[str] = "provider"
+        PROVIDERS: Final[str] = "providers"
         PROVIDER_CONFIG: Final[str] = "provider_config"
         PROVIDER_LITELLM: Final[str] = "litellm"
+        PROVIDER_WATSONX: Final[str] = "watsonx"
         REQUIRED: Final[str] = "required"
         USERNAME: Final[str] = "username"
 

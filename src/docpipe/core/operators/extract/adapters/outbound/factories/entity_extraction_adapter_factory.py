@@ -7,16 +7,10 @@ extraction mode and configuration. It supports multiple extraction strategies:
 """
 
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from docpipe.core.constants.constants import DoclingClientConfigConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
-    DoclingEntityAdapter,
-)
-from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_adapter import (
-    LLMEntityAdapter,
-)
 from docpipe.core.operators.extract.domain import EntityExtractionMode
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.utils.infrastructure.logging import get_logger
@@ -29,6 +23,9 @@ class EntityExtractionAdapterFactory:
 
     This factory creates appropriate adapter instances based on extraction mode
     and validates configuration requirements for each adapter type.
+
+    It also maintains a class registry so that third-party adapters can
+    self-register via ``@register_entity_extraction_adapter``.
 
     Supported Modes:
         - "litellm": LLM-based extraction using LiteLLM (supports multiple providers)
@@ -68,6 +65,40 @@ class EntityExtractionAdapterFactory:
             max_workers=4
         )
     """
+
+    # Registry of adapter classes keyed by ADAPTER_NAME (populated via @register_entity_extraction_adapter).
+    _registry: ClassVar[dict[str, type[EntityExtractionPort]]] = {}
+
+    @classmethod
+    def register(cls, adapter_class: type[EntityExtractionPort]) -> type[EntityExtractionPort]:
+        """Register an adapter class in the schema-discovery registry.
+
+        Called automatically by the ``@register_entity_extraction_adapter`` decorator.
+
+        Args:
+            adapter_class: Concrete subclass of ``EntityExtractionPort``.
+
+        Returns:
+            The adapter class (for decorator chaining).
+
+        Raises:
+            ValueError: If the class does not define ``ADAPTER_NAME``.
+        """
+        if not hasattr(adapter_class, "ADAPTER_NAME") or not adapter_class.ADAPTER_NAME:
+            raise ValueError(f"Adapter {adapter_class.__name__} must define ADAPTER_NAME")
+
+        name = adapter_class.ADAPTER_NAME.lower()
+        cls._registry[name] = adapter_class
+        return adapter_class
+
+    @classmethod
+    def list_adapters(cls) -> list[str]:
+        """Return names of all registered adapters.
+
+        Returns:
+            List of registered adapter names.
+        """
+        return list(cls._registry.keys())
 
     @staticmethod
     def build_adapter_config(
@@ -181,6 +212,10 @@ class EntityExtractionAdapterFactory:
 
         # LITELLM and WATSONX modes use LLM adapter
         if mode in (EntityExtractionMode.LITELLM, EntityExtractionMode.WATSONX):
+            from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_adapter import (
+                LLMEntityAdapter,
+            )
+
             provider = adapter_config.get(OperatorConstants.Config.PROVIDER)
             logger.info(
                 "Creating LLMEntityAdapter with provider=%s, model=%s, and %s workers",
@@ -191,6 +226,10 @@ class EntityExtractionAdapterFactory:
             return LLMEntityAdapter(config=full_config)
 
         if mode == EntityExtractionMode.DOCLING:
+            from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
+                DoclingEntityAdapter,
+            )
+
             logger.info("Creating DoclingEntityAdapter with %s workers", max_workers)
             return DoclingEntityAdapter(config=full_config)
 
@@ -215,3 +254,26 @@ class EntityExtractionAdapterFactory:
             EntityExtractionMode.DOCLING,
             EntityExtractionMode.NONE,
         ]
+
+
+def register_entity_extraction_adapter(adapter_class: type[EntityExtractionPort]) -> type[EntityExtractionPort]:
+    """Decorator to register an entity extraction adapter for schema discovery.
+
+    This decorator automatically registers the adapter class with
+    ``EntityExtractionAdapterFactory``.
+
+    Args:
+        adapter_class: Concrete subclass of ``EntityExtractionPort``.
+
+    Returns:
+        The adapter class (unchanged).
+
+    Example::
+
+        @register_entity_extraction_adapter
+        class LLMEntityAdapter(EntityExtractionPort):
+            ADAPTER_NAME = "litellm"
+            ADAPTER_DISPLAY_NAME = "LiteLLM"
+            ...
+    """
+    return EntityExtractionAdapterFactory.register(adapter_class)

@@ -735,6 +735,23 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         return [output_table], metadata
 
     @staticmethod
+    def _get_classifier_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the provider_config field.
+
+        Add a new entry here when registering a new classification provider.
+        """
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+
+        return {
+            OperatorConstants.Classification.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
+                schema=LLMProviderConfig.model_json_schema()
+            ),
+            OperatorConstants.Classification.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxProviderConfig.model_json_schema()
+            ),
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
@@ -779,29 +796,10 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration. Fields vary by provider — see the 'providers' schema for details.",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                    OperatorConstants.Config.PROPERTIES: {
-                        OperatorConstants.Config.MODEL_ID: {
-                            OperatorConstants.Misc.NAME: "Model ID",
-                            OperatorConstants.Config.DESCRIPTION: "Model identifier for the provider",
-                            OperatorConstants.Config.REQUIRED: True,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_BASE: {
-                            OperatorConstants.Misc.NAME: "API Base URL",
-                            OperatorConstants.Config.DESCRIPTION: "API endpoint URL",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_KEY: {
-                            OperatorConstants.Misc.NAME: "API Key",
-                            OperatorConstants.Config.DESCRIPTION: "Authentication key",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                    },
+                    OperatorConstants.Config.PROVIDERS: DocumentClassifierOperator._get_classifier_provider_schemas(),
                 },
                 OperatorConstants.Config.DOCUMENT_TYPES: {
                     OperatorConstants.Misc.NAME: "Document Types",

@@ -10,9 +10,13 @@ import json
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants import OperatorConstants
 from docpipe.core.constants.constants import DoclingClientConfigConstants
+from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
+    register_entity_extraction_adapter,
+)
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -22,6 +26,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger(__name__)
 
 
+@register_entity_extraction_adapter
 class DoclingEntityAdapter(EntityExtractionPort):
     """Template-based entity extraction adapter.
 
@@ -133,6 +138,15 @@ class DoclingEntityAdapter(EntityExtractionPort):
             self.extraction_format_options = self._build_vlm_extraction_options(vlm_pipeline=self.vlm_pipeline)
         except (ImportError, ValueError) as e:
             logger.warning("Failed to build VLM extraction options during initialization: %s", e)
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (
+            DoclingEntityConfig,
+        )
+
+        return DoclingEntityConfig
 
     @staticmethod
     def _build_vlm_extraction_options(*, vlm_pipeline: Any) -> dict[Any, Any] | None:

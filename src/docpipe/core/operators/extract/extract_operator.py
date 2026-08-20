@@ -111,7 +111,6 @@ import pyarrow.compute as pc
 
 from docpipe.core.constants.constants import (
     AttributeDataTypes,
-    DoclingClientConfigConstants,
     DocpipeConstants,
     Metrics,
 )
@@ -807,7 +806,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                 existing = job_stats_store.get_node_stats_by_batch_and_node(
                     job_run_id=job_run_id, node_id=node_id, batch_id=batch_id
                 )
-            except Exception:
+            except Exception:  # nosec B110
                 pass  # partial merge is acceptable for live progress
 
             merged = (
@@ -1500,6 +1499,59 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                 )
 
     @staticmethod
+    def _get_text_extraction_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the text_extraction provider_config field.
+
+        Schemas are derived automatically from every adapter registered via
+        ``@register_text_extraction_adapter``.
+        """
+        # Import the adapter modules so their @register_text_extraction_adapter decorators fire.
+        import docpipe.core.operators.extract.adapters.outbound.text_extraction  # noqa: F401
+        from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
+            TextExtractionAdapterFactory,
+        )
+
+        return {
+            name: OperatorUtils.model_schema_to_docpipe(schema=adapter_cls.get_config_schema().model_json_schema())
+            for name, adapter_cls in TextExtractionAdapterFactory._registry.items()
+        }
+
+    @staticmethod
+    def _get_entity_extraction_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the entity_extraction provider_config field.
+
+        Config classes are imported and listed explicitly here rather than
+        being read from EntityExtractionAdapterFactory._registry, because the registry
+        maps provider names to adapter classes (not config classes), and entity extraction
+        adapters span multiple config shapes (e.g. WatsonxEntityConfig vs LLMEntityConfig
+        share the same LLMEntityAdapter).
+
+        When adding a new entity extraction provider, import its config class and add an
+        entry to the returned dict below. The @register_entity_extraction_adapter decorator
+        on the adapter class registers it with the factory for runtime use — this method
+        is only consulted for metadata / UI schema generation.
+        """
+        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (
+            DoclingEntityConfig,
+        )
+        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_config import (
+            LLMEntityConfig,
+            WatsonxEntityConfig,
+        )
+
+        return {
+            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
+                schema=LLMEntityConfig.model_json_schema()
+            ),
+            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxEntityConfig.model_json_schema()
+            ),
+            OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING: OperatorUtils.model_schema_to_docpipe(
+                schema=DoclingEntityConfig.model_json_schema()
+            ),
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """Get metadata about the operator including features and attributes.
 
@@ -1617,76 +1669,10 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                         },
                         OperatorConstants.Config.PROVIDER_CONFIG: {
                             OperatorConstants.Misc.NAME: "Provider Configuration",
-                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for text extraction (docling_serve: base_url, api_key, timeout, etc.)",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for text extraction. Fields vary by provider — see the 'providers' schema for details.",
                             OperatorConstants.Config.REQUIRED: False,
                             OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                            OperatorConstants.Config.PROPERTIES: {
-                                OperatorConstants.Config.VLM_PIPELINE: {
-                                    OperatorConstants.Misc.NAME: "VLM Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Vision-Language Model pipeline configuration for enhanced extraction (docling_library mode only). Provide empty dict {} to enable with defaults, or omit to disable.",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                    OperatorConstants.Config.PROPERTIES: {
-                                        OperatorConstants.Config.PRESET: {
-                                            OperatorConstants.Misc.NAME: "VLM Preset",
-                                            OperatorConstants.Config.DESCRIPTION: "VLM preset name (e.g., 'fast', 'granite_docling')",
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: "fast",
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                        },
-                                        OperatorConstants.Config.ENGINE: {
-                                            OperatorConstants.Misc.NAME: "VLM Engine",
-                                            OperatorConstants.Config.DESCRIPTION: "VLM engine: 'transformers' (local), 'mlx' (macOS), 'ollama', or other API providers",
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: "transformers",
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                        },
-                                        OperatorConstants.Config.ENGINE_OPTIONS: {
-                                            OperatorConstants.Misc.NAME: "Engine Options",
-                                            OperatorConstants.Config.DESCRIPTION: "Engine-specific configuration (api_base, model_id, api_key, etc.)",
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: None,
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                        },
-                                    },
-                                },
-                                OperatorConstants.Config.ASR_PIPELINE: {
-                                    OperatorConstants.Misc.NAME: "ASR Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Automatic Speech Recognition pipeline configuration for audio/video extraction (docling_library mode only). Provide empty dict {} to enable with defaults, or omit to disable.",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                    OperatorConstants.Config.PROPERTIES: {
-                                        OperatorConstants.Config.MODEL_ID: {
-                                            OperatorConstants.Misc.NAME: "ASR Model Name",
-                                            OperatorConstants.Config.DESCRIPTION: (
-                                                "ASR model name (e.g., whisper_turbo, whisper_small, whisper_medium). "
-                                                "Valid values: whisper_tiny, whisper_small, whisper_medium, whisper_base, "
-                                                "whisper_large, whisper_turbo, and their _mlx/_native variants"
-                                            ),
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: OperatorConstants.Config.ASR_MODEL_DEFAULT,
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                        },
-                                    },
-                                },
-                                OperatorConstants.Extraction.ADDITIONAL_FORMATS: {
-                                    OperatorConstants.Misc.NAME: "Additional Output Formats",
-                                    OperatorConstants.Config.DESCRIPTION: (
-                                        "List of additional output formats to generate beyond the mandatory markdown format. "
-                                        "Markdown format is ALWAYS generated (creates doc_content column). "
-                                        "Additional options: "
-                                        "'html' (creates content_html column), "
-                                        "'json' (creates content_json column), "
-                                        "'text' (creates content_text column), "
-                                        "'doctags' (creates content_doctags column). "
-                                        "Example: ['html', 'json'] will generate markdown + HTML + JSON formats"
-                                    ),
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: [],
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                    OperatorConstants.Config.VALID_VALUES: OperatorConstants.Extraction.VALID_OUTPUT_FORMATS,
-                                },
-                            },
+                            OperatorConstants.Config.PROVIDERS: ExtractOperator._get_text_extraction_provider_schemas(),
                         },
                         OperatorConstants.Columns.DOC_COLUMN: {
                             OperatorConstants.Misc.NAME: "Document Column",
@@ -1718,54 +1704,10 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                         },
                         OperatorConstants.Config.PROVIDER_CONFIG: {
                             OperatorConstants.Misc.NAME: "Provider Configuration",
-                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction (model_id, api_base, api_key, temperature, max_tokens, etc.)",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction. Fields vary by provider — see the 'providers' schema for details.",
                             OperatorConstants.Config.REQUIRED: False,
                             OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                            OperatorConstants.Config.PROPERTIES: {
-                                OperatorConstants.Config.MODEL_ID: {
-                                    OperatorConstants.Misc.NAME: "Model ID",
-                                    OperatorConstants.Config.DESCRIPTION: "LLM model identifier for entity extraction (e.g., 'ollama/llama3.2', 'openai/gpt-4')",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: "llama3.2",
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_BASE: {
-                                    OperatorConstants.Misc.NAME: "API Base URL",
-                                    OperatorConstants.Config.DESCRIPTION: "Base URL for the LLM API endpoint",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_KEY: {
-                                    OperatorConstants.Misc.NAME: "API Key",
-                                    OperatorConstants.Config.DESCRIPTION: "API key for authentication (if required by provider)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.LLM.TEMPERATURE: {
-                                    OperatorConstants.Misc.NAME: "Temperature",
-                                    OperatorConstants.Config.DESCRIPTION: "Sampling temperature for entity extraction LLM (0.0-1.0)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: 0.0,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
-                                },
-                                OperatorConstants.LLM.MAX_TOKENS: {
-                                    OperatorConstants.Misc.NAME: "Max Tokens",
-                                    OperatorConstants.Config.DESCRIPTION: "Maximum tokens for entity extraction LLM response",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: 4096,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                                },
-                                DoclingClientConfigConstants.VLM_PIPELINE: {
-                                    OperatorConstants.Misc.NAME: "VLM Pipeline",
-                                    OperatorConstants.Config.DESCRIPTION: (
-                                        "Custom VLM model configuration for Docling entity extraction (docling provider only). "
-                                        "Requires model_type='inline' and inline_model with repo_id (HuggingFace model). "
-                                        "Note: Only inline models supported; API models not supported by DocumentExtractor."
-                                    ),
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                },
-                            },
+                            OperatorConstants.Config.PROVIDERS: ExtractOperator._get_entity_extraction_provider_schemas(),
                         },
                         OperatorConstants.Columns.OUTPUT_COLUMN: {
                             OperatorConstants.Misc.NAME: "Output Column",

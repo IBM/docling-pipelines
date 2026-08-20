@@ -160,7 +160,7 @@ def test_document_classifier_without_content_column():
     file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with Path(file_path).open("rb") as f:
+        with file_path.open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))
@@ -269,11 +269,14 @@ def test_document_classifier_get_metadata_watsonx(monkeypatch):
     # Check attributes
     attributes = metadata["attributes"]
     assert "provider" in attributes, "Attributes should include 'provider'"
-    # model_id is now nested in provider_config.properties
+    # model_id is nested inside each provider schema under provider_config.providers.<provider>.properties
     assert "provider_config" in attributes, "Attributes should include 'provider_config'"
-    assert "properties" in attributes["provider_config"], "provider_config should have 'properties'"
-    assert "model_id" in attributes["provider_config"]["properties"], (
-        "provider_config.properties should include 'model_id'"
+    assert "providers" in attributes["provider_config"], "provider_config should have 'providers'"
+    assert "litellm" in attributes["provider_config"]["providers"], "provider_config.providers should include 'litellm'"
+    litellm_schema = attributes["provider_config"]["providers"]["litellm"]
+    assert "properties" in litellm_schema, "provider_config.providers.litellm should have 'properties'"
+    assert "model_id" in litellm_schema["properties"], (
+        "provider_config.providers.litellm.properties should include 'model_id'"
     )
     assert "document_types" in attributes, "Attributes should include 'document_types'"
     assert "confidence_threshold" in attributes, "Attributes should include 'confidence_threshold'"
@@ -992,6 +995,37 @@ def test_temp_pages_processed_column_added():
                 # Verify page counts are correct (both should be 1 page)
                 pages_column = result_table[DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN].to_pylist()
                 assert pages_column == [1, 1]
+
+
+@pytest.mark.unit
+def test_document_classifier_provider_schemas():
+    """Test _get_classifier_provider_schemas returns correct structure."""
+    schemas = DocumentClassifierOperator._get_classifier_provider_schemas()
+    assert "litellm" in schemas
+    assert "watsonx" in schemas
+    for name, schema in schemas.items():
+        assert "properties" in schema, f"Schema for {name} missing 'properties'"
+
+
+@pytest.mark.unit
+def test_document_classifier_validate_unsupported_provider():
+    """Test validate() reports unsupported provider."""
+    config = {
+        "provider": "litellm",
+        "provider_config": {
+            "model_id": "openai/llama3",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",  # pragma: allowlist secret
+        },
+        "document_types": ["invoice"],
+    }
+    operator = DocumentClassifierOperator(config)
+    # Patch provider to something unsupported after init
+    operator.provider = "unsupported_provider"
+    errors: list[str] = []
+    warnings: list[str] = []
+    operator.validate(errors, warnings, [])
+    assert any("unsupported_provider" in e for e in errors)
 
 
 if __name__ == "__main__":

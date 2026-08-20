@@ -6,7 +6,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -14,6 +14,7 @@ from charset_normalizer import from_bytes
 from pyarrow import Table
 
 from docpipe.core.constants.constants import (
+    AttributeDataTypes,
     DocsStructure,
     ExecutionStatus,
     Metrics,
@@ -996,6 +997,136 @@ class OperatorUtils:
                     {"idx": row_idx, "doc_id": f"doc_{row_idx}", "doc_name": f"document_{row_idx}", "error": str(e)}
                 )
         return doc_tasks
+
+    @staticmethod
+    def _resolve_schema_refs(schema: dict[str, Any]) -> dict[str, Any]:
+        """Flatten Pydantic JSON Schema ``$defs``/``$ref``/``anyOf`` pointer indirection.
+
+        Inlines every ``$ref``, collapses ``anyOf: [<type>, {type: null}]`` nullable
+        wrappers (preserving sibling keys such as ``default`` and ``description``),
+        and drops the top-level ``$defs`` block.
+
+        Args:
+            schema: Raw dict from ``model_json_schema()``.
+
+        Returns:
+            Copy of the schema with all pointer indirection resolved.
+        """
+        defs = schema.get("$defs", {})
+
+        def _resolve(node: Any) -> Any:
+            if not isinstance(node, dict):
+                return node
+            if "$ref" in node:
+                ref_name = node["$ref"].split("/")[-1]
+                return _resolve(defs.get(ref_name, node))
+            if "anyOf" in node:
+                non_null = [b for b in node["anyOf"] if b != {"type": "null"}]
+                if len(non_null) == 1:
+                    branch = _resolve(non_null[0])
+                    if isinstance(branch, dict):
+                        # Sibling keys (default, description, title) win over branch keys.
+                        merged = {k: v for k, v in node.items() if k != "anyOf"}
+                        for k, v in branch.items():
+                            if k not in merged:
+                                merged[k] = v
+                        return {k: _resolve(v) for k, v in merged.items()}
+                # Note: anyOf with 2+ non-null branches (e.g. int | str union types) is not
+                # collapsed — _to_docpipe will produce a node with no 'type' key in that case.
+            return {k: _resolve(v) for k, v in node.items()}
+
+        return _resolve({k: v for k, v in schema.items() if k != "$defs"})
+
+    # Maps JSON Schema primitive types to docpipe AttributeDataTypes values.
+    _JSON_TYPE_TO_DOCPIPE: ClassVar[dict[str, str]] = {
+        "string": AttributeDataTypes.STRING,
+        "integer": AttributeDataTypes.INTEGER,
+        "number": AttributeDataTypes.DOUBLE,
+        "boolean": AttributeDataTypes.BOOLEAN,
+        "array": AttributeDataTypes.LIST,
+        "object": AttributeDataTypes.JSON,
+    }
+
+    @staticmethod
+    def model_schema_to_docpipe(
+        *,
+        schema: dict[str, Any],
+        overrides: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert ``model_json_schema()`` output to docpipe metadata vocabulary.
+
+        Resolves ``$ref``/``anyOf`` pointer indirection then translates the result
+        to the keys ``OperatorFeature`` and the UI expect (``name``, ``type``,
+        ``description``, ``default``, ``properties``, ``required``, ``valid_values``).
+
+        Use ``overrides`` to inject docpipe-only keys that Pydantic never produces
+        (e.g. ``tags``, ``available_for_filter``, ``min_value``). The caller can
+        also mutate individual fields inside the returned ``properties`` dict after
+        the call — the result is a plain dict.
+
+        Args:
+            schema: Raw dict from ``model_json_schema()``.
+            overrides: Docpipe-only keys merged onto the top-level result after
+                translation. Override values win on conflict.
+
+        Returns:
+            Dict in docpipe metadata vocabulary ready for embedding inside a
+            ``providers`` entry of an operator ``get_metadata()`` response.
+        """
+        resolved = OperatorUtils._resolve_schema_refs(schema)
+        result = OperatorUtils._to_docpipe(node=resolved, required_fields=set(), field_key="")
+        if overrides:
+            result.update(overrides)
+        return result
+
+    @staticmethod
+    def _to_docpipe(*, node: Any, required_fields: set[str], field_key: str = "") -> Any:
+        """Recursively translate a resolved JSON Schema node to docpipe vocabulary.
+
+        Args:
+            node: Resolved JSON Schema dict (no ``$ref`` or ``anyOf`` remaining).
+            required_fields: Field names (JSON Schema property keys) declared required
+                by the parent object's JSON Schema ``required`` array.
+            field_key: The JSON Schema property key for this node as it appears in the
+                parent's ``properties`` dict. Used to check membership in
+                ``required_fields`` — must be the raw key, not the Pydantic title.
+
+        Returns:
+            Translated dict, or the original value unchanged for non-dict nodes.
+        """
+        if not isinstance(node, dict):
+            return node
+
+        docpipe: dict[str, Any] = {}
+
+        if "title" in node:
+            docpipe[OperatorConstants.Misc.NAME] = node["title"]
+
+        if "type" in node:
+            docpipe[OperatorConstants.Misc.TYPE] = OperatorUtils._JSON_TYPE_TO_DOCPIPE.get(node["type"], node["type"])
+
+        for key in (OperatorConstants.Config.DESCRIPTION, OperatorConstants.Config.DEFAULT):
+            if key in node:
+                docpipe[key] = node[key]
+
+        # JSON Schema stores required fields as an array on the parent object node.
+        # The check must use field_key (the raw JSON Schema property key, e.g.
+        # "index_name") — NOT the Pydantic title (e.g. "Index Name") stored in
+        # docpipe[NAME] — because required_fields contains property keys.
+        if field_key and field_key in required_fields:
+            docpipe[OperatorConstants.Config.REQUIRED] = True
+
+        if OperatorConstants.Config.PROPERTIES in node:
+            child_required = set(node.get(OperatorConstants.Config.REQUIRED, []))
+            docpipe[OperatorConstants.Config.PROPERTIES] = {
+                k: OperatorUtils._to_docpipe(node=v, required_fields=child_required, field_key=k)
+                for k, v in node[OperatorConstants.Config.PROPERTIES].items()
+            }
+
+        if "enum" in node:
+            docpipe[OperatorConstants.Config.VALID_VALUES] = node["enum"]
+
+        return docpipe
 
     @staticmethod
     def get_optimal_workers(is_cpu_intensive: bool = False) -> int:

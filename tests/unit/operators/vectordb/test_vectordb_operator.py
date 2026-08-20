@@ -461,7 +461,6 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
         mandatory_errors = [e for e in errors if "mandatory" in e.lower()]
         assert not mandatory_errors
 
-
 # ---------------------------------------------------------------------------
 # Shared helper — builds an operator with a fully mocked adapter
 # ---------------------------------------------------------------------------
@@ -713,6 +712,118 @@ class TestVectorDBOperatorTransformEdgeCases:
 
         mock_adapter.detect_all_vector_dimensions.assert_not_called()
         assert metadata.get("node_status") != "Failed"
+
+class TestVectorDBOperatorIndexCreationFailure:
+    """Test transform() when index creation fails."""
+
+    def test_index_creation_failure_marks_all_docs_failed(self, basic_config, sample_table):
+        """When create_index raises, all documents are marked failed."""
+        mock_adapter = MagicMock()
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 384}
+        mock_adapter.create_index.side_effect = Exception("Connection refused")
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            operator = VectorDBOperator(basic_config)
+            _result_tables, metadata = operator.transform(sample_table)
+
+        assert metadata["node_status"] == "Failed"
+        assert metadata["failed_docs_count"] == 3
+
+    def test_schema_validation_failure_marks_all_docs_failed(self, basic_config, sample_table):
+        """When validate_existing_schema raises, all documents are marked failed."""
+        mock_adapter = MagicMock()
+        mock_adapter.index_exists.return_value = True
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 384}
+        mock_adapter.validate_existing_schema.side_effect = ValueError("Dimension mismatch")
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            operator = VectorDBOperator(basic_config)
+            _result_tables, metadata = operator.transform(sample_table)
+
+        assert metadata["node_status"] == "Failed"
+
+
+class TestVectorDBOperatorMissingDocId:
+    """Test rows with missing doc_id are skipped."""
+
+    def test_row_with_null_doc_id_is_skipped(self, basic_config):
+        mock_adapter = MagicMock()
+        mock_adapter.index_exists.return_value = True
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 384}
+        mock_adapter.validate_existing_schema = MagicMock()
+        mock_adapter.index_documents.return_value = (1, [])
+
+        table = pa.table(
+            {
+                "doc_id_hash": [None, "valid_hash"],
+                "content": ["text1", "text2"],
+                "embeddings": [
+                    np.random.rand(384).tolist(),
+                    np.random.rand(384).tolist(),
+                ],
+            }
+        )
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            operator = VectorDBOperator(basic_config)
+            _result_tables, metadata = operator.transform(table)
+
+        assert metadata["skipped_docs_count"] >= 1
+
+
+class TestVectorDBOperatorNoVectorColumns:
+    """Test dense-only mode fails gracefully when no vector columns found."""
+
+    def test_no_vector_columns_fails_with_status(self, basic_config, sample_table):
+        config = dict(basic_config)
+        config["available_features"] = {
+            "doc_id_hash": {"available_for_vector_db": True, "type": "string"},
+            "content": {"available_for_vector_db": True, "type": "string"},
+        }
+
+        mock_adapter = MagicMock()
+        mock_adapter.index_exists.return_value = False
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            operator = VectorDBOperator(config)
+            _result_tables, metadata = operator.transform(sample_table)
+
+        assert metadata["node_status"] == "Failed"
+
+
+class TestVectorDBOperatorGetMetadataProviders:
+    """Test that get_metadata includes providers schema for opensearch and milvus."""
+
+    def test_metadata_provider_config_has_providers(self):
+        config = {
+            "provider": "opensearch",
+            "provider_config": {
+                "index_name": "test_index",
+                "host": "localhost",
+            },
+        }
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
+            operator = VectorDBOperator(config)
+            metadata = operator.get_metadata()
+
+        attributes = metadata["attributes"]
+        provider_config = attributes["provider_config"]
+        assert "providers" in provider_config
+        assert "opensearch" in provider_config["providers"]
+        assert "milvus" in provider_config["providers"]
 
 
 if __name__ == "__main__":

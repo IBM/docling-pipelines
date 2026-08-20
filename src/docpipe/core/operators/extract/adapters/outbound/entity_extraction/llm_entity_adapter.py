@@ -5,13 +5,18 @@ supporting both watsonx and litellm providers through a unified interface.
 It replaces the provider-specific adapters (OllamaEntityAdapter, LiteLLMEntityAdapter,
 WatsonXEntityAdapter) with a single implementation.
 """
+
 import json
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from docpipe.core.constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
+    register_entity_extraction_adapter,
+)
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from docpipe.core.ports.llm_inference_port import LLMInferencePort
@@ -22,6 +27,7 @@ from docpipe.utils.llm import parse_llm_json_response
 logger = get_logger(__name__)
 
 
+@register_entity_extraction_adapter
 class LLMEntityAdapter(EntityExtractionPort):
     """Unified LLM-based entity extraction adapter.
 
@@ -37,7 +43,7 @@ class LLMEntityAdapter(EntityExtractionPort):
           * OpenAI, Anthropic, Cohere, HuggingFace, and 90+ more
 
     Attributes:
-        ADAPTER_NAME: Short identifier "llm"
+        ADAPTER_NAME: Short identifier "litellm"
         ADAPTER_DISPLAY_NAME: Display name "LLM"
         provider_name: LLM provider name (watsonx or litellm)
         model_name: LLM model identifier
@@ -47,7 +53,7 @@ class LLMEntityAdapter(EntityExtractionPort):
         llm_adapter: LLMInferencePort instance for LLM communication
     """
 
-    ADAPTER_NAME = "llm"
+    ADAPTER_NAME = "litellm"
     ADAPTER_DISPLAY_NAME = "LLM"
 
     def __init__(self, *, config: dict[str, Any]) -> None:
@@ -152,6 +158,13 @@ class LLMEntityAdapter(EntityExtractionPort):
             self.temperature,
             self.max_tokens,
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_config import LLMEntityConfig
+
+        return LLMEntityConfig
 
     def _validate_adapter(self) -> None:
         """Validate LLM adapter configuration on initialization.
@@ -358,7 +371,6 @@ class LLMEntityAdapter(EntityExtractionPort):
             f"Group related fields under nested objects where appropriate (e.g. vendor, customer, line_items).\n"
             f"Set any field to null if the value cannot be determined."
         )
-
 
     def extract_entities_single(
         self, *, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None

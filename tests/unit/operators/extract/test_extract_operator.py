@@ -605,23 +605,61 @@ def test_extract_operator_get_metadata():
     assert "provider" in entity_props
     assert "provider_config" in entity_props
 
-    # Verify VLM pipeline is nested under provider_config
+    # provider_config carries 'providers' (one schema per registered adapter)
     provider_config = text_props["provider_config"]
-    assert "properties" in provider_config
-    provider_config_props = provider_config["properties"]
+    assert "providers" in provider_config
+    assert "docling_library" in provider_config["providers"]
+    assert "docling_serve" in provider_config["providers"]
+
+    # entity_extraction provider_config also carries 'providers'
+    entity_provider_config = entity_props["provider_config"]
+    assert "providers" in entity_provider_config
+    assert "litellm" in entity_provider_config["providers"]
+    assert "watsonx" in entity_provider_config["providers"]
+    assert "docling" in entity_provider_config["providers"]
+
+    # provider_config description references 'providers'
+    assert "providers" in provider_config["description"]
+    assert "providers" in entity_provider_config["description"]
+
+    # docling_library schema has vlm_pipeline nested under its properties
+    docling_library_schema = provider_config["providers"]["docling_library"]
+    assert "properties" in docling_library_schema
+    provider_config_props = docling_library_schema["properties"]
     assert "vlm_pipeline" in provider_config_props
 
     vlm_pipeline = provider_config_props["vlm_pipeline"]
+    assert vlm_pipeline["type"] == "json"
+    assert "name" in vlm_pipeline
     assert "properties" in vlm_pipeline
+
     vlm_props = vlm_pipeline["properties"]
     assert "preset" in vlm_props
     assert "engine" in vlm_props
     assert "engine_options" in vlm_props
 
-    # Verify default values
+    # Each scalar field carries translated docpipe type, name, and description
+    assert vlm_props["preset"]["type"] == "string"
+    assert vlm_props["preset"]["name"] == "Preset"
+    assert "description" in vlm_props["preset"]
+
+    assert vlm_props["engine"]["type"] == "string"
+    assert vlm_props["engine"]["name"] == "Engine"
+    assert "description" in vlm_props["engine"]
+
+    # engine_options is dict[str, Any] — translated to "json"
+    assert vlm_props["engine_options"]["type"] == "json"
+    assert "description" in vlm_props["engine_options"]
+
+    # docling_serve schema exposes base_url
+    docling_serve_schema = provider_config["providers"]["docling_serve"]
+    assert "properties" in docling_serve_schema
+    assert "base_url" in docling_serve_schema["properties"]
+
+    # Verify defaults match the actual adapter runtime values
     assert text_props["provider"]["default"] == "docling_library"
     assert entity_props["provider"]["default"] == "none"
-    assert vlm_props["preset"]["default"] == "fast"
+    assert vlm_props["preset"]["default"] == "granite_docling"
     assert vlm_props["engine"]["default"] == "transformers"
 
 
@@ -2686,3 +2724,238 @@ def test_add_page_statistics_preserves_existing_metadata_keys():
     assert result["prior_key"] == "prior_value"
     assert result[OperatorConstants.Metadata.PAGE_TYPE_STATS] == {"docx": 7}
     assert result[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] == 7
+
+
+@pytest.mark.unit
+def test_get_text_extraction_provider_schemas_structure_and_fields():
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    schemas = ExtractOperator._get_text_extraction_provider_schemas()
+
+    assert isinstance(schemas, dict)
+    assert "docling_library" in schemas
+    assert "docling_serve" in schemas
+
+    # --- docling_library ---
+    lib_props = schemas["docling_library"]["properties"]
+    assert set(lib_props.keys()) == {"additional_formats", "asr_pipeline", "standard_pipeline", "vlm_pipeline"}
+
+    # --- docling_serve: all DoclingServeConfig fields must be present ---
+    serve_props = schemas["docling_serve"]["properties"]
+    expected_serve_fields = {
+        "base_url",
+        "api_key",
+        "timeout",
+        "poll_interval",
+        "max_retries",
+        "verify_ssl",
+        "do_ocr",
+        "pdf_backend",
+        "ocr_engine",
+        "ocr_languages",
+        "table_mode",
+        "image_export_mode",
+    }
+    assert set(serve_props.keys()) == expected_serve_fields
+
+
+@pytest.mark.unit
+def test_get_entity_extraction_provider_schemas_structure_and_fields():
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    schemas = ExtractOperator._get_entity_extraction_provider_schemas()
+
+    assert isinstance(schemas, dict)
+    assert set(schemas.keys()) == {"litellm", "watsonx", "docling"}
+
+    # --- litellm ---
+    litellm_props = schemas["litellm"]["properties"]
+    assert set(litellm_props.keys()) == {"model_id", "api_base", "api_key", "temperature", "max_tokens"}
+
+    # --- watsonx ---
+    watsonx_props = schemas["watsonx"]["properties"]
+    assert set(watsonx_props.keys()) == {
+        "model_id",
+        "api_base",
+        "api_key",
+        "temperature",
+        "max_tokens",
+        "url",
+        "project_id",
+        "container_id",
+        "container_kind",
+    }
+
+    # --- docling ---
+    docling_props = schemas["docling"]["properties"]
+    assert set(docling_props.keys()) == {"vlm_pipeline"}
+
+
+# ---------------------------------------------------------------------------
+# _write_streaming_progress
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_write_streaming_progress_noop_when_no_job_run_id():
+    """_write_streaming_progress is a silent no-op when job_run_id is not set."""
+    operator = _make_operator_with_mocks()
+    operator.text_adapter.job_run_id = None
+    operator.text_adapter.node_id = "node1"
+
+    # Should not raise and should not attempt any DB import
+    operator._write_streaming_progress(
+        text_completed=1,
+        text_failed=0,
+        text_total=1,
+        entity_completed=1,
+        entity_failed=0,
+        entity_total=1,
+    )
+
+
+@pytest.mark.unit
+def test_write_streaming_progress_noop_when_no_node_id():
+    """_write_streaming_progress is a silent no-op when node_id is not set."""
+    operator = _make_operator_with_mocks()
+    operator.text_adapter.job_run_id = "job-123"
+    operator.text_adapter.node_id = None
+
+    operator._write_streaming_progress(
+        text_completed=1,
+        text_failed=0,
+        text_total=1,
+        entity_completed=0,
+        entity_failed=0,
+        entity_total=1,
+    )
+
+
+@pytest.mark.unit
+def test_write_streaming_progress_swallows_store_exception():
+    """Any exception inside _write_streaming_progress must not propagate."""
+    operator = _make_operator_with_mocks()
+    operator.text_adapter.job_run_id = "job-123"
+    operator.text_adapter.node_id = "node-1"
+    operator.text_adapter.node_name = "ExtractOperator"
+    operator.text_adapter.batch_id = None
+
+    from unittest.mock import MagicMock, patch
+
+    mock_store = MagicMock()
+    mock_store.get_node_stats_by_batch_and_node.side_effect = RuntimeError("db down")
+    mock_store.store_node_stats.side_effect = RuntimeError("db down")
+
+    mock_factory = MagicMock()
+    mock_factory.create_job_stats_store.return_value = mock_store
+
+    with patch(
+        "docpipe.core.operators.extract.extract_operator.ExtractOperator._write_streaming_progress",
+        wraps=operator._write_streaming_progress,
+    ):
+        # Call the real method with mocked imports — it must not raise
+        try:
+            with patch(
+                "docpipe.core.job_management.adapters.config.job_management_factory.get_default_factory",
+                return_value=mock_factory,
+            ):
+                operator._write_streaming_progress(
+                    text_completed=1,
+                    text_failed=0,
+                    text_total=2,
+                    entity_completed=0,
+                    entity_failed=0,
+                    entity_total=2,
+                )
+        except Exception as exc:
+            pytest.fail(f"_write_streaming_progress must not propagate exceptions, got: {exc}")
+
+
+@pytest.mark.unit
+def test_write_streaming_progress_calls_store_when_ids_set():
+    """_write_streaming_progress calls store_node_stats when job_run_id and node_id are set."""
+    from unittest.mock import MagicMock, patch
+
+    operator = _make_operator_with_mocks()
+    operator.text_adapter.job_run_id = "job-abc"
+    operator.text_adapter.node_id = "node-abc"
+    operator.text_adapter.node_name = "ExtractOperator"
+    operator.text_adapter.batch_id = "batch-1"
+
+    from docpipe.core.job_management.adapters.stores.json.json_job_stats_store import JsonJobStatsStore
+
+    mock_store = MagicMock(spec=JsonJobStatsStore)
+    mock_store.get_node_stats_by_batch_and_node.return_value = None
+    mock_store.try_store_node_stats.return_value = True
+
+    mock_factory = MagicMock()
+    mock_factory.create_job_stats_store.return_value = mock_store
+
+    with patch(
+        "docpipe.core.job_management.adapters.config.job_management_factory.get_default_factory",
+        return_value=mock_factory,
+    ):
+        operator._write_streaming_progress(
+            text_completed=2,
+            text_failed=0,
+            text_total=2,
+            entity_completed=1,
+            entity_failed=1,
+            entity_total=2,
+        )
+
+    mock_store.try_store_node_stats.assert_called_once()
+
+
+@pytest.mark.unit
+def test_write_streaming_progress_validate_noop_when_no_job_run_id():
+    """When validate is called and there is no job_run_id the function returns early."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    config = {"text_extraction": {"provider": "docling_library"}}
+    operator = ExtractOperator(config=config)
+
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+
+    # No error about unknown format when additional_formats is not set
+    assert not any("additional_formats" in str(e) for e in errors)
+
+
+@pytest.mark.unit
+def test_validate_warns_on_unknown_additional_formats():
+    """validate() appends a warning when additional_formats contains unknown values."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    config = {
+        "text_extraction": {
+            "provider": "docling_library",
+            "provider_config": {"additional_formats": ["html", "banana"]},
+        }
+    }
+    operator = ExtractOperator(config=config)
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+
+    assert any("banana" in str(w) for w in warnings)
+
+
+@pytest.mark.unit
+def test_validate_no_warning_for_known_additional_formats():
+    """validate() produces no warning when all additional_formats values are valid."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    config = {
+        "text_extraction": {
+            "provider": "docling_library",
+            "provider_config": {"additional_formats": ["html", "json"]},
+        }
+    }
+    operator = ExtractOperator(config=config)
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+
+    assert not any("additional_formats" in str(w) for w in warnings)

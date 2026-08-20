@@ -14,7 +14,12 @@ execution, avoiding repeated model loading on the GPU.
 import logging
 from typing import Any
 
+from pydantic import BaseModel
+
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
+    register_text_extraction_adapter,
+)
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils, is_asr_available
 from docpipe.integrations.docling.vlm_pipeline_options_provider import VlmPipelineOptionsProviderFactory
@@ -28,6 +33,7 @@ if not _ASR_AVAILABLE:
     logger.debug("ASR dependencies not available. Install with: uv pip install -e '.[asr]'")
 
 
+@register_text_extraction_adapter
 class DoclingAdapter(TextExtractionPort):
     """Adapter for unified Docling library document extraction.
 
@@ -266,6 +272,15 @@ class DoclingAdapter(TextExtractionPort):
         except ImportError as e:
             logger.warning("ASR pipeline dependencies not available: %s", str(e))
             return None
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        return DoclingLibraryConfig
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs: Any) -> dict[str, Any]:
         """Extract content from a single document using Docling.

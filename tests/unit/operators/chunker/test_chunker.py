@@ -1829,3 +1829,226 @@ class TestChunkerSummarization(unittest.TestCase):
 
         # Verify that OllamaClient was never instantiated (error caught before that)
         mock_ollama_client_class.assert_not_called()
+
+
+class TestDoclingServeValidation:
+    """Tests for validate() with provider='docling_serve'."""
+
+    def _make_operator(self, provider_config: dict) -> ChunkerOperator:
+        config = {
+            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_size": 512,
+            "provider": "docling_serve",
+            "provider_config": provider_config,
+            "doc_column": "content",
+        }
+        return ChunkerOperator(config)
+
+    def test_validate_missing_api_base_produces_error(self):
+        op = self._make_operator({})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("API base URL is required" in str(e) for e in errors)
+
+    def test_validate_negative_timeout_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "timeout": -1})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Timeout must be positive" in str(e) for e in errors)
+
+    def test_validate_zero_timeout_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "timeout": 0})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Timeout must be positive" in str(e) for e in errors)
+
+    def test_validate_negative_poll_interval_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "poll_interval": -1})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Poll interval must be positive" in str(e) for e in errors)
+
+    def test_validate_negative_max_retries_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "max_retries": -1})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Max retries must be non-negative" in str(e) for e in errors)
+
+    def test_validate_zero_max_retries_is_valid(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "max_retries": 0})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert not any("Max retries" in str(e) for e in errors)
+
+    def test_validate_non_hybrid_chunk_type_produces_warning(self):
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 512,
+            "provider": "docling_serve",
+            "provider_config": {"api_base": "http://localhost:5001"},
+            "doc_column": "content",
+        }
+        op = ChunkerOperator(config)
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("chunk_type" in str(w) for w in warnings)
+
+    def test_validate_valid_docling_serve_config_no_errors(self):
+        op = self._make_operator({"api_base": "http://localhost:5001"})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert errors == []
+        assert warnings == []
+
+
+class TestDoclingServeClient:
+    """Tests for _get_docling_serve_client lazy initialization."""
+
+    @patch("docpipe.integrations.rest_client.RestClient")
+    @patch("docpipe.integrations.rest_client.RestClientConfig")
+    def test_client_initialized_with_correct_params(self, mock_config_cls, mock_client_cls):
+        mock_rest = MagicMock()
+        mock_client_cls.return_value = mock_rest
+
+        config = {
+            "provider": "docling_serve",
+            "provider_config": {
+                "api_base": "http://localhost:5001",
+                "timeout": 60,
+                "max_retries": 2,
+                "verify_ssl": False,
+            },
+        }
+        op = ChunkerOperator(config)
+        client = op._get_docling_serve_client()
+
+        assert client is mock_rest
+        mock_config_cls.assert_called_once_with(timeout=60, max_retries=2, verify_ssl=False)
+
+    @patch("docpipe.integrations.rest_client.RestClient")
+    @patch("docpipe.integrations.rest_client.RestClientConfig")
+    def test_client_cached_on_second_call(self, mock_config_cls, mock_client_cls):
+        mock_rest = MagicMock()
+        mock_client_cls.return_value = mock_rest
+
+        config = {
+            "provider": "docling_serve",
+            "provider_config": {"api_base": "http://localhost:5001"},
+        }
+        op = ChunkerOperator(config)
+        client1 = op._get_docling_serve_client()
+        client2 = op._get_docling_serve_client()
+
+        assert client1 is client2
+        assert mock_client_cls.call_count == 1
+
+    def test_client_initialization_failure_raises_docpipe_exception(self):
+        config = {
+            "provider": "docling_serve",
+            "provider_config": {"api_base": "http://localhost:5001"},
+        }
+        op = ChunkerOperator(config)
+
+        with patch("docpipe.integrations.rest_client.RestClientConfig", side_effect=RuntimeError("network")):
+            with pytest.raises(DocpipeException, match="Failed to initialize docling-serve HTTP client"):
+                op._get_docling_serve_client()
+
+
+class TestDoclingServeSplitText:
+    """Tests for _docling_serve_split_text."""
+
+    def _make_op(self) -> ChunkerOperator:
+        return ChunkerOperator(
+            {
+                "provider": "docling_serve",
+                "chunk_type": ChunkType.HYBRID.value,
+                "chunk_size": 512,
+                "provider_config": {"api_base": "http://localhost:5001"},
+            }
+        )
+
+    def test_returns_documents_from_valid_response(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {
+            "chunks": [
+                {"text": "First chunk.", "start_index": 0},
+                {"text": "Second chunk.", "start_index": 50},
+            ]
+        }
+        op._remote_chunking_client = mock_client
+
+        docs = op._docling_serve_split_text(content="some content", doc_name="doc.md")
+        assert len(docs) == 2
+        assert docs[0].page_content == "First chunk."
+        assert docs[1].page_content == "Second chunk."
+
+    def test_returns_empty_list_when_no_chunks(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {"chunks": []}
+        op._remote_chunking_client = mock_client
+
+        docs = op._docling_serve_split_text(content="content", doc_name=None)
+        assert docs == []
+
+    def test_invalid_response_type_raises_docpipe_exception(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = "not a dict"
+        op._remote_chunking_client = mock_client
+
+        with pytest.raises(DocpipeException, match="Docling-serve chunking failed"):
+            op._docling_serve_split_text(content="content")
+
+    def test_api_key_included_in_headers_when_present(self):
+        config = {
+            "provider": "docling_serve",
+            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_size": 512,
+            "provider_config": {
+                "api_base": "http://localhost:5001",
+                "api_key": "my-secret-key",  # pragma: allowlist secret
+            },
+        }
+        op = ChunkerOperator(config)
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {"chunks": [{"text": "chunk"}]}
+        op._remote_chunking_client = mock_client
+
+        op._docling_serve_split_text(content="data")
+
+        call_kwargs = mock_client.call_rest_json.call_args.kwargs
+        assert call_kwargs["headers"].get("X-Api-Key") == "my-secret-key"
+
+    def test_string_chunk_content_is_handled(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {"chunks": ["raw string chunk"]}
+        op._remote_chunking_client = mock_client
+
+        docs = op._docling_serve_split_text(content="content")
+        assert len(docs) == 1
+        assert docs[0].page_content == "raw string chunk"
+
+
+class TestSummarizationProviderSchemas:
+    """Test that _get_summarization_provider_schemas returns correct structure."""
+
+    def test_returns_litellm_and_watsonx_schemas(self):
+        schemas = ChunkerOperator._get_summarization_provider_schemas()
+        assert "litellm" in schemas
+        assert "watsonx" in schemas
+
+    def test_schemas_have_properties(self):
+        schemas = ChunkerOperator._get_summarization_provider_schemas()
+        for provider_name, schema in schemas.items():
+            assert "properties" in schema, f"Schema for {provider_name} should have 'properties' key"

@@ -12,6 +12,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, 
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
@@ -113,6 +114,12 @@ class TextExtractionPort(ABC):
             config: Full configuration dictionary
         """
         # Default implementation does nothing - subclasses override as needed
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        pass
 
     def _update_extraction_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int

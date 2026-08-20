@@ -6,12 +6,14 @@ This adapter implements the VectorStorePort interface.
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.operator_utils import resolve_env_var
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import OpenSearchBatchProcessor
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.client import OpenSearchClient
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import OpenSearchConfig
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.utils.infrastructure.logging import get_logger
@@ -144,6 +146,11 @@ class OpenSearchAdapter(VectorStorePort):
             f"Initialized OpenSearchAdapter for index: {self.index_name} "
             f"(host: {host}:{port}, engine: {engine}, algorithm: {algorithm})"
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        return OpenSearchConfig
 
     def index_documents(self, documents: list[tuple[str, dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:
         """Index documents in OpenSearch.

@@ -1,5 +1,7 @@
 """Ollama LLM adapter for embedding generation."""
 
+from pydantic import BaseModel
+
 from docpipe.core.constants.constants import ServiceConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
@@ -59,6 +61,13 @@ class OllamaLLMAdapter(LLMServicePort):
             validate_model=validate_model,
         )
         self._cached_dimension: int | None = None
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig
+
+        return LLMProviderConfig
 
     def generate_embeddings(self, text: str) -> list[float]:
         """Generate embeddings using Ollama.

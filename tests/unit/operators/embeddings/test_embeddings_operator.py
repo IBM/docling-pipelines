@@ -261,10 +261,10 @@ class TestEmbeddingsOperatorMetadata:
 
         # Check new parameter names are present
         assert "provider" in attributes
-        # model_id is now nested in provider_config.properties
+        # model_id is nested in provider_config.providers.<provider>.properties
         assert "provider_config" in attributes
-        assert "properties" in attributes["provider_config"]
-        assert "model_id" in attributes["provider_config"]["properties"]
+        assert "providers" in attributes["provider_config"]
+        assert "model_id" in attributes["provider_config"]["providers"]["litellm"]["properties"]
 
     @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_metadata_label_is_generic(self, mock_factory, litellm_config, mock_llm_adapter):
@@ -398,6 +398,150 @@ class TestEmbeddingsOperatorValidation:
         # Should have no warnings about Chunker
         chunker_warnings = [w for w in warnings if "chunker" in str(w).lower()]
         assert len(chunker_warnings) == 0
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_no_content_or_chunked_content_errors(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test that an error is raised when neither content nor chunked_content is available."""
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        errors: list[str] = []
+        warnings: list[str] = []
+        operator.validate(errors, warnings, [])
+        assert any("content" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_passes_with_content_column(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation passes when content column is available."""
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        errors: list[str] = []
+        warnings: list[str] = []
+        operator.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        content_errors = [e for e in errors if "requires either" in str(e)]
+        assert content_errors == []
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_passes_with_chunked_content_column(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation passes when chunked_content column is available."""
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        errors: list[str] = []
+        warnings: list[str] = []
+        operator.validate(errors, warnings, [OperatorConstants.Columns.CHUNKED_CONTENT])
+        content_errors = [e for e in errors if "requires either" in str(e)]
+        assert content_errors == []
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_unsupported_provider(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation error when provider is not a supported value."""
+        mock_factory.return_value = mock_llm_adapter
+        cfg = {**litellm_config, "provider": "not_a_real_provider"}
+        op = EmbeddingsOperator(cfg)
+        errors: list[str] = []
+        warnings: list[str] = []
+        op.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert any("provider" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_invalid_overlap_ratio_type(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation error when overlap_ratio is not a float."""
+        mock_factory.return_value = mock_llm_adapter
+        cfg = {**litellm_config, "overlap_ratio": "high"}
+        op = EmbeddingsOperator(cfg)
+        errors: list[str] = []
+        warnings: list[str] = []
+        op.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert any("overlap_ratio" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_overlap_ratio_out_of_range(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation error when overlap_ratio is outside [0, 0.8]."""
+        mock_factory.return_value = mock_llm_adapter
+        cfg = {**litellm_config, "overlap_ratio": 0.9}
+        op = EmbeddingsOperator(cfg)
+        errors: list[str] = []
+        warnings: list[str] = []
+        op.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert any("overlap_ratio" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_invalid_token_limit(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation error when token_limit is negative."""
+        mock_factory.return_value = mock_llm_adapter
+        cfg = {**litellm_config, "token_limit": -1}
+        op = EmbeddingsOperator(cfg)
+        errors: list[str] = []
+        warnings: list[str] = []
+        op.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert any("token_limit" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_provider_config_missing_model_id(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation error when provider_config is missing model_id."""
+        mock_factory.return_value = mock_llm_adapter
+        cfg = {**litellm_config, "provider_config": {"api_key": "x"}}
+        op = EmbeddingsOperator(cfg)
+        errors: list[str] = []
+        warnings: list[str] = []
+        op.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert any("model_id" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_provider_config_invalid_max_concurrent_requests(
+        self, mock_factory, litellm_config, mock_llm_adapter
+    ):
+        """Test validation error when max_concurrent_requests is negative."""
+        mock_factory.return_value = mock_llm_adapter
+        cfg = {
+            **litellm_config,
+            "provider_config": {**litellm_config["provider_config"], "max_concurrent_requests": -5},
+        }
+        op = EmbeddingsOperator(cfg)
+        errors: list[str] = []
+        warnings: list[str] = []
+        op.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert any("max_concurrent_requests" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_provider_config_invalid_batch_size(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation error when batch_size is zero or negative."""
+        mock_factory.return_value = mock_llm_adapter
+        cfg = {
+            **litellm_config,
+            "provider_config": {**litellm_config["provider_config"], "batch_size": 0},
+        }
+        op = EmbeddingsOperator(cfg)
+        errors: list[str] = []
+        warnings: list[str] = []
+        op.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert any("batch_size" in str(e) for e in errors)
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_warns_when_chunked_content_absent(self, mock_factory, litellm_config, mock_llm_adapter):
+        """A warning is issued when chunked_content is not in available_features."""
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        errors: list[str] = []
+        warnings: list[str] = []
+        operator.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+        assert len(warnings) >= 1
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_no_chunked_content_warning_when_present(self, mock_factory, litellm_config, mock_llm_adapter):
+        """No CHUNKER_OPERATOR_MISSING warning when chunked_content is in available_features."""
+        from docpipe.exceptions.error_messages import ValidationCodeMessages
+
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        errors: list[str] = []
+        warnings: list[str] = []
+        operator.validate(
+            errors,
+            warnings,
+            [OperatorConstants.Columns.DOC_COLUMN_DEFAULT, OperatorConstants.Columns.CHUNKED_CONTENT],
+        )
+        chunker_warnings = [w for w in warnings if w == ValidationCodeMessages.CHUNKER_OPERATOR_MISSING]
+        assert chunker_warnings == []
 
 
 # Transform Method Tests
@@ -999,6 +1143,124 @@ class TestEmbeddingsOperatorDimAndCaching:
         assert len(result) == 1
         assert len(result[0]) == 384, "Should fall back to 384 when no model dimension is known yet"
         assert all(v == 0.0 for v in result[0])
+
+
+class TestEmbeddingsProviderSchemas:
+    """Tests for _get_embeddings_provider_schemas."""
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_returns_litellm_and_watsonx(self, mock_factory, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        schemas = EmbeddingsOperator._get_embeddings_provider_schemas()
+        assert "litellm" in schemas
+        assert "watsonx" in schemas
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_schemas_contain_properties(self, mock_factory, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        schemas = EmbeddingsOperator._get_embeddings_provider_schemas()
+        for name, schema in schemas.items():
+            assert "properties" in schema, f"Schema for {name} missing 'properties'"
+
+
+class TestEmbeddingsParseChunkedContent:
+    """Tests for _parse_chunked_content edge cases."""
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_parse_list_of_dicts(self, mock_factory, litellm_config, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        table = pa.table(
+            {
+                "id": ["d1"],
+                "name": ["doc"],
+                "content": ["text"],
+                "doc_id_hash": ["h1"],
+                "chunked_content": [[{"chunk": "hello", "start_index": 0}]],
+            }
+        )
+        texts = operator._parse_chunked_content(table, 0, "doc")
+        assert texts == ["hello"]
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_parse_list_of_strings(self, mock_factory, litellm_config, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        table = pa.table(
+            {
+                "id": ["d1"],
+                "name": ["doc"],
+                "content": ["text"],
+                "doc_id_hash": ["h1"],
+                "chunked_content": [["chunk one", "chunk two"]],
+            }
+        )
+        texts = operator._parse_chunked_content(table, 0, "doc")
+        assert texts == ["chunk one", "chunk two"]
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_parse_json_string(self, mock_factory, litellm_config, mock_llm_adapter):
+        import json as _json
+
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        chunks_json = _json.dumps([{"chunk": "parsed chunk", "start_index": 0}])
+        table = pa.table(
+            {
+                "id": ["d1"],
+                "name": ["doc"],
+                "content": ["text"],
+                "doc_id_hash": ["h1"],
+                "chunked_content": [chunks_json],
+            }
+        )
+        texts = operator._parse_chunked_content(table, 0, "doc")
+        assert texts == ["parsed chunk"]
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_parse_empty_raises_docpipe_exception(self, mock_factory, litellm_config, mock_llm_adapter):
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        mock_factory.return_value = mock_llm_adapter
+        operator = EmbeddingsOperator(litellm_config)
+        table = pa.table(
+            {
+                "id": ["d1"],
+                "name": ["doc"],
+                "content": ["text"],
+                "doc_id_hash": ["h1"],
+                "chunked_content": [None],
+            }
+        )
+        with pytest.raises(DocpipeException):
+            operator._parse_chunked_content(table, 0, "doc")
+
+
+class TestEmbeddingsBuildChunkText:
+    """Tests for _build_chunk_text_for_embedding."""
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_with_summary_prepends_abstract(self, mock_factory, litellm_config, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        _ = EmbeddingsOperator(litellm_config)
+        chunk = {"chunk": "body text", "summary": "summary text"}
+        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk)
+        assert result.startswith("abstract: summary text")
+        assert "content: body text" in result
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_without_summary_returns_chunk_text(self, mock_factory, litellm_config, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        _ = EmbeddingsOperator(litellm_config)
+        chunk = {"chunk": "body text"}
+        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk)
+        assert result == "body text"
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_empty_chunk_returns_empty_string(self, mock_factory, litellm_config, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        result = EmbeddingsOperator._build_chunk_text_for_embedding({"chunk": ""})
+        assert result == ""
 
 
 if __name__ == "__main__":

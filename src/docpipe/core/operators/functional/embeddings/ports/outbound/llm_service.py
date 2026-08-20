@@ -8,6 +8,8 @@ focused on business logic only.
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pydantic import BaseModel
+
 
 class LLMServicePort(ABC):
     """Port interface for LLM embedding services.
@@ -32,6 +34,12 @@ class LLMServicePort(ABC):
             **kwargs: Additional adapter-specific configuration
         """
         self.model_name = model_name
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        pass
 
     @abstractmethod
     def generate_embeddings(self, text: str) -> list[float]:

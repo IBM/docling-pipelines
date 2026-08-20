@@ -6,11 +6,13 @@ This adapter implements the VectorStorePort interface for Milvus.
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
 from docpipe.core.operators.vectordb.adapters.outbound.milvus.batch_processor import MilvusBatchProcessor
 from docpipe.core.operators.vectordb.adapters.outbound.milvus.client import MilvusClient
+from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import MilvusConfig
 from docpipe.core.operators.vectordb.adapters.outbound.milvus.index_manager import MilvusIndexManager
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.utils.infrastructure.logging import get_logger
@@ -158,6 +160,11 @@ class MilvusAdapter(VectorStorePort):
             f"Initialized MilvusAdapter for collection: {self.collection_name} "
             f"(index: {index_type}, metric: {metric_type})"
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        return MilvusConfig
 
     def index_documents(self, documents: list[tuple[str, dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:
         """Index documents in Milvus.

@@ -595,6 +595,31 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         return int(self.adapter.get_document_count())
 
     @staticmethod
+    def _get_vectordb_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the provider_config field.
+
+        Add a new entry here when registering a new VectorDB adapter.
+        """
+        from docpipe.core.operators.operator_utils import OperatorUtils
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import (
+            ADAPTER_NAME as MILVUS_ADAPTER_NAME,
+        )
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import (
+            MilvusConfig,
+        )
+        from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import (
+            ADAPTER_NAME as OPENSEARCH_ADAPTER_NAME,
+        )
+        from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import (
+            OpenSearchConfig,
+        )
+
+        return {
+            OPENSEARCH_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(schema=OpenSearchConfig.model_json_schema()),
+            MILVUS_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(schema=MilvusConfig.model_json_schema()),
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """Get metadata about the operator including features and attributes.
 
@@ -700,6 +725,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     ),
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROVIDERS: VectorDBOperator._get_vectordb_provider_schemas(),
                 },
             },
         }

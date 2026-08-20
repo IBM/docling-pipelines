@@ -306,6 +306,23 @@ class ChunkerOperator(AbstractOperator):
         self._remote_chunking_client = None
 
     @staticmethod
+    def _get_summarization_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the summarization provider_config field.
+
+        Add a new entry here when registering a new summarization provider.
+        """
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+
+        return {
+            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
+                schema=LLMProviderConfig.model_json_schema()
+            ),
+            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxProviderConfig.model_json_schema()
+            ),
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         return {
             OperatorConstants.Misc.SDK: True,
@@ -434,33 +451,11 @@ class ChunkerOperator(AbstractOperator):
                         },
                         OperatorConstants.Config.PROVIDER_CONFIG: {
                             OperatorConstants.Misc.NAME: "Provider Configuration",
-                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration. Fields vary by provider — see the 'providers' schema for details.",
                             OperatorConstants.Config.REQUIRED: False,
                             OperatorConstants.Config.DEFAULT: {},
                             OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                            OperatorConstants.Config.PROPERTIES: {
-                                OperatorConstants.Config.MODEL_ID: {
-                                    OperatorConstants.Misc.NAME: "Model ID",
-                                    OperatorConstants.Config.DESCRIPTION: "Model identifier for summarization (auto-prefixed with 'openai/' for LiteLLM if needed)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: DocpipeConstants.SUMMARY_MODEL_ID_DEFAULT,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_BASE: {
-                                    OperatorConstants.Misc.NAME: "API Base URL",
-                                    OperatorConstants.Config.DESCRIPTION: "Base URL for the LLM API endpoint",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: "http://localhost:11434/v1",
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_KEY: {
-                                    OperatorConstants.Misc.NAME: "API Key",
-                                    OperatorConstants.Config.DESCRIPTION: "API key for authentication (if required by provider)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: "<ollama>",
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                            },
+                            OperatorConstants.Config.PROVIDERS: ChunkerOperator._get_summarization_provider_schemas(),
                         },
                         SUMMARY_SENTENCES_KEY: {
                             OperatorConstants.Misc.NAME: "Summary Sentences",
@@ -1012,7 +1007,7 @@ class ChunkerOperator(AbstractOperator):
                 from transformers import AutoTokenizer
 
                 hf_tokenizer = HuggingFaceTokenizer(
-                    tokenizer=AutoTokenizer.from_pretrained(self.docling_tokenizer),
+                    tokenizer=AutoTokenizer.from_pretrained(self.docling_tokenizer),  # nosec B615
                     max_tokens=self.chunk_size,
                 )
                 self._docling_chunker = HybridChunker(

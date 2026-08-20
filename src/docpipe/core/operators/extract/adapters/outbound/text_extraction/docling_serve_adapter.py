@@ -15,8 +15,12 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import requests
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
+    register_text_extraction_adapter,
+)
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.integrations.docling.client import DoclingServeClient
@@ -25,6 +29,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger: logging.Logger = get_logger()
 
 
+@register_text_extraction_adapter
 class DoclingServeAdapter(TextExtractionPort):
     """Adapter for remote Docling Serve document extraction.
 
@@ -137,6 +142,15 @@ class DoclingServeAdapter(TextExtractionPort):
             self.timeout,
             self.additional_formats,
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_config import (
+            DoclingServeConfig,
+        )
+
+        return DoclingServeConfig
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs: Any) -> dict[str, Any]:
         """Extract content from a single document using Docling Serve API.

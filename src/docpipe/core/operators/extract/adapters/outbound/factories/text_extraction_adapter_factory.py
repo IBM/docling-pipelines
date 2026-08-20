@@ -7,11 +7,9 @@ extraction provider and configuration. It supports multiple extraction strategie
 """
 
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_adapter import DoclingAdapter
-from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter import DoclingServeAdapter
 from docpipe.core.operators.extract.domain.models import DoclingServeConfig, TextExtractionMode
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.utils.infrastructure.logging import get_logger
@@ -24,6 +22,11 @@ class TextExtractionAdapterFactory:
 
     This factory creates appropriate adapter instances based on extraction provider
     and validates configuration requirements for each adapter type.
+
+    It also maintains a class registry so that third-party adapters can
+    self-register via ``@register_text_extraction_adapter``.  The operator uses
+    this registry in ``get_metadata()`` to auto-discover provider config schemas
+    without needing manual imports.
 
     Supported Providers:
         - TextExtractionMode.DOCLING_LIBRARY: Local Docling extraction with optional VLM
@@ -75,6 +78,40 @@ class TextExtractionAdapterFactory:
             config=serve_config
         )
     """
+
+    # Registry of adapter classes keyed by ADAPTER_NAME (populated via @register_text_extraction_adapter).
+    _registry: ClassVar[dict[str, type[TextExtractionPort]]] = {}
+
+    @classmethod
+    def register(cls, adapter_class: type[TextExtractionPort]) -> type[TextExtractionPort]:
+        """Register an adapter class in the schema-discovery registry.
+
+        Called automatically by the ``@register_text_extraction_adapter`` decorator.
+
+        Args:
+            adapter_class: Concrete subclass of ``TextExtractionPort``.
+
+        Returns:
+            The adapter class (for decorator chaining).
+
+        Raises:
+            ValueError: If the class does not define ``ADAPTER_NAME``.
+        """
+        if not hasattr(adapter_class, "ADAPTER_NAME") or not adapter_class.ADAPTER_NAME:
+            raise ValueError(f"Adapter {adapter_class.__name__} must define ADAPTER_NAME")
+
+        name = adapter_class.ADAPTER_NAME.lower()
+        cls._registry[name] = adapter_class
+        return adapter_class
+
+    @classmethod
+    def list_adapters(cls) -> list[str]:
+        """Return names of all registered adapters.
+
+        Returns:
+            List of registered adapter names.
+        """
+        return list(cls._registry.keys())
 
     @staticmethod
     def build_adapter_config(*, mode: TextExtractionMode, text_extraction_config: dict[str, Any]) -> dict[str, Any]:
@@ -279,6 +316,8 @@ class TextExtractionAdapterFactory:
         full_config = {**global_config, **adapter_config, "max_workers": max_workers, "use_processes": use_processes}
 
         if mode == TextExtractionMode.DOCLING_LIBRARY:
+            from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_adapter import DoclingAdapter
+
             # Check if VLM is enabled
             use_vlm = adapter_config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
             gpu_device = adapter_config.get(OperatorConstants.Extraction.DEVICE)
@@ -310,6 +349,10 @@ class TextExtractionAdapterFactory:
             return DoclingAdapter(config=full_config)
 
         if mode == TextExtractionMode.DOCLING_SERVE:
+            from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter import (
+                DoclingServeAdapter,
+            )
+
             TextExtractionAdapterFactory._validate_docling_serve_config(adapter_config)
             logger.info(
                 "Creating DoclingServeAdapter with URL: %s",
@@ -581,3 +624,26 @@ class TextExtractionAdapterFactory:
             List of supported extraction provider values
         """
         return [mode.value for mode in TextExtractionMode]
+
+
+def register_text_extraction_adapter(adapter_class: type[TextExtractionPort]) -> type[TextExtractionPort]:
+    """Decorator to register a text extraction adapter for schema discovery.
+
+    This decorator automatically registers the adapter class with
+    ``TextExtractionAdapterFactory``.
+
+    Args:
+        adapter_class: Concrete subclass of ``TextExtractionPort``.
+
+    Returns:
+        The adapter class (unchanged).
+
+    Example::
+
+        @register_text_extraction_adapter
+        class DoclingServeAdapter(TextExtractionPort):
+            ADAPTER_NAME = "docling_serve"
+            ADAPTER_DISPLAY_NAME = "Docling Serve"
+            ...
+    """
+    return TextExtractionAdapterFactory.register(adapter_class)

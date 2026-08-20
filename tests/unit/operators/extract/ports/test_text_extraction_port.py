@@ -9,6 +9,7 @@ Tests the _process_extraction_result method's page count calculation logic.
 from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
 from docpipe.core.constants.constants import Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
@@ -23,6 +24,11 @@ class MockTextExtractionAdapter(TextExtractionPort):
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return a no-op config schema for testing."""
+        return BaseModel
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs) -> dict:
         """Mock implementation."""
