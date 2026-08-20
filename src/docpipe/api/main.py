@@ -1,7 +1,6 @@
 """FastAPI application main entry point.
 
 This module configures the FastAPI application with:
-- ConditionalFormatter for structured JSON logging with transaction ID tracking
 - Transaction middleware for request tracking across the application
 - Security headers middleware for enhanced security
 - CORS middleware for cross-origin resource sharing
@@ -20,7 +19,6 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from docpipe.api.api_router import api_router
 from docpipe.api.auth.dependencies import get_current_user
@@ -40,7 +38,9 @@ from docpipe.api.middleware.rate_limit import (
     RATE_LIMIT_WINDOW_SECONDS,
     check_login_rate_limit,
 )
+from docpipe.api.middleware.security_headers import SecurityHeadersMiddleware
 from docpipe.api.middleware.transaction_middleware import TransactionMiddleware
+from docpipe.api.openapi import build_custom_openapi
 from docpipe.core.constants.constants import EnvironmentVariables
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
@@ -49,28 +49,6 @@ from docpipe.utils.infrastructure.logging import (
     set_dpk_log_level_from_ds_log_level,
     setup_logging,
 )
-
-
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to every response."""
-
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' https://cdn.jsdelivr.net; "
-            "style-src 'self' https://cdn.jsdelivr.net; "
-            "img-src 'self' data: https:; "
-            "font-src 'self' data:; "
-            "connect-src 'self'; "
-            "frame-ancestors 'none'"
-        )
-
-        return response
-
 
 set_dpk_log_level_from_ds_log_level()
 setup_logging()
@@ -134,118 +112,8 @@ app = FastAPI(
 )
 
 
-def custom_openapi():
-    """Customize OpenAPI schema for IBM validator compatibility by removing nullable keywords.
-
-    Returns:
-        dict: OpenAPI schema with nullable keywords removed
-    """
-    if app.openapi_schema:
-        return app.openapi_schema
-
-    from fastapi.openapi.utils import get_openapi
-
-    openapi_schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=app.routes,
-        tags=app.openapi_tags,
-        servers=app.servers,
-    )
-
-    # Relative root so Swagger UI uses the same host it was loaded from.
-    openapi_schema["servers"] = [{"url": "/"}]
-
-    def remove_nullable_keywords(schema: dict) -> dict:
-        """Recursively remove nullable and OpenAPI 3.1 null-union patterns for IBM validator compatibility."""
-        if not isinstance(schema, dict):
-            return schema
-
-        if "nullable" in schema:
-            schema.pop("nullable")
-
-        if "anyOf" in schema and isinstance(schema["anyOf"], list):
-            non_null_options = [
-                remove_nullable_keywords(item)
-                for item in schema["anyOf"]
-                if not (isinstance(item, dict) and item.get("type") == "null")
-            ]
-            if len(non_null_options) == 1:
-                preserved = non_null_options[0]
-                schema.pop("anyOf", None)
-                if "$ref" in preserved:
-                    # $ref must not have sibling keys — wrap in allOf to preserve outer metadata
-                    schema["allOf"] = [preserved]
-                else:
-                    for merge_key, merge_value in preserved.items():
-                        schema[merge_key] = merge_value
-            else:
-                schema["anyOf"] = non_null_options
-
-        for key, value in list(schema.items()):
-            if isinstance(value, dict):
-                schema[key] = remove_nullable_keywords(value)
-            elif isinstance(value, list):
-                schema[key] = [remove_nullable_keywords(item) if isinstance(item, dict) else item for item in value]
-
-        return schema
-
-    if "components" in openapi_schema and "schemas" in openapi_schema["components"]:
-        schemas = openapi_schema["components"]["schemas"]
-
-        for schema_name, schema_def in schemas.items():
-            schemas[schema_name] = remove_nullable_keywords(schema_def)
-
-            if schema_name == "HTTPValidationError":
-                # Add description if missing
-                if "description" not in schema_def:
-                    schema_def["description"] = "HTTP 422 validation error response with detailed error information"
-                # IBM ibm-required-array-properties-in-response requires the detail array to be in required
-                required = set(schema_def.get("required", []))
-                if "detail" not in required:
-                    schema_def["required"] = sorted(required | {"detail"})
-
-    if "paths" in openapi_schema:
-        for path, path_item in openapi_schema["paths"].items():
-            if not isinstance(path_item, dict):
-                continue
-
-            if path.startswith("/api/v1/job_runs/") or path == "/api/v1/job_runs":
-                path_item.pop("parameters", None)
-
-            for operation in path_item.values():
-                if not isinstance(operation, dict):
-                    continue
-
-                if path.startswith("/api/v1/job_runs"):
-                    responses = operation.get("responses")
-                    if isinstance(responses, dict):
-                        responses.pop("422", None)
-
-                if "parameters" in operation:
-                    for param in operation["parameters"]:
-                        if "schema" in param:
-                            param["schema"] = remove_nullable_keywords(param["schema"])
-
-                if "requestBody" in operation and "content" in operation["requestBody"]:
-                    for content in operation["requestBody"]["content"].values():
-                        if "schema" in content:
-                            content["schema"] = remove_nullable_keywords(content["schema"])
-
-                if "responses" in operation:
-                    for response in operation["responses"].values():
-                        if isinstance(response, dict) and "content" in response:
-                            for content in response["content"].values():
-                                if "schema" in content:
-                                    content["schema"] = remove_nullable_keywords(content["schema"])
-
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-
 # Override the default OpenAPI schema generator
-cast(Any, app).openapi = custom_openapi
+cast(Any, app).openapi = build_custom_openapi(app)
 
 # Middleware registered in reverse execution order (last added = outermost).
 app.add_middleware(SecurityHeadersMiddleware)
