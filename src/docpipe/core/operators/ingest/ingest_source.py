@@ -52,6 +52,7 @@ class MicrosoftGraphLoader(BaseLoader):
         tenant_id: str,
         folder_path: str | None = None,
         recursive: bool = True,
+        max_download_workers: int = 8,
     ):
         self.drive_id = drive_id
         self.client_id = client_id
@@ -59,6 +60,7 @@ class MicrosoftGraphLoader(BaseLoader):
         self.tenant_id = tenant_id
         self.folder_path = folder_path
         self.recursive = recursive
+        self.max_download_workers = max_download_workers
         self._token = None
 
         # Initialize RestClient with appropriate configuration for Microsoft Graph API
@@ -70,6 +72,16 @@ class MicrosoftGraphLoader(BaseLoader):
             config=rest_config,
             base_url=MICROSOFT_GRAPH_API_BASE,
         )
+
+        # Reuse a single download client for direct download URLs.
+        # Creating a new RestClient per file adds a full HTTPS handshake per download.
+        download_config = RestClientConfig(
+            timeout=120,
+            max_retries=3,
+            retry_backoff_factor=2.0,
+            verify_ssl=True,
+        )
+        self._download_client = RestClient(config=download_config)
 
     def _get_token(self) -> str:
         """Acquire an app-only access token via MSAL client credentials flow."""
@@ -137,13 +149,18 @@ class MicrosoftGraphLoader(BaseLoader):
         return files
 
     def _download_file(self, item: dict) -> bytes:
-        """Download file content from Graph API."""
+        """Download file content from Graph API.
+
+        Reuses ``self._download_client`` (created once in ``__init__``) instead of
+        creating a new RestClient per file, which avoids a full HTTPS handshake
+        overhead for every document.
+        """
         token = self._get_token()
         headers = {"Authorization": f"Bearer {token}"}
         download_url = item.get("@microsoft.graph.downloadUrl")
 
         if not download_url:
-            # Fallback: get download URL via API
+            # Fallback: fetch via Graph API endpoint (follows redirect automatically)
             endpoint = f"/drives/{self.drive_id}/items/{item['id']}/content"
             response = self._rest_client.call_rest(
                 method=RestMethod.GET,
@@ -153,29 +170,56 @@ class MicrosoftGraphLoader(BaseLoader):
             )
             return response.content
 
-        # For direct download URLs, create a temporary RestClient without base_url
-        # since download URLs are complete URLs
-        temp_config = RestClientConfig(
-            timeout=120,  # Longer timeout for file downloads
-            max_retries=3,
-            retry_backoff_factor=2.0,
-            verify_ssl=True,
-        )
-        temp_client = RestClient(config=temp_config)
-        response = temp_client.call_rest(
+        # Direct download URL — reuse the shared client (no base_url needed)
+        response = self._download_client.call_rest(
             method=RestMethod.GET,
             url=download_url,
         )
         return response.content
 
+    def _download_item(self, item: dict) -> Document:
+        """Download a single item and return a Document (used by thread pool)."""
+        try:
+            binary_content = self._download_file(item)
+            metadata = {
+                "source": item.get("name", ""),
+                "drive_id": self.drive_id,
+                "item_id": item.get("id", ""),
+                "size": item.get("size", 0),
+                "last_modified": item.get("lastModifiedDateTime", ""),
+                "web_url": item.get("webUrl", ""),
+                "mime_type": item.get("file", {}).get("mimeType", ""),
+                "has_binary_content": True,
+            }
+            doc = Document(page_content="", metadata=metadata)
+            doc._binary_content = binary_content  # type: ignore[attr-defined]
+            return doc
+        except Exception as e:
+            logger.error("Failed to download file %s: %s", item.get("name", ""), e, exc_info=True)
+            return Document(
+                page_content="",
+                metadata={
+                    "source": item.get("name", ""),
+                    "error": str(e),
+                    "drive_id": self.drive_id,
+                    "item_id": item.get("id", ""),
+                },
+            )
+
     def lazy_load(self) -> Iterator[Document]:
-        """Lazily load documents from the Microsoft Graph API drive."""
+        """Lazily load documents from the Microsoft Graph API drive.
+
+        Downloads are parallelized with a ThreadPoolExecutor so that
+        ``max_download_workers`` files are fetched concurrently instead of one
+        at a time, reducing total wall-clock time proportionally.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         # Resolve folder path to an item ID if specified
         folder_item_id = None
         if self.folder_path:
             token = self._get_token()
             headers = {"Authorization": f"Bearer {token}"}
-            # Normalize path
             path = self.folder_path.strip("/")
             endpoint = f"/drives/{self.drive_id}/root:/{path}"
 
@@ -190,40 +234,13 @@ class MicrosoftGraphLoader(BaseLoader):
                 raise ValueError(f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {e!s}") from e
 
         files = self._list_files(folder_item_id=folder_item_id)
-        for item in files:
-            try:
-                # Download binary content immediately
-                binary_content = self._download_file(item)
 
-                metadata = {
-                    "source": item.get("name", ""),
-                    "drive_id": self.drive_id,
-                    "item_id": item.get("id", ""),
-                    "size": item.get("size", 0),
-                    "last_modified": item.get("lastModifiedDateTime", ""),
-                    "web_url": item.get("webUrl", ""),
-                    "mime_type": item.get("file", {}).get("mimeType", ""),
-                    "has_binary_content": True,
-                }
-
-                # Create Document and attach binary content
-                doc = Document(page_content="", metadata=metadata)
-                doc._binary_content = binary_content  # type: ignore[attr-defined]
-                yield doc
-            except Exception as e:
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to download file {item.get('name', '')}: {e!s}", exc_info=True)
-                yield Document(
-                    page_content="",
-                    metadata={
-                        "source": item.get("name", ""),
-                        "error": str(e),
-                        "drive_id": self.drive_id,
-                        "item_id": item.get("id", ""),
-                    },
-                )
+        # Download files in parallel — sequential downloads are the primary bottleneck
+        # for SharePoint/OneDrive ingest when processing large libraries.
+        with ThreadPoolExecutor(max_workers=self.max_download_workers) as pool:
+            future_to_item = {pool.submit(self._download_item, item): item for item in files}
+            for future in as_completed(future_to_item):
+                yield future.result()
 
     def load(self) -> list[Document]:
         """Load."""
@@ -471,7 +488,8 @@ class IngestSourceOperator(AbstractOperator):
 
         try:
             logger.info(
-                f"Loading documents from {self.provider}",
+                "Loading documents from %s",
+                self.provider,
                 extra=self.common_log_arguments,
             )
 
@@ -492,16 +510,19 @@ class IngestSourceOperator(AbstractOperator):
                 batch = list(itertools.islice(documents, self.max_files))
 
                 if not batch:
-                    # No more documents available
                     logger.info(
-                        f"No more documents available. Total fetched: {total_fetched}, processed: {processed_count}",
+                        "No more documents available. Total fetched: %d, processed: %d",
+                        total_fetched,
+                        processed_count,
                         extra=self.common_log_arguments,
                     )
                     break
 
                 total_fetched += len(batch)
                 logger.info(
-                    f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
+                    "Fetched batch of %d documents (total fetched: %d)",
+                    len(batch),
+                    total_fetched,
                     extra=self.common_log_arguments,
                 )
 
@@ -509,7 +530,8 @@ class IngestSourceOperator(AbstractOperator):
                 for idx, doc in enumerate(batch):
                     if processed_count >= self.max_files:
                         logger.info(
-                            f"Reached max files limit: {self.max_files}",
+                            "Reached max files limit: %d",
+                            self.max_files,
                             extra=self.common_log_arguments,
                         )
                         break
@@ -528,13 +550,18 @@ class IngestSourceOperator(AbstractOperator):
                     break
 
             logger.info(
-                f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
+                "Fetched %d documents, processed %d new documents from %s",
+                total_fetched,
+                processed_count,
+                self.provider,
                 extra=self.common_log_arguments,
             )
 
         except Exception as e:
             logger.error(
-                f"Error loading documents from {self.provider}: {e!s}",
+                "Error loading documents from %s: %s",
+                self.provider,
+                e,
                 extra=self.common_log_arguments,
             )
             self.record_failed_document(
@@ -603,7 +630,9 @@ class IngestSourceOperator(AbstractOperator):
                 # Process batch when it reaches batch_size
                 if len(batch) >= batch_size:
                     logger.info(
-                        f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
+                        "Fetched batch of %d documents (total fetched: %d)",
+                        len(batch),
+                        total_fetched,
                         extra=self.common_log_arguments,
                     )
 
@@ -611,7 +640,8 @@ class IngestSourceOperator(AbstractOperator):
                     for idx, doc in enumerate(batch):
                         if processed_count >= self.max_files:
                             logger.info(
-                                f"Reached max files limit: {self.max_files}",
+                                "Reached max files limit: %d",
+                                self.max_files,
                                 extra=self.common_log_arguments,
                             )
                             return  # Stop processing
@@ -630,7 +660,9 @@ class IngestSourceOperator(AbstractOperator):
             # Process remaining documents in final batch
             if batch and processed_count < self.max_files:
                 logger.info(
-                    f"Fetched final batch of {len(batch)} documents (total fetched: {total_fetched})",
+                    "Fetched final batch of %d documents (total fetched: %d)",
+                    len(batch),
+                    total_fetched,
                     extra=self.common_log_arguments,
                 )
 
@@ -658,7 +690,10 @@ class IngestSourceOperator(AbstractOperator):
             asyncio.run(process_async_generator())
 
         logger.info(
-            f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
+            "Fetched %d documents, processed %d new documents from %s",
+            total_fetched,
+            processed_count,
+            self.provider,
             extra=self.common_log_arguments,
         )
 
@@ -725,7 +760,8 @@ class IngestSourceOperator(AbstractOperator):
             # Check excluded extensions first
             if self.excluded_extensions and file_extension in self.excluded_extensions:
                 logger.info(
-                    f"Skipping document based on exclusion filter: {source}",
+                    "Skipping document based on exclusion filter: %s",
+                    source,
                     extra=self.common_log_arguments,
                 )
                 self.record_skipped_document(
@@ -739,7 +775,8 @@ class IngestSourceOperator(AbstractOperator):
             # Check included extensions
             if self.included_extensions and file_extension not in self.included_extensions:
                 logger.info(
-                    f"Skipping document based on inclusion filter: {source}",
+                    "Skipping document based on inclusion filter: %s",
+                    source,
                     extra=self.common_log_arguments,
                 )
                 self.record_skipped_document(
@@ -771,7 +808,8 @@ class IngestSourceOperator(AbstractOperator):
                 modified_time=modified_time,
             ):
                 logger.info(
-                    f"Skipping already processed document: {source}",
+                    "Skipping already processed document: %s",
+                    source,
                     extra=self.common_log_arguments,
                 )
                 self.record_skipped_document(
@@ -801,7 +839,9 @@ class IngestSourceOperator(AbstractOperator):
             }
 
             logger.info(
-                f"Successfully processed document: {source} (format: {document_format})",
+                "Successfully processed document: %s (format: %s)",
+                source,
+                document_format,
                 extra=self.common_log_arguments,
             )
             return processed_doc

@@ -59,8 +59,14 @@ class S3SourceAdapter(DocumentSourcePort):
     SOURCE_VERSION = "1.0.0"
 
     def __init__(self):
-        """Initialize adapter with cached AWS account ID."""
+        """Initialize adapter with cached AWS account ID and reusable S3 clients."""
         self._cached_account_id: str | None = None
+        # Cache boto3 clients keyed by (access_key, endpoint_url, region) so that
+        # fetch_binary_content() does not re-create a TCP connection per document.
+        self._client_cache: dict[tuple, Any] = {}
+        # Cache (account_id, strict) keyed by the same tuple so STS is called at
+        # most once per unique set of credentials rather than once per document.
+        self._account_id_cache: dict[tuple, str | None] = {}
 
     async def fetch_documents(self, config: S3SourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
@@ -529,17 +535,15 @@ class S3SourceAdapter(DocumentSourcePort):
             secret_key = resolve_env_var(credentials.get("secret_key"))
 
             if not access_key or not secret_key:
-                logger.error(f"Missing S3 credentials for fetching {source_id}")
+                logger.error("Missing S3 credentials for fetching %s", source_id)
                 return None
 
             # Parse S3 URI to extract bucket and key
             if source_id.startswith("s3://"):
-                # Format: s3://bucket/key
                 parts = source_id[5:].split("/", 1)
                 bucket = parts[0]
                 key = parts[1] if len(parts) > 1 else ""
             else:
-                # Assume it's just the key, get bucket from connection_params
                 bucket_value = resolve_env_var(connection_params.get("bucket"))
                 if not bucket_value:
                     logger.error("Cannot determine S3 bucket from source_id or connection_params")
@@ -547,42 +551,44 @@ class S3SourceAdapter(DocumentSourcePort):
                 bucket = str(bucket_value)
                 key = source_id
 
-            # Create S3 client
-            client_kwargs: dict[str, Any] = {
-                "aws_access_key_id": access_key,
-                "aws_secret_access_key": secret_key,
-            }
-
-            # Add endpoint URL for S3-compatible storage
             endpoint_url = resolve_env_var(connection_params.get("endpoint_url"))
-            if endpoint_url:
-                client_kwargs["endpoint_url"] = endpoint_url
-
-            # Add region if specified
             region = resolve_env_var(connection_params.get("region"))
-            if region:
-                client_kwargs["region_name"] = region
 
-            s3_client = boto3.client("s3", **client_kwargs)
+            # Reuse cached boto3 client — creating a new client per document causes
+            # redundant TCP handshake setup and is the main latency driver here.
+            cache_key = (access_key, endpoint_url or "", region or "")
+            if cache_key not in self._client_cache:
+                client_kwargs: dict[str, Any] = {
+                    "aws_access_key_id": access_key,
+                    "aws_secret_access_key": secret_key,
+                }
+                if endpoint_url:
+                    client_kwargs["endpoint_url"] = endpoint_url
+                if region:
+                    client_kwargs["region_name"] = region
+                self._client_cache[cache_key] = boto3.client("s3", **client_kwargs)
+            s3_client = self._client_cache[cache_key]
 
-            # Resolve bucket owner for security verification (AWS S3 only)
-            account_id = resolve_aws_account_id(
-                access_key=access_key,
-                secret_key=secret_key,
-                region=region,
-                endpoint_url=endpoint_url,
-            )
+            # Reuse cached account_id — STS GetCallerIdentity is a network call and
+            # returns the same value for the lifetime of the adapter instance.
+            if cache_key not in self._account_id_cache:
+                self._account_id_cache[cache_key] = resolve_aws_account_id(
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    region=region,
+                    endpoint_url=endpoint_url,
+                )
+            account_id = self._account_id_cache[cache_key]
 
             get_kwargs: dict[str, Any] = {"Bucket": bucket, "Key": key}
             if account_id:
                 get_kwargs["ExpectedBucketOwner"] = account_id
 
-            # Download binary content
-            logger.info(f"Downloading binary content from S3: bucket={bucket}, key={key}")
+            logger.info("Downloading binary content from S3: bucket=%s, key=%s", bucket, key)
             response = s3_client.get_object(**get_kwargs)
             content = response["Body"].read()
 
-            logger.info(f"Successfully downloaded {len(content)} bytes from S3: {source_id}")
+            logger.info("Successfully downloaded %d bytes from S3: %s", len(content), source_id)
             return content
 
         except ClientError as e:

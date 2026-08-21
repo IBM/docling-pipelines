@@ -1029,7 +1029,9 @@ class TestMicrosoftGraphLoader:
         loader._token = "cached-token"
 
         assert loader._get_token() == "cached-token"
-        mock_rest_client.assert_called_once()
+        # __init__ now creates two RestClient instances: one for the Graph API
+        # (_rest_client) and one for direct downloads (_download_client).
+        assert mock_rest_client.call_count == 2
 
     def test_process_items_splits_files_and_folders(self):
         from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
@@ -1590,9 +1592,12 @@ class TestMicrosoftGraphLoaderInit:
         mock_response = MagicMock()
         mock_response.content = b"pdf bytes"
 
-        with patch("docpipe.core.operators.ingest.ingest_source.RestClient") as mock_client_cls:
-            mock_client_cls.return_value.call_rest.return_value = mock_response
-            result = loader._download_file({"@microsoft.graph.downloadUrl": "https://cdn.example.com/file.pdf"})
+        # _download_file now uses self._download_client (created once in __init__),
+        # so patch the instance attribute directly instead of the class constructor.
+        loader._download_client = MagicMock()
+        loader._download_client.call_rest.return_value = mock_response
+
+        result = loader._download_file({"@microsoft.graph.downloadUrl": "https://cdn.example.com/file.pdf"})
 
         assert result == b"pdf bytes"
 
@@ -1791,17 +1796,17 @@ class TestMicrosoftGraphLoaderLazyLoad:
     def test_download_file_with_direct_url(self):
         """Covers lines 156-167: download via direct download URL."""
         loader = self._make_loader()
+        # _download_file uses self._download_client (created once in __init__).
+        # Patch the instance attribute directly — patching the class constructor
+        # no longer has any effect on an already-constructed loader.
+        mock_download_client = MagicMock()
+        mock_download_client.call_rest.return_value.content = b"file bytes"
+        loader._download_client = mock_download_client
+
         with patch.object(loader, "_get_token", return_value="tok"):
-            with (
-                patch("docpipe.core.operators.ingest.ingest_source.RestClient") as mock_rc_cls,
-                patch("docpipe.core.operators.ingest.ingest_source.RestClientConfig"),
-            ):
-                mock_rc = MagicMock()
-                mock_rc.call_rest.return_value.content = b"file bytes"
-                mock_rc_cls.return_value = mock_rc
-                result = loader._download_file(
-                    {"@microsoft.graph.downloadUrl": "https://download.example.com/file.pdf", "id": "f1"}
-                )
+            result = loader._download_file(
+                {"@microsoft.graph.downloadUrl": "https://download.example.com/file.pdf", "id": "f1"}
+            )
         assert result == b"file bytes"
 
     def test_download_file_fallback_endpoint(self):

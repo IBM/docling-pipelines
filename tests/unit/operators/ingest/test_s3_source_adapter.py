@@ -611,3 +611,306 @@ class TestExpectedBucketOwnerPropagation:
         assert result == b"data"
         call_kwargs = mock_client.get_object.call_args[1]
         assert "ExpectedBucketOwner" not in call_kwargs
+
+
+# ---------------------------------------------------------------------------
+# _create_s3_client
+# ---------------------------------------------------------------------------
+
+
+class TestS3CreateClient:
+    """Test _create_s3_client builds boto3 clients with correct kwargs."""
+
+    @pytest.fixture
+    def adapter(self):
+        return S3SourceAdapter()
+
+    def _base_config(self, **kwargs):
+        defaults = {
+            "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+            "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+            "bucket": "test-bucket",
+        }
+        defaults.update(kwargs)
+        return S3SourceConfig(**defaults)
+
+    def test_creates_client_without_optional_params(self, adapter):
+        config = self._base_config()
+        with patch("boto3.client") as mock_boto:
+            mock_boto.return_value = Mock()
+            adapter._create_s3_client(config)
+
+        call_kwargs = mock_boto.call_args
+        assert call_kwargs[0][0] == "s3"
+        assert "endpoint_url" not in call_kwargs[1]
+        assert "region_name" not in call_kwargs[1]
+
+    def test_creates_client_with_endpoint_url(self, adapter):
+        config = self._base_config(endpoint_url="https://s3.example.com")
+        with patch("boto3.client") as mock_boto:
+            mock_boto.return_value = Mock()
+            adapter._create_s3_client(config)
+
+        call_kwargs = mock_boto.call_args[1]
+        assert call_kwargs["endpoint_url"] == "https://s3.example.com"
+
+    def test_creates_client_with_region(self, adapter):
+        config = self._base_config(region="eu-west-1")
+        with patch("boto3.client") as mock_boto:
+            mock_boto.return_value = Mock()
+            adapter._create_s3_client(config)
+
+        call_kwargs = mock_boto.call_args[1]
+        assert call_kwargs["region_name"] == "eu-west-1"
+
+
+# ---------------------------------------------------------------------------
+# _should_skip_object — exclude_patterns branch
+# ---------------------------------------------------------------------------
+
+
+class TestS3ShouldSkipObjectExcludePatterns:
+    @pytest.fixture
+    def adapter(self):
+        return S3SourceAdapter()
+
+    def _config(self, **kwargs):
+        defaults = {
+            "access_key": "key",
+            "secret_key": "secret",  # pragma: allowlist secret
+            "bucket": "bucket",
+            "skip_hidden_files": False,
+            "skip_empty_files": False,
+        }
+        defaults.update(kwargs)
+        return S3SourceConfig(**defaults)
+
+    def test_skips_file_matching_exclude_pattern(self, adapter):
+        config = self._config(exclude_patterns=["*.tmp"])
+        obj = {"Key": "documents/file.tmp", "Size": 100}
+        assert adapter._should_skip_object(obj, config) is True
+
+    def test_skips_file_matching_full_path_pattern(self, adapter):
+        config = self._config(exclude_patterns=["Trash/*"])
+        obj = {"Key": "Trash/old_file.pdf", "Size": 100}
+        assert adapter._should_skip_object(obj, config) is True
+
+    def test_does_not_skip_non_matching_pattern(self, adapter):
+        config = self._config(exclude_patterns=["*.tmp"])
+        obj = {"Key": "documents/report.pdf", "Size": 100}
+        assert adapter._should_skip_object(obj, config) is False
+
+
+# ---------------------------------------------------------------------------
+# test_connection — BotoCoreError and generic error paths
+# ---------------------------------------------------------------------------
+
+
+class TestS3TestConnectionErrorPaths:
+    @pytest.fixture
+    def adapter(self):
+        return S3SourceAdapter()
+
+    @pytest.fixture
+    def config(self):
+        return S3SourceConfig(
+            access_key="key",
+            secret_key="secret",  # pragma: allowlist secret
+            bucket="test-bucket",
+        )
+
+    @pytest.mark.asyncio
+    async def test_botocore_error_returns_false(self, adapter, config):
+        from botocore.exceptions import BotoCoreError
+
+        mock_client = Mock()
+        mock_client.list_objects_v2.side_effect = BotoCoreError()
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, msg = await adapter.test_connection(config)
+
+        assert success is False
+        assert "Boto3 error" in msg
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_returns_false(self, adapter, config):
+        mock_client = Mock()
+        mock_client.list_objects_v2.side_effect = RuntimeError("network error")
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, msg = await adapter.test_connection(config)
+
+        assert success is False
+        assert "Unexpected error" in msg
+
+    @pytest.mark.asyncio
+    async def test_invalid_access_key_returns_false(self, adapter, config):
+        from botocore.exceptions import ClientError
+
+        mock_client = Mock()
+        error_response = {
+            "Error": {"Code": "InvalidAccessKeyId", "Message": "The Access Key Id you provided does not exist"}
+        }
+        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")  # type: ignore[arg-type]
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, msg = await adapter.test_connection(config)
+
+        assert success is False
+        assert "Invalid access key" in msg
+
+    @pytest.mark.asyncio
+    async def test_signature_mismatch_returns_false(self, adapter, config):
+        from botocore.exceptions import ClientError
+
+        mock_client = Mock()
+        error_response = {"Error": {"Code": "SignatureDoesNotMatch", "Message": "Invalid secret key"}}
+        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")  # type: ignore[arg-type]
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, msg = await adapter.test_connection(config)
+
+        assert success is False
+        assert "Invalid secret key" in msg
+
+    @pytest.mark.asyncio
+    async def test_generic_client_error_returns_false(self, adapter, config):
+        from botocore.exceptions import ClientError
+
+        mock_client = Mock()
+        error_response = {"Error": {"Code": "SomeOtherError", "Message": "something bad"}}
+        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")  # type: ignore[arg-type]
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, _msg = await adapter.test_connection(config)
+
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_connection_returns_true_with_no_objects(self, adapter, config):
+        mock_client = Mock()
+        mock_client.list_objects_v2.return_value = {"KeyCount": 0}
+
+        with patch.object(adapter, "_create_s3_client", return_value=mock_client):
+            with patch.object(adapter, "_get_aws_account_id", return_value=None):
+                success, msg = await adapter.test_connection(config)
+
+        assert success is True
+        assert "no objects found" in msg or "Successfully connected" in msg
+
+
+# ---------------------------------------------------------------------------
+# fetch_binary_content — error paths not yet covered
+# ---------------------------------------------------------------------------
+
+
+class TestS3FetchBinaryContentErrors:
+    @pytest.fixture
+    def adapter(self):
+        return S3SourceAdapter()
+
+    def test_returns_none_for_missing_access_key(self, adapter):
+        result = adapter.fetch_binary_content(
+            source_id="s3://bucket/key.pdf",
+            connection_params={},
+            credentials={"secret_key": "secret"},  # pragma: allowlist secret
+        )
+        assert result is None
+
+    def test_returns_none_for_missing_secret_key(self, adapter):
+        result = adapter.fetch_binary_content(
+            source_id="s3://bucket/key.pdf",
+            connection_params={},
+            credentials={"access_key": "key"},
+        )
+        assert result is None
+
+    def test_returns_none_for_missing_bucket_without_s3_uri(self, adapter):
+        result = adapter.fetch_binary_content(
+            source_id="just-a-key.pdf",
+            connection_params={},  # no bucket
+            credentials={"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
+        )
+        assert result is None
+
+    def test_uses_bucket_from_connection_params_for_plain_key(self, adapter):
+        mock_client = Mock()
+        mock_client.get_object.return_value = {"Body": Mock(read=Mock(return_value=b"bytes"))}
+
+        with patch("boto3.client", return_value=mock_client):
+            with patch(
+                "docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                return_value=None,
+            ):
+                result = adapter.fetch_binary_content(
+                    source_id="folder/file.pdf",
+                    connection_params={"bucket": "my-bucket"},
+                    credentials={"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
+                )
+        assert result == b"bytes"
+
+    def test_returns_none_on_botocore_error(self, adapter):
+        from botocore.exceptions import BotoCoreError
+
+        mock_client = Mock()
+        mock_client.get_object.side_effect = BotoCoreError()
+
+        with patch("boto3.client", return_value=mock_client):
+            with patch(
+                "docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                return_value=None,
+            ):
+                result = adapter.fetch_binary_content(
+                    source_id="s3://bucket/file.pdf",
+                    connection_params={},
+                    credentials={"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
+                )
+        assert result is None
+
+    def test_returns_none_on_unexpected_exception(self, adapter):
+        mock_client = Mock()
+        mock_client.get_object.side_effect = RuntimeError("disk error")
+
+        with patch("boto3.client", return_value=mock_client):
+            with patch(
+                "docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                return_value=None,
+            ):
+                result = adapter.fetch_binary_content(
+                    source_id="s3://bucket/file.pdf",
+                    connection_params={},
+                    credentials={"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
+                )
+        assert result is None
+
+    def test_client_is_cached_across_calls(self, adapter):
+        """Second call with same creds reuses the cached boto3 client."""
+        mock_client = Mock()
+        mock_client.get_object.return_value = {"Body": Mock(read=Mock(return_value=b"x"))}
+
+        credentials = {"access_key": "key", "secret_key": "secret"}  # pragma: allowlist secret
+        connection_params: dict = {}
+
+        with patch("boto3.client", return_value=mock_client) as mock_boto:
+            with patch(
+                "docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.resolve_aws_account_id",
+                return_value=None,
+            ):
+                adapter.fetch_binary_content(
+                    source_id="s3://b/k1.pdf",
+                    connection_params=connection_params,
+                    credentials=credentials,
+                )
+                adapter.fetch_binary_content(
+                    source_id="s3://b/k2.pdf",
+                    connection_params=connection_params,
+                    credentials=credentials,
+                )
+
+        # boto3.client should only have been called once (cached on second call)
+        mock_boto.assert_called_once()

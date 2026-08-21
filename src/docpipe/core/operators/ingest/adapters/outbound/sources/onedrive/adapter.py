@@ -1,5 +1,6 @@
 """OneDrive source adapter using Microsoft Graph API."""
 
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator, cast
@@ -61,6 +62,43 @@ class OneDriveSourceAdapter(DocumentSourcePort):
     SOURCE_DISPLAY_NAME = "Microsoft OneDrive"
     SOURCE_DESCRIPTION = "Ingest documents from OneDrive using Microsoft Graph API"
     SOURCE_VERSION = "1.0.0"
+
+    def __init__(self) -> None:
+        # Cache MicrosoftGraphLoader keyed by (drive_id, client_id, tenant_id, secret_hash) so
+        # the single MSAL token request is reused for all documents in a batch.
+        # secret_hash ensures a rotated client_secret invalidates the cached loader.
+        self._loader_cache: dict[tuple[str, str, str, str], MicrosoftGraphLoader] = {}
+
+    def _get_loader(
+        self,
+        *,
+        drive_id: str,
+        client_id: str,
+        client_secret: str,
+        tenant_id: str,
+        folder_path: str | None = None,
+        recursive: bool = False,
+    ) -> MicrosoftGraphLoader:
+        """Return a cached MicrosoftGraphLoader for the given credentials.
+
+        The loader (and its cached MSAL token) is created once per unique
+        (drive_id, client_id, tenant_id, secret_hash) combination and reused for all
+        subsequent calls, avoiding a new token request per document.  Including a hash
+        of client_secret in the key ensures that a rotated secret invalidates the cached
+        loader rather than silently reusing a stale one.
+        """
+        secret_hash = hashlib.sha256(client_secret.encode()).hexdigest()[:16]
+        key = (drive_id, client_id, tenant_id, secret_hash)
+        if key not in self._loader_cache:
+            self._loader_cache[key] = MicrosoftGraphLoader(
+                drive_id=drive_id,
+                client_id=client_id,
+                client_secret=client_secret,
+                tenant_id=tenant_id,
+                folder_path=folder_path,
+                recursive=recursive,
+            )
+        return self._loader_cache[key]
 
     def _resolve_onedrive_item_id(
         self,
@@ -178,7 +216,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         """
         onedrive_config: OneDriveSourceConfig = config
         try:
-            loader = MicrosoftGraphLoader(
+            loader = self._get_loader(
                 drive_id=onedrive_config.drive_id,
                 client_id=onedrive_config.client_id,
                 client_secret=onedrive_config.client_secret,
@@ -319,37 +357,31 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 logger.error("Missing required parameters for OneDrive binary content fetch")
                 return None
 
-            logger.debug(f"Using drive_id for binary fetch: {drive_id}")
+            logger.debug("Using drive_id for binary fetch: %s", drive_id)
 
             # Handle case where source_id is a web URL instead of item_id
-            # During lazy loading, the binary fetcher may receive the web URL as source_id
-            # We need to extract the actual item_id from credentials if available
             item_id = source_id
             if source_id.startswith("http"):
-                # source_id is a web URL, extract item_id from credentials
                 extracted_id = credentials.get("item_id")
                 if not extracted_id:
-                    logger.error(f"source_id is a web URL but no item_id found in credentials: {source_id}")
+                    logger.error("source_id is a web URL but no item_id found in credentials: %s", source_id)
                     return None
                 item_id = str(extracted_id)
-                logger.info(f"Extracted item_id from credentials: {item_id} (source_id was web URL)")
+                logger.info("Extracted item_id from credentials: %s (source_id was web URL)", item_id)
 
-            # Create MicrosoftGraphLoader to reuse authentication logic
-            loader = MicrosoftGraphLoader(
+            # Reuse cached loader — avoids a new MSAL token request per document
+            loader = self._get_loader(
                 drive_id=str(drive_id),
                 client_id=str(client_id),
                 client_secret=str(client_secret),
                 tenant_id=str(tenant_id),
-                folder_path=None,
-                recursive=False,
             )
 
-            # Get access token
+            # Get access token (cached on loader instance)
             token = loader._get_token()
             headers = {"Authorization": f"Bearer {token}"}
 
-            # Download file content using Graph API
-            logger.info(f"Downloading binary content from OneDrive: drive_id={drive_id}, item_id={item_id}")
+            logger.info("Downloading binary content from OneDrive: drive_id=%s, item_id=%s", drive_id, item_id)
 
             # Try direct download URL first
             endpoint = f"/drives/{drive_id}/items/{item_id}"
@@ -388,11 +420,11 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 )
                 content = response.content
 
-            logger.info(f"Successfully downloaded {len(content)} bytes from OneDrive: {item_id}")
+            logger.info("Successfully downloaded %s bytes from OneDrive: %s", len(content), item_id)
             return content
 
         except Exception as e:
-            logger.error(f"Error fetching binary content from OneDrive {source_id}: {e}", exc_info=True)
+            logger.error("Error fetching binary content from OneDrive %s: %s", source_id, e, exc_info=True)
             return None
 
     def build_config_from_operator_params(

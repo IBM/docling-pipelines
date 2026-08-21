@@ -24,9 +24,21 @@ class BoxSourceAdapter(DocumentSourcePort):
     SOURCE_DISPLAY_NAME = "Box Driver"
     CONFIG_CLASS = BoxSourceConfig
 
+    def __init__(self) -> None:
+        # Cache authenticated BoxClient keyed by credentials_path so a single JWT
+        # auth flow is performed for all documents in a batch.
+        self._client_cache: dict[str, BoxClient] = {}
+
     def _get_box_client(self, *, config: BoxSourceConfig) -> BoxClient:
-        """Get authenticated Box client from JWT config."""
-        return get_box_client(credentials_path=config.credentials_path)
+        """Return a cached authenticated Box client for the given credentials path.
+
+        The client is created once per unique credentials_path and reused for all
+        subsequent calls, avoiding a new JWT auth round-trip per document.
+        """
+        key = config.credentials_path
+        if key not in self._client_cache:
+            self._client_cache[key] = get_box_client(credentials_path=key)
+        return self._client_cache[key]
 
     def _should_include_file(self, file_name: str, file_size_bytes: int, config: BoxSourceConfig) -> bool:
         """Check whether a Box file passes extension and size filters."""
@@ -135,11 +147,14 @@ class BoxSourceAdapter(DocumentSourcePort):
         except (ValueError, AttributeError, TypeError):
             return None
 
-    def _prepare_document(self, *, client: BoxClient, file_info, root_folder_id: str) -> Document:
-        """Convert a Box file object to the domain document model."""
+    def _prepare_document(self, *, file_info, root_folder_id: str) -> Document:
+        """Convert a Box file object to the domain document model (lazy loading).
+
+        No binary content is downloaded here. Content is fetched on-demand by the
+        Extract operator via fetch_binary_content().
+        """
         doc_id = str(getattr(file_info, "id", ""))
         doc_name = getattr(file_info, "name", "unknown")
-        content = self._download_file_content(client=client, file_id=doc_id)
         modified_time = self._parse_modified_time(getattr(file_info, "modified_at", None))
 
         shared_link = getattr(file_info, "shared_link", None)
@@ -154,7 +169,7 @@ class BoxSourceAdapter(DocumentSourcePort):
         full_path = "/".join(str(entry.name) for entry in path_entries if getattr(entry, "name", None))
 
         extension = Path(doc_name).suffix.lstrip(".")
-        size = getattr(file_info, "size", 0) or len(content)
+        size = getattr(file_info, "size", 0) or 0
 
         # Convert datetime objects to ISO format strings for JSON serialization
         created_at = getattr(file_info, "created_at", None)
@@ -168,7 +183,7 @@ class BoxSourceAdapter(DocumentSourcePort):
         return Document(
             id=doc_id,
             name=doc_name,
-            content=content,
+            content=b"",  # Empty - binary loaded on-demand by downstream operators
             source_url=source_url,
             size=size,
             mimetype="application/octet-stream",
@@ -176,6 +191,7 @@ class BoxSourceAdapter(DocumentSourcePort):
             modified_time=modified_time,
             metadata={
                 "source": source_url,  # Required for document_url in failed_docs
+                "source_id": doc_id,  # Required by binary_content_fetcher
                 "box_id": doc_id,
                 "box_name": doc_name,
                 "path": full_path,
@@ -194,9 +210,9 @@ class BoxSourceAdapter(DocumentSourcePort):
 
             # Single file mode
             if config.file_id:
-                logger.info(f"Fetching single file from Box: file_id={config.file_id}")
+                logger.info("Fetching single file from Box: file_id=%s", config.file_id)
                 file_info = client.files.get_file_by_id(config.file_id)
-                document = self._prepare_document(client=client, file_info=file_info, root_folder_id="")
+                document = self._prepare_document(file_info=file_info, root_folder_id="")
                 yield document
                 return
 
@@ -208,7 +224,6 @@ class BoxSourceAdapter(DocumentSourcePort):
                     break
 
                 document = self._prepare_document(
-                    client=client,
                     file_info=file_info,
                     root_folder_id=config.folder_id,
                 )
@@ -311,7 +326,7 @@ class BoxSourceAdapter(DocumentSourcePort):
                 exclude_patterns=[],
             )
 
-            # Get authenticated client
+            # Reuse cached client — avoids a new JWT auth round-trip per document
             client = self._get_box_client(config=config)
 
             # Download file content using existing method

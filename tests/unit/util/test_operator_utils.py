@@ -1288,16 +1288,18 @@ class TestGetOrCreateConverter:
     """Tests for _get_or_create_converter() — cache-miss, cache-hit, multi-config isolation."""
 
     def setup_method(self):
-        """Clear the module-level cache before each test for isolation."""
+        """Clear the thread-local cache before each test for isolation."""
         import docpipe.core.operators.operator_utils as ou
 
-        ou._converter_cache.clear()
+        if hasattr(ou._thread_local_converters, "cache"):
+            ou._thread_local_converters.cache.clear()
 
     def teardown_method(self):
-        """Clear the cache after each test so other tests start clean."""
+        """Clear the thread-local cache after each test so other tests start clean."""
         import docpipe.core.operators.operator_utils as ou
 
-        ou._converter_cache.clear()
+        if hasattr(ou._thread_local_converters, "cache"):
+            ou._thread_local_converters.cache.clear()
 
     def test_cache_miss_creates_default_converter(self):
         """First call with no config constructs a new DocumentConverter."""
@@ -1379,8 +1381,9 @@ class TestGetOrCreateConverter:
             _get_or_create_converter(config)
             expected_key = _converter_cache_key(config)
 
-        assert expected_key in ou._converter_cache
-        assert ou._converter_cache[expected_key] is mock_converter
+        assert hasattr(ou._thread_local_converters, "cache")
+        assert expected_key in ou._thread_local_converters.cache
+        assert ou._thread_local_converters.cache[expected_key] is mock_converter
 
 
 # ---------------------------------------------------------------------------
@@ -2098,7 +2101,8 @@ def test_get_or_create_converter_with_format_options():
 
     import docpipe.core.operators.operator_utils as ou
 
-    ou._converter_cache.clear()
+    if hasattr(ou._thread_local_converters, "cache"):
+        ou._thread_local_converters.cache.clear()
     try:
         mock_converter = MagicMock()
         mock_cls = MagicMock(return_value=mock_converter)
@@ -2113,7 +2117,8 @@ def test_get_or_create_converter_with_format_options():
         mock_cls.assert_called_once_with(format_options={"pdf": opt})
         assert result is mock_converter
     finally:
-        ou._converter_cache.clear()
+        if hasattr(ou._thread_local_converters, "cache"):
+            ou._thread_local_converters.cache.clear()
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 """Google Drive source adapter using Google Drive API."""
 
+import hashlib
 import json
 from collections import deque
 from datetime import datetime
@@ -46,6 +47,24 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
     SOURCE_DISPLAY_NAME = "Google Drive"
     SOURCE_DESCRIPTION = "Ingest documents from Google Drive using Google Drive API"
     SOURCE_VERSION = "3.0.0"
+
+    def __init__(self) -> None:
+        # Cache (creds, service) keyed by a hash of the credentials config so a single
+        # Drive API client is reused for all documents in a batch.
+        self._service_cache: dict[str, tuple[Any, Any]] = {}
+
+    @staticmethod
+    def _credentials_cache_key(config: GoogleDriveSourceConfig) -> str:
+        """Return a stable cache key for the given credentials configuration."""
+        key_material = json.dumps(
+            {
+                "credentials_path": config.credentials_path,
+                "service_account_json_path": config.service_account_json_path,
+                "scopes": sorted(config.scopes),
+            },
+            sort_keys=True,
+        )
+        return hashlib.sha256(key_material.encode()).hexdigest()
 
     @staticmethod
     def _load_service_account_credentials(config: GoogleDriveSourceConfig) -> ServiceAccountCredentials:
@@ -296,11 +315,12 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
         return False
 
-    def _list_files_from_drive(self, *, config: GoogleDriveSourceConfig) -> list[dict]:
-        """
-        List files from Google Drive using Drive API v3 (metadata only, no download).
+    def _get_drive_service(self, *, config: GoogleDriveSourceConfig) -> Any:
+        """Return a cached Drive API service for the given credentials configuration.
 
-        Returns list of file metadata dictionaries.
+        The service (and its underlying credentials) is created once and reused for all
+        documents in a batch, avoiding a repeated ``build()`` + ``_get_credentials()``
+        round-trip per document.
         """
         try:
             from googleapiclient.discovery import build
@@ -309,8 +329,22 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 "Google API client not installed. Install with: pip install google-api-python-client"
             ) from None
 
-        creds = self._get_credentials(config)
-        service = build("drive", "v3", credentials=creds)
+        cache_key = self._credentials_cache_key(config)
+        if cache_key not in self._service_cache:
+            creds = self._get_credentials(config)
+            service = build("drive", "v3", credentials=creds)
+            self._service_cache[cache_key] = (creds, service)
+
+        _creds, service = self._service_cache[cache_key]
+        return service
+
+    def _list_files_from_drive(self, *, config: GoogleDriveSourceConfig) -> list[dict]:
+        """
+        List files from Google Drive using Drive API v3 (metadata only, no download).
+
+        Returns list of file metadata dictionaries.
+        """
+        service = self._get_drive_service(config=config)
 
         all_files: list[dict[str, Any]] = []
         folders_to_process: deque[str] = deque([config.folder_id] if config.folder_id else [])
@@ -398,15 +432,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
     def _fetch_single_gdrive_file(self, *, config: GoogleDriveSourceConfig) -> Document:
         """Fetch metadata for a single Google Drive file by file_id."""
-        try:
-            from googleapiclient.discovery import build
-        except ImportError:
-            raise ImportError(
-                "Google API client not installed. Install with: pip install google-api-python-client"
-            ) from None
-
-        creds = self._get_credentials(config)
-        service = build("drive", "v3", credentials=creds)
+        service = self._get_drive_service(config=config)
         file_metadata = (
             service.files()
             .get(fileId=config.file_id, fields="id, name, mimeType, size, modifiedTime, webViewLink")
@@ -506,26 +532,17 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         """
         try:
             from io import BytesIO
-
-            from googleapiclient.discovery import build
         except ImportError:
             logger.error("Google API client not installed. Install with: pip install google-api-python-client")
             return None
 
         try:
-            # Build minimal config for authentication
+            # Build minimal config for authentication — used as cache key
             credentials_path = credentials.get("credentials_path")
             service_account_json_path = credentials.get("service_account_json_path")
-            folder_id = connection_params.get("folder_id")
-            if not folder_id:
-                logger.warning(
-                    "No folder_id specified in connection_params. Defaulting to 'root' which will scan entire Google Drive. "
-                    "This may be slow for large drives. Consider specifying a specific folder_id for better performance."
-                )
-                folder_id = "root"
+            folder_id = connection_params.get("folder_id") or "root"
 
-            # Create minimal config for authentication
-            config_dict = {
+            config_dict: dict[str, Any] = {
                 "folder_id": folder_id,
                 "recursive": False,
                 "file_extensions": [],
@@ -542,14 +559,10 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
             temp_config = GoogleDriveSourceConfig(**config_dict)
 
-            # Get credentials
-            creds = self._get_credentials(temp_config)
+            # Reuse cached service — avoids repeated _get_credentials() + build() per document
+            service = self._get_drive_service(config=temp_config)
 
-            # Build Drive API service
-            service = build("drive", "v3", credentials=creds)
-
-            # Download file content
-            logger.info(f"Downloading binary content from Google Drive: file_id={source_id}")
+            logger.info("Downloading binary content from Google Drive: file_id=%s", source_id)
 
             # Get file metadata first to check mime type
             file_metadata = service.files().get(fileId=source_id, fields="mimeType,name").execute()
@@ -570,29 +583,29 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 if export_mime_type:
                     request = service.files().export_media(fileId=source_id, mimeType=export_mime_type)
                 else:
-                    logger.warning(f"Unsupported Google Workspace file type: {mime_type} for {file_name}")
+                    logger.warning("Unsupported Google Workspace file type: %s for %s", mime_type, file_name)
                     return None
             else:
                 # Regular file download
                 request = service.files().get_media(fileId=source_id)
 
             # Download content
-            file_buffer = BytesIO()
             from googleapiclient.http import MediaIoBaseDownload
 
+            file_buffer = BytesIO()
             downloader = MediaIoBaseDownload(file_buffer, request)
             done = False
             while not done:
                 status, done = downloader.next_chunk()
                 if status:
-                    logger.debug(f"Download progress: {int(status.progress() * 100)}%")
+                    logger.debug("Download progress: %s%%", int(status.progress() * 100))
 
             content = file_buffer.getvalue()
-            logger.info(f"Successfully downloaded {len(content)} bytes from Google Drive: {source_id}")
+            logger.info("Successfully downloaded %s bytes from Google Drive: %s", len(content), source_id)
             return content
 
         except Exception as e:
-            logger.error(f"Error fetching binary content from Google Drive {source_id}: {e}", exc_info=True)
+            logger.error("Error fetching binary content from Google Drive %s: %s", source_id, e, exc_info=True)
             return None
 
     def build_config_from_operator_params(

@@ -51,17 +51,19 @@ hash_functions = hashlib.sha3_512
 logger = get_logger()
 
 # ---------------------------------------------------------------------------
-# DocumentConverter singleton cache
+# DocumentConverter per-thread cache
 # ---------------------------------------------------------------------------
-# Keyed by a stable MD5 hash of the format_options configuration so that
-# different pipeline configs (e.g. standard vs VLM) map to separate entries.
-# Access must be protected by _converter_cache_lock (double-checked locking).
+# DocumentConverter (docling-parse 7.x) is not thread-safe: calling .convert()
+# concurrently from multiple threads on the same instance causes segfaults on
+# macOS (arm64) and is unreliable on Linux. Each thread gets its own converter
+# instance, keyed by a stable MD5 hash of the format_options configuration so
+# that different pipeline configs (e.g. standard vs OCR-disabled) remain separate.
 _DOCLING_AVAILABLE = importlib.util.find_spec("docling") is not None
 if _DOCLING_AVAILABLE:
     from docling.document_converter import DocumentConverter
 
-_converter_cache: dict[str, Any] = {}
-_converter_cache_lock = threading.Lock()
+# Thread-local storage: each thread has its own dict[cache_key -> DocumentConverter]
+_thread_local_converters = threading.local()
 
 
 def _converter_cache_key(converter_config: dict | None) -> str:
@@ -80,16 +82,17 @@ def _converter_cache_key(converter_config: dict | None) -> str:
 
 
 def _get_or_create_converter(converter_config: dict | None) -> Any:
-    """Return a cached DocumentConverter, constructing it once per unique config.
+    """Return a per-thread DocumentConverter, constructing it once per thread per unique config.
 
-    Uses double-checked locking so that only one thread constructs a converter
-    for a given config, even under high concurrency.
+    Each worker thread builds its own ``DocumentConverter`` instance so that
+    concurrent ``convert()`` calls never share state — avoiding the segfault
+    triggered by calling docling-parse 7.x from multiple threads simultaneously.
 
     Args:
         converter_config: Optional dict with ``format_options`` for the converter.
 
     Returns:
-        A ``DocumentConverter`` instance (shared across threads).
+        A ``DocumentConverter`` instance owned by the calling thread.
 
     Raises:
         RuntimeError: If docling is not installed.
@@ -99,23 +102,22 @@ def _get_or_create_converter(converter_config: dict | None) -> Any:
 
     cache_key = _converter_cache_key(converter_config)
 
-    # Fast path — cache hit without acquiring the lock
-    if cache_key in _converter_cache:
-        logger.debug("DocumentConverter cache hit for key: %s", cache_key)
-        return _converter_cache[cache_key]
+    # Ensure the thread-local dict exists
+    if not hasattr(_thread_local_converters, "cache"):
+        _thread_local_converters.cache = {}
 
-    # Slow path — acquire lock and construct if still absent
-    with _converter_cache_lock:
-        if cache_key not in _converter_cache:
-            logger.info("Creating DocumentConverter for cache key: %s", cache_key)
-            if converter_config and "format_options" in converter_config:
-                _converter_cache[cache_key] = DocumentConverter(format_options=converter_config["format_options"])
-            else:
-                _converter_cache[cache_key] = DocumentConverter()
+    thread_cache: dict[str, Any] = _thread_local_converters.cache
+
+    if cache_key not in thread_cache:
+        logger.info("Creating DocumentConverter for cache key: %s", cache_key)
+        if converter_config and "format_options" in converter_config:
+            thread_cache[cache_key] = DocumentConverter(format_options=converter_config["format_options"])
         else:
-            logger.debug("DocumentConverter cache hit (after lock) for key: %s", cache_key)
+            thread_cache[cache_key] = DocumentConverter()
+    else:
+        logger.debug("DocumentConverter cache hit for key: %s", cache_key)
 
-    return _converter_cache[cache_key]
+    return thread_cache[cache_key]
 
 
 def sanitize_doc_id_for_filename(doc_id: str) -> str:
@@ -1281,7 +1283,7 @@ class OperatorUtils:
             # Basic extraction is more I/O-bound (file reading, PDF parsing)
             optimal = min(cpu_count * 2, 16)  # Cap at 16 to avoid excessive threads
 
-        logger.info(f"Auto-detected optimal workers: {optimal} (CPU count: {cpu_count}, OS: {system})")
+        logger.info("Auto-detected optimal workers: %s (CPU count: %s, OS: %s)", optimal, cpu_count, system)
         return optimal
 
     @staticmethod
