@@ -152,61 +152,40 @@
           "algorithm": "hnsw",
           "space_type": "l2"
         },
-        "available_features": {
-          "doc_id_hash": {
-            "name": "Document ID",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "string",
-            "is_primary": true
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
           },
-          "content": {
-            "name": "Content",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
           },
-          "doc_name": {
-            "name": "Document Name",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "name",
+            "mapped_column_name": "doc_name"
           },
-          "file_path": {
-            "name": "File Path",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "path",
+            "mapped_column_name": "file_path"
           },
-          "embeddings": {
-            "name": "Primary Embeddings",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
           },
-          "embeddings_alt": {
-            "name": "Alternative Embeddings",
-            "available_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings_alt",
+            "mapped_column_name": "vector_embeddings_alt"
           },
-          "chunk_id": {
-            "name": "Chunk ID",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "chunk_id",
+            "mapped_column_name": "chunk_id"
           },
-          "chunk_index": {
-            "name": "Chunk Index",
-            "available_for_vector_db": true,
-            "type": "integer"
+          {
+            "feature_name": "chunk_index",
+            "mapped_column_name": "chunk_index"
           }
-        },
-        "feature_mappings": {
-          "doc_id_hash": "pk",
-          "content": "text",
-          "name": "doc_name",
-          "path": "file_path",
-          "embeddings": "vector_embeddings",
-          "embeddings_alt": "vector_embeddings_alt",
-          "chunk_id": "chunk_id",
-          "chunk_index": "chunk_index"
-        }
+        ]
       },
       "depends_on": [
         "store_in_document_set"

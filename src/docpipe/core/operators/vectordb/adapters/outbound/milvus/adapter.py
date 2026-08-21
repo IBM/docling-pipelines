@@ -88,7 +88,7 @@ class MilvusAdapter(VectorStorePort):
             OperatorConstants.VectorDB.ADD_SPARSE_VECTOR, OperatorConstants.VectorDB.ADD_SPARSE_VECTOR_DEFAULT
         )
         available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
-        feature_mappings = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+        feature_mappings: list[dict[str, str]] = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
 
         self.primary_key_field = OperatorConstants.VectorDB.DEFAULT_PRIMARY_KEY_FIELD
 

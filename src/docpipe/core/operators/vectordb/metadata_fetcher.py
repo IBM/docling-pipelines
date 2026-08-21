@@ -23,11 +23,10 @@ def compute_default_feature_mappings(
     *,
     add_sparse_vector: bool = False,
     content_column: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
-) -> dict[str, str]:
+) -> list[dict[str, str]]:
     """Compute default feature-to-column mappings when none are provided by the user.
 
-    Returns a dict[str, str] in execution format {feature_name: mapped_column_name},
-    which is what VectorDBOperator and the index_manager consume.
+    Returns a canonical list-of-dicts: [{"feature_name": ..., "mapped_column_name": ...}, ...]
 
     Rules applied in order:
 
@@ -59,7 +58,7 @@ def compute_default_feature_mappings(
     - Flow JSON config: ``"is_primary": True`` (set directly on the feature dict)
     - Propagator snapshot: ``"primary"`` tag in the ``"tags"`` list
     """
-    result: dict[str, str] = {}
+    result: list[dict[str, str]] = []
     covered: set[str] = set()
 
     # Rule 1 — primary feature → "pk"
@@ -68,24 +67,44 @@ def compute_default_feature_mappings(
             OperatorConstants.Misc.PRIMARY in meta.get(OperatorConstants.Misc.TAGS, [])
         )
         if is_primary:
-            result[name] = OperatorConstants.VectorDB.DEFAULT_PRIMARY_KEY_FIELD
+            result.append(
+                {
+                    OperatorConstants.Misc.FEATURE_NAME: name,
+                    OperatorConstants.Misc.MAPPED_COLUMN_NAME: OperatorConstants.VectorDB.DEFAULT_PRIMARY_KEY_FIELD,
+                }
+            )
             covered.add(name)
             break
 
     # Rule 2 — "id" → "document_id"
     if OperatorConstants.Columns.ID in available_features and OperatorConstants.Columns.ID not in covered:
-        result[OperatorConstants.Columns.ID] = OperatorConstants.VectorDB.DEFAULT_DOCUMENT_ID_FIELD
+        result.append(
+            {
+                OperatorConstants.Misc.FEATURE_NAME: OperatorConstants.Columns.ID,
+                OperatorConstants.Misc.MAPPED_COLUMN_NAME: OperatorConstants.VectorDB.DEFAULT_DOCUMENT_ID_FIELD,
+            }
+        )
         covered.add(OperatorConstants.Columns.ID)
 
     # Rule 3 — "name" → "document_name"
     if OperatorConstants.Columns.NAME in available_features and OperatorConstants.Columns.NAME not in covered:
-        result[OperatorConstants.Columns.NAME] = OperatorConstants.VectorDB.DEFAULT_DOCUMENT_NAME_FIELD
+        result.append(
+            {
+                OperatorConstants.Misc.FEATURE_NAME: OperatorConstants.Columns.NAME,
+                OperatorConstants.Misc.MAPPED_COLUMN_NAME: OperatorConstants.VectorDB.DEFAULT_DOCUMENT_NAME_FIELD,
+            }
+        )
         covered.add(OperatorConstants.Columns.NAME)
 
     # Rule 4 — first feature with type=vector → "vector_embeddings"
     for name, meta in available_features.items():
         if name not in covered and meta.get(OperatorConstants.Misc.TYPE) == OperatorConstants.Types.TYPE_VECTOR:
-            result[name] = OperatorConstants.Columns.DENSE_EMBEDDINGS_COLUMN_DEFAULT
+            result.append(
+                {
+                    OperatorConstants.Misc.FEATURE_NAME: name,
+                    OperatorConstants.Misc.MAPPED_COLUMN_NAME: OperatorConstants.Columns.DENSE_EMBEDDINGS_COLUMN_DEFAULT,
+                }
+            )
             covered.add(name)
             break
 
@@ -96,17 +115,27 @@ def compute_default_feature_mappings(
                 name not in covered
                 and meta.get(OperatorConstants.Misc.TYPE) == OperatorConstants.Types.TYPE_VECTOR_SPARSE
             ):
-                result[name] = OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
+                result.append(
+                    {
+                        OperatorConstants.Misc.FEATURE_NAME: name,
+                        OperatorConstants.Misc.MAPPED_COLUMN_NAME: OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT,
+                    }
+                )
                 covered.add(name)
                 break
         if content_column in available_features and content_column not in covered:
-            result[content_column] = OperatorConstants.VectorDB.DEFAULT_TEXT_FIELD_NAME
+            result.append(
+                {
+                    OperatorConstants.Misc.FEATURE_NAME: content_column,
+                    OperatorConstants.Misc.MAPPED_COLUMN_NAME: OperatorConstants.VectorDB.DEFAULT_TEXT_FIELD_NAME,
+                }
+            )
             covered.add(content_column)
 
     # Rule 6 — remaining mandatory_for_vector_db=True → identity mapping
     for name, meta in available_features.items():
         if name not in covered and meta.get(OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB, False):
-            result[name] = name
+            result.append({OperatorConstants.Misc.FEATURE_NAME: name, OperatorConstants.Misc.MAPPED_COLUMN_NAME: name})
             covered.add(name)
 
     return result
@@ -186,23 +215,14 @@ class VectorDBMetadataFetcher:
 
     @staticmethod
     def _normalise_feature_mappings(raw: Any) -> list[dict[str, str]]:
-        """Normalise feature mappings to list-of-dicts format.
+        """Normalise feature mappings to canonical list-of-dicts format.
 
-        Handles three input formats:
-          Old list-of-lists: [["feature_name", "col_name"], ...]
-          New list-of-dicts: [{"feature_name": "...", "mapped_column_name": "..."}, ...]
-          Dict (stored in _meta): {"feature_name": "col_name", ...}
+        Accepts only list-of-dicts: [{"feature_name": "...", "mapped_column_name": "..."}, ...]
         """
-        if isinstance(raw, dict):
-            return [{"feature_name": k, "mapped_column_name": v} for k, v in raw.items()]
+        _fn = OperatorConstants.Misc.FEATURE_NAME
+        _mc = OperatorConstants.Misc.MAPPED_COLUMN_NAME
         if isinstance(raw, list):
-            normalised = []
-            for item in raw:
-                if isinstance(item, dict) and "feature_name" in item:
-                    normalised.append(item)
-                elif isinstance(item, (list, tuple)) and len(item) >= 2:
-                    normalised.append({"feature_name": item[0], "mapped_column_name": item[1]})
-            return normalised
+            return [item for item in raw if isinstance(item, dict) and _fn in item and _mc in item]
         return []
 
     @staticmethod
@@ -210,9 +230,9 @@ class VectorDBMetadataFetcher:
         available_features: dict[str, Any],
         operator_config: dict[str, Any] | None = None,
     ) -> list[dict[str, str]]:
-        """Derive default feature mappings in list[dict] format for the API/UI response.
+        """Derive default feature mappings in canonical list-of-dicts format for the API/UI response.
 
-        Delegates to compute_default_feature_mappings() and converts dict→list.
+        Delegates to compute_default_feature_mappings().
         Passes add_sparse_vector and content_column from operator_config when present.
         """
         cfg = operator_config or {}
@@ -220,14 +240,11 @@ class VectorDBMetadataFetcher:
         content_column: str = cfg.get(
             OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
-        return [
-            {"feature_name": k, "mapped_column_name": v}
-            for k, v in compute_default_feature_mappings(
-                available_features,
-                add_sparse_vector=add_sparse_vector,
-                content_column=content_column,
-            ).items()
-        ]
+        return compute_default_feature_mappings(
+            available_features,
+            add_sparse_vector=add_sparse_vector,
+            content_column=content_column,
+        )
 
     @staticmethod
     def _empty_result() -> dict[str, Any]:

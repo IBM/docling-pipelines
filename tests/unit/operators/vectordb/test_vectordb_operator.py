@@ -44,11 +44,11 @@ def basic_config():
                 "type": "vector",
             },
         },
-        OperatorConstants.Config.FEATURE_MAPPINGS: {
-            "doc_id_hash": "pk",
-            "content": "text",
-            "embeddings": "vector_embeddings",
-        },
+        OperatorConstants.Config.FEATURE_MAPPINGS: [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        ],
         OperatorConstants.Config.PROVIDER_CONFIG: provider_cfg,
     }
 
@@ -379,14 +379,14 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
     def _config_with(
         self,
         *,
-        feature_mappings: dict | None = None,
+        feature_mappings: list | None = None,
         available_features: dict | None = None,
     ) -> dict:
         """Build a minimal config that passes __init__ (no real adapter needed)."""
         return {
             OperatorConstants.Config.PROVIDER: "opensearch",
             OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "test_index", "host": "localhost"},
-            OperatorConstants.Config.FEATURE_MAPPINGS: feature_mappings or {},
+            OperatorConstants.Config.FEATURE_MAPPINGS: feature_mappings or [],
             OperatorConstants.Config.AVAILABLE_FEATURES: available_features or {},
         }
 
@@ -400,7 +400,7 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
 
     def test_mandatory_feature_with_mapping_produces_no_error(self):
         config = self._config_with(
-            feature_mappings={"doc_id_hash": "pk"},
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "pk"}],
             available_features={
                 "doc_id_hash": {
                     OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
@@ -413,7 +413,7 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
 
     def test_mandatory_feature_missing_mapping_produces_error(self):
         config = self._config_with(
-            feature_mappings={"content": "text"},
+            feature_mappings=[{"feature_name": "content", "mapped_column_name": "text"}],
             available_features={
                 "doc_id_hash": {
                     OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
@@ -429,7 +429,7 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
 
     def test_multiple_mandatory_features_missing_all_reported(self):
         config = self._config_with(
-            feature_mappings={"content": "text"},
+            feature_mappings=[{"feature_name": "content", "mapped_column_name": "text"}],
             available_features={
                 "doc_id_hash": {OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True},
                 "embeddings": {OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True},
@@ -442,7 +442,7 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
     def test_skips_check_when_feature_mappings_empty(self):
         """No feature_mappings configured → skip the mandatory check entirely."""
         config = self._config_with(
-            feature_mappings={},
+            feature_mappings=[],
             available_features={
                 "doc_id_hash": {OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True},
             },
@@ -454,12 +454,13 @@ class TestVectorDBOperatorValidateMandatoryFeatureMappings:
     def test_skips_check_when_available_features_empty(self):
         """No available_features in config → skip the mandatory check entirely."""
         config = self._config_with(
-            feature_mappings={"doc_id_hash": "pk"},
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "pk"}],
             available_features={},
         )
         errors, _ = self._run_validate(config=config)
         mandatory_errors = [e for e in errors if "mandatory" in e.lower()]
         assert not mandatory_errors
+
 
 # ---------------------------------------------------------------------------
 # Shared helper — builds an operator with a fully mocked adapter
@@ -483,7 +484,10 @@ def _make_operator_with_mock_adapter(extra_config: dict | None = None) -> tuple[
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
             }
         },
-        OperatorConstants.Config.FEATURE_MAPPINGS: {"embeddings": "vector_embeddings", "doc_id_hash": "pk"},
+        OperatorConstants.Config.FEATURE_MAPPINGS: [
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        ],
     }
     if extra_config:
         base.update(extra_config)
@@ -595,7 +599,7 @@ class TestVectorDBOperatorTransformEdgeCases:
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 }
             },
-            OperatorConstants.Config.FEATURE_MAPPINGS: {"doc_id_hash": "pk"},
+            OperatorConstants.Config.FEATURE_MAPPINGS: [{"feature_name": "doc_id_hash", "mapped_column_name": "pk"}],
         }
         mock_adapter = Mock()
         with patch(
@@ -712,6 +716,7 @@ class TestVectorDBOperatorTransformEdgeCases:
 
         mock_adapter.detect_all_vector_dimensions.assert_not_called()
         assert metadata.get("node_status") != "Failed"
+
 
 class TestVectorDBOperatorIndexCreationFailure:
     """Test transform() when index creation fails."""

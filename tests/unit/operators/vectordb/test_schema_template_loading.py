@@ -307,10 +307,10 @@ class TestSchemaTemplateLoading:
                 "title": {"type": "string", "available_for_vector_db": True},
                 "embeddings": {"type": "vector", "available_for_vector_db": True},
             },
-            feature_mappings={
-                "content": "document_content",
-                "title": "document_title",
-            },
+            feature_mappings=[
+                {"feature_name": "content", "mapped_column_name": "document_content"},
+                {"feature_name": "title", "mapped_column_name": "document_title"},
+            ],
         )
 
         dimension_mapping = {"embeddings": 384}
@@ -517,7 +517,7 @@ class TestIndexingRules:
             available_features={
                 "content": {"type": "string", "available_for_vector_db": True},
             },
-            feature_mappings={"content": "document_content"},
+            feature_mappings=[{"feature_name": "content", "mapped_column_name": "document_content"}],
         )
 
         dimension_mapping = {"embeddings": 384}
@@ -549,7 +549,7 @@ class TestIndexingRules:
             available_features={
                 "content": {"type": "string", "available_for_vector_db": True},
             },
-            feature_mappings={"content": "document_content"},
+            feature_mappings=[{"feature_name": "content", "mapped_column_name": "document_content"}],
         )
 
         dimension_mapping = {"embeddings": 384}

@@ -11,7 +11,7 @@ from opensearchpy import OpenSearch, helpers
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.utils.infrastructure.logging import get_logger
-from docpipe.utils.operators.vectordb_utils import calculate_batch_size_bytes
+from docpipe.utils.operators.vectordb_utils import build_mapping_dict, calculate_batch_size_bytes, feature_mapping_items
 
 logger = get_logger()
 
@@ -63,7 +63,7 @@ class OpenSearchBatchProcessor:
         index_name: str,
         batch_size: int = DEFAULT_BATCH_SIZE,
         available_features: dict[str, Any] | None = None,
-        feature_mappings: dict[str, str] | None = None,
+        feature_mappings: list[dict[str, str]] | None = None,
     ) -> None:
         """
         Initialize the batch processor.
@@ -73,13 +73,14 @@ class OpenSearchBatchProcessor:
             index_name: Name of the index
             batch_size: Maximum documents per batch
             available_features: Feature configuration
-            feature_mappings: Column to field mappings
+            feature_mappings: Canonical list-of-dicts column to field mappings
         """
         self.client = client
         self.index_name = index_name
         self.batch_size = batch_size
         self.available_features = available_features or {}
-        self.feature_mappings = feature_mappings or {}
+        self.feature_mappings: list[dict[str, str]] = feature_mappings or []
+        self._mapping_dict: dict[str, str] = build_mapping_dict(self.feature_mappings)
 
     def prepare_document(self, *, row_data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -97,7 +98,7 @@ class OpenSearchBatchProcessor:
         doc: dict[str, Any] = {}
 
         # Process fields defined in feature_mappings
-        for feature_name, mapped_name in self.feature_mappings.items():
+        for feature_name, mapped_name in feature_mapping_items(self.feature_mappings):
             # Get value from row data
             value = row_data.get(feature_name)
 

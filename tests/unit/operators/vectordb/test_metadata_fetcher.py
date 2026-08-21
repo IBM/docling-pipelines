@@ -21,6 +21,13 @@ from docpipe.core.operators.vectordb.metadata_fetcher import (
     VectorDBMetadataFetcher,
     compute_default_feature_mappings,
 )
+from docpipe.utils.operators.vectordb_utils import feature_mapping_lookup
+
+
+def _lookup(result: list[dict], key: str) -> str | None:
+    """Helper: look up a feature_name in the returned list-of-dicts."""
+    return feature_mapping_lookup(result, key)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,13 +63,13 @@ class TestComputeDefaultFeatureMappingsRule1Primary:
     def test_is_primary_true_maps_to_pk(self):
         feats = {"doc_hash": _feature(is_primary=True)}
         result = compute_default_feature_mappings(feats)
-        assert result["doc_hash"] == "pk"
+        assert _lookup(result, "doc_hash") == "pk"
 
     def test_primary_tag_maps_to_pk(self):
         """Propagator snapshot format: 'primary' in tags list."""
         feats = {"doc_hash": _feature(tags=["primary"])}
         result = compute_default_feature_mappings(feats)
-        assert result["doc_hash"] == "pk"
+        assert _lookup(result, "doc_hash") == "pk"
 
     def test_only_first_primary_is_mapped(self):
         """Only one feature should get the 'pk' mapping even if two are marked primary."""
@@ -70,13 +77,15 @@ class TestComputeDefaultFeatureMappingsRule1Primary:
             "a": _feature(is_primary=True),
             "b": _feature(is_primary=True),
         }
-        pk_values = [v for v in compute_default_feature_mappings(feats).values() if v == "pk"]
+        pk_values = [
+            e["mapped_column_name"] for e in compute_default_feature_mappings(feats) if e["mapped_column_name"] == "pk"
+        ]
         assert len(pk_values) == 1
 
     def test_non_primary_not_mapped_to_pk(self):
         feats = {"content": _feature()}
         result = compute_default_feature_mappings(feats)
-        assert result.get("content") != "pk"
+        assert _lookup(result, "content") != "pk"
 
 
 # ---------------------------------------------------------------------------
@@ -90,14 +99,14 @@ class TestComputeDefaultFeatureMappingsRule2Id:
     def test_id_feature_maps_to_document_id(self):
         feats = {OperatorConstants.Columns.ID: _feature()}
         result = compute_default_feature_mappings(feats)
-        assert result[OperatorConstants.Columns.ID] == "document_id"
+        assert _lookup(result, OperatorConstants.Columns.ID) == "document_id"
 
     def test_id_already_primary_skips_document_id(self):
         """If 'id' is also the primary feature, it is already consumed by Rule 1."""
         feats = {OperatorConstants.Columns.ID: _feature(is_primary=True)}
         result = compute_default_feature_mappings(feats)
         # Rule 1 maps it to "pk"; Rule 2 must NOT override to "document_id"
-        assert result[OperatorConstants.Columns.ID] == "pk"
+        assert _lookup(result, OperatorConstants.Columns.ID) == "pk"
 
 
 # ---------------------------------------------------------------------------
@@ -111,12 +120,12 @@ class TestComputeDefaultFeatureMappingsRule3Name:
     def test_name_feature_maps_to_document_name(self):
         feats = {OperatorConstants.Columns.NAME: _feature()}
         result = compute_default_feature_mappings(feats)
-        assert result[OperatorConstants.Columns.NAME] == "document_name"
+        assert _lookup(result, OperatorConstants.Columns.NAME) == "document_name"
 
     def test_name_already_primary_skips_document_name(self):
         feats = {OperatorConstants.Columns.NAME: _feature(is_primary=True)}
         result = compute_default_feature_mappings(feats)
-        assert result[OperatorConstants.Columns.NAME] == "pk"
+        assert _lookup(result, OperatorConstants.Columns.NAME) == "pk"
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +139,7 @@ class TestComputeDefaultFeatureMappingsRule4Vector:
     def test_vector_feature_maps_to_vector_embeddings(self):
         feats = {"embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR)}
         result = compute_default_feature_mappings(feats)
-        assert result["embeddings"] == "vector_embeddings"
+        assert _lookup(result, "embeddings") == "vector_embeddings"
 
     def test_only_first_vector_feature_gets_special_mapping(self):
         feats = {
@@ -138,13 +147,13 @@ class TestComputeDefaultFeatureMappingsRule4Vector:
             "vec2": _feature(type_=OperatorConstants.Types.TYPE_VECTOR),
         }
         result = compute_default_feature_mappings(feats)
-        vec_embedding_values = [k for k, v in result.items() if v == "vector_embeddings"]
+        vec_embedding_values = [e["feature_name"] for e in result if e["mapped_column_name"] == "vector_embeddings"]
         assert len(vec_embedding_values) == 1
 
     def test_non_vector_type_not_mapped_to_vector_embeddings(self):
         feats = {"content": _feature(type_="string")}
         result = compute_default_feature_mappings(feats)
-        assert result.get("content") != "vector_embeddings"
+        assert _lookup(result, "content") != "vector_embeddings"
 
 
 # ---------------------------------------------------------------------------
@@ -158,17 +167,17 @@ class TestComputeDefaultFeatureMappingsRule5Sparse:
     def test_sparse_feature_maps_to_sparse_embeddings(self):
         feats = {"sparse_embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR_SPARSE)}
         result = compute_default_feature_mappings(feats, add_sparse_vector=True)
-        assert result["sparse_embeddings"] == OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
+        assert _lookup(result, "sparse_embeddings") == OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
 
     def test_content_maps_to_text_when_sparse(self):
         feats = {"content": _feature(type_="string")}
         result = compute_default_feature_mappings(feats, add_sparse_vector=True)
-        assert result["content"] == "text"
+        assert _lookup(result, "content") == "text"
 
     def test_custom_content_column_maps_to_text(self):
         feats = {"my_text": _feature(type_="string")}
         result = compute_default_feature_mappings(feats, add_sparse_vector=True, content_column="my_text")
-        assert result["my_text"] == "text"
+        assert _lookup(result, "my_text") == "text"
 
     def test_sparse_path_skipped_when_add_sparse_vector_false(self):
         feats = {
@@ -176,15 +185,15 @@ class TestComputeDefaultFeatureMappingsRule5Sparse:
             "content": _feature(type_="string"),
         }
         result = compute_default_feature_mappings(feats, add_sparse_vector=False)
-        assert "sparse_embeddings" not in result
-        assert "content" not in result
+        assert _lookup(result, "sparse_embeddings") is None
+        assert _lookup(result, "content") is None
 
     def test_content_not_duplicated_if_already_covered(self):
         # If content is also a primary key (unlikely but defensive), Rule 1 owns it
         feats = {"content": _feature(is_primary=True)}
         result = compute_default_feature_mappings(feats, add_sparse_vector=True)
-        assert result["content"] == "pk"
-        assert list(result.values()).count("text") == 0
+        assert _lookup(result, "content") == "pk"
+        assert [e["mapped_column_name"] for e in result].count("text") == 0
 
 
 # ---------------------------------------------------------------------------
@@ -201,28 +210,28 @@ class TestComputeDefaultFeatureMappingsRule6Mandatory:
     def test_mandatory_feature_maps_to_itself(self):
         feats = {"custom_required": _feature(mandatory_for_vector_db=True)}
         result = compute_default_feature_mappings(feats)
-        assert result.get("custom_required") == "custom_required"
+        assert _lookup(result, "custom_required") == "custom_required"
 
     def test_available_for_vector_db_only_feature_not_included(self):
         feats = {"title": _feature(available_for_vector_db=True)}
         result = compute_default_feature_mappings(feats)
-        assert "title" not in result
+        assert _lookup(result, "title") is None
 
     def test_mandatory_already_covered_by_rule1_not_duplicated(self):
         # primary key is already Rule 1; Rule 5 must not re-add it under its own name
         feats = {"doc_hash": _feature(is_primary=True, mandatory_for_vector_db=True)}
         result = compute_default_feature_mappings(feats)
-        assert result["doc_hash"] == "pk"
-        assert list(result.values()).count("doc_hash") == 0
+        assert _lookup(result, "doc_hash") == "pk"
+        assert [e["mapped_column_name"] for e in result].count("doc_hash") == 0
 
     def test_mandatory_already_covered_by_rule4_not_duplicated(self):
         # vector type is already Rule 4; Rule 5 must not re-add it as identity
         feats = {"embeddings": _feature(type_=OperatorConstants.Types.TYPE_VECTOR, mandatory_for_vector_db=True)}
         result = compute_default_feature_mappings(feats)
-        assert result["embeddings"] == "vector_embeddings"
+        assert _lookup(result, "embeddings") == "vector_embeddings"
 
-    def test_empty_features_returns_empty_dict(self):
-        assert compute_default_feature_mappings({}) == {}
+    def test_empty_features_returns_empty_list(self):
+        assert compute_default_feature_mappings({}) == []
 
 
 # ---------------------------------------------------------------------------
@@ -245,11 +254,11 @@ class TestComputeDefaultFeatureMappingsCombined:
         }
         result = compute_default_feature_mappings(feats)
 
-        assert result["doc_hash"] == "pk"
-        assert result[OperatorConstants.Columns.ID] == "document_id"
-        assert result[OperatorConstants.Columns.NAME] == "document_name"
-        assert result["embeddings"] == "vector_embeddings"
-        assert "content" not in result
+        assert _lookup(result, "doc_hash") == "pk"
+        assert _lookup(result, OperatorConstants.Columns.ID) == "document_id"
+        assert _lookup(result, OperatorConstants.Columns.NAME) == "document_name"
+        assert _lookup(result, "embeddings") == "vector_embeddings"
+        assert _lookup(result, "content") is None
 
     def test_full_milvus_sparse_feature_set(self):
         feats = {
@@ -262,12 +271,12 @@ class TestComputeDefaultFeatureMappingsCombined:
         }
         result = compute_default_feature_mappings(feats, add_sparse_vector=True)
 
-        assert result["doc_hash"] == "pk"
-        assert result[OperatorConstants.Columns.ID] == "document_id"
-        assert result[OperatorConstants.Columns.NAME] == "document_name"
-        assert result["embeddings"] == "vector_embeddings"
-        assert result["sparse_embeddings"] == OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
-        assert result["content"] == "text"
+        assert _lookup(result, "doc_hash") == "pk"
+        assert _lookup(result, OperatorConstants.Columns.ID) == "document_id"
+        assert _lookup(result, OperatorConstants.Columns.NAME) == "document_name"
+        assert _lookup(result, "embeddings") == "vector_embeddings"
+        assert _lookup(result, "sparse_embeddings") == OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT
+        assert _lookup(result, "content") == "text"
 
     def test_non_typed_mandatory_feature_included_via_rule6(self):
         # A hypothetical future mandatory feature that is neither primary nor vector
@@ -277,9 +286,9 @@ class TestComputeDefaultFeatureMappingsCombined:
             "acl_field": _feature(mandatory_for_vector_db=True),
         }
         result = compute_default_feature_mappings(feats)
-        assert result["doc_hash"] == "pk"
-        assert result["embeddings"] == "vector_embeddings"
-        assert result["acl_field"] == "acl_field"
+        assert _lookup(result, "doc_hash") == "pk"
+        assert _lookup(result, "embeddings") == "vector_embeddings"
+        assert _lookup(result, "acl_field") == "acl_field"
 
 
 # ---------------------------------------------------------------------------
@@ -288,37 +297,37 @@ class TestComputeDefaultFeatureMappingsCombined:
 
 
 class TestNormaliseFeatureMappings:
-    """_normalise_feature_mappings converts three raw formats to list[dict]."""
+    """_normalise_feature_mappings accepts only canonical list-of-dicts."""
 
-    def test_dict_input_converted_to_list_of_dicts(self):
-        raw = {"feat_a": "col_a", "feat_b": "col_b"}
+    def test_list_of_dicts_with_both_keys_passed_through(self):
+        raw = [
+            {"feature_name": "feat_a", "mapped_column_name": "col_a"},
+            {"feature_name": "feat_b", "mapped_column_name": "col_b"},
+        ]
         result = VectorDBMetadataFetcher._normalise_feature_mappings(raw)
-        assert {"feature_name": "feat_a", "mapped_column_name": "col_a"} in result
-        assert {"feature_name": "feat_b", "mapped_column_name": "col_b"} in result
-        assert len(result) == 2
+        assert result == raw
 
-    def test_list_of_dicts_with_feature_name_key_passed_through(self):
-        raw = [{"feature_name": "feat_a", "mapped_column_name": "col_a"}]
+    def test_list_of_dicts_missing_mapped_column_name_filtered(self):
+        raw = [{"feature_name": "feat_a"}]
         result = VectorDBMetadataFetcher._normalise_feature_mappings(raw)
-        assert result == [{"feature_name": "feat_a", "mapped_column_name": "col_a"}]
+        assert result == []
 
-    def test_list_of_lists_converted_to_list_of_dicts(self):
-        raw = [["feat_a", "col_a"], ["feat_b", "col_b"]]
+    def test_list_of_dicts_missing_feature_name_filtered(self):
+        raw = [{"mapped_column_name": "col_a"}]
         result = VectorDBMetadataFetcher._normalise_feature_mappings(raw)
-        assert {"feature_name": "feat_a", "mapped_column_name": "col_a"} in result
-        assert {"feature_name": "feat_b", "mapped_column_name": "col_b"} in result
-
-    def test_empty_dict_returns_empty_list(self):
-        assert VectorDBMetadataFetcher._normalise_feature_mappings({}) == []
+        assert result == []
 
     def test_empty_list_returns_empty_list(self):
         assert VectorDBMetadataFetcher._normalise_feature_mappings([]) == []
 
-    def test_none_returns_empty_list(self):
+    def test_non_list_returns_empty_list(self):
         assert VectorDBMetadataFetcher._normalise_feature_mappings(None) == []
 
-    def test_list_of_tuples_converted_to_list_of_dicts(self):
-        raw = [("feat_a", "col_a")]
+    def test_mixed_list_filters_invalid_entries(self):
+        raw = [
+            {"feature_name": "feat_a", "mapped_column_name": "col_a"},
+            {"feature_name": "feat_b"},  # missing mapped_column_name
+        ]
         result = VectorDBMetadataFetcher._normalise_feature_mappings(raw)
         assert result == [{"feature_name": "feat_a", "mapped_column_name": "col_a"}]
 
@@ -714,26 +723,29 @@ class TestResolveFeatureMappings:
         )
 
     def test_source1_opensearch_feature_mappings_takes_priority(self):
+        saved = [{"feature_name": "feat", "mapped_column_name": "col"}]
         config = {
-            OperatorConstants.VectorDB.OPENSEARCH_FEATURE_MAPPINGS: {"feat": "col"},
-            OperatorConstants.Config.FEATURE_MAPPINGS: {"other": "other_col"},
+            OperatorConstants.VectorDB.OPENSEARCH_FEATURE_MAPPINGS: saved,
+            OperatorConstants.Config.FEATURE_MAPPINGS: [{"feature_name": "other", "mapped_column_name": "other_col"}],
         }
         result = self._call(operator_config=config)
-        assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
+        assert result == saved
 
     def test_source2_generic_feature_mappings_fallback(self):
-        config = {OperatorConstants.Config.FEATURE_MAPPINGS: {"feat": "col"}}
+        saved = [{"feature_name": "feat", "mapped_column_name": "col"}]
+        config = {OperatorConstants.Config.FEATURE_MAPPINGS: saved}
         result = self._call(operator_config=config)
-        assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
+        assert result == saved
 
     def test_source3_meta_stored_mappings_used_when_index_exists(self):
-        mapping = {"my_index": {"mappings": {"_meta": {OperatorConstants.Config.FEATURE_MAPPINGS: {"feat": "col"}}}}}
+        stored = [{"feature_name": "feat", "mapped_column_name": "col"}]
+        mapping = {"my_index": {"mappings": {"_meta": {OperatorConstants.Config.FEATURE_MAPPINGS: stored}}}}
         result = self._call(
             index_name="my_index",
             available_resources=["my_index"],
             mapping=mapping,
         )
-        assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
+        assert result == stored
 
     def test_source4_defaults_from_available_features_when_no_saved(self):
         feats = {OperatorConstants.Columns.ID: _feature(available_for_vector_db=True)}
@@ -939,7 +951,8 @@ class TestMilvusResourceMetadata:
     def test_feature_mappings_source1_feature_mappings_key(self):
         from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata
 
-        operator_config = {OperatorConstants.Config.FEATURE_MAPPINGS: {"feat": "col"}}
+        saved = [{"feature_name": "feat", "mapped_column_name": "col"}]
+        operator_config = {OperatorConstants.Config.FEATURE_MAPPINGS: saved}
         result = MilvusResourceMetadata._resolve_feature_mappings(
             operator_config=operator_config,
             available_features={},
@@ -947,7 +960,7 @@ class TestMilvusResourceMetadata:
             normalise_feature_mappings=VectorDBMetadataFetcher._normalise_feature_mappings,
             default_feature_mappings_from_features=VectorDBMetadataFetcher._default_feature_mappings_from_features,
         )
-        assert result == [{"feature_name": "feat", "mapped_column_name": "col"}]
+        assert result == saved
 
     def test_feature_mappings_source3_defaults_new_collection(self):
         from docpipe.core.operators.vectordb.adapters.outbound.milvus.resource_metadata import MilvusResourceMetadata

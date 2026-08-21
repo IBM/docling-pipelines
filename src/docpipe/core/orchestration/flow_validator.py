@@ -194,6 +194,7 @@ class FlowValidator:
         self.logger = get_logger()
         self.common_log_arguments = orchestrator.common_log_arguments
         self.operator_metadata = OperatorMetadata(orchestrator=orchestrator)
+        self._node_features_cache: dict[str, dict] | None = None
         # Load operator metadata once during initialization
         # Operators that require external services may fail to load metadata
         # This is acceptable for validation as we only need structural information
@@ -769,7 +770,14 @@ class FlowValidator:
         Unlike validate_dag_with_features(), this method does not raise on validation
         warnings, making it safe to call on in-progress flows. Each node in the DAG
         produces one entry in the returned dict regardless of validation state.
+
+        The result is cached on the instance after the first call. When FlowExecutor
+        calls validate() then propagate_features_per_node() on the same validator
+        instance, the second DAG traversal is skipped entirely.
         """
+        if self._node_features_cache is not None:
+            return self._node_features_cache
+
         normalized_flow_def = flow_def
         if "definition" in normalized_flow_def:
             normalized_flow_def = normalized_flow_def["definition"]
@@ -838,6 +846,7 @@ class FlowValidator:
             flow_name="feature_propagation_debug_flow", task=feature_debug_task, dag=dag
         )
         clean_up_prefect_home()
+        self._node_features_cache = node_features
         return node_features
 
     def _validate_first_operator(self, *, dag: list, validate_results: ValidateStepResults):

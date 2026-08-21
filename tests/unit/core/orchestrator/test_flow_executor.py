@@ -3,11 +3,13 @@
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.orchestration.flow_executor import FlowExecutor
 from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
@@ -202,6 +204,53 @@ class TestFlowExecutor:
 
         with pytest.raises(Exception, match="Execution failed"):
             executor.execute(orchestrator=mock_orchestrator, params=params)
+
+    @patch("docpipe.core.orchestration.flow_executor.get_session_info")
+    @patch("docpipe.core.orchestration.flow_executor.FlowValidator")
+    def test_execute_injects_available_features_into_node_config(self, mock_validator, mock_session):
+        """Propagated available_features are written directly into each node's config dict."""
+        mock_session.return_value = Mock(
+            get_common_log_arguments=Mock(return_value={}),
+            job_run_id="run_123",
+            job_id="job_123",
+        )
+
+        propagated_features = {
+            "embeddings": {
+                "available_for_vector_db": True,
+                "type": "vector",
+            }
+        }
+        mock_validator_instance = Mock()
+        mock_validator_instance.propagate_features_per_node.return_value = {
+            "node-2": {OperatorConstants.Config.AVAILABLE_FEATURES: propagated_features}
+        }
+        mock_validator.return_value = mock_validator_instance
+
+        mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = None
+        mock_tracker_instance = Mock()
+        mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
+        mock_orchestrator.job_tracker = mock_tracker_instance
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
+        mock_orchestrator.execute.return_value = Mock()
+
+        node: dict[str, Any] = {"id": "node-2"}
+        flow_def = {"name": "Test", "global_config": {}, "dag": [node]}
+        executor = FlowExecutor(flow_def=flow_def)
+
+        params = {DocpipeConstants.JOB_RUN_ID: "run_123", DocpipeConstants.JOB_ID: "job_123"}
+        executor.execute(orchestrator=mock_orchestrator, params=params)
+
+        # available_features must be injected directly into the node's config dict,
+        # not tunnelled through params or global_config.
+        node_config: dict[str, Any] = node.get("config", {})
+        assert node_config.get(OperatorConstants.Config.AVAILABLE_FEATURES) == propagated_features
+        assert "_propagated_node_features" not in params
+        mock_validator_instance.propagate_features_per_node.assert_called_once_with(
+            flow_def=flow_def,
+            global_config={},
+        )
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
     def test_cancel(self, mock_session):

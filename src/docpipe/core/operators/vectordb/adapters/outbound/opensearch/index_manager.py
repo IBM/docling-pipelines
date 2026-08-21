@@ -16,6 +16,7 @@ from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.exceptions.docpipe_exceptions import TROUBLESHOOTING_DOCS_URL, DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.operators.vectordb_utils import build_mapping_dict
 
 logger = get_logger()
 
@@ -132,7 +133,7 @@ class OpenSearchIndexManager:
         engine_parameters: dict[str, Any] | None = None,
         index_settings: dict[str, Any] | None = None,
         available_features: dict[str, Any] | None = None,
-        feature_mappings: dict[str, str] | None = None,
+        feature_mappings: list[dict[str, str]] | None = None,
         schema_template_path: str | None = None,
     ) -> None:
         """
@@ -147,7 +148,7 @@ class OpenSearchIndexManager:
             engine_parameters: Custom engine-specific parameters
             index_settings: Custom index settings
             available_features: Feature configuration
-            feature_mappings: Column to field mappings
+            feature_mappings: Canonical list-of-dicts column to field mappings
             schema_template_path: Optional path to JSON schema template file
         """
         self.client = client
@@ -158,7 +159,8 @@ class OpenSearchIndexManager:
         self.engine_parameters = engine_parameters or {}
         self.index_settings = index_settings
         self.available_features = available_features or {}
-        self.feature_mappings = feature_mappings or {}
+        self.feature_mappings: list[dict[str, str]] = feature_mappings or []
+        self._mapping_dict: dict[str, str] = build_mapping_dict(self.feature_mappings)
         self.schema_template_path = schema_template_path
 
         self._validate_engine_algorithm()
@@ -720,7 +722,7 @@ class OpenSearchIndexManager:
                             "algorithm": self.algorithm,
                             "space_type": self.space_type,
                             "created_by": "docling-pipelines",
-                            "feature_mappings": self.feature_mappings,
+                            OperatorConstants.Config.FEATURE_MAPPINGS: self.feature_mappings,
                         }
                     )
 
@@ -779,7 +781,7 @@ class OpenSearchIndexManager:
             if not feature_config.get(OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, False):
                 continue
 
-            mapped_name: str = self.feature_mappings.get(feature_name, feature_name)
+            mapped_name = self._mapping_dict.get(feature_name, feature_name)
             feature_type: str = feature_config.get("type", "text")
 
             # Map feature types to OpenSearch types
@@ -842,7 +844,7 @@ class OpenSearchIndexManager:
                     "algorithm": self.algorithm,
                     "space_type": self.space_type,
                     "created_by": "docling-pipelines",
-                    "feature_mappings": self.feature_mappings,
+                    OperatorConstants.Config.FEATURE_MAPPINGS: self.feature_mappings,
                 },
             }
         }
@@ -860,7 +862,7 @@ class OpenSearchIndexManager:
         Supports schemas with or without settings or custom analysis blocks.
         Resolves configurations dynamically by matching features against indexing_rules.
         """
-        logger.debug(f"Building index body using template schema: {schema.get('schema_name', 'unknown')}")
+        logger.debug("Building index body using template schema: %s", schema.get("schema_name", "unknown"))
 
         # 1. Safely handle settings and drop empty/null analysis dictionaries
         schema_settings = deepcopy(schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS, {}))
@@ -889,10 +891,10 @@ class OpenSearchIndexManager:
         # 2. Map logical feature columns onto physical target structures
         for feature_name, feature_config in self.available_features.items():
             if not feature_config.get("available_for_vector_db", True):
-                logger.debug(f"Skipping feature {feature_name}: Not available for VectorDB.")
+                logger.debug("Skipping feature %s: Not available for VectorDB.", feature_name)
                 continue
 
-            mapped_name = self.feature_mappings.get(feature_name, feature_name)
+            mapped_name = self._mapping_dict.get(feature_name, feature_name)
 
             # Validate against reserved fields
             if mapped_name in RESERVED_FIELDS:
@@ -956,7 +958,11 @@ class OpenSearchIndexManager:
         try:
             self.client.indices.put_mapping(
                 index=self.index_name,
-                body={OperatorConstants.VectorDB.SCHEMA_KEY_META: {"feature_mappings": self.feature_mappings}},
+                body={
+                    OperatorConstants.VectorDB.SCHEMA_KEY_META: {
+                        OperatorConstants.Config.FEATURE_MAPPINGS: self.feature_mappings
+                    }
+                },
             )
             logger.debug("Updated _meta.feature_mappings for index %s", self.index_name)
         except Exception as exc:
@@ -1049,7 +1055,7 @@ class OpenSearchIndexManager:
 
             mismatches: list[str] = []
             for vector_column, runtime_dimension in dimension_mapping.items():
-                mapped_field_name = self.feature_mappings.get(vector_column, vector_column)
+                mapped_field_name = self._mapping_dict.get(vector_column, vector_column)
                 field_mapping = properties.get(mapped_field_name)
 
                 if not field_mapping:

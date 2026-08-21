@@ -886,7 +886,7 @@ class IngestSourceOperator(AbstractOperator):
                 OperatorConstants.Columns.NAME: "Document Name",
                 OperatorConstants.Config.DESCRIPTION: "The source name or file name of the document",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "path": {

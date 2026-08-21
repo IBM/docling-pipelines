@@ -49,12 +49,12 @@ class TestMultiModelEmbeddings:
                     "type": "string",
                 },
             },
-            OperatorConstants.Config.FEATURE_MAPPINGS: {
-                "doc_id_hash": "pk",
-                "embeddings": "vector_embeddings",
-                "embeddings_alt": "vector_embeddings_alt",
-                "text": "text",
-            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [
+                {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+                {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+                {"feature_name": "embeddings_alt", "mapped_column_name": "vector_embeddings_alt"},
+                {"feature_name": "text", "mapped_column_name": "text"},
+            ],
             OperatorConstants.Config.PROVIDER_CONFIG: {
                 OperatorConstants.VectorDB.INDEX_NAME: "multi_model_test",
                 OperatorConstants.VectorDB.HOST: "localhost",
@@ -290,10 +290,10 @@ class TestMilvusMultiModelInterface:
                     "type": "vector",
                 },
             },
-            OperatorConstants.Config.FEATURE_MAPPINGS: {
-                "doc_id_hash": "pk",
-                "embeddings": "vector_embeddings",
-            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [
+                {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+                {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+            ],
             OperatorConstants.Config.PROVIDER_CONFIG: {
                 "collection_name": "test_collection",
                 "auth_type": "standalone",

@@ -114,8 +114,8 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = available_features
 
             # Use user-provided feature_mappings when present; otherwise compute defaults
-            # from available_features so _meta.feature_mappings is never stored as {}.
-            user_mappings = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+            # from available_features so _meta.feature_mappings is never stored as [].
+            user_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
             if not user_mappings and available_features:
                 from docpipe.core.operators.vectordb.metadata_fetcher import compute_default_feature_mappings
 
@@ -128,6 +128,8 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     "No feature_mappings provided — computed defaults from available_features for provider '%s'",
                     self.provider,
                 )
+            # Store canonical list-of-dicts back into config so validation sees one shape
+            self.config[OperatorConstants.Config.FEATURE_MAPPINGS] = user_mappings
             adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = user_mappings
             # Add sparse vector configuration if present (Milvus-specific)
             if OperatorConstants.VectorDB.ADD_SPARSE_VECTOR in self.config:
@@ -167,13 +169,17 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         # Validate that every mandatory_for_vector_db feature has a feature mapping.
         # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
         # will fail at runtime if a mandatory feature has no mapped column.
-        feature_mappings: dict = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+        feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
         op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         if feature_mappings and op_available_features:
+            mapped_feature_names: set[str] = {
+                entry["feature_name"] for entry in feature_mappings if "feature_name" in entry
+            }
             mandatory_missing = [
                 name
                 for name, meta in op_available_features.items()
-                if meta.get(OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB, False) and name not in feature_mappings
+                if meta.get(OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB, False)
+                and name not in mapped_feature_names
             ]
             if mandatory_missing:
                 errors.append("Mappings are missing for mandatory features: " + ", ".join(sorted(mandatory_missing)))

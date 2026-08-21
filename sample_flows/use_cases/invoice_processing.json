@@ -14,7 +14,11 @@
       "type": "ingest_source",
       "config": {
         "provider": "filesystem",
-        "connection_params": {"paths": ["tests/fixtures/invoices"]},
+        "connection_params": {
+          "paths": [
+            "tests/fixtures/invoices"
+          ]
+        },
         "include_filter": ".pdf",
         "max_workers": 2
       }
@@ -75,7 +79,7 @@
     {
       "name": "embeddings",
       "type": "embeddings",
-       "config": {
+      "config": {
         "provider": "litellm",
         "embeddings_column": "embeddings",
         "doc_column": "content",
@@ -111,55 +115,36 @@
           "algorithm": "hnsw",
           "space_type": "l2"
         },
-        "available_features": {
-          "doc_id_hash": {
-            "name": "Document ID",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "string",
-            "is_primary": true
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
           },
-          "content": {
-            "name": "Content",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
           },
-          "embeddings": {
-            "name": "Embeddings",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
           },
-          "extracted_invoice_number": {
-            "name": "Invoice Number",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "extracted_invoice_number",
+            "mapped_column_name": "invoice_number"
           },
-          "extracted_invoice_date": {
-            "name": "Invoice Date",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "extracted_invoice_date",
+            "mapped_column_name": "invoice_date"
           },
-          "extracted_vendor_name": {
-            "name": "Vendor Name",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "extracted_vendor_name",
+            "mapped_column_name": "vendor_name"
           },
-          "extracted_grand_total": {
-            "name": "Grand Total",
-            "available_for_vector_db": true,
-            "type": "float"
+          {
+            "feature_name": "extracted_grand_total",
+            "mapped_column_name": "grand_total"
           }
-        },
-        "feature_mappings": {
-          "doc_id_hash": "pk",
-          "content": "text",
-          "embeddings": "vector_embeddings",
-          "extracted_invoice_number": "invoice_number",
-          "extracted_invoice_date": "invoice_date",
-          "extracted_vendor_name": "vendor_name",
-          "extracted_grand_total": "grand_total"
-        }
+        ]
       },
       "depends_on": [
         "embeddings"

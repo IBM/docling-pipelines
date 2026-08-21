@@ -53,12 +53,12 @@ def basic_features():
 @pytest.fixture
 def feature_mappings():
     """Feature mappings"""
-    return {
-        "doc_id": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings",
-        "metadata": "meta",
-    }
+    return [
+        {"feature_name": "doc_id", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        {"feature_name": "metadata", "mapped_column_name": "meta"},
+    ]
 
 
 class TestBatchProcessorInitialization:
@@ -215,10 +215,10 @@ class TestDocumentPreparation:
         }
 
         # feature_mappings defines which fields to include
-        mappings = {
-            "included": "included",
-            "excluded": "excluded",
-        }
+        mappings = [
+            {"feature_name": "included", "mapped_column_name": "included"},
+            {"feature_name": "excluded", "mapped_column_name": "excluded"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -321,7 +321,7 @@ class TestBatchCreation:
         """Test creating multiple batches based on size limit"""
         # Define features so documents aren't filtered out
         features = {"content": {"available_for_vector_db": True, "type": "string"}}
-        mappings = {"content": "content"}
+        mappings = [{"feature_name": "content", "mapped_column_name": "content"}]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -347,7 +347,7 @@ class TestBatchCreation:
         """Test batch action structure"""
         # Define features so documents aren't filtered out
         features = {"content": {"available_for_vector_db": True, "type": "string"}}
-        mappings = {"content": "content"}
+        mappings = [{"feature_name": "content", "mapped_column_name": "content"}]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,

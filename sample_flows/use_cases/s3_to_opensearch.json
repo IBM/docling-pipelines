@@ -90,37 +90,24 @@
           "algorithm": "hnsw",
           "space_type": "l2"
         },
-        "available_features": {
-          "doc_id_hash": {
-            "name": "Document ID Hash",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "string",
-            "is_primary": true
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
           },
-          "content": {
-            "name": "Content",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
           },
-          "source_id": {
-            "name": "Source Path",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "source_id",
+            "mapped_column_name": "source_id"
           },
-          "embeddings": {
-            "name": "Embeddings",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
           }
-        },
-        "feature_mappings": {
-          "doc_id_hash": "pk",
-          "content": "text",
-          "source_id": "source_id",
-          "embeddings": "vector_embeddings"
-        }
+        ]
       },
       "depends_on": [
         "embeddings"

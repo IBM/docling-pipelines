@@ -47,11 +47,11 @@ def basic_features():
 @pytest.fixture
 def feature_mappings():
     """Feature mappings"""
-    return {
-        "doc_id": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings",
-    }
+    return [
+        {"feature_name": "doc_id", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+    ]
 
 
 class TestIndexManagerInitialization:
@@ -806,7 +806,7 @@ class TestIndexOperations:
 class TestUpdateFeatureMappingsInIndex:
     """update_feature_mappings_in_index() writes _meta.feature_mappings via put_mapping."""
 
-    def _manager(self, *, mock_client: MagicMock, feature_mappings: dict | None = None) -> OpenSearchIndexManager:
+    def _manager(self, *, mock_client: MagicMock, feature_mappings: list | None = None) -> OpenSearchIndexManager:
         return OpenSearchIndexManager(
             mock_client,
             index_name="test_index",
@@ -814,23 +814,20 @@ class TestUpdateFeatureMappingsInIndex:
         )
 
     def test_calls_put_mapping_with_correct_body(self, mock_client):
-        manager = self._manager(
-            mock_client=mock_client,
-            feature_mappings={"doc_id_hash": "pk", "embeddings": "vector_embeddings"},
-        )
+        mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        ]
+        manager = self._manager(mock_client=mock_client, feature_mappings=mappings)
         manager.update_feature_mappings_in_index()
 
         mock_client.indices.put_mapping.assert_called_once_with(
             index="test_index",
-            body={
-                OperatorConstants.VectorDB.SCHEMA_KEY_META: {
-                    "feature_mappings": {"doc_id_hash": "pk", "embeddings": "vector_embeddings"}
-                }
-            },
+            body={OperatorConstants.VectorDB.SCHEMA_KEY_META: {"feature_mappings": mappings}},
         )
 
     def test_skips_put_mapping_when_feature_mappings_empty(self, mock_client):
-        manager = self._manager(mock_client=mock_client, feature_mappings={})
+        manager = self._manager(mock_client=mock_client, feature_mappings=[])
         manager.update_feature_mappings_in_index()
         mock_client.indices.put_mapping.assert_not_called()
 
@@ -842,7 +839,9 @@ class TestUpdateFeatureMappingsInIndex:
     def test_does_not_raise_on_put_mapping_exception(self, mock_client):
         """put_mapping failure must be swallowed (logged as warning) — never raise."""
         mock_client.indices.put_mapping.side_effect = Exception("connection refused")
-        manager = self._manager(mock_client=mock_client, feature_mappings={"feat": "col"})
+        manager = self._manager(
+            mock_client=mock_client, feature_mappings=[{"feature_name": "feat", "mapped_column_name": "col"}]
+        )
         manager.update_feature_mappings_in_index()  # must not raise
 
     def test_create_index_calls_update_on_new_index(self, mock_client):
@@ -852,7 +851,7 @@ class TestUpdateFeatureMappingsInIndex:
 
         manager = self._manager(
             mock_client=mock_client,
-            feature_mappings={"doc_id_hash": "pk"},
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "pk"}],
         )
         manager.update_feature_mappings_in_index = MagicMock()
         manager.create_index(dimension_mapping={})
@@ -873,7 +872,7 @@ class TestUpdateFeatureMappingsInIndex:
 
         manager = self._manager(
             mock_client=mock_client,
-            feature_mappings={"doc_id_hash": "pk"},
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "pk"}],
         )
         manager.update_feature_mappings_in_index = MagicMock()
         manager.create_index(dimension_mapping={"vector_embeddings": 384})

@@ -117,6 +117,20 @@ class FlowExecutor:
             else:
                 raise exc
 
+        propagated_node_features = flow_validator.propagate_features_per_node(
+            flow_def=self.flow_def,
+            global_config=self.flow_def.get("global_config", {}),
+        )
+        # Inject available_features directly into each node's config — same mechanism
+        # used by FlowEnrichmentService for the API/UI path (injects into node.parameters).
+        # This avoids threading a private key through global_config and polluting every
+        # operator's config dict with the full propagation snapshot.
+        for node in self.flow_def.get("dag", []):
+            node_id = node.get("id")
+            features = propagated_node_features.get(node_id, {}).get("available_features", {})
+            if features:
+                node.setdefault("config", {})["available_features"] = features
+
         FlowExecutor.print_diagnostic_info(self)
 
         # Save original flow definition to filesystem for audit and reproducibility
