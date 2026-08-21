@@ -1663,3 +1663,328 @@ class TestMarkPendingBatchesAsSkipped:
         assert "node_metadata" in updated_stats[0].node_metadata
         assert "skip_reason" in updated_stats[0].node_metadata["node_metadata"]
         assert updated_stats[0].node_metadata["node_metadata"]["skip_reason"] == reason
+
+
+class TestGetNodeStats:
+    def test_delegates_to_aggregator(self, *, job_tracker_service, mock_aggregator):
+        """Covers get_node_stats (line 715)."""
+        mock_aggregator.get_aggregated_node_stats.return_value = {"n1": NodeStats(id="n1", name="ingest")}
+        result = job_tracker_service.get_node_stats(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        mock_aggregator.get_aggregated_node_stats.assert_called_once_with(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        assert "n1" in result
+
+
+class TestCancelJobRunIfCancelling:
+    def test_returns_false_when_no_job(self, *, job_tracker_service, mock_store):
+        """Line 846 branch: job not found."""
+        mock_store.get_job_stats.return_value = None
+        assert job_tracker_service.cancel_job_run_if_cancelling(job_run_id=JOB_RUN_ID) is False
+
+    def test_returns_true_and_stores_when_canceling(self, *, job_tracker_service, mock_store):
+        """Lines 848-856: CANCELING -> CANCELED."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.CANCELING)
+        mock_store.get_job_stats.return_value = job_stats
+        result = job_tracker_service.cancel_job_run_if_cancelling(job_run_id=JOB_RUN_ID)
+        assert result is True
+        mock_store.store_job_stats.assert_called_once()
+
+    def test_returns_false_when_not_canceling(self, *, job_tracker_service, mock_store):
+        """Line 858: non-canceling status."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING)
+        mock_store.get_job_stats.return_value = job_stats
+        result = job_tracker_service.cancel_job_run_if_cancelling(job_run_id=JOB_RUN_ID)
+        assert result is False
+
+
+class TestRequestDeleteJobRun:
+    def test_raises_when_not_found(self, *, job_tracker_service, mock_store):
+        """Lines 873-877: job not found."""
+        from docpipe.exceptions.docpipe_exceptions import JobRunNotFoundException
+
+        mock_store.get_job_stats.return_value = None
+        with pytest.raises(JobRunNotFoundException):
+            job_tracker_service.request_delete_job_run(job_run_id=JOB_RUN_ID)
+
+    def test_deletes_and_returns_message(self, *, job_tracker_service, mock_store):
+        """Lines 880-883: happy path."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        mock_store.get_job_stats.return_value = job_stats
+        result = job_tracker_service.request_delete_job_run(job_run_id=JOB_RUN_ID)
+        mock_store.delete_job_stats.assert_called_once_with(JOB_RUN_ID)
+        assert JOB_RUN_ID in result
+
+
+class TestBuildBatchSummaryLines:
+    def test_empty_batch_stats_returns_empty(self, *, job_tracker_service):
+        """Line 910-911: empty dict."""
+        result = job_tracker_service._build_batch_summary_lines({})
+        assert result == []
+
+    def test_batch_with_failed_status_appended(self, *, job_tracker_service):
+        """Lines 922-935: failed batch shows error details."""
+        batch_stat = NodeStats(
+            id="b1",
+            name="extract",
+            node_status=ExecutionStatus.FAILED.value,
+            batch_num=1,
+            time_taken=2.0,
+            total_docs=["d1"],
+            failed_docs=["d1"],
+            docs_completed=[],
+            skipped_docs=[],
+            col_names=[],
+        )
+        batch_stat.error = "timeout"
+        lines = job_tracker_service._build_batch_summary_lines({"batch_1": batch_stat})
+        assert any("Error Details" in line for line in lines)
+
+    def test_skipped_batch_with_reason(self, *, job_tracker_service):
+        """Line 931-932: skipped batch with error reason."""
+        batch_stat = NodeStats(
+            id="b1",
+            name="extract",
+            node_status=ExecutionStatus.SKIPPED.value,
+            batch_num=1,
+            time_taken=0.0,
+            total_docs=[],
+            failed_docs=[],
+            docs_completed=[],
+            skipped_docs=[],
+            col_names=[],
+        )
+        batch_stat.error = "upstream failed"
+        lines = job_tracker_service._build_batch_summary_lines({"batch_1": batch_stat})
+        assert any("Reason: upstream failed" in line for line in lines)
+
+
+class TestBuildNodeLogLines:
+    def test_builds_lines_without_batch_stats(self, *, job_tracker_service):
+        """Lines 945-979: builds log lines from NodeStats."""
+        node = NodeStats(
+            id="n1",
+            name="ingest",
+            node_status=ExecutionStatus.COMPLETED.value,
+            time_taken=3.0,
+            total_docs=["d1"],
+            docs_completed=["d1"],
+            failed_docs=[],
+            skipped_docs=[],
+            col_names=["id", "content"],
+        )
+        lines = job_tracker_service._build_node_log_lines(node)
+        assert any("ingest" in line for line in lines)
+        assert any("Operator Summary" in line for line in lines)
+
+    def test_builds_lines_with_batch_stats(self, *, job_tracker_service):
+        """Lines 963-964: includes batch summary when batch_stats present."""
+        node = NodeStats(
+            id="n1",
+            name="extract",
+            node_status=ExecutionStatus.COMPLETED.value,
+            time_taken=5.0,
+            total_docs=["d1"],
+            docs_completed=["d1"],
+            failed_docs=[],
+            skipped_docs=[],
+            col_names=[],
+        )
+        batch_stat = NodeStats(
+            id="n1",
+            name="extract",
+            node_status=ExecutionStatus.COMPLETED.value,
+            batch_num=1,
+            time_taken=2.0,
+            total_docs=["d1"],
+            docs_completed=["d1"],
+            failed_docs=[],
+            skipped_docs=[],
+            col_names=[],
+        )
+        lines = job_tracker_service._build_node_log_lines(node, batch_stats={"batch_1": batch_stat})
+        assert any("Batch" in line for line in lines)
+
+
+class TestGetJobRunLogs:
+    def test_returns_empty_when_no_job(self, *, job_tracker_service, mock_store):
+        """Lines 986-987: no job found."""
+        mock_store.get_job_stats.return_value = None
+        result = job_tracker_service.get_job_run_logs(job_run_id=JOB_RUN_ID)
+        assert result == []
+
+    def test_returns_logs_for_job(self, *, job_tracker_service, mock_store, mock_aggregator):
+        """Lines 989-1006: returns formatted log lines."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        node = NodeStats(
+            id="n1",
+            name="ingest",
+            node_status=ExecutionStatus.COMPLETED.value,
+            time_taken=1.0,
+            total_docs=["d1"],
+            docs_completed=["d1"],
+            failed_docs=[],
+            skipped_docs=[],
+            col_names=[],
+        )
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        mock_store.get_job_stats.return_value = job_stats
+        # get_job() calls aggregator — return proper dict and empty batch stats
+        mock_aggregator.get_aggregated_node_stats.return_value = {"n1": node}
+        mock_aggregator.get_batch_node_stats.return_value = {}
+        result = job_tracker_service.get_job_run_logs(job_run_id=JOB_RUN_ID)
+        assert len(result) > 0
+
+
+class TestIsJobRunComplete:
+    def test_returns_false_when_not_found(self, *, job_tracker_service, mock_store):
+        """Lines 1018-1020."""
+        mock_store.get_job_stats.return_value = None
+        assert job_tracker_service.is_job_run_complete(job_run_id=JOB_RUN_ID) is False
+
+    def test_returns_true_for_completed(self, *, job_tracker_service, mock_store):
+        """Lines 1022-1027."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.COMPLETED)
+        mock_store.get_job_stats.return_value = job_stats
+        assert job_tracker_service.is_job_run_complete(job_run_id=JOB_RUN_ID) is True
+
+    def test_returns_false_for_running(self, *, job_tracker_service, mock_store):
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING)
+        mock_store.get_job_stats.return_value = job_stats
+        assert job_tracker_service.is_job_run_complete(job_run_id=JOB_RUN_ID) is False
+
+
+class TestCalculateNodeSequence:
+    def test_empty_returns_empty(self):
+        assert JobTrackerService._calculate_node_sequence(node_stats={}) == []
+
+    def test_sorts_by_start_time(self):
+        """Lines 1464-1472."""
+        n1 = NodeStats(id="n1", name="a", start_time=10, end_time=20)
+        n2 = NodeStats(id="n2", name="b", start_time=5, end_time=15)
+        result = JobTrackerService._calculate_node_sequence(node_stats={"n1": n1, "n2": n2})
+        assert result[0] == "n2"
+
+
+class TestBuildNodeMetadataArray:
+    def test_builds_from_object_stats(self):
+        """Lines 1478-1494."""
+        node = NodeStats(id="n1", name="ingest")
+        result = JobTrackerService._build_node_metadata_array(node_stats={"n1": node})
+        assert len(result) == 1
+        assert result[0]["id"] == "n1"
+        assert result[0]["operator"] == "ingest"
+
+    def test_builds_from_dict_stats(self):
+        """Line 1480-1481: dict branch."""
+        node = {"name": "extract", "node_metadata": {"total_docs": 10}}
+        result = JobTrackerService._build_node_metadata_array(node_stats={"n1": node})
+        assert result[0]["operator"] == "extract"
+
+
+class TestDetectPartialBatchFailure:
+    def test_returns_false_when_batching_disabled(self, *, job_tracker_service, mock_store):
+        """Line 1436-1437."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        result = job_tracker_service.detect_partial_batch_failure(
+            job_stats=job_stats, global_config={"enable_micro_batching": False}
+        )
+        assert result is False
+
+    def test_returns_false_when_no_batch_stats(self, *, job_tracker_service, mock_store):
+        """Lines 1440-1441."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        job_stats.batch_node_stats = {}
+        result = job_tracker_service.detect_partial_batch_failure(
+            job_stats=job_stats,
+            global_config={"enable_micro_batching": True, "continue_on_batch_failure": True},
+        )
+        assert result is False
+
+    def test_returns_true_for_partial_failure(self, *, job_tracker_service):
+        """Lines 1447-1455: some but not all batches failed."""
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        failed_stat = NodeStats(id="n1", name="x", node_status=ExecutionStatus.FAILED.value)
+        ok_stat = NodeStats(id="n1", name="x", node_status=ExecutionStatus.COMPLETED.value)
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        job_stats.batch_node_stats = {"n1": {"b1": failed_stat, "b2": ok_stat}}
+        result = job_tracker_service.detect_partial_batch_failure(
+            job_stats=job_stats,
+            global_config={"enable_micro_batching": True, "continue_on_batch_failure": True},
+        )
+        assert result is True
+
+
+class TestCreatePendingBatchNodeStats:
+    def test_creates_pending_stats_bulk(self, *, job_tracker_service, mock_store):
+        """Lines 1579-1614."""
+        job_tracker_service.create_pending_batch_node_stats(
+            job_run_id=JOB_RUN_ID,
+            batch_ids=["b1", "b2"],
+            batch_nums=[1, 2],
+            downstream_node_ids=["n1"],
+            downstream_node_names=["extract"],
+        )
+        mock_store.bulk_store_node_stats.assert_called_once()
+        stored = mock_store.bulk_store_node_stats.call_args[1]["node_stats_list"]
+        assert len(stored) == 2
+
+    def test_raises_on_batch_length_mismatch(self, *, job_tracker_service):
+        """Line 1580."""
+        with pytest.raises(ValueError, match="same length"):
+            job_tracker_service.create_pending_batch_node_stats(
+                job_run_id=JOB_RUN_ID,
+                batch_ids=["b1"],
+                batch_nums=[1, 2],
+                downstream_node_ids=["n1"],
+                downstream_node_names=["extract"],
+            )
+
+    def test_raises_on_node_length_mismatch(self, *, job_tracker_service):
+        """Lines 1582-1586."""
+        with pytest.raises(ValueError, match="same length"):
+            job_tracker_service.create_pending_batch_node_stats(
+                job_run_id=JOB_RUN_ID,
+                batch_ids=["b1"],
+                batch_nums=[1],
+                downstream_node_ids=["n1", "n2"],
+                downstream_node_names=["extract"],
+            )
+
+
+class TestUpdateDocCounts:
+    def test_raises_when_job_not_found(self, *, job_tracker_service, mock_store):
+        """Lines 731-733."""
+        from docpipe.exceptions.docpipe_exceptions import JobRunNotFoundException
+
+        mock_store.get_job_stats.return_value = None
+        with pytest.raises(JobRunNotFoundException):
+            job_tracker_service.update_doc_counts(job_run_id=JOB_RUN_ID, metadata={}, operator_category="ingest")
+
+    def test_updates_ingest_total_docs_list(self, *, job_tracker_service, mock_store):
+        """Lines 743-750: ingest category, list value."""
+        from docpipe.core.constants.constants import Metrics
+        from docpipe.core.job_management.domain.models.job_stats import JobStats
+
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID)
+        mock_store.get_job_stats.return_value = job_stats
+        job_tracker_service.update_doc_counts(
+            job_run_id=JOB_RUN_ID,
+            metadata={Metrics.External.TOTAL_DOCS: ["d1", "d2"]},
+            operator_category="Ingest",
+        )
+        assert job_stats.total_docs == 2

@@ -226,6 +226,7 @@ class MicrosoftGraphLoader(BaseLoader):
                 )
 
     def load(self) -> list[Document]:
+        """Load."""
         return list(self.lazy_load())
 
 
@@ -571,6 +572,7 @@ class IngestSourceOperator(AbstractOperator):
 
         # Process documents using async generator with batch-fetch logic
         async def process_async_generator():
+            """Process async generator."""
             nonlocal processed_count, total_fetched
 
             batch: list[Document] = []

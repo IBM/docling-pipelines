@@ -30,6 +30,8 @@ class GlobalConfigParam:
 
 class GlobalConfigMetadata:
     # All global config parameters organized by category
+    """Globalconfigmetadata."""
+
     _PARAMETERS: ClassVar[dict[str, GlobalConfigParam]] = {
         # Incremental Processing
         DocpipeConstants.FORCE_INGEST: GlobalConfigParam(
@@ -179,10 +181,12 @@ class GlobalConfigMetadata:
 
     @classmethod
     def get_all_config_metadata(cls) -> dict[str, GlobalConfigParam]:
+        """Get all config metadata."""
         return cls._PARAMETERS.copy()
 
     @classmethod
     def get_config_by_category(cls) -> dict[str, list[GlobalConfigParam]]:
+        """Get config by category."""
         by_category: dict[str, list[GlobalConfigParam]] = {}
         for param in cls._PARAMETERS.values():
             if param.category not in by_category:
@@ -192,5 +196,6 @@ class GlobalConfigMetadata:
 
     @classmethod
     def get_categories(cls) -> list[str]:
+        """Get categories."""
         categories = {param.category for param in cls._PARAMETERS.values()}
         return sorted(categories)

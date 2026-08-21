@@ -69,6 +69,7 @@ class RedactionOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata():
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: RedactionOperator.category.value,
@@ -102,6 +103,7 @@ class RedactionOperator(AbstractOperator):
         }
 
     def validate(self, errors: list, warnings: list, available_features: list):
+        """Validate."""
         super().validate(errors, warnings, available_features)
 
         if self.should_validate_field(field_value=self.raw_regex):
@@ -186,4 +188,5 @@ class RedactionOperator(AbstractOperator):
 
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]

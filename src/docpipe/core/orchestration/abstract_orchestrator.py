@@ -1,3 +1,5 @@
+"""Abstract base class for all docpipe flow orchestrators."""
+
 from abc import ABC, abstractmethod
 from operator import itemgetter
 from queue import Queue
@@ -36,6 +38,11 @@ P = ParamSpec("P")
 
 
 class AbstractOrchestrator(ABC):
+    """Base class defining the orchestration contract for executing flow DAGs.
+
+    Subclasses implement ``create_executor_impl`` and ``_create_flow_engine``
+    to provide engine-specific execution behaviour (Python, Prefect, etc.)."""
+
     def __init__(
         self,
         *,
@@ -166,6 +173,12 @@ class AbstractOrchestrator(ABC):
 
     def _handle_node_failure(self, *, e, op_def, global_config):
         # Check if continue_on_batch_failure is enabled
+        """Handle a node-level failure, updating job status and notifying the event handler.
+
+        Args:
+            e: The exception that caused the failure.
+            op_def: The operator definition dict.
+            global_config: Current global configuration."""
         is_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
         continue_on_batch_failure = global_config.get(
             DocpipeConstants.CONTINUE_ON_BATCH_FAILURE,
@@ -193,6 +206,15 @@ class AbstractOrchestrator(ABC):
         executor: AbstractOperatorExecutor,
         prev_data_access: dict[str, DataAccess | None] | DataAccess | None,
     ):
+        """Execute an active operator and collect its outputs and metadata.
+
+        Args:
+            op_def: Operator definition dict.
+            executor: The executor instance wrapping the operator.
+            prev_data_access: Data access(es) from the previous step.
+
+        Returns:
+            Tuple of (data_accesses, tables, metadata, internal_metadata)."""
         if executor.get_operator().short_name == OperatorConstants.Operators.DESIGN_FLOW_OUTPUT_OPERATOR:
             # save the deleted rows as this is needed for DESIGN_FLOW_OUTPUT_OPERATOR
             self._check_and_upload_deleted_rows()
@@ -238,6 +260,17 @@ class AbstractOrchestrator(ABC):
         global_config,
         start,
     ):
+        """Handle a skipped operator step, propagating previous results.
+
+        Args:
+            op_def: Operator definition dict.
+            executor: The executor wrapping the skipped operator.
+            prev_results: Results from the previous step.
+            global_config: Current global configuration.
+            start: Step start timestamp.
+
+        Returns:
+            Tuple of (data_accesses, tables)."""
         tables = (
             prev_results.tables
             if isinstance(prev_results, ExecuteStepResults)
@@ -272,6 +305,16 @@ class AbstractOrchestrator(ABC):
         prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
         deleted_docs_count,
     ):
+        """Execute or skip a single DAG step and return its results.
+
+        Args:
+            op_def: Operator definition dict.
+            global_config: Current global configuration.
+            prev_results: Results from the previous step.
+            deleted_docs_count: Number of deleted documents from the ingest step.
+
+        Returns:
+            ExecuteStepResults for the current step."""
         start = get_current_timestamp()
 
         # CRITICAL FIX: Check job_status BEFORE creating executor to prevent downstream
@@ -336,6 +379,17 @@ class AbstractOrchestrator(ABC):
         return ExecuteStepResults(data_accesses, tables, internal_metadata)
 
     def __get_tables_from_data_accesses(self, *, executor, data_accesses):
+        """Read tables from the data accesses produced by an operator.
+
+        Args:
+            executor: The operator executor.
+            data_accesses: List of DataAccess objects.
+
+        Returns:
+            List of PyArrow tables.
+
+        Raises:
+            FlowExecutionFailedException: If a table cannot be read."""
         tables = []
         for data_access in data_accesses:
             output_file_path = executor.get_output_file_path(data_access=data_access)
@@ -352,6 +406,16 @@ class AbstractOrchestrator(ABC):
         tables: pa.Table | list[pa.Table] | None,
         deleted_docs_count,
     ):
+        """Determine whether a step should be skipped based on operator category and table state.
+
+        Args:
+            executor: The operator executor.
+            tables: Current input table(s).
+            deleted_docs_count: Number of deleted documents.
+
+        Returns:
+            True if the step should be skipped."""
+
         def all_tables_are_empty():
             if tables is None:
                 return True
@@ -369,6 +433,7 @@ class AbstractOrchestrator(ABC):
         return False
 
     def _check_and_upload_deleted_rows(self):
+        """Persist accumulated deleted-row tables to the parquet store."""
         if not self.deleted_rows_list.empty():
             if not self.job_id or not self.job_run_id:
                 self.logger.warning("job id or job run id must be needed to save unprocessed docs")
@@ -388,9 +453,21 @@ class AbstractOrchestrator(ABC):
                 self.logger.warning(f"Failed to save unprocessed docs table — skipping it. Error: {e}")
 
     def get_parquet_table_handler_impl(self) -> BaseParquetTableHandler:
+        """Return the parquet table handler implementation.
+
+        Returns:
+            A BaseParquetTableHandler instance."""
         return get_parquet_table_handler()
 
     def get_deleted_rows_table_path_impl(self, *, job_id: str, job_run_id: str) -> str:
+        """Return the file path for the deleted-rows parquet table.
+
+        Args:
+            job_id: Job identifier.
+            job_run_id: Job run identifier.
+
+        Returns:
+            Filesystem path string."""
         return construct_deleted_rows_table_path(job_id=job_id, job_run_id=job_run_id)
 
     def _mark_pending_batches_as_skipped(self) -> None:
@@ -527,6 +604,14 @@ class AbstractOrchestrator(ABC):
     def create_executor(self, *, op_def: dict, global_config: dict) -> AbstractOperatorExecutor:
         # note: In the union of 2 dictionaries below, if an element exists in both global config and local config (
         # op_def['config']), the value from global_config will be overwritten by the local config
+        """Build an operator executor from an operator definition and global config.
+
+        Args:
+            op_def: Operator definition dict from the flow DAG.
+            global_config: Merged global and local config.
+
+        Returns:
+            An AbstractOperatorExecutor instance."""
         global_config = {} if global_config is None else global_config
         operator_name = op_def.get(OperatorConstants.Columns.NAME, "unknown")
         self.logger.debug(
@@ -585,7 +670,18 @@ class AbstractOrchestrator(ABC):
         deleted_docs_count,
         link_id=None,
     ) -> ExecuteStepResults | None:
+        """Execute or skip a single DAG node within a thread or task context.
 
+        Args:
+            op_def: Operator definition dict.
+            global_config: Current global configuration.
+            prev_results: Results from the previous step.
+            session_info: Thread-local session information.
+            deleted_docs_count: Deleted-document count from ingest.
+            link_id: Optional branch link identifier.
+
+        Returns:
+            ExecuteStepResults or None if the step was skipped or failed."""
         self.flow_execution_event_handler.before_step_execution_start(
             node_id=op_def[OperatorConstants.Columns.ID],
             node_name=op_def[OperatorConstants.Columns.NAME],
@@ -658,6 +754,11 @@ class AbstractOrchestrator(ABC):
             return None
 
     def _finalize_dag_flow(self, *, op_flow, global_config=None):
+        """Notify the event handler that the full DAG has completed.
+
+        Args:
+            op_flow: The DAG operator list.
+            global_config: Current global configuration."""
         self.flow_execution_event_handler.after_flow_execution_complete(
             op_flow=op_flow, present_job_status=self.job_status, message=self.message, global_config=global_config
         )
@@ -833,6 +934,10 @@ class AbstractOrchestrator(ABC):
             self._finalize_dag_flow(op_flow=op_flow, global_config=global_config)
 
     def _create_empty_result(self):
+        """Create an empty ExecuteStepResults for use as the initial ingest input.
+
+        Returns:
+            ExecuteStepResults wrapping an empty in-memory table."""
         data_access_factory = DataAccessFactory()
         config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
         data_access_factory.apply_input_params(config)

@@ -1668,3 +1668,223 @@ class TestIngestSourceValidateErrors:
             operator.validate(errors=errors, warnings=warnings, available_features=[])
 
         assert any("Invalid configuration" in str(e) for e in errors)
+
+
+class TestMicrosoftGraphLoaderLazyLoad:
+    """Tests for MicrosoftGraphLoader.lazy_load covering lines 56-228."""
+
+    def _make_loader(self, *, folder_path=None, recursive=True):
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        with (
+            patch("docpipe.core.operators.ingest.ingest_source.RestClient"),
+            patch("docpipe.core.operators.ingest.ingest_source.RestClientConfig"),
+        ):
+            return MicrosoftGraphLoader(
+                drive_id="drive-id",
+                client_id="client-id",
+                client_secret="client-secret",  # pragma: allowlist secret
+                tenant_id="tenant-id",
+                folder_path=folder_path,
+                recursive=recursive,
+            )
+
+    def test_init_sets_attributes(self):
+        """Covers lines 56-72."""
+        loader = self._make_loader()
+        assert loader.drive_id == "drive-id"
+        assert loader.client_id == "client-id"
+        assert loader.tenant_id == "tenant-id"
+        assert loader._token is None
+
+    def test_get_token_raises_on_missing_msal(self):
+        """Covers lines 79-81: ImportError branch."""
+        loader = self._make_loader()
+        with patch.dict("sys.modules", {"msal": None}):
+            with pytest.raises(ImportError, match="msal"):
+                loader._get_token()
+
+    def test_get_token_returns_cached(self):
+        """Covers line 76-77: cached token branch."""
+        loader = self._make_loader()
+        loader._token = "cached-token"
+        result = loader._get_token()
+        assert result == "cached-token"
+
+    def test_get_token_raises_on_empty_access_token(self):
+        """Covers lines 92-96: no access_token in result."""
+        loader = self._make_loader()
+        mock_msal = MagicMock()
+        mock_app = MagicMock()
+        mock_app.acquire_token_for_client.return_value = {"error": "invalid_client", "error_description": "bad creds"}
+        mock_msal.ConfidentialClientApplication.return_value = mock_app
+
+        with patch.dict("sys.modules", {"msal": mock_msal}):
+            with pytest.raises(ValueError, match="Failed to acquire"):
+                loader._get_token()
+
+    def test_get_token_raises_on_non_dict_response(self):
+        """Covers lines 89-90: non-dict response."""
+        loader = self._make_loader()
+        mock_msal = MagicMock()
+        mock_app = MagicMock()
+        mock_app.acquire_token_for_client.return_value = "bad_response"
+        mock_msal.ConfidentialClientApplication.return_value = mock_app
+
+        with patch.dict("sys.modules", {"msal": mock_msal}):
+            with pytest.raises(TypeError):
+                loader._get_token()
+
+    def test_get_token_stores_and_returns(self):
+        """Covers lines 98-99: success path stores token."""
+        loader = self._make_loader()
+        mock_msal = MagicMock()
+        mock_app = MagicMock()
+        mock_app.acquire_token_for_client.return_value = {"access_token": "my-token"}
+        mock_msal.ConfidentialClientApplication.return_value = mock_app
+
+        with patch.dict("sys.modules", {"msal": mock_msal}):
+            result = loader._get_token()
+        assert result == "my-token"
+        assert loader._token == "my-token"
+
+    def test_list_files_no_folder(self):
+        """Covers lines 101-135: _list_files without folder, no pagination."""
+        loader = self._make_loader()
+        loader._token = "tok"
+        with patch.object(loader, "_get_token", return_value="tok"):
+            loader._rest_client = MagicMock()
+            loader._rest_client.call_rest_json.return_value = {"value": [{"name": "file.pdf", "id": "f1"}]}
+            files = loader._list_files()
+        assert len(files) == 1
+        assert files[0]["name"] == "file.pdf"
+
+    def test_list_files_with_folder_recursive(self):
+        """Covers lines 106-107 + 121-123: folder path + recursive subfolder."""
+        loader = self._make_loader(recursive=True)
+        loader._token = "tok"
+        with patch.object(loader, "_get_token", return_value="tok"):
+            loader._rest_client = MagicMock()
+            # First call: returns a folder + file, second call (recursive): returns a file
+            loader._rest_client.call_rest_json.side_effect = [
+                {"value": [{"folder": {}, "id": "subfolder1"}, {"name": "file.pdf", "id": "f2"}]},
+                {"value": [{"name": "nested.pdf", "id": "f3"}]},
+            ]
+            files = loader._list_files(folder_item_id="folder-id")
+        assert len(files) == 2
+
+    def test_list_files_with_pagination(self):
+        """Covers lines 128-133: @odata.nextLink pagination."""
+        loader = self._make_loader()
+        with patch.object(loader, "_get_token", return_value="tok"):
+            loader._rest_client = MagicMock()
+            loader._rest_client.call_rest_json.side_effect = [
+                {
+                    "value": [{"name": "p1.pdf", "id": "f1"}],
+                    "@odata.nextLink": "https://graph.microsoft.com/v1.0/drives/drive-id/root/children?$skip=1",
+                },
+                {"value": [{"name": "p2.pdf", "id": "f2"}]},
+            ]
+            files = loader._list_files()
+        assert len(files) == 2
+
+    def test_download_file_with_direct_url(self):
+        """Covers lines 156-167: download via direct download URL."""
+        loader = self._make_loader()
+        with patch.object(loader, "_get_token", return_value="tok"):
+            with (
+                patch("docpipe.core.operators.ingest.ingest_source.RestClient") as mock_rc_cls,
+                patch("docpipe.core.operators.ingest.ingest_source.RestClientConfig"),
+            ):
+                mock_rc = MagicMock()
+                mock_rc.call_rest.return_value.content = b"file bytes"
+                mock_rc_cls.return_value = mock_rc
+                result = loader._download_file(
+                    {"@microsoft.graph.downloadUrl": "https://download.example.com/file.pdf", "id": "f1"}
+                )
+        assert result == b"file bytes"
+
+    def test_download_file_fallback_endpoint(self):
+        """Covers lines 143-152: no downloadUrl, fallback via API."""
+        loader = self._make_loader()
+        with patch.object(loader, "_get_token", return_value="tok"):
+            loader._rest_client = MagicMock()
+            loader._rest_client.call_rest.return_value.content = b"api bytes"
+            result = loader._download_file({"id": "f1"})
+        assert result == b"api bytes"
+
+    def test_load_returns_list(self):
+        """Covers lines 226-228: load() wraps lazy_load()."""
+        loader = self._make_loader()
+        with patch.object(loader, "lazy_load", return_value=iter([])):
+            result = loader.load()
+        assert result == []
+
+    def test_lazy_load_yields_document(self):
+        """Covers lines 169-210: lazy_load happy path without folder."""
+        loader = self._make_loader()
+        with (
+            patch.object(loader, "_get_token", return_value="tok"),
+            patch.object(loader, "_list_files", return_value=[{"name": "f.pdf", "id": "f1", "size": 100}]),
+            patch.object(loader, "_download_file", return_value=b"content"),
+        ):
+            docs = list(loader.lazy_load())
+        assert len(docs) == 1
+        assert docs[0].metadata["source"] == "f.pdf"
+
+    def test_lazy_load_handles_download_error(self):
+        """Covers lines 211-224: download error yields error document."""
+        loader = self._make_loader()
+        with (
+            patch.object(loader, "_get_token", return_value="tok"),
+            patch.object(loader, "_list_files", return_value=[{"name": "bad.pdf", "id": "f1", "size": 100}]),
+            patch.object(loader, "_download_file", side_effect=RuntimeError("timeout")),
+        ):
+            docs = list(loader.lazy_load())
+        assert len(docs) == 1
+        assert "error" in docs[0].metadata
+
+    def test_lazy_load_with_folder_path(self):
+        """Covers lines 172-188: folder_path resolution."""
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        with (
+            patch("docpipe.core.operators.ingest.ingest_source.RestClient"),
+            patch("docpipe.core.operators.ingest.ingest_source.RestClientConfig"),
+        ):
+            loader = MicrosoftGraphLoader(
+                drive_id="d1",
+                client_id="c1",
+                client_secret="cs",  # pragma: allowlist secret
+                tenant_id="t1",
+                folder_path="/docs",
+            )
+        with (
+            patch.object(loader, "_get_token", return_value="tok"),
+            patch.object(loader, "_list_files", return_value=[]),
+            patch.object(loader._rest_client, "call_rest_json", return_value={"id": "folder-item-id"}),
+        ):
+            docs = list(loader.lazy_load())
+        assert docs == []
+
+    def test_lazy_load_folder_path_not_found_raises(self):
+        """Covers lines 187-188: folder path not found -> ValueError."""
+        from docpipe.core.operators.ingest.ingest_source import MicrosoftGraphLoader
+
+        with (
+            patch("docpipe.core.operators.ingest.ingest_source.RestClient"),
+            patch("docpipe.core.operators.ingest.ingest_source.RestClientConfig"),
+        ):
+            loader = MicrosoftGraphLoader(
+                drive_id="d1",
+                client_id="c1",
+                client_secret="cs",  # pragma: allowlist secret
+                tenant_id="t1",
+                folder_path="/nonexistent",
+            )
+        with (
+            patch.object(loader, "_get_token", return_value="tok"),
+            patch.object(loader._rest_client, "call_rest_json", side_effect=RuntimeError("not found")),
+        ):
+            with pytest.raises(ValueError, match="not found"):
+                list(loader.lazy_load())

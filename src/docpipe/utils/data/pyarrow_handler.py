@@ -41,6 +41,7 @@ class BaseParquetTableHandler(ABC):
 
     @property
     def logger(self):
+        """Logger."""
         return get_logger(f"{DocpipeConstants.LOGGER_NAME} : {self.__class__.__name__.upper()}")
 
     @abstractmethod
@@ -141,6 +142,7 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
             self.logger.error(str(exc), exc_info=True, stack_info=True)
 
     def delete_file(self, *, path):
+        """Delete file."""
         try:
             self.logger.info(f"Deleting file: {path}")
             with FileLock(_lock_path(path=path), timeout=LOCK_TIMEOUT):

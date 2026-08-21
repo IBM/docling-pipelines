@@ -9,6 +9,7 @@ logger = get_logger()
 def get_filter_extensions(
     include_filter: str | list[str] | None,
 ) -> list[str] | None:
+    """Get filter extensions."""
     extensions: list[str] | None = None
 
     if isinstance(include_filter, list):
@@ -26,6 +27,7 @@ def filter_based_on_extension(
     excluded_extensions: list[str] | None,
     included_extensions: list[str] | None,
 ) -> bool:
+    """Filter based on extension."""
     extn: str = pathlib.Path(file_path).suffix.lower()
     if excluded_extensions and extn in excluded_extensions:
         logger.info(f"Skipping {file_path} as the file is in the exclusion list")

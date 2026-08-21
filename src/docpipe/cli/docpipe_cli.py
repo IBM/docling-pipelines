@@ -81,6 +81,7 @@ def generate_job_id_from_flow_name(*, flow_name: str) -> str:
 
 
 def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = None) -> None:
+    """Run command line executor."""
     from docpipe.core.constants.constants import DocpipeConstants
     from docpipe.core.orchestration.flow_executor import FlowExecutor
     from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
@@ -255,6 +256,7 @@ def validate_flow_definition(flow_file: str) -> bool:
 
 
 def main() -> None:  # pragma: no cover
+    """Main."""
     os.environ["CMD_LINE"] = "True"
 
     parser = argparse.ArgumentParser(

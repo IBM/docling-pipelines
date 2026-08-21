@@ -1,3 +1,5 @@
+"""Abstract event handler for flow execution lifecycle hooks."""
+
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -9,14 +11,17 @@ class AbstractFlowExecutionEventHandler(ABC):
 
     @abstractmethod
     def before_flow_execution_start(self, *, orchestrator, flow_def: dict | None = None):
+        """Before flow execution start."""
         pass
 
     @abstractmethod
     def after_flow_execution_complete(self, op_flow, present_job_status: str, message, global_config=None):
+        """After flow execution complete."""
         pass
 
     @abstractmethod
     def before_step_execution_start(self, *, node_id, node_name, global_config, job_status, prev_results):
+        """Before step execution start."""
         pass
 
     @abstractmethod
@@ -33,6 +38,7 @@ class AbstractFlowExecutionEventHandler(ABC):
         start_time,
         tables=None,
     ):
+        """After step execution complete."""
         pass
 
     @abstractmethod
@@ -65,6 +71,7 @@ class AbstractFlowExecutionEventHandler(ABC):
 
     @abstractmethod
     def after_node_failure(self, *, node_id, node_name, global_config, e):
+        """After node failure."""
         pass
 
     @abstractmethod

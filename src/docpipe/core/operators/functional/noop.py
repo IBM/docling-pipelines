@@ -40,6 +40,7 @@ class NOOPOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: NOOPOperator.category.value,

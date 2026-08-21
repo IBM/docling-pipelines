@@ -1,3 +1,5 @@
+"""Chunker operator that splits documents into smaller text segments."""
+
 import uuid
 from enum import StrEnum
 from pathlib import Path
@@ -324,6 +326,7 @@ class ChunkerOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: ChunkerOperator.category.value,
@@ -521,9 +524,11 @@ class ChunkerOperator(AbstractOperator):
 
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
+        """Validate."""
         super().validate(errors, warnings, available_features)
 
         # Get metadata and extract ATTRIBUTES for validation
@@ -1007,7 +1012,7 @@ class ChunkerOperator(AbstractOperator):
                 from transformers import AutoTokenizer
 
                 hf_tokenizer = HuggingFaceTokenizer(
-                    tokenizer=AutoTokenizer.from_pretrained(self.docling_tokenizer),  # nosec B615
+                    tokenizer=AutoTokenizer.from_pretrained(self.docling_tokenizer),  # nosec B615 — revision pinning is the user's responsibility via docling_tokenizer config
                     max_tokens=self.chunk_size,
                 )
                 self._docling_chunker = HybridChunker(
@@ -1394,6 +1399,7 @@ class ChunkerOperator(AbstractOperator):
         return table
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Transform."""
         logger.info(
             f"Using {self.chunk_type} for generating chunks",
             extra=self.common_log_arguments,

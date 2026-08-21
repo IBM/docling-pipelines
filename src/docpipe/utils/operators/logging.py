@@ -1,3 +1,5 @@
+"""Logging utilities for docpipe operator execution tracking."""
+
 import copy
 import datetime
 import json
@@ -33,6 +35,7 @@ def _operator_log_split(*, value, operator_logs_combined):
 
 def get_log_and_job_file_path(*, job_id, jobrun_id):
     # Path structure: ./data/<job_id>/<job_run_id>/docpipe_logs/
+    """Get log and job file path."""
     log_app_location = DocpipeConstants.DOCPIPE_LOGS
     log_job_run_file_name = "flow_execute.log"
     job_log_file_name = "job_stats.json"
@@ -56,6 +59,7 @@ def get_log_and_job_file_path(*, job_id, jobrun_id):
 
 
 def retrieve_operator_logs(*, job_id, jobrun_id):
+    """Retrieve operator logs."""
     (
         log_final_path,
         job_log_final_path,
@@ -180,6 +184,7 @@ def get_logs(*, content, job_log_final_path: str | None = None, nodes_metadata_f
 
 
 def retrieve_node_specific_operator_logs(*, job_id, jobrun_id, node_id):
+    """Retrieve node specific operator logs."""
     return retrieve_operator_logs(job_id=job_id, jobrun_id=jobrun_id).get(node_id)
 
 
@@ -258,6 +263,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
 
 
 def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | None = None) -> str:
+    """Format operator logs."""
     status = job_stats.get("status")
     job_status = status.value if status is not None and isinstance(status, ExecutionStatus) else status
 

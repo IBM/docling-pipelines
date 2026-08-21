@@ -1,3 +1,5 @@
+"""Utility functions and helpers shared across docpipe operators."""
+
 import datetime
 import hashlib
 import importlib.util
@@ -312,6 +314,18 @@ class OperatorUtils:
         available_for_vector_db: bool = False,
         mandatory_for_vector_db: bool = False,
     ) -> dict[str, Any]:
+        """Build a feature descriptor dict from the given attributes.
+
+        Args:
+            name: Column name.
+            description: Human-readable description.
+            type: Data type string.
+            available_for_filter: Whether the feature can be used as a filter.
+            available_for_vector_db: Whether the feature can be stored in a vector DB.
+            mandatory_for_vector_db: Whether the feature is mandatory in a vector DB.
+
+        Returns:
+            Dict containing the feature descriptor."""
         return {
             OperatorConstants.Misc.NAME: name,
             OperatorConstants.Config.DESCRIPTION: description,
@@ -435,7 +449,14 @@ class OperatorUtils:
         tables: pa.Table | list[pa.Table] | dict[str, pa.Table] | None,
         id_col: str = OperatorConstants.Misc.ID,
     ) -> list[Any]:
+        """Return a deduplicated list of document IDs from one or more tables.
 
+        Args:
+            tables: A single table, a list of tables, or a dict of tables.
+            id_col: Column name to read IDs from.
+
+        Returns:
+            Ordered list of unique IDs."""
         if not tables:  # empty list
             return []
 
@@ -520,6 +541,13 @@ class OperatorUtils:
 
     @staticmethod
     def find_doc_count(*, table: pa.Table) -> int:
+        """Return the number of unique documents in a table.
+
+        Args:
+            table: The PyArrow table to count.
+
+        Returns:
+            Count of unique document names, or row count if name column is absent."""
         if not table:
             return 0
         if table.num_rows == 0:
@@ -531,6 +559,13 @@ class OperatorUtils:
 
     @staticmethod
     def find_doc_count_from_tables(*, tables: list[pa.Table]) -> int:
+        """Return the number of unique documents across multiple tables.
+
+        Args:
+            tables: List of PyArrow tables.
+
+        Returns:
+            Count of unique document names across all tables."""
         doc_names: set[str] = set()
         for table in tables:
             if table.num_rows > 0:
@@ -539,6 +574,12 @@ class OperatorUtils:
 
     @staticmethod
     def validate_link_name(*, link_name: str, existing_link_names: set[str], errors: list[str]) -> None:
+        """Validate a link name for uniqueness and presence.
+
+        Args:
+            link_name: The link name to validate.
+            existing_link_names: Set of already-registered lowercased link names.
+            errors: List to append error messages to."""
         if not link_name:
             errors.append("Missing link name. Please provide a link name.")
             return
@@ -600,6 +641,13 @@ class OperatorUtils:
 
     @staticmethod
     def remove_internal_metrics_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+        """Extract internal metrics from metadata, mutating the dict in-place.
+
+        Args:
+            metadata: The metadata dict to strip internal keys from.
+
+        Returns:
+            Dict containing only the extracted internal keys."""
         internal_metadata = {}
         for key, value in list(metadata.items()):
             if key in internal_metrics:
@@ -633,6 +681,14 @@ class OperatorUtils:
     def rename_features_and_save_original(
         *, updated_features: list[dict[str, Any]] | None = None, input_features: dict[str, Any] | Table | None = None
     ) -> Any | None:
+        """Rename features in a table or feature dict and preserve the original name.
+
+        Args:
+            updated_features: List of rename-mapping dicts with 'old_feature' and 'new_feature'.
+            input_features: A PyArrow Table or a feature dict to rename.
+
+        Returns:
+            Renamed PyArrow Table if input was a Table; None otherwise."""
         if not input_features or not updated_features:
             return None
 
@@ -659,6 +715,14 @@ class OperatorUtils:
     def _build_rename_map(
         *, updated_features: list[dict[str, Any]] | None = None, existing_features: set[str] | dict[str, Any]
     ) -> dict[str, str]:
+        """Build an old->new name mapping from the updated_features list.
+
+        Args:
+            updated_features: List of rename-mapping dicts.
+            existing_features: The current set or dict of feature names.
+
+        Returns:
+            Dict mapping old feature names to new feature names."""
         rename_map: dict[str, str] = {}
         seen_old: set[str] = set()
         seen_new: set[str] = set()
@@ -691,6 +755,14 @@ class OperatorUtils:
 
     @staticmethod
     def _validate_feature(upd: dict[str, Any], idx: int) -> None:
+        """Validate a single rename-mapping dict entry.
+
+        Args:
+            upd: The mapping dict to validate.
+            idx: Index of the entry (for error messages).
+
+        Raises:
+            ValueError: If the entry is malformed."""
         if not isinstance(upd, dict):
             OperatorUtils._raise_value_error(
                 f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}"
@@ -720,6 +792,18 @@ class OperatorUtils:
         seen_new: set[str],
         input_features: Any,
     ) -> None:
+        """Check for duplicate old or new feature names in a rename mapping.
+
+        Args:
+            old_name: The old feature name being mapped.
+            new_name: The new feature name.
+            idx: Index of the current entry.
+            seen_old: Set of already-seen old names.
+            seen_new: Set of already-seen new names.
+            input_features: Existing features for collision detection.
+
+        Raises:
+            ValueError: If a duplicate is detected."""
         if old_name in seen_old:
             OperatorUtils._raise_value_error(f"Duplicate mapping for old_feature '{old_name}' at index {idx}")
 
@@ -730,6 +814,14 @@ class OperatorUtils:
 
     @staticmethod
     def _validate_existing_features(rename_map: dict[str, str], existing_features: set[str] | dict[str, Any]) -> None:
+        """Assert that all old feature names in the rename map exist in the current feature set.
+
+        Args:
+            rename_map: Old->new feature name mapping.
+            existing_features: Current set or dict of feature names.
+
+        Raises:
+            KeyError: If any old name is absent."""
         feature_set = existing_features if isinstance(existing_features, set) else set(existing_features.keys())
         missing_old = [old for old in rename_map if old not in feature_set]
         if missing_old:
@@ -739,6 +831,17 @@ class OperatorUtils:
 
     @staticmethod
     def _rename_table(input_table: Table, rename_map: dict[str, str]) -> Table:
+        """Apply a rename map to a PyArrow table's column names.
+
+        Args:
+            input_table: The table to rename.
+            rename_map: Old->new column name mapping.
+
+        Returns:
+            A new table with renamed columns.
+
+        Raises:
+            ValueError: If renaming would produce duplicate column names."""
         new_names_ordered = [rename_map.get(name, name) for name in input_table.schema.names]
 
         if len(new_names_ordered) != len(set(new_names_ordered)):
@@ -752,6 +855,14 @@ class OperatorUtils:
 
     @staticmethod
     def _validate_dict_mandatory(rename_map: dict[str, str], input_features: dict[str, Any]) -> None:
+        """Raise if any feature being renamed is marked as mandatory.
+
+        Args:
+            rename_map: Old->new feature name mapping.
+            input_features: Feature dict to inspect.
+
+        Raises:
+            FlowValidationException: If a mandatory feature is targeted for rename."""
         mandatory_features = OperatorUtils.get_mandatory_features(
             check_features=list(rename_map.keys()), input_features=input_features
         )
@@ -770,6 +881,11 @@ class OperatorUtils:
 
     @staticmethod
     def _apply_dict_rename(input_features: dict[str, Any], rename_map: dict[str, str]) -> None:
+        """Apply a rename map to a feature dict in-place, preserving the original name.
+
+        Args:
+            input_features: The feature dict to mutate.
+            rename_map: Old->new feature name mapping."""
         for old_name, new_name in rename_map.items():
             feature = input_features.pop(old_name, None)
 
@@ -783,6 +899,14 @@ class OperatorUtils:
 
     @staticmethod
     def get_mandatory_features(*, check_features: list[str], input_features: dict[str, Any]) -> list[str]:
+        """Return the list of features that are marked as mandatory.
+
+        Args:
+            check_features: Feature names to check.
+            input_features: Feature dict containing tag metadata.
+
+        Returns:
+            List of mandatory feature names among check_features."""
         if not check_features or not input_features:
             return []
 
@@ -795,6 +919,13 @@ class OperatorUtils:
 
     @staticmethod
     def _raise_value_error(msg: str) -> None:
+        """Log an error and raise a ValueError.
+
+        Args:
+            msg: The error message to log and raise.
+
+        Raises:
+            ValueError: Always."""
         logger.error(msg, stack_info=True, exc_info=True)
         raise ValueError(msg)
 
@@ -1208,6 +1339,13 @@ class OperatorUtils:
     @staticmethod
     def detect_extension_zip_based_office_formats(binary_content: bytes) -> str:
         # Inspect the central directory for known Office content-type markers
+        """Detect the Office format of a ZIP-based document from its bytes.
+
+        Args:
+            binary_content: The binary content to inspect.
+
+        Returns:
+            Dotted extension string: '.docx', '.xlsx', or '.pptx'."""
         content_sample = binary_content[:2048]
         if b"word/" in content_sample:
             return ".docx"

@@ -72,6 +72,7 @@ class SummarizationUtil:
                 chunk[OperatorConstants.Columns.SUMMARY] = summaries.get(seq_num, "No summary available")
 
     def generate_summary_for_content(self, *, content: str) -> str:
+        """Generate summary for content."""
         annotated_content = self._annotate_paragraph(chunk_sequence_number=0, para=content)
         summaries = self._generate_summaries(content=annotated_content)
         return summaries.get(0, "No summary available")

@@ -59,6 +59,7 @@ class EdedupOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.CATEGORY: EdedupOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: EdedupOperator.is_available(),

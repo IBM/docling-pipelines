@@ -1,3 +1,5 @@
+"""Abstract base class and supporting types for all docpipe operators."""
+
 from enum import StrEnum
 from typing import Any
 
@@ -21,6 +23,8 @@ logger = get_logger()
 
 
 class OperatorCategory(StrEnum):
+    """Enum of supported operator categories."""
+
     Extract = "Extract"
     Ingest = "Ingest"
     Functional = "Functional"
@@ -30,6 +34,12 @@ class OperatorCategory(StrEnum):
 
 
 class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
+    """Base class for all docpipe operators.
+
+    Extends ``AbstractTableTransform`` from data-prep-toolkit and enforces
+    the docpipe operator contract: ``short_name``, ``category``, ``owner``,
+    ``transform()``, and ``get_metadata()``."""
+
     short_name: str
     category: OperatorCategory
     owner: str | None = None  # None indicates custom operator; specific value (e.g., "docpipe") for built-ins
@@ -168,29 +178,60 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
 
     @staticmethod
     def is_available() -> bool:
+        """Return True if the operator's optional dependencies are satisfied.
+
+        Returns:
+            True by default; subclasses override for optional-dep checks."""
         return True
 
     def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
         # The concrete subclasses validates the parameters passed to the operators from the flow definition
+        """Validate operator configuration against available pipeline features.
+
+        Args:
+            errors: List to append validation error messages to.
+            warnings: List to append validation warning messages to.
+            available_features: Feature names produced by upstream operators."""
         OperatorUtils.validate_columns(available_features, self.get_required_features(), self.short_name, errors)
 
     @staticmethod
     def get_required_features() -> list[str]:
         # The concrete subclasses will retrieve the required features.
+        """Return the list of upstream feature columns required by this operator.
+
+        Returns:
+            Empty list by default; subclasses override as needed."""
         return []
 
     @staticmethod
     def get_static_required_features() -> list[str]:
         # Static companion to get_required_features() for operator discovery without instantiation.
+        """Return required features without instantiating the operator.
+
+        Used for operator discovery and flow validation before runtime.
+
+        Returns:
+            Empty list by default."""
         return []
 
     @staticmethod
     def get_metadata() -> OperatorMetadata:
         # Returns operator metadata including owner
+        """Return operator metadata for registry and UI rendering.
+
+        Returns:
+            Dict containing at minimum 'short_name', 'description', and 'owner'."""
         return {}
 
     def should_validate_field(self, *, field_value: Any) -> bool:
         # Always validate during execution phase
+        """Determine whether a config field should be validated at this stage.
+
+        Args:
+            field_value: The field value to check.
+
+        Returns:
+            True during execution phase; False when only validating the flow."""
         if not self.validating_flow:
             return True
         return False
@@ -200,6 +241,14 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
         *, total_docs_count: int, node_status: str = ExecutionStatus.COMPLETED.value
     ) -> OperatorOutputMetadata:
         # Create base metadata structure with all required fields initialized.
+        """Initialise a metadata dict with all required counters set to zero.
+
+        Args:
+            total_docs_count: Total number of documents entering the operator.
+            node_status: Initial node status string.
+
+        Returns:
+            Metadata dict with total_docs, processed, failed, skipped counters."""
         return {
             Metrics.External.TOTAL_DOCS: total_docs_count,
             Metrics.External.PROCESSED_DOCS: 0,
@@ -221,6 +270,13 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
         reason: str,
     ) -> None:
         # Record a failed document in metadata.
+        """Append a failed-document entry to metadata.
+
+        Args:
+            metadata: The metadata dict to update.
+            doc_id: Document identifier.
+            doc_name: Document name.
+            reason: Reason for failure."""
         metadata[Metrics.External.FAILED_DOCS_COUNT] += 1
         metadata[Metrics.External.FAILED_DOCS].append(
             DocsStructure(id=doc_id, name=doc_name, reason=reason, document_url="")
@@ -235,6 +291,13 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
         reason: str,
     ) -> None:
         # Record a skipped document in metadata.
+        """Append a skipped-document entry to metadata.
+
+        Args:
+            metadata: The metadata dict to update.
+            doc_id: Document identifier.
+            doc_name: Document name.
+            reason: Reason for skipping."""
         metadata[Metrics.External.SKIPPED_DOCS_COUNT] += 1
         metadata[Metrics.External.SKIPPED_DOCS].append(
             DocsStructure(id=doc_id, name=doc_name, reason=reason, document_url="")

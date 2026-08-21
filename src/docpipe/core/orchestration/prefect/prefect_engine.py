@@ -45,6 +45,8 @@ P = ParamSpec("P")
 
 
 class SupportsSubmit(Protocol):
+    """Supportssubmit."""
+
     def submit(self, *args: Any, **kwargs: Any) -> PrefectFuture: ...
 
 
@@ -57,6 +59,7 @@ class BatchFuture:
         self.future = future
 
     def describe_state(self) -> str:
+        """Describe state."""
         state_parts: list[str] = []
 
         try:
@@ -134,7 +137,7 @@ class PrefectEngine(FlowEnginePort):
         )
 
     def execute_non_execute_flow(self, *, flow_name: str, task: Any, dag: Any):
-
+        """Execute non execute flow."""
         flow = self.build_non_execute_flow(flow_name=flow_name)
         flow(TaskType.VALIDATE_FLOW, task, dag, None)
 
@@ -441,6 +444,7 @@ class PrefectEngine(FlowEnginePort):
         """Create a Prefect task for operator execution."""
 
         def generate_task_name():
+            """Generate task name."""
             parameters = task_run.parameters
             return parameters["op_def"]["name"]
 
@@ -459,6 +463,7 @@ class PrefectEngine(FlowEnginePort):
         """Create a Prefect task for non-execution flows."""
 
         def generate_task_name():
+            """Generate task name."""
             parameters = task_run.parameters
             return parameters["task_name"]
 
@@ -501,6 +506,7 @@ class PrefectEngine(FlowEnginePort):
         def get_prev_results(
             op_definitions, results_: FuturedList, initial_batch_result
         ) -> PrefectFuture | dict[str, PrefectFuture]:
+            """Get prev results."""
             prev_res: dict[str, PrefectFuture] = {}
             has_ingest_dependency = False
 

@@ -1,3 +1,5 @@
+"""Branching operator that splits a document table into multiple sub-flows."""
+
 import re
 from typing import Any
 
@@ -97,6 +99,7 @@ class BranchingOperator(AbstractOperator):
             errors.append("Branch Id is missing in the branch parameters.")
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """Validate."""
         if not self.should_validate_field(field_value=self.branch_criteria):
             return
 
@@ -134,6 +137,7 @@ class BranchingOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: BranchingOperator.category.value,
@@ -174,6 +178,7 @@ class BranchingOperator(AbstractOperator):
         metadata[Metrics.External.FAILED_DOCS] = failed_docs
 
     def runner(self, table: pa.Table, spark_session: Any | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Runner."""
         log_memory_usage(
             operator_name=self.name,
             phase=MemoryLogPhases.TRANSFORM_COMPLETED,
@@ -267,6 +272,7 @@ class BranchingOperator(AbstractOperator):
         metadata_filter_transform: dict[str, Any],
         idx: int,
     ) -> list[dict[str, Any]]:
+        """Get skipped doc."""
         metadata_skipped: list[dict[str, Any]] = metadata_filter_transform.get(Metrics.External.SKIPPED_DOCS, [])
 
         if not skipped_docs:
@@ -284,6 +290,7 @@ class BranchingOperator(AbstractOperator):
         metadata_filter_transform: dict[str, Any],
         idx: int,
     ) -> list[dict[str, Any]]:
+        """Get failed doc."""
         metadata_failed: list[dict[str, Any]] = metadata_filter_transform.get(Metrics.External.FAILED_DOCS, [])
 
         if not failed_docs:
@@ -296,9 +303,11 @@ class BranchingOperator(AbstractOperator):
         return [doc for doc in failed_docs if doc["id"] in metadata_ids]
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Transform."""
         return self.runner(table=table)
 
     def validate_expression(self, *, expr: str, available_features: list[str], errors: list[str]) -> None:
+        """Validate expression."""
         try:
             is_valid: bool
             columns: list[str]
@@ -317,6 +326,7 @@ class BranchingOperator(AbstractOperator):
             errors.append(f"Unexpected error while validating branching criteria: {expr}, Error: {exc!s}")
 
     def analyze_where_clause(self, *, clause_str: str) -> tuple[bool, list[str]]:
+        """Analyze where clause."""
         clause_str = clause_str.strip()
         if not clause_str:
             return False, []

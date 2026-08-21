@@ -9,6 +9,8 @@ logger = get_logger()
 
 
 class OperatorFactoryProvider:
+    """Operatorfactoryprovider."""
+
     operator_factories: ClassVar[dict[str, "OperatorFactory"]] = {}
 
     @staticmethod
@@ -341,6 +343,7 @@ class OperatorFactory:
             raise
 
     def get_operator(self, *, operator_name: str) -> type[AbstractOperator] | None:
+        """Get operator."""
         return self.operators.get(operator_name)
 
 

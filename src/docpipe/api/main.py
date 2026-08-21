@@ -62,6 +62,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Lifespan."""
     del app
     get_default_factory().initialize_storage()
     # Register secret providers (no-op when secrets.vault.enabled=false in config)

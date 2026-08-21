@@ -12,6 +12,7 @@ logger = get_logger()
 
 
 def log_elapsed_time(*, start_time, operator: str | None = None, actions: list | None = None):
+    """Log elapsed time."""
     elapsed_time = get_current_timestamp() - start_time
     log_message = operator if operator else ""
     log_message = log_message + ":" + ("-".join(actions) if actions else "")

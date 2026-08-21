@@ -36,6 +36,7 @@ class PythonOrchestrator(AbstractOrchestrator):
         params: dict,
         job_stats_service: JobStatsService | None = None,
     ) -> AbstractOperatorExecutor:
+        """Create executor impl."""
         return PythonOperatorExecutor(
             name=name,
             operator=operator,
@@ -72,4 +73,5 @@ class PythonOrchestrator(AbstractOrchestrator):
         )
 
     def get_type(self) -> str:
+        """Get type."""
         return OrchestratorType.PYTHON

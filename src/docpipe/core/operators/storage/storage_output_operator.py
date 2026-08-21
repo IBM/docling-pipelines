@@ -193,6 +193,7 @@ class StorageOutputOperator(AbstractOperator):
     # ------------------------------------------------------------------
 
     def validate(self, errors: list, warnings: list, available_features: list) -> None:
+        """Validate."""
         if not self.mode:
             errors.append(f"{self.short_name}: 'mode' is required")
             return
@@ -223,6 +224,7 @@ class StorageOutputOperator(AbstractOperator):
 
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return ["id", "name", "content"]
 
     # ------------------------------------------------------------------
@@ -230,6 +232,7 @@ class StorageOutputOperator(AbstractOperator):
     # ------------------------------------------------------------------
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Transform."""
         span = self._create_operator_span()
         try:
             return self._transform(table)

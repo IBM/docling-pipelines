@@ -1,3 +1,5 @@
+"""Abstract base class for operator executors in the docpipe orchestration layer."""
+
 import copy
 import pprint
 from abc import abstractmethod
@@ -25,6 +27,11 @@ logger = get_logger()
 
 
 class AbstractOperatorExecutor:
+    """Base class for operator executors.
+
+    An executor wraps an AbstractOperator instance, wires up data access, and
+    manages the execution lifecycle (pre/post transform hooks, stats recording)."""
+
     def __init__(
         self,
         *,
@@ -62,6 +69,14 @@ class AbstractOperatorExecutor:
         data_access: DataAccess | dict[str, DataAccess | None] | None,
         deleted_rows_list: Queue[pa.Table] | None,
     ) -> tuple[list[DataAccess], dict[str, Any]]:
+        """Execute the operator and return data accesses and metadata.
+
+        Args:
+            data_access: Upstream data access or dict of data accesses.
+            deleted_rows_list: Queue for accumulating deleted-row tables.
+
+        Returns:
+            Tuple of (list[DataAccess], metadata dict)."""
         input_tables = self._get_input_tables(data_access=data_access)
         out_tables, metadata = self._execute_impl(tables=input_tables)
         if deleted_rows_list is not None:
@@ -81,6 +96,13 @@ class AbstractOperatorExecutor:
         return output_data_accesses, metadata
 
     def create_data_accesses(self, tables):
+        """Create data access objects for the given output tables.
+
+        Args:
+            tables: List of PyArrow tables to wrap.
+
+        Returns:
+            List of DataAccess instances."""
         data_accesses = []
         for index, table in enumerate(tables):
             data_access_factory = DataAccessFactory()
@@ -103,7 +125,7 @@ class AbstractOperatorExecutor:
     @staticmethod
     def _safely_deep_copy_params(*, params: dict) -> dict:
         """Deep copy params, shallow-copying any value that cannot be pickled (e.g. thread locks, clients)."""
-        import pickle
+        import pickle  # nosec B403 — used only to test pickleability, never to deserialise untrusted data
 
         copied = {}
         for k, v in params.items():
@@ -117,9 +139,14 @@ class AbstractOperatorExecutor:
     @abstractmethod
     def get_operator(self) -> AbstractOperator:
         # The concrete class implements the method by returning the operator for the corresponding orchestrator.
+        """Return the operator instance managed by this executor.
+
+        Returns:
+            The AbstractOperator instance."""
         pass
 
     def validate(self, *, errors: list, warnings: list, available_features: list):
+        """Validate."""
         op = self.get_operator()
         op.validate(errors, warnings, available_features)
 
@@ -260,6 +287,13 @@ class AbstractOperatorExecutor:
 
     @staticmethod
     def get_output_file_path(*, data_access):
+        """Return the output file path for a given data access.
+
+        Args:
+            data_access: The DataAccess instance.
+
+        Returns:
+            File path string."""
         output_folder = data_access.get_output_folder()
         if output_folder is None:
             return ""

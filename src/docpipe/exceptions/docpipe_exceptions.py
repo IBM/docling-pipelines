@@ -1,3 +1,5 @@
+"""Custom exception types for docpipe flow validation and execution."""
+
 from json import JSONEncoder
 from typing import Any, ClassVar
 
@@ -9,6 +11,8 @@ DOCLING_PIPELINES_DOCS_URL = "https://github.com/IBM/docling-pipelines/tree/main
 
 
 class DocpipeException(Exception):
+    """Docpipeexception."""
+
     def __init__(
         self,
         message,
@@ -25,6 +29,8 @@ class DocpipeException(Exception):
 
 
 class ValidationAlert(dict):
+    """Validationalert."""
+
     def __init__(
         self,
         code=None,
@@ -75,12 +81,17 @@ class ValidationAlert(dict):
 
 
 class ValidationAlertEncoder(JSONEncoder):
+    """Validationalertencoder."""
+
     def default(self, o):
+        """Default."""
         return o.__dict__
 
 
 class FlowExecutionFailedException(DocpipeException):
     # Thrown when the given flow or flow definition not found
+    """Flowexecutionfailedexception."""
+
     def __init__(self, message: str, status_code: int = 500, errors: list[ValidationAlert] | None = None):
         from docpipe.exceptions.error_codes import ErrorCode
 
@@ -94,6 +105,8 @@ class FlowExecutionFailedException(DocpipeException):
 
 
 class FlowValidationException(DocpipeException):
+    """Flowvalidationexception."""
+
     def __init__(
         self,
         message="Invalid Flow definition",
@@ -149,6 +162,8 @@ class FlowValidationException(DocpipeException):
 
 class PrefectFlowFailed(DocpipeException):
     # thrown when a prefect flow execution failed for a task
+    """Prefectflowfailed."""
+
     def __init__(
         self,
         message,
@@ -166,6 +181,8 @@ class PrefectFlowFailed(DocpipeException):
 
 
 class ValidationException(DocpipeException):
+    """Validationexception."""
+
     def __init__(
         self,
         message="Invalid definition",

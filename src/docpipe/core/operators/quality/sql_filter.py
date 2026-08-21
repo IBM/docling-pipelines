@@ -46,6 +46,8 @@ IS_NOT_NULL: str = "IS NOT NULL"
 
 
 class Mode(Enum):
+    """Mode."""
+
     COLUMNS_TO_DROP = "features to drop"
     FILTER_CRITERIA_JSON = "filter criteria (JSON)"
     FILTER_CRITERIA_LIST = "filter criteria (list)"
@@ -157,7 +159,7 @@ class SQLFilterOperator(AbstractOperator):
             )
             if drop_column_validation and isinstance(drop_column_validation, (set, list)):
                 errors.append(
-                    f"Invalid feature name in the feature drop list: {', '.join(drop_column_validation)}. Please select features from {', '.join(available_features)}"
+                    f"Invalid feature name in the feature drop list: {', '.join(drop_column_validation)}. Please select features from {', '.join(available_features)}"  # nosec B608 — error message, not executed SQL
                 )
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -271,7 +273,7 @@ class SQLFilterOperator(AbstractOperator):
             case_exprs: list[str] = [
                 f"COUNT(CASE WHEN ({c}) THEN 1 END) AS _keep_{i}" for i, c in enumerate(self.filter_criteria)
             ]
-            stats_sql = f"SELECT {', '.join(case_exprs)} FROM input_table"
+            stats_sql = f"SELECT {', '.join(case_exprs)} FROM input_table"  # nosec B608 — criteria validated before use
 
             # use filtering criteria to build the SQL query for filtering
             filter_clauses: list[str] = [f"({x})" for x in self.filter_criteria]
@@ -387,6 +389,7 @@ class SQLFilterOperator(AbstractOperator):
         mode: Mode,
         metadata: dict[str, Any] | None = None,
     ) -> bool | list[str]:
+        """Has invalid columns."""
         filter_column_set: set[str]
         if mode == Mode.COLUMNS_TO_DROP:
             filter_column_set = set(self.columns_to_drop)
@@ -410,6 +413,7 @@ class SQLFilterOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: SQLFilterOperator.is_available(),

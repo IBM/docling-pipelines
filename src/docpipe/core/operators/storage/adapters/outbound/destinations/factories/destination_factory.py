@@ -25,6 +25,7 @@ class DestinationAdapterFactory:
 
     @classmethod
     def register(cls, adapter_class: type[DestinationAdapterPort]) -> None:
+        """Register."""
         dest_name = getattr(adapter_class, "DEST_NAME", None)
         if not dest_name:
             raise ValueError(f"Adapter {adapter_class.__name__} must define DEST_NAME class attribute")
@@ -32,6 +33,7 @@ class DestinationAdapterFactory:
 
     @classmethod
     def create(cls, dest_name: str) -> DestinationAdapterPort:
+        """Create."""
         resolved = cls._ALIASES.get(dest_name, dest_name)
         adapter_class = cls._adapters.get(resolved)
         if not adapter_class:
@@ -41,10 +43,12 @@ class DestinationAdapterFactory:
 
     @classmethod
     def is_registered(cls, dest_name: str) -> bool:
+        """Is registered."""
         return dest_name in cls._adapters or dest_name in cls._ALIASES
 
     @classmethod
     def get_registered_names(cls) -> list[str]:
+        """Get registered names."""
         return list(cls._adapters.keys()) + list(cls._ALIASES.keys())
 
 

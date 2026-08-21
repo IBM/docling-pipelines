@@ -31,6 +31,7 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
         *,
         config: FilesystemDestinationConfig | None = None,
     ) -> "WriteResult | None":
+        """Validate destination."""
         if config is None:
             return None
         root = Path(config.root_path)
@@ -52,6 +53,7 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
         overwrite: bool = True,
         config: FilesystemDestinationConfig | None = None,
     ) -> WriteResult:
+        """Write document."""
         path = Path(destination_path)
 
         if not overwrite and path.exists():
@@ -93,6 +95,7 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
             )
 
     def ensure_directory(self, *, path: str) -> None:
+        """Ensure directory."""
         Path(path).mkdir(parents=True, exist_ok=True)
 
     def resolve_destination_path(
@@ -110,10 +113,12 @@ class FilesystemDestinationAdapter(DestinationAdapterPort[FilesystemDestinationC
         provider_config: dict[str, Any],
         credentials: dict[str, Any],
     ) -> FilesystemDestinationConfig:
+        """Build config from operator params."""
         return FilesystemDestinationConfig(
             root_path=provider_config["root_path"],
             create_dirs=provider_config.get("create_dirs", True),
         )
 
     def get_config_schema(self) -> type[BaseModel]:
+        """Get config schema."""
         return FilesystemDestinationConfig

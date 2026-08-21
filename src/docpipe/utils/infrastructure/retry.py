@@ -34,7 +34,10 @@ def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60,
     """
 
     def decorator(func):
+        """Decorator."""
+
         def wrapper(*args, **kwargs):
+            """Wrapper."""
             retry_count = 0
             delay = initial_delay
 

@@ -1,3 +1,5 @@
+"""High-level flow executor that loads a flow definition and drives orchestration."""
+
 import argparse
 import gc
 import json
@@ -144,18 +146,22 @@ class FlowExecutor:
         return data_access
 
     def cancel(self) -> None:
+        """Cancel."""
         if self.__orchestrator is not None:
             self.__orchestrator.cancel()
 
     def pause(self) -> None:
+        """Pause."""
         if self.__orchestrator is not None:
             self.__orchestrator.pause()
 
     def resume(self) -> None:
+        """Resume."""
         if self.__orchestrator is not None:
             self.__orchestrator.resume()
 
     def start_diagnostic_collection(self) -> None:
+        """Start diagnostic collection."""
         if self.trace_memory_allocations:
             logger.info(
                 ">>> Starting to collect memory allocation traces",
@@ -164,6 +170,7 @@ class FlowExecutor:
             tracemalloc.start()
 
     def stop_diagnostic_collection(self) -> None:
+        """Stop diagnostic collection."""
         if self.trace_memory_allocations:
             logger.info(
                 ">>> Stopping to collect memory allocation traces",
@@ -218,6 +225,7 @@ class FlowExecutor:
 
 # main entry point into the program
 def main():  # pragma: no cover
+    """Main."""
     parser = argparse.ArgumentParser(description="Run flow json file")
     parser.add_argument(
         "-f",

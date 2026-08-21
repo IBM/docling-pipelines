@@ -56,7 +56,7 @@ class DocIdHashOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
-
+        """Get metadata."""
         return {
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False,
             OperatorConstants.Misc.CATEGORY: DocIdHashOperator.category.value,

@@ -63,6 +63,7 @@ class ReadabilityOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: ReadabilityOperator.category.value,
@@ -163,6 +164,7 @@ class ReadabilityOperator(AbstractOperator):
 
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def _calculate_scores_for_text(self, *, text: str) -> dict[str, float]:
@@ -223,6 +225,7 @@ class ReadabilityOperator(AbstractOperator):
         return [transformed_table], metadata
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """Validate."""
         if not self.score_list:
             warnings.append("At least one readability score must be selected")
         elif not set(self.score_list).issubset(set(DEFAULT_READABILITY_SCORES)):

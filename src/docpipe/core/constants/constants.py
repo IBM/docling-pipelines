@@ -1,3 +1,5 @@
+"""Project-wide string constants, enums, and configuration keys for docpipe."""
+
 import os
 from enum import Enum, StrEnum
 from pathlib import Path
@@ -35,6 +37,8 @@ def _find_project_root() -> Path:
 
 class DocpipeConstants:
     # Defines constants that are used across Docpipe service
+    """Docpipeconstants."""
+
     DOCPIPE_DATA_PATH = "DOCPIPE_DATA_PATH"
     INPUT_EDGES = "input_edges"
     NODE_ID_REF = "node_id_ref"
@@ -272,7 +276,7 @@ class DocpipeConfigKeys:
     PORT = "port"
     DATABASE = "database"
     USER = "user"
-    PASSWORD = "password"  # pragma: allowlist secret
+    PASSWORD = "password"  # pragma: allowlist secret  # nosec B105
     POOL_SIZE = "pool_size"
     MAX_OVERFLOW = "max_overflow"
     POOL_TIMEOUT = "pool_timeout"
@@ -323,7 +327,7 @@ class EnvironmentVariables:
     DOCPIPE_POSTGRES_PORT = "DOCPIPE_POSTGRES_PORT"
     DOCPIPE_POSTGRES_DB = "DOCPIPE_POSTGRES_DB"
     DOCPIPE_POSTGRES_USER = "DOCPIPE_POSTGRES_USER"
-    DOCPIPE_POSTGRES_PASSWORD = "DOCPIPE_POSTGRES_PASSWORD"  # pragma: allowlist secret
+    DOCPIPE_POSTGRES_PASSWORD = "DOCPIPE_POSTGRES_PASSWORD"  # pragma: allowlist secret  # nosec B105
 
 
 class ServiceConstants:
@@ -398,7 +402,11 @@ class DoclingClientConfigConstants:
 
 
 class Metrics:
+    """Metrics."""
+
     class External:
+        """External."""
+
         JOB_RUN_STATUS = "job_run_status"
         TOTAL_DOCS = "documents_in_scope"
         COMPLETED_DOCS_COUNT = "completed_docs_count"
@@ -442,6 +450,8 @@ class Metrics:
         PAGE_TYPE_STATS = "page_type_stats"
 
     class Internal:
+        """Internal."""
+
         DELETED_FROM_LAST_RUN = "deleted_from_last_run"
         ALL_DOC_IDS = "all_doc_ids"
         BRANCHES = "branches"
@@ -456,6 +466,8 @@ internal_metrics = {value for name, value in vars(Metrics.Internal).items() if n
 
 
 class TaskType(Enum):
+    """Tasktype."""
+
     EXECUTE_FLOW = "execute_flow"
     VALIDATE_FLOW = "validate_flow"
     NON_EXECUTE_FLOW = "non_execute_flow"
@@ -506,11 +518,15 @@ class DocumentConstants:
 
 
 class OrchestratorType:
+    """Orchestratortype."""
+
     PYTHON = "python"
     SPARK = "spark"
 
 
 class DataSourceType:
+    """Datasourcetype."""
+
     AMAZON_S3 = "Amazon S3"
     BOX = "Box"
     FILENET = "AppConnectAdapter - FileNet"
@@ -523,6 +539,8 @@ class DataSourceType:
 
 
 class ExecutionStatus(StrEnum):
+    """Executionstatus."""
+
     QUEUED = "Queued"
     PENDING = "Pending"
     STARTING = "Starting"
@@ -577,6 +595,8 @@ active_states = [
 
 
 class ValidationStatus(StrEnum):
+    """Validationstatus."""
+
     FAILED = "FAILED"
     SUCCEEDED = "SUCCEEDED"
     SUCCEEDED_WITH_WARNINGS = "SUCCEEDED_WITH_WARNINGS"

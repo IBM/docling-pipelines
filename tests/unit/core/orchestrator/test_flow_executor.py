@@ -3,7 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -397,3 +397,112 @@ class TestFlowExecutor:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# Additional FlowExecutor tests (merged from test_flow_executor_coverage.py)
+# ---------------------------------------------------------------------------
+
+
+def _make_executor_simple(flow_def=None):
+    """Build a FlowExecutor without needing a patched session."""
+    with patch("docpipe.core.orchestration.flow_executor.get_session_info") as mock_session:
+        mock_session.return_value = Mock(
+            get_common_log_arguments=Mock(return_value={}),
+            job_run_id=None,
+            job_id=None,
+        )
+        return FlowExecutor(flow_def=flow_def or {"name": "test", "dag": []})
+
+
+class TestFlowExecutorNoOrchestrator:
+    def test_execute_raises_when_no_orchestrator(self):
+        executor = _make_executor_simple()
+        with pytest.raises(ValueError, match="No orchestrator"):
+            executor.execute(orchestrator=None, params={})
+
+
+class TestFlowExecutorCancelPauseResume:
+    def test_cancel_with_orchestrator(self):
+        executor = _make_executor_simple()
+        mock_orch = MagicMock()
+        executor._FlowExecutor__orchestrator = mock_orch
+        executor.cancel()
+        mock_orch.cancel.assert_called_once()
+
+    def test_cancel_without_orchestrator(self):
+        executor = _make_executor_simple()
+        executor._FlowExecutor__orchestrator = None
+        executor.cancel()  # should not raise
+
+    def test_pause_with_orchestrator(self):
+        executor = _make_executor_simple()
+        mock_orch = MagicMock()
+        executor._FlowExecutor__orchestrator = mock_orch
+        executor.pause()
+        mock_orch.pause.assert_called_once()
+
+    def test_resume_with_orchestrator(self):
+        executor = _make_executor_simple()
+        mock_orch = MagicMock()
+        executor._FlowExecutor__orchestrator = mock_orch
+        executor.resume()
+        mock_orch.resume.assert_called_once()
+
+
+class TestFlowExecutorDiagnostics:
+    def test_start_stop_diagnostic_no_trace(self):
+        executor = _make_executor_simple()
+        executor.trace_memory_allocations = False
+        executor.start_diagnostic_collection()
+        executor.stop_diagnostic_collection()
+
+    def test_print_diagnostic_no_trace(self):
+        executor = _make_executor_simple()
+        executor.trace_memory_allocations = False
+        executor.print_diagnostic_info()  # should not raise
+
+    def test_print_diagnostic_with_trace(self):
+        import tracemalloc
+
+        executor = _make_executor_simple()
+        executor.trace_memory_allocations = True
+        tracemalloc.start()
+        try:
+            snapshot = tracemalloc.take_snapshot()
+            executor.print_diagnostic_info(snapshot=snapshot, limit=2)
+        finally:
+            tracemalloc.stop()
+
+
+class TestFlowExecutorStr:
+    def test_str_representation(self):
+        executor = _make_executor_simple(flow_def={"name": "MyFlow", "description": "Desc", "dag": []})
+        result = str(executor)
+        assert "MyFlow" in result
+
+
+class TestFlowExecutorSaveFlowDefinitionError:
+    @patch("docpipe.core.orchestration.flow_executor.get_session_info")
+    def test_execute_continues_when_save_flow_def_fails(self, mock_session):
+        mock_session.return_value = Mock(
+            get_common_log_arguments=Mock(return_value={}),
+            job_run_id="run1",
+            job_id="job1",
+        )
+        executor = FlowExecutor(flow_def={"name": "f", "dag": []})
+
+        mock_orch = MagicMock()
+        mock_orch.job_stats_service = MagicMock()
+        mock_orch.job_stats_service.cancel_job_run_if_cancelling.return_value = False
+        mock_orch.job_stats_service.save_flow_definition.side_effect = RuntimeError("disk full")
+        mock_orch.execute.return_value = None
+        mock_orch.flow_execution_event_handler.job_log_path = "/tmp/log"
+
+        with patch("docpipe.core.orchestration.flow_executor.FlowValidator") as mock_val:
+            mock_val.return_value.validate.return_value = None
+            executor.execute(
+                orchestrator=mock_orch,
+                params={DocpipeConstants.JOB_ID: "job1", DocpipeConstants.JOB_RUN_ID: "run1"},
+            )
+        mock_orch.execute.assert_called_once()

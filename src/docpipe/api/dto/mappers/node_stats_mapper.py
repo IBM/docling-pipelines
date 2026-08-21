@@ -1,3 +1,5 @@
+"""Mapper functions for converting node statistics between domain models and DTOs."""
+
 import json
 
 from docpipe.api.dto.node_stats_dto import NodeMetadataItem, NodeStatsDto

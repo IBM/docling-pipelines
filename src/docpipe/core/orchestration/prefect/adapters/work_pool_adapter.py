@@ -268,6 +268,7 @@ class WorkPoolAdapter(BatchExecutionPort):
         poller_task = asyncio.create_task(_bulk_poll_runs())
 
         async def run_single_batch(batch_info: BatchInfo):
+            """Run single batch."""
             nonlocal completed_count
             async with semaphore:
                 try:

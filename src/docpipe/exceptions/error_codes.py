@@ -3,6 +3,8 @@ from enum import StrEnum
 
 class ErrorCode(StrEnum):
     # Flow validation and execution
+    """Errorcode."""
+
     FLOW_VALIDATION_FAILED = "flow_validation_failed"
     FLOW_EXECUTION_FAILED = "flow_execution_failed"
     PREFECT_FLOW_TASK_FAILED = "prefect_flow_failed"

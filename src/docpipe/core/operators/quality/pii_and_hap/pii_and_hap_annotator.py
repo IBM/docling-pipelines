@@ -429,6 +429,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def get_payload_for_detections(self, doc_contents: Any) -> dict[str, Any]:
@@ -695,6 +696,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         return [table], metadata
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """Validate."""
         from docpipe.utils.operators.config_validation import validate_config_from_metadata
 
         super().validate(errors, warnings, available_features)

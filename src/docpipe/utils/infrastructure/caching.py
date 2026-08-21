@@ -1,3 +1,5 @@
+"""LRU cache utilities for docpipe infrastructure."""
+
 import threading
 import time
 from collections.abc import Hashable, Iterable
@@ -15,6 +17,8 @@ CACHE_NOT_INITIALIZED_ERROR = "Cache accessed before initialization"
 
 
 class LRUCache(metaclass=Singleton):
+    """Lrucache."""
+
     _is_initialized: bool = False
 
     def __init__(self, maxsize: int = 128, ttl: int = 1800):
@@ -37,6 +41,7 @@ class LRUCache(metaclass=Singleton):
                 logger.warning(f"Cache {self.__class__.__name__} already initialized")
 
     def get(self, *, cache_key: Hashable) -> Any | None:
+        """Get."""
         if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
@@ -51,6 +56,7 @@ class LRUCache(metaclass=Singleton):
             return container_object
 
     def put(self, *, cache_key: Hashable, value: Any):
+        """Put."""
         if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
@@ -60,6 +66,7 @@ class LRUCache(metaclass=Singleton):
             logger.info(f"Current cache size: {len(self._cache)}/{self._cache.maxsize}")
 
     def remove_keys(self, *, keys: Iterable[Hashable]) -> None:
+        """Remove keys."""
         if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 

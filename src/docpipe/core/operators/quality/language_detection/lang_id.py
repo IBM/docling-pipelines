@@ -101,6 +101,7 @@ class LanguageDetect(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: LanguageDetect.category.value,
@@ -142,6 +143,7 @@ class LanguageDetect(AbstractOperator):
 
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def cleanup(self) -> None:

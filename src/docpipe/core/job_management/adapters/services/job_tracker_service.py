@@ -979,6 +979,7 @@ class JobTrackerService(JobStatsService):
         return lines
 
     def get_job_run_logs(self, *, job_run_id: str) -> list[str]:
+        """Get job run logs."""
         job_stats: JobStats | None = self.get_job(
             job_run_id=job_run_id, include_node_stats=True, include_batch_stats=True
         )

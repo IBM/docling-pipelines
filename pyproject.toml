@@ -98,6 +98,7 @@ dev = [
     "faker==40.8.0",
     "flake8==7.3.0",
     "httpx==0.28.1",  # For testing FastAPI
+    "interrogate==1.7.0",
     "mypy==2.1.0",
     "pre-commit==4.5.1",
     "pytest==9.0.2",
@@ -276,6 +277,14 @@ follow_imports = "silent"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.interrogate]
+fail-under = 90
+ignore-init-method = true
+ignore-magic = true
+ignore-private = true
+exclude = ["tests", "scripts"]
+verbose = 0
 
 [tool.bandit]
 exclude_dirs = ["tests", "scripts"]

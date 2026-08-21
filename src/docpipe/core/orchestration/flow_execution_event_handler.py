@@ -65,6 +65,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
     def before_flow_execution_start(self, *, orchestrator, flow_def: dict | None = None):
         # Print flow header if output formatter is available
+        """Before flow execution start."""
         if self.execution_reporter and flow_def:
             flow_name = flow_def.get(DocpipeConstants.NAME, self.flow_id or "Unknown Flow")
             operator_count = len(flow_def.get(DocpipeConstants.DAG, []))
@@ -183,6 +184,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             self.execution_reporter.print_flow_summary(job_stats=job_stats, dag_nodes=op_flow)
 
     def before_step_execution_start(self, *, node_id, node_name, global_config, job_status, prev_results):
+        """Before step execution start."""
         log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
 
         # Print operator start if output formatter is available and step is not being skipped
@@ -314,6 +316,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             )
 
     def after_node_failure(self, *, node_id, node_name, global_config, e):
+        """After node failure."""
         if self.job_stats_service and self.job_run_id:
             # Extract batch context from global_config if micro-batching is enabled
             batch_id = None

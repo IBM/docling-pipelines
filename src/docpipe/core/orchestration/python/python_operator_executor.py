@@ -1,3 +1,5 @@
+"""Pure-Python operator executor for in-process flow orchestration."""
+
 import copy
 from typing import Any
 
@@ -24,6 +26,8 @@ logger = get_logger()
 
 
 class PythonOperatorExecutor(AbstractOperatorExecutor):
+    """Pythonoperatorexecutor."""
+
     def __init__(
         self,
         *,
@@ -150,6 +154,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         )
 
     def get_operator(self) -> AbstractOperator:
+        """Get operator."""
         clazz = self.operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
             raise DocpipeException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")
@@ -172,6 +177,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
 
 # used for unit testing only
 def main():  # pragma: no cover
+    """Main."""
     op_def: dict[str, Any] = {
         "name": "regex",
         "operator": "regex_annotator",
