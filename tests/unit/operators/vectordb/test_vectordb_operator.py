@@ -8,6 +8,7 @@ import pytest
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import VectorStoreFactory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.config import get_opensearch_config
 
@@ -371,6 +372,10 @@ class TestMetadata:
         assert metadata["is_operator_available"] is True
         assert "features" in metadata
         assert "attributes" in metadata
+        assert OperatorConstants.Config.PROVIDER in metadata["attributes"]
+        provider_attr = metadata["attributes"][OperatorConstants.Config.PROVIDER]
+        assert OperatorConstants.Config.VALID_VALUES in provider_attr
+        assert set(provider_attr[OperatorConstants.Config.VALID_VALUES]) == set(VectorStoreFactory.list_adapters())
 
 
 class TestVectorDBOperatorValidateMandatoryFeatureMappings:

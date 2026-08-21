@@ -84,7 +84,28 @@ class MergeOperator(AbstractOperator):
                     OperatorConstants.Misc.NAME: "Column Option",
                     OperatorConstants.Config.DESCRIPTION: "Column configuration specified by the user (inner_join or full_outer)",
                     OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.VALID_VALUES: [
+                        OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN,
+                        OperatorConstants.Merge.FULL_OUTER_JOIN,
+                    ],
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Merge.INPUT_LINKS: {
+                    OperatorConstants.Misc.NAME: "Input Links",
+                    OperatorConstants.Config.DESCRIPTION: "List of branch links to merge. Each entry must have a link_name matching a BranchingOperator branch_id. Minimum 2 required.",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Config.ITEMS: {
+                        OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                        OperatorConstants.Config.PROPERTIES: {
+                            OperatorConstants.Misc.LINK_NAME: {
+                                OperatorConstants.Misc.NAME: "Link Name",
+                                OperatorConstants.Config.DESCRIPTION: "The link_id of the BranchingOperator branch to include in this merge.",
+                                OperatorConstants.Config.REQUIRED: True,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            },
+                        },
+                    },
                 },
             },
         }

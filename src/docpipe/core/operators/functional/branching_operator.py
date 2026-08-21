@@ -153,6 +153,43 @@ class BranchingOperator(AbstractOperator):
                     ),
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Config.ITEMS: {
+                        OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                        OperatorConstants.Config.PROPERTIES: {
+                            OperatorConstants.Misc.LINK_ID: {
+                                OperatorConstants.Misc.NAME: "Branch ID",
+                                OperatorConstants.Config.DESCRIPTION: "Unique identifier for this branch. Referenced by MergeOperator input_links.",
+                                OperatorConstants.Config.REQUIRED: True,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            },
+                            OperatorConstants.Misc.LINK_NAME: {
+                                OperatorConstants.Misc.NAME: "Branch Name",
+                                OperatorConstants.Config.DESCRIPTION: "Human-readable label for this branch.",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            },
+                            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: {
+                                OperatorConstants.Misc.NAME: "Criteria List",
+                                OperatorConstants.Config.DESCRIPTION: "SQL-like filter expressions (e.g. \"lang_name = 'en'\"). Omit for an unconditional branch.",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
+                            },
+                            OperatorConstants.Filtering.FILTER_CRITERIA_JSON: {
+                                OperatorConstants.Misc.NAME: "Criteria JSON",
+                                OperatorConstants.Config.DESCRIPTION: "Structured filter criteria object (alternative to criteria_list).",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                            },
+                            OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: {
+                                OperatorConstants.Misc.NAME: "Logical Operator",
+                                OperatorConstants.Config.DESCRIPTION: "How to combine multiple criteria: AND or OR.",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Config.DEFAULT: "AND",
+                                OperatorConstants.Config.VALID_VALUES: ["AND", "OR"],
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            },
+                        },
+                    },
                 }
             },
         }

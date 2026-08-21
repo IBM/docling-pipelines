@@ -503,6 +503,28 @@ def test_get_metadata_contains_required_keys():
     assert OperatorConstants.Config.ATTRIBUTES in meta
 
 
+def test_get_metadata_input_links_attribute():
+    """input_links is present, required, and exposes an items schema with link_name property."""
+    meta = MergeOperator.get_metadata()
+    assert OperatorConstants.Merge.INPUT_LINKS in meta[OperatorConstants.Config.ATTRIBUTES]
+    attr = meta[OperatorConstants.Config.ATTRIBUTES][OperatorConstants.Merge.INPUT_LINKS]
+    assert attr[OperatorConstants.Config.REQUIRED] is True
+    assert OperatorConstants.Config.ITEMS in attr
+    properties = attr[OperatorConstants.Config.ITEMS][OperatorConstants.Config.PROPERTIES]
+    assert OperatorConstants.Misc.LINK_NAME in properties
+
+
+def test_get_metadata_column_option_valid_values():
+    """column_option exposes inner_join and full_outer as valid_values."""
+    meta = MergeOperator.get_metadata()
+    attr = meta[OperatorConstants.Config.ATTRIBUTES][OperatorConstants.Merge.COLUMN_OPTION]
+    assert OperatorConstants.Config.VALID_VALUES in attr
+    assert set(attr[OperatorConstants.Config.VALID_VALUES]) == {
+        OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN,
+        OperatorConstants.Merge.FULL_OUTER_JOIN,
+    }
+
+
 # ---------------------------------------------------------------------------
 # 8. Complex type handling
 # ---------------------------------------------------------------------------

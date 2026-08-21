@@ -55,6 +55,15 @@ class DocQuality(DocQualityTransform, AbstractOperator):
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocQuality.is_available(),
             OperatorConstants.Misc.LABEL: "Document Quality",
             OperatorConstants.Config.DESCRIPTION: "Compute text quality metrics for each document (word counts, ratios, lorem ipsum, bad words, etc.).",
+            OperatorConstants.Config.ATTRIBUTES: {
+                TEXT_LANG_KEY: {
+                    OperatorConstants.Misc.NAME: "Text Language",
+                    OperatorConstants.Config.DESCRIPTION: "BCP-47 language code of the document text; controls language-sensitive metrics including sentence counting, bad-word detection, and common-word checks.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_TEXT_LANG,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+            },
             OperatorConstants.Config.FEATURES: {
                 "docq_total_words": {
                     OperatorConstants.Misc.NAME: "Total Words",

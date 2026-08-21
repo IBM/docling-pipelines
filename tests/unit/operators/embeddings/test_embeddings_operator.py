@@ -19,6 +19,9 @@ import pytest
 from docpipe.core.constants.constants import ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.functional.embeddings import EmbeddingsOperator
+from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
+    LLMAdapterFactory,
+)
 
 
 # Test Fixtures
@@ -230,6 +233,10 @@ class TestEmbeddingsOperatorMetadata:
         assert OperatorConstants.Config.ATTRIBUTES in metadata
         assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in metadata
         assert metadata[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
+        assert "provider" in metadata[OperatorConstants.Config.ATTRIBUTES]
+        provider_attr = metadata[OperatorConstants.Config.ATTRIBUTES]["provider"]
+        assert OperatorConstants.Config.VALID_VALUES in provider_attr
+        assert set(provider_attr[OperatorConstants.Config.VALID_VALUES]) == set(LLMAdapterFactory.list_adapters())
 
     @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_get_metadata_features(self, mock_factory, litellm_config, mock_llm_adapter):

@@ -713,6 +713,29 @@ class TestGetMetadata:
         meta = operator.get_metadata()
         assert meta[OperatorConstants.Misc.SDK] is True
 
+    def test_get_metadata_branch_criteria_items_schema(self):
+        """branch_criteria exposes an items schema with properties for all branch object fields."""
+        meta = BranchingOperator.get_metadata()
+        branch_criteria = meta[OperatorConstants.Config.ATTRIBUTES]["branch_criteria"]
+        assert OperatorConstants.Config.ITEMS in branch_criteria
+        items = branch_criteria[OperatorConstants.Config.ITEMS]
+        assert OperatorConstants.Config.PROPERTIES in items
+        properties = items[OperatorConstants.Config.PROPERTIES]
+        assert OperatorConstants.Misc.LINK_ID in properties
+        assert OperatorConstants.Misc.LINK_NAME in properties
+        assert OperatorConstants.Filtering.FILTER_CRITERIA_LIST in properties
+        assert OperatorConstants.Filtering.FILTER_CRITERIA_JSON in properties
+        assert OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY in properties
+
+    def test_get_metadata_branch_criteria_logical_operator_has_valid_values(self):
+        """logical_operator item property exposes AND and OR as valid_values."""
+        meta = BranchingOperator.get_metadata()
+        logical_op = meta[OperatorConstants.Config.ATTRIBUTES]["branch_criteria"][OperatorConstants.Config.ITEMS][
+            OperatorConstants.Config.PROPERTIES
+        ][OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY]
+        assert OperatorConstants.Config.VALID_VALUES in logical_op
+        assert set(logical_op[OperatorConstants.Config.VALID_VALUES]) == {"AND", "OR"}
+
 
 # ---------------------------------------------------------------------------
 # 9. validate()

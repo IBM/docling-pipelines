@@ -261,6 +261,9 @@ class TestLanguageDetectOperator:
         assert OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE in metadata[OperatorConstants.Config.ATTRIBUTES]
         assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
         assert OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
+        provider_attr = metadata[OperatorConstants.Config.ATTRIBUTES]["language_provider"]
+        assert OperatorConstants.Config.VALID_VALUES in provider_attr
+        assert set(provider_attr[OperatorConstants.Config.VALID_VALUES]) == set(LanguageAdapterFactory.list_adapters())
 
     def test_operator_transform_basic(self, sample_config, sample_table):
         """Test basic language detection transformation"""

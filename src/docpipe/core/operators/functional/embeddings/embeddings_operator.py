@@ -325,6 +325,15 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         }
 
     @staticmethod
+    def _get_embedding_provider_names() -> list[str]:
+        """Return registered embedding provider names from the local adapter factory."""
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
+            LLMAdapterFactory as LocalLLMAdapterFactory,
+        )
+
+        return LocalLLMAdapterFactory.list_adapters()
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
@@ -350,9 +359,10 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
                     OperatorConstants.Misc.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: "Embedding provider: watsonx (IBM watsonx.ai) or litellm (100+ providers including Ollama, HuggingFace, OpenAI, Azure, Cohere)",
+                    OperatorConstants.Config.DESCRIPTION: "Embedding provider: litellm (100+ providers including Ollama, OpenAI, Azure, Cohere), watsonx (IBM watsonx.ai), or huggingface (local inference).",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
+                    OperatorConstants.Config.VALID_VALUES: EmbeddingsOperator._get_embedding_provider_names(),
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {

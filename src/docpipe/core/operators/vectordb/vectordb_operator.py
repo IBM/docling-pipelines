@@ -678,6 +678,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Config.DESCRIPTION: "Type of vector database provider. Supported values: opensearch, milvus.",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
+                    OperatorConstants.Config.VALID_VALUES: VectorStoreFactory.list_adapters(),
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Columns.DOC_ID_COLUMN: {

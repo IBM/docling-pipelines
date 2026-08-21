@@ -114,6 +114,7 @@ class LanguageDetect(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Language detection provider to use (fasttext or langdetect)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DEFAULT_LANGUAGE_PROVIDER,
+                    OperatorConstants.Config.VALID_VALUES: LanguageAdapterFactory.list_adapters(),
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: {

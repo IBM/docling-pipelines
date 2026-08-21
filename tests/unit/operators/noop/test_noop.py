@@ -476,6 +476,16 @@ def test_get_metadata_is_operator_available_value():
     assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] == operator.is_available()
 
 
+def test_get_metadata_attributes_has_sleep_sec():
+    """get_metadata() attributes contain 'sleep_sec' key."""
+    meta = NOOPOperator.get_metadata()
+    assert OperatorConstants.Config.ATTRIBUTES in meta
+    assert OperatorConstants.Misc.SLEEP_SEC in meta[OperatorConstants.Config.ATTRIBUTES]
+    attr = meta[OperatorConstants.Config.ATTRIBUTES][OperatorConstants.Misc.SLEEP_SEC]
+    assert attr[OperatorConstants.Config.REQUIRED] is False
+    assert attr[OperatorConstants.Config.DEFAULT] == 1
+
+
 # ---------------------------------------------------------------------------
 # 11. Sleep functionality
 # ---------------------------------------------------------------------------
