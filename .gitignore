@@ -81,3 +81,6 @@ examples/LDAP/.env
 
 # Local test artifacts with credentials
 test_flows/
+
+## UV lock file
+uv.lock

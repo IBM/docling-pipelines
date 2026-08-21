@@ -122,14 +122,14 @@ telemetry = [
 ]
 
 extract = [
-    "docling[rapidocr]==2.105.0",
+    "docling[rapidocr]==2.121.0",
     "sentence-transformers==5.4.1",
     "transformers>=5.8.1,<5.9.0",
     "accelerate==1.13.0",
 ]
 
 vlm_asr = [
-    "docling[vlm,asr]==2.105.0",
+    "docling[vlm,asr]==2.121.0",
 ]
 
 [project.scripts]
