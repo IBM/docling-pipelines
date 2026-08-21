@@ -58,6 +58,7 @@ fi
 SONAR_SOURCES="src"
 SONAR_TESTS="tests"
 SONAR_EXCLUSIONS="**/ui/**,**/__pycache__/**,**/*.pyc,tests/**"
+SONAR_COVERAGE_EXCLUSIONS="**/__init__.py,**/ui/**,**/tests/**"
 
 # Check if running on MacOS or Linux
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -105,6 +106,7 @@ echo "sonar.projectBaseDir=${JENKINS_BUILD_DIR}" >> sonar-project.properties
 echo "sonar.projectVersion=${JENKINS_BUILD_NUMBER}" >> sonar-project.properties
 echo "sonar.sources=${SONAR_SOURCES}" >> sonar-project.properties
 echo "sonar.exclusions=${SONAR_EXCLUSIONS}" >> sonar-project.properties
+echo "sonar.coverage.exclusions=${SONAR_COVERAGE_EXCLUSIONS}" >> sonar-project.properties
 echo "sonar.tests=${SONAR_TESTS}" >> sonar-project.properties
 echo "sonar.sourceEncoding=UTF-8" >> sonar-project.properties
 echo "sonar.python.version=3.12" >> sonar-project.properties
@@ -137,7 +139,7 @@ if [ -z "$JENKINS_PULL_REQUEST_BRANCH" ]; then # this is not a pull request
   while [ -z ${ANALYSIS_ID} ]; do
     OUTPUT=$(curl -s -k -u ${SONAR_TOKEN}: "${SONAR_HOST_URL}/api/project_analyses/search?project=${PROJECT_KEY}&branch=${SCAN_BRANCH}&category=VERSION")
     ANALYSIS_ID=$(echo $OUTPUT | jq -r '.analyses[] | select(.events[].name == "'${JENKINS_BUILD_NUMBER}'") | .key')
-    
+
     if [ -z "${ANALYSIS_ID}" ]; then
       let COUNTER+=1
       if [ ${COUNTER} -gt 30 ]; then
