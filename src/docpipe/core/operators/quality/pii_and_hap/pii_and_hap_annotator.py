@@ -635,6 +635,11 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
                     detected_field = get_detected_field(detection_dict, fields_to_redact)
 
                     if not detected_field:
+                        logger.debug(
+                            "Unknown detection label %s - not in mapping, skipping",
+                            detection_dict.get("detection"),
+                            extra=self.common_log_arguments,
+                        )
                         continue
 
                     detection_dict.pop("evidences", None)
