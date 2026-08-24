@@ -157,3 +157,21 @@ class VectorStorePort(ABC):
             Dictionary mapping column names to their detected dimensions
         """
         pass
+
+    @abstractmethod
+    def get_chunk_ids_for_documents(self, doc_ids: list[str]) -> dict[str, set[str]]:
+        """Return all existing chunk PKs for the given document IDs.
+
+        Queries the vector store for every chunk currently indexed under each
+        of the supplied doc IDs and groups the PKs by their parent doc ID.
+        Used by the operator to compute stale PKs before a new insert.
+
+        Args:
+            doc_ids: List of document IDs (values of the doc_id_hash column)
+                     to look up.
+
+        Returns:
+            Mapping of doc_id -> set of existing chunk PKs currently in the
+            store for that document. Doc IDs with no indexed chunks are omitted.
+        """
+        pass

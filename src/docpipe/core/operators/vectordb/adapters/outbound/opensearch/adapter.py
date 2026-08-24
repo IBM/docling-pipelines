@@ -252,3 +252,14 @@ class OpenSearchAdapter(VectorStorePort):
             Dictionary mapping column names to their detected dimensions
         """
         return detect_all_vector_dimensions(table=table, vector_columns=vector_columns)
+
+    def get_chunk_ids_for_documents(self, doc_ids: list[str]) -> dict[str, set[str]]:
+        """Return all existing chunk PKs grouped by doc ID.
+
+        Args:
+            doc_ids: List of doc_id_hash values to look up.
+
+        Returns:
+            Mapping of doc_id -> set of chunk PKs.
+        """
+        return self.batch_processor.get_chunk_ids_for_documents(doc_ids=doc_ids)

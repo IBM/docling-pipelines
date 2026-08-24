@@ -11,7 +11,7 @@ from pymilvus import MilvusClient
 
 from docpipe.core.constants import OperatorConstants
 from docpipe.utils.infrastructure.logging import get_logger
-from docpipe.utils.operators.vectordb_utils import calculate_batch_size_bytes, feature_mapping_items
+from docpipe.utils.operators.vectordb_utils import build_mapping_dict, calculate_batch_size_bytes, feature_mapping_items
 
 logger = get_logger()
 
@@ -65,6 +65,7 @@ class MilvusBatchProcessor:
         self.batch_size = batch_size
         self.available_features = available_features or {}
         self.feature_mappings: list[dict[str, str]] = feature_mappings or []
+        self._mapping_dict: dict[str, str] = build_mapping_dict(mappings=self.feature_mappings)
         self.primary_key_field = primary_key_field
         self.embeddings_column = embeddings_column
         self.add_sparse_vector = add_sparse_vector
@@ -313,3 +314,53 @@ class MilvusBatchProcessor:
         except Exception as e:
             logger.error(f"Failed to get document count: {e}")
             return 0
+
+    def get_chunk_ids_for_documents(self, *, doc_ids: list[str]) -> dict[str, set[str]]:
+        """Return all existing chunk PKs grouped by doc ID.
+
+        Queries the collection for every entry whose stored doc_id_hash field
+        matches any of the supplied doc IDs and returns their primary key values
+        grouped by parent doc ID.
+
+        The stored field name for doc_id_hash is resolved from feature_mappings
+        so user-overridden field names are handled correctly.
+
+        Args:
+            doc_ids: List of doc_id_hash values to look up.
+
+        Returns:
+            Mapping of doc_id -> set of chunk PKs. Doc IDs with no indexed
+            chunks are omitted from the result.
+        """
+        if not doc_ids:
+            return {}
+
+        # Resolve the stored field name via feature_mappings (default: "doc_id_hash").
+        doc_id_field: str = self._mapping_dict.get(
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+        )
+
+        try:
+            # Build filter expression using IN operator for the doc_id field
+            ids_str = "[" + ", ".join(f'"{d}"' for d in doc_ids) + "]"
+            filter_expr = f"{doc_id_field} in {ids_str}"
+
+            rows: list[dict[str, Any]] = self.client.query(
+                collection_name=self.collection_name,
+                filter=filter_expr,
+                output_fields=[self.primary_key_field, doc_id_field],
+            )
+
+            result: dict[str, set[str]] = {}
+            for row in rows:
+                chunk_pk: str = str(row.get(self.primary_key_field, ""))
+                parent_doc_id: str | None = row.get(doc_id_field)
+                if chunk_pk and parent_doc_id:
+                    result.setdefault(str(parent_doc_id), set()).add(chunk_pk)
+
+            return result
+
+        except Exception as e:
+            logger.error("Error querying PKs by doc IDs: %s", e)
+            return {}

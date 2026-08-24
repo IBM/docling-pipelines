@@ -626,3 +626,67 @@ class TestQueryAndDeleteEdgeCases:
         batches = processor.create_batches(documents=documents)
         # Each oversized doc should be in its own batch
         assert len(batches) >= 2
+
+
+class TestQueryPksByDocIds:
+    """Tests for MilvusBatchProcessor.get_chunk_ids_for_documents()."""
+
+    def test_returns_empty_dict_for_empty_input(self, mock_client) -> None:
+        """Empty doc_ids list must return {} without calling the client."""
+        processor = MilvusBatchProcessor(client=mock_client, collection_name="test_collection")
+        result = processor.get_chunk_ids_for_documents(doc_ids=[])
+        assert result == {}
+        mock_client.query.assert_not_called()
+
+    def test_returns_pks_grouped_by_doc_id(self, mock_client) -> None:
+        """Rows must be grouped by their doc_id_hash field value."""
+        mock_client.query.return_value = [
+            {"pk": "pk_a1", "doc_id_hash": "doc_a"},
+            {"pk": "pk_a2", "doc_id_hash": "doc_a"},
+            {"pk": "pk_b1", "doc_id_hash": "doc_b"},
+        ]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a", "doc_b"])
+        assert result == {"doc_a": {"pk_a1", "pk_a2"}, "doc_b": {"pk_b1"}}
+
+    def test_uses_feature_mapping_for_field_name(self, mock_client) -> None:
+        """An overridden feature mapping must appear in the filter expression."""
+        mock_client.query.return_value = [{"pk": "pk1", "document_id": "doc_a"}]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "document_id"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {"doc_a": {"pk1"}}
+        call_kwargs = mock_client.query.call_args[1]
+        assert "document_id" in call_kwargs["filter"]
+
+    def test_skips_rows_with_empty_pk(self, mock_client) -> None:
+        """Rows with an empty PK value must be excluded from the result."""
+        mock_client.query.return_value = [
+            {"pk": "", "doc_id_hash": "doc_a"},
+            {"pk": "pk_valid", "doc_id_hash": "doc_a"},
+        ]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {"doc_a": {"pk_valid"}}
+
+    def test_returns_empty_dict_on_exception(self, mock_client) -> None:
+        """A client exception must be swallowed and return {}."""
+        mock_client.query.side_effect = Exception("timeout")
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {}

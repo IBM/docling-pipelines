@@ -2,6 +2,7 @@
 Generic Vector Database Operator
 """
 
+import hashlib
 from typing import Any
 
 import pyarrow as pa
@@ -414,7 +415,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                         vec_gens = [vector_column_generators[col] for col in vec_col_names]
 
                         # Zip all generators together with chunks
-                        for chunk_idx, chunk_and_embeddings in enumerate(zip(chunks_gen, *vec_gens, strict=True)):
+                        for _chunk_idx, chunk_and_embeddings in enumerate(zip(chunks_gen, *vec_gens, strict=True)):
                             chunk_row_data: dict[str, Any] = row_data.copy()
 
                             # First element is chunk_data, rest are embeddings
@@ -434,7 +435,10 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                                 # Update the content column with chunk text instead of full document
                                 chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
-                            chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
+                            file_id: str = str(row_data.get(id_column, doc_id))
+                            chunk_doc_id: str = VectorDBOperator.generate_composite_pk(
+                                file_id=file_id, chunk_content=chunk_text
+                            )
                             documents.append((chunk_doc_id, chunk_row_data))
                             # Track mapping from chunk ID to original document ID
                             chunk_id_to_doc_id[chunk_doc_id] = doc_id
@@ -457,13 +461,17 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                                     chunk_row_data[vec_col] = embeddings_list[chunk_idx]
 
                             # Replace content field with chunk-specific text
+                            chunk_text = ""
                             if chunk_idx < len(chunked_content_list):
                                 chunk_text = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
                                 if chunk_text:
                                     # Update the content column with chunk text instead of full document
                                     chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
-                            chunk_doc_id = f"{doc_id}_chunk_{chunk_idx}"
+                            file_id = str(row_data.get(id_column, doc_id))
+                            chunk_doc_id = VectorDBOperator.generate_composite_pk(
+                                file_id=file_id, chunk_content=chunk_text
+                            )
                             documents.append((chunk_doc_id, chunk_row_data))
                             # Track mapping from chunk ID to original document ID
                             chunk_id_to_doc_id[chunk_doc_id] = doc_id
@@ -481,6 +489,43 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     doc_id=f"row_{idx}",
                     doc_name=f"row_{idx}",
                     reason=str(e),
+                )
+
+        # Stale PK cleanup — delete chunks from previous runs that are no longer present
+        # in this run's document set. This covers both legacy-format PKs and genuinely
+        # stale chunks from updated documents. The set difference handles all cases uniformly.
+        if documents and unique_doc_ids:
+            try:
+                # Build the set of new PKs per doc from the prepared documents list
+                new_pks_by_doc: dict[str, set[str]] = {}
+                for chunk_pk, _ in documents:
+                    parent_doc = chunk_id_to_doc_id.get(chunk_pk, chunk_pk)
+                    new_pks_by_doc.setdefault(parent_doc, set()).add(chunk_pk)
+
+                # Query existing PKs from the store for all docs in this batch
+                existing_pks_by_doc: dict[str, set[str]] = self.adapter.get_chunk_ids_for_documents(
+                    list(unique_doc_ids)
+                )
+
+                # Compute stale PKs = existing - new (per document)
+                stale_pks: list[str] = []
+                for doc_id_key, existing_pks in existing_pks_by_doc.items():
+                    new_pks = new_pks_by_doc.get(doc_id_key, set())
+                    stale_pks.extend(existing_pks - new_pks)
+
+                if stale_pks:
+                    logger.info(
+                        "Deleting %s stale chunk(s) before insert",
+                        len(stale_pks),
+                        extra=self.common_log_arguments,
+                    )
+                    self.adapter.delete_documents_by_ids(stale_pks)
+
+            except Exception as e:
+                logger.warning(
+                    "Stale PK cleanup failed (insert will proceed): %s",
+                    e,
+                    extra=self.common_log_arguments,
                 )
 
         # Index documents using adapter
@@ -599,6 +644,28 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
     def get_document_count(self) -> int:
         """Get total document count in the index."""
         return int(self.adapter.get_document_count())
+
+    @staticmethod
+    def generate_composite_pk(*, file_id: str, chunk_content: str) -> str:
+        """Generate a composite primary key from file identity and chunk content.
+
+        The key is unique per file regardless of content, preventing collisions
+        between different files with identical content.
+
+        Args:
+            file_id: The file identifier (e.g. file path from the id column).
+                     Hashed to handle special characters and length constraints.
+            chunk_content: The text content of the chunk. Hashed to produce a
+                           stable, fixed-length content fingerprint.
+
+        Returns:
+            Composite PK string in the format ``{file_hash}_{content_hash}``
+            where each hash is the full 128-character SHA3-512 hex digest
+            -- unique per (file, chunk content) pair.
+        """
+        file_hash = hashlib.sha3_512(file_id.encode()).hexdigest()
+        content_hash = hashlib.sha3_512(chunk_content.encode()).hexdigest()
+        return f"{file_hash}_{content_hash}"
 
     @staticmethod
     def _get_vectordb_provider_schemas() -> dict[str, Any]:
