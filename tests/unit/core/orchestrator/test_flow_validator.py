@@ -172,20 +172,49 @@ class TestFlowValidator:
 
         assert result == []
 
-    def test_validate_first_operator_valid(self):
+    def test_validate_root_operator_valid(self):
         """Test validating first operator when it's an Ingest operator."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
         validator = FlowValidator(orchestrator=mock_orchestrator)
 
-        dag = [{"id": "node1", "operator": "ingest_op"}]
+        dag = [{"id": "node1", "operator": "ingest_op", DocpipeConstants.OUTPUT_EDGES: []}]
         validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         with patch.object(validator, "_validate_operator_category") as mock_validate:
-            validator._validate_first_operator(dag=dag, validate_results=validate_results)
+            validator._validate_root_operator(dag=dag, validate_results=validate_results)
 
             mock_validate.assert_called_once()
+
+    def test_validate_root_operator_ingest_not_first_in_array(self):
+        """Test that ingest node listed non-first in JSON array but topological root passes validation."""
+        mock_orchestrator = Mock()
+        mock_orchestrator.common_log_arguments = {}
+
+        validator = FlowValidator(orchestrator=mock_orchestrator)
+
+        # extract is dag[0] but has an incoming edge from ingest — ingest is the true root
+        dag = [
+            {
+                "id": "extract-1",
+                "operator": "extract_operator",
+                DocpipeConstants.OUTPUT_EDGES: [],
+            },
+            {
+                "id": "ingest-1",
+                "operator": "ingest_source",
+                DocpipeConstants.OUTPUT_EDGES: [{"node_id_ref": "extract-1"}],
+            },
+        ]
+        validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+        with patch.object(validator, "_validate_operator_category") as mock_validate:
+            validator._validate_root_operator(dag=dag, validate_results=validate_results)
+
+            # Must be called with the ingest node (dag[1]), not dag[0]
+            call_args = mock_validate.call_args
+            assert call_args.kwargs["op_def"]["id"] == "ingest-1"
 
     def test_build_graph(self):
         """Test building graph from DAG."""
@@ -1161,7 +1190,7 @@ class TestValidateDagFlowEngineNone:
 
         # Patch all early-exit checks so we reach the flow_engine check
         with (
-            patch.object(validator, "_validate_first_operator"),
+            patch.object(validator, "_validate_root_operator"),
             patch.object(validator, "_validate_acl_operator_placement"),
             patch.object(validator, "_validate_storage_output_operator_placement"),
             patch.object(validator, "_validate_disjoint_operators"),

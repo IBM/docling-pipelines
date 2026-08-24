@@ -328,7 +328,7 @@ class FlowValidator:
         validate_results = ValidateStepResults(available_features={}, errors=errors, warnings=warnings)
         session_info = get_session_info()
 
-        self._validate_first_operator(dag=dag, validate_results=validate_results)
+        self._validate_root_operator(dag=dag, validate_results=validate_results)
         self._validate_acl_operator_placement(dag=dag, validate_results=validate_results)
         self._validate_storage_output_operator_placement(dag=dag, validate_results=validate_results)
         self._validate_disjoint_operators(dag=dag, validate_results=validate_results)
@@ -849,17 +849,18 @@ class FlowValidator:
         self._node_features_cache = node_features
         return node_features
 
-    def _validate_first_operator(self, *, dag: list, validate_results: ValidateStepResults):
-        """Validate that the first operator in the DAG is an Ingest operator.
+    def _validate_root_operator(self, *, dag: list, validate_results: ValidateStepResults):
+        """Validate that the root operator of the DAG (no incoming edges) is an Ingest operator.
 
         Args:
             dag: List of operator definitions
-            global_config: Global configuration dictionary
             validate_results: Container for validation results
         """
-        # If the first operator is not an ingest, then add an error.
+        # Find the topological root — the node with no incoming edges — regardless of JSON array order.
+        reverse_graph = self._build_reverse_graph(dag=dag)
+        root_node = next(node for node in dag if not reverse_graph.get(node["id"]))
         self._validate_operator_category(
-            op_def=dag[0],
+            op_def=root_node,
             expected_category=OperatorCategory.Ingest,
             error_message=ValidationMessage(
                 message=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.value,
