@@ -16,7 +16,7 @@ dependencies = [
     "data-prep-toolkit-transforms==1.1.8",
     "datatrove==0.3.0",
     "datefinder==1.0.0",
-    "docling==2.121.0",
+    "docling[rapidocr]==2.121.0",
     "duckdb==1.3.2",
     "fastapi==0.141.1",
     "fasttext-wheel==0.9.2",
@@ -125,8 +125,18 @@ telemetry = [
     "opentelemetry-sdk==1.41.1",
 ]
 
-rapidocr = [
-    "docling[rapidocr]==2.121.0",
+rapidocr = []
+
+easyocr = [
+    "docling[easyocr]==2.121.0",
+]
+
+ocrmac = [
+    "docling[ocrmac]==2.121.0",
+]
+
+tesserocr = [
+    "docling[tesserocr]==2.121.0",
 ]
 
 vlm_asr = [

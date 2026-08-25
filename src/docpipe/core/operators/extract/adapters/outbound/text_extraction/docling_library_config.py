@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from docpipe.core.operators.extract.adapters.outbound.text_extraction.ocr_config import OcrConfig
+
 ADAPTER_NAME = "docling_library"
 
 
@@ -101,5 +103,13 @@ class DoclingLibraryConfig(BaseModel):
         description=(
             "Standard pipeline acceleration configuration. Omit entirely for default CPU behaviour. "
             "When present, enables GPU-accelerated extraction via the accelerator block."
+        ),
+    )
+    ocr: OcrConfig | None = Field(
+        default=None,
+        description=(
+            "OCR configuration block. Omit to use defaults (OCR enabled, rapidocr engine, default mode). "
+            "Provide an empty object {} to enable OCR explicitly with defaults. "
+            "Not applied when vlm_pipeline is active — VLM replaces OCR."
         ),
     )

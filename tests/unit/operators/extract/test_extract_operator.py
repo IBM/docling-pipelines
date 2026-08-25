@@ -2738,7 +2738,7 @@ def test_get_text_extraction_provider_schemas_structure_and_fields():
 
     # --- docling_library ---
     lib_props = schemas["docling_library"]["properties"]
-    assert set(lib_props.keys()) == {"additional_formats", "asr_pipeline", "standard_pipeline", "vlm_pipeline"}
+    assert set(lib_props.keys()) == {"additional_formats", "asr_pipeline", "ocr", "standard_pipeline", "vlm_pipeline"}
 
     # --- docling_serve: all DoclingServeConfig fields must be present ---
     serve_props = schemas["docling_serve"]["properties"]
@@ -2753,6 +2753,7 @@ def test_get_text_extraction_provider_schemas_structure_and_fields():
         "pdf_backend",
         "ocr_engine",
         "ocr_languages",
+        "ocr",
         "table_mode",
         "image_export_mode",
     }

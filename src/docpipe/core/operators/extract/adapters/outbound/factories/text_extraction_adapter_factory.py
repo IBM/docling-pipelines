@@ -225,6 +225,14 @@ class TextExtractionAdapterFactory:
             if gpu_num_threads is not None:
                 adapter_config[OperatorConstants.Extraction.NUM_THREADS] = gpu_num_threads
 
+            # OCR configuration from provider_config.ocr
+            ocr_raw = provider_config.get(OperatorConstants.Config.OCR_BLOCK)
+            if ocr_raw is not None:
+                if not isinstance(ocr_raw, dict):
+                    raise ValueError(f"provider_config.ocr must be a JSON object, got {type(ocr_raw).__name__}")
+                TextExtractionAdapterFactory._validate_ocr_config(ocr_raw)
+                adapter_config[OperatorConstants.Config.OCR_BLOCK] = ocr_raw
+
         elif mode == TextExtractionMode.DOCLING_SERVE:
             # Build docling_serve_config dictionary from provider_config
             docling_serve_config = {
@@ -256,8 +264,6 @@ class TextExtractionAdapterFactory:
                     OperatorConstants.Config.API_KEY
                 ]
 
-            # ocr_engine and table_mode are optional — only forward if explicitly set
-            # (different docling-serve versions/deployments support different values)
             if provider_config.get(OperatorConstants.Config.OCR_ENGINE):
                 docling_serve_config[OperatorConstants.Config.OCR_ENGINE] = provider_config[
                     OperatorConstants.Config.OCR_ENGINE
@@ -272,6 +278,14 @@ class TextExtractionAdapterFactory:
                 docling_serve_config[OperatorConstants.Config.OCR_LANGUAGES] = provider_config[
                     OperatorConstants.Config.OCR_LANGUAGES
                 ]
+
+            # Forward new canonical ocr block if present
+            ocr_raw = provider_config.get(OperatorConstants.Config.OCR_BLOCK)
+            if ocr_raw is not None:
+                if not isinstance(ocr_raw, dict):
+                    raise ValueError(f"provider_config.ocr must be a JSON object, got {type(ocr_raw).__name__}")
+                TextExtractionAdapterFactory._validate_ocr_config(ocr_raw)
+                docling_serve_config[OperatorConstants.Config.OCR_BLOCK] = ocr_raw
 
             adapter_config[OperatorConstants.Config.DOCLING_SERVE_CONFIG] = docling_serve_config
 
@@ -615,6 +629,33 @@ class TextExtractionAdapterFactory:
             max_retries=docling_serve_config.get(OperatorConstants.Processing.MAX_RETRIES, 3),
             additional_params=docling_serve_config.get("additional_params", {}),
         )
+
+    @staticmethod
+    def _validate_ocr_config(ocr_block: dict[str, Any]) -> None:
+        """Validate an OCR config block from provider_config.ocr.
+
+        Args:
+            ocr_block: The ocr sub-dict from provider_config.
+
+        Raises:
+            ValueError: If engine or mode values are invalid, or engine_options is not a dict.
+        """
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.ocr_config import OcrConfig
+
+        valid_engines = set(OcrConfig.model_fields["engine"].annotation.__args__)
+        valid_modes = set(OcrConfig.model_fields["mode"].annotation.__args__)
+
+        engine = ocr_block.get("engine", "rapidocr")
+        if engine not in valid_engines:
+            raise ValueError(f"Invalid OCR engine '{engine}'. Valid engines: {sorted(valid_engines)}")
+
+        mode = ocr_block.get("mode", "default")
+        if mode not in valid_modes:
+            raise ValueError(f"Invalid OCR mode '{mode}'. Valid modes: {sorted(valid_modes)}")
+
+        engine_options = ocr_block.get("engine_options")
+        if engine_options is not None and not isinstance(engine_options, dict):
+            raise ValueError(f"ocr.engine_options must be a JSON object, got {type(engine_options).__name__}")
 
     @staticmethod
     def get_supported_modes() -> list[str]:

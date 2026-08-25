@@ -400,11 +400,11 @@ class TestDoclingServeAdapter:
         assert call_kwargs["options"]["pdf_backend"] == "dlparse_v2"
 
     def test_extract_single_document_with_optional_config_parameters(self):
-        """Test adapter with optional configuration parameters."""
+        """Test adapter with optional configuration parameters (deprecated flat fields)."""
         config = {
             "docling_serve_config": {
                 "base_url": "http://localhost:5001",
-                "ocr_engine": "tesseract",
+                "ocr_engine": "tesseract",  # deprecated — maps to ocr_preset
                 "ocr_languages": ["eng", "fra"],
                 "table_mode": "accurate",
                 "image_export_mode": "embedded",
@@ -412,7 +412,8 @@ class TestDoclingServeAdapter:
         }
         adapter = DoclingServeAdapter(config=config)
 
-        assert adapter.processing_options["ocr_engine"] == "tesseract"
+        # ocr_engine maps to ocr_preset in the backward-compat path
+        assert adapter.processing_options["ocr_preset"] == "tesseract"
         assert adapter.processing_options["ocr_languages"] == ["eng", "fra"]
         assert adapter.processing_options["table_mode"] == "accurate"
         assert adapter.processing_options["image_export_mode"] == "embedded"

@@ -259,9 +259,13 @@ REST API-based extraction using the Docling-Serve service for scalable, producti
       "timeout": 300,
       "poll_interval": 2,
       "max_retries": 3,
-      "do_ocr": true,
-      "ocr_engine": "easyocr",
-      "ocr_languages": ["en"],
+      "ocr": {
+        "enabled": true,
+        "engine": "easyocr",
+        "engine_options": {
+          "lang": ["en"]
+        }
+      },
       "pdf_backend": "dlparse_v4",
       "table_mode": "accurate",
       "image_export_mode": "embedded"
@@ -633,12 +637,88 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `text_extraction.provider_config.poll_interval`        | integer  | `2`                       | Polling interval in seconds                                   |
 | `text_extraction.provider_config.max_retries`          | integer  | `3`                       | Maximum retry attempts                                        |
 | `text_extraction.provider_config.additional_formats`   | array    | `[]`                      | Additional output formats beyond markdown (e.g., `["html", "json", "text", "doctags", "doclang"]`) |
-| `text_extraction.provider_config.do_ocr`               | boolean  | `true`                    | Enable OCR processing                                         |
-| `text_extraction.provider_config.ocr_engine`           | string   | `null`                    | OCR engine: `"easyocr"` or `"tesseract"`. Not set by default; the Docling Serve instance uses its own default. |
-| `text_extraction.provider_config.ocr_languages`        | array    | `null`                    | List of OCR languages (e.g., `["en", "es"]`)                  |
+| `text_extraction.provider_config.ocr`                  | object   | `null`                    | **Canonical OCR config block** (see OCR Configuration section below) |
 | `text_extraction.provider_config.pdf_backend`          | string   | `"dlparse_v2"`            | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
 | `text_extraction.provider_config.table_mode`           | string   | `null`                    | Table extraction mode: `"accurate"` or `"fast"`. Not set by default; the Docling Serve instance uses its own default. |
 | `text_extraction.provider_config.image_export_mode`    | string   | `"placeholder"`           | Image export mode: `"placeholder"`, `"embedded"`, `"referenced"`, or `"none"` |
+
+
+### OCR Configuration
+
+Both `docling_library` and `docling_serve` providers accept an `ocr` block inside `provider_config`. Omitting the block entirely uses docling-pipelines defaults (OCR enabled, RapidOCR engine, default mode).
+
+```json
+"provider_config": {
+  "ocr": {
+    "enabled": true,
+    "engine": "easyocr",
+    "mode": "pdf_aware_layout_regions",
+    "engine_options": {
+      "lang": ["en", "fr"],
+      "use_gpu": false,
+      "confidence_threshold": 0.5
+    }
+  }
+}
+```
+
+#### OCR Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `ocr.enabled` | bool | `true` | Enable OCR processing. Set `false` to skip OCR entirely. |
+| `ocr.engine` | string | `"rapidocr"` | OCR engine. `"rapidocr"` is the default. |
+| `ocr.mode` | string | `"default"` | OCR scanning mode. `"pdf_aware_layout_regions"` is most efficient for mixed PDFs. |
+| `ocr.engine_options` | object | `null` | Engine-specific parameters (see table below). |
+
+#### Supported Engines
+
+| Engine | Value | Install extra | Notes |
+|---|---|---|---|
+| Auto-select | `"auto"` | none | Optional runtime selection when you explicitly want Docling to choose an installed backend. |
+| EasyOCR | `"easyocr"` | `easyocr` | Cross-platform alternative; 80+ languages. |
+| Tesseract (Python bindings) | `"tesserocr"` | `tesserocr` | Linux-focused local OCR option; 3-letter ISO 639-2 lang codes; PSM control. |
+| Tesseract (CLI) | `"tesseract"` | `tesseract` binary | Same as above via CLI; portable. |
+| RapidOCR | `"rapidocr"` | included in base install | Default OCR engine for new users; PaddlePaddle-based; multiple backends. |
+| macOS Vision | `"ocrmac"` | `ocrmac` | Optional macOS-specific alternative; Apple-only. |
+| KServe V2 | `"kserve_v2_ocr"` | custom | Remote KServe/Triton inference server. |
+| Nemotron OCR | `"nemotron-ocr"` | custom | NVIDIA Nemotron v2. |
+
+#### Installation Guidance by OS
+
+RapidOCR is included in the default PyPI install, and `ocr.engine: "rapidocr"` is the default runtime behaviour for first-run OCR.
+
+| OS / environment | Default install behaviour | Notes |
+|---|---|---|
+| macOS | `pip install docling-pipelines` | RapidOCR works out of the box. Install `docling-pipelines[ocrmac]` only if you want Apple's Vision OCR explicitly. |
+| Linux | `pip install docling-pipelines` | RapidOCR works out of the box. Install `docling-pipelines[tesserocr]` only if you want Tesseract bindings explicitly. |
+| Cross-platform / unsure | `pip install docling-pipelines` | Recommended for new users. First OCR run should work without extra setup. |
+
+#### Supported Modes
+
+| Mode | Value | Behaviour |
+|---|---|---|
+| Default | `"default"` | Docling picks automatically |
+| Full page | `"full_page"` | Scan entire page as one region |
+| Layout regions | `"layout_regions"` | Scan only layout-detected text regions |
+| PDF-aware layout regions | `"pdf_aware_layout_regions"` | Skip regions with an existing PDF text layer — most efficient for mixed PDFs |
+
+#### `engine_options` Reference
+
+| Engine | Key | Type | Notes |
+|---|---|---|---|
+| `easyocr` | `lang` | list[str] | ISO 639-1 codes, e.g. `["en", "fr"]` |
+| `easyocr` | `use_gpu` | bool/null | `null` = auto-detect |
+| `easyocr` | `confidence_threshold` | float | 0.0–1.0 |
+| `tesserocr` / `tesseract` | `lang` | list[str] | 3-letter ISO 639-2, e.g. `["eng", "fra"]` |
+| `tesserocr` / `tesseract` | `psm` | int | Page segmentation mode 0–13 |
+| `tesserocr` / `tesseract` | `path` | str/null | Tessdata directory |
+| `rapidocr` | `lang` | list[str] | Language list |
+| `rapidocr` | `backend` | string | `"onnxruntime"`, `"openvino"`, `"paddle"`, `"torch"` |
+| `rapidocr` | `text_score` | float | Detection confidence threshold |
+| `ocrmac` | `lang` | list[str] | Locale format, e.g. `["en-US"]` |
+| `ocrmac` | `recognition` | string | `"accurate"` or `"fast"` |
+
 
 ### Docling Entity Extraction Parameters
 
@@ -824,9 +904,14 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
       "doc_column": "content",
       "provider_config": {
         "base_url": "http://localhost:5001",
-        "do_ocr": true,
-        "ocr_engine": "easyocr",
-        "ocr_languages": ["en", "es"],
+        "ocr": {
+          "enabled": true,
+          "engine": "tesseract",
+          "mode": "layout_regions",
+          "engine_options": {
+            "lang": ["eng", "spa"]
+          }
+        },
         "pdf_backend": "dlparse_v4",
         "table_mode": "accurate"
       }

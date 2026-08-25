@@ -281,9 +281,10 @@ class OperatorConstants:
         USE_DOCLING_SERVE: Final[str] = "use_docling_serve"
         DOCLING_SERVE_CONFIG: Final[str] = "docling_serve_config"
         BASE_URL: Final[str] = "base_url"
-        DO_OCR: Final[str] = "do_ocr"  # Deprecated: use OCR_PRESET
-        OCR_ENGINE: Final[str] = "ocr_engine"  # Deprecated: use OCR_PRESET
-        OCR_LANGUAGES: Final[str] = "ocr_languages"  # Deprecated: use OCR_LANG
+        DO_OCR: Final[str] = "do_ocr"
+        OCR_ENGINE: Final[str] = "ocr_engine"
+        OCR_LANGUAGES: Final[str] = "ocr_languages"
+        OCR_BLOCK: Final[str] = "ocr"  # New canonical OCR config block key
         OCR_PRESET: Final[str] = "ocr_preset"
         OCR_LANG: Final[str] = "ocr_lang"
         PDF_BACKEND: Final[str] = "pdf_backend"

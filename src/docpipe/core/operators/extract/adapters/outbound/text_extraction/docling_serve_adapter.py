@@ -118,19 +118,35 @@ class DoclingServeAdapter(TextExtractionPort):
 
         # Build processing options (additional_formats is read from top-level config by the port base class;
         # we pass it into processing_options so _build_options in the client can forward it to the API)
-        self.processing_options = {
-            "do_ocr": docling_serve_config.get("do_ocr", True),
+        self.processing_options: dict[str, Any] = {
             "pdf_backend": docling_serve_config.get("pdf_backend", "dlparse_v2"),
         }
 
         if self.additional_formats:
             self.processing_options["additional_formats"] = self.additional_formats
 
-        # Add optional parameters if present
-        if "ocr_engine" in docling_serve_config:
-            self.processing_options["ocr_engine"] = docling_serve_config["ocr_engine"]
-        if "ocr_languages" in docling_serve_config:
-            self.processing_options["ocr_languages"] = docling_serve_config["ocr_languages"]
+        # OCR wiring — new canonical ocr block takes precedence over flat fields
+        ocr_block = docling_serve_config.get("ocr")
+        if ocr_block:
+            self.processing_options["do_ocr"] = ocr_block.get("enabled", True)
+            engine = ocr_block.get("engine", "rapidocr")
+            # docling-serve expects ocr_preset for engine selection
+            self.processing_options["ocr_preset"] = engine
+            ocr_mode = ocr_block.get("mode")
+            if ocr_mode and ocr_mode != "default":
+                self.processing_options["ocr_mode"] = ocr_mode
+            engine_options = ocr_block.get("engine_options") or {}
+            if engine_options.get("lang"):
+                self.processing_options["ocr_languages"] = engine_options["lang"]
+        else:
+            # Backward compatibility: honour flat fields
+            self.processing_options["do_ocr"] = docling_serve_config.get("do_ocr", True)
+            if "ocr_engine" in docling_serve_config:
+                self.processing_options["ocr_preset"] = docling_serve_config["ocr_engine"]
+            if "ocr_languages" in docling_serve_config:
+                self.processing_options["ocr_languages"] = docling_serve_config["ocr_languages"]
+
+        # Add remaining optional parameters if present
         if "table_mode" in docling_serve_config:
             self.processing_options["table_mode"] = docling_serve_config["table_mode"]
         if "image_export_mode" in docling_serve_config:

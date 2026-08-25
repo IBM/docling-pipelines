@@ -181,7 +181,6 @@ class DoclingServeClient:
         """
         default_options: dict[str, Any] = {
             "do_ocr": True,
-            "ocr_preset": "auto",
             "pdf_backend": "dlparse_v2",
             "do_table_structure": True,
             "table_cell_matching": True,

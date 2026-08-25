@@ -127,6 +127,18 @@ extract = [
     "transformers>=5.8.1,<5.9.0",
 ]
 
+easyocr = [
+    "docling[easyocr]==2.121.0",
+]
+
+ocrmac = [
+    "docling[ocrmac]==2.121.0",
+]
+
+tesserocr = [
+    "docling[tesserocr]==2.121.0",
+]
+
 vlm_asr = [
     "docling[vlm,asr]==2.121.0",
 ]

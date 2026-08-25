@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from docpipe.core.operators.extract.adapters.outbound.text_extraction.ocr_config import OcrConfig
+
 ADAPTER_NAME = "docling_serve"
 
 
@@ -40,9 +42,13 @@ class DoclingServeConfig(BaseModel):
         default=True,
         description="Whether to verify the server's SSL certificate.",
     )
+    ocr: OcrConfig | None = Field(
+        default=None,
+        description="OCR configuration block. When present, overrides the deprecated do_ocr/ocr_engine/ocr_languages fields.",
+    )
     do_ocr: bool = Field(
         default=True,
-        description="Whether to run OCR on document pages.",
+        description="Deprecated: use ocr.enabled instead. Whether to run OCR on document pages.",
     )
     pdf_backend: Literal["dlparse_v2", "pypdfium2"] = Field(
         default="dlparse_v2",
@@ -50,11 +56,11 @@ class DoclingServeConfig(BaseModel):
     )
     ocr_engine: str | None = Field(
         default=None,
-        description="OCR engine override (leave unset to use the server default).",
+        description="Deprecated: use ocr.engine instead. OCR engine override (leave unset to use the server default).",
     )
     ocr_languages: list[str] | None = Field(
         default=None,
-        description="List of language codes for OCR (e.g., ['en', 'fr']). Leave unset to use the server default.",
+        description="Deprecated: use ocr.engine_options.lang instead. List of language codes for OCR (e.g., ['en', 'fr']).",
     )
     table_mode: str | None = Field(
         default=None,

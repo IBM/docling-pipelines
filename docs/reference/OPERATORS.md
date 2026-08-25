@@ -264,8 +264,11 @@ For full details on the priority system, override behaviour, and registering cus
 | `text_extraction.provider_config.base_url`                    | string |         Yes | None                     | Docling Serve API endpoint (docling_serve mode). Required when using docling_serve provider.                                                                                                                                                                                                         |
 | `text_extraction.provider_config.api_key`                     | string |          No | `null`                  | `docling_serve`                 | Optional API key for authentication                                           |
 | `text_extraction.provider_config.timeout`                     | int    |          No | `300`                   | `docling_serve`                 | Request timeout in seconds                                                    |
-| `text_extraction.provider_config.do_ocr`                      | bool   |          No | `true`                  | `docling_serve`                 | Enable OCR processing                                                         |
-| `text_extraction.provider_config.ocr_engine`                  | string |          No | `easyocr`               | `docling_serve`                 | OCR engine: `easyocr` or `tesseract`                                          |
+| `text_extraction.provider_config.ocr`                         | object |          No | `null`                  | Both                            | OCR configuration block. Omit to use the default OCR configuration (OCR on, RapidOCR engine, default mode). |
+| `text_extraction.provider_config.ocr.enabled`                 | bool   |          No | `true`                  | Both                            | Enable OCR processing.                                                        |
+| `text_extraction.provider_config.ocr.engine`                  | string |          No | `"rapidocr"`            | Both                            | OCR engine: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`. `rapidocr` is the default. |
+| `text_extraction.provider_config.ocr.mode`                    | string |          No | `"default"`             | Both                            | OCR scanning mode: `default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions` |
+| `text_extraction.provider_config.ocr.engine_options`          | object |          No | `null`                  | Both                            | Engine-specific parameters (see engine options reference in extract_operator_readme.md) |
 | `text_extraction.provider_config.pdf_backend`                 | string |          No | `dlparse_v2`            | `docling_serve`                 | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                          |
 | `entity_extraction`                                           | object |          No | `{}`                    | All                             | Entity extraction configuration (see below)                                                        |
 | `entity_extraction.provider`                                  | string |          No | `none`                  | All                             | Entity extraction provider: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction provider (not `none`), either `custom_schema` must be provided OR a `document_type` column must be present from an upstream classification operator. |
@@ -409,8 +412,10 @@ The operator provides the following metadata after execution:
       "provider": "docling_serve",
       "provider_config": {
         "base_url": "http://localhost:5001",
-        "do_ocr": true,
-        "ocr_engine": "easyocr",
+        "ocr": {
+          "enabled": true,
+          "engine": "easyocr"
+        },
         "pdf_backend": "dlparse_v4"
       }
     },
@@ -970,8 +975,10 @@ The operator provides the following metadata after execution:
       "provider": "docling_serve",
       "provider_config": {
         "base_url": "http://localhost:5001",
-        "do_ocr": true,
-        "ocr_engine": "easyocr",
+        "ocr": {
+          "enabled": true,
+          "engine": "easyocr"
+        },
         "pdf_backend": "dlparse_v4"
       }
     },

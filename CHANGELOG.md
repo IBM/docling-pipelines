@@ -11,6 +11,8 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Added
 
+- **Full OCR engine exposure** — Both `docling_library` and `docling_serve` providers now accept an `ocr` block inside `text_extraction.provider_config`. Users can set `ocr.engine` (8 engines: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`), `ocr.mode` (`default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions`), `ocr.enabled` (bool), and `ocr.engine_options` (pass-through dict). The previously hardcoded `ocr_preset: "auto"` default in `DoclingServeClient` is removed — when no engine is specified, the docling-serve instance uses its own default. Old `do_ocr` / `ocr_engine` / `ocr_languages` fields remain functional but are deprecated in favour of the new `ocr` block.
+
 - **docling-pipelines-slim** — New lightweight package variant that excludes certain operator dependencies. Use when your codebase doesn't require specific built-in operators. See [docs/guides/SLIM_VARIANT.md](docs/guides/SLIM_VARIANT.md) for installation and usage details.
 - **CI: slim wheel push** — `Build and Push Wheel` Jenkins stage now builds and pushes `docling-pipelines-slim` to Artifactory alongside the main wheel under the same `docling-pipelines/${VERSION}/` folder.
 - `StorageOutputOperator` — writes pipeline documents to a pluggable storage destination with three modes: `processed_content`, `refetch_original`, and `comprehensive_export`. Includes `FilesystemDestinationAdapter`, `S3DestinationAdapter`, and `DestinationAdapterFactory` for extensible backend support.

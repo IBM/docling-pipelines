@@ -33,6 +33,10 @@ pip install docling-pipelines
 
 Requires Python 3.12. Works on macOS and Linux (x86_64 and arm64).
 
+### OCR Installation
+
+RapidOCR is included in the default PyPI installation and works out of the box. For advanced setups, platform-specific extras, or other OCR backends, see the [Extract Operator Guide](docs/operators/extract/extract_operator_readme.md).
+
 ### Lightweight variant
 
 For a lightweight version of docling-pipelines that excludes certain operator dependencies, see [docs/guides/SLIM_VARIANT.md](docs/guides/SLIM_VARIANT.md).

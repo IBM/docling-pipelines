@@ -20,6 +20,7 @@ from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
     register_text_extraction_adapter,
 )
+from docpipe.core.operators.extract.adapters.outbound.text_extraction.ocr_config import OcrConfig
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils, is_asr_available
 from docpipe.integrations.docling.vlm_pipeline_options_provider import VlmPipelineOptionsProviderFactory
@@ -99,6 +100,20 @@ class DoclingAdapter(TextExtractionPort):
         self.gpu_device: str | None = config.get(OperatorConstants.Extraction.DEVICE)
         self.gpu_num_threads: int | None = config.get(OperatorConstants.Extraction.NUM_THREADS)
 
+        # OCR configuration (standard pipeline only — OCR is not applicable when VLM is active)
+        ocr_block = config.get(OperatorConstants.Config.OCR_BLOCK)
+        self._ocr_enabled: bool = True
+        self._ocr_engine: str = "rapidocr"
+        self._ocr_mode: str = "default"
+        self._ocr_engine_options: dict[str, Any] | None = None
+
+        if ocr_block:
+            ocr_cfg = OcrConfig.model_validate(ocr_block)
+            self._ocr_enabled = ocr_cfg.enabled
+            self._ocr_engine = ocr_cfg.engine
+            self._ocr_mode = ocr_cfg.mode
+            self._ocr_engine_options = ocr_cfg.engine_options
+
         # Pre-build and cache a converter when GPU acceleration is requested so that
         # model weights are loaded once at adapter init rather than per document.
         self._gpu_converter: Any = None
@@ -128,6 +143,13 @@ class DoclingAdapter(TextExtractionPort):
         elif config.get(OperatorConstants.Config.USE_ASR_PIPELINE, False) and not _ASR_AVAILABLE:
             logger.warning(
                 "ASR pipeline requested but dependencies not available. Install with: uv pip install -e '.[asr]'"
+            )
+        if ocr_block:
+            logger.info(
+                "OCR config — enabled: %s, engine: %s, mode: %s",
+                self._ocr_enabled,
+                self._ocr_engine,
+                self._ocr_mode,
             )
         if not self.use_vlm_pipeline and not self.use_asr_pipeline and not self.gpu_device:
             logger.info(
@@ -211,6 +233,61 @@ class DoclingAdapter(TextExtractionPort):
             return DocumentConverter(format_options=format_options)
         except ImportError as exc:
             logger.warning("Docling GPU acceleration unavailable (%s). Falling back to standard converter.", exc)
+            return None
+
+    def _build_ocr_options(self) -> Any:
+        """Build a Docling OcrOptions instance from adapter OCR config.
+
+        Each engine's optional dependency is imported independently so that a missing
+        dep for one engine does not prevent other engines from loading.
+
+        Returns:
+            Configured OcrOptions subclass instance, or None to use Docling defaults.
+        """
+        import importlib
+
+        _engine_imports: dict[str, tuple[str, str]] = {
+            "auto": ("docling.datamodel.pipeline_options", "OcrAutoOptions"),
+            "easyocr": ("docling.datamodel.pipeline_options", "EasyOcrOptions"),
+            "tesserocr": ("docling.datamodel.pipeline_options", "TesseractOcrOptions"),
+            "tesseract": ("docling.datamodel.pipeline_options", "TesseractCliOcrOptions"),
+            "rapidocr": ("docling.datamodel.pipeline_options", "RapidOcrOptions"),
+            "ocrmac": ("docling.datamodel.pipeline_options", "OcrMacOptions"),
+            "kserve_v2_ocr": ("docling.datamodel.pipeline_options", "KserveV2OcrOptions"),
+            "nemotron-ocr": ("docling.datamodel.pipeline_options", "NemotronOcrOptions"),
+        }
+
+        entry = _engine_imports.get(self._ocr_engine)
+        if entry is None:
+            logger.warning(
+                "Unknown OCR engine '%s' — falling back to OcrAutoOptions. Valid engines: %s",
+                self._ocr_engine,
+                sorted(_engine_imports.keys()),
+            )
+            self._ocr_engine = "auto"
+            entry = _engine_imports["auto"]
+
+        module_name, cls_name = entry
+        try:
+            module = importlib.import_module(module_name)
+            cls = getattr(module, cls_name)
+        except (ImportError, AttributeError) as exc:
+            logger.warning(
+                "Could not import OCR options for engine '%s': %s — using Docling defaults",
+                self._ocr_engine,
+                exc,
+            )
+            return None
+
+        opts = self._ocr_engine_options or {}
+        try:
+            return cls(**opts) if opts else cls()
+        except Exception as exc:
+            logger.warning(
+                "Failed to build OCR options for engine '%s': %s — using Docling defaults",
+                self._ocr_engine,
+                exc,
+            )
             return None
 
     def _configure_vlm_engine(self) -> Any:
@@ -355,6 +432,24 @@ class DoclingAdapter(TextExtractionPort):
                     pipeline_cls=AsrPipeline,
                     pipeline_options=asr_options,
                 )
+
+            # Apply OCR configuration for standard (non-VLM) pipeline
+            if not self.use_vlm_pipeline and (
+                not self._ocr_enabled or self._ocr_engine != "rapidocr" or self._ocr_mode != "default"
+            ):
+                from docling.datamodel.pipeline_options import OcrMode, PdfPipelineOptions
+
+                pdf_pipeline_opts = PdfPipelineOptions()
+                pdf_pipeline_opts.do_ocr = self._ocr_enabled
+                if self._ocr_enabled:
+                    ocr_options = self._build_ocr_options()
+                    if ocr_options is not None:
+                        pdf_pipeline_opts.ocr_options = ocr_options
+                    if self._ocr_mode != "default" and pdf_pipeline_opts.ocr_options is not None:
+                        pdf_pipeline_opts.ocr_options.mode = OcrMode(self._ocr_mode)
+
+                format_options[InputFormat.PDF] = PdfFormatOption(pipeline_options=pdf_pipeline_opts)
+                format_options[InputFormat.IMAGE] = ImageFormatOption(pipeline_options=pdf_pipeline_opts)
 
             # Only set converter_config if we have format options
             if format_options:
