@@ -100,8 +100,6 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
 
     logger.info(">>> Creating the orchestrator")
     orchestrator = OrchestratorFactory.create_orchestrator(execution_reporter=execution_reporter)
-    logger.info(">>> Creating the flow executor")
-    executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator, original_flow_def=original_flow_json)
     logger.info(">>> Setting up execution parameters")
     # Generate job_id from flow name (required field in compiled flow)
     flow_name = flow_def.get("name")
@@ -126,6 +124,9 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
         cli_mode=True, job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
     )
     set_session_info(session_info)
+
+    logger.info(">>> Creating the flow executor")
+    executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator, original_flow_def=original_flow_json)
 
     orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
