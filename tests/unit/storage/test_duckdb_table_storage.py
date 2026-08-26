@@ -383,3 +383,76 @@ class TestDuckDBTableStorageValidation:
         """Test that empty table name is rejected."""
         with pytest.raises(StorageValidationError, match="Table name cannot be empty"):
             storage.create_table(table_name="", schema=sample_schema)
+
+
+class TestDuckDBTableStorageErrorPaths:
+    """Test error-handling paths for improved coverage."""
+
+    def test_create_table_raises_on_invalid_name(self, storage, sample_schema):
+        """Table names with invalid characters raise StorageValidationError."""
+        with pytest.raises(StorageValidationError):
+            storage.create_table(table_name="bad name!", schema=sample_schema)
+
+    def test_upsert_data_raises_on_invalid_table_name(self, storage, sample_table):
+        """upsert_data raises StorageValidationError for invalid table name."""
+        with pytest.raises(StorageValidationError):
+            storage.upsert_data(table_name="bad name!", data=sample_table)
+
+    def test_read_data_raises_when_table_missing(self, storage):
+        """read_data raises StorageException when table does not exist."""
+        with pytest.raises(StorageException):
+            storage.read_data(table_name="nonexistent_table")
+
+    def test_get_row_count_raises_when_table_missing(self, storage):
+        """get_row_count raises StorageException when table does not exist."""
+        with pytest.raises(StorageException):
+            storage.get_row_count(table_name="nonexistent_table")
+
+    def test_get_table_schema_raises_when_table_missing(self, storage):
+        """get_table_schema raises StorageException when table does not exist."""
+        with pytest.raises(StorageException):
+            storage.get_table_schema(table_name="nonexistent_table")
+
+    def test_delete_table_returns_false_when_table_missing(self, storage):
+        """delete_table returns False when table does not exist."""
+        result = storage.delete_table(table_name="nonexistent_table")
+        assert result is False
+
+
+class TestDuckDBTableStorageExceptionReraise:
+    """Cover except-reraise paths in create_table and upsert_data."""
+
+    def test_create_table_raises_storage_exception_on_duckdb_error(self, storage, sample_schema):
+        """duckdb.Error during create_table is wrapped in StorageException."""
+        from unittest.mock import MagicMock, patch
+
+        import duckdb
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = duckdb.Error("syntax error")
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = lambda s: mock_conn
+        mock_ctx.__exit__ = MagicMock(return_value=False)
+
+        with patch.object(storage.connection_manager, "get_connection", return_value=mock_ctx):
+            with pytest.raises(StorageException):
+                storage.create_table(table_name="valid_table", schema=sample_schema)
+
+    def test_upsert_data_raises_storage_exception_on_duckdb_error(self, storage, sample_table):
+        """duckdb.Error during upsert_data is wrapped in StorageException."""
+        from unittest.mock import MagicMock, patch
+
+        import duckdb
+
+        # First create the table so it exists
+        storage.create_table(table_name="valid_table", schema=sample_table.schema)
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = duckdb.Error("write error")
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = lambda s: mock_conn
+        mock_ctx.__exit__ = MagicMock(return_value=False)
+
+        with patch.object(storage.connection_manager, "get_connection", return_value=mock_ctx):
+            with pytest.raises(StorageException):
+                storage.upsert_data(table_name="valid_table", data=sample_table)

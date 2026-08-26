@@ -465,3 +465,37 @@ class TestIntegration:
         # Verify final state
         assert reporter._current_tables == [table_2]
         assert reporter._previous_tables == [table_2]
+
+
+class TestColumnTrackingExceptionPaths:
+    """Cover the except-Exception-pass paths in _get_new_columns and _get_removed_columns."""
+
+    def test_get_new_columns_handles_exception_in_extract(self, reporter):
+        """When _extract_column_names raises, _get_new_columns returns col_names unchanged."""
+        from unittest.mock import patch
+
+        import pyarrow as pa
+
+        reporter._previous_tables = [pa.table({"id": ["x"]})]
+        reporter._current_tables = [pa.table({"id": ["x"]})]
+
+        col_names = ["id", "content"]
+        with patch.object(reporter, "_extract_column_names", side_effect=RuntimeError("boom")):
+            result = reporter._get_new_columns(col_names=col_names)
+
+        # Falls back to returning all columns as new
+        assert result == col_names
+
+    def test_get_removed_columns_handles_exception_in_extract(self, reporter):
+        """When _extract_column_names raises, _get_removed_columns returns empty list."""
+        from unittest.mock import patch
+
+        import pyarrow as pa
+
+        reporter._previous_tables = [pa.table({"id": ["x"]})]
+        reporter._current_tables = [pa.table({"id": ["x"]})]
+
+        with patch.object(reporter, "_extract_column_names", side_effect=RuntimeError("boom")):
+            result = reporter._get_removed_columns(col_names=["id", "content"])
+
+        assert result == []

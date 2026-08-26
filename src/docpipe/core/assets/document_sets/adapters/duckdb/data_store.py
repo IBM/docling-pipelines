@@ -184,8 +184,9 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
                 )
 
             column_result = self._storage.execute_query(
-                query=f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}'"
-            )
+                query="SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+                params=[table_name],
+            )  # nosec B608 — table_name is a sanitized identifier derived from document set name, not user input
             column_names = [row["column_name"] for row in column_result.to_pylist()]
 
             select_clauses = ["COUNT(*) AS total_documents"]
@@ -198,7 +199,9 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
                 else "0 AS total_pages"
             )
 
-            result_table = self._storage.execute_query(query=f"SELECT {', '.join(select_clauses)} FROM {table_name}")
+            result_table = self._storage.execute_query(
+                query=f"SELECT {', '.join(select_clauses)} FROM {table_name}"  # nosec B608 — table_name is a sanitized identifier, not user input
+            )
 
             if len(result_table) == 0:
                 raise DocpipeException(

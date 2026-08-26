@@ -98,7 +98,7 @@ class OneDriveSourceConfig(BaseModel):
         json_schema_extra: ClassVar[dict] = {
             "example": {
                 "client_id": "your-client-id",
-                "client_secret": "your-client-secret",  # pragma: allowlist secret
+                "client_secret": "your-client-secret",  # pragma: allowlist secret  # nosec B105 — placeholder value in docstring example, not a real credential
                 "tenant_id": "your-tenant-id",
                 "drive_id": "b!abc123...",
                 "folder_path": "/Documents",

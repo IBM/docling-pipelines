@@ -260,7 +260,7 @@ class DuckDBTableStorage(TableStoragePort):
                 upsert_sql = f"""
                 INSERT OR REPLACE INTO {quoted_table} ({column_names})
                 SELECT {column_names} FROM temp_data
-                """
+                """  # nosec B608 — table_name is validated and quoted via _quote_identifier(); column names are validated via _validate_column_name()
 
                 conn.execute(upsert_sql)
                 conn.unregister("temp_data")
@@ -291,7 +291,7 @@ class DuckDBTableStorage(TableStoragePort):
 
         try:
             quoted_table = self._quote_identifier(identifier=table_name)
-            query = f"SELECT * FROM {quoted_table}"
+            query = f"SELECT * FROM {quoted_table}"  # nosec B608 — table_name is validated and quoted via _quote_identifier()
 
             if limit is not None:
                 query += f" LIMIT {limit}"
@@ -379,7 +379,7 @@ class DuckDBTableStorage(TableStoragePort):
             quoted_table = self._quote_identifier(identifier=table_name)
             read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
-                count_query = f"SELECT COUNT(*) as total FROM {quoted_table}"
+                count_query = f"SELECT COUNT(*) as total FROM {quoted_table}"  # nosec B608 — table_name is validated and quoted via _quote_identifier()
                 count_result = conn.execute(count_query).fetchone()
                 return count_result[0] if count_result else 0
         except StorageException:
@@ -432,7 +432,7 @@ class DuckDBTableStorage(TableStoragePort):
             quoted_table = self._quote_identifier(identifier=table_name)
             read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
-                query = f"SELECT * FROM {quoted_table} LIMIT 1"
+                query = f"SELECT * FROM {quoted_table} LIMIT 1"  # nosec B608 — table_name is validated and quoted via _quote_identifier()
                 result = conn.execute(query).fetch_arrow_table()
                 return result.schema
         except StorageException:

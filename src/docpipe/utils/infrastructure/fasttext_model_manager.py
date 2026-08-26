@@ -128,13 +128,13 @@ class FastTextModelManager:
             try:
                 # Try with default SSL verification first
                 try:
-                    urllib.request.urlretrieve(model_url, model_path)
+                    urllib.request.urlretrieve(model_url, model_path)  # nosec B310 — model_url is an internal constant (FastTextConstants.MODEL_URL), not user-supplied
                     logger.info("Model downloaded successfully with SSL verification")
                 except (ssl.SSLError, urllib.error.URLError) as ssl_error:
                     # Fallback to unverified SSL for corporate proxies
                     logger.warning(f"SSL verification failed ({ssl_error}), retrying with unverified context...")
-                    ssl_context = ssl._create_unverified_context()  # NOSONAR
-                    with urllib.request.urlopen(model_url, context=ssl_context) as response:
+                    ssl_context = ssl._create_unverified_context()  # NOSONAR  # nosec B323 — intentional fallback for corporate proxy environments; primary attempt uses full SSL verification
+                    with urllib.request.urlopen(model_url, context=ssl_context) as response:  # nosec B310 — intentional SSL fallback; only reached after verified attempt fails
                         with Path(model_path).open("wb") as out_file:
                             out_file.write(response.read())
                     logger.info("Model downloaded successfully with unverified SSL")

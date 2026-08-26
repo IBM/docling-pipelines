@@ -115,3 +115,33 @@ class TestWeightToNumeric(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMakeDateUniformEdgeCases(unittest.TestCase):
+    """Additional edge-case tests for make_date_uniform to cover exception paths."""
+
+    def test_none_input_returns_none(self):
+        """None input returns None without raising."""
+        result = make_date_uniform(date_str=None)
+        self.assertIsNone(result)
+
+    def test_non_string_input_returns_none(self):
+        """Non-string input (e.g. int) falls through all parsing and returns None."""
+        result = make_date_uniform(date_str=12345)  # type: ignore
+        self.assertIsNone(result)
+
+    def test_empty_string_returns_none(self):
+        """Empty string falls through all parsing and returns None."""
+        result = make_date_uniform(date_str="")
+        self.assertIsNone(result)
+
+    def test_datefinder_exception_is_swallowed(self):
+        """If datefinder.find_dates raises, the exception is swallowed and None is returned."""
+        import sys
+        from unittest.mock import MagicMock, patch
+
+        mock_datefinder = MagicMock()
+        mock_datefinder.find_dates.side_effect = ValueError("parse error")
+        with patch.dict(sys.modules, {"datefinder": mock_datefinder}):
+            result = make_date_uniform(date_str="not a real date @@@@")
+        self.assertIsNone(result)

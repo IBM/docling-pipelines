@@ -223,7 +223,7 @@ class FlowExecutionReporter:
                 # New columns are those in current but not in previous
                 if curr_cols:
                     return list(curr_cols - prev_cols)
-            except Exception:
+            except Exception:  # nosec B110 — intentional: schema diff is non-critical reporting; any comparison failure silently yields empty list
                 # If table comparison fails, return empty list
                 pass
 
@@ -250,7 +250,7 @@ class FlowExecutionReporter:
                 # Removed columns are those in previous but not in current
                 if prev_cols:
                     return list(prev_cols - curr_cols)
-            except Exception:
+            except Exception:  # nosec B110 — intentional: schema diff is non-critical reporting; any comparison failure silently yields empty list
                 # If table comparison fails, return empty list
                 pass
 

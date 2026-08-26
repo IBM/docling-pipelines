@@ -646,3 +646,67 @@ class TestDatabasePersistence:
         retrieved = store2.get_job_stats(sample_job_stats.job_run_id)
         assert retrieved is not None
         assert retrieved.processed_docs == 100
+
+
+class TestAtomicIncrementFieldsWithMerge:
+    """Test atomic_increment_fields with jsonb_merges to cover lines 595-630."""
+
+    def test_atomic_increment_with_jsonb_merge_creates_new(self, *, store, sample_job_stats):
+        """jsonb_merges on a field with no existing value stores the new dict."""
+        store.store_job_stats(sample_job_stats)
+
+        store.atomic_increment_fields(
+            job_run_id=sample_job_stats.job_run_id,
+            increments={},
+            jsonb_merges={"page_type_stats": {"pdf": 3}},
+        )
+
+        retrieved = store.get_job_stats(sample_job_stats.job_run_id)
+        assert retrieved.page_type_stats == {"pdf": 3}
+
+    def test_atomic_increment_with_jsonb_merge_merges_existing(self, *, store, sample_job_stats):
+        """jsonb_merges on an existing JSON field merges the dicts."""
+        sample_job_stats.page_type_stats = {"pdf": 2}
+        store.store_job_stats(sample_job_stats)
+
+        store.atomic_increment_fields(
+            job_run_id=sample_job_stats.job_run_id,
+            increments={},
+            jsonb_merges={"page_type_stats": {"docx": 5}},
+        )
+
+        retrieved = store.get_job_stats(sample_job_stats.job_run_id)
+        assert retrieved.page_type_stats.get("pdf") == 2
+        assert retrieved.page_type_stats.get("docx") == 5
+
+
+class TestDuckDBJobStatsStoreEdgePaths:
+    """Cover edge paths for init failure and bulk_store rollback."""
+
+    def test_initialization_failure_raises_exception(self, *, temp_db_path):
+        """If _initialize_schema fails, raises JobStatsStoreInitializationException."""
+        from unittest.mock import patch
+
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreInitializationException
+
+        with patch(
+            "docpipe.core.job_management.adapters.stores.duckdb.duckdb_job_stats_store.DuckDBJobStatsStore._initialize_schema",
+            side_effect=RuntimeError("schema error"),
+        ):
+            with pytest.raises(JobStatsStoreInitializationException):
+                DuckDBJobStatsStore(config={"database_path": temp_db_path})
+
+    def test_bulk_store_raises_write_exception_on_failure(self, *, store):
+        """bulk_store_node_stats raises JobStatsStoreWriteException on failure."""
+        from unittest.mock import patch
+
+        from docpipe.core.job_management.domain.models.node_stats import NodeStats
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
+
+        # A non-empty list is required — empty list short-circuits before touching the connection
+        node_stats = [NodeStats(id="node-1", name="Test")]
+
+        # Patch connection manager to raise a RuntimeError so the outer except is hit
+        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("no connection")):
+            with pytest.raises(JobStatsStoreWriteException):
+                store.bulk_store_node_stats(job_run_id="nonexistent", node_stats_list=node_stats)

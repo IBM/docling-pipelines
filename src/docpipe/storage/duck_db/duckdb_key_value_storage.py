@@ -175,7 +175,7 @@ class DuckDBKeyValueStorage(KeyValueStoragePort):
             return None
 
         try:
-            select_sql = f"SELECT data FROM {collection} WHERE key = ?"
+            select_sql = f"SELECT data FROM {collection} WHERE key = ?"  # nosec B608 — collection name is an internal constant, not user-supplied input
 
             read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
@@ -205,7 +205,7 @@ class DuckDBKeyValueStorage(KeyValueStoragePort):
             return []
 
         try:
-            select_sql = f"SELECT data FROM {collection}"
+            select_sql = f"SELECT data FROM {collection}"  # nosec B608 — collection name is an internal constant, not user-supplied input
 
             read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:
@@ -235,12 +235,12 @@ class DuckDBKeyValueStorage(KeyValueStoragePort):
             return False
 
         try:
-            delete_sql = f"DELETE FROM {collection} WHERE key = ?"
+            delete_sql = f"DELETE FROM {collection} WHERE key = ?"  # nosec B608 — collection name is an internal constant, not user-supplied input
 
             with self.connection_manager.get_connection(self.database_path) as conn:
                 conn.execute(delete_sql, [key])
                 # Check if record was deleted by verifying it no longer exists
-                check_result = conn.execute(f"SELECT COUNT(*) FROM {collection} WHERE key = ?", [key]).fetchone()
+                check_result = conn.execute(f"SELECT COUNT(*) FROM {collection} WHERE key = ?", [key]).fetchone()  # nosec B608 — collection name is an internal constant, not user-supplied input
                 deleted = check_result[0] == 0 if check_result else False
 
                 if deleted:
@@ -276,7 +276,7 @@ class DuckDBKeyValueStorage(KeyValueStoragePort):
             return False
 
         try:
-            check_sql = f"SELECT COUNT(*) FROM {collection} WHERE key = ?"
+            check_sql = f"SELECT COUNT(*) FROM {collection} WHERE key = ?"  # nosec B608 — collection name is an internal constant, not user-supplied input
 
             read_only = self.database_path != _IN_MEMORY_DB
             with self.connection_manager.get_connection(self.database_path, read_only=read_only) as conn:

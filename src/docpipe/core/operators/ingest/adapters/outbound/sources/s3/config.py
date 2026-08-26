@@ -137,8 +137,8 @@ class S3SourceConfig(BaseModel):
 
         json_schema_extra: ClassVar[dict] = {
             "example": {
-                "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
-                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
+                "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
+                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
                 "bucket": "my-documents-bucket",
                 "prefix": "documents/reports/",  # Directory prefix with trailing slash, or "documents/report.pdf" for exact file
                 "endpoint_url": None,

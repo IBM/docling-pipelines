@@ -601,7 +601,8 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         for field_name, merge_dict in jsonb_merges.items():
                             # Read current value
                             current = conn.execute(
-                                f"SELECT {field_name} FROM job_stats WHERE job_run_id = ?", [job_run_id]
+                                f"SELECT {field_name} FROM job_stats WHERE job_run_id = ?",  # nosec B608 — field_name is an internal dict key from known schema fields, not user input
+                                [job_run_id],
                             ).fetchone()
 
                             if current and current[0]:
@@ -616,7 +617,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     # Execute update
                     if set_clauses:
                         params.append(job_run_id)
-                        sql = f"UPDATE job_stats SET {', '.join(set_clauses)} WHERE job_run_id = ?"
+                        sql = f"UPDATE job_stats SET {', '.join(set_clauses)} WHERE job_run_id = ?"  # nosec B608 — field_name values are internal schema keys, not user input
                         conn.execute(sql, params)
 
                     conn.execute("COMMIT")
@@ -781,7 +782,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     {where_sql}
                     ORDER BY start_time DESC
                     LIMIT ?
-                """
+                """  # nosec B608 — where_sql is built from parameterised clauses with no user-controlled identifiers
                 params.append(limit)
 
                 results = conn.execute(sql, params).fetchall()

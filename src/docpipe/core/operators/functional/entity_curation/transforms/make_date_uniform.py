@@ -93,7 +93,7 @@ def make_date_uniform(*, date_str: Any) -> str | None:
             return matches[0].strftime("%Y-%m-%d")
     except ImportError:
         pass
-    except Exception:
+    except Exception:  # nosec B110 — intentional: date parsing is best-effort; any failure returns None
         pass
 
     # If all parsing attempts fail, return None

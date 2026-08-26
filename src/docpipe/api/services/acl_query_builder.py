@@ -185,7 +185,10 @@ class ACLQueryBuilder:
             return False
 
         # Type narrowing: at this point allowed_users is guaranteed to be list[str]
-        assert allowed_users is not None
+        if (
+            allowed_users is None
+        ):  # pragma: no cover — validate_allowed_users already guards this; defensive narrowing for type checker
+            raise RuntimeError("allowed_users unexpectedly None after validation")
         has_access = username in allowed_users
         logger.debug(
             "User %s access check: %s (allowed_users=%s)",

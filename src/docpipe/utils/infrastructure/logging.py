@@ -166,7 +166,7 @@ class ConditionalFormatter(logging.Formatter):
             session_info = get_session_info()
             if session_info and session_info.transaction_id:
                 return session_info.transaction_id
-        except Exception:
+        except Exception:  # nosec B110 — intentional: session info lookup is best-effort in non-API contexts; fallback to default transaction ID below
             pass
 
         # Fallback to default for non-API contexts (CLI, background jobs, etc.)
@@ -183,7 +183,7 @@ class ConditionalFormatter(logging.Formatter):
             from docpipe.utils.infrastructure.telemetry_service import get_telemetry_service
 
             return get_telemetry_service().get_trace_context()
-        except Exception:
+        except Exception:  # nosec B110 — intentional: telemetry is optional; any failure returns empty trace context so logging always succeeds
             return {"trace_id": "", "span_id": ""}
 
     def format(self, record):

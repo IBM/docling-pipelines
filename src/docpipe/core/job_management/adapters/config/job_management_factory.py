@@ -261,7 +261,8 @@ class JobManagementFactory:
             case _:
                 raise ValueError(f"Unknown storage backend: {self.storage_backend}")
 
-        assert self._job_stats_store is not None, "Job stats store must be initialized"
+        if self._job_stats_store is None:  # defensive: all branches above either assign or raise
+            raise RuntimeError("Job stats store must be initialized")
         return self._job_stats_store
 
     def create_job_run_manager(self) -> JobRunManager:

@@ -70,7 +70,7 @@ class UnverifiedNLTKDownloader:
         # The primary download attempt (line 158) uses full SSL verification.
         # This fallback is necessary for environments with corporate proxies/firewalls
         # that interfere with SSL certificate chains.
-        self.ssl_context = ssl._create_unverified_context()  # NOSONAR
+        self.ssl_context = ssl._create_unverified_context()  # NOSONAR  # nosec B323 — intentional fallback for corporate proxy environments; only used when standard SSL fails
 
         self.downloader = Downloader(download_dir=download_dir)
 
@@ -100,7 +100,7 @@ class UnverifiedNLTKDownloader:
         def urlopen_no_ssl_verify(url, *args, **kwargs):
             """Wrapper that forces unverified SSL context for this request only."""
             kwargs["context"] = self.ssl_context
-            return original_urlopen(url, *args, **kwargs)
+            return original_urlopen(url, *args, **kwargs)  # nosec B310 — intentional SSL fallback used only when standard SSL fails; scoped to nltk downloader only
 
         # Perform scoped monkey-patch with guaranteed cleanup
         import nltk.downloader

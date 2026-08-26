@@ -566,10 +566,10 @@ class OllamaClient(BaseLLMClient):
         Returns:
             bool: True if Ollama is installed, False otherwise
         """
-        import subprocess
+        import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with a fixed command, not with user input
 
         try:
-            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)  # nosec B603 B607 — fixed command array, no user input interpolated
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
             return False
@@ -610,7 +610,7 @@ class OllamaClient(BaseLLMClient):
             bool: True if server started successfully, False otherwise
         """
         import platform
-        import subprocess
+        import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with fixed command arrays, not with user input
         import time
 
         try:
@@ -620,7 +620,7 @@ class OllamaClient(BaseLLMClient):
                 # Windows: Start in background using START command
                 # CREATE_NEW_PROCESS_GROUP is Windows-specific
                 creation_flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-                subprocess.Popen(
+                subprocess.Popen(  # nosec B603 B607 — fixed command array, no user input interpolated
                     ["cmd", "/c", "start", "/B", "ollama", "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -628,7 +628,7 @@ class OllamaClient(BaseLLMClient):
                 )
             else:
                 # macOS/Linux: Start in background using nohup
-                subprocess.Popen(
+                subprocess.Popen(  # nosec B603 B607 — fixed command array, no user input interpolated
                     ["nohup", "ollama", "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -709,14 +709,14 @@ class OllamaClient(BaseLLMClient):
         Returns:
             bool: True if model pulled successfully, False otherwise
         """
-        import subprocess
+        import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with a fixed command, not with user input
 
         try:
             if show_progress:
                 logger.info(f"Pulling model '{model_name}'... (this may take several minutes)")
 
             # Use subprocess to show real-time progress
-            process = subprocess.Popen(
+            process = subprocess.Popen(  # nosec B603 B607 — fixed command array, model_name is an internal config value not from untrusted user input
                 ["ollama", "pull", model_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
