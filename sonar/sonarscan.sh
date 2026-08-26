@@ -93,9 +93,7 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# Cleanse the branch name from special characters
-SCAN_BRANCH=$(echo "$JENKINS_BRANCH" | tr -dc '|[^A-Za-z0-9-]|g')
-echo "sonar.branch.name=${SCAN_BRANCH}" >> sonar-project.properties
+echo "sonar.branch.name=${JENKINS_BRANCH}" >> sonar-project.properties
 echo "Info: Running merge sonarscan $JENKINS_BRANCH ..."
 
 
