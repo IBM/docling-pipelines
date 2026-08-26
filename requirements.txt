@@ -119,7 +119,7 @@ click==8.4.2
     #   python-oxmsg
     #   spacy
     #   uvicorn
-cloudpathlib==0.24.0
+cloudpathlib==0.25.0
     # via weasel
 cloudpickle==3.1.2
     # via
@@ -146,7 +146,7 @@ coolname==5.0.0
     # via prefect
 cronsim==2.7
     # via pydocket
-cryptography==50.0.0
+cryptography==50.0.1
     # via
     #   azure-storage-blob
     #   docling-pipelines
@@ -158,11 +158,11 @@ cryptography==50.0.0
     #   python-jose
 cuda-bindings==13.3.1 ; sys_platform == 'linux'
     # via torch
-cuda-pathfinder==1.6.1 ; sys_platform == 'linux'
+cuda-pathfinder==1.7.0 ; sys_platform == 'linux'
     # via cuda-bindings
 cuda-toolkit==13.0.3.0 ; sys_platform == 'linux'
     # via torch
-cyclopts==4.23.1
+cyclopts==4.23.2
     # via prefect
 cymem==2.0.13
     # via
@@ -205,7 +205,7 @@ docling-core==2.92.0
     #   docling-slim
 docling-ibm-models==3.14.0
     # via docling-slim
-docling-parse==7.15.0
+docling-parse==7.16.0
     # via docling-slim
 docling-slim==2.121.0
     # via docling
@@ -238,6 +238,8 @@ filelock==3.24.2
     #   torch
 filetype==1.2.0
     # via docling-slim
+flatbuffers==25.12.19
+    # via onnxruntime
 frozenlist==1.8.0
     # via
     #   aiohttp
@@ -258,7 +260,7 @@ google-api-core==2.30.3
     #   google-cloud-storage
 google-api-python-client==2.190.0
     # via docling-pipelines
-google-auth==2.56.3
+google-auth==2.57.0
     # via
     #   google-api-core
     #   google-api-python-client
@@ -272,7 +274,7 @@ google-auth-httplib2==0.3.0
     #   google-api-python-client
 google-auth-oauthlib==1.2.4
     # via docling-pipelines
-google-cloud-core==2.6.1
+google-cloud-core==2.7.0
     # via google-cloud-storage
 google-cloud-storage==3.9.0
     # via docling-pipelines
@@ -282,9 +284,9 @@ google-crc32c==1.8.0
     #   google-resumable-media
 google-re2==1.1.20251105
     # via docling-pipelines
-google-resumable-media==2.10.1
+google-resumable-media==2.10.2
     # via google-cloud-storage
-googleapis-common-protos==1.75.1
+googleapis-common-protos==1.75.2
     # via google-api-core
 graphviz==0.21
     # via prefect
@@ -475,7 +477,7 @@ lxml==6.1.0
     #   docling-pipelines
     #   python-docx
     #   python-pptx
-mail-parser==4.6.3
+mail-parser==4.6.4
     # via docling-slim
 mako==1.3.12
     # via
@@ -499,7 +501,7 @@ mlx==0.30.6 ; sys_platform == 'darwin'
     # via docling-pipelines
 mlx-metal==0.30.6 ; sys_platform == 'darwin'
     # via mlx
-mmh3==5.2.1
+mmh3==5.3.0
     # via
     #   data-prep-toolkit
     #   pyiceberg
@@ -544,6 +546,7 @@ numpy==1.26.4
     #   docling-slim
     #   fasttext-wheel
     #   langchain-community
+    #   onnxruntime
     #   opencv-python
     #   pandas
     #   pymilvus
@@ -608,6 +611,8 @@ ollama==0.6.1
     # via docling-pipelines
 omegaconf==2.3.1
     # via rapidocr
+onnxruntime==1.29.0
+    # via docling-slim
 openai==2.33.0
     # via
     #   docling-pipelines
@@ -641,6 +646,7 @@ packaging==26.2
     #   langchain-core
     #   langsmith
     #   marshmallow
+    #   onnxruntime
     #   prefect
     #   spacy
     #   thinc
@@ -692,12 +698,13 @@ propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
-proto-plus==1.28.3
+proto-plus==1.28.4
     # via google-api-core
 protobuf==6.33.6
     # via
     #   google-api-core
     #   googleapis-common-protos
+    #   onnxruntime
     #   opensearch-protobufs
     #   proto-plus
     #   pymilvus
@@ -992,7 +999,7 @@ sortedcontainers==2.4.0
     # via pyiceberg
 soupsieve==2.9.2
     # via beautifulsoup4
-spacy==3.8.15
+spacy==3.8.16
     # via docling-pipelines
 spacy-legacy==3.0.12
     # via spacy
@@ -1015,7 +1022,7 @@ srsly==2.5.3
     #   spacy
     #   thinc
     #   weasel
-starlette==1.3.1
+starlette==1.6.0
     # via
     #   fastapi
     #   prefect

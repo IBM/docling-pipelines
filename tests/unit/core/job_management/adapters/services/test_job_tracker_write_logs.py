@@ -31,17 +31,17 @@ JOB_RUN_ID = "run-222"
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_store():
     return Mock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_aggregator():
     return Mock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def service(mock_store, mock_aggregator):
     return JobTrackerService(job_stats_store=mock_store, node_stats_aggregator=mock_aggregator)
 

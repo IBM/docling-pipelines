@@ -457,6 +457,7 @@ class TestWebPageSourceAdapter:
         async def mock_head(url, **kwargs):
             if "test.com" in url:
                 import httpx
+
                 raise httpx.ConnectError("Connection failed")
             mock_response = Mock()
             mock_response.status_code = 200
@@ -483,6 +484,7 @@ class TestWebPageSourceAdapter:
 
         async def mock_head(url, **kwargs):
             import httpx
+
             raise httpx.ConnectError("Connection failed")
 
         mock_client = AsyncMock()
@@ -504,6 +506,7 @@ class TestWebPageSourceAdapter:
 
         async def mock_head(url, **kwargs):
             import httpx
+
             raise httpx.TimeoutException("Timeout")
 
         mock_client = AsyncMock()
@@ -524,6 +527,7 @@ class TestWebPageSourceAdapter:
 
         async def mock_head(url, **kwargs):
             import httpx
+
             mock_response = Mock()
             mock_response.status_code = 404
             raise httpx.HTTPStatusError("404 Not Found", request=Mock(), response=mock_response)

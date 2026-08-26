@@ -86,7 +86,7 @@ class TestRetryWithExponentialBackoff(unittest.TestCase):
             self.assertEqual(
                 str(e),
                 "Retry logic indicated retry on successful call after 3 attempts:"
-                + " Missing url field in the response data",
+                " Missing url field in the response data",
             )
 
         self.assertEqual(call_count, 3)

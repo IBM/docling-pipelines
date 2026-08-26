@@ -224,10 +224,7 @@ Second block contains JSON:
         l\\IC). json.loads rejects these with 'Invalid \\escape'. The sanitizer
         strips the backslash so the string becomes parseable.
         """
-        response = (
-            '{"vendor_address": "1056 STRATFORD COURT GOLDSBORO l\\IC 27530", '
-            '"invoice_id": "0298878900"}'
-        )
+        response = '{"vendor_address": "1056 STRATFORD COURT GOLDSBORO l\\IC 27530", "invoice_id": "0298878900"}'
         result = parse_llm_json_response(response)
         assert result["invoice_id"] == "0298878900"
         assert "GOLDSBORO" in result["vendor_address"]
