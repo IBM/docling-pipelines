@@ -68,7 +68,7 @@ class OperatorSourcePort(ABC):
         Raises:
             Exception: If discovery operation fails
         """
-        pass
+        ...
 
     def clear_cache(self):
         """Clear any cached modules to force reloading.
@@ -76,7 +76,6 @@ class OperatorSourcePort(ABC):
         Optional method for adapters that cache loaded modules.
         Called before refresh operations to ensure updated code is loaded.
         """
-        pass
 
     @abstractmethod
     def load_operator(self, *, operator_info: OperatorInfo) -> ModuleType:
@@ -91,7 +90,7 @@ class OperatorSourcePort(ABC):
         Raises:
             Exception: If loading operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def validate_operator(self, *, module: ModuleType, operator_info: OperatorInfo) -> ValidationResult:
@@ -107,4 +106,4 @@ class OperatorSourcePort(ABC):
         Raises:
             Exception: If validation check fails
         """
-        pass
+        ...

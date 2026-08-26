@@ -12,17 +12,17 @@ class AbstractFlowExecutionEventHandler(ABC):
     @abstractmethod
     def before_flow_execution_start(self, *, orchestrator, flow_def: dict | None = None):
         """Before flow execution start."""
-        pass
+        ...
 
     @abstractmethod
     def after_flow_execution_complete(self, op_flow, present_job_status: str, message, global_config=None):
         """After flow execution complete."""
-        pass
+        ...
 
     @abstractmethod
     def before_step_execution_start(self, *, node_id, node_name, global_config, job_status, prev_results):
         """Before step execution start."""
-        pass
+        ...
 
     @abstractmethod
     def after_step_execution_complete(
@@ -39,7 +39,7 @@ class AbstractFlowExecutionEventHandler(ABC):
         tables=None,
     ):
         """After step execution complete."""
-        pass
+        ...
 
     @abstractmethod
     def after_node_skipped(
@@ -67,12 +67,12 @@ class AbstractFlowExecutionEventHandler(ABC):
             column_names: Column names from node output
             reason: Optional reason for skipping (defaults to "Skipped - no input data to process")
         """
-        pass
+        ...
 
     @abstractmethod
     def after_node_failure(self, *, node_id, node_name, global_config, e):
         """After node failure."""
-        pass
+        ...
 
     @abstractmethod
     def after_batches_prepared(
@@ -89,4 +89,4 @@ class AbstractFlowExecutionEventHandler(ABC):
             op_flow: Operator flow definition (DAG)
             global_config: Global configuration dictionary
         """
-        pass
+        ...

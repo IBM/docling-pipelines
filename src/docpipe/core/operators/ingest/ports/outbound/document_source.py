@@ -46,7 +46,7 @@ class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
             AuthenticationError: If authentication fails
             ValueError: If configuration is invalid
         """
-        pass
+        ...
 
     @abstractmethod
     async def test_connection(self, config: SourceConfig) -> tuple[bool, str]:
@@ -61,7 +61,7 @@ class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
                 - success: True if connection successful, False otherwise
                 - message: Human-readable status message
         """
-        pass
+        ...
 
     @abstractmethod
     def get_config_schema(self) -> type[BaseModel]:
@@ -71,7 +71,7 @@ class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
         Returns:
             type[BaseModel]: The Pydantic model class for configuration
         """
-        pass
+        ...
 
     @abstractmethod
     def build_config_from_operator_params(
@@ -100,7 +100,7 @@ class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        pass
+        ...
 
     @abstractmethod
     def fetch_binary_content(
@@ -135,7 +135,7 @@ class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
             AuthenticationError: If authentication fails
             ValueError: If source_id is invalid or missing
         """
-        pass
+        ...
 
     def get_metadata(self) -> dict:
         """

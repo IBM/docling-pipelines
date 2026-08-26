@@ -46,7 +46,6 @@ class TestMyOperatorIntegration:
 
         # op = MyOperator(config={"doc_column": "content", "paths": str(tmp_path)})
         # ... run ingest + operator, assert output columns exist
-        pass  # replace with real assertions
 
 
 # ---------------------------------------------------------------------------
@@ -66,15 +65,15 @@ class TestMyRouteIntegration:
         # app.dependency_overrides[get_current_user] = lambda: MagicMock(username="test-user")
         # yield TestClient(app)
         # app.dependency_overrides.clear()
-        yield MagicMock()  # replace with real client fixture
+        return MagicMock()  # replace with real client fixture
 
     def test_endpoint_returns_200_for_valid_payload(self, client: TestClient) -> None:
         # response = client.post("/api/v1/flows", json={"flow_name": "test-flow", "flow": []})
         # assert response.status_code == 201
-        pass  # replace with real assertions
+        ...  # replace with real assertions
 
     def test_endpoint_returns_401_without_authentication(self) -> None:
         # unauthenticated_client = TestClient(app)
         # response = unauthenticated_client.get("/api/v1/flows")
         # assert response.status_code == 401
-        pass  # replace with real assertions
+        ...  # replace with real assertions

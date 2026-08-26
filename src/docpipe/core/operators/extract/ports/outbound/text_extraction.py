@@ -119,7 +119,7 @@ class TextExtractionPort(ABC):
     @abstractmethod
     def get_config_schema() -> type[BaseModel]:
         """Return the Pydantic config model class for this adapter."""
-        pass
+        ...
 
     def _update_extraction_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int
@@ -461,7 +461,7 @@ class TextExtractionPort(ABC):
                 "error": str                        # Error message if failed
             }
         """
-        pass
+        ...
 
     def _process_extraction_result(
         self,

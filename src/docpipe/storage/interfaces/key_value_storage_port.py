@@ -29,7 +29,7 @@ class KeyValueStoragePort(ABC):
             ValueError: If collection or key is invalid
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_record(self, *, collection: str, key: str) -> dict[str, Any] | None:
@@ -47,7 +47,7 @@ class KeyValueStoragePort(ABC):
             ValueError: If collection or key is invalid
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def list_records(self, *, collection: str, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -65,7 +65,7 @@ class KeyValueStoragePort(ABC):
             ValueError: If collection is invalid
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def delete_record(self, *, collection: str, key: str) -> bool:
@@ -83,7 +83,7 @@ class KeyValueStoragePort(ABC):
             ValueError: If collection or key is invalid
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def collection_exists(self, *, collection: str) -> bool:
@@ -96,7 +96,7 @@ class KeyValueStoragePort(ABC):
         Returns:
             True if collection exists, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def record_exists(self, *, collection: str, key: str) -> bool:
@@ -110,4 +110,4 @@ class KeyValueStoragePort(ABC):
         Returns:
             True if record exists, False otherwise
         """
-        pass
+        ...

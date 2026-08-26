@@ -75,7 +75,6 @@ class ValidationService:
         or dependencies are required as all validation state is created
         per-request.
         """
-        pass
 
     def _convert_to_dag_flow(
         self,

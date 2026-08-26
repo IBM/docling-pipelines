@@ -25,7 +25,7 @@ class AttachmentRepository(ABC):
             asset_id: Unique identifier of the owning asset.
             data: AttachmentRef to persist.
         """
-        pass
+        ...
 
     @abstractmethod
     def get(self, *, asset_id: str) -> AttachmentRef | None:
@@ -37,7 +37,7 @@ class AttachmentRepository(ABC):
         Returns:
             The persisted AttachmentRef, or None if no record exists.
         """
-        pass
+        ...
 
     @abstractmethod
     def delete(self, *, asset_id: str) -> bool:
@@ -49,7 +49,7 @@ class AttachmentRepository(ABC):
         Returns:
             True if the record existed and was deleted, False if it was absent.
         """
-        pass
+        ...
 
     @abstractmethod
     def exists(self, *, asset_id: str) -> bool:
@@ -61,4 +61,4 @@ class AttachmentRepository(ABC):
         Returns:
             True if a record exists, False otherwise.
         """
-        pass
+        ...

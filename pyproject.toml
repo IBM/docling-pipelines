@@ -223,7 +223,6 @@ ignore = [
     "N818",   # Exception name should end with Error suffix
     "B027",   # Empty method in abstract base class without abstract decorator (intentional for optional overrides)
     "EM",     # flake8-errmsg
-    "PIE",    # flake8-pie
 ]
 
 [tool.ruff.lint.per-file-ignores]

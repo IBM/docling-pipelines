@@ -29,7 +29,7 @@ class TableStoragePort(ABC):
             ValueError: If a table with the same name already exists
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def upsert_data(self, *, table_name: str, data: pa.Table) -> None:
@@ -45,7 +45,7 @@ class TableStoragePort(ABC):
             ValueError: If the data schema does not match the table schema
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def read_data(self, *, table_name: str, limit: int | None = None, offset: int | None = None) -> pa.Table:
@@ -64,7 +64,7 @@ class TableStoragePort(ABC):
             KeyError: If the specified table does not exist
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def delete_table(self, *, table_name: str) -> bool:
@@ -80,7 +80,7 @@ class TableStoragePort(ABC):
         Raises:
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def table_exists(self, *, table_name: str) -> bool:
@@ -93,7 +93,7 @@ class TableStoragePort(ABC):
         Returns:
             True if table exists, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def get_row_count(self, *, table_name: str) -> int:
@@ -110,7 +110,7 @@ class TableStoragePort(ABC):
             KeyError: If the specified table does not exist
             RuntimeError: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def execute_query(self, *, query: str, params: list[Any] | None = None) -> pa.Table:
@@ -127,4 +127,4 @@ class TableStoragePort(ABC):
         Raises:
             RuntimeError: If query execution fails
         """
-        pass
+        ...

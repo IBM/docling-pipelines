@@ -62,7 +62,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunAlreadyExistsException: If job_run_id already exists
         """
-        pass
+        ...
 
     @abstractmethod
     def get_job_run_stats(self, *, job_run_id: str) -> "JobStats | None":
@@ -78,7 +78,7 @@ class JobStatsService(ABC):
         Returns:
             JobStats if found, None otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def get_job(
@@ -97,7 +97,7 @@ class JobStatsService(ABC):
         Returns:
             JobStats with requested statistics if found, None otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def end_job(self, *, job_run_id: str, status: str, job_run_stats: dict[str, Any] | None = None) -> None:
@@ -114,7 +114,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def start_node_execution(
@@ -143,7 +143,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def complete_node_execution(
@@ -184,7 +184,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def fail_node_execution(
@@ -218,7 +218,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def cancel_node_execution(
@@ -245,7 +245,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def abort_node_execution(
@@ -276,7 +276,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def skip_node_execution(
@@ -307,7 +307,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def update_node_stats(
@@ -328,7 +328,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def get_node_stats(self, *, job_id: str, job_run_id: str) -> dict[str, Any]:
@@ -347,7 +347,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def update_doc_counts(self, *, job_run_id: str, metadata: dict[str, Any], operator_category: str) -> None:
@@ -364,7 +364,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def bulk_store_node_stats(self, *, job_id: str, job_run_id: str, node_stats_list: list[Any]) -> None:
@@ -382,7 +382,7 @@ class JobStatsService(ABC):
             JobRunNotFoundException: If job_run_id not found
             JobStatsStoreWriteException: If bulk operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def store_job_stats(self, *, job_stats: "JobStats") -> None:
@@ -395,7 +395,7 @@ class JobStatsService(ABC):
         Raises:
             JobStatsStoreWriteException: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def request_cancel_job(self, *, job_run_id: str) -> None:
@@ -413,7 +413,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def cancel_job_run_if_cancelling(self, *, job_run_id: str, job_log_path: str | None = None) -> bool:
@@ -427,7 +427,7 @@ class JobStatsService(ABC):
         Returns:
             True if job was canceled, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def request_delete_job_run(self, *, job_run_id: str) -> str:
@@ -443,7 +443,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def is_job_run_complete(self, *, job_run_id: str) -> bool:
@@ -456,7 +456,7 @@ class JobStatsService(ABC):
         Returns:
             True if job is in terminal state, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def determine_and_update_final_documents_count(
@@ -469,7 +469,7 @@ class JobStatsService(ABC):
             job_stats: Job statistics object to update (JobStats)
             dag_nodes: List of DAG nodes with input/output edges
         """
-        pass
+        ...
 
     @abstractmethod
     def write_job_logs(self, *, job_stats: "JobStats", job_log_path: str) -> None:
@@ -483,7 +483,7 @@ class JobStatsService(ABC):
         Raises:
             JobStatsStoreWriteException: If file write fails
         """
-        pass
+        ...
 
     @abstractmethod
     def list_job_runs(
@@ -506,7 +506,7 @@ class JobStatsService(ABC):
         Returns:
             List of JobStats matching filters (sorted by start_time desc)
         """
-        pass
+        ...
 
     @abstractmethod
     def get_job_run_logs(self, *, job_run_id: str) -> list[str]:
@@ -519,7 +519,7 @@ class JobStatsService(ABC):
         Returns:
             List of synthesized log lines
         """
-        pass
+        ...
 
     @abstractmethod
     def create_pending_batch_node_stats(
@@ -545,7 +545,7 @@ class JobStatsService(ABC):
             JobRunNotFoundException: If job_run_id not found
             JobStatsStoreWriteException: If bulk operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def mark_pending_batches_as_skipped(self, *, job_run_id: str, reason: str) -> None:
@@ -563,7 +563,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def get_formatted_job_stats(self, *, job_run_id: str, include_logs: bool = False) -> Any:
@@ -577,7 +577,7 @@ class JobStatsService(ABC):
         Returns:
             JobRunStatusResponse DTO ready for API response
         """
-        pass
+        ...
 
     @abstractmethod
     def get_flow_definition(self, *, job_run_id: str) -> dict[str, Any] | None:
@@ -597,7 +597,7 @@ class JobStatsService(ABC):
             JobRunNotFoundException: If job_run_id not found in stats service
             JobStatsStoreReadException: If flow definition file cannot be read
         """
-        pass
+        ...
 
     @abstractmethod
     def save_flow_definition(
@@ -623,7 +623,7 @@ class JobStatsService(ABC):
         Raises:
             DocpipeException: If flow definition cannot be saved
         """
-        pass
+        ...
 
     @abstractmethod
     def detect_partial_batch_failure(self, *, job_stats: "JobStats", global_config: dict) -> bool:
@@ -642,4 +642,4 @@ class JobStatsService(ABC):
         Returns:
             True if partial batch failure detected, False otherwise
         """
-        pass
+        ...

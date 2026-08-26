@@ -45,8 +45,7 @@ def store(temp_data_dir, monkeypatch):
         mock_get_data_path,
     )
 
-    store = JsonJobStatsStore(lock_timeout=5.0)
-    yield store
+    return JsonJobStatsStore(lock_timeout=5.0)
 
 
 @pytest.fixture

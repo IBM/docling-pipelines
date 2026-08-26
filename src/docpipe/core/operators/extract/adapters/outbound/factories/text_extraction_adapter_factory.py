@@ -564,9 +564,6 @@ class TextExtractionAdapterFactory:
         if vlm_provider_config is not None and not isinstance(vlm_provider_config, dict):
             raise ValueError("DoclingAdapter 'vlm_provider_config' must be a dictionary")
 
-        # No additional validation needed for VLM config
-        pass
-
     @staticmethod
     def _validate_docling_serve_config(config: dict[str, Any]) -> None:
         """Validate configuration for DoclingServeAdapter.

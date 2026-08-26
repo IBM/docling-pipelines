@@ -30,7 +30,7 @@ class LLMEmbeddingPort(ABC):
         Raises:
             Exception: Provider-specific errors
         """
-        pass
+        ...
 
     @abstractmethod
     def generate_embeddings_batch(self, *, texts: list[str]) -> list[list[float]]:
@@ -45,7 +45,7 @@ class LLMEmbeddingPort(ABC):
         Raises:
             Exception: Provider-specific errors
         """
-        pass
+        ...
 
     @abstractmethod
     def get_embedding_dimension(self) -> int:
@@ -57,7 +57,7 @@ class LLMEmbeddingPort(ABC):
         Raises:
             Exception: Provider-specific errors
         """
-        pass
+        ...
 
     def validate(self) -> dict[str, Any]:
         """Template method for validation.

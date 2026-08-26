@@ -37,7 +37,7 @@ def mock_job_stats_service():
     """Mock job stats service."""
     service = Mock()
     app.dependency_overrides[get_job_stats_service] = lambda: service
-    yield service
+    return service
 
 
 class TestCreateJobRun:

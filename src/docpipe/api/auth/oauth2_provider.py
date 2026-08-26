@@ -38,7 +38,7 @@ class OAuth2Provider(ABC):
         Returns:
             Provider name string
         """
-        pass
+        ...
 
     async def discover_endpoints(self) -> dict[str, Any]:
         """Discover OAuth2/OIDC endpoints via discovery document.
@@ -268,7 +268,7 @@ class OAuth2Provider(ABC):
         Returns:
             User object
         """
-        pass
+        ...
 
 
 class GoogleOAuth2Provider(OAuth2Provider):

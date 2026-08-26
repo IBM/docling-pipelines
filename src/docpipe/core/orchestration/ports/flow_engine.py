@@ -78,7 +78,7 @@ class FlowEnginePort(ABC):
             batches: List of batches to process
             global_config: Global configuration dictionary
         """
-        pass
+        ...
 
     @abstractmethod
     def execute_non_execute_flow(self, *, flow_name: str, task: Any, dag: Any) -> None:
@@ -93,7 +93,7 @@ class FlowEnginePort(ABC):
             task: Task to execute (e.g., validation task)
             dag: DAG definition to operate on
         """
-        pass
+        ...
 
     @abstractmethod
     def execute_operator_flow(
@@ -113,7 +113,7 @@ class FlowEnginePort(ABC):
         Returns:
             Execution results (implementation-specific)
         """
-        pass
+        ...
 
 
 # Made with Bob

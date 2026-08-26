@@ -39,7 +39,7 @@ class LanguageServicePort(ABC):
             ValueError: If text is empty or invalid
             Exception: If language detection fails
         """
-        pass
+        ...
 
     def cleanup(self) -> None:
         """Optional cleanup method for adapters that manage resources.

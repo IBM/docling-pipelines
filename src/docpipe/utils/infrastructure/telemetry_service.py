@@ -170,7 +170,6 @@ class TelemetryService:
 
     def __init__(self):
         """Initialize telemetry service (called on every get_telemetry_service call)."""
-        pass
 
     def initialize(self, *, config: TelemetryConfig | None = None) -> None:
         """Initialize OpenTelemetry SDK with configuration.

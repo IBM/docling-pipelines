@@ -57,7 +57,7 @@ class ACLExtractionPort[ACLConfig](ABC):
         Raises:
             Exception: If extraction fails (should be caught and returned in response)
         """
-        pass
+        ...
 
     @abstractmethod
     async def extract_acls_batch(self, *, requests: list[ACLRequest]) -> list[ACLResponse]:
@@ -75,7 +75,7 @@ class ACLExtractionPort[ACLConfig](ABC):
         Raises:
             Exception: If batch extraction fails
         """
-        pass
+        ...
 
     @abstractmethod
     async def resolve_inheritance(self, *, resource_id: str, resource_type: str, config: ACLConfig) -> list[str]:
@@ -99,7 +99,7 @@ class ACLExtractionPort[ACLConfig](ABC):
         Raises:
             Exception: If inheritance resolution fails
         """
-        pass
+        ...
 
     @abstractmethod
     async def expand_group(self, *, group_id: str, config: ACLConfig) -> set[str]:
@@ -118,7 +118,7 @@ class ACLExtractionPort[ACLConfig](ABC):
         Raises:
             Exception: If group expansion fails
         """
-        pass
+        ...
 
     @abstractmethod
     def normalize_identity(self, *, principal_id: str, principal_type: str, config: ACLConfig) -> str:
@@ -143,7 +143,7 @@ class ACLExtractionPort[ACLConfig](ABC):
         Raises:
             Exception: If normalization fails
         """
-        pass
+        ...
 
     @abstractmethod
     async def test_connection(self, *, config: ACLConfig) -> bool:
@@ -158,7 +158,7 @@ class ACLExtractionPort[ACLConfig](ABC):
         Returns:
             True if connection is successful, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def build_config_from_operator_params(
@@ -181,4 +181,4 @@ class ACLExtractionPort[ACLConfig](ABC):
         Raises:
             ValueError: If parameters are invalid or missing
         """
-        pass
+        ...

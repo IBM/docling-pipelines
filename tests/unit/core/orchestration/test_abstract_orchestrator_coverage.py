@@ -40,7 +40,7 @@ class ConcreteOrchestrator(AbstractOrchestrator):
         pass
 
 
-@pytest.fixture()
+@pytest.fixture
 def orchestrator():
     with patch("docpipe.core.orchestration.abstract_orchestrator.FlowExecutionEventHandler"):
         orch = ConcreteOrchestrator()

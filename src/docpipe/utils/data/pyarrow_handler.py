@@ -59,7 +59,7 @@ class BaseParquetTableHandler(ABC):
         Returns:
             pa.Table | None: A PyArrow Table object if the table is read successfully, otherwise None.
         """
-        pass
+        ...
 
     @abstractmethod
     def save_table(self, *, path, table: pa.Table):
@@ -70,7 +70,7 @@ class BaseParquetTableHandler(ABC):
             path (str): The path where the Parquet file should be saved.
             table (pa.Table): The PyArrow Table to be saved as a Parquet file.
         """
-        pass
+        ...
 
     def delete_rows(self, *, path, delete_filter_fn):
         """
@@ -99,7 +99,7 @@ class BaseParquetTableHandler(ABC):
         """
         Delete Parquet file from the specified path.
         """
-        pass
+        ...
 
 
 def _lock_path(*, path: str) -> str:

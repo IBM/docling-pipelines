@@ -45,7 +45,7 @@ class DocumentSetStorage(ABC):
         Raises:
             DocpipeException: If the data is invalid or the write fails.
         """
-        pass
+        ...
 
     @abstractmethod
     def load(self, *, attachment_ref: AttachmentRef, limit: int | None = None) -> pa.Table:
@@ -61,7 +61,7 @@ class DocumentSetStorage(ABC):
         Raises:
             DocpipeException: If the attachment ref is invalid or the read fails.
         """
-        pass
+        ...
 
     @abstractmethod
     def delete(self, *, attachment_ref: AttachmentRef) -> bool:
@@ -76,7 +76,7 @@ class DocumentSetStorage(ABC):
         Raises:
             DocpipeException: If the deletion fails.
         """
-        pass
+        ...
 
     @abstractmethod
     def get_metrics(self, *, attachment_ref: AttachmentRef) -> dict[str, int]:
@@ -91,7 +91,7 @@ class DocumentSetStorage(ABC):
         Raises:
             DocpipeException: If the attachment ref is invalid or computation fails.
         """
-        pass
+        ...
 
     @abstractmethod
     def exists(self, *, attachment_ref: AttachmentRef) -> bool:
@@ -103,7 +103,7 @@ class DocumentSetStorage(ABC):
         Returns:
             True if the resource exists, False otherwise.
         """
-        pass
+        ...
 
     @abstractmethod
     def health_check(self) -> HealthCheckResult:
@@ -113,7 +113,7 @@ class DocumentSetStorage(ABC):
             HealthCheckResult with healthy flag, message, and optional details.
             Must not raise; errors must be reflected in the result.
         """
-        pass
+        ...
 
     @classmethod
     @abstractmethod
@@ -126,4 +126,4 @@ class DocumentSetStorage(ABC):
         Returns:
             List of validation error messages; empty if configuration is valid.
         """
-        pass
+        ...

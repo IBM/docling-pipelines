@@ -43,7 +43,7 @@ class AssetRepository[T: Asset](ABC):
         Raises:
             Exception: If save fails
         """
-        pass
+        ...
 
     @abstractmethod
     def find_by_id(self, *, asset_id: str) -> T | None:
@@ -55,7 +55,7 @@ class AssetRepository[T: Asset](ABC):
         Returns:
             Asset instance if found, None otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def find_by_name(self, *, name: str) -> T | None:
@@ -67,7 +67,7 @@ class AssetRepository[T: Asset](ABC):
         Returns:
             Asset instance if found, None otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def find_all(self) -> list[T]:
@@ -76,7 +76,7 @@ class AssetRepository[T: Asset](ABC):
         Returns:
             List of all assets
         """
-        pass
+        ...
 
     @abstractmethod
     def update(self, *, asset: T) -> T:
@@ -91,7 +91,7 @@ class AssetRepository[T: Asset](ABC):
         Raises:
             Exception: If asset doesn't exist or update fails
         """
-        pass
+        ...
 
     @abstractmethod
     def partial_update(self, asset: T, updates: dict[str, Any]) -> T:
@@ -108,7 +108,7 @@ class AssetRepository[T: Asset](ABC):
             ValueError: If validation fails after applying updates
             Exception: If persistence fails
         """
-        pass
+        ...
 
     @abstractmethod
     def delete(self, *, asset_id: str) -> bool:
@@ -123,7 +123,7 @@ class AssetRepository[T: Asset](ABC):
         Raises:
             Exception: If deletion fails
         """
-        pass
+        ...
 
     @abstractmethod
     def bulk_delete(self, *, asset_ids: list[str]) -> dict[str, Any]:
@@ -150,7 +150,7 @@ class AssetRepository[T: Asset](ABC):
         Raises:
             Exception: If bulk operation fails catastrophically
         """
-        pass
+        ...
 
     # ==================== Existence Checks ====================
 
@@ -164,7 +164,7 @@ class AssetRepository[T: Asset](ABC):
         Returns:
             True if asset exists, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def exists_by_name(self, *, name: str) -> bool:
@@ -176,7 +176,7 @@ class AssetRepository[T: Asset](ABC):
         Returns:
             True if asset with this name exists, False otherwise
         """
-        pass
+        ...
 
     # ==================== Listing ====================
 
@@ -191,7 +191,7 @@ class AssetRepository[T: Asset](ABC):
         Returns:
             List of assets sorted by creation date newest-first
         """
-        pass
+        ...
 
     # ==================== Utility Operations ====================
 
@@ -207,4 +207,4 @@ class AssetRepository[T: Asset](ABC):
                 "details": {...}  # Implementation-specific details
             }
         """
-        pass
+        ...

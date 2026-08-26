@@ -445,4 +445,4 @@ class TestBatchStateTransitions:
         # When abort is implemented, add tests like:
         # - test_running_to_aborted_transition_with_batch_context
         # - test_cancelled_batch_calls_abort_node_execution
-        pass
+        ...  # noqa: PIE790

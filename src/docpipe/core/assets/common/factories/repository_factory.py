@@ -44,8 +44,6 @@ class AbstractRepositoryType(Enum):
     types in derived implementations.
     """
 
-    pass
-
 
 class RepositoryType(AbstractRepositoryType):
     """Enumeration of available repository types in OSS."""

@@ -55,7 +55,7 @@ class BatchExecutionPort(ABC):
             This method does NOT return batch results to avoid loading all
             PyArrow tables into memory. Each batch saves its metadata incrementally.
         """
-        pass
+        ...
 
     @abstractmethod
     def get_strategy_name(self) -> str:
@@ -70,4 +70,4 @@ class BatchExecutionPort(ABC):
         Returns:
             Strategy name string
         """
-        pass
+        ...

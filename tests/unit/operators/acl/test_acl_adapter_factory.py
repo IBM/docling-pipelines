@@ -83,11 +83,9 @@ class TestACLAdapterFactoryRegistration:
         """Test registering same provider overwrites existing."""
         _ACL_ADAPTER_REGISTRY.clear()
 
-        class FirstAdapter(ACLExtractionPort):
-            pass
+        class FirstAdapter(ACLExtractionPort): ...
 
-        class SecondAdapter(ACLExtractionPort):
-            pass
+        class SecondAdapter(ACLExtractionPort): ...
 
         ACLAdapterFactory.register_adapter(provider="test_provider", adapter_class=FirstAdapter)
 
@@ -101,8 +99,6 @@ class TestACLAdapterFactoryRegistration:
 
         class InvalidAdapter:
             """Not a subclass of ACLExtractionPort."""
-
-            pass
 
         with pytest.raises(ValueError) as exc_info:
             ACLAdapterFactory.register_adapter(provider="test_provider", adapter_class=InvalidAdapter)
@@ -118,8 +114,7 @@ class TestACLAdapterFactoryDecorator:
         _ACL_ADAPTER_REGISTRY.clear()
 
         @register_acl_adapter("decorated_provider")
-        class DecoratedAdapter(ACLExtractionPort):
-            pass
+        class DecoratedAdapter(ACLExtractionPort): ...
 
         assert "decorated_provider" in _ACL_ADAPTER_REGISTRY
         assert _ACL_ADAPTER_REGISTRY["decorated_provider"] == DecoratedAdapter
@@ -129,8 +124,7 @@ class TestACLAdapterFactoryDecorator:
         _ACL_ADAPTER_REGISTRY.clear()
 
         @register_acl_adapter("decorated_provider")
-        class DecoratedAdapter(MockACLAdapter):
-            pass
+        class DecoratedAdapter(MockACLAdapter): ...
 
         # Should be able to instantiate the class
         instance = DecoratedAdapter()
@@ -262,14 +256,11 @@ class TestACLAdapterFactoryIntegration:
         """Test registering multiple different adapters."""
         _ACL_ADAPTER_REGISTRY.clear()
 
-        class SharePointAdapter(MockACLAdapter):
-            pass
+        class SharePointAdapter(MockACLAdapter): ...
 
-        class S3Adapter(MockACLAdapter):
-            pass
+        class S3Adapter(MockACLAdapter): ...
 
-        class GoogleDriveAdapter(MockACLAdapter):
-            pass
+        class GoogleDriveAdapter(MockACLAdapter): ...
 
         ACLAdapterFactory.register_adapter(provider="sharepoint", adapter_class=SharePointAdapter)
         ACLAdapterFactory.register_adapter(provider="s3", adapter_class=S3Adapter)

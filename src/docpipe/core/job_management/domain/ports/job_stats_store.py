@@ -47,7 +47,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_job_stats(self, job_run_id: str) -> JobStats | None:
@@ -63,7 +63,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def store_node_stats(self, *, job_run_id: str, node_stats: NodeStats) -> None:
@@ -79,7 +79,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_node_stats(self, *, job_run_id: str) -> list[NodeStats]:
@@ -99,7 +99,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_batch_node_stats(self, *, job_run_id: str) -> dict[str, dict[str, NodeStats]]:
@@ -118,7 +118,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def bulk_store_node_stats(self, *, job_run_id: str, node_stats_list: list[NodeStats]) -> None:
@@ -134,7 +134,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If bulk operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def atomic_increment_fields(
@@ -159,7 +159,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If atomic update fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_node_stats_by_batch_and_node(
@@ -179,7 +179,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def delete_job_stats(self, job_run_id: str) -> None:
@@ -194,7 +194,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreDeleteException: If job_run_id not found or deletion fails
         """
-        pass
+        ...
 
     @abstractmethod
     def list_job_runs(
@@ -219,4 +219,4 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If list operation fails
         """
-        pass
+        ...

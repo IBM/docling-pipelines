@@ -12,8 +12,6 @@ from docpipe.exceptions.docpipe_exceptions import PostgresTransactionException
 class FakeModel:
     """Minimal stand-in for a SQLModel subclass."""
 
-    pass
-
 
 def make_dao():
     mock_session = MagicMock()

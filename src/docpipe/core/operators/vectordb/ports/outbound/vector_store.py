@@ -29,7 +29,7 @@ class VectorStorePort(ABC):
     @abstractmethod
     def get_config_schema() -> type[BaseModel]:
         """Return the Pydantic config model class for this adapter."""
-        pass
+        ...
 
     @abstractmethod
     def index_documents(self, documents: list[tuple[str, dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:
@@ -44,7 +44,7 @@ class VectorStorePort(ABC):
         Raises:
             Exception: If indexing operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def query_by_doc_names(self, doc_names: list[str], fields: list[str] | None = None) -> list[dict[str, Any]]:
@@ -60,7 +60,7 @@ class VectorStorePort(ABC):
         Raises:
             Exception: If query operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def delete_documents_by_ids(self, doc_ids: list[str]) -> tuple[int, int]:
@@ -75,7 +75,7 @@ class VectorStorePort(ABC):
         Raises:
             Exception: If delete operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_document_count(self) -> int:
@@ -87,7 +87,7 @@ class VectorStorePort(ABC):
         Raises:
             Exception: If count operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def create_index(self, *, dimension_mapping: dict[str, int]) -> None:
@@ -99,7 +99,7 @@ class VectorStorePort(ABC):
         Raises:
             Exception: If index creation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def refresh_index(self) -> None:
@@ -108,7 +108,7 @@ class VectorStorePort(ABC):
         Raises:
             Exception: If refresh operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def validate_existing_schema(self, *, dimension_mapping: dict[str, int]) -> None:
@@ -120,7 +120,7 @@ class VectorStorePort(ABC):
         Raises:
             Exception: If the existing schema is incompatible with the current run
         """
-        pass
+        ...
 
     @abstractmethod
     def index_exists(self) -> bool:
@@ -129,7 +129,7 @@ class VectorStorePort(ABC):
         Returns:
             True if index exists, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def detect_vector_dimension(self, *, table: pa.Table, column_name: str | None = None) -> int | None:
@@ -143,7 +143,7 @@ class VectorStorePort(ABC):
         Returns:
             Detected dimension or None if detection fails
         """
-        pass
+        ...
 
     @abstractmethod
     def detect_all_vector_dimensions(self, table: pa.Table, *, vector_columns: list[str]) -> dict[str, int]:
@@ -156,7 +156,7 @@ class VectorStorePort(ABC):
         Returns:
             Dictionary mapping column names to their detected dimensions
         """
-        pass
+        ...
 
     @abstractmethod
     def get_chunk_ids_for_documents(self, doc_ids: list[str]) -> dict[str, set[str]]:
@@ -174,4 +174,4 @@ class VectorStorePort(ABC):
             Mapping of doc_id -> set of existing chunk PKs currently in the
             store for that document. Doc IDs with no indexed chunks are omitted.
         """
-        pass
+        ...

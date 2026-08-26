@@ -250,4 +250,3 @@ class PIIHAPService:
         This method is called when the service is no longer needed.
         Currently a no-op as the common adapters handle their own cleanup.
         """
-        pass

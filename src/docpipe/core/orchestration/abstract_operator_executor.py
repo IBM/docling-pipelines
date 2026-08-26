@@ -143,7 +143,7 @@ class AbstractOperatorExecutor:
 
         Returns:
             The AbstractOperator instance."""
-        pass
+        ...
 
     def validate(self, *, errors: list, warnings: list, available_features: list):
         """Validate."""

@@ -45,7 +45,7 @@ class Asset(ABC):
         Returns:
             AssetType: Asset type enum value (AssetType.FLOW, AssetType.DOCUMENT_SET, etc.)
         """
-        pass
+        ...
 
     @staticmethod
     @abstractmethod
@@ -57,7 +57,7 @@ class Asset(ABC):
         Returns:
             str: Key used under assets_management.<key>_repository in YAML config
         """
-        pass
+        ...
 
     @staticmethod
     @abstractmethod
@@ -69,7 +69,7 @@ class Asset(ABC):
         Returns:
             str: Collection name used by DuckDBAssetRepository
         """
-        pass
+        ...
 
     def validate(self) -> None:
         """Validate the asset's data.
@@ -101,7 +101,7 @@ class Asset(ABC):
         Subclasses must implement this to refresh whatever timestamp field
         they expose (e.g. ``modified_on`` on Flow, ``updated_at`` on DocumentSet).
         """
-        pass
+        ...
 
     def get_created_at(self) -> datetime | None:
         """Return the creation timestamp for this asset, if available.
@@ -160,7 +160,7 @@ class Asset(ABC):
             Each concrete asset class must implement this method to handle
             both common Asset fields and their specific fields.
         """
-        pass
+        ...
 
     def __str__(self) -> str:
         """String representation of the asset."""

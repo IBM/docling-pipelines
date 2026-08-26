@@ -134,7 +134,7 @@ class AbstractOrchestrator(ABC):
         Returns:
             FlowEnginePort: The flow engine implementation
         """
-        pass
+        ...
 
     def execute(self, *, flow_def: dict, params: dict):
         """
@@ -587,19 +587,16 @@ class AbstractOrchestrator(ABC):
         """
         Request for pausing a running job
         """
-        pass
 
     def resume(self):
         """
         Request for resuming a paused job
         """
-        pass
 
     def get_type(self):
         """
         Returns the type of the orchestrator, Python or Spark
         """
-        pass
 
     def create_executor(self, *, op_def: dict, global_config: dict) -> AbstractOperatorExecutor:
         # note: In the union of 2 dictionaries below, if an element exists in both global config and local config (
@@ -659,7 +656,7 @@ class AbstractOrchestrator(ABC):
         job_stats_service: JobStatsService | None = None,
     ) -> AbstractOperatorExecutor:
         """The concrete subclasses needs to implement this method"""
-        pass
+        ...
 
     def _inner_task(
         self,

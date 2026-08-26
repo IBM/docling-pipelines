@@ -37,8 +37,7 @@ def temp_db_path(tmp_path):
 def store(temp_db_path):
     """Create DuckDBJobStatsStore with temporary database."""
     config = {"database_path": temp_db_path}
-    store = DuckDBJobStatsStore(config=config)
-    yield store
+    return DuckDBJobStatsStore(config=config)
 
 
 @pytest.fixture

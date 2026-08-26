@@ -50,7 +50,7 @@ class JobRunManager(ABC):
             ValueError: If job_id or configuration is invalid
             RuntimeError: If framework communication fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_job_run(self, *, job_id: str, job_run_id: str) -> dict[str, Any]:
@@ -69,7 +69,7 @@ class JobRunManager(ABC):
         Raises:
             ValueError: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def update_job_run_status(
@@ -86,7 +86,7 @@ class JobRunManager(ABC):
             status: New status (RUNNING, COMPLETED, FAILED, CANCELED)
             job_run_stats: Optional stats dictionary with any key-value pairs
         """
-        pass
+        ...
 
     @abstractmethod
     def cancel_job_run(self, *, job_run_id: str) -> None:
@@ -102,7 +102,7 @@ class JobRunManager(ABC):
             JobRunNotFoundException: If job run does not exist
             JobRunOperationFailedException: If cancellation fails for other reasons
         """
-        pass
+        ...
 
     @abstractmethod
     def delete_job_run(self, *, job_run_id: str) -> None:
@@ -118,4 +118,4 @@ class JobRunManager(ABC):
             JobRunNotFoundException: If job run does not exist
             JobRunOperationFailedException: If deletion fails for other reasons
         """
-        pass
+        ...

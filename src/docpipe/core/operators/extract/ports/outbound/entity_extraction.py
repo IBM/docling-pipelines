@@ -131,13 +131,13 @@ class EntityExtractionPort(ABC):
         Args:
             config: Full configuration dictionary
         """
-        pass
+        ...
 
     @staticmethod
     @abstractmethod
     def get_config_schema() -> type[BaseModel]:
         """Return the Pydantic config model class for this adapter."""
-        pass
+        ...
 
     @abstractmethod
     def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -158,7 +158,7 @@ class EntityExtractionPort(ABC):
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
-        pass
+        ...
 
     @abstractmethod
     def extract_entities_single(
@@ -184,4 +184,4 @@ class EntityExtractionPort(ABC):
                 "doc_content": str | None     # Optional extracted text content
             }
         """
-        pass
+        ...
