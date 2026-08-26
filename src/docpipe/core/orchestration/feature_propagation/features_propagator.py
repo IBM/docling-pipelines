@@ -344,9 +344,23 @@ class FeaturePropagator:
             parent_results=parent_results,
         )
 
+        # Serialise output features BEFORE applying output_features_to_drop.
+        # output_features represents what this node *introduces* to the pipeline —
+        # a dropped feature is still produced here; it just won't reach downstream
+        # nodes. Serialising after the pop would incorrectly hide dropped features
+        # from the node's own output_features snapshot.
+        if operator_short_name == OperatorConstants.Operators.VECTORDB:
+            pre_drop_output_features: dict[str, Any] = {}
+        else:
+            pre_drop_output_features = {
+                feature_name: self.feature_metadata_to_dict(feature_meta=result.feature_metadata[feature_name])
+                for feature_name in result.feature_metadata
+                if feature_name not in input_feature_names
+            }
+
         # Apply output_features_to_drop for any operator — generic, not operator-specific.
-        # Read from operator_config at the end of every step and drop those features
-        # from downstream propagation.
+        # Drops features from downstream propagation only (feature_metadata is what
+        # flows to the next node's input_features).
         output_features_to_drop = operator_config.get(DocpipeConstants.OUTPUT_FEATURES_TO_DROP, [])
         if output_features_to_drop:
             mandatory_features = result.get_mandatory_features()
@@ -372,23 +386,9 @@ class FeaturePropagator:
             operator_short_name=operator_short_name, operator_config=operator_config, result=result
         )
 
-        # Compute output features efficiently
-        if operator_short_name == OperatorConstants.Operators.VECTORDB:
-            output_feature_names = set()
-        else:
-            output_feature_names = set(result.feature_metadata.keys()) - input_feature_names
-
-        # Store post-propagation output features explicitly for debugging/inspection
-        if output_feature_names:
-            result.set_output_features(
-                node_id=node_id,
-                features={
-                    feature_name: self.feature_metadata_to_dict(feature_meta=result.feature_metadata[feature_name])
-                    for feature_name in output_feature_names
-                },
-            )
-        else:
-            result.set_output_features(node_id=node_id, features={})
+        # Store the pre-drop snapshot: dropped features still appear in this node's
+        # output_features (they were introduced here; they just stop propagating downstream).
+        result.set_output_features(node_id=node_id, features=pre_drop_output_features)
 
         return result
 
