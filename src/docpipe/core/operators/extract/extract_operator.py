@@ -1520,35 +1520,18 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
     def _get_entity_extraction_provider_schemas() -> dict[str, Any]:
         """Return per-provider JSON Schema dicts for the entity_extraction provider_config field.
 
-        Config classes are imported and listed explicitly here rather than
-        being read from EntityExtractionAdapterFactory._registry, because the registry
-        maps provider names to adapter classes (not config classes), and entity extraction
-        adapters span multiple config shapes (e.g. WatsonxEntityConfig vs LLMEntityConfig
-        share the same LLMEntityAdapter).
-
-        When adding a new entity extraction provider, import its config class and add an
-        entry to the returned dict below. The @register_entity_extraction_adapter decorator
-        on the adapter class registers it with the factory for runtime use — this method
-        is only consulted for metadata / UI schema generation.
+        Schemas are derived automatically from every adapter registered via
+        ``@register_entity_extraction_adapter``. Importing the package triggers all
+        decorator registrations before the registry is iterated.
         """
-        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (
-            DoclingEntityConfig,
-        )
-        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_config import (
-            LLMEntityConfig,
-            WatsonxEntityConfig,
+        import docpipe.core.operators.extract.adapters.outbound.entity_extraction  # noqa: F401
+        from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
+            EntityExtractionAdapterFactory,
         )
 
         return {
-            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
-                schema=LLMEntityConfig.model_json_schema()
-            ),
-            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
-                schema=WatsonxEntityConfig.model_json_schema()
-            ),
-            OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING: OperatorUtils.model_schema_to_docpipe(
-                schema=DoclingEntityConfig.model_json_schema()
-            ),
+            name: OperatorUtils.model_schema_to_docpipe(schema=adapter_cls.get_config_schema().model_json_schema())
+            for name, adapter_cls in EntityExtractionAdapterFactory.get_registry_items()
         }
 
     @staticmethod

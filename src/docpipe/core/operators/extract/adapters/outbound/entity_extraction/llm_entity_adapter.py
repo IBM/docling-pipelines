@@ -2,8 +2,9 @@
 
 This adapter implements entity extraction using the shared LLM infrastructure,
 supporting both watsonx and litellm providers through a unified interface.
-It replaces the provider-specific adapters (OllamaEntityAdapter, LiteLLMEntityAdapter,
-WatsonXEntityAdapter) with a single implementation.
+Provider-specific subclasses (LiteLLMEntityAdapter, WatsonxEntityAdapter) self-register
+with EntityExtractionAdapterFactory. This class is the shared base and is not
+registered directly.
 """
 
 import json
@@ -14,9 +15,6 @@ from pydantic import BaseModel
 
 from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from docpipe.core.constants import OperatorConstants
-from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
-    register_entity_extraction_adapter,
-)
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from docpipe.core.ports.llm_inference_port import LLMInferencePort
@@ -27,24 +25,19 @@ from docpipe.utils.llm import parse_llm_json_response
 logger = get_logger(__name__)
 
 
-@register_entity_extraction_adapter
 class LLMEntityAdapter(EntityExtractionPort):
-    """Unified LLM-based entity extraction adapter.
+    """Unified LLM-based entity extraction adapter (shared base).
 
     This adapter uses the shared LLM infrastructure to extract structured entities
     from document text across multiple LLM providers (watsonx, litellm). It supports
     both schema-based extraction (with a predefined schema) and schema-free
     extraction (discovering entities automatically).
 
-    Supported Providers:
-        - watsonx: IBM watsonx.ai models
-        - litellm: Unified interface for 100+ providers including:
-          * Ollama (via OpenAI-compatible API with model prefix 'openai/')
-          * OpenAI, Anthropic, Cohere, HuggingFace, and 90+ more
+    This class is the shared implementation base. Provider-specific subclasses
+    (LiteLLMEntityAdapter, WatsonxEntityAdapter) hold ADAPTER_NAME and register
+    themselves with the factory.
 
     Attributes:
-        ADAPTER_NAME: Short identifier "litellm"
-        ADAPTER_DISPLAY_NAME: Display name "LLM"
         provider_name: LLM provider name (watsonx or litellm)
         model_name: LLM model identifier
         temperature: LLM sampling temperature (0.0 = deterministic)
@@ -52,9 +45,6 @@ class LLMEntityAdapter(EntityExtractionPort):
         max_doc_chars: Maximum document characters to send to LLM
         llm_adapter: LLMInferencePort instance for LLM communication
     """
-
-    ADAPTER_NAME = "litellm"
-    ADAPTER_DISPLAY_NAME = "LLM"
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         """Initialize the adapter with configuration.
@@ -159,6 +149,41 @@ class LLMEntityAdapter(EntityExtractionPort):
             self.max_tokens,
         )
 
+    @classmethod
+    def build_provider_config(cls, *, entity_extraction_config: dict[str, Any], doc_column: str) -> dict[str, Any]:
+        """Build LLM provider config from the entity_extraction config block.
+
+        Uses ``cls.ADAPTER_NAME`` as the provider identifier so subclasses
+        (LiteLLMEntityAdapter, WatsonxEntityAdapter) inherit the correct value
+        without needing to override this method.
+
+        Args:
+            entity_extraction_config: Nested entity_extraction configuration dictionary
+            doc_column: Document column name from text_extraction config
+
+        Returns:
+            Adapter-specific configuration dictionary
+        """
+        from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
+            EntityExtractionAdapterFactory,
+        )
+
+        provider_config = entity_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        base = EntityExtractionAdapterFactory.build_common_config(
+            entity_extraction_config=entity_extraction_config, doc_column=doc_column
+        )
+        base.update(
+            {
+                OperatorConstants.Config.PROVIDER: cls.ADAPTER_NAME,
+                OperatorConstants.Config.MODEL_NAME: provider_config.get(OperatorConstants.Config.MODEL_ID),
+                OperatorConstants.LLM.TEMPERATURE: provider_config.get(OperatorConstants.LLM.TEMPERATURE, 0.0),
+                OperatorConstants.LLM.MAX_TOKENS: provider_config.get("max_tokens", 4096),
+                OperatorConstants.LLM.MAX_DOC_CHARS: entity_extraction_config.get("max_doc_chars", 8000),
+                "entity_provider_config": provider_config,
+            }
+        )
+        return base
+
     @staticmethod
     def get_config_schema() -> type[BaseModel]:
         """Return the Pydantic config model class for this adapter."""
@@ -179,7 +204,7 @@ class LLMEntityAdapter(EntityExtractionPort):
         # Log warnings
         if result.get("warnings"):
             for warning in result["warnings"]:
-                logger.warning(f"LLM adapter validation warning: {warning}")
+                logger.warning("LLM adapter validation warning: %s", warning)
 
         # Raise error if validation failed
         if not result.get("valid", True):

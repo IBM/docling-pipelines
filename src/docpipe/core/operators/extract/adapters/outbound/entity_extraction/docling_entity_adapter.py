@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from docpipe.core.constants import OperatorConstants
 from docpipe.core.constants.constants import DoclingClientConfigConstants
 from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
+    EntityExtractionAdapterFactory,
     register_entity_extraction_adapter,
 )
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
@@ -147,6 +148,26 @@ class DoclingEntityAdapter(EntityExtractionPort):
         )
 
         return DoclingEntityConfig
+
+    @classmethod
+    def build_provider_config(cls, *, entity_extraction_config: dict[str, Any], doc_column: str) -> dict[str, Any]:
+        """Build Docling-specific adapter config from the entity_extraction config block.
+
+        Args:
+            entity_extraction_config: Nested entity_extraction configuration dictionary
+            doc_column: Document column name from text_extraction config
+
+        Returns:
+            Adapter-specific configuration dictionary
+        """
+        provider_config = entity_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        base = EntityExtractionAdapterFactory.build_common_config(
+            entity_extraction_config=entity_extraction_config, doc_column=doc_column
+        )
+        vlm_pipeline = provider_config.get(DoclingClientConfigConstants.VLM_PIPELINE)
+        if vlm_pipeline:
+            base[DoclingClientConfigConstants.VLM_PIPELINE] = vlm_pipeline
+        return base
 
     @staticmethod
     def _build_vlm_extraction_options(*, vlm_pipeline: Any) -> dict[Any, Any] | None:
@@ -338,8 +359,8 @@ class DoclingEntityAdapter(EntityExtractionPort):
                 }
                 pages_data.append(page_dict)
             logger.info("Saved structured results for %s", doc_name)
-            logger.debug(f"Extraction Format Options used: {extractor.extraction_format_to_options}")
-            logger.debug(f"Extracted Pages: {pages_data}")
+            logger.debug("Extraction Format Options used: %s", extractor.extraction_format_to_options)
+            logger.debug("Extracted Pages: %s", pages_data)
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
                 OperatorConstants.Misc.ENTITIES: pages_data,
@@ -347,13 +368,13 @@ class DoclingEntityAdapter(EntityExtractionPort):
             }
         except ImportError as e:
             logger.error("DocumentExtractor not available. Install with: pip install docling[vlm]")
-            logger.error(f"Error: {e!s}")
+            logger.error("Error: %s", e)
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
                 OperatorConstants.Extraction.ERROR: "DocumentExtractor not available",
             }
         except Exception as e:
-            logger.error(f"Error extracting with template: {e!s}")
+            logger.error("Error extracting with template: %s", e)
             return {OperatorConstants.Extraction.SUCCESS: False, OperatorConstants.Extraction.ERROR: str(e)}
 
     def _prepare_document_tasks(

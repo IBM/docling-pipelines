@@ -139,6 +139,23 @@ class EntityExtractionPort(ABC):
         """Return the Pydantic config model class for this adapter."""
         ...
 
+    @classmethod
+    @abstractmethod
+    def build_provider_config(cls, *, entity_extraction_config: dict[str, Any], doc_column: str) -> dict[str, Any]:
+        """Build adapter-specific config from the nested entity_extraction config block.
+
+        Called by the factory before instantiation. Returns a dict that is merged
+        into full_config alongside global_config and max_workers.
+
+        Args:
+            entity_extraction_config: Nested entity_extraction configuration dictionary
+            doc_column: Document column name from text_extraction config
+
+        Returns:
+            Adapter-specific configuration dictionary
+        """
+        pass
+
     @abstractmethod
     def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform documents by extracting entities.
