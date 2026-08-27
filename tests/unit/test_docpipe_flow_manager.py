@@ -500,6 +500,57 @@ class TestExecuteMethod:
     @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
     @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
     @patch("docpipe.lib.docpipe_flow_manager.FlowExecutor")
+    def test_execution_defaults_micro_batching_when_missing(
+        self,
+        mock_executor_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """Test execute defaults micro-batching when flow global_config omits it."""
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+        mock_session = Mock(job_id="test-flow-123", job_run_id="run-123")
+        mock_create_session.return_value = mock_session
+
+        mock_flow_executor = Mock()
+        mock_executor_class.return_value = mock_flow_executor
+
+        executor = DocpipeFlowManager(flow_def=simple_flow)
+        executor.execute()
+
+        execute_kwargs = mock_flow_executor.execute.call_args.kwargs
+        assert execute_kwargs["params"][DocpipeConstants.ENABLE_MICRO_BATCHING] is True
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowExecutor")
+    def test_execution_respects_explicit_micro_batching_value(
+        self,
+        mock_executor_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """Test execute does not override explicit micro-batching config."""
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+        mock_session = Mock(job_id="test-flow-123", job_run_id="run-123")
+        mock_create_session.return_value = mock_session
+
+        mock_flow_executor = Mock()
+        mock_executor_class.return_value = mock_flow_executor
+
+        flow_def = simple_flow | {"global_config": {DocpipeConstants.ENABLE_MICRO_BATCHING: False}}
+        executor = DocpipeFlowManager(flow_def=flow_def)
+        executor.execute()
+
+        execute_kwargs = mock_flow_executor.execute.call_args.kwargs
+        assert DocpipeConstants.ENABLE_MICRO_BATCHING not in execute_kwargs["params"]
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowExecutor")
     def test_execution_with_mocked_components(
         self,
         mock_executor_class,

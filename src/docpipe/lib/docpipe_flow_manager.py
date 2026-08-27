@@ -363,6 +363,9 @@ class DocpipeFlowManager:
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
         }
+        flow_global_config = self.flow_def.get("global_config", {})
+        if DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_global_config:
+            params[DocpipeConstants.ENABLE_MICRO_BATCHING] = True
 
         try:
             # Delegate execution to FlowExecutor (logging moved to FlowExecutor.execute())

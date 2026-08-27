@@ -11,6 +11,8 @@ REST API::src/docpipe/api/main.py::app → `uvicorn docpipe.api.main:app --reloa
 Python lib::src/docpipe/lib/docpipe_flow_manager.py::DocpipeFlowManager → `DocpipeFlowManager(flow_file=...).execute()`
 Flow engine (internal)::src/docpipe/core/orchestration/flow_executor.py::FlowExecutor → used by CLI and lib
 
+Micro-batching default behavior: CLI, REST job runs, and `DocpipeFlowManager` default `enable_micro_batching` to `true` when a flow does not define it. If the flow sets `global_config.enable_micro_batching`, that explicit value is used.
+
 ## Directory Map
 
 | Path | Purpose |

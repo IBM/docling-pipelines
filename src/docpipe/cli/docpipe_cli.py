@@ -112,6 +112,9 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
         DocpipeConstants.JOB_ID: job_id,
         DocpipeConstants.JOB_RUN_ID: job_run_id,
     }
+    flow_global_config = flow_def.get("global_config", {})
+    if DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_global_config:
+        params[DocpipeConstants.ENABLE_MICRO_BATCHING] = True
 
     os.environ["RUNTIME"] = "local"
     from docpipe.core.models.session_info import (

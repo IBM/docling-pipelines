@@ -4600,6 +4600,7 @@ Each operator follows a consistent pattern:
 - **docpipe_cli.py**: Command-line interface implementation
 - Uses `PythonOrchestrator` via `OrchestratorFactory`
 - Supports flow execution from JSON files
+- Defaults `global_config.enable_micro_batching` to `true` when the flow does not set it explicitly
 
 ## Key Features
 
@@ -4636,6 +4637,8 @@ Supporting Components:
 
 The FastAPI-based REST API provides programmatic access to flow and job management.
 See [REST API Server](docs/api/REST_API_SERVER.md) for the full endpoint reference, startup instructions, and security overview.
+
+The REST job-run path defaults `enable_micro_batching` to `true` at runtime when the submitted flow configuration does not define it. An explicit user value still takes precedence.
 
 #### Flow Management Endpoints (`/api/v1/flows`)
 

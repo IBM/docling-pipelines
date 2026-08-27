@@ -14,7 +14,7 @@ Uses real components where possible to minimize mocking.
 """
 
 import json
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -492,6 +492,56 @@ class TestVaultInitializerWiring:
 
         run_command_line_executor(flow_def=flow_def)
 
+        mock_init.assert_called_once()
+
+
+class TestMicroBatchingDefaults:
+    """Verify CLI micro-batching default behavior."""
+
+    @patch("docpipe.integrations.secrets.vault_initializer.initialize_secret_providers")
+    @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
+    @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
+    def test_run_command_line_executor_defaults_micro_batching_when_missing(
+        self,
+        mock_create_orchestrator,
+        mock_executor_class,
+        mock_init,
+    ):
+        """Test CLI execution defaults micro-batching when flow global_config omits it."""
+        flow_def = {"name": "test", "global_config": {}, "dag": []}
+        mock_executor = mock_executor_class.return_value
+        mock_executor.execute.return_value = None
+        mock_create_orchestrator.return_value = Mock()
+
+        from docpipe.cli.docpipe_cli import run_command_line_executor
+
+        run_command_line_executor(flow_def=flow_def)
+
+        execute_kwargs = mock_executor.execute.call_args.kwargs
+        assert execute_kwargs["params"]["enable_micro_batching"] is True
+        mock_init.assert_called_once()
+
+    @patch("docpipe.integrations.secrets.vault_initializer.initialize_secret_providers")
+    @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
+    @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
+    def test_run_command_line_executor_respects_explicit_micro_batching_value(
+        self,
+        mock_create_orchestrator,
+        mock_executor_class,
+        mock_init,
+    ):
+        """Test CLI execution does not override explicit micro-batching config."""
+        flow_def = {"name": "test", "global_config": {"enable_micro_batching": False}, "dag": []}
+        mock_executor = mock_executor_class.return_value
+        mock_executor.execute.return_value = None
+        mock_create_orchestrator.return_value = Mock()
+
+        from docpipe.cli.docpipe_cli import run_command_line_executor
+
+        run_command_line_executor(flow_def=flow_def)
+
+        execute_kwargs = mock_executor.execute.call_args.kwargs
+        assert "enable_micro_batching" not in execute_kwargs["params"]
         mock_init.assert_called_once()
 
 

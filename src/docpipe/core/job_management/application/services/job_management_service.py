@@ -316,11 +316,18 @@ class JobManagementService:
             flow_executor = FlowExecutor(
                 flow_def=executable_flow, orchestrator=orchestrator, original_flow_def=original_flow_definition
             )
+            flow_global_config = flow_definition.get("global_config", {})
             params = {
                 DocpipeConstants.JOB_ID: job_id,
                 DocpipeConstants.JOB_RUN_ID: job_run_id,
                 **flow_config,
             }
+            if (
+                DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_global_config
+                and DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_config
+            ):
+                params[DocpipeConstants.ENABLE_MICRO_BATCHING] = True
+
             flow_executor.execute(orchestrator=orchestrator, params=params)
             logger.info(f"Completed async flow execution for job_run_id={job_run_id}")
         except FlowValidationException as validation_exc:
