@@ -2960,3 +2960,157 @@ def test_validate_no_warning_for_known_additional_formats():
     operator.validate(errors, warnings, ["content"])
 
     assert not any("additional_formats" in str(w) for w in warnings)
+
+
+# ===========================================================================
+# Unit tests — null extraction config handling and max_workers guard
+# These tests use mocked adapter factories so no Docling install is required.
+# ===========================================================================
+
+
+def _make_operator(config: dict):
+    """Instantiate ExtractOperator with adapter factories fully mocked."""
+    from unittest.mock import MagicMock, patch
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    mock_text_adapter = MagicMock()
+    mock_text_adapter.max_workers = 4
+
+    with (
+        patch(
+            "docpipe.core.operators.extract.extract_operator.TextExtractionAdapterFactory.create_adapter",
+            return_value=mock_text_adapter,
+        ),
+        patch(
+            "docpipe.core.operators.extract.extract_operator.EntityExtractionAdapterFactory.create_adapter",
+            return_value=MagicMock(),
+        ),
+    ):
+        return ExtractOperator(config=config)
+
+
+# ── text_extraction null handling ────────────────────────────────────────────
+
+
+def test_extract_operator_text_extraction_null_raises_clear_error() -> None:
+    """text_extraction: null must raise FlowExecutionFailedException, not AttributeError."""
+    from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
+
+    with pytest.raises(FlowExecutionFailedException, match="text_extraction"):
+        _make_operator({"text_extraction": None, "entity_extraction": None})
+
+
+def test_extract_operator_text_extraction_missing_raises_clear_error() -> None:
+    """Absent text_extraction key must raise FlowExecutionFailedException."""
+    from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
+
+    with pytest.raises(FlowExecutionFailedException, match="text_extraction"):
+        _make_operator({})
+
+
+def test_extract_operator_text_extraction_empty_dict_raises_clear_error() -> None:
+    """text_extraction: {} must raise FlowExecutionFailedException."""
+    from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
+
+    with pytest.raises(FlowExecutionFailedException, match="text_extraction"):
+        _make_operator({"text_extraction": {}})
+
+
+# ── entity_extraction null handling ──────────────────────────────────────────
+
+
+def test_extract_operator_entity_extraction_null_treated_as_none_mode() -> None:
+    """entity_extraction: null must succeed and default to EntityExtractionMode.NONE."""
+    from docpipe.core.operators.extract.domain.models import EntityExtractionMode
+
+    op = _make_operator(
+        {
+            "text_extraction": {"provider": "docling_library"},
+            "entity_extraction": None,
+        }
+    )
+    assert op.entity_extraction_mode == EntityExtractionMode.NONE
+
+
+def test_extract_operator_entity_extraction_absent_treated_as_none_mode() -> None:
+    """Absent entity_extraction key must succeed and default to EntityExtractionMode.NONE."""
+    from docpipe.core.operators.extract.domain.models import EntityExtractionMode
+
+    op = _make_operator({"text_extraction": {"provider": "docling_library"}})
+    assert op.entity_extraction_mode == EntityExtractionMode.NONE
+
+
+def test_extract_operator_entity_extraction_provider_none_string_treated_as_none_mode() -> None:
+    """entity_extraction: {provider: 'none'} must succeed and set EntityExtractionMode.NONE."""
+    from docpipe.core.operators.extract.domain.models import EntityExtractionMode
+
+    op = _make_operator(
+        {
+            "text_extraction": {"provider": "docling_library"},
+            "entity_extraction": {"provider": "none"},
+        }
+    )
+    assert op.entity_extraction_mode == EntityExtractionMode.NONE
+
+
+# ── max_workers guard ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("invalid_value", [None, 0, -1, "auto (CPU-based)", "4", 0.5])
+def test_extract_operator_invalid_max_workers_falls_back_to_auto(invalid_value: object) -> None:
+    """Invalid max_workers values must fall back to auto-detected CPU-based default."""
+    from unittest.mock import patch
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+    from docpipe.core.operators.operator_utils import OperatorUtils
+
+    auto_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
+    mock_text_adapter = MagicMock()
+    mock_text_adapter.max_workers = auto_workers
+
+    with (
+        patch(
+            "docpipe.core.operators.extract.extract_operator.TextExtractionAdapterFactory.create_adapter",
+            return_value=mock_text_adapter,
+        ) as mock_create,
+        patch(
+            "docpipe.core.operators.extract.extract_operator.EntityExtractionAdapterFactory.create_adapter",
+            return_value=MagicMock(),
+        ),
+    ):
+        ExtractOperator(
+            config={
+                "text_extraction": {"provider": "docling_library"},
+                "max_workers": invalid_value,
+            }
+        )
+        assert mock_create.call_args.kwargs["max_workers"] == auto_workers
+
+
+def test_extract_operator_valid_max_workers_passed_through() -> None:
+    """A valid positive integer max_workers must be passed to the adapter factory."""
+    from unittest.mock import patch
+
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+
+    mock_text_adapter = MagicMock()
+    mock_text_adapter.max_workers = 8
+
+    with (
+        patch(
+            "docpipe.core.operators.extract.extract_operator.TextExtractionAdapterFactory.create_adapter",
+            return_value=mock_text_adapter,
+        ) as mock_create,
+        patch(
+            "docpipe.core.operators.extract.extract_operator.EntityExtractionAdapterFactory.create_adapter",
+            return_value=MagicMock(),
+        ),
+    ):
+        ExtractOperator(
+            config={
+                "text_extraction": {"provider": "docling_library"},
+                "max_workers": 8,
+            }
+        )
+        assert mock_create.call_args.kwargs["max_workers"] == 8

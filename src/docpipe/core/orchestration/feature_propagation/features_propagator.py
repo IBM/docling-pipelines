@@ -421,7 +421,7 @@ class FeaturePropagator:
         if operator_short_name == OperatorConstants.Operators.EXTRACT_OPERATOR:
             # Extract operator: Add/remove entity features based on entity extraction mode.
             # Config structure: {"entity_extraction": {"provider": "litellm"}}
-            entity_mode = operator_config.get(OperatorConstants.Config.ENTITY_EXTRACTION, {}).get(
+            entity_mode = (operator_config.get(OperatorConstants.Config.ENTITY_EXTRACTION) or {}).get(
                 OperatorConstants.Config.PROVIDER,
                 OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
             )

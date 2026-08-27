@@ -40,7 +40,6 @@ This architecture enables:
   "type": "extract_operator",
   "name": "extract_documents",
   "config": {
-    "max_workers": 4,
     "text_extraction": {
       "provider": "docling_library",
       "doc_column": "content",

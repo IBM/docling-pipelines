@@ -219,8 +219,11 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         """
         super().__init__(config)
 
-        # Extract text_extraction nested config and store for later use
-        self.text_extraction_config = config.get(OperatorConstants.Config.TEXT_EXTRACTION, {})
+        # Extract text_extraction nested config and store for later use.
+        # Uses `or {}` so that an explicit null is treated the same
+        # as a missing key. Both result in an empty dict that triggers the
+        # "required" error below rather than crashing with AttributeError.
+        self.text_extraction_config = config.get(OperatorConstants.Config.TEXT_EXTRACTION) or {}
         if not self.text_extraction_config:
             raise FlowExecutionFailedException(
                 f"Missing required '{OperatorConstants.Config.TEXT_EXTRACTION}' configuration object"
@@ -239,7 +242,8 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                 f"Invalid text_extraction.provider '{text_mode_str}'. Supported providers: {supported_modes}"
             ) from e
 
-        # Extract entity_extraction nested config (optional)
+        # Extract entity_extraction nested config (optional).
+        # Treat an explicit null the same as absent.
         entity_extraction_config = config.get(OperatorConstants.Config.ENTITY_EXTRACTION)
 
         # Parse entity extraction mode
@@ -279,8 +283,10 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         # Auto-detect optimal workers based on CPU count
         default_text_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
         default_entity_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=True)
-        text_max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, default_text_workers)
-        entity_max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, default_entity_workers)
+        _raw_workers = config.get(OperatorConstants.Config.MAX_WORKERS)
+        _workers = _raw_workers if isinstance(_raw_workers, int) and _raw_workers > 0 else None
+        text_max_workers = _workers if _workers is not None else default_text_workers
+        entity_max_workers = _workers if _workers is not None else default_entity_workers
         use_processes = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         # Prepare global config for job tracking and other global settings.
@@ -1639,6 +1645,10 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Config.DESCRIPTION: "Configuration for text extraction from documents",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.DEFAULT: {
+                        OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+                        OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                    },
                     OperatorConstants.Config.PROPERTIES: {
                         OperatorConstants.Config.PROVIDER: {
                             OperatorConstants.Misc.NAME: "Text Extraction Provider",
@@ -1672,6 +1682,9 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Config.DESCRIPTION: "Configuration for entity extraction from documents (optional)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.DEFAULT: {
+                        OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+                    },
                     OperatorConstants.Config.PROPERTIES: {
                         OperatorConstants.Config.PROVIDER: {
                             OperatorConstants.Misc.NAME: "Entity Extraction Provider",
@@ -1727,7 +1740,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Misc.NAME: "Max Workers",
                     OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers for extraction (auto-detects based on CPU count if not specified)",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "auto (CPU-based)",
+                    OperatorConstants.Config.DEFAULT: None,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 OperatorConstants.Config.USE_PROCESSES: {
