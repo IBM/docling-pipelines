@@ -993,8 +993,8 @@ class TestLocalFlowRepositoryAdditionalCoverage:
         """PermissionError inside the update lock triggers _handle_file_operation_error."""
         repository.save(sample_flow)
 
-        # Cause write inside the lock to fail with PermissionError
-        with patch("builtins.open", side_effect=PermissionError("no write")):
+        # update() uses Path.open(), not builtins.open — patch at the pathlib level
+        with patch("pathlib.Path.open", side_effect=PermissionError("no write")):
             with pytest.raises(PermissionError, match="Insufficient permissions"):
                 repository.update(sample_flow)
 
