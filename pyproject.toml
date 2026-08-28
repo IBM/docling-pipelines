@@ -9,13 +9,8 @@ maintainers = [
     { name = "Aditya Rohan Singh", email = "adityars@ibm.com" },
     { name = "Nipun Bayas", email = "nsbayas@ibm.com" },
     { name = "Paul Baby", email = "paulbaby@ibm.com" },
+    { name = "Docling Pipeline Team", email = "docling_pipeline_team-dg@ibm.com"},
 ]
-
-[project.urls]
-Homepage = "https://github.com/IBM/docling-pipelines"
-Documentation = "https://github.com/IBM/docling-pipelines/blob/main/docs/README.md"
-Source = "https://github.com/IBM/docling-pipelines"
-"Bug Tracker" = "https://github.com/IBM/docling-pipelines/issues"
 
 dependencies = [
     "accelerate==1.13.0",
@@ -156,6 +151,12 @@ tesserocr = [
 vlm_asr = [
     "docling[vlm,asr]==2.121.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/IBM/docling-pipelines"
+Documentation = "https://github.com/IBM/docling-pipelines/blob/main/docs/README.md"
+Source = "https://github.com/IBM/docling-pipelines"
+"Bug Tracker" = "https://github.com/IBM/docling-pipelines/issues"
 
 [project.scripts]
 docling-pipelines-api = "docpipe.api.main:app"
