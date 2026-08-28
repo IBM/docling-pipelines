@@ -1,3 +1,5 @@
+"""Thread-local session context (job_id, job_run_id) for docpipe operator execution."""
+
 from contextvars import ContextVar
 from typing import Any
 
@@ -9,6 +11,7 @@ class SessionInfo:
 
     def __init__(
         self,
+        cli_mode=False,
         orchestrator=None,
         job_id=None,
         job_run_id=None,
@@ -17,6 +20,7 @@ class SessionInfo:
         track_perf: Any | None = False,
         application=None,
     ):  # NOSONAR
+        self.cli_mode = cli_mode
         self.orchestrator = orchestrator
         self.job_id = job_id
         self.job_run_id = job_run_id
@@ -26,6 +30,7 @@ class SessionInfo:
         self.application = application
 
     def get_common_log_arguments(self):
+        """Get common log arguments."""
         return {
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
@@ -36,6 +41,7 @@ session_info_var: ContextVar[SessionInfo | None] = ContextVar("session_info", de
 
 
 def create_session_info(
+    cli_mode=False,
     orchestrator=None,
     job_id=None,
     job_run_id=None,
@@ -43,7 +49,9 @@ def create_session_info(
     transaction_id=DocpipeConstants.DEFAULT_TRANSACTION_ID,
     track_perf: Any | None = False,
 ):  # NOSONAR
+    """Create session info."""
     session_info = SessionInfo(
+        cli_mode=cli_mode,
         orchestrator=orchestrator,
         job_id=job_id,
         job_run_id=job_run_id,
@@ -56,10 +64,12 @@ def create_session_info(
 
 
 def set_session_info(session_info):
+    """Set session info."""
     session_info_var.set(session_info)
 
 
 def get_session_info() -> SessionInfo:
+    """Get session info."""
     session_info = session_info_var.get()
     if session_info is None:
         return create_session_info(transaction_id=DocpipeConstants.DEFAULT_TRANSACTION_ID)
@@ -67,6 +77,7 @@ def get_session_info() -> SessionInfo:
 
 
 def update_session_info(**kwargs):
+    """Update session info."""
     session_info = get_session_info()
     for key, value in kwargs.items():
         if hasattr(session_info, key):

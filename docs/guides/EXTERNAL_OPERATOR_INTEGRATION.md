@@ -1,6 +1,6 @@
 # External Operator Integration Guide
 
-This guide explains how external applications can integrate their own operators with the Docling Pipelines framework when it's installed as a wheel package.
+This guide explains how external applications can integrate their own operators with the docling-pipelines framework when it's installed as a wheel package.
 
 ## Overview
 
@@ -100,9 +100,9 @@ flow_def = {
     "flow_name": "My Pipeline",
     "flow": [
         {
-            "type": "ingest_local",
+            "type": "ingest_source",
             "name": "ingest",
-            "config": {"paths": ["./data"]}
+            "config": {"provider": "filesystem", "connection_params": {"paths": ["./data"]}}
         },
         {
             "type": "my_custom_op",  # Your custom operator!
@@ -163,10 +163,11 @@ register_operator_provider(get_env_specific_operators)
 
 Docling Pipelines uses a **priority-based resolution system** to handle operators with the same `short_name`. Operators are assigned priorities based on their `owner` attribute:
 
-**Priority Levels** (lower number = higher priority):
-- **Enterprise operators** (priority 0): Highest precedence
-- **Custom operators** (priority 1): Medium precedence
-- **OSS Docling Pipelines operators** (priority 2): Lowest precedence
+**Built-in Priority Levels** (lower number = higher priority):
+- **Custom operators** (priority 100): Can override inbuilt operators
+- **Docling Pipelines operators** (priority 200): Lowest precedence
+
+Additional tiers can be registered at runtime — see [Registering a Custom Priority Tier](#registering-a-custom-priority-tier) below.
 
 #### Setting Operator Owner
 
@@ -177,7 +178,7 @@ class CustomExtractOperator(AbstractOperator):
     """Custom extract operator with priority."""
 
     short_name = "extract"  # Same as docpipe's ExtractOperator
-    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 100
 
     def transform(self, table: pa.Table) -> pa.Table:
         # Custom extraction logic
@@ -186,9 +187,8 @@ class CustomExtractOperator(AbstractOperator):
 
 #### Priority Rules
 
-- **Custom operators CAN override OSS operators** (priority 1 > priority 2)
-- **Custom operators CANNOT override Enterprise operators** (priority 1 < priority 0)
-- **OSS operators CANNOT override Custom or Enterprise operators**
+- **Custom operators CAN override inbuilt operators** (priority 100 < priority 200)
+- **Inbuilt operators CANNOT override Custom operators**
 - **Same priority**: Last registered wins
 
 #### Example: Custom Operator Overriding OSS
@@ -197,27 +197,41 @@ class CustomExtractOperator(AbstractOperator):
 # This custom operator will override docpipe's built-in extract operator
 class MyExtractOperator(AbstractOperator):
     short_name = "extract"
-    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 1 beats OSS priority 2
+    owner = DocpipeConstants.OWNER_CUSTOM  # Priority 100 beats inbuilt priority 200
 
     def transform(self, table: pa.Table) -> pa.Table:
         # Your custom logic replaces docpipe's extract
         return table
 ```
 
-#### Example: Enterprise Operator (Highest Priority)
+#### Registering a Custom Priority Tier
+
+If you need an operator tier with higher precedence than `OWNER_CUSTOM`, register it at startup before operators are loaded. Priorities below 100 outrank all built-in tiers.
 
 ```python
-# Enterprise operators have highest priority
-class EnterpriseExtractOperator(AbstractOperator):
+from docpipe.core.orchestration.operator_factory import OperatorFactory
+
+# Call once at application startup, before operators are loaded
+OperatorFactory.register_owner_priority(owner="my_app", priority=10)
+
+class MyAppOperator(AbstractOperator):
     short_name = "extract"
-    owner = DocpipeConstants.OWNER_ENTERPRISE  # Priority 0 (highest)
+    owner = "my_app"  # Priority 10 — overrides custom (100) and inbuilt (200)
 
     def transform(self, table: pa.Table) -> pa.Table:
-        # This will override both custom and OSS operators
         return table
 ```
 
-**Note:** If you don't set the `owner` attribute, it defaults to `OWNER_CUSTOM` (priority 1).
+**Priority ranges:**
+
+| Range | Purpose |
+|---|---|
+| 0-99 | Consumer tiers above all built-ins |
+| 100 | `OWNER_CUSTOM` |
+| 101-199 | Consumer tiers between custom and Docling Pipelines built-ins |
+| 200 | `OWNER_DOCPIPE` |
+
+**Note:** If you don't set the `owner` attribute, it defaults to `OWNER_CUSTOM` (priority 100).
 
 ### Dynamic Operator Loading
 
@@ -298,7 +312,7 @@ print(f"Registered providers: {count}")
 
 ### `get_docpipe_operators(orchestrator=None)`
 
-Get all operators (docpipe + external).
+Get all operators (Docling Pipelines built-ins + external).
 
 **Parameters:**
 - `orchestrator` (str, optional): Orchestrator type for filtering
@@ -352,7 +366,7 @@ def test_custom_operator_registration():
 
 ## Best Practices
 
-1. **Register Early**: Register operators at application startup, before any docpipe operations
+1. **Register Early**: Register operators at application startup, before any Docling Pipelines operations
 2. **Use Descriptive Names**: Choose unique `short_name` values to avoid conflicts
 3. **Implement `is_available()`**: Check dependencies in the `is_available()` method
 4. **Handle Errors Gracefully**: Provider functions should handle errors without crashing
@@ -384,7 +398,7 @@ logging.basicConfig(level=logging.DEBUG)
 **Solution**:
 1. Ensure `short_name` matches exactly
 2. Set `owner = DocpipeConstants.OWNER_CUSTOM` on your operator
-3. Verify priority: Custom (1) can override OSS (2) but not Enterprise (0)
+3. Verify priority: Custom (1) can override inbuilt (2)
 4. Check logs for priority resolution messages
 5. Ensure operator is registered before factory initialization
 

@@ -1,187 +1,255 @@
-# Orchestrator Mode Agent
+# Docling Pipelines — Agent Context
 
-## Overview
-The orchestrator mode is a strategic workflow coordinator designed to handle complex, multi-faceted tasks by intelligently breaking them down into manageable subtasks and delegating them to specialized modes. It acts as a high-level project manager, ensuring efficient task execution through proper mode selection and coordination.
+## Project
+- **Package**: `docpipe` | source root: `src/` | Python `>=3.12,<3.13`
+- **Install**: `uv pip install -e .[dev]` | activate: `source .venv/bin/activate`
+- **Key external dep**: `data_processing` comes from `data-prep-toolkit-transforms` (DPK); `AbstractTableTransform` is its base class for all operators
 
-## Repository Context
-The docpipe project is a modular, operator-based data processing framework designed for building flexible data pipelines. Key architectural characteristics:
+## Entrypoints
+CLI::src/docpipe/cli/docpipe_cli.py::main → `docling-pipelines --flow-file <path>`
+REST API::src/docpipe/api/main.py::app → `uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000`
+Python lib::src/docpipe/lib/docpipe_flow_manager.py::DocpipeFlowManager → `DocpipeFlowManager(flow_file=...).execute()`
+Flow engine (internal)::src/docpipe/core/orchestration/flow_executor.py::FlowExecutor → used by CLI and lib
 
-- **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
-- **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
-- **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator steps (see [`docs/guides/FLOW_AUTHORING_FORMAT.md`](docs/guides/FLOW_AUTHORING_FORMAT.md))
-- **Prefect Orchestration**: The orchestrator layer uses Prefect for managing workflow execution, parallel processing, and task dependencies
-- **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), and OpenSearch (vector storage)
-- **Multi-Provider Support**: Flexible ingest operators supporting local files, S3, CSV, and multi-provider sources
+Micro-batching default behavior: CLI, REST job runs, and `DocpipeFlowManager` default `enable_micro_batching` to `true` when a flow does not define it. If the flow sets `global_config.enable_micro_batching`, that explicit value is used.
 
-### User Guide Reference
-For new user setup and complete pipeline execution instructions, refer to [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md). This comprehensive guide covers:
-- Prerequisites and installation (Python 3.12, uv, dependencies)
-- Ollama setup for LLM operations and embeddings
-- OpenSearch setup with Podman/Docker for vector storage
-- Flow configuration structure and operator examples
-- Step-by-step pipeline execution
-- Verification, testing, and troubleshooting
+## Directory Map
 
-**Note:** Consult this guide when helping users set up their environment or execute their first pipeline.
+| Path | Purpose |
+|---|---|
+| `src/docpipe/cli/` | CLI — parses args, loads flow JSON, calls `run_command_line_executor` |
+| `src/docpipe/lib/` | `DocpipeFlowManager` — programmatic wrapper around `FlowExecutor` |
+| `src/docpipe/api/` | FastAPI REST layer — routes, DTOs, mappers, auth, middleware |
+| `src/docpipe/api/auth/` | LDAP auth, JWT handler, OAuth2/OIDC config and routes |
+| `src/docpipe/api/dto/` | Pydantic DTOs + mappers for all API request/response shapes |
+| `src/docpipe/api/routes/` | Route handlers: flows, operators, job_runs, documents, document_sets, document_libraries |
+| `src/docpipe/api/middleware/` | Transaction ID injection, request logging, payload size validation, error handling |
+| `src/docpipe/api/services/` | API-layer services: OpenSearch queries, ACL query builder |
+| `src/docpipe/core/operators/abstract_operator.py` | `AbstractOperator` base — extends `data_processing.AbstractTableTransform`; defines contract |
+| `src/docpipe/core/operators/operator_registry.py` | `DOCPIPE_OPERATORS` frozenset; `get_docpipe_operators()` merges OSS + external providers |
+| `src/docpipe/core/operators/ingest/` | `IngestLocalOperator`, `IngestSourceOperator` |
+| `src/docpipe/core/operators/extract/` | `ExtractOperator` — docling-based text + entity extraction |
+| `src/docpipe/core/operators/functional/` | `BranchingOperator`, `ChunkerOperator`, `EmbeddingsOperator`, `MergeOperator`, `DocIdHashOperator`, `NOOPOperator`, `EntityCurationOperator` |
+| `src/docpipe/core/operators/quality/` | `DocumentClassifierOperator`, `DocQuality`, `EdedupOperator`, `LanguageDetect`, `MLEnrichmentOperator`, `PIIAndHAPAnnotator`, `ReadabilityOperator`, `RedactionOperator`, `SQLFilterOperator` |
+| `src/docpipe/core/operators/vectordb/` | `VectorDBOperator` — OpenSearch / Milvus adapters |
+| `src/docpipe/core/operators/document_sets/` | `DocumentSetOperator` — Storage category |
+| `src/docpipe/core/operators/acl/` | `ACLOperator` — access control on data |
+| `src/docpipe/core/orchestration/flow_executor.py` | `FlowExecutor` — loads flow JSON, calls orchestrator |
+| `src/docpipe/core/orchestration/flow_validator.py` | `FlowValidator` — validates DAG: operator existence, features, params |
+| `src/docpipe/core/orchestration/operator_factory.py` | `OperatorFactory` — resolves `short_name` → class with priority; `OperatorFactoryProvider` caches factories |
+| `src/docpipe/core/orchestration/batch_manager.py` | Micro-batching — splits large doc sets for parallel processing |
+| `src/docpipe/core/orchestration/orchestrator_factory.py` | `OrchestratorFactory.create_orchestrator(orchestrator_name="python")` |
+| `src/docpipe/core/orchestration/python/` | `PythonOrchestrator` + `PythonOperatorExecutor` — default in-process orchestrator |
+| `src/docpipe/core/orchestration/prefect/` | `PrefectEngine` — Prefect-based distributed orchestrator |
+| `src/docpipe/core/job_management/` | DDD job/job-run lifecycle — `domain/` (ports, models), `application/` (services), `adapters/` (DuckDB/Postgres) |
+| `src/docpipe/core/assets/` | DDD asset management for flows, document_libraries, document_sets — each follows `domain/ application/ adapters/` pattern |
+| `src/docpipe/core/constants/constants.py` | All string literals + enums: `ExecutionStatus`, `OrchestratorType`, `DocpipeConstants`, `EnvironmentVariables`, `ServiceConstants` |
+| `src/docpipe/core/constants/operator_constants.py` | `OperatorConstants` — column names and config keys used across operators |
+| `src/docpipe/core/adapters/` | LLM adapters: `HuggingFaceAdapter`, `LiteLLMAdapter`, `WatsonxAdapter`; factory: `llm_adapter_factory.py` |
+| `src/docpipe/core/ports/` | Port interfaces: `LLMInferencePort`, `LLMEmbeddingPort`, `TextDetectionPort` |
+| `src/docpipe/core/incremental_metadata/` | Tracks previously processed docs for incremental/delta runs |
+| `src/docpipe/core/models/session_info.py` | `SessionInfo` — thread-local context: `job_id`, `job_run_id`; use `get_session_info()` / `set_session_info()` |
+| `src/docpipe/core/data_access/` | Wraps `data_processing.DataAccess` — parquet-based document table IO |
+| `src/docpipe/core/document_classes/` | YAML schema definitions for document column structures |
+| `src/docpipe/integrations/` | External service clients: AWS, Docling, HuggingFace, LiteLLM, Ollama, WatsonX |
+| `src/docpipe/storage/` | Storage abstraction: DuckDB + filesystem; interfaces `TableStorage`, `KeyValueStorage` in `storage/interfaces/`; default DuckDB paths: `data/duckdb/job_stats.duckdb`, `data/duckdb/document_sets.duckdb` |
+| `src/docpipe/utils/infrastructure/logging.py` | `get_logger()` — always use this, never `logging.getLogger()` directly |
+| `src/docpipe/utils/` | Shared: logging, pyarrow handlers (`utils/data/pyarrow_handler.py`), flow_utils, duckdb helpers, llm utils |
+| `src/docpipe/exceptions/` | `DocpipeException`, `FlowValidationException`, `FlowExecutionFailedException` |
+| `tests/` | pytest — mirrors `src/docpipe/` structure; unit tests under `tests/unit/`, integration under `tests/integration/` |
+| `sample_flows/` | Example flow JSON files — reference before writing new flows |
+| `docs/reference/OPERATORS.md` | Complete operator parameter specs — read before modifying operator configs |
+| `docs/reference/GLOBAL_CONFIG.md` | All `global_config` flow-level parameters — read before writing flow JSON |
+| `docs/guides/FLOW_CONFIGURATION_GUIDE.md` | End-to-end flow JSON authoring guide with examples |
+| `docs/guides/CUSTOM_OPERATORS_GUIDE.md` | Step-by-step guide for creating custom operators |
+| `docs/guides/DOCUMENTATION_STYLE_GUIDE.md` | Operator doc template, file naming rules, Mermaid conventions |
 
-## User Entry Points
+## Operator Registry — 21 OSS Operators
+<!-- format: Class::short_name::Category::file (relative to src/docpipe/) -->
+IngestSourceOperator::ingest_source::Ingest::core/operators/ingest/ingest_source.py
+ExtractOperator::extract_operator::Extract::core/operators/extract/extract_operator.py
+BranchingOperator::branching::Functional::core/operators/functional/branching_operator.py
+ChunkerOperator::chunker::Functional::core/operators/functional/chunker.py
+EmbeddingsOperator::embeddings::Functional::core/operators/functional/embeddings/embeddings_operator.py
+DocIdHashOperator::doc_id_hash::Functional::core/operators/functional/doc_id_hash.py
+MergeOperator::merge::Functional::core/operators/functional/merge.py
+NOOPOperator::noop::Functional::core/operators/functional/noop.py
+EntityCurationOperator::entity_curation::Functional::core/operators/functional/entity_curation/entity_curation_operator.py
+DocumentClassifierOperator::document_classifier::Functional::core/operators/quality/classification/document_classifier.py
+DocQuality::doc_quality::Quality::core/operators/quality/doc_quality.py
+EdedupOperator::ededup::Quality::core/operators/quality/ededup.py
+LanguageDetect::lang_detect::Quality::core/operators/quality/language_detection/lang_id.py
+MLEnrichmentOperator::ml_enrichment::Quality::core/operators/quality/ml_enrichment.py
+PIIAndHAPAnnotator::pii_and_hap::Quality::core/operators/quality/pii_and_hap/pii_and_hap_annotator.py
+ReadabilityOperator::readability::Quality::core/operators/quality/readability/readability_operator.py
+RedactionOperator::redaction::Quality::core/operators/quality/redaction.py
+SQLFilterOperator::sql_filter::Quality::core/operators/quality/sql_filter.py
+VectorDBOperator::vectordb::VectorDB::core/operators/vectordb/vectordb_operator.py
+DocumentSetOperator::document_set::Storage::core/operators/document_sets/document_set_operator.py
+ACLOperator::acl_operator::Extract::core/operators/acl/acl_operator.py
 
-Docling Pipelines provides multiple interfaces for interacting with the framework:
+## Operator Contract
 
-### 1. CLI Entry Point
-Primary interface using the `docling-pipelines` command:
-
-```bash
-# Flow execution
-docling-pipelines --flow-file <path-to-flow.json>
-
-# Flow validation
-docling-pipelines --flow-file flow.json --validate
-
-# List operators
-docling-pipelines --list-operators [--verbose]
-
-# Log level control (via environment variable)
-DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file flow.json
-```
-
-### 2. Python Library
-Programmatic access via `DocpipeFlowManager`:
-
+Minimum required structure for any new operator:
 ```python
-from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.utils.infrastructure.logging import get_logger
+import pyarrow as pa
 
-# Execute from file
-manager = DocpipeFlowManager(flow_file="path/to/flow.json")
-result = manager.execute()
+logger = get_logger()
 
-# Execute from dict
-manager = DocpipeFlowManager(flow_def=flow_dict)
-result = manager.execute()
+class MyOperator(AbstractOperator):
+    short_name: str = "my_operator"           # must match flow JSON "type" value
+    category: OperatorCategory = OperatorCategory.Quality
+    owner: str = "docpipe"                    # "docpipe" = built-in; None = custom
 
-# Validate flow
-validation_result = manager.validate()
+    def __init__(self, config: dict) -> None:
+        super().__init__(config)
+        # read operator params from config dict here
 
-# List operators
-DocpipeFlowManager.list_operators(verbose=True)
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict]:
+        metadata = self.create_base_metadata(total_docs_count=len(table))
+        # ... process table ...
+        return [table], metadata
+
+    @staticmethod
+    def get_metadata() -> dict:
+        return {
+            "short_name": "my_operator",
+            "description": "...",
+            "owner": "docpipe",
+        }
 ```
 
-### 3. REST API Service
-FastAPI server for web service integration (development status):
+After creating the class:
+1. Add to `DOCPIPE_OPERATORS` frozenset in `src/docpipe/core/operators/operator_registry.py`
+2. Add import at top of that file in the correct category block
+
+Optional overrides: `validate(errors, warnings, available_features)`, `get_required_features() -> list[str]`, `get_static_required_features() -> list[str]`, `is_available() -> bool`
+
+Helper methods inherited from `AbstractOperator`:
+- `self.create_base_metadata(total_docs_count=N)` — initialise metadata dict
+- `self.record_failed_document(metadata=m, doc_id=..., doc_name=..., reason=...)` — record a failure
+- `self.record_skipped_document(metadata=m, doc_id=..., doc_name=..., reason=...)` — record a skip
+- `self.doc_column` — the content column name (from config, default `"content"`)
+- `self.job_id`, `self.job_run_id`, `self.common_log_arguments`
+
+## Flow JSON Schema
+
+```json
+{
+  "flow_name": "my-flow",
+  "global_config": {
+    "doc_column": "content",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "disable_validation": false,
+    "force_ingest": false,
+    "enable_micro_batching": false,
+    "micro_batch_size": 100,
+    "max_concurrent_batches": 10
+  },
+  "flow": [
+    { "type": "ingest_source",    "name": "node_a", "config": { "provider": "filesystem", "connection_params": {"paths": ["./docs"]}, "include_filter": "pdf,docx" } },
+    { "type": "extract_operator", "name": "node_b", "config": {}, "depends_on": ["node_a"] },
+    { "type": "chunker",          "name": "node_c", "config": {}, "depends_on": ["node_b"] }
+  ]
+}
+```
+
+Pipeline patterns (short_name values):
+- full: ingest_source → extract_operator → chunker → embeddings → vectordb
+- quality: ingest_source → extract_operator → lang_detect → redaction → chunker → embeddings
+- branch: ingest_source → extract_operator → branching → [branch_a, branch_b] → merge
+
+## DDD Layer Pattern
+
+`core/assets/` and `core/job_management/` follow strict DDD layering. When adding code to these areas:
+
+```
+domain/          ← models (Pydantic/dataclass), port interfaces (ABCs) — no framework imports
+application/     ← services that orchestrate domain logic — calls ports, not adapters directly
+adapters/        ← concrete implementations: DuckDB, Postgres, local filesystem
+factories/       ← wires adapters to ports; called at startup
+```
+
+Never import an `adapters/` class from `domain/` or `application/`. Domain ports are defined as ABCs in `domain/ports/`.
+
+## Architectural Rules
+
+1. Inter-operator data must be `pa.Table`; `transform()` returns `tuple[list[pa.Table], dict]`
+2. New operators must extend `AbstractOperator`; set `short_name`, `category`, `owner` as class attributes
+3. Built-in operators (`owner="docpipe"`) must be registered in `DOCPIPE_OPERATORS` frozenset
+4. `get_metadata()` must be `@staticmethod` — no `self`
+5. All functions/methods with 2+ params (excl. `self`/`cls`) must use keyword-only `*` separator
+6. No emoji or non-ASCII characters in Python logging statements
+7. No f-strings inside `logger.*()` calls — use `%s` style: `logger.info("Processing %s", doc_id)`
+8. Flow JSON is a DAG; edges via `depends_on`; exactly one root node (no `depends_on`), always an ingest operator
+9. `SessionInfo` (`job_id`, `job_run_id`) is thread-local — access via `get_session_info()`, never pass as function args
+10. Business logic in `transform()`; orchestration logic in orchestrator layer only
+11. Operators use port interfaces (`LLMInferencePort`, `LLMEmbeddingPort`) — never import concrete adapter classes
+12. External operator providers registered via `register_operator_provider()` — never mutate `DOCPIPE_OPERATORS` directly
+13. Operators never call DuckDB or any DB directly — use storage abstraction layer
+14. API handlers use DTOs only — never return domain model instances from routes
+
+## Environment Variables
+
+| Variable | Effect |
+|---|---|
+| `DS_LOG_LEVEL` | `INFO` (default) \| `DEBUG` \| `WARNING` \| `ERROR` |
+| `OLLAMA_HOST` | LLM host, default `http://localhost:11434` |
+| `PREFECT_API_URL` | Prefect server URL |
+| `PREFECT_MODE` | `server` \| `ephemeral` |
+| `DOCPIPE_ENABLE_CUSTOM_OPERATORS` | `true` (default) \| `false` |
+| `DOCPIPE_CUSTOM_OPERATORS` | Comma-separated package paths injected as operator providers |
+| `DOCPIPE_CONFIG_PATH` | Path to `docling-pipelines-config.yaml` |
+| `DOCPIPE_STORAGE_BACKEND` | `duckdb` (default) \| `postgres` |
+| `DOCPIPE_FRAMEWORK_TYPE` | `local` (default) \| `prefect` |
+| `DOCPIPE_POSTGRES_HOST/PORT/DB/USER/PASSWORD` | Postgres connection (when storage=postgres) |
+| `CORS_ORIGINS` | Comma-separated allowed origins, default `http://localhost:3000` |
+
+## Commands
 
 ```bash
-# Start server
-uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
+source .venv/bin/activate                                        # always activate first
 
-# Interactive docs at http://localhost:8000/docs
+docling-pipelines --flow-file <path>                             # run a flow
+docling-pipelines --flow-file flow.json --validate               # validate without running
+docling-pipelines --list-operators --verbose                     # list all registered operators
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file flow.json       # debug logging
+
+pytest                                                           # run tests
+pytest tests/unit/core/operators/ -v                             # run specific test path
+pytest --cov=src/docpipe --cov-report=html                       # with coverage
+
+pre-commit run --all-files                                       # run all hooks before pushing
 ```
 
-**Key endpoints:** `/api/v1/flows`, `/api/v1/operators`, `/api/v1/job_runs`
+## Key External Services
 
-**Authentication:** LDAP with JWT tokens, OAuth2/OIDC support
+| Service | Default | Used by |
+|---|---|---|
+| Ollama | `http://localhost:11434` | `EmbeddingsOperator`, `ExtractOperator` (LLM modes) |
+| OpenSearch | `http://localhost:9200` | `VectorDBOperator` |
+| PYTHONPATH | must include `src/` | all `docpipe.*` imports |
 
-## Role
-Strategic workflow coordinator that breaks down complex tasks and delegates to specialized modes.
-
-## Key Capabilities
-- **Task decomposition and delegation**: Analyzes complex requests and breaks them into logical, sequential subtasks
-- **Workflow coordination across multiple modes**: Manages the execution flow between different specialized modes (code, advanced, architect, etc.)
-- **Progress tracking and result synthesis**: Monitors subtask completion and combines results into cohesive outcomes
-- **Mode selection and task routing**: Intelligently selects the most appropriate mode for each subtask based on requirements
-- **Understanding JSON flow definitions**: Interprets DAG-structured flow configurations with operator nodes and dependencies
-- **Knowledge of 20+ available operators**: Familiar with Extract, Ingest, Functional, Quality, and VectorDB operators
-- **Flow validation and operator configuration**: Ensures proper operator parameters and data flow connections
-- **Integration awareness**: Understands requirements for Ollama, Docling, and OpenSearch integrations
-
-## Available Operators
-
-Docling Pipelines provides 20+ operators across 5 categories:
-- **Extract**: Document text and entity extraction (ExtractOperator with multiple modes)
-- **Ingest**: Data source ingestion (IngestLocalOperator, IngestSourceOperator)
-- **Functional**: Data transformation (Chunker, EmbeddingsOperator, BranchingOperator, NoopOperator, etc.)
-- **Quality**: Data quality checks (Dedup, Redaction, LanguageDetection, SQLFilter, etc.)
-- **VectorDB**: Vector storage (VectorDBOperator with OpenSearch adapter)
-
-For operator information:
-- **API Reference**: [docs/reference/OPERATORS.md](docs/reference/OPERATORS.md) - Complete parameter specifications for all operators
-- **Implementation Guides**: [`docs/operators/`](docs/operators/) - Detailed guides for complex operators (architecture, troubleshooting, best practices)
-
-## Common Workflow Patterns
-
-Orchestrator should recognize these standard pipeline patterns:
-- **Document Processing**: Ingest → Extract → Chunk → Embed → Store
-- **Entity Extraction**: Ingest → Extract (with entity modes enabled)
-- **Quality-Enhanced**: Ingest → Extract → Quality Checks → Chunk → Embed
-- **Branching**: Conditional processing based on data characteristics
-
-For detailed flow examples, see [`sample_flows/`](sample_flows/) and [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
-
-## When to Use
-- Complex, multi-step projects requiring coordination across different domains
-- Tasks spanning multiple expertise areas (e.g., code changes + documentation + testing)
-- Workflows that need different specialized modes working in sequence or parallel
-- Projects requiring strategic planning before implementation
-- Tasks where high-level oversight and coordination add value
-
-## Delegation Strategy
-- **Task Analysis**: Examines the user's request to identify distinct work streams and dependencies
-- **Mode Selection Criteria**:
-  - **Code mode**: For file editing, code changes, and direct implementation
-    - Creating or modifying flow JSON files
-    - Implementing new operators or modifying existing ones in `core/operators/`
-    - Running test cases and executing docling-pipelines commands
-    - File system operations and code refactoring
-    - Working with operator categories: Extract, Ingest, Functional, Quality, VectorDB
-    - Ensure adherence to project coding standards (keyword-only arguments, file path requirements)
-  - **Ask mode**: For explaining concepts and providing guidance
-    - Explaining operator configurations and parameters
-    - Describing flow patterns and best practices
-    - Clarifying architecture decisions
-    - Troubleshooting workflow issues
-  - **Advanced mode**: For MCP tool usage, external integrations, and complex operations
-  - **Architect mode**: For system design, architecture decisions, and technical planning
-  - **Documentation Writer mode**: For creating or updating operator documentation
-  - **Project Research mode**: For understanding existing flows and codebase structure
-- **Context Passing**: Maintains context between subtasks, ensuring each delegated mode has necessary information
-- **Sequential vs Parallel**: Determines optimal execution order based on task dependencies
-
-## Integration Requirements
-
-Orchestrator should be aware of external service dependencies:
-- **Ollama** (`localhost:11434`): Required for LLM-based extraction and embeddings
-- **OpenSearch** (`localhost:9200`): Required for vector storage operations
-- **PYTHONPATH**: Must include `src` directory
-
-When users report integration issues, delegate troubleshooting to Code mode or reference [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
-
-## Flow Execution
-
-### Delegation Knowledge
-When coordinating flow-related tasks, delegate to Code mode for:
-- **Flow execution**: `docling-pipelines --flow-file <path>`
-- **Flow validation**: Validate flows before execution
-- **Test execution**: Run pytest with proper environment setup
-- **Flow structure**: Follows canonical DAG format defined in [`docs/guides/FLOW_AUTHORING_FORMAT.md`](docs/guides/FLOW_AUTHORING_FORMAT.md) and [`sample_flows/`](sample_flows/)
-
-For detailed execution instructions, see [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
-
-## Limitations
-- Cannot directly edit files (must delegate to code/advanced modes)
-- Cannot execute commands directly (requires delegation)
-- Cannot use MCP tools (must switch to advanced mode)
-- Focuses on coordination rather than hands-on implementation
-- Adds overhead for simple, single-mode tasks
-
-### Docling Pipelines-Specific Limitations
-- **Cannot directly create or modify flow JSON files**: Must delegate to Code mode for flow configuration changes
-- **Cannot execute docling-pipelines commands**: Must delegate to Code mode to run flows or test cases
-- **Cannot read operator source code**: Must delegate to Ask mode or Code mode to analyze operator implementations
-- **Cannot verify integration status**: Cannot check if Ollama or OpenSearch services are running (must delegate to Code mode)
-- **Cannot validate flow configurations**: Cannot parse or validate JSON flow files without delegating to Code mode
-- **Cannot access PyArrow table data**: Cannot inspect or manipulate data flowing through pipelines during execution
+Setup guide: [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md)
 
 ## Documentation Rules
 
-The following rules apply whenever any agent creates or edits documentation files (`*.md`). They are non-negotiable — a PR that violates them must be corrected before merge.
+Full style guide: [`docs/guides/DOCUMENTATION_STYLE_GUIDE.md`](docs/guides/DOCUMENTATION_STYLE_GUIDE.md)
 
-Operator docs follow the canonical 8-section structure. Every operator file lives at `docs/operators/<category>/<operator_name>_readme.md`. Full conventions — section order, file naming, formatting rules, and common mistakes — are in [`docs/guides/DOCUMENTATION_STYLE_GUIDE.md`](docs/guides/DOCUMENTATION_STYLE_GUIDE.md).
+**Operator docs** — file: `docs/operators/<category>/<operator_name>_readme.md` — 8 required sections in order:
+`Overview` → `Key Features` → `Operator Configuration` → `Parameters` → `Output Columns` → `Examples` → `Troubleshooting` → `Architecture` (optional, last)
+
+**Forbidden in operator READMEs:** separate `*_config.md` file, architecture diagrams before `## Architecture`, migration history, `## Contributing`/`## License` sections, duplicating content from `docs/reference/OPERATORS.md`
+
+**File naming:** `UPPER_SNAKE_CASE.md` for all docs (root-level and inside `docs/guides/`, `docs/reference/`, `docs/api/`, etc.); exception: operator readmes use `<operator_name>_readme.md` (lowercase) under `docs/operators/<category>/`
+
+**Links:** relative paths only (`../guides/FOO.md`); descriptive link text (not "click here"); verify before PR
+
+**Code fences:** exactly 3 backticks; language tag mandatory (`python`, `bash`, `json`, `yaml`, `mermaid`)
+
+**Mermaid:** validate every diagram at [mermaid.live](https://mermaid.live) before committing; use `graph LR` for pipelines, `graph TD` for hierarchy
+
+**Changelog:** every change goes in `CHANGELOG.md` under `## [Unreleased]` — never inline in doc files

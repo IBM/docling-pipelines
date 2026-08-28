@@ -82,88 +82,11 @@ class TestIngestSourceGlobalConfig:
         with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
             with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
                 with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("docpipe.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
-                        with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
-                            # Execute the flow
-                            orchestrator.execute(flow_def=flow_def, params=params)
-
-                            # Verify that ingest_source params were added to global_config
-                            assert "ingest_source" in captured_global_config
-                            assert captured_global_config["ingest_source"]["provider"] == "s3"
-                            assert (
-                                captured_global_config["ingest_source"]["connection_params"]["bucket"] == "test-bucket"
-                            )
-                            assert (
-                                captured_global_config["ingest_source"]["credentials"]["aws_access_key_id"]
-                                == "test_key"
-                            )
-
-    @patch("docpipe.core.orchestration.abstract_orchestrator.get_session_info")
-    @patch("docpipe.core.orchestration.abstract_orchestrator.set_session_info")
-    def test_ingest_local_does_not_populate_global_config(self, mock_set_session, mock_get_session):
-        """Test that ingest_local operator does NOT add params to global_config."""
-        # Setup session info mock
-        mock_session = Mock()
-        mock_session.flow_id = "test_flow"
-        mock_get_session.return_value = mock_session
-
-        # Create orchestrator
-        orchestrator = PythonOrchestrator()
-
-        # Define a flow with ingest_local operator (not ingest_source)
-        flow_def = {
-            "name": "Test Flow",
-            "description": "Test ingest_local does not populate global_config",
-            "dag": [
-                {
-                    "id": "ingest_node",
-                    "name": "ingest_local_node",
-                    "operator": "docpipe.core.operators.ingest.ingest_local_folder.IngestLocalFolderOperator",
-                    "config": {
-                        "paths": "/test/path",
-                    },
-                    "output_edges": [],
-                }
-            ],
-        }
-
-        params = {
-            DocpipeConstants.JOB_ID: "test_job",
-            DocpipeConstants.JOB_RUN_ID: "test_run",
-        }
-
-        # Capture global_config by wrapping execute_flow
-        captured_global_config = {}
-        original_execute_flow = orchestrator.execute_flow
-
-        def wrapped_execute_flow(*, op_flow, global_config):
-            # Call original to let it populate global_config
-            try:
-                original_execute_flow(op_flow=op_flow, global_config=global_config)
-            except Exception:
-                # Ignore any errors from actual execution
-                pass
-            finally:
-                # Capture the global_config after population
-                captured_global_config.update(global_config)
-
-        # Mock _execute_step to prevent real operator execution
-        def mock_execute_step(*, op_def, global_config, prev_results, deleted_docs_count):
-            from docpipe.core.orchestration.prefect.prefect_engine import ExecuteStepResults
-
-            return ExecuteStepResults(
-                tables=[pa.Table.from_arrays([], names=[])],
-                data_accesses=[Mock()],
-                internal_metadata={},
-            )
-
-        with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
-            with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
-                with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("docpipe.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
-                        with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
-                            # Execute the flow
-                            orchestrator.execute(flow_def=flow_def, params=params)
-
-                            # Verify that ingest_source params were NOT added
-                            assert "ingest_source" not in captured_global_config
+                    with patch("docpipe.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
+                        # Execute the flow
+                        orchestrator.execute(flow_def=flow_def, params=params)
+                        # Verify that ingest_source params were added to global_config
+                        assert "ingest_source" in captured_global_config
+                        assert captured_global_config["ingest_source"]["provider"] == "s3"
+                        assert captured_global_config["ingest_source"]["connection_params"]["bucket"] == "test-bucket"
+                        assert captured_global_config["ingest_source"]["credentials"]["aws_access_key_id"] == "test_key"

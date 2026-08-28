@@ -1,6 +1,6 @@
 # OAuth2 and OIDC Authentication
 
-This document describes the OAuth2 and OpenID Connect (OIDC) authentication implementation for Docling Pipelines.
+This document describes the OAuth2 and OpenID Connect (OIDC) authentication implementation for Docpipe.
 
 ## Overview
 
@@ -138,7 +138,7 @@ Handles OAuth2 callback and exchanges code for token.
 **Response:**
 ```json
 {
-  "access_token": "eyJ...",
+  "access_token": "ey...",
   "token_type": "bearer"
 }
 ```

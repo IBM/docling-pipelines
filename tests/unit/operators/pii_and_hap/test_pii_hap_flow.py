@@ -21,11 +21,11 @@ def test_pii_hap_with_ollama():
     flow_file = project_root / "sample_flows" / "operators" / "pii_hap_detection.json"
 
     # load_flow_definition compiles authoring format to runtime DAG format
-    flow_def = load_flow_definition(file_path=str(flow_file))
+    _original_flow, flow_def = load_flow_definition(file_path=str(flow_file))
 
     # Fix the paths to be absolute
     for node in flow_def["dag"]:
-        if node.get("operator") == "ingest_local" and "paths" in node.get("config", {}):
+        if node.get("operator") == "ingest_source" and "paths" in node.get("config", {}):
             relative_path = node["config"]["paths"]
             absolute_path = str(project_root / relative_path)
             node["config"]["paths"] = absolute_path

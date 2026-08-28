@@ -10,12 +10,16 @@
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_documents",
       "config": {
-        "paths": "./sample_documents",
-        "include_filter": "pdf,txt,docx",
-        "max_workers": 4
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./sample_documents"
+          ]
+        },
+        "include_filter": "pdf,txt,docx"
       }
     },
     {
@@ -41,6 +45,7 @@
         "chunk_type": "semantic",
         "chunk_size": 512,
         "chunk_overlap": 50,
+        "semantic_embeddings_model": "nomic-embed-text",
         "retain_original_content": false
       },
       "depends_on": [
@@ -70,7 +75,7 @@
         "provider_config": {
           "model_id": "openai/nomic-embed-text",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
+          "api_key": "${OLLAMA_API_KEY:-ollama}"
         }
       },
       "depends_on": [
@@ -87,7 +92,7 @@
         "provider_config": {
           "model_id": "openai/granite-embedding",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
+          "api_key": "${OLLAMA_API_KEY:-ollama}"
         }
       },
       "depends_on": [
@@ -119,11 +124,11 @@
       "name": "store_in_milvus",
       "config": {
         "provider": "milvus",
-        "index_name": "dual_embeddings_collection",
         "doc_id_column": "doc_id_hash",
         "create_index": true,
-        "add_sparse_vector": true,
+        "add_sparse_vector": false,
         "provider_config": {
+          "collection_name": "dual_embeddings_collection",
           "host": "localhost",
           "port": 19530,
           "auth_type": "standalone",
@@ -138,49 +143,32 @@
             "efConstruction": 256
           }
         },
-        "available_features": {
-          "doc_id_hash": {
-            "name": "Document ID",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "string",
-            "is_primary": true
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
           },
-          "content": {
-            "name": "Content",
-            "available_for_vector_db": true,
-            "type": "text"
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
           },
-          "name": {
-            "name": "Document Name",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "name",
+            "mapped_column_name": "doc_name"
           },
-          "path": {
-            "name": "File Path",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "path",
+            "mapped_column_name": "file_path"
           },
-          "embeddings": {
-            "name": "Primary Embeddings (nomic-embed-text)",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
           },
-          "embeddings_alt": {
-            "name": "Alternative Embeddings (granite-embedding)",
-            "available_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings_alt",
+            "mapped_column_name": "vector_embeddings_alt"
           }
-        },
-        "feature_mappings": {
-          "doc_id_hash": "pk",
-          "content": "text",
-          "name": "doc_name",
-          "path": "file_path",
-          "embeddings": "vector_embeddings",
-          "embeddings_alt": "vector_embeddings_alt"
-        }
+        ]
       },
       "depends_on": [
         "merge_embeddings"

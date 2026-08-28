@@ -1,18 +1,25 @@
+"""Custom exception types for docpipe flow validation and execution."""
+
 from json import JSONEncoder
-from typing import Any
+from typing import Any, ClassVar
 
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.exceptions.error_messages import ValidationMessage
 
+TROUBLESHOOTING_DOCS_URL = "https://github.com/IBM/docling-pipelines/tree/main/TROUBLESHOOTING.md"
+DOCLING_PIPELINES_DOCS_URL = "https://github.com/IBM/docling-pipelines/tree/main/docs"
+
 
 class DocpipeException(Exception):
+    """Docpipeexception."""
+
     def __init__(
         self,
         message,
         status_code: int = 500,
         error_code: ErrorCode | None = None,
         message_code: str | None = None,
-        more_info: str = "https://www.ibm.com/docs/en/software-hub/5.2.x?topic=data-getting-started",
+        more_info: str = DOCLING_PIPELINES_DOCS_URL,
     ):
         super().__init__(message)
         self.status_code = status_code
@@ -22,6 +29,8 @@ class DocpipeException(Exception):
 
 
 class ValidationAlert(dict):
+    """Validationalert."""
+
     def __init__(
         self,
         code=None,
@@ -72,27 +81,44 @@ class ValidationAlert(dict):
 
 
 class ValidationAlertEncoder(JSONEncoder):
+    """Validationalertencoder."""
+
     def default(self, o):
+        """Default."""
         return o.__dict__
 
 
 class FlowExecutionFailedException(DocpipeException):
     # Thrown when the given flow or flow definition not found
+    """Flowexecutionfailedexception."""
+
     def __init__(self, message: str, status_code: int = 500, errors: list[ValidationAlert] | None = None):
         from docpipe.exceptions.error_codes import ErrorCode
 
-        super().__init__(message, status_code, error_code=ErrorCode.FLOW_EXECUTION_FAILED)
+        super().__init__(
+            message,
+            status_code,
+            error_code=ErrorCode.FLOW_EXECUTION_FAILED,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-flow-execution-failed",
+        )
         self.errors = errors
 
 
 class FlowValidationException(DocpipeException):
+    """Flowvalidationexception."""
+
     def __init__(
         self,
         message="Invalid Flow definition",
         errors: list[ValidationAlert | ValidationMessage] | None = None,
         warnings: list[ValidationAlert | ValidationMessage] | None = None,
     ):
-        super().__init__(message, 400)
+        super().__init__(
+            message,
+            400,
+            error_code=ErrorCode.FLOW_VALIDATION_FAILED,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-flow-validation-failed",
+        )
 
         self.errors = errors
         self.warnings = warnings
@@ -136,6 +162,8 @@ class FlowValidationException(DocpipeException):
 
 class PrefectFlowFailed(DocpipeException):
     # thrown when a prefect flow execution failed for a task
+    """Prefectflowfailed."""
+
     def __init__(
         self,
         message,
@@ -148,10 +176,13 @@ class PrefectFlowFailed(DocpipeException):
             error_code=error_code,
             message_code=message_code,
             status_code=status_code,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-prefect-flow-task-failed",
         )
 
 
 class ValidationException(DocpipeException):
+    """Validationexception."""
+
     def __init__(
         self,
         message="Invalid definition",
@@ -227,6 +258,102 @@ class ExternalServiceError(DocpipeException):
         )
 
 
+class AssetNotFoundException(DocpipeException):
+    """
+    Generic exception raised when an asset is not found.
+
+    Used in asset CRUD operations when attempting to retrieve, update,
+    or delete an asset that does not exist. Works for Flow, DocumentSet,
+    DocumentLibrary, and other asset types.
+    """
+
+    # Map asset type names to their specific error codes
+    _ERROR_CODE_MAP: ClassVar[dict[str, ErrorCode]] = {
+        "Flow": ErrorCode.FLOW_NOT_FOUND,
+        "DocumentSet": ErrorCode.DOCUMENT_SET_NOT_FOUND,
+        # Add more as needed: "DocumentLibrary": ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+    }
+
+    def __init__(
+        self,
+        message: str,
+        asset_id: str | None = None,
+        asset_type: str | None = None,
+    ):
+        if asset_id and asset_type and not message:
+            message = f"{asset_type.capitalize()} {asset_id} not found"
+
+        # Determine error code based on asset type
+        error_code = self._ERROR_CODE_MAP.get(asset_type or "Flow", ErrorCode.FLOW_NOT_FOUND)
+
+        super().__init__(
+            message,
+            status_code=404,
+            error_code=error_code,
+        )
+        self.asset_id = asset_id
+        self.asset_type = asset_type
+
+
+class AssetAlreadyExistsException(DocpipeException):
+    """
+    Generic exception raised when attempting to create an asset that already exists.
+
+    Used in asset creation when an asset with the same name or ID already exists.
+    Works for Flow, DocumentSet, DocumentLibrary, and other asset types.
+    """
+
+    # Map asset type names to their specific error codes
+    _ERROR_CODE_MAP: ClassVar[dict[str, ErrorCode]] = {
+        "Flow": ErrorCode.FLOW_ALREADY_EXISTS,
+        "DocumentSet": ErrorCode.DOCUMENT_SET_ALREADY_EXISTS,
+        # Add more as needed: "DocumentLibrary": ErrorCode.DOCUMENT_LIBRARY_ALREADY_EXISTS,
+    }
+
+    def __init__(
+        self,
+        message: str,
+        asset_id: str | None = None,
+        asset_name: str | None = None,
+        asset_type: str | None = None,
+    ):
+        # Determine error code based on asset type
+        error_code = self._ERROR_CODE_MAP.get(asset_type or "Flow", ErrorCode.FLOW_ALREADY_EXISTS)
+
+        super().__init__(
+            message,
+            status_code=409,
+            error_code=error_code,
+        )
+        self.asset_id = asset_id
+        self.asset_name = asset_name
+        self.asset_type = asset_type
+
+
+class AssetInvalidDataException(DocpipeException):
+    """
+    Generic exception raised when asset data is invalid.
+
+    Used in asset CRUD operations when validation fails due to invalid
+    asset data, empty names, invalid field values, or malformed data.
+    Works for Flow, DocumentSet, DocumentLibrary, and other asset types.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        field_name: str | None = None,
+        asset_type: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=400,
+            error_code=ErrorCode.FLOW_INVALID_DATA,  # Reuse existing error code
+        )
+        self.field_name = field_name
+        self.asset_type = asset_type
+
+
 class FlowNotFoundException(DocpipeException):
     """
     Exception raised when a flow is not found.
@@ -246,6 +373,7 @@ class FlowNotFoundException(DocpipeException):
             message,
             status_code=404,
             error_code=ErrorCode.FLOW_NOT_FOUND,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.flow_id = flow_id
 
@@ -267,6 +395,7 @@ class FlowAlreadyExistsException(DocpipeException):
             message,
             status_code=409,
             error_code=ErrorCode.FLOW_ALREADY_EXISTS,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.flow_id = flow_id
         self.flow_name = flow_name
@@ -289,6 +418,7 @@ class FlowInvalidDataException(DocpipeException):
             message,
             status_code=400,
             error_code=ErrorCode.FLOW_INVALID_DATA,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.field_name = field_name
 
@@ -311,9 +441,78 @@ class FlowStorageException(DocpipeException):
             message,
             status_code=500,
             error_code=ErrorCode.FLOW_STORAGE_ERROR,
+            more_info=f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors",
         )
         self.operation = operation
         self.flow_id = flow_id
+
+
+class ProjectNotFoundException(DocpipeException):
+    """
+    Exception raised when a project is not found.
+
+    Used in project CRUD operations when attempting to retrieve, update,
+    or delete a project that does not exist.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        project_id: str | None = None,
+        status_code: int = 404,
+    ):
+        super().__init__(
+            message or f"Project '{project_id}' not found",
+            status_code=status_code,
+            error_code=ErrorCode.PROJECT_NOT_FOUND,
+        )
+        self.project_id = project_id
+
+
+class ProjectAlreadyExistsException(DocpipeException):
+    """
+    Exception raised when a project with the same name already exists.
+
+    Used in project creation to prevent duplicate project names.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        project_name: str | None = None,
+        status_code: int = 409,
+    ):
+        super().__init__(
+            message or f"A project named '{project_name}' already exists",
+            status_code=status_code,
+            error_code=ErrorCode.PROJECT_ALREADY_EXISTS,
+        )
+        self.project_name = project_name
+
+
+class ProjectInvalidDataException(DocpipeException):
+    """
+    Exception raised when project data fails validation.
+
+    Used when project name is empty, exceeds length limits, or other
+    field-level validation errors occur.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        field_name: str | None = None,
+        status_code: int = 400,
+    ):
+        super().__init__(
+            message,
+            status_code=status_code,
+            error_code=ErrorCode.PROJECT_INVALID_DATA,
+        )
+        self.field_name = field_name
 
 
 class RepositoryConfigurationException(DocpipeException):
@@ -392,10 +591,11 @@ class JobRunInvalidStateException(DocpipeException):
         message: str,
         job_run_id: str | None = None,
         current_state: str | None = None,
+        status_code: int = 400,
     ):
         super().__init__(
             message,
-            status_code=400,
+            status_code=status_code,
             error_code=ErrorCode.JOB_RUN_INVALID_STATE,
         )
         self.job_run_id = job_run_id
@@ -415,10 +615,11 @@ class JobRunOperationFailedException(DocpipeException):
         message: str,
         job_run_id: str | None = None,
         operation: str | None = None,
+        status_code: int = 500,
     ):
         super().__init__(
             message,
-            status_code=500,
+            status_code=status_code,
             error_code=ErrorCode.JOB_RUN_OPERATION_FAILED,
         )
         self.job_run_id = job_run_id
@@ -700,6 +901,9 @@ __all__ = [
     "PostgresQueryException",
     "PostgresTransactionException",
     "PrefectFlowFailed",
+    "ProjectAlreadyExistsException",
+    "ProjectInvalidDataException",
+    "ProjectNotFoundException",
     "RepositoryConfigurationException",
     "ValidationAlert",
     "ValidationAlertEncoder",

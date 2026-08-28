@@ -3,6 +3,7 @@
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -112,27 +113,26 @@ def _safe_rmtree(path: str, prefix: str | None = None) -> bool:
         bool: True if the directory was removed, False otherwise.
     """
     logger = get_logger()
-    path = os.path.abspath(path)
-    temp_root = os.path.abspath(tempfile.gettempdir())
+    path_obj = Path(path).resolve()
+    temp_root_obj = Path(tempfile.gettempdir()).resolve()
 
     # Check: must be under system temp directory
-    if os.path.commonpath([path, temp_root]) != temp_root:
-        logger.warning(f"Refusing to delete {path}: not inside {temp_root}")
+    if temp_root_obj not in path_obj.parents and path_obj != temp_root_obj:
+        logger.warning("Refusing to delete %s: not inside %s", path_obj, temp_root_obj)
         return False
 
     # Check: prefix (if given)
-    if prefix and not os.path.basename(path).startswith(prefix):
-        logger.warning(f"Refusing to delete {path}: does not start with '{prefix}'")
+    if prefix and not path_obj.name.startswith(prefix):
+        logger.warning("Refusing to delete %s: does not start with '%s'", path_obj, prefix)
         return False
 
     # Perform safe removal
-    if os.path.exists(path):
-        shutil.rmtree(path, ignore_errors=True)
-        logger.info(f"Deleted tempdir: {path}")
+    if path_obj.exists():
+        shutil.rmtree(path_obj, ignore_errors=True)
+        logger.info("Deleted tempdir: %s", path_obj)
         return True
-    else:
-        logger.info(f"Path does not exist: {path}")
-        return False
+    logger.info("Path does not exist: %s", path_obj)
+    return False
 
 
 __all__ = [

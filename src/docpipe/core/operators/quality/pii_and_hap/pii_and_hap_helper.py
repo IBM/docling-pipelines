@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Helper functions and classes for PII and HAP detection.
 
@@ -259,9 +262,7 @@ class GuardRailsPIIAndHAPExtractor:
 
         return content
 
-    def redact_batch(
-        self, content: Any, detections: list[dict[str, Any]], detected_types: list[str]
-    ) -> str:  # NOSONAR python:S3776
+    def redact_batch(self, content: Any, detections: list[dict[str, Any]], detected_types: list[str]) -> str:
         """
         Redact multiple detections from text, handling overlaps correctly.
 

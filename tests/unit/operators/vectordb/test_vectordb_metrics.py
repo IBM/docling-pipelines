@@ -30,7 +30,6 @@ class TestVectorDBMetrics:
         """Create VectorDB operator configuration."""
         return {
             "provider": "opensearch",
-            "index_name": "test_index",
             "doc_id_column": "doc_id_hash",
             "embeddings_column": "embeddings",
             "create_index": False,
@@ -57,6 +56,7 @@ class TestVectorDBMetrics:
                 },
             },
             "provider_config": {
+                "index_name": "test_index",
                 "host": "localhost",
                 "port": 9200,
             },
@@ -221,8 +221,12 @@ class TestVectorDBMetrics:
         This ensures consistency with docling-pipelines-api where if ANY chunk of a document
         fails, the entire document is counted as failed.
         """
-        # Mock adapter: 2 items indexed, 1 failed (chunk_1 of doc1)
-        failed_item = {"index": {"_id": "doc1_chunk_1", "error": {"reason": "Indexing error"}}}
+        # Compute the composite PK the operator will generate for the first chunk of doc1.
+        # file_id = "doc1" (no 'id' column in the table, so falls back to doc_id_hash value).
+        # chunk_content = "Chunk 1 of doc1" (chunked_content[0]["chunk"]).
+        chunk1_pk = VectorDBOperator.generate_composite_pk(file_id="doc1", chunk_content="Chunk 1 of doc1")
+        # Mock adapter: 2 items indexed, 1 failed (first chunk of doc1)
+        failed_item = {"index": {"_id": chunk1_pk, "error": {"reason": "Indexing error"}}}
         mock_adapter.index_documents.return_value = (2, [failed_item])
 
         # Create table with 1 document having 3 chunks

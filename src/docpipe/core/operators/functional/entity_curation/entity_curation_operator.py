@@ -106,9 +106,7 @@ class EntityCurationOperator(AbstractOperator):
         """Return required input features."""
         return [OperatorConstants.Misc.ENTITIES]
 
-    def transform(
-        self, table: pa.Table, file_name: str | None = None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:  # NOSONAR python:S3776
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform extracted entities using schemas.
 

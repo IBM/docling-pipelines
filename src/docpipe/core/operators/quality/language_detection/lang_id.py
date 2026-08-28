@@ -52,9 +52,6 @@ class LanguageDetect(AbstractOperator):
                 - language_provider: Language detection provider to use (default: "fasttext")
         """
         super().__init__(config)
-        self.doc_column_name: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.common_log_arguments: dict[str, Any] = {
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
@@ -104,7 +101,8 @@ class LanguageDetect(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
-        operator_metadata = {
+        """Get metadata."""
+        return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: LanguageDetect.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: LanguageDetect.is_available(),
@@ -116,6 +114,7 @@ class LanguageDetect(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Language detection provider to use (fasttext or langdetect)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DEFAULT_LANGUAGE_PROVIDER,
+                    OperatorConstants.Config.VALID_VALUES: LanguageAdapterFactory.list_adapters(),
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: {
@@ -143,10 +142,9 @@ class LanguageDetect(AbstractOperator):
             },
         }
 
-        return operator_metadata
-
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def cleanup(self) -> None:
@@ -162,16 +160,16 @@ class LanguageDetect(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:  # NOSONAR python:S3776
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Detects all the available language and their respective score in the document
         """
 
-        OperatorUtils.validate_columns(table=table, required=[self.doc_column_name], operator_name=self.short_name)
+        OperatorUtils.validate_columns(table=table, required=[self.doc_column], operator_name=self.short_name)
 
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
-        new_doc_content: list[Any] = table[self.doc_column_name].to_pylist()
+        new_doc_content: list[Any] = table[self.doc_column].to_pylist()
         language_name_column: list[str] = []
         language_score_column: list[float] = []
         remove_row_idx: list[int] = []

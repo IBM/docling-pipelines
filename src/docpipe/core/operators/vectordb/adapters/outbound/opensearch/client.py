@@ -10,7 +10,7 @@ import boto3
 from botocore.credentials import Credentials
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import TROUBLESHOOTING_DOCS_URL, DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -165,6 +165,7 @@ class OpenSearchClient:
                 message=f"Failed to connect to OpenSearch at {self.host}:{self.port}: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OPENSEARCH_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-opensearch-connection-refused",
             ) from exc
 
     def get_client(self) -> OpenSearch:

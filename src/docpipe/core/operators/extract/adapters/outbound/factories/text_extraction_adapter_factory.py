@@ -7,11 +7,9 @@ extraction provider and configuration. It supports multiple extraction strategie
 """
 
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_adapter import DoclingAdapter
-from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter import DoclingServeAdapter
 from docpipe.core.operators.extract.domain.models import DoclingServeConfig, TextExtractionMode
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.utils.infrastructure.logging import get_logger
@@ -24,6 +22,11 @@ class TextExtractionAdapterFactory:
 
     This factory creates appropriate adapter instances based on extraction provider
     and validates configuration requirements for each adapter type.
+
+    It also maintains a class registry so that third-party adapters can
+    self-register via ``@register_text_extraction_adapter``.  The operator uses
+    this registry in ``get_metadata()`` to auto-discover provider config schemas
+    without needing manual imports.
 
     Supported Providers:
         - TextExtractionMode.DOCLING_LIBRARY: Local Docling extraction with optional VLM
@@ -76,6 +79,40 @@ class TextExtractionAdapterFactory:
         )
     """
 
+    # Registry of adapter classes keyed by ADAPTER_NAME (populated via @register_text_extraction_adapter).
+    _registry: ClassVar[dict[str, type[TextExtractionPort]]] = {}
+
+    @classmethod
+    def register(cls, adapter_class: type[TextExtractionPort]) -> type[TextExtractionPort]:
+        """Register an adapter class in the schema-discovery registry.
+
+        Called automatically by the ``@register_text_extraction_adapter`` decorator.
+
+        Args:
+            adapter_class: Concrete subclass of ``TextExtractionPort``.
+
+        Returns:
+            The adapter class (for decorator chaining).
+
+        Raises:
+            ValueError: If the class does not define ``ADAPTER_NAME``.
+        """
+        if not hasattr(adapter_class, "ADAPTER_NAME") or not adapter_class.ADAPTER_NAME:
+            raise ValueError(f"Adapter {adapter_class.__name__} must define ADAPTER_NAME")
+
+        name = adapter_class.ADAPTER_NAME.lower()
+        cls._registry[name] = adapter_class
+        return adapter_class
+
+    @classmethod
+    def list_adapters(cls) -> list[str]:
+        """Return names of all registered adapters.
+
+        Returns:
+            List of registered adapter names.
+        """
+        return list(cls._registry.keys())
+
     @staticmethod
     def build_adapter_config(*, mode: TextExtractionMode, text_extraction_config: dict[str, Any]) -> dict[str, Any]:
         """Build adapter-specific configuration from nested text_extraction config.
@@ -95,6 +132,30 @@ class TextExtractionAdapterFactory:
         """
         # Extract provider_config from nested structure
         provider_config = text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # Schema checks: standard_pipeline and accelerator must be dicts when present
+        standard_pipeline_raw = provider_config.get(OperatorConstants.Extraction.STANDARD_PIPELINE)
+        if standard_pipeline_raw is not None and not isinstance(standard_pipeline_raw, dict):
+            raise ValueError(
+                f"provider_config.standard_pipeline must be a JSON object, got {type(standard_pipeline_raw).__name__}"
+            )
+        accelerator_raw = (
+            (standard_pipeline_raw or {}).get(OperatorConstants.Extraction.ACCELERATOR)
+            if isinstance(standard_pipeline_raw, dict)
+            else None
+        )
+        if accelerator_raw is not None and not isinstance(accelerator_raw, dict):
+            raise ValueError(
+                "provider_config.standard_pipeline.accelerator must be a JSON object, "
+                f"got {type(accelerator_raw).__name__}"
+            )
+        if isinstance(accelerator_raw, dict):
+            allowed_accel_keys = {OperatorConstants.Extraction.DEVICE, OperatorConstants.Extraction.NUM_THREADS}
+            unknown_keys = set(accelerator_raw.keys()) - allowed_accel_keys
+            if unknown_keys:
+                raise ValueError(
+                    f"Unknown accelerator key(s): {sorted(unknown_keys)}. Only 'device' and 'num_threads' are accepted."
+                )
 
         # Common configuration for all text providers
         adapter_config: dict[str, Any] = {
@@ -141,7 +202,39 @@ class TextExtractionAdapterFactory:
                 }
             )
 
+            # GPU / standard pipeline accelerator config from provider_config.standard_pipeline
+            standard_pipeline = provider_config.get(OperatorConstants.Extraction.STANDARD_PIPELINE, {})
+            accelerator = standard_pipeline.get(OperatorConstants.Extraction.ACCELERATOR, {})
+            gpu_device = accelerator.get(OperatorConstants.Extraction.DEVICE)
+            gpu_num_threads = accelerator.get(OperatorConstants.Extraction.NUM_THREADS)
+
+            # If the user included an accelerator block but omitted device, auto-detect
+            # the best available GPU so they don't have to specify it explicitly.
+            if accelerator and gpu_device is None:
+                gpu_device = TextExtractionAdapterFactory._auto_detect_device()
+                if gpu_device is not None:
+                    logger.info("No accelerator device specified — auto-detected: %s", gpu_device)
+                else:
+                    logger.warning(
+                        "Accelerator block present but no GPU device found via torch. "
+                        "Falling back to standard CPU extraction."
+                    )
+
+            if gpu_device is not None:
+                adapter_config[OperatorConstants.Extraction.DEVICE] = gpu_device
+            if gpu_num_threads is not None:
+                adapter_config[OperatorConstants.Extraction.NUM_THREADS] = gpu_num_threads
+
+            # OCR configuration from provider_config.ocr
+            ocr_raw = provider_config.get(OperatorConstants.Config.OCR_BLOCK)
+            if ocr_raw is not None:
+                if not isinstance(ocr_raw, dict):
+                    raise ValueError(f"provider_config.ocr must be a JSON object, got {type(ocr_raw).__name__}")
+                TextExtractionAdapterFactory._validate_ocr_config(ocr_raw)
+                adapter_config[OperatorConstants.Config.OCR_BLOCK] = ocr_raw
+
         elif mode == TextExtractionMode.DOCLING_SERVE:
+            # Build docling_serve_config dictionary from provider_config
             docling_serve_config = {
                 OperatorConstants.Config.BASE_URL: provider_config.get(
                     OperatorConstants.Config.BASE_URL, "http://localhost:5001"
@@ -171,8 +264,6 @@ class TextExtractionAdapterFactory:
                     OperatorConstants.Config.API_KEY
                 ]
 
-            # ocr_engine and table_mode are optional — only forward if explicitly set
-            # (different docling-serve versions/deployments support different values)
             if provider_config.get(OperatorConstants.Config.OCR_ENGINE):
                 docling_serve_config[OperatorConstants.Config.OCR_ENGINE] = provider_config[
                     OperatorConstants.Config.OCR_ENGINE
@@ -187,6 +278,14 @@ class TextExtractionAdapterFactory:
                 docling_serve_config[OperatorConstants.Config.OCR_LANGUAGES] = provider_config[
                     OperatorConstants.Config.OCR_LANGUAGES
                 ]
+
+            # Forward new canonical ocr block if present
+            ocr_raw = provider_config.get(OperatorConstants.Config.OCR_BLOCK)
+            if ocr_raw is not None:
+                if not isinstance(ocr_raw, dict):
+                    raise ValueError(f"provider_config.ocr must be a JSON object, got {type(ocr_raw).__name__}")
+                TextExtractionAdapterFactory._validate_ocr_config(ocr_raw)
+                docling_serve_config[OperatorConstants.Config.OCR_BLOCK] = ocr_raw
 
             adapter_config[OperatorConstants.Config.DOCLING_SERVE_CONFIG] = docling_serve_config
 
@@ -231,8 +330,11 @@ class TextExtractionAdapterFactory:
         full_config = {**global_config, **adapter_config, "max_workers": max_workers, "use_processes": use_processes}
 
         if mode == TextExtractionMode.DOCLING_LIBRARY:
+            from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_adapter import DoclingAdapter
+
             # Check if VLM is enabled
             use_vlm = adapter_config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
+            gpu_device = adapter_config.get(OperatorConstants.Extraction.DEVICE)
 
             if use_vlm:
                 TextExtractionAdapterFactory._validate_vlm_config(adapter_config)
@@ -243,26 +345,173 @@ class TextExtractionAdapterFactory:
                     ),
                     max_workers,
                 )
+            elif gpu_device:
+                TextExtractionAdapterFactory._validate_gpu_config(
+                    adapter_config=adapter_config,
+                    max_workers=max_workers,
+                    use_processes=use_processes,
+                )
+                logger.info(
+                    "Creating DoclingAdapter with GPU acceleration (device: %s) and %s workers",
+                    gpu_device,
+                    max_workers,
+                )
             else:
                 TextExtractionAdapterFactory._validate_docling_config(adapter_config)
                 logger.info("Creating DoclingAdapter for provider: %s with %s workers", mode.value, max_workers)
 
             return DoclingAdapter(config=full_config)
 
-        elif mode == TextExtractionMode.DOCLING_SERVE:
+        if mode == TextExtractionMode.DOCLING_SERVE:
+            from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter import (
+                DoclingServeAdapter,
+            )
+
             TextExtractionAdapterFactory._validate_docling_serve_config(adapter_config)
             logger.info(
                 "Creating DoclingServeAdapter with URL: %s",
                 adapter_config.get(OperatorConstants.Config.DOCLING_SERVE_CONFIG, {}).get(
-                    OperatorConstants.Config.BASE_URL, "http://localhost:5001"
+                    OperatorConstants.Config.BASE_URL, "http://0.0.0.0:5001"
                 ),
             )
             return DoclingServeAdapter(config=full_config)
 
-        else:
+        raise ValueError(
+            f"Unsupported extraction provider: {mode}. Supported providers: {[m.value for m in TextExtractionMode]}"
+        )
+
+    @staticmethod
+    def _validate_gpu_config(*, adapter_config: dict[str, Any], max_workers: int, use_processes: bool) -> None:
+        """Validate configuration for GPU-accelerated standard pipeline extraction.
+
+        GPU acceleration requires max_workers=1 and use_processes=False because
+        Docling's standard pipeline with a GPU accelerator device is not safe to
+        run across multiple threads or processes simultaneously.
+
+        Additionally, VLM and GPU acceleration cannot be combined — the VLM
+        pipeline has its own device management.
+
+        Args:
+            adapter_config: Adapter configuration dictionary (must contain 'device')
+            max_workers: Number of parallel workers configured by the caller
+            use_processes: Whether ProcessPoolExecutor was requested
+
+        Raises:
+            ValueError: If any GPU constraint is violated
+        """
+        import re
+
+        gpu_device = adapter_config.get(OperatorConstants.Extraction.DEVICE)
+
+        # Normalise and validate device string.
+        # Accepted forms: mps, cuda, cuda:<non-negative integer index>, xpu
+        if not isinstance(gpu_device, str):
+            raise ValueError(f"Invalid GPU device {gpu_device!r}. Must be a string.")
+
+        normalised = gpu_device.strip().lower()
+        base_devices = {
+            OperatorConstants.Extraction.DEVICE_MPS,
+            OperatorConstants.Extraction.DEVICE_CUDA,
+            OperatorConstants.Extraction.DEVICE_XPU,
+        }
+        cuda_index_pattern = re.compile(r"^cuda:\d+$")
+        if normalised not in base_devices and not cuda_index_pattern.match(normalised):
             raise ValueError(
-                f"Unsupported extraction provider: {mode}. Supported providers: {[m.value for m in TextExtractionMode]}"
+                f"Invalid GPU device '{gpu_device}'. "
+                f"Supported forms: {sorted(base_devices)} or 'cuda:<index>' (e.g. 'cuda:0')."
             )
+
+        if adapter_config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False):
+            raise ValueError(
+                "GPU acceleration (standard_pipeline.accelerator.device) cannot be combined "
+                "with VLM pipeline. Use one or the other."
+            )
+
+        if max_workers != 1:
+            raise ValueError(
+                f"GPU acceleration requires max_workers=1, got max_workers={max_workers}. "
+                "Set max_workers to 1 in text_extraction config when using a GPU device."
+            )
+
+        if use_processes:
+            raise ValueError(
+                "GPU acceleration requires use_processes=false. "
+                "ProcessPoolExecutor cannot share a GPU-loaded model across processes."
+            )
+
+        num_threads = adapter_config.get(OperatorConstants.Extraction.NUM_THREADS)
+        # isinstance(True, int) is True in Python — booleans must be rejected explicitly
+        if num_threads is not None and (
+            isinstance(num_threads, bool) or not isinstance(num_threads, int) or num_threads < 1
+        ):
+            raise ValueError(f"num_threads must be a positive integer, got: {num_threads!r}")
+
+        # Runtime device availability checks — fail early before any model is loaded
+        TextExtractionAdapterFactory._check_device_availability(normalised)
+
+    @staticmethod
+    def _auto_detect_device() -> str | None:
+        """Detect the best available GPU device using torch.
+
+        Probes torch backends in priority order: CUDA → MPS → XPU.
+        Returns the device string (e.g. ``"cuda"``, ``"mps"``, ``"xpu"``) or
+        ``None`` when torch is not installed or no supported GPU is found.
+        """
+        try:
+            import torch
+        except ImportError:
+            return None
+
+        if torch.cuda.is_available():
+            return OperatorConstants.Extraction.DEVICE_CUDA
+        if torch.backends.mps.is_built() and torch.backends.mps.is_available():
+            return OperatorConstants.Extraction.DEVICE_MPS
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            return OperatorConstants.Extraction.DEVICE_XPU
+        return None
+
+    @staticmethod
+    def _check_device_availability(normalised_device: str) -> None:
+        """Check that the requested GPU device is available at runtime via torch.
+
+        Args:
+            normalised_device: Lowercase device string (e.g. 'mps', 'cuda', 'cuda:0', 'xpu')
+
+        Raises:
+            ValueError: If torch is not installed or the device is unavailable
+        """
+        try:
+            import torch
+        except ImportError as exc:
+            raise ValueError(
+                "GPU acceleration requires torch to be installed. Install with: uv pip install torch"
+            ) from exc
+
+        if normalised_device == OperatorConstants.Extraction.DEVICE_MPS:
+            if not (torch.backends.mps.is_built() and torch.backends.mps.is_available()):
+                raise ValueError(
+                    "GPU device 'mps' is not available in this environment. "
+                    "MPS requires an Apple Silicon Mac with a compatible PyTorch build."
+                )
+        elif normalised_device.startswith(OperatorConstants.Extraction.DEVICE_CUDA):
+            if not torch.cuda.is_available():
+                raise ValueError(
+                    f"GPU device '{normalised_device}' is not available. "
+                    "CUDA requires a compatible NVIDIA GPU and CUDA-enabled PyTorch."
+                )
+            if ":" in normalised_device:
+                index = int(normalised_device.split(":")[1])
+                device_count = torch.cuda.device_count()
+                if index >= device_count:
+                    raise ValueError(
+                        f"CUDA device index {index} is out of range (available devices: 0-{device_count - 1})."
+                    )
+        elif normalised_device == OperatorConstants.Extraction.DEVICE_XPU:
+            if not (hasattr(torch, "xpu") and torch.xpu.is_available()):
+                raise ValueError(
+                    "GPU device 'xpu' is not available in this environment. "
+                    "XPU requires Intel hardware and a compatible PyTorch build."
+                )
 
     @staticmethod
     def _validate_docling_config(config: dict[str, Any]) -> None:
@@ -314,9 +563,6 @@ class TextExtractionAdapterFactory:
         vlm_provider_config = config.get(OperatorConstants.Config.VLM_PROVIDER_CONFIG)
         if vlm_provider_config is not None and not isinstance(vlm_provider_config, dict):
             raise ValueError("DoclingAdapter 'vlm_provider_config' must be a dictionary")
-
-        # No additional validation needed for VLM config
-        pass
 
     @staticmethod
     def _validate_docling_serve_config(config: dict[str, Any]) -> None:
@@ -382,6 +628,33 @@ class TextExtractionAdapterFactory:
         )
 
     @staticmethod
+    def _validate_ocr_config(ocr_block: dict[str, Any]) -> None:
+        """Validate an OCR config block from provider_config.ocr.
+
+        Args:
+            ocr_block: The ocr sub-dict from provider_config.
+
+        Raises:
+            ValueError: If engine or mode values are invalid, or engine_options is not a dict.
+        """
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.ocr_config import OcrConfig
+
+        valid_engines = set(OcrConfig.model_fields["engine"].annotation.__args__)
+        valid_modes = set(OcrConfig.model_fields["mode"].annotation.__args__)
+
+        engine = ocr_block.get("engine", "rapidocr")
+        if engine not in valid_engines:
+            raise ValueError(f"Invalid OCR engine '{engine}'. Valid engines: {sorted(valid_engines)}")
+
+        mode = ocr_block.get("mode", "default")
+        if mode not in valid_modes:
+            raise ValueError(f"Invalid OCR mode '{mode}'. Valid modes: {sorted(valid_modes)}")
+
+        engine_options = ocr_block.get("engine_options")
+        if engine_options is not None and not isinstance(engine_options, dict):
+            raise ValueError(f"ocr.engine_options must be a JSON object, got {type(engine_options).__name__}")
+
+    @staticmethod
     def get_supported_modes() -> list[str]:
         """Get list of supported extraction providers.
 
@@ -389,3 +662,26 @@ class TextExtractionAdapterFactory:
             List of supported extraction provider values
         """
         return [mode.value for mode in TextExtractionMode]
+
+
+def register_text_extraction_adapter(adapter_class: type[TextExtractionPort]) -> type[TextExtractionPort]:
+    """Decorator to register a text extraction adapter for schema discovery.
+
+    This decorator automatically registers the adapter class with
+    ``TextExtractionAdapterFactory``.
+
+    Args:
+        adapter_class: Concrete subclass of ``TextExtractionPort``.
+
+    Returns:
+        The adapter class (unchanged).
+
+    Example::
+
+        @register_text_extraction_adapter
+        class DoclingServeAdapter(TextExtractionPort):
+            ADAPTER_NAME = "docling_serve"
+            ADAPTER_DISPLAY_NAME = "Docling Serve"
+            ...
+    """
+    return TextExtractionAdapterFactory.register(adapter_class)

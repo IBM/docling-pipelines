@@ -11,7 +11,7 @@ from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 @pytest.fixture
 def store(*, tmp_path):
     """Create Filesystem store with temporary directory."""
-    return FilesystemIncrementalMetadataStore(base_dir=tmp_path, lock_timeout=5.0)
+    return FilesystemIncrementalMetadataStore(config={"base_dir": str(tmp_path), "lock_timeout": 5.0})
 
 
 @pytest.fixture
@@ -46,7 +46,10 @@ class TestFilesystemIncrementalMetadataStore:
 
         result = store.get_processed_docs(job_id="job-1")
 
-        assert result == {"doc-1": 1000, "doc-2": 2000}
+        assert result == {
+            "doc-1": {"modified_time": 1000, "job_run_id": "run-1"},
+            "doc-2": {"modified_time": 2000, "job_run_id": "run-1"},
+        }
 
     def test_upsert_overwrites_existing_doc(self, *, store, sample_records):
         """Test that upsert overwrites existing documents."""
@@ -64,7 +67,10 @@ class TestFilesystemIncrementalMetadataStore:
 
         result = store.get_processed_docs(job_id="job-1")
 
-        assert result == {"doc-1": 3000, "doc-2": 2000}
+        assert result == {
+            "doc-1": {"modified_time": 3000, "job_run_id": "run-2"},
+            "doc-2": {"modified_time": 2000, "job_run_id": "run-1"},
+        }
 
     def test_mark_missing_docs_as_deleted(self, *, store, sample_records):
         """Test marking missing documents as deleted."""
@@ -73,7 +79,7 @@ class TestFilesystemIncrementalMetadataStore:
         deleted_ids = store.mark_missing_docs_as_deleted(job_id="job-1", doc_ids=["doc-1"])
 
         assert deleted_ids == {"doc-2"}
-        assert store.get_processed_docs(job_id="job-1") == {"doc-1": 1000}
+        assert store.get_processed_docs(job_id="job-1") == {"doc-1": {"modified_time": 1000, "job_run_id": "run-1"}}
         assert store.get_soft_deleted_doc_ids(job_id="job-1") == {"doc-2"}
 
     def test_delete_docs(self, *, store, sample_records):
@@ -82,7 +88,7 @@ class TestFilesystemIncrementalMetadataStore:
 
         store.delete_docs(job_id="job-1", doc_ids=["doc-1"])
 
-        assert store.get_processed_docs(job_id="job-1") == {"doc-2": 2000}
+        assert store.get_processed_docs(job_id="job-1") == {"doc-2": {"modified_time": 2000, "job_run_id": "run-1"}}
 
     def test_clear(self, *, store, sample_records):
         """Test clearing all metadata for a job."""
@@ -111,7 +117,10 @@ class TestFilesystemIncrementalMetadataStore:
 
         store.delete_docs(job_id="job-1", doc_ids=[])
 
-        assert store.get_processed_docs(job_id="job-1") == {"doc-1": 1000, "doc-2": 2000}
+        assert store.get_processed_docs(job_id="job-1") == {
+            "doc-1": {"modified_time": 1000, "job_run_id": "run-1"},
+            "doc-2": {"modified_time": 2000, "job_run_id": "run-1"},
+        }
 
     def test_upsert_empty_records(self, *, store):
         """Test upserting empty records list does nothing."""
@@ -163,8 +172,11 @@ class TestFilesystemIncrementalMetadataStore:
         ]
         store.upsert_records(job_id="job-2", job_run_id="run-2", records=job2_records)
 
-        assert store.get_processed_docs(job_id="job-1") == {"doc-1": 1000, "doc-2": 2000}
-        assert store.get_processed_docs(job_id="job-2") == {"doc-3": 3000}
+        assert store.get_processed_docs(job_id="job-1") == {
+            "doc-1": {"modified_time": 1000, "job_run_id": "run-1"},
+            "doc-2": {"modified_time": 2000, "job_run_id": "run-1"},
+        }
+        assert store.get_processed_docs(job_id="job-2") == {"doc-3": {"modified_time": 3000, "job_run_id": "run-2"}}
 
     def test_delete_all_docs_removes_file(self, *, store, sample_records, tmp_path):
         """Test that deleting all docs removes the Parquet file."""
@@ -185,7 +197,7 @@ class TestFilesystemIncrementalMetadataStore:
         processed = store.get_processed_docs(job_id="job-1")
         deleted = store.get_soft_deleted_doc_ids(job_id="job-1")
 
-        assert processed == {"doc-1": 1000}
+        assert processed == {"doc-1": {"modified_time": 1000, "job_run_id": "run-1"}}
         assert deleted == {"doc-2"}
         assert "doc-2" not in processed
 
@@ -206,7 +218,10 @@ class TestFilesystemIncrementalMetadataStore:
 
         # Original data should still be intact
         result = store.get_processed_docs(job_id="job-1")
-        assert result == {"doc-1": 1000, "doc-2": 2000}
+        assert result == {
+            "doc-1": {"modified_time": 1000, "job_run_id": "run-1"},
+            "doc-2": {"modified_time": 2000, "job_run_id": "run-1"},
+        }
 
         # Temp file should be cleaned up
         temp_files = list((tmp_path / "job-1" / "inc_update_metadata").glob("*.tmp"))
@@ -229,7 +244,7 @@ class TestFilesystemIncrementalMetadataStore:
 
         result = store.get_processed_docs(job_id="job-1")
         assert "doc-1" in result
-        assert result["doc-1"] is None
+        assert result["doc-1"] == {"modified_time": None, "job_run_id": None}
 
     def test_large_batch_upsert(self, *, store):
         """Test upserting a large batch of records."""
@@ -249,7 +264,7 @@ class TestFilesystemIncrementalMetadataStore:
 
         result = store.get_processed_docs(job_id="job-1")
         assert len(result) == 1000
-        assert result["doc-500"] == 500000
+        assert result["doc-500"] == {"modified_time": 500000, "job_run_id": "run-1"}
 
     def test_mark_multiple_docs_as_deleted(self, *, store):
         """Test marking multiple documents as deleted at once."""
@@ -270,5 +285,9 @@ class TestFilesystemIncrementalMetadataStore:
         deleted_ids = store.mark_missing_docs_as_deleted(job_id="job-1", doc_ids=["doc-0", "doc-1", "doc-2"])
 
         assert len(deleted_ids) == 7
-        assert store.get_processed_docs(job_id="job-1") == {"doc-0": 0, "doc-1": 1000, "doc-2": 2000}
+        assert store.get_processed_docs(job_id="job-1") == {
+            "doc-0": {"modified_time": 0, "job_run_id": "run-1"},
+            "doc-1": {"modified_time": 1000, "job_run_id": "run-1"},
+            "doc-2": {"modified_time": 2000, "job_run_id": "run-1"},
+        }
         assert len(store.get_soft_deleted_doc_ids(job_id="job-1")) == 7

@@ -14,12 +14,15 @@
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./tests/fixtures/invoices",
-        "include_filter": "pdf,docx",
-        "store_binary_content": true,
-        "max_workers": 2
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./tests/fixtures/invoices"
+          ]
+        },
+        "include_filter": "pdf,docx"
       }
     },
     {

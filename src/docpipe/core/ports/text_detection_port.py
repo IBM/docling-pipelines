@@ -42,7 +42,7 @@ class TextDetectionPort(ABC):
         Raises:
             Exception: Provider-specific errors
         """
-        pass
+        ...
 
     def validate(self) -> dict[str, Any]:
         """Template method for validation.

@@ -29,8 +29,21 @@ class ValidationMessage(BaseModel):
         """
         return cls(message=message, message_code=message_code, **kwargs)
 
+    def __str__(self) -> str:
+        """Return a readable string representation of the validation message."""
+        if self.message_code:
+            return f"{self.message_code}: {self.message}"
+        return self.message or ""
+
+    def __contains__(self, item: str) -> bool:
+        """Check if a string is contained in the message or message_code."""
+        message_str = str(self)
+        return item.lower() in message_str.lower()
+
 
 class ValidationCodeMessages(StrEnum):
+    """Validationcodemessages."""
+
     MISSING_FEATURES = """Not all required features for {operator_name} operator are available - required: {missing_features},
         Missing one or more operators:  {missing_operators},
         Please consider adding the missing operators to ensure full functionality
@@ -78,6 +91,11 @@ class ValidationCodeMessages(StrEnum):
 
     CHUNKER_INVALID_CHUNK_TYPE = "Invalid chunk_type: {chunk_type}"
 
+    CHUNK_OVERLAP_EXCEEDS_THRESHOLD = (
+        "chunk_overlap_percentage exceeds the recommended threshold of {threshold}%. "
+        "High overlap may significantly increase processing time and storage."
+    )
+
     CHUNKER_OPERATOR_MISPLACED = "Invalid Flow definition. Chunking operator placed after Embeddings operator. Please rearrange the chunking operator in the flow"
 
     EMBEDDINGS_INVALID_TYPE = "Invalid embeddings type: {embeddings_type}"
@@ -122,6 +140,13 @@ class ValidationCodeMessages(StrEnum):
     ACL_MULTIPLE_PARENTS = (
         "ACL operator should have only one parent. Found {parent_count} parents. In flows, only one ingest is allowed."
     )
-    ACL_OPERATOR_MISPLACED = "ACL operator must be placed immediately after an ingest_source operator. Current predecessor: {predecessor_operator}"
+    ACL_OPERATOR_MISPLACED = (
+        "ACL operator must be placed immediately after an ingest operator. Current predecessor: {predecessor_operator}"
+    )
     ACL_INVALID_PROVIDER = "ACL operator requires ingest_source to use 'sharepoint' provider, but found '{provider}'"
     MULTIPLE_ACL_OPERATORS = "Multiple ACL operators detected in the flow. Only one ACL operator is allowed per flow."
+
+    # Storage Output Operator errors
+    STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE = (
+        "storage_output: mode '{mode}' requires an upstream 'ingest_source' operator"
+    )

@@ -313,7 +313,6 @@ curl -X GET "http://localhost:8000/api/v1/document-libraries?offset=0&limit=10"
 curl -X GET "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets"
 ```
 
-
 ## Python Client Example
 
 ```python
@@ -324,7 +323,7 @@ class DocumentLibraryClient:
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
         self.api_path = "/api/v1/document-libraries"
-    
+
     def create_library(self, name: str, description: str = None, tags: list = None):
         """Create a new document library"""
         url = f"{self.base_url}{self.api_path}"
@@ -333,18 +332,18 @@ class DocumentLibraryClient:
             payload["description"] = description
         if tags:
             payload["tags"] = tags
-        
+
         response = requests.post(url, json=payload)
         response.raise_for_status()
         return response.json()
-    
+
     def get_library(self, library_id: str):
         """Get a document library by ID"""
         url = f"{self.base_url}{self.api_path}/{library_id}"
         response = requests.get(url)
         response.raise_for_status()
         return response.json()
-    
+
     def update_library(self, library_id: str, name: str = None,
                       description: str = None, tags: list = None):
         """Update a document library"""
@@ -356,31 +355,31 @@ class DocumentLibraryClient:
             payload["description"] = description
         if tags:
             payload["tags"] = tags
-        
+
         response = requests.patch(url, json=payload)
         response.raise_for_status()
         return response.json()
-    
+
     def delete_library(self, library_id: str):
         """Delete a document library"""
         url = f"{self.base_url}{self.api_path}/{library_id}"
         response = requests.delete(url)
         response.raise_for_status()
-    
+
     def add_document_sets(self, library_id: str, document_set_ids: list[str]):
         """Add document sets to a library (bulk operation)"""
         url = f"{self.base_url}{self.api_path}/{library_id}/document-sets"
         params = {"document_sets_ids": ",".join(document_set_ids)}
         response = requests.put(url, params=params)
         response.raise_for_status()
-    
+
     def remove_document_sets(self, library_id: str, document_set_ids: list[str]):
         """Remove document sets from a library (bulk operation)"""
         url = f"{self.base_url}{self.api_path}/{library_id}/document-sets"
         params = {"document_sets_ids": ",".join(document_set_ids)}
         response = requests.delete(url, params=params)
         response.raise_for_status()
-    
+
     def list_document_sets(self, library_id: str):
         """List document sets in a library"""
         url = f"{self.base_url}{self.api_path}/{library_id}/document-sets"
@@ -391,7 +390,7 @@ class DocumentLibraryClient:
 # Usage example
 if __name__ == "__main__":
     client = DocumentLibraryClient()
-    
+
     # Create a library
     library = client.create_library(
         name="Invoice Processing Library",
@@ -399,10 +398,10 @@ if __name__ == "__main__":
         tags=["invoices", "accounting", "q1-2024"]
     )
     print(f"Created library: {library['library_id']}")
-    
+
     # Add document sets (bulk operation)
     client.add_document_sets(library['library_id'], ["docset-001", "docset-002"])
-    
+
     # List document sets in library
     doc_sets = client.list_document_sets(library['library_id'])
     print(f"Library has {len(doc_sets['document_sets'])} document sets")

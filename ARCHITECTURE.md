@@ -1,8 +1,4 @@
----
-title: Docling Pipelines Architecture
----
-
-# Docling Pipelines Architecture
+# Docling-pipelines Architecture
 
 ## Table of Contents
 
@@ -22,15 +18,15 @@ title: Docling Pipelines Architecture
 
 ---
 
-This document describes the architecture and organization of the Docling Pipelines repository.
+This document describes the architecture and organization of the Docling-pipelinesrepository.
 
 ## Overview
 
-Docling Pipelines is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities. It uses a mixed architecture approach comprising of dynamic plugin discovery across operators, hexagonal architecture in subsystems that need interchangeable external services.
+Docling-pipelines is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities. It uses a mixed architecture approach comprising of dynamic plugin discovery across operators, hexagonal architecture in subsystems that need interchangeable external services.
 
 ### Key Capabilities
 
-- **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
+- **Operator-Based Architecture**: 20+ specialized operators organized into 6 categories (Extract, Ingest, Functional, Quality, VectorDB, Storage)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
 - **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
 - **Prefect Orchestration**: Workflow execution managed by Prefect with support for both ephemeral (local) and distributed execution via work pools (Docker)
@@ -38,7 +34,7 @@ Docling Pipelines is a modular, operator-based data processing framework designe
 
 ### Architectural Patterns
 
-Docling Pipelines intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
+Docling-pipelines intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
 
 - **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes. Quality operators such as the PII/HAP stack use runtime-native ports-and-adapters packages under [`src/docpipe/core/operators/quality`](src/docpipe/core/operators/quality).
 - **Factory Pattern**: `OrchestratorFactory` and `OperatorFactory` provide centralized instantiation logic for orchestrators and operators
@@ -118,6 +114,10 @@ graph TB
         end
         subgraph "VectorDB"
             VDB[VectorDBOperator]
+        end
+        subgraph "Storage"
+            DSO[DocumentSetOperator]
+            SOO[StorageOutputOperator]
         end
     end
 
@@ -239,7 +239,7 @@ This separation keeps write paths simple and makes aggregation behavior explicit
 
 ### Micro-Batching Model
 
-For micro-batch execution, docpipe stores node statistics at batch granularity.
+For micro-batch execution, Docling-pipelines stores node statistics at batch granularity.
 
 - Every batch execution can produce a separate [`NodeStatsDto`](src/docpipe/api/dto/node_stats_dto.py) record.
 - Batch records are keyed by `job_run_id`, `node_id`, and `batch_id`.
@@ -281,7 +281,7 @@ See [`docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/internals/NODE
 
 ### 1. Operator Pattern
 
-Operators are the fundamental building blocks of docpipe. Each operator is a self-contained unit that performs a specific data processing task.
+Operators are the fundamental building blocks of Docling Pipelines. Each operator is a self-contained unit that performs a specific data processing task.
 
 **Key Characteristics:**
 
@@ -303,6 +303,7 @@ graph LR
     OP --> FUN[Functional]
     OP --> QUA[Quality]
     OP --> VDB[VectorDB]
+    OP --> STO[Storage]
 
     ING --> I1[IngestLocalOperator]
     ING --> I2[IngestSourceOperator]
@@ -326,12 +327,16 @@ graph LR
 
     VDB --> V1[VectorDBOperator]
 
+    STO --> S1[DocumentSetOperator]
+    STO --> S2[StorageOutputOperator]
+
     style OP fill:#f9f9f9
     style EXT fill:#ffe6e6
     style ING fill:#e6f3ff
     style FUN fill:#fff4e6
     style QUA fill:#e6ffe6
     style VDB fill:#f3e6ff
+    style STO fill:#e6f9f9
 ```
 
 ### Custom Operator Ownership and Priority
@@ -339,19 +344,21 @@ graph LR
 All operators must properly identify themselves using the `owner` attribute to ensure correct priority resolution in the operator factory.
 
 **Owner Attribute:**
-- **Docpipe operators**: `owner = DocpipeConstants.OWNER_DOCPIPE` (must be explicitly set for all built-in operators)
+- **Docling-pipelines operators**: `owner = DocpipeConstants.OWNER_DOCPIPE` (must be explicitly set for all built-in operators)
 - **Custom operators**: `owner = "custom"` (must be explicitly set)
 - **Default**: `owner = None` (inherited from [`AbstractOperator`](src/docpipe/core/operators/abstract_operator.py), treated as custom)
 
 **Priority Resolution:**
 
 When multiple operators share the same `short_name`, the operator factory uses priority-based resolution:
-- **Priority 1**: Custom operators (`owner="custom"` or `owner=None`)
-- **Priority 2**: Docpipe operators (`owner="docpipe"`)
+- **Priority 100**: Custom operators (`owner="custom"` or `owner=None`)
+- **Priority 200**: Docling-pipelines operators (`owner="docpipe"`)
 
-**Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override docpipe operators with the same `short_name`.
+Additional tiers can be registered at runtime via `OperatorFactory.register_owner_priority()`. Built-in values are spaced at intervals of 100, leaving room for consumer tiers without requiring magic numbers.
 
-**Example - Built-in Operator:**
+**Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override Docling-pipelines operators with the same `short_name`.
+
+**Example — Built-in Docling-pipelines Operator:**
 
 ```python
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -364,52 +371,9 @@ class MyDocpipeOperator(AbstractOperator):
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         super().__init__(config=config)
-        # Implementation
 ```
 
-**Example - Custom Operator:**
-
-```python
-from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-
-class MyCustomOperator(AbstractOperator):
-    short_name: str = "my_operator"
-    category: OperatorCategory = OperatorCategory.Functional  # Use appropriate standard category
-    owner: str = "custom"  # REQUIRED for custom operators
-
-    def __init__(self, *, config: dict[str, Any]) -> None:
-        super().__init__(config=config)
-        # Custom implementation
-```
-
-**Custom Operator Loading:**
-
-Custom operators can be loaded from three sources:
-
-1. **Filesystem Paths**: Local directories or files containing operator Python files
-2. **Python Packages**: Pip-installed packages with operators (recommended for distribution)
-3. **S3 URIs**: Remote storage for enterprise deployments (requires boto3)
-
-**Environment Variable Configuration:**
-
-The `DOCPIPE_CUSTOM_OPERATORS` environment variable must be a comma-separated string of package paths. Non-string values will be logged as warnings and ignored to prevent operator factory failures.:
-
-```bash
-# Filesystem path
-export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators"
-
-# Python package name (must be installed via pip)
-export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
-
-# S3 URI
-export DOCPIPE_CUSTOM_OPERATORS="s3://bucket/operators"
-
-# Multiple sources
-export DOCPIPE_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
-
-# Invalid (non-string values are ignored with warning)
-export DOCPIPE_CUSTOM_OPERATORS=123  # Will be ignored
-```
+For writing custom operators, loading sources, and the `DOCPIPE_CUSTOM_OPERATORS` environment variable, see the [Custom Operators Guide](docs/guides/CUSTOM_OPERATORS_GUIDE.md).
 
 See [`OperatorFactory`](src/docpipe/core/orchestration/operator_factory.py:35) for implementation details.
 
@@ -596,12 +560,13 @@ A **Flow** is a JSON-defined configuration that specifies a pipeline of operator
 
 **Flow Authoring Format vs Runtime DAG:**
 
-Docling Pipelines uses two distinct representations:
+
+Docling-pipelines uses two distinct representations:
 
 1. **Authoring Format** (User-facing): Simplified JSON structure for defining flows
    - Uses `flow` array with operator definitions
    - Uses `depends_on` to declare dependencies by operator name
-   - Uses `type` with short operator names (e.g., `ingest_local`, `extract_operator`)
+   - Uses `type` with short operator names (e.g., `ingest_source`, `extract_operator`)
    - Uses `config` for operator-specific parameters
 
 2. **Runtime DAG** (Internal): Compiled execution graph with nodes and edges
@@ -617,16 +582,17 @@ Docling Pipelines uses two distinct representations:
   "description": "Ingest, extract, chunk, and embed documents",
   "flow": [
     {
-      "name": "ingest_local_folder",
-      "type": "ingest_local",
+      "name": "ingest_source_filesystem",
+      "type": "ingest_source",
       "config": {
-        "paths": "./sample_documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]}
       }
     },
     {
       "name": "extract_with_docling",
       "type": "extract_operator",
-      "depends_on": ["ingest_local_folder"],
+      "depends_on": ["ingest_source_filesystem"],
       "config": {
         "text_extraction": {
           "provider": "docling_library"
@@ -648,9 +614,32 @@ Docling Pipelines uses two distinct representations:
 - **flow_name**: Human-readable flow identifier
 - **flow**: Array of operator definitions with unique names
 - **depends_on**: Array of operator names that must execute before this operator
-- **type**: Short operator name (e.g., `ingest_local`, `chunker`, `embeddings`, `vectordb`)
+- **type**: Short operator name (e.g., `ingest_source`, `chunker`, `embeddings`, `vectordb`)
 - **config**: Operator-specific configuration parameters
 - **Automatic Compilation**: The system automatically generates the runtime DAG from the authoring format
+
+### Flow Definition Storage
+
+When a flow is executed, the **original flow definition** (before compilation to runtime DAG format) is automatically saved to the filesystem for audit and reproducibility purposes.
+
+**Storage Location:**
+```
+{data_path}/{job_id}/{job_run_id}/flow_definition.json
+```
+
+**Key Details:**
+- The original flow definition is stored at the start of each job run execution
+- This preserves the exact flow configuration used for that specific execution
+- Enables audit trails and reproducibility of past executions
+- The file is saved as `flow_definition.json` in the job run's data directory
+- Storage occurs in [`FlowExecutor`](src/docpipe/core/orchestration/flow_executor.py) via the job stats service
+
+**Example Path:**
+```
+/path/to/data/my-job-id/run-12345/flow_definition.json
+```
+
+This behavior ensures that even if the original flow file is modified or deleted, the exact configuration used for each execution is preserved and can be retrieved for debugging, auditing, or re-execution purposes.
 
 ### 4. DAG-Based Execution Model
 
@@ -1440,7 +1429,8 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph "Docling Pipelines Operators"
+
+    subgraph "Docling-pipelines Operators"
         EXT[ExtractOperator]
         EMB[EmbeddingsOperator]
     end
@@ -1504,7 +1494,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Docling Pipelines Operators"
+    subgraph "Docling-pipelines Operators"
         EXT[ExtractOperator]
         DC[DocumentClassifier]
     end
@@ -1593,7 +1583,7 @@ If neither is provided, a `ConfigurationError` will be thrown.
 
 ```mermaid
 graph TB
-    subgraph "Docling Pipelines Layer"
+    subgraph "Docling-pipelines Layer"
         VDB[VectorDBOperator]
     end
 
@@ -2068,15 +2058,16 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Docling Pipelines Layer"
+
+    subgraph "Docling-pipelines Layer"
         VDB[VectorDBOperator]
     end
-    
+
     subgraph "Adapter Layer (Hexagonal)"
         PORT[VectorDB Port<br/>Interface]
         MA[Milvus Adapter]
     end
-    
+
     subgraph "Milvus Service"
         MS[Milvus Server<br/>localhost:19530]
         COLL[Collections]
@@ -2084,7 +2075,7 @@ graph TB
         IDX2[IVF_FLAT Index]
         IDX3[FLAT Index]
     end
-    
+
     VDB --> PORT
     PORT --> MA
     MA --> MS
@@ -2092,7 +2083,7 @@ graph TB
     COLL --> IDX1
     COLL --> IDX2
     COLL --> IDX3
-    
+
     style VDB fill:#ffe1e1
     style PORT fill:#fff4e1
     style MA fill:#e1ffe1
@@ -2138,7 +2129,7 @@ graph TB
       "uri": null,
       "token": null,
       "username": "root",
-      "password": "<your-milvus-password>",
+      "password": "<your-milvus-password>"
       "database": "default",
       "secure": false,
       "index_type": "HNSW",
@@ -2170,7 +2161,7 @@ graph TB
       "host": "localhost",
       "port": 19530,
       "username": "root",
-      "password": "<your-milvus-password>",
+      "password": "<your-milvus-password>"
       "index_type": "SPARSE_INVERTED_INDEX",
       "metric_type": "BM25",
       "primary_key_field": "pk"
@@ -2446,7 +2437,8 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "Docling Pipelines Layer"
+
+    subgraph "Docling-pipelines Layer"
         EXT[ExtractOperator]
     end
 
@@ -2518,26 +2510,26 @@ graph LR
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   DocumentClassifierOperator                 │
-│                     (Main Operator)                          │
+│                   DocumentClassifierOperator                │
+│                     (Main Operator)                         │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  ClassificationService                       │
-│              (Business Logic Layer)                          │
-│  ┌──────────────────────────────────────────────────────┐  │
+│                  ClassificationService                      │
+│              (Business Logic Layer)                         │
+│  ┌─────────────────────────────────────────────────-─────┐  │
 │  │  Domain Models:                                       │  │
 │  │  - ClassificationRequest                              │  │
 │  │  - ClassificationResponse                             │  │
 │  │  - build_classification_prompt()                      │  │
-│  └──────────────────────────────────────────────────────┘  │
+│  └───────────────────────────────────────────────-───────┘  │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Shared LLM Adapter Infrastructure               │
-│                  (LLMAdapterFactory)                         │
+│              Shared LLM Adapter Infrastructure              │
+│                  (LLMAdapterFactory)                        │
 └────────────────────────┬────────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
@@ -2656,7 +2648,8 @@ The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII
 
 ```mermaid
 graph TB
-    subgraph "Docling Pipelines Layer"
+
+    subgraph "Docling-pipelines Layer"
         PIIHAP[PIIAndHAPAnnotator]
     end
 
@@ -2814,7 +2807,8 @@ The IngestSource operator provides a unified interface for ingesting documents f
 
 ```mermaid
 graph TB
-    subgraph "Docling Pipelines Layer"
+
+    subgraph "Docling-pipelines Layer"
         ISO[IngestSourceOperator]
     end
 
@@ -2923,7 +2917,7 @@ graph TB
   "name": "ingest_s3",
   "config": {
     "provider": "s3",
-    "connection_params": {
+    "provider_config": {
       "bucket": "my-documents",
       "prefix": "invoices/"
     },
@@ -2946,7 +2940,7 @@ graph TB
   "name": "ingest_ibm_cos",
   "config": {
     "provider": "ibm_cos",
-    "connection_params": {
+    "provider_config": {
       "bucket": "enterprise-docs",
       "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
       "prefix": "contracts/"
@@ -2968,7 +2962,7 @@ graph TB
   "name": "ingest_sharepoint",
   "config": {
     "provider": "sharepoint",
-    "connection_params": {
+    "provider_config": {
       "drive_id": "b!abc123...",
       "folder_path": "/Shared Documents/Projects",
       "recursive": true
@@ -2992,7 +2986,7 @@ graph TB
   "name": "ingest_onedrive",
   "config": {
     "provider": "onedrive",
-    "connection_params": {
+    "provider_config": {
       "drive_id": "b!xyz789...",
       "folder_path": "/Documents/Reports",
       "recursive": false
@@ -3015,7 +3009,7 @@ graph TB
   "name": "ingest_google_drive",
   "config": {
     "provider": "google_drive",
-    "connection_params": {
+    "provider_config": {
       "folder_id": "1a2b3c4d5e6f7g8h9i0j",
       "recursive": true
     },
@@ -3034,7 +3028,7 @@ graph TB
   "name": "ingest_web",
   "config": {
     "provider": "web",
-    "connection_params": {
+    "provider_config": {
       "urls": ["https://example.com", "https://www.iana.org/domains/reserved"],
       "max_depth": 2,
       "prevent_outside": true,
@@ -3211,33 +3205,35 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 ┌─────────────────────────────────────────────────────────────┐
 │                    DocumentSetOperator                      │
 │         (Orchestrates via DocumentSetService)               │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-        ┌────────────┴────────────┐
-        │                         │
-        ▼                         ▼
-┌──────────────────┐    ┌──────────────────┐
-│ Metadata Factory │    │ Data Store       │
-│                  │    │ Factory          │
-└────────┬─────────┘    └────────┬─────────┘
-         │                       │
-         ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐
-│ Metadata Port    │    │ Data Store Port  │
-│ (Interface)      │    │ (Interface)      │
-└────────┬─────────┘    └────────┬─────────┘
-         │                       │
-         ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐
-│ DuckDB Metadata  │    │ DuckDB Data      │
-│ Adapter          │    │ Adapter          │
-└────────┬─────────┘    └────────┬─────────┘
-         │                       │
-         ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐
-│ KeyValueStorage  │    │ TableStorage     │
-│ (Interface)      │    │ (Interface)      │
-└──────────────────┘    └──────────────────┘
+└──────────────┬──────────────────────────────────────────────┘
+               │
+   ┌───────────┼───────────────────┐
+   │           │                   │
+   ▼           ▼                   ▼
+┌──────────┐ ┌──────────────┐ ┌──────────────────┐
+│ Metadata │ │ Data Store   │ │ Attachment Repo  │
+│ Factory  │ │ Factory      │ │ Factory          │
+└────┬─────┘ └──────┬───────┘ └────────┬─────────┘
+     │               │                  │
+     ▼               ▼                  ▼
+┌──────────┐ ┌──────────────┐ ┌──────────────────┐
+│ Metadata │ │ Data Store   │ │ Attachment Repo  │
+│ Port     │ │ Port         │ │ Port             │
+└────┬─────┘ └──────┬───────┘ └────────┬─────────┘
+     │               │                  │
+     ▼               ▼                  ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────────┐
+│ DuckDB       │ │ DuckDB Data  │ │ DuckDB           │
+│ Metadata     │ │ Adapter      │ │ Attachment Repo  │
+│ Adapter      │ └──────┬───────┘ └────────┬─────────┘
+└──────┬───────┘        │                  │
+       │                ▼                  ▼
+       ▼         ┌──────────────┐ ┌──────────────────┐
+┌──────────────┐ │ TableStorage │ │ KeyValueStorage  │
+│ KeyValue     │ │ (Interface)  │ │ (Interface)      │
+│ Storage      │ └──────────────┘ └──────────────────┘
+│ (Interface)  │
+└──────────────┘
 ```
 
 #### Components
@@ -3246,15 +3242,21 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 
 - **Models** (`models/`): Pure Python domain entities
   - `DocumentSet`: Core entity for document collections
-  - `StorageReference`: Physical storage location metadata
   - `DataCard`: Lineage and provenance tracking
 - **Ports** (`ports/`): Abstract interfaces defining contracts
-  - `DocumentSetMetadataRepository`: Metadata CRUD operations
-  - `DocumentSetDataStore`: PyArrow table data operations
+  - `AssetRepository[DocumentSet]`: Metadata CRUD operations
+  - `DocumentSetStorage`: PyArrow table data operations
 - **Types** (`types/`): TypedDict-based configuration types
   - `RepositoryConfig`: Metadata repository configuration
   - `DataStoreConfig`: Data store configuration
   - `HealthCheckResult`: Health check response structure
+
+**1a. Common Domain Layer** (`src/docpipe/core/assets/common/`)
+
+- **Models** (`common/domain/models/`):
+  - `AttachmentRef`: Backend-agnostic storage coordinate. Holds a common envelope (`backend_type`, `name`) readable by the service and operator layers, plus a `details` dict opaque to everything except the adapter that created it.
+- **Ports** (`common/domain/ports/`):
+  - `AttachmentRepository`: Lifecycle management for `AttachmentRef` records — `save`, `get`, `delete`, `exists`.
 
 **2. Application Layer** (`src/docpipe/core/assets/document_sets/application/`)
 
@@ -3264,51 +3266,20 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 - Independent of concrete storage implementation
 - Injected with metadata repository and data store adapters
 
-**3. Adapter Layer** (`src/docpipe/core/assets/document_sets/adapters/`)
+**3. Adapter Layer**
 
-- **DuckDB Adapters** (`duckdb/`):
-  - **DuckDBDocumentSetMetadataRepository**: Metadata persistence
-    - Uses KeyValueStorage interface for JSON-based metadata
-    - Stores in 'document_sets' collection
-  - **DuckDBDocumentSetDataStore**: Data persistence
-    - Uses TableStorage interface for PyArrow tables
-    - Handles schema creation, upsert, preview, deletion
-- Registered via `@MetadataRepositoryFactory.register()` and `@DataStoreFactory.register()` decorators
-- Supports health checks and configuration validation
+- **DuckDB document set adapters** (`document_sets/adapters/duckdb/`):
+  - **DuckDBAssetRepository** (`common/adapters/repositories/`): Generic metadata persistence using `KeyValueStorage`; stores in the collection returned by `DocumentSet.get_collection_name()` (i.e. `document_sets`)
+  - **DuckDBDocumentSetStorage**: Data persistence using `TableStorage`; handles schema creation, upsert, preview, deletion; returns `AttachmentRef` from `store()`
+- **Common adapters** (`common/adapters/repositories/`):
+  - **DuckDBAttachmentRepository**: Persists `AttachmentRef` records in the `document_set_attachments` KV collection. Registered via `@AttachmentRepositoryFactory.register(name="duckdb")` and self-wires via its `create(*, config)` classmethod.
+- `DuckDBAssetRepository` is registered in `RepositoryFactory.get_available_repository_types()` as a dict entry (not a decorator). `DuckDBAttachmentRepository` uses the `@AttachmentRepositoryFactory.register()` decorator.
 
-**4. Factory Layer** (`src/docpipe/core/assets/document_sets/factories/`)
+**4. Factory Layer**
 
-- **MetadataRepositoryFactory**: Creates metadata repository adapters
-  - Decorator-based registration system
-  - Validates configuration before instantiation
-  - Supports multiple backends (currently: duckdb)
-- **DataStoreFactory**: Creates data store adapters
-  - Decorator-based registration system
-  - Validates configuration before instantiation
-  - Supports multiple backends (currently: duckdb)
-
-#### Configuration
-
-**Flow Configuration (global_config)**:
-
-```json
-{
-  "global_config": {
-    "storage_type": "duckdb",
-    "database_path": "data/assets.db"
-  },
-  "nodes": [
-    {
-      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
-      "operator_params": {
-        "document_set_name": "my_documents",
-        "description": "Document collection",
-        "data_backend": "duckdb"
-      }
-    }
-  ]
-}
-```
+- **RepositoryFactory** (`common/factories/`): Creates `AssetRepository[DocumentSet]` adapters; reads backend type from `assets_management.document_set_repository.type` in `docling-pipelines-config.yaml`
+- **DataStoreFactory** (`document_sets/factories/`): Creates data store adapters
+- **AttachmentRepositoryFactory** (`common/factories/`): Decorator-registry factory for attachment repository adapters; adapter is selected by name matching `document_set_repository.type` in `docling-pipelines-config.yaml`
 
 #### Entry Points
 
@@ -3318,7 +3289,7 @@ Document sets can be managed through multiple entry points that share the same a
    - Persists PyArrow tables during flow execution
    - Returns the original input table unchanged for downstream operators
    - Uses factory-created metadata and data adapters
-   - Storage backend configured via `global_config.storage_type`
+   - Storage backend configured via `assets_management.document_set_repository.type` in `docling-pipelines-config.yaml`
 
 2. **REST API** via `/api/v1/document-sets`
    - Creates, lists, retrieves, updates, deletes, and previews document sets
@@ -3376,17 +3347,29 @@ class PostgreSQLDataStore(DocumentSetDataStore):
     # ... implement port methods
 ```
 
-4. **Update Configuration**:
+4. **Update Configuration** in `docling-pipelines-config.yaml`:
+
+```yaml
+assets_management:
+  document_set_repository:
+    type: postgresql
+    config:
+      database_path: ./data/document_sets/extracted_docs.duckdb
+```
+
+And the flow JSON:
 
 ```json
 {
-  "global_config": {
-    "storage_type": "postgresql",
-    "connection_string": "postgresql://user:pass@localhost:5432/documents"  # pragma: allowlist secret
-  },
-  "nodes": [
+  "flow_name": "ingest-extract-documentset",
+  "flow": [
     {
-      "operator_params": {
+      "type": "document_set",
+      "name": "documents",
+      "config": {
+        "document_set_name": "documents_collection",
+        "description": "Persistent storage of extracted document content with metadata tracking",
+        "database_path": "./data/document_sets/extracted_docs.duckdb",
         "data_backend": "postgresql"
       }
     }
@@ -3408,18 +3391,22 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 
 ```json
 {
-  "global_config": {
-    "storage_type": "duckdb",
-    "database_path": "data/assets.db"
-  },
-  "nodes": [
+  "flow_name": "ingest-extract-documentset",
+  "flow": [
     {
-      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
-      "operator_params": {
-        "document_set_name": "my_documents",
-        "description": "Processed documents",
+      "type": "document_set",
+      "name": "documents",
+      "config": {
+        "document_set_name": "documents_collection",
+        "description": "Persistent storage of extracted document content with metadata tracking",
+        "database_path": "./data/document_sets/extracted_docs.duckdb",
         "data_backend": "duckdb",
-        "metadata": { "source": "pipeline_v1" }
+        "metadata": {
+          "pipeline_version": "1.0",
+          "extraction_method": "docling",
+          "created_by": "docpipe_pipeline",
+          "purpose": "demonstration_flow"
+        }
       }
     }
   ]
@@ -3431,25 +3418,31 @@ class PostgreSQLDataStore(DocumentSetDataStore):
 ```
 Ingest → Extract → [Other Operators] → DocumentSetOperator → [Downstream Operators]
                                               │
-                                              ├─> MetadataRepositoryFactory → DuckDB adapter → KeyValueStorage
-                                              ├─> DataStoreFactory → DuckDB adapter → TableStorage
+                                              ├─> MetadataRepositoryFactory   → DuckDB adapter → KeyValueStorage
+                                              ├─> DataStoreFactory            → DuckDB adapter → TableStorage
+                                              ├─> AttachmentRepositoryFactory → DuckDB adapter → KeyValueStorage
                                               └─> Original table (pass-through)
 ```
 
+Storage coordinates (`AttachmentRef`) are persisted separately from the metadata record.
+The metadata record and the attachment record have independent lifecycles — deletion removes
+the backing data first, then the attachment record, then the metadata record last.
+
 #### Storage Type Configuration
 
-The `storage_type` in `global_config` determines the storage backend for metadata:
+The metadata and attachment storage backend is configured via `docling-pipelines-config.yaml`:
 
-- **"duckdb"** (default): Uses DuckDB for both metadata and data storage
-  - Metadata stored in key-value tables
-  - Data stored as PyArrow tables
-  - Single database file for all assets
-- **"filesystem"**: Uses filesystem for metadata (key-value only)
-  - Metadata stored as JSON files
-  - Data storage still requires DuckDB (via `data_backend`)
-  - Suitable for development and small-scale deployments
+```yaml
+assets_management:
+  document_set_repository:
+    type: duckdb          # "duckdb" is the default
+    config:
+      database_path: data/duckdb/document_sets.duckdb
+```
 
-**Note**: The `data_backend` parameter in operator configuration is separate from `storage_type` and controls where PyArrow table data is stored.
+- **"duckdb"** (default): Metadata and attachment coordinates stored in DuckDB key-value tables alongside the data tables.
+
+**Note**: The `data_backend` parameter in the operator's flow config controls where PyArrow table data is stored, and is independent of the metadata/attachment backend in the YAML.
 
 ## Deployment Patterns
 
@@ -3808,7 +3801,7 @@ The OAuth2 subsystem follows the Authorization Code flow with PKCE-style state v
 **Flow:**
 1. `GET /auth/oauth2/authorize` — generates a cryptographically random `state` token (via `secrets.token_urlsafe(32)`) and redirects to the provider.
 2. `GET /auth/oauth2/callback` — validates the returned `state`, exchanges the authorization code for tokens, and validates the `id_token` signature against the provider's JWKS.
-3. A Docpipe-signed HS256 JWT is issued and returned to the caller.
+3. A Docling Pipelines-signed HS256 JWT is issued and returned to the caller.
 
 **ID token validation** (`OAuth2Provider.validate_id_token`):
 - Fetches the provider's JWKS and matches the `kid` header.
@@ -3876,8 +3869,44 @@ All sensitive credentials are supplied at runtime via environment variables and 
 | OpenAI / Hugging Face API keys | `OPENAI_API_KEY`, `HUGGINGFACE_API_KEY` env vars |
 | OpenSearch credentials | `OPENSEARCH_USERNAME`, `OPENSEARCH_PASSWORD` env vars |
 | Object storage keys (S3/COS) | `access_key`, `secret_key` in operator config |
+| HashiCorp Vault AppRole credentials | `VAULT_ROLE_ID`, `VAULT_SECRET_ID` env vars (or `_FILE` variants for Docker/K8s) |
 
 Configuration files support environment variable substitution (e.g. `${WATSONX_API_KEY}`) so flow definitions remain secret-free. The repository is protected by `detect-secrets` pre-commit hooks to prevent accidental secret commits.
+
+#### HashiCorp Vault Integration
+
+For deployments that centralise secrets in HashiCorp Vault, operator configs can reference secrets using the `vault://` URI scheme:
+
+```json
+"property_key": "vault://hashicorp/<path>#<key>"  // pragma: allowlist secret
+```
+
+The integration is enabled per-deployment in `docling-pipelines-config.yaml`:
+
+```yaml
+secrets:
+  vault:
+    enabled: true
+    provider: hashicorp
+```
+
+Vault connection credentials are always read from environment variables — never from the config file:
+
+| Variable | Description |
+|---|---|
+| `VAULT_ADDR` | Vault server URL (default: `http://127.0.0.1:8200`) |
+| `VAULT_ROLE_ID` | AppRole role ID |
+| `VAULT_SECRET_ID` | AppRole secret ID |
+| `VAULT_MOUNT_POINT` | KV secrets engine mount (default: `secret`) |
+| `VAULT_APPROLE_MOUNT` | AppRole auth mount (default: `approle`) |
+| `VAULT_NAMESPACE` | Vault Enterprise namespace (optional) |
+| `VAULT_CA_CERT` | Path to CA certificate for TLS (optional) |
+| `VAULT_CLIENT_CERT` / `VAULT_CLIENT_KEY` | Client cert/key for mTLS (optional) |
+| `VAULT_TLS_SKIP_VERIFY` | Skip TLS verification — development only (default: `false`) |
+
+Docker and Kubernetes file-backed secrets are supported via the `_FILE` suffix convention (e.g. `VAULT_ROLE_ID_FILE=/run/secrets/vault_role_id`).
+
+Secret resolution is transparent — values that do not start with `vault://` are passed to operators unchanged, so Vault can be adopted incrementally without modifying existing flows.
 
 ---
 
@@ -4196,6 +4225,56 @@ docpipe/
 - **Error Messages**: Centralized error message management
 
 #### Document Classes (`common/document_classes/`)
+#### Constants (`core/constants/`)
+
+**File Extension Constants** ([`operator_constants.py`](src/docpipe/core/constants/operator_constants.py))
+
+The `FileExtensions` class provides centralized file format constants used across all operators for consistent file type handling:
+
+**Document Formats:**
+- PDF: `.pdf`
+- Microsoft Word: `.docx`
+- Microsoft PowerPoint: `.pptx`
+- Microsoft Excel: `.xlsx`
+
+**Text Formats:**
+- Markdown: `.md`
+- Plain Text: `.txt`
+- HTML: `.html`
+
+**Image Formats:**
+- PNG: `.png`
+- JPEG: `.jpeg`, `.jpg`
+- TIFF: `.tiff`, `.tif`
+- BMP: `.bmp`
+- WebP: `.webp`
+- GIF: `.gif`
+- JFIF: `.jfif`
+
+**Audio Formats** (require ASR):
+- WAV: `.wav`
+- MP3: `.mp3`
+- M4A: `.m4a`
+- AAC: `.aac`
+- OGG: `.ogg`
+- FLAC: `.flac`
+
+**Video Formats** (require ASR):
+- MP4: `.mp4`
+- AVI: `.avi`
+- MOV: `.mov`
+
+**Grouped Constants:**
+- `BASE_EXTENSIONS`: Core supported formats (documents, text, images)
+- `AUDIO_VIDEO_EXTENSIONS`: ASR-dependent formats (audio and video)
+- `CLASSIFICATION_FILE_EXTENSIONS`: Document classification formats (BASE_EXTENSIONS excluding .txt and .md)
+
+**Usage in Operators:**
+- [`ExtractOperator`](src/docpipe/core/operators/extract/extract_operator.py): Uses `FileExtensions.EXT_TXT` for text file handling
+- [`IngestSourceOperator`](src/docpipe/core/operators/ingest/ingest_source.py): Uses `FileExtensions.BASE_EXTENSIONS` for file filtering
+- [`DocumentClassifier`](src/docpipe/core/operators/quality/classification/document_classifier.py): Uses `FileExtensions.CLASSIFICATION_FILE_EXTENSIONS` for validation
+- [`OperatorUtils`](src/docpipe/core/operators/operator_utils.py): Uses centralized constants in `get_supported_file_extensions()`
+
 
 ### 5. Storage Layer (`src/docpipe/storage/`)
 
@@ -4302,8 +4381,12 @@ Hexagonal architecture implementation for document set management:
 **Domain Layer** (`domain/models/`):
 
 - **DocumentSet**: Core entity for named document collections
-- **StorageReference**: Physical storage location metadata
 - **DataCard**: Lineage and provenance tracking
+
+**Common Domain Layer** (`common/domain/`):
+
+- **AttachmentRef**: Backend-agnostic storage coordinate for asset attachments
+- **AttachmentRepository**: Port for attachment lifecycle management
 
 **Domain Ports** (`domain/ports/`):
 
@@ -4489,96 +4572,19 @@ The Assets Management module provides metadata management for document collectio
 
 Operators are organized by category (defined in `OperatorCategory` enum). For complete operator API documentation including parameters, configuration options, and usage examples, see [Operator Reference](docs/reference/OPERATORS.md).
 
-#### Extract Operators (`extract/`)
+**Operator Categories:**
+- **Extract**: Document text and entity extraction
+- **Ingest**: Data source ingestion (local files, S3, SharePoint, etc.)
+- **Functional**: Data transformation (chunking, embeddings, branching, merging)
+- **Quality**: Data quality checks (deduplication, classification, PII detection)
+- **VectorDB**: Vector storage (OpenSearch, Milvus)
+- **Storage**: Persistent storage (DocumentSet with DuckDB) and file export to destinations (StorageOutputOperator — filesystem, S3, IBM COS, SharePoint, OneDrive, Google Drive)
 
-- **ExtractOperator**: Unified extraction operator using hexagonal architecture (ports and adapters pattern)
-  - **Architecture Layers**:
-    - **Domain Layer**: `EntityExtractionService` for business logic, domain models for extraction modes and requests
-    - **Port Layer**: `TextExtractionPort` and `EntityExtractionPort` interfaces
-    - **Adapter Layer**: Concrete implementations for different extraction strategies
-    - **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` for adapter creation
-  - **Text Extraction Modes**:
-    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines (via `DoclingAdapter`)
-    - `docling_serve`: Remote extraction via Docling Serve API with OCR support (via `DoclingServeAdapter`)
-  - **Entity Extraction Modes**:
-    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.) (via `LLMEntityAdapter`)
-    - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models (via `LLMEntityAdapter` - same adapter as litellm)
-    - `docling`: Template-based entity extraction using Docling templates (via `DoclingEntityAdapter`)
-    - `none`: No entity extraction (default)
-  - **Key Features**:
-    - Hexagonal architecture enables easy addition of new extraction strategies
-    - Clear separation between business logic (services), interfaces (ports), and implementations (adapters)
-    - Unified LLM support: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter` for consistent behavior
-    - Independent text and entity extraction mode selection
-    - Outputs extracted text plus estimated page-count metrics
-  - **Configuration**: Supports both text and entity extraction in a single operator with independent mode selection
-
-#### Ingest Operators (`ingest/`)
-
-- **IngestLocalOperator**: Local filesystem ingestion
-- **IngestSourceOperator**: Multi-provider data ingestion (object storage, IBM COS, SharePoint, OneDrive, Google Drive, web pages, custom loaders)
-
-#### Functional Operators (`functional/`)
-
-- **BranchingOperator**: Conditional workflow branching
-- **MergeOperator**: Combine multiple tables from branches using row concatenation or column joins
-- **Chunker**: Document chunking with multiple strategies and optional multi-provider LLM summarization:
-  - **Simple**: Basic text splitting with configurable chunk size and overlap
-  - **Semantic**: Sentence-based chunking using NLTK
-  - **Hybrid**: Advanced chunking using Docling library
-    - Supports both local execution (`docling_library` provider) and remote execution via docling-serve API (`docling_serve` provider) for offloading computation
-  - **Summarization**: Optional LLM-based chunk summarization using service layer architecture:
-    - **SummarizationService**: Dedicated service encapsulating summarization business logic (prompt engineering, response parsing, sliding window processing)
-    - **Multi-Provider Support**: Uses shared LLM infrastructure (LiteLLM, Watsonx.ai) via `LLMInferencePort`
-    - **Hexagonal Architecture**: Service depends on `LLMInferencePort` interface, implemented by `LiteLLMInferenceAdapter` and `WatsonXInferenceAdapter`
-    - **Lazy Initialization**: Service created during `transform()` for optimal resource usage
-- **DocIdHash**: Document ID generation (internal operator)
-- **EntityCurationOperator**: Schema-based entity transformation with 9 built-in transformations (currency, date, number parsing)
-- **NoopOperator**: Pass-through for testing
-- **EmbeddingsOperator**: Vector embedding generation
-
-#### Quality Operators (`quality/`)
-
-- **DocumentClassifier**: LLM-based document classification (simplified service-based architecture with LiteLLM and Watsonx.ai support via shared LLM infrastructure)
-- **Dedup**: Deduplication
-- **DocQuality**: Document quality assessment using dpk_doc_quality (word count, mean word length, symbol ratios, bad words, etc.)
-- **MLEnrichment**: ML-based enrichment
-- **Readability**: Readability scoring
-- **Redaction**: PII redaction
-- **SQLFilter**: SQL-based filtering
-- **LanguageDetection**: Language identification (hexagonal architecture with FastText adapter)
-- **PIIAndHAPAnnotator**: PII and HAP detection (hexagonal architecture with Ollama, WatsonX, and LiteLLM adapters)
-
-#### VectorDB Operators (`vectordb/`)
-
-- **VectorDBOperator**: Generic vector database operator using hexagonal architecture (ports & adapters)
-  - Supports multiple vector databases through adapter pattern
-  - **OpenSearch Adapter**: OpenSearch vector storage and retrieval with multiple KNN engines (NMSLIB, Faiss, Lucene)
-  - **Milvus Adapter**: Milvus vector storage supporting both standalone and wx.data deployments with multiple index types (HNSW, IVF_FLAT, FLAT, etc.)
-
-#### Storage Operators (`storage/`)
-
-- **DocumentSetOperator**: Persistent storage operator for pipeline data using document sets
-  - Stores PyArrow table data with DuckDB backend
-  - Automatic schema evolution and metrics computation
-  - Incremental updates with soft-delete cleanup support
-  - Pass-through design for downstream operator chaining
-  - Hexagonal architecture with service/repository/storage layers
-
-### 4. CLI Application (`src/docpipe/cli/`)
-
-- **docpipe_cli.py**: Command-line interface implementation
-- Uses `PythonOrchestrator` via `OrchestratorFactory`
-- Supports flow execution from JSON files
-
-## Key Features
-
-1. **Lightweight Deployment**: Runs locally
-2. **Python-Based Execution**: Pure Python operator implementations
-3. **Plugin System**: Extensible with custom operators
-4. **Flow Configuration**: JSON-based flow definitions
-5. **Local Data Processing**: File system and local storage support
-6. **Distributed Execution**: Support for scaling across multiple workers using Prefect work pools (Docker)
+**Architecture Highlights:**
+- Hexagonal architecture (ports & adapters) for extensibility
+- Multi-provider support (LiteLLM, Watsonx, Ollama, HuggingFace)
+- Service layer pattern for complex business logic
+- Factory pattern for adapter creation
 
 ## Operator Pattern
 
@@ -4588,6 +4594,22 @@ Each operator follows a consistent pattern:
 - Implements `transform()` method
 - Configurable via JSON
 - Chainable in flows
+
+### 4. CLI Application (`src/docpipe/cli/`)
+
+- **docpipe_cli.py**: Command-line interface implementation
+- Uses `PythonOrchestrator` via `OrchestratorFactory`
+- Supports flow execution from JSON files
+- Defaults `global_config.enable_micro_batching` to `true` when the flow does not set it explicitly
+
+## Key Features
+
+1. **Lightweight Deployment**: Runs locally
+2. **Python-Based Execution**: Pure Python operator implementations
+3. **Plugin System**: Extensible with custom operators
+4. **Flow Configuration**: JSON-based flow definitions
+5. **Local Data Processing**: File system and local storage support
+6. **Distributed Execution**: Support for scaling across multiple workers using Prefect work pools (Docker)
 
 ## Orchestrator Architecture
 
@@ -4615,6 +4637,8 @@ Supporting Components:
 
 The FastAPI-based REST API provides programmatic access to flow and job management.
 See [REST API Server](docs/api/REST_API_SERVER.md) for the full endpoint reference, startup instructions, and security overview.
+
+The REST job-run path defaults `enable_micro_batching` to `true` at runtime when the submitted flow configuration does not define it. An explicit user value still takes precedence.
 
 #### Flow Management Endpoints (`/api/v1/flows`)
 
@@ -4676,12 +4700,3 @@ This architecture enables:
 - **Developer Guide**: How to create custom operators
 - **API Reference**: Detailed API documentation
 - **Examples**: Sample flows and use cases
-
-## Future Enhancements
-
-- Additional operator types
-- Enhanced plugin system
-- Performance optimizations
-- Enhanced work pool types
-- Auto-scaling based on workload
-- Web UI for flow management

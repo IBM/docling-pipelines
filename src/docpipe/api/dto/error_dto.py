@@ -36,6 +36,7 @@ ErrorCode = Literal[
     "method_not_allowed",
     "conflict",
     "validation_error",
+    "too_early",
     "too_many_requests",
     "internal_error",
     "service_unavailable",
@@ -56,11 +57,16 @@ ErrorCode = Literal[
     "operator_execution_failed",
     "operator_metadata_failed",
     "sql_filter_error",
+    # Project error codes
+    "project_not_found",
+    "project_already_exists",
+    "project_invalid_data",
     # Document Library error codes
     "document_library_not_found",
     "document_library_already_exists",
     "document_library_invalid_data",
     "document_library_storage_error",
+    "document_library_documentset_not_found",
     # Document Set error codes
     "document_set_not_found",
     # Job run operation error codes
@@ -100,6 +106,8 @@ ErrorCode = Literal[
     "document_set_data_operation_failed",
     "document_set_invalid_config",
     "document_set_adapter_not_found",
+    # Document class operation error codes
+    "document_class_list_failed",
 ]
 
 

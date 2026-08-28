@@ -30,6 +30,11 @@ class OneDriveSourceConfig(BaseModel):
         None, description="Folder path to ingest from (e.g., '/Documents/Reports'). If None, starts from root."
     )
 
+    file_path: str | None = Field(
+        None,
+        description="Specific file path or URL to ingest. Can be: (1) Direct path like '/personal/user/Documents/file.txt', (2) SharePoint URL with 'id=' parameter. If provided, only this file is processed (ignores folder_path, recursive, and filter settings).",
+    )
+
     # Behavior configuration
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
 
@@ -93,7 +98,7 @@ class OneDriveSourceConfig(BaseModel):
         json_schema_extra: ClassVar[dict] = {
             "example": {
                 "client_id": "your-client-id",
-                "client_secret": "your-client-secret",  # pragma: allowlist secret
+                "client_secret": "your-client-secret",  # pragma: allowlist secret  # nosec B105 — placeholder value in docstring example, not a real credential
                 "tenant_id": "your-tenant-id",
                 "drive_id": "b!abc123...",
                 "folder_path": "/Documents",

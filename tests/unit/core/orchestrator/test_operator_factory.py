@@ -6,9 +6,13 @@ Tests frozenset-based operator loading and priority resolution.
 
 import os
 import sys
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from docpipe.core.constants import DocpipeConstants, OrchestratorType
 from docpipe.core.orchestration.operator_factory import OperatorFactory, OperatorFactoryProvider
@@ -28,7 +32,7 @@ def test_frozenset_loading():
     # Check that we have the expected operators
     expected_operators = [
         "extract_operator",
-        "ingest_local",
+        "ingest_source",
         "chunker",
         "embeddings",
         "noop",
@@ -157,17 +161,17 @@ def test_priority_map_custom_has_highest_priority():
     print("TEST 6: Priority Map - Custom Has Highest Priority")
     print("=" * 80)
 
-    custom_priority = OperatorFactory.PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
-    docpipe_priority = OperatorFactory.PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
+    custom_priority = DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_CUSTOM]
+    docpipe_priority = DocpipeConstants.OPERATOR_PRIORITY_MAP[DocpipeConstants.OWNER_DOCPIPE]
 
     print(f"custom priority: {custom_priority}")
     print(f"docpipe priority: {docpipe_priority}")
     print(f"Note: None owner is treated as '{DocpipeConstants.OWNER_CUSTOM}' during priority lookup")
 
-    if custom_priority == 1 and docpipe_priority == 2 and custom_priority < docpipe_priority:
-        print("✓ Custom operator priority is highest (priority 1)")
-        print("✓ Docpipe operator priority is lower (priority 2)")
-        print("✓ None owner is treated as custom (priority 1)")
+    if custom_priority == 100 and docpipe_priority == 200 and custom_priority < docpipe_priority:
+        print("✓ Custom operator priority is highest (priority 100)")
+        print("✓ Docpipe operator priority is lower (priority 200)")
+        print("✓ None owner is treated as custom (priority 100)")
         print("✓ Lower priority number carries higher weightage")
         return True
 
@@ -212,10 +216,166 @@ def main():
     if all(results):
         print("\n✓ ALL TESTS PASSED")
         return 0
-    else:
-        print("\n✗ SOME TESTS FAILED")
-        return 1
+    print("\n✗ SOME TESTS FAILED")
+    return 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# ---------------------------------------------------------------------------
+# Additional OperatorFactory tests (merged from test_operator_factory_coverage.py)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def clear_factory_cache():
+    """Clear operator factory cache before each test."""
+    OperatorFactoryProvider.operator_factories.clear()
+    yield
+    OperatorFactoryProvider.operator_factories.clear()
+
+
+class TestOperatorFactoryProviderEnvPackages:
+    def test_env_packages_merged_with_explicit(self):
+        with patch.dict(os.environ, {"DOCPIPE_CUSTOM_OPERATORS": "pkg_a,pkg_b"}):
+            with patch.object(OperatorFactory, "_load_custom_operators_from_packages", return_value={}):
+                factory = OperatorFactoryProvider.get_operator_factory(
+                    orchestrator=OrchestratorType.PYTHON,
+                    package_names=["explicit_pkg"],
+                    enable_custom_operators=True,
+                )
+        assert "explicit_pkg" in factory.package_names
+        assert "pkg_a" in factory.package_names
+
+    def test_env_package_empty_string_ignored(self):
+        with patch.dict(os.environ, {"DOCPIPE_CUSTOM_OPERATORS": ""}):
+            factory = OperatorFactoryProvider.get_operator_factory(
+                orchestrator=OrchestratorType.PYTHON,
+                enable_custom_operators=False,
+            )
+        assert factory is not None
+
+    def test_cached_factory_returned_on_second_call(self):
+        f1 = OperatorFactoryProvider.get_operator_factory(
+            orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False
+        )
+        f2 = OperatorFactoryProvider.get_operator_factory(
+            orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False
+        )
+        assert f1 is f2
+
+
+class TestRefreshOperatorFactory:
+    def test_refresh_creates_new_factory_when_absent(self):
+        factory = OperatorFactoryProvider.refresh_operator_factory(
+            orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False
+        )
+        assert factory is not None
+
+    def test_refresh_calls_refresh_on_existing_factory(self):
+        factory = OperatorFactoryProvider.get_operator_factory(
+            orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False
+        )
+        with patch.object(factory, "refresh_operators") as mock_refresh:
+            OperatorFactoryProvider.refresh_operator_factory(
+                orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False
+            )
+            mock_refresh.assert_called_once()
+
+
+class TestOperatorFactoryPriorityResolution:
+    def test_missing_short_name_returns_false(self):
+        class BadOperator:
+            pass
+
+        result = OperatorFactory.apply_priority_resolution(
+            new_operator=BadOperator,
+            operators_dict={},
+            default_owner=DocpipeConstants.OWNER_DOCPIPE,
+        )
+        assert result is False
+
+    def test_new_operator_added_when_no_conflict(self):
+        class GoodOperator:
+            short_name = "test_op"
+            owner = DocpipeConstants.OWNER_DOCPIPE
+
+        ops: dict = {}
+        result = OperatorFactory.apply_priority_resolution(
+            new_operator=GoodOperator, operators_dict=ops, default_owner=DocpipeConstants.OWNER_DOCPIPE
+        )
+        assert result is True
+        assert "test_op" in ops
+
+    def test_higher_priority_operator_overrides(self):
+        class DocpipeOp:
+            short_name = "my_op"
+            owner = DocpipeConstants.OWNER_DOCPIPE
+
+        class CustomOp:
+            short_name = "my_op"
+            owner = DocpipeConstants.OWNER_CUSTOM
+
+        ops = {"my_op": DocpipeOp}
+        result = OperatorFactory.apply_priority_resolution(
+            new_operator=CustomOp, operators_dict=ops, default_owner=DocpipeConstants.OWNER_CUSTOM
+        )
+        assert result is True
+        assert ops["my_op"] is CustomOp
+
+    def test_lower_priority_operator_does_not_override(self):
+        class CustomOp:
+            short_name = "my_op"
+            owner = DocpipeConstants.OWNER_CUSTOM
+
+        class DocpipeOp:
+            short_name = "my_op"
+            owner = DocpipeConstants.OWNER_DOCPIPE
+
+        ops = {"my_op": CustomOp}
+        result = OperatorFactory.apply_priority_resolution(
+            new_operator=DocpipeOp, operators_dict=ops, default_owner=DocpipeConstants.OWNER_DOCPIPE
+        )
+        assert result is False
+        assert ops["my_op"] is CustomOp
+
+
+class TestOperatorFactoryRefreshOperators:
+    def test_refresh_disabled_logs_warning(self):
+        factory = OperatorFactory(
+            orchestrator=OrchestratorType.PYTHON,
+            package_names=None,
+            enable_custom_operators=False,
+        )
+        factory.refresh_operators()
+
+    def test_refresh_with_no_packages_still_works(self):
+        factory = OperatorFactory(
+            orchestrator=OrchestratorType.PYTHON,
+            package_names=[],
+            enable_custom_operators=True,
+        )
+        with patch.object(factory, "_load_custom_operators_from_packages", return_value={}) as mock:
+            factory.refresh_operators()
+            mock.assert_called_once_with(clear_cache=True)
+
+
+class TestRegisterOwnerPriority:
+    def test_registers_custom_owner(self):
+        OperatorFactory.register_owner_priority(owner="my_company", priority=50)
+        assert DocpipeConstants.OPERATOR_PRIORITY_MAP["my_company"] == 50
+        # Cleanup
+        del DocpipeConstants.OPERATOR_PRIORITY_MAP["my_company"]
+
+
+class TestGetOperator:
+    def test_get_existing_operator(self):
+        factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False)
+        op = factory.get_operator(operator_name="noop")
+        assert op is not None
+
+    def test_get_missing_operator_returns_none(self):
+        factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON, enable_custom_operators=False)
+        assert factory.get_operator(operator_name="nonexistent_op_xyz") is None

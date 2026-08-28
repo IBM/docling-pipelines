@@ -62,10 +62,10 @@ uv run pytest tests/unit/operators/extract/ -v
 uv run pytest tests/unit/operators/chunker/ -v
 
 # Single test file
-uv run pytest tests/unit/operators/ingest/test_ingest_local.py -v
+uv run pytest tests/unit/operators/ingest/test_ingest_source.py -v
 
 # Single test function
-uv run pytest tests/unit/operators/ingest/test_ingest_local.py::TestIngestLocalOperator::test_metadata_only_mode -v
+uv run pytest tests/unit/operators/ingest/test_ingest_source.py::TestTransform::test_transform_success -v
 ```
 
 #### Integration Tests
@@ -143,11 +143,11 @@ class TestYourOperator:
             "param1": "value1",
             "param2": "value2"
         }
-    
+
     def test_basic_functionality(self, operator_config):
         operator = YourOperator(operator_config)
         result, metadata = operator.transform(input_data)
-        
+
         assert result is not None
         assert metadata["status"] == "completed"
 ```
@@ -163,16 +163,16 @@ class TestOperatorPipeline:
     @pytest.fixture
     def fixtures_dir(self):
         return Path(__file__).parent.parent / "fixtures" / "test_data"
-    
+
     def test_pipeline(self, fixtures_dir):
         # Step 1
         op1 = Operator1(config1)
         result1, _ = op1.transform(None)
-        
+
         # Step 2
         op2 = Operator2(config2)
         result2, _ = op2.transform(result1[0])
-        
+
         # Assertions
         assert result2[0].num_rows > 0
 ```

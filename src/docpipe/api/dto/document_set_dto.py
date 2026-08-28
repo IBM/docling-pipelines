@@ -259,7 +259,7 @@ class DocumentSetResponse(BaseModel):
         ...     id="550e8400-e29b-41d4-a716-446655440000",
         ...     name="Research Documents",
         ...     storage_backend="duckdb",
-        ...     database_path="/tmp/document_sets.duckdb",
+        ...     database_path="/var/data/document_sets.duckdb",
         ...     table_name="research_documents",
         ...     total_documents=125,
         ...     total_size_bytes=1048576,
@@ -305,15 +305,15 @@ class DocumentSetResponse(BaseModel):
         description=STORAGE_BACKEND_DESC,
         examples=["duckdb"],
     )
-    database_path: str = Field(
-        ...,
+    database_path: str | None = Field(
+        default=None,
         min_length=DATABASE_PATH_MIN_LENGTH,
         max_length=DATABASE_PATH_MAX_LENGTH,
         description=DATABASE_PATH_DESC,
-        examples=["/var/lib/docpipe/document_sets.duckdb"],
+        examples=["/var/data/document_sets.duckdb"],
     )
-    table_name: str = Field(
-        ...,
+    table_name: str | None = Field(
+        default=None,
         min_length=TABLE_NAME_MIN_LENGTH,
         max_length=TABLE_NAME_MAX_LENGTH,
         description=TABLE_NAME_DESC,
@@ -369,7 +369,7 @@ class DocumentSetResponse(BaseModel):
                     "name": "Research Documents",
                     "description": "Collection of research papers and reports.",
                     "storage_backend": "duckdb",
-                    "database_path": "/var/lib/docpipe/document_sets.duckdb",
+                    "database_path": "/var/data/document_sets.duckdb",
                     "table_name": "research_documents",
                     "total_documents": 125,
                     "total_size_bytes": 1048576,
@@ -452,7 +452,7 @@ class DocumentSetListResponse(BaseModel):
                             "name": "Research Documents",
                             "description": "Collection of research papers and reports.",
                             "storage_backend": "duckdb",
-                            "database_path": "/var/lib/docpipe/document_sets.duckdb",
+                            "database_path": "/var/data/document_sets.duckdb",
                             "table_name": "research_documents",
                             "total_documents": 125,
                             "total_size_bytes": 1048576,

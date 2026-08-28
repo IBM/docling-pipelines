@@ -14,7 +14,7 @@ Uses real components where possible to minimize mocking.
 """
 
 import json
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -41,11 +41,12 @@ def valid_flow_dict_with_output(fixtures_customer_support_dir):
         "description": "Test flow for CLI validation",
         "flow": [
             {
-                "type": OperatorConstants.Operators.INGEST_LOCAL,
+                "type": OperatorConstants.Operators.INGEST_SOURCE,
                 "name": "ingest",
                 "depends_on": [],
                 "config": {
-                    "paths": str(fixtures_customer_support_dir),
+                    "provider": "filesystem",
+                    "connection_params": {"paths": [str(fixtures_customer_support_dir)]},
                     "include_filter": "txt",
                 },
             },
@@ -116,8 +117,8 @@ def elyra_format_file(tmp_path):
                         {
                             "id": "node1",
                             "type": "execution_node",
-                            "op": "ingest_local",
-                            "parameters": {"paths": "./data", "include_filter": "txt"},
+                            "op": "ingest_source",
+                            "parameters": {"provider": "filesystem", "paths": ["./data"], "include_filter": "txt"},
                         }
                     ],
                 }
@@ -134,11 +135,14 @@ class TestLoadFlowDefinition:
 
     def test_load_valid_flow(self, valid_flow_file):
         """Test loading a valid flow definition from real file."""
-        flow_def = load_flow_definition(file_path=valid_flow_file)
+        original_flow, flow_def = load_flow_definition(file_path=valid_flow_file)
         # After compilation, should have runtime DAG format
         assert "dag" in flow_def
         assert len(flow_def["dag"]) == 2
         assert "global_config" in flow_def
+        # Original flow should also be returned
+        assert original_flow is not None
+        assert "flow_name" in original_flow
 
     def test_load_elyra_format_fails(self, elyra_format_file):
         """Test that Elyra format (with 'definition' wrapper) is not supported by CLI."""
@@ -151,11 +155,14 @@ class TestLoadFlowDefinition:
 
     def test_load_real_invoice_flow(self, real_flow_invoice):
         """Test loading the real invoice flow file."""
-        flow_def = load_flow_definition(file_path=real_flow_invoice)
+        original_flow, flow_def = load_flow_definition(file_path=real_flow_invoice)
         # After compilation, should have runtime DAG format
         assert "dag" in flow_def
         assert len(flow_def["dag"]) == 6
         assert "global_config" in flow_def
+        # Original flow should also be returned
+        assert original_flow is not None
+        assert "flow_name" in original_flow
 
     def test_file_not_found(self, tmp_path):
         """Test FileNotFoundError is raised for non-existent files."""
@@ -324,7 +331,7 @@ class TestIntegrationScenarios:
 
     def test_load_and_parse_real_invoice_flow(self, real_flow_invoice):
         """Test loading and parsing the real invoice flow file."""
-        flow_def = load_flow_definition(file_path=real_flow_invoice)
+        _original_flow, flow_def = load_flow_definition(file_path=real_flow_invoice)
 
         # Verify structure (after compilation to runtime DAG)
         assert "dag" in flow_def
@@ -333,7 +340,7 @@ class TestIntegrationScenarios:
 
         # Verify operators
         operators = [node["operator"] for node in flow_def["dag"]]
-        assert "ingest_local" in operators
+        assert "ingest_source" in operators
         assert "document_classifier" in operators
         assert "extract_operator" in operators
         assert "chunker" in operators
@@ -347,11 +354,12 @@ class TestIntegrationScenarios:
             "description": "Temporary test flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest",
                     "depends_on": [],
                     "config": {
-                        "paths": str(fixtures_customer_support_dir),
+                        "provider": "filesystem",
+                        "paths": [str(fixtures_customer_support_dir)],
                         "include_filter": "txt",
                     },
                 }
@@ -362,12 +370,12 @@ class TestIntegrationScenarios:
         flow_file = tmp_path / "temp_flow.json"
         flow_file.write_text(json.dumps(flow))
 
-        loaded_flow = load_flow_definition(file_path=str(flow_file))
+        _original_flow, loaded_flow = load_flow_definition(file_path=str(flow_file))
 
         # After compilation, should have runtime DAG format
         assert "dag" in loaded_flow
         assert len(loaded_flow["dag"]) == 1
-        assert loaded_flow["dag"][0]["operator"] == "ingest_local"
+        assert loaded_flow["dag"][0]["operator"] == "ingest_source"
 
     def test_empty_flow_validation_fails(self, tmp_path):
         """Test that empty flows (no operators) fail validation during load.
@@ -416,10 +424,11 @@ class TestValidateFlowDefinitionRealValidator:
             "description": "Flow with invalid operator config",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "bad_ingest",
                     "depends_on": [],
                     "config": {
+                        "provider": "filesystem",
                         # Missing required 'paths' parameter
                         "include_filter": "txt",
                     },
@@ -466,6 +475,74 @@ class TestValidateFlowDefinitionRealValidator:
 
         # Real invoice flow should validate successfully
         assert result is True
+
+
+class TestVaultInitializerWiring:
+    """Verify initialize_secret_providers() is called during CLI startup."""
+
+    @patch("docpipe.integrations.secrets.vault_initializer.initialize_secret_providers")
+    @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
+    def test_initialize_secret_providers_called_on_execution(self, mock_executor, mock_init):
+        """initialize_secret_providers() must be called in run_command_line_executor."""
+        flow_def = {"name": "test", "global_config": {}, "pipeline": []}
+
+        mock_executor.return_value.execute.return_value = None
+
+        from docpipe.cli.docpipe_cli import run_command_line_executor
+
+        run_command_line_executor(flow_def=flow_def)
+
+        mock_init.assert_called_once()
+
+
+class TestMicroBatchingDefaults:
+    """Verify CLI micro-batching default behavior."""
+
+    @patch("docpipe.integrations.secrets.vault_initializer.initialize_secret_providers")
+    @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
+    @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
+    def test_run_command_line_executor_defaults_micro_batching_when_missing(
+        self,
+        mock_create_orchestrator,
+        mock_executor_class,
+        mock_init,
+    ):
+        """Test CLI execution defaults micro-batching when flow global_config omits it."""
+        flow_def = {"name": "test", "global_config": {}, "dag": []}
+        mock_executor = mock_executor_class.return_value
+        mock_executor.execute.return_value = None
+        mock_create_orchestrator.return_value = Mock()
+
+        from docpipe.cli.docpipe_cli import run_command_line_executor
+
+        run_command_line_executor(flow_def=flow_def)
+
+        execute_kwargs = mock_executor.execute.call_args.kwargs
+        assert execute_kwargs["params"]["enable_micro_batching"] is True
+        mock_init.assert_called_once()
+
+    @patch("docpipe.integrations.secrets.vault_initializer.initialize_secret_providers")
+    @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
+    @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
+    def test_run_command_line_executor_respects_explicit_micro_batching_value(
+        self,
+        mock_create_orchestrator,
+        mock_executor_class,
+        mock_init,
+    ):
+        """Test CLI execution does not override explicit micro-batching config."""
+        flow_def = {"name": "test", "global_config": {"enable_micro_batching": False}, "dag": []}
+        mock_executor = mock_executor_class.return_value
+        mock_executor.execute.return_value = None
+        mock_create_orchestrator.return_value = Mock()
+
+        from docpipe.cli.docpipe_cli import run_command_line_executor
+
+        run_command_line_executor(flow_def=flow_def)
+
+        execute_kwargs = mock_executor.execute.call_args.kwargs
+        assert "enable_micro_batching" not in execute_kwargs["params"]
+        mock_init.assert_called_once()
 
 
 if __name__ == "__main__":

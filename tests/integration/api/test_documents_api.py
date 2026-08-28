@@ -77,8 +77,7 @@ class TestGetDocument:
                         "_id": "doc-123",
                         "_source": {
                             "content": "Test document content",
-                            "title": "Test Document",
-                            "metadata": {"category": "tech"},
+                            "metadata": {"category": "tech", "title": "Test Document"},
                             "allowed_users": ["john.doe"],
                             "created_at": "2026-05-01T10:00:00Z",
                         },
@@ -96,8 +95,8 @@ class TestGetDocument:
         data = response.json()
         assert data["id"] == "doc-123"
         assert data["content"] == "Test document content"
-        assert data["title"] == "Test Document"
-        assert "john.doe" in data["allowed_users"]
+        assert data["metadata"]["title"] == "Test Document"
+        assert "allowed_users" not in data
 
     def test_get_document_not_found(self, authenticated_client):
         """Test document not found returns 404."""

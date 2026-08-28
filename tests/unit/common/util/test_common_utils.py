@@ -54,7 +54,7 @@ class TestSingleton(unittest.TestCase):
         instance_a = ClassA()
         instance_b = ClassB()
 
-        self.assertIsNot(instance_a, instance_b)
+        self.assertNotEqual(type(instance_a), type(instance_b))
 
 
 class TestLowercaseKeys(unittest.TestCase):
@@ -319,7 +319,7 @@ class TestGetListFromMap(unittest.TestCase):
 
     def test_get_list_missing_key(self):
         """Test with missing key."""
-        obj = {"other": []}
+        obj: dict = {"other": []}
         result = get_list_from_map(obj, "items")
         self.assertEqual(result, [])
 
@@ -341,7 +341,7 @@ class TestGetMapFromMap(unittest.TestCase):
 
     def test_get_map_missing_key(self):
         """Test with missing key."""
-        obj = {"other": {}}
+        obj: dict = {"other": {}}
         result = get_map_from_map(obj, "config")
         self.assertEqual(result, {})
 

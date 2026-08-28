@@ -1,3 +1,5 @@
+"""Abstract base class for operator executors in the docpipe orchestration layer."""
+
 import copy
 import pprint
 from abc import abstractmethod
@@ -5,6 +7,7 @@ from queue import Queue
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from data_processing.data_access import DataAccess, DataAccessFactory
 
 from docpipe.core.constants.constants import (
@@ -24,6 +27,11 @@ logger = get_logger()
 
 
 class AbstractOperatorExecutor:
+    """Base class for operator executors.
+
+    An executor wraps an AbstractOperator instance, wires up data access, and
+    manages the execution lifecycle (pre/post transform hooks, stats recording)."""
+
     def __init__(
         self,
         *,
@@ -61,6 +69,14 @@ class AbstractOperatorExecutor:
         data_access: DataAccess | dict[str, DataAccess | None] | None,
         deleted_rows_list: Queue[pa.Table] | None,
     ) -> tuple[list[DataAccess], dict[str, Any]]:
+        """Execute the operator and return data accesses and metadata.
+
+        Args:
+            data_access: Upstream data access or dict of data accesses.
+            deleted_rows_list: Queue for accumulating deleted-row tables.
+
+        Returns:
+            Tuple of (list[DataAccess], metadata dict)."""
         input_tables = self._get_input_tables(data_access=data_access)
         out_tables, metadata = self._execute_impl(tables=input_tables)
         if deleted_rows_list is not None:
@@ -80,10 +96,17 @@ class AbstractOperatorExecutor:
         return output_data_accesses, metadata
 
     def create_data_accesses(self, tables):
+        """Create data access objects for the given output tables.
+
+        Args:
+            tables: List of PyArrow tables to wrap.
+
+        Returns:
+            List of DataAccess instances."""
         data_accesses = []
         for index, table in enumerate(tables):
             data_access_factory = DataAccessFactory()
-            params_copy = copy.deepcopy(self._params)
+            params_copy = self._safely_deep_copy_params(params=self._params)
             # Add node name + index of the branch to the output folder
             DataAccessUtils.add_node_name_to_output_folder(
                 params=params_copy, node_name=f"{params_copy['name']}_{index}"
@@ -99,12 +122,31 @@ class AbstractOperatorExecutor:
             data_accesses.append(output_data_access)
         return data_accesses
 
+    @staticmethod
+    def _safely_deep_copy_params(*, params: dict) -> dict:
+        """Deep copy params, shallow-copying any value that cannot be pickled (e.g. thread locks, clients)."""
+        import pickle  # nosec B403 — used only to test pickleability, never to deserialise untrusted data
+
+        copied = {}
+        for k, v in params.items():
+            try:
+                pickle.dumps(v)
+                copied[k] = copy.deepcopy(v)
+            except Exception:
+                copied[k] = v  # shallow copy — keep original reference
+        return copied
+
     @abstractmethod
     def get_operator(self) -> AbstractOperator:
         # The concrete class implements the method by returning the operator for the corresponding orchestrator.
-        pass
+        """Return the operator instance managed by this executor.
+
+        Returns:
+            The AbstractOperator instance."""
+        ...
 
     def validate(self, *, errors: list, warnings: list, available_features: list):
+        """Validate."""
         op = self.get_operator()
         op.validate(errors, warnings, available_features)
 
@@ -197,26 +239,24 @@ class AbstractOperatorExecutor:
             logger.warning(f"Job stats service not available for node '{node_id}'")
             return
 
+        # Remove 'non_recoverable_docs_table' from metadata before saving
+        metadata_copy = copy.deepcopy(metadata)
+        metadata_copy.pop(Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE, None)
         # Extract batch_id and batch_num from params if micro-batching is enabled
         batch_id = self._params.get(DocpipeConstants.BATCH_ID)
         batch_num = self._params.get(DocpipeConstants.BATCH_NUM)
 
-        # Extract document IDs from tables
         all_doc_ids = OperatorUtils.get_unique_ids(tables=tables) if tables else []
-
-        # Extract failed and skipped document IDs from metadata
         failed_docs = [
-            doc.get("id", "") for doc in metadata.get(Metrics.External.FAILED_DOCS, []) if isinstance(doc, dict)
+            doc.get("id", "") for doc in metadata_copy.get(Metrics.External.FAILED_DOCS, []) if isinstance(doc, dict)
         ]
         skipped_docs = [
-            doc.get("id", "") for doc in metadata.get(Metrics.External.SKIPPED_DOCS, []) if isinstance(doc, dict)
+            doc.get("id", "") for doc in metadata_copy.get(Metrics.External.SKIPPED_DOCS, []) if isinstance(doc, dict)
         ]
-
-        # docs_completed = documents in output tables that are NOT failed or skipped
-        failed_and_skipped_set = set(failed_docs + skipped_docs)
+        failed_and_skipped_set = set(failed_docs) | set(skipped_docs)
         docs_completed = [doc_id for doc_id in all_doc_ids if doc_id not in failed_and_skipped_set]
         col_names = tables[0].column_names if tables else []
-        node_status = metadata.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value)
+        node_status = metadata_copy.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value)
 
         logger.info(
             f"Node '{node_id}' stats summary: "
@@ -239,7 +279,7 @@ class AbstractOperatorExecutor:
             skipped_docs=skipped_docs,
             col_names=col_names,
             node_status=node_status,
-            node_metadata=metadata,
+            node_metadata=metadata_copy,
             batch_id=batch_id,
             batch_num=batch_num,
         )
@@ -247,6 +287,13 @@ class AbstractOperatorExecutor:
 
     @staticmethod
     def get_output_file_path(*, data_access):
+        """Return the output file path for a given data access.
+
+        Args:
+            data_access: The DataAccess instance.
+
+        Returns:
+            File path string."""
         output_folder = data_access.get_output_folder()
         if output_folder is None:
             return ""
@@ -254,7 +301,7 @@ class AbstractOperatorExecutor:
             output_folder += "/"
         return output_folder + "output.parquet"
 
-    def _log_start(self, *, op_logger, node_id, name, short_name, common_log_arguments):
+    def _log_start(self, *, op_logger, name, short_name, common_log_arguments):
         op_logger.info(
             "Starting execution: Step Name: %s, operator: %s",
             name,
@@ -276,7 +323,11 @@ class AbstractOperatorExecutor:
 
     def _process_table_for_empty_docs(self, *, table: pa.Table, doc_column: str, metadata: dict[str, Any]) -> pa.Table:
         """
-        Process a single table to handle empty documents using PyArrow operations.
+        Process a single table to handle empty documents and zero-byte files.
+
+        This method implements the OUTPUT validation layer that checks for:
+        1. Empty content in doc_column (e.g., empty strings, None values)
+        2. Zero-byte files in SIZE column (files with size = 0)
 
         Args:
             table: PyArrow table to process
@@ -284,37 +335,58 @@ class AbstractOperatorExecutor:
             metadata: Metadata dictionary to update
 
         Returns:
-            Processed PyArrow table with empty documents removed
+            Processed PyArrow table with empty documents and zero-byte files removed
         """
-        import pyarrow.compute as pc
-
         # Skip processing if table is empty
         if table.num_rows == 0:
             return table
 
-        # Check if doc_column exists in the table
-        if doc_column not in table.column_names:
+        # Check if either doc_column or SIZE column exists
+        has_doc_column = doc_column in table.column_names
+        has_size_column = OperatorConstants.Misc.SIZE in table.column_names
+
+        # If neither column exists, nothing to validate
+        if not has_doc_column and not has_size_column:
             return table
 
-        doc_col = table[doc_column]
+        # Initialize empty mask
+        is_empty_mask = None
 
-        # Create mask for empty documents: null OR empty/whitespace-only strings
-        is_null = pc.is_null(doc_col)  # type: ignore[attr-defined]
-        doc_col_filled = pc.fill_null(doc_col, "")  # type: ignore[attr-defined]
-        stripped = pc.utf8_trim_whitespace(doc_col_filled)  # type: ignore[attr-defined]
-        is_empty_string = pc.equal(pc.utf8_length(stripped), 0)  # type: ignore[attr-defined]
-        is_empty_mask = pc.or_(is_null, is_empty_string)  # type: ignore[attr-defined]
+        # Check for empty content in doc_column
+        if has_doc_column:
+            doc_col = table[doc_column]
+            # Create mask for empty documents: null OR empty/whitespace-only strings
+            is_null = pc.is_null(doc_col)  # type: ignore[attr-defined]
+            doc_col_filled = pc.fill_null(doc_col, "")  # type: ignore[attr-defined]
+            stripped = pc.utf8_trim_whitespace(doc_col_filled)  # type: ignore[attr-defined]
+            is_empty_string = pc.equal(pc.utf8_length(stripped), 0)  # type: ignore[attr-defined]
+            is_empty_mask = pc.or_(is_null, is_empty_string)  # type: ignore[attr-defined]
+
+        # Check for zero-byte files in SIZE column
+        if has_size_column:
+            size_col = table[OperatorConstants.Misc.SIZE]
+            # Create mask for zero-byte files
+            is_zero_byte = pc.equal(size_col, 0)  # type: ignore[attr-defined]
+
+            # Combine masks: empty content OR zero-byte file
+            if is_empty_mask is not None:
+                is_empty_mask = pc.or_(is_empty_mask, is_zero_byte)  # type: ignore[attr-defined]
+            else:
+                is_empty_mask = is_zero_byte
+
+        # If no mask was created (shouldn't happen due to earlier check), return table
+        if is_empty_mask is None:
+            return table
 
         # Get indices of empty documents for metadata tracking
         empty_doc_indices = pc.indices_nonzero(is_empty_mask).to_pylist()  # type: ignore[attr-defined]
 
-        # If no empty documents, return table as is
+        # If no empty documents or zero-byte files, return table as is
         if not empty_doc_indices:
             return table
 
         # Save empty documents to incremental metadata
-        empty_docs_table = table.filter(is_empty_mask)
-        self._save_empty_docs_to_incremental_metadata(table=empty_docs_table, empty_doc_indices=empty_doc_indices)
+        self._save_empty_docs_to_incremental_metadata(table=table, empty_doc_indices=empty_doc_indices)
 
         # Add empty documents as skipped in metadata
         self._add_empty_docs_to_skipped_metadata(table=table, empty_doc_indices=empty_doc_indices, metadata=metadata)
@@ -338,16 +410,12 @@ class AbstractOperatorExecutor:
             return
 
         try:
-            from docpipe.core.incremental_metadata import IncrementalUpdateService
-            from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
+            from docpipe.core.incremental_metadata import get_incremental_update_service
 
             # Create a table with only the empty documents
             empty_docs_table = table.take(empty_doc_indices)
 
-            # Initialize incremental update service
-            job_id = self._params.get(DocpipeConstants.JOB_ID)
-            store = create_incremental_metadata_store(job_id=job_id)
-            incremental_service = IncrementalUpdateService(store=store)
+            incremental_service = get_incremental_update_service()
 
             # Save empty documents to incremental metadata
             incremental_service.save_metadata_for_incremental_update(

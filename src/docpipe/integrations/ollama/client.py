@@ -1,5 +1,5 @@
 # Copyright IBM Corp. 2025
-# -License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 
 """
 Ollama Client Wrapper for PII and HAP Detection.
@@ -16,7 +16,7 @@ from ollama import GenerateResponse
 from ollama._types import ChatResponse
 
 from docpipe.core.constants.constants import ServiceConstants
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import TROUBLESHOOTING_DOCS_URL, DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.integrations.base_llm_client import BaseLLMClient, retry_with_backoff
 from docpipe.utils.infrastructure.logging import get_logger
@@ -160,6 +160,7 @@ class OllamaClient(BaseLLMClient):
                     ),
                     status_code=404,
                     error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND,
+                    more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-model-not-found",
                 )
 
             logger.info(f"Model '{self.model_name}' validated successfully")
@@ -170,12 +171,13 @@ class OllamaClient(BaseLLMClient):
                 message=f"Failed to connect to Ollama server: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
         except Exception as exc:
             logger.warning(f"Could not validate model availability: {exc!s}")
             # Don't fail initialization if validation check itself fails
 
-    def run(self, *, prompt: str) -> str:  # NOSONAR python:S3776
+    def run(self, *, prompt: str) -> str:
         """
         Execute the model with the given prompt.
 
@@ -210,31 +212,30 @@ class OllamaClient(BaseLLMClient):
                 # Handle both dict and ChatResponse object
                 if isinstance(response, dict):
                     return response.get("message", {}).get("content", "")
-                elif hasattr(response, "message"):
+                if hasattr(response, "message"):
                     # ChatResponse object
                     message = response.message
                     if isinstance(message, dict):
                         return message.get("content", "")
-                    elif hasattr(message, "content"):
+                    if hasattr(message, "content"):
                         return message.content or ""
                 return ""  # Fallback for unexpected response format
-            else:
-                response = client.generate(model=self.model_name, prompt=prompt)
-                # Handle both dict and GenerateResponse object
-                if isinstance(response, dict):
-                    return response.get("response", "")
-                elif hasattr(response, "response"):
-                    # GenerateResponse object from newer ollama versions
-                    return response.response or ""
-                else:
-                    logger.warning(f"Unexpected response type: {type(response).__name__}")
-                    return ""
+            response = client.generate(model=self.model_name, prompt=prompt)
+            # Handle both dict and GenerateResponse object
+            if isinstance(response, dict):
+                return response.get("response", "")
+            if hasattr(response, "response"):
+                # GenerateResponse object from newer ollama versions
+                return response.response or ""
+            logger.warning(f"Unexpected response type: {type(response).__name__}")
+            return ""
         except (ConnectionError, TimeoutError) as exc:
             logger.error(f"Connection failed: {exc}")
             raise DocpipeException(
                 message=f"Failed to connect to Ollama server: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
         except ValueError as exc:
             logger.error(f"Invalid model or parameters: {exc}")
@@ -242,6 +243,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Model '{self.model_name}' not found or invalid parameters: {exc}",
                 status_code=404,
                 error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-model-not-found",
             ) from exc
         except Exception as exc:
             logger.error(f"Unexpected error during model execution: {exc}")
@@ -409,6 +411,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Failed to connect to Ollama server during embedding generation: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
 
         except DocpipeException:
@@ -430,7 +433,7 @@ class OllamaClient(BaseLLMClient):
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             ) from exc
 
-    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:  # NOSONAR python:S3776
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """
         Generate embeddings for multiple texts using concurrent requests.
 
@@ -541,6 +544,7 @@ class OllamaClient(BaseLLMClient):
                 message=f"Failed to connect to Ollama server: {exc}",
                 status_code=503,
                 error_code=ErrorCode.OLLAMA_CONNECTION_FAILED,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-ollama-connection-refused",
             ) from exc
 
         except DocpipeException:
@@ -562,10 +566,10 @@ class OllamaClient(BaseLLMClient):
         Returns:
             bool: True if Ollama is installed, False otherwise
         """
-        import subprocess
+        import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with a fixed command, not with user input
 
         try:
-            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)  # nosec B603 B607 — fixed command array, no user input interpolated
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
             return False
@@ -606,7 +610,7 @@ class OllamaClient(BaseLLMClient):
             bool: True if server started successfully, False otherwise
         """
         import platform
-        import subprocess
+        import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with fixed command arrays, not with user input
         import time
 
         try:
@@ -616,7 +620,7 @@ class OllamaClient(BaseLLMClient):
                 # Windows: Start in background using START command
                 # CREATE_NEW_PROCESS_GROUP is Windows-specific
                 creation_flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-                subprocess.Popen(
+                subprocess.Popen(  # nosec B603 B607 — fixed command array, no user input interpolated
                     ["cmd", "/c", "start", "/B", "ollama", "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -624,7 +628,7 @@ class OllamaClient(BaseLLMClient):
                 )
             else:
                 # macOS/Linux: Start in background using nohup
-                subprocess.Popen(
+                subprocess.Popen(  # nosec B603 B607 — fixed command array, no user input interpolated
                     ["nohup", "ollama", "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -705,14 +709,14 @@ class OllamaClient(BaseLLMClient):
         Returns:
             bool: True if model pulled successfully, False otherwise
         """
-        import subprocess
+        import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with a fixed command, not with user input
 
         try:
             if show_progress:
                 logger.info(f"Pulling model '{model_name}'... (this may take several minutes)")
 
             # Use subprocess to show real-time progress
-            process = subprocess.Popen(
+            process = subprocess.Popen(  # nosec B603 B607 — fixed command array, model_name is an internal config value not from untrusted user input
                 ["ollama", "pull", model_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -732,9 +736,8 @@ class OllamaClient(BaseLLMClient):
             if process.returncode == 0:
                 logger.info(f"Model '{model_name}' pulled successfully")
                 return True
-            else:
-                logger.error(f"Failed to pull model '{model_name}'")
-                return False
+            logger.error(f"Failed to pull model '{model_name}'")
+            return False
 
         except Exception as e:
             logger.error(f"Failed to pull model: {e}")
@@ -909,7 +912,6 @@ class OllamaClient(BaseLLMClient):
         original_mode = self.mode
         self.mode = InteractionMode.CHAT
         try:
-            result = self.run(prompt=prompt)
-            return result
+            return self.run(prompt=prompt)
         finally:
             self.mode = original_mode

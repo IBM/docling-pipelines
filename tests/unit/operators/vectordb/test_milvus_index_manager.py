@@ -52,11 +52,11 @@ def basic_features():
 @pytest.fixture
 def feature_mappings():
     """Feature mappings"""
-    return {
-        "doc_id": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings",
-    }
+    return [
+        {"feature_name": "doc_id", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+    ]
 
 
 class TestIndexManagerInitialization:
@@ -231,6 +231,37 @@ class TestCollectionValidation:
         exists = manager.collection_exists()
         assert exists is False
 
+    def test_validate_existing_collection_matching_dimension(self, mock_client):
+        """Test validation passes when existing collection dimensions match."""
+        mock_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "vector_embeddings", "params": {"dim": 384}},
+            ]
+        }
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="existing_collection",
+            feature_mappings=[{"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}],
+        )
+
+        manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
+
+    def test_validate_existing_collection_dimension_mismatch(self, mock_client):
+        """Test validation fails when existing collection dimensions differ."""
+        mock_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "vector_embeddings", "params": {"dim": 768}},
+            ]
+        }
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="existing_collection",
+            feature_mappings=[{"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}],
+        )
+
+        with pytest.raises(DocpipeException, match="existing dimension 768 but current run produced 384"):
+            manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
+
 
 class TestVectorDimensionDetection:
     """Test vector dimension detection from PyArrow table"""
@@ -336,12 +367,12 @@ class TestMultiModelSupport:
     @pytest.fixture
     def multi_model_mappings(self):
         """Feature mappings for multi-model embeddings"""
-        return {
-            "doc_id_hash": "pk",
-            "content": "text",
-            "embeddings": "vector_embeddings",
-            "embeddings_alt": "vector_embeddings_alt",
-        }
+        return [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+            {"feature_name": "embeddings_alt", "mapped_column_name": "vector_embeddings_alt"},
+        ]
 
     def test_create_schema_with_multiple_vector_fields(self, mock_client, multi_model_features, multi_model_mappings):
         """Test creating schema with multiple vector fields"""
@@ -434,12 +465,12 @@ class TestNullableFields:
     @pytest.fixture
     def mappings_with_optional_fields(self):
         """Feature mappings with optional fields"""
-        return {
-            "doc_id_hash": "pk",
-            "content": "text",
-            "embeddings": "vector_embeddings",
-            "optional_field": "optional_data",
-        }
+        return [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+            {"feature_name": "optional_field", "mapped_column_name": "optional_data"},
+        ]
 
     def test_optional_fields_are_nullable(
         self, mock_client, features_with_optional_fields, mappings_with_optional_fields
@@ -551,3 +582,353 @@ class TestSparseVectorMode:
         content_field = next((f for f in fields if f.name == "text"), None)
         assert content_field is not None
         assert content_field.enable_analyzer is False
+
+
+# ---------------------------------------------------------------------------
+# Additional tests to reach 80% coverage
+# ---------------------------------------------------------------------------
+
+
+class TestCollectionExistsEdgeCases:
+    """collection_exists error path."""
+
+    def test_collection_exists_returns_false_on_exception(self, mock_client):
+        """collection_exists catches exceptions and returns False."""
+        mock_client.has_collection.side_effect = Exception("network error")
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        assert manager.collection_exists() is False
+
+
+class TestValidateExistingCollectionEdgeCases:
+    """Branches in validate_existing_collection not previously covered."""
+
+    def test_missing_field_in_existing_schema_raises(self, mock_client):
+        """A vector field present in dimension_mapping but absent from the existing schema raises."""
+        mock_client.has_collection.return_value = True
+        mock_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "pk", "params": {}},
+                # 'vector_embeddings' is intentionally absent
+            ]
+        }
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+            feature_mappings=[{"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}],
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException, match="missing from existing collection schema"):
+            manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
+
+    def test_describe_collection_raises_wrapped_in_docpipe_exception(self, mock_client):
+        """Non-DocpipeException from describe_collection is wrapped."""
+        mock_client.has_collection.return_value = True
+        mock_client.describe_collection.side_effect = RuntimeError("timeout")
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException, match="Failed to validate collection"):
+            manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
+
+    def test_docpipe_exception_is_reraised_directly(self, mock_client):
+        """DocpipeException from inner logic propagates unchanged."""
+        mock_client.has_collection.return_value = True
+        mock_client.describe_collection.return_value = {
+            "fields": [{"name": "vector_embeddings", "params": {"dim": 256}}]
+        }
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+            feature_mappings=[{"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}],
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException, match="dimension mismatch"):
+            manager.validate_existing_collection(dimension_mapping={"embeddings": 384})
+
+
+class TestCreateCollectionEdgeCases:
+    """create_collection branches not previously covered."""
+
+    def _make_manager(self, mock_client, *, add_sparse_vector: bool = False) -> "MilvusIndexManager":
+        mock_client.has_collection.return_value = False
+        mock_client.prepare_index_params.return_value.add_index = lambda **kw: None
+        mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+        ]
+        return MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+            feature_mappings=mappings,
+            add_sparse_vector=add_sparse_vector,
+        )
+
+    def test_create_collection_raises_if_already_exists(self, mock_client):
+        """create_collection raises DocpipeException (409) when collection already exists."""
+        mock_client.has_collection.return_value = True
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException) as exc_info:
+            manager.create_collection(dimension_mapping={"embeddings": 384})
+        assert exc_info.value.status_code == 409
+
+    def test_create_collection_dense_mode_calls_create_collection(self, mock_client):
+        """Dense mode calls client.create_collection and client.create_index."""
+        mock_client.has_collection.return_value = False
+        index_params_mock = MagicMock()
+        mock_client.prepare_index_params.return_value = index_params_mock
+        manager = self._make_manager(mock_client, add_sparse_vector=False)
+        manager.create_collection(dimension_mapping={"embeddings": 384})
+        mock_client.create_collection.assert_called_once()
+        mock_client.create_index.assert_called_once()
+
+    def test_create_collection_inner_exception_wrapped(self, mock_client):
+        """An exception inside create_collection is wrapped in DocpipeException."""
+        mock_client.has_collection.return_value = False
+        mock_client.create_collection.side_effect = RuntimeError("storage full")
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException, match="Failed to create collection"):
+            manager.create_collection(dimension_mapping={"embeddings": 384})
+
+
+class TestCreateCollectionSparseMode:
+    """create_collection sparse path — creates sparse index AND dense index."""
+
+    def test_create_collection_sparse_mode_creates_both_indexes(self, mock_client):
+        """Sparse mode calls create_index twice: once for sparse, once for dense."""
+        mock_client.has_collection.return_value = False
+        index_params_mock = MagicMock()
+        mock_client.prepare_index_params.return_value = index_params_mock
+
+        mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "sparse_embeddings", "mapped_column_name": "sparse_vector"},
+        ]
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+            feature_mappings=mappings,
+            add_sparse_vector=True,
+        )
+        manager.create_collection(dimension_mapping={"embeddings": 384})
+
+        assert mock_client.create_index.call_count == 2
+        mock_client.create_collection.assert_called_once()
+
+
+class TestGetCollectionInfo:
+    """get_collection_info happy path and not-found path."""
+
+    def test_get_collection_info_returns_stats(self, mock_client):
+        mock_client.has_collection.return_value = True
+        mock_client.get_collection_stats.return_value = {"row_count": 99}
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        info = manager.get_collection_info()
+        assert info["row_count"] == 99
+        assert info["name"] == "test_col"
+        assert info["exists"] is True
+
+    def test_get_collection_info_raises_when_not_exists(self, mock_client):
+        mock_client.has_collection.return_value = False
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException, match="does not exist"):
+            manager.get_collection_info()
+
+    def test_get_collection_info_stats_exception_wrapped(self, mock_client):
+        mock_client.has_collection.return_value = True
+        mock_client.get_collection_stats.side_effect = RuntimeError("stats failed")
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException, match="Failed to get collection info"):
+            manager.get_collection_info()
+
+
+class TestDropCollection:
+    """drop_collection both paths."""
+
+    def test_drop_collection_calls_client_when_exists(self, mock_client):
+        mock_client.has_collection.return_value = True
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        manager.drop_collection()
+        mock_client.drop_collection.assert_called_once_with(collection_name="test_col")
+
+    def test_drop_collection_no_op_when_not_exists(self, mock_client):
+        mock_client.has_collection.return_value = False
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        manager.drop_collection()
+        mock_client.drop_collection.assert_not_called()
+
+    def test_drop_collection_exception_wrapped(self, mock_client):
+        mock_client.has_collection.return_value = True
+        mock_client.drop_collection.side_effect = RuntimeError("drop failed")
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="test_col",
+        )
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        with pytest.raises(DocpipeException, match="Failed to drop collection"):
+            manager.drop_collection()
+
+
+class TestMapFeatureTypeToDtype:
+    """_map_feature_type_to_milvus_dtype coverage for all mapped and unmapped types."""
+
+    @pytest.fixture
+    def manager(self, mock_client):
+        return MilvusIndexManager(client=mock_client, collection_name="c")
+
+    @pytest.mark.parametrize(
+        "feature_type,expected",
+        [
+            ("text", "VARCHAR"),
+            ("string", "VARCHAR"),
+            ("keyword", "VARCHAR"),
+            ("long", "INT64"),
+            ("integer", "INT32"),
+            ("short", "INT16"),
+            ("byte", "INT8"),
+            ("double", "DOUBLE"),
+            ("float", "FLOAT"),
+            ("boolean", "BOOL"),
+            ("date", "VARCHAR"),
+            ("json", "JSON"),
+        ],
+    )
+    def test_known_types_return_correct_dtype(self, manager, feature_type, expected):
+
+        dtype = manager._map_feature_type_to_milvus_dtype(feature_type=feature_type)
+        assert dtype is not None
+        assert dtype.name == expected
+
+    def test_unknown_type_returns_none(self, manager):
+        assert manager._map_feature_type_to_milvus_dtype(feature_type="unsupported_xyz") is None
+
+
+class TestGetIndexParametersSparse:
+    """_get_index_parameters removes 'dim' when in sparse mode."""
+
+    def test_sparse_mode_removes_dim_from_params(self, mock_client):
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="c",
+            add_sparse_vector=True,
+            index_parameters={"dim": 384, "M": 8},
+        )
+        params = manager._get_index_parameters()
+        assert "dim" not in params
+        assert params.get("M") == 8
+
+    def test_dense_mode_keeps_dim_if_present(self, mock_client):
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="c",
+            add_sparse_vector=False,
+            index_parameters={"dim": 384},
+        )
+        params = manager._get_index_parameters()
+        assert params.get("dim") == 384
+
+
+class TestCreateSchemaFieldsSkipBranches:
+    """_create_schema_fields skip conditions for vector/pk/sparse/unavailable fields."""
+
+    def test_field_mapping_to_primary_key_is_skipped(self, mock_client):
+        """A feature that maps to the primary_key_field name is not added twice."""
+        features = {"doc_id": {"available_for_vector_db": True, "type": "string"}}
+        mappings = [{"feature_name": "doc_id", "mapped_column_name": "pk"}]
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="c",
+            available_features=features,
+            feature_mappings=mappings,
+            primary_key_field="pk",
+        )
+        fields = manager._create_schema_fields(dimension_mapping={})
+        # Only pk and content fields should be present (no duplicate pk)
+        field_names = [f.name for f in fields]
+        assert field_names.count("pk") == 1
+
+    def test_vector_type_feature_not_in_dimension_mapping_is_skipped(self, mock_client):
+        """A feature with type=vector that is NOT in dimension_mapping is skipped."""
+        features = {
+            "orphan_vec": {"available_for_vector_db": True, "type": "vector"},
+        }
+        mappings = [{"feature_name": "orphan_vec", "mapped_column_name": "orphan_field"}]
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="c",
+            available_features=features,
+            feature_mappings=mappings,
+        )
+        fields = manager._create_schema_fields(dimension_mapping={})
+        field_names = [f.name for f in fields]
+        assert "orphan_field" not in field_names
+
+    def test_unavailable_for_vector_db_field_is_skipped(self, mock_client):
+        """A feature with available_for_vector_db=False is excluded from schema."""
+        features = {"secret": {"available_for_vector_db": False, "type": "string"}}
+        mappings = [{"feature_name": "secret", "mapped_column_name": "secret_field"}]
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="c",
+            available_features=features,
+            feature_mappings=mappings,
+        )
+        fields = manager._create_schema_fields(dimension_mapping={})
+        field_names = [f.name for f in fields]
+        assert "secret_field" not in field_names
+
+    def test_field_mapped_to_dense_vector_field_name_is_skipped(self, mock_client):
+        """A feature whose mapped name matches DENSE_VECTOR_FIELD_NAME is not re-added."""
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        features = {"emb": {"available_for_vector_db": True, "type": "string"}}
+        mappings = [{"feature_name": "emb", "mapped_column_name": OperatorConstants.VectorDB.DENSE_VECTOR_FIELD_NAME}]
+        manager = MilvusIndexManager(
+            client=mock_client,
+            collection_name="c",
+            available_features=features,
+            feature_mappings=mappings,
+        )
+        fields = manager._create_schema_fields(dimension_mapping={})
+        field_names = [f.name for f in fields]
+        assert field_names.count(OperatorConstants.VectorDB.DENSE_VECTOR_FIELD_NAME) == 0

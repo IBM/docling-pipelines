@@ -1,14 +1,13 @@
 """
 Unit tests for WorkPoolAdapter.
 
-Tests cover:
-- Initialization and configuration validation
-- Batch execution and transfer methods
-- Error handling and edge cases
-- S3, local, and inline storage modes
+All Prefect server calls (get_client, run_deployment, wait_for_flow_run) are
+patched at the module level so the tests run with no live Prefect server.
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from uuid import uuid4
 
 import pyarrow as pa
 import pytest
@@ -17,647 +16,1433 @@ from docpipe.core.orchestration.batch_manager import BatchInfo
 from docpipe.core.orchestration.prefect.adapters.work_pool_adapter import WorkPoolAdapter
 from docpipe.core.orchestration.prefect.domain.models import (
     BatchStorageType,
-    BatchStrategyConstants,
 )
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-@pytest.fixture
-def mock_prefect_engine():
-    """Create mock Prefect engine."""
+_PROCESS_CONFIG = {
+    "type": "process",
+    "work_pool_name": "test-pool",
+    "deployment_name": "test-deployment",
+}
+
+
+def _mock_engine() -> Mock:
     engine = Mock()
     engine.logger = Mock()
     return engine
 
 
-@pytest.fixture
-def mock_batch_manager():
-    """Create mock batch manager."""
-    return Mock()
-
-
-@pytest.fixture
-def sample_batch_table():
-    """Create sample PyArrow table for testing."""
-    return pa.table({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
-
-
-@pytest.fixture
-def sample_batch_info(sample_batch_table):
-    """Create sample BatchInfo."""
-    return BatchInfo(batch_id="batch-123", batch_num=0, table=sample_batch_table)
-
-
-@pytest.fixture
-def base_config():
-    """Base configuration for work pool."""
-    return {
-        "type": "process",
-        "work_pool_name": "test-pool",
-        "deployment_name": "test-deployment",
-        "batch_storage": {"type": "inline"},
-    }
-
-
-class TestWorkPoolAdapterInitialization:
-    """Test WorkPoolAdapter initialization and validation."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_init_with_valid_config(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
+def _build_adapter(extra: dict | None = None) -> WorkPoolAdapter:
+    """Construct WorkPoolAdapter with connectivity mocked out."""
+    config = {**_PROCESS_CONFIG, **(extra or {})}
+    with (
+        patch.object(WorkPoolAdapter, "_validate_prefect_connection"),
+        patch.object(WorkPoolAdapter, "_ensure_deployment_exists"),
     ):
-        """Test initialization with valid configuration."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
+        return WorkPoolAdapter(
+            work_pool_config=config,
+            prefect_engine=_mock_engine(),
+            batch_manager=Mock(),
         )
 
+
+def _table(n: int = 2) -> pa.Table:
+    return pa.table({"id": list(range(n)), "content": [f"doc_{i}" for i in range(n)]})
+
+
+def _batch(num: int = 0) -> BatchInfo:
+    return BatchInfo(batch_id=f"bid-{num}", batch_num=num, table=_table())
+
+
+# ---------------------------------------------------------------------------
+# __init__ — validation
+# ---------------------------------------------------------------------------
+
+
+class TestWorkPoolAdapterInit:
+    def test_raises_when_work_pool_name_missing(self):
+        with pytest.raises(ValueError, match="work_pool_name"):
+            with (
+                patch.object(WorkPoolAdapter, "_validate_prefect_connection"),
+                patch.object(WorkPoolAdapter, "_ensure_deployment_exists"),
+            ):
+                WorkPoolAdapter(
+                    work_pool_config={"type": "process"},
+                    prefect_engine=_mock_engine(),
+                    batch_manager=Mock(),
+                )
+
+    def test_raises_when_local_storage_missing_path(self):
+        config = {**_PROCESS_CONFIG, "batch_storage": {"type": "local"}}
+        with pytest.raises(ValueError, match=r"batch_storage\.path"):
+            with (
+                patch.object(WorkPoolAdapter, "_validate_prefect_connection"),
+                patch.object(WorkPoolAdapter, "_ensure_deployment_exists"),
+            ):
+                WorkPoolAdapter(work_pool_config=config, prefect_engine=_mock_engine(), batch_manager=Mock())
+
+    def test_raises_when_s3_bucket_missing(self):
+        config = {
+            **_PROCESS_CONFIG,
+            "batch_storage": {"type": "s3", "access_key_id": "k", "secret_access_key": "s"},  # pragma: allowlist secret
+        }
+        with pytest.raises(ValueError, match=r"batch_storage\.bucket"):
+            with (
+                patch.object(WorkPoolAdapter, "_validate_prefect_connection"),
+                patch.object(WorkPoolAdapter, "_ensure_deployment_exists"),
+            ):
+                WorkPoolAdapter(work_pool_config=config, prefect_engine=_mock_engine(), batch_manager=Mock())
+
+    def test_raises_when_s3_credentials_missing(self):
+        config = {**_PROCESS_CONFIG, "batch_storage": {"type": "s3", "bucket": "b"}}
+        with pytest.raises(ValueError, match="S3 credentials"):
+            with (
+                patch.object(WorkPoolAdapter, "_validate_prefect_connection"),
+                patch.object(WorkPoolAdapter, "_ensure_deployment_exists"),
+            ):
+                WorkPoolAdapter(work_pool_config=config, prefect_engine=_mock_engine(), batch_manager=Mock())
+
+    def test_defaults_storage_type_to_inline(self):
+        assert _build_adapter().batch_storage_type == BatchStorageType.INLINE
+
+    def test_custom_deployment_name_stored(self):
+        assert _build_adapter({"deployment_name": "my-deploy"}).deployment_name == "my-deploy"
+
+    def test_s3_credential_aliases_accepted(self):
+        config = {
+            **_PROCESS_CONFIG,
+            "batch_storage": {
+                "type": "s3",
+                "bucket": "b",
+                "access_key": "ak",
+                "secret_key": "sk",  # pragma: allowlist secret
+            },
+        }
+        with (
+            patch.object(WorkPoolAdapter, "_validate_prefect_connection"),
+            patch.object(WorkPoolAdapter, "_ensure_deployment_exists"),
+        ):
+            adapter = WorkPoolAdapter(work_pool_config=config, prefect_engine=_mock_engine(), batch_manager=Mock())
+        assert adapter.s3_access_key == "ak"
+        assert adapter.s3_secret_key == "sk"  # pragma: allowlist secret
+
+
+# ---------------------------------------------------------------------------
+# _validate_prefect_connection
+# ---------------------------------------------------------------------------
+
+
+class TestValidatePrefectConnection:
+    def _client_ctx(self, client: Mock) -> MagicMock:
+        ctx = MagicMock()
+        ctx.__enter__ = Mock(return_value=client)
+        ctx.__exit__ = Mock(return_value=False)
+        return ctx
+
+    def test_raises_on_health_check_error(self):
+        client = Mock()
+        client.api_healthcheck.return_value = "server error"
+        with patch.object(WorkPoolAdapter, "_ensure_deployment_exists"):
+            with patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client",
+                return_value=self._client_ctx(client),
+            ):
+                with pytest.raises(ValueError, match="health check failed"):
+                    WorkPoolAdapter(
+                        work_pool_config=_PROCESS_CONFIG,
+                        prefect_engine=_mock_engine(),
+                        batch_manager=Mock(),
+                    )
+
+    def test_raises_on_connection_exception(self):
+        ctx = MagicMock()
+        ctx.__enter__ = Mock(side_effect=OSError("refused"))
+        ctx.__exit__ = Mock(return_value=False)
+        with patch.object(WorkPoolAdapter, "_ensure_deployment_exists"):
+            with patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client",
+                return_value=ctx,
+            ):
+                with pytest.raises(ValueError, match="Cannot connect"):
+                    WorkPoolAdapter(
+                        work_pool_config=_PROCESS_CONFIG,
+                        prefect_engine=_mock_engine(),
+                        batch_manager=Mock(),
+                    )
+
+    def test_passes_with_healthy_server(self):
+        client = Mock()
+        client.api_healthcheck.return_value = None
+        with patch.object(WorkPoolAdapter, "_ensure_deployment_exists"):
+            with patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client",
+                return_value=self._client_ctx(client),
+            ):
+                adapter = WorkPoolAdapter(
+                    work_pool_config=_PROCESS_CONFIG,
+                    prefect_engine=_mock_engine(),
+                    batch_manager=Mock(),
+                )
         assert adapter.work_pool_name == "test-pool"
-        assert adapter.deployment_name == "test-deployment"
-        assert adapter.work_pool_type == "process"
-        assert adapter.batch_storage_type == BatchStorageType.INLINE
-        mock_validate.assert_called_once()
-        mock_ensure_deployment.assert_called_once()
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_init_missing_work_pool_name(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test initialization fails without work_pool_name."""
-        config = {"type": "process", "batch_storage": {"type": "inline"}}
 
-        with pytest.raises(ValueError, match="work_pool_name is required"):
-            WorkPoolAdapter(
-                work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
+# ---------------------------------------------------------------------------
+# _transfer_batch — dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestTransferBatchDispatch:
+    def test_inline_by_default(self):
+        adapter = _build_adapter()
+        with patch.object(adapter, "_transfer_batch_inline", return_value={"type": "inline"}) as m:
+            result = adapter._transfer_batch(batch_table=_table(), batch_num=0, job_run_id="jr1")
+        m.assert_called_once()
+        assert result == {"type": "inline"}
+
+    def test_local_storage_type(self):
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.LOCAL
+        with patch.object(adapter, "_transfer_batch_local", return_value={"type": "local"}) as m:
+            result = adapter._transfer_batch(batch_table=_table(), batch_num=0, job_run_id="jr1")
+        m.assert_called_once()
+        assert result == {"type": "local"}
+
+    def test_s3_storage_type(self):
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.S3
+        with patch.object(adapter, "_transfer_batch_s3", return_value={"type": "s3"}) as m:
+            result = adapter._transfer_batch(batch_table=_table(), batch_num=0, job_run_id="jr1")
+        m.assert_called_once()
+        assert result == {"type": "s3"}
+
+
+# ---------------------------------------------------------------------------
+# _transfer_batch_inline
+# ---------------------------------------------------------------------------
+
+
+class TestTransferBatchInline:
+    def test_returns_inline_descriptor(self):
+        adapter = _build_adapter()
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.BatchStrategyConstants.get_inline_size_limit",
+            return_value=1_000_000,
+        ):
+            result = adapter._transfer_batch_inline(batch_table=_table(2), batch_num=0, job_run_id="jr1")
+        assert result["type"] == BatchStorageType.INLINE.value
+        assert result["data"]["row_count"] == 2
+
+    def test_raises_when_exceeds_size_limit(self):
+        adapter = _build_adapter()
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.BatchStrategyConstants.get_inline_size_limit",
+            return_value=1,
+        ):
+            with pytest.raises(FlowExecutionFailedException, match="exceeding Prefect"):
+                adapter._transfer_batch_inline(batch_table=_table(2), batch_num=0, job_run_id="jr1")
+
+    def test_base64_encodes_binary_columns(self):
+        import base64
+
+        adapter = _build_adapter()
+        tbl = pa.table({"id": [1], "blob": pa.array([b"hello"], type=pa.binary())})
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.BatchStrategyConstants.get_inline_size_limit",
+            return_value=1_000_000,
+        ):
+            result = adapter._transfer_batch_inline(batch_table=tbl, batch_num=0, job_run_id="jr1")
+        assert result["data"]["data"][0]["blob"] == base64.b64encode(b"hello").decode()
+
+    def test_warns_near_limit(self):
+        adapter = _build_adapter()
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.BatchStrategyConstants.get_inline_size_limit",
+                return_value=1_000_000,
+            ),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.BatchStrategyConstants.INLINE_SIZE_WARNING_THRESHOLD",
+                0.0,  # always warn
+            ),
+        ):
+            adapter._transfer_batch_inline(batch_table=_table(2), batch_num=0, job_run_id="jr1")
+        adapter.prefect_engine.logger.warning.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# _transfer_batch_local
+# ---------------------------------------------------------------------------
+
+
+class TestTransferBatchLocal:
+    def test_writes_parquet_returns_descriptor(self, tmp_path):
+        adapter = _build_adapter()
+        adapter.batch_storage_path = str(tmp_path)
+        tbl = _table(3)
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.replace_memmap_paths_combined",
+            return_value=tbl,
+        ):
+            result = adapter._transfer_batch_local(batch_table=tbl, batch_num=1, job_run_id="job-abc")
+        assert result["type"] == BatchStorageType.LOCAL.value
+        assert "batch-1.parquet" in result["ref"]
+        assert (tmp_path / "job-abc" / "batch-1.parquet").exists()
+
+    def test_raises_on_write_failure(self, tmp_path):
+        adapter = _build_adapter()
+        adapter.batch_storage_path = str(tmp_path)
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.replace_memmap_paths_combined",
+                return_value=_table(),
+            ),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.pq.write_table",
+                side_effect=OSError("disk full"),
+            ),
+        ):
+            with pytest.raises(FlowExecutionFailedException, match="disk full"):
+                adapter._transfer_batch_local(batch_table=_table(), batch_num=0, job_run_id="jr1")
+
+
+# ---------------------------------------------------------------------------
+# _transfer_batch_s3
+# ---------------------------------------------------------------------------
+
+
+class TestTransferBatchS3:
+    def _s3_adapter(self) -> WorkPoolAdapter:
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.S3
+        adapter.batch_storage_bucket = "my-bucket"
+        adapter.batch_storage_prefix = "tmp/"
+        adapter.s3_access_key = "ak"
+        adapter.s3_secret_key = "sk"  # pragma: allowlist secret
+        adapter.s3_endpoint_url = None
+        adapter.s3_region = None
+        return adapter
+
+    def test_returns_s3_descriptor(self):
+        adapter = self._s3_adapter()
+        tbl = _table(2)
+        with (
+            patch.object(adapter, "_create_s3_filesystem", return_value=Mock()),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.replace_memmap_paths_combined",
+                return_value=tbl,
+            ),
+            patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.pq.write_table"),
+        ):
+            result = adapter._transfer_batch_s3(batch_table=tbl, batch_num=2, job_run_id="jr1")
+        assert result["type"] == BatchStorageType.S3.value
+        assert result["bucket"] == "my-bucket"
+        assert "batch-2.parquet" in result["ref"]
+
+    def test_raises_on_s3_failure(self):
+        adapter = self._s3_adapter()
+        with (
+            patch.object(adapter, "_create_s3_filesystem", return_value=Mock()),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.replace_memmap_paths_combined",
+                return_value=_table(),
+            ),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.pq.write_table",
+                side_effect=RuntimeError("s3 err"),
+            ),
+        ):
+            with pytest.raises(FlowExecutionFailedException, match="s3 err"):
+                adapter._transfer_batch_s3(batch_table=_table(), batch_num=0, job_run_id="jr1")
+
+
+# ---------------------------------------------------------------------------
+# _create_s3_filesystem
+# ---------------------------------------------------------------------------
+
+
+class TestCreateS3Filesystem:
+    def test_builds_without_region_or_endpoint(self):
+        adapter = _build_adapter()
+        adapter.s3_access_key = "ak"
+        adapter.s3_secret_key = "sk"  # pragma: allowlist secret
+        adapter.s3_region = None
+        adapter.s3_endpoint_url = None
+        mock_cls = Mock(return_value=Mock())
+        with patch("pyarrow.fs.S3FileSystem", mock_cls):
+            adapter._create_s3_filesystem()
+        mock_cls.assert_called_once_with(access_key="ak", secret_key="sk")  # pragma: allowlist secret
+
+    def test_builds_with_region_and_endpoint(self):
+        adapter = _build_adapter()
+        adapter.s3_access_key = "ak"
+        adapter.s3_secret_key = "sk"  # pragma: allowlist secret
+        adapter.s3_region = "us-east-1"
+        adapter.s3_endpoint_url = "http://minio:9000"
+        mock_cls = Mock(return_value=Mock())
+        with patch("pyarrow.fs.S3FileSystem", mock_cls):
+            adapter._create_s3_filesystem()
+        call_kwargs = mock_cls.call_args.kwargs
+        assert call_kwargs["region"] == "us-east-1"
+        assert call_kwargs["endpoint_override"] == "http://minio:9000"
+
+
+# ---------------------------------------------------------------------------
+# _cleanup_batch_storage
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupBatchStorage:
+    def test_local_removes_directory(self, tmp_path):
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.LOCAL
+        adapter.batch_storage_path = str(tmp_path)
+        d = tmp_path / "job-abc"
+        d.mkdir()
+        (d / "batch-0.parquet").write_bytes(b"x")
+        adapter._cleanup_batch_storage(job_run_id="job-abc")
+        assert not d.exists()
+
+    def test_local_missing_directory_does_not_raise(self, tmp_path):
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.LOCAL
+        adapter.batch_storage_path = str(tmp_path)
+        adapter._cleanup_batch_storage(job_run_id="nonexistent")
+
+    def test_local_logs_warning_on_rmtree_error(self, tmp_path):
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.LOCAL
+        adapter.batch_storage_path = str(tmp_path)
+        d = tmp_path / "job-err"
+        d.mkdir()
+        with patch("shutil.rmtree", side_effect=OSError("perm denied")):
+            adapter._cleanup_batch_storage(job_run_id="job-err")
+        adapter.prefect_engine.logger.warning.assert_called()
+
+    def test_s3_logs_info(self):
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.S3
+        adapter.batch_storage_bucket = "b"
+        adapter.batch_storage_prefix = "tmp/"
+        adapter._cleanup_batch_storage(job_run_id="j1")
+        adapter.prefect_engine.logger.info.assert_called()
+
+    def test_inline_is_noop(self):
+        adapter = _build_adapter()
+        adapter.batch_storage_type = BatchStorageType.INLINE
+        adapter._cleanup_batch_storage(job_run_id="j1")  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# _raise_failure (static)
+# ---------------------------------------------------------------------------
+
+
+class TestRaiseFailure:
+    def test_raises_with_batch_details(self):
+        with pytest.raises(FlowExecutionFailedException, match="Batch 0"):
+            WorkPoolAdapter._raise_failure(
+                failed_info=[{"batch_num": 0, "run_id": "rid", "message": "timeout"}],
+                completed_count=1,
+                total_count=2,
             )
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_init_local_storage_missing_path(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test initialization fails for local storage without path."""
-        config = {"work_pool_name": "test-pool", "batch_storage": {"type": "local"}}
-
-        with pytest.raises(ValueError, match=r"batch_storage\.path is required"):
-            WorkPoolAdapter(
-                work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
+    def test_message_contains_counts(self):
+        with pytest.raises(FlowExecutionFailedException) as exc:
+            WorkPoolAdapter._raise_failure(
+                failed_info=[{"batch_num": 2, "run_id": "r", "message": "err"}],
+                completed_count=3,
+                total_count=5,
             )
+        msg = str(exc.value)
+        assert "Completed: 3" in msg
+        assert "Total: 5" in msg
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_init_s3_storage_missing_bucket(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test initialization fails for S3 storage without bucket."""
-        config = {
-            "work_pool_name": "test-pool",
-            "batch_storage": {"type": "s3", "access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
-        }
 
-        with pytest.raises(ValueError, match=r"batch_storage\.bucket is required"):
-            WorkPoolAdapter(
-                work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-            )
+# ---------------------------------------------------------------------------
+# get_strategy_name
+# ---------------------------------------------------------------------------
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_init_s3_storage_missing_credentials(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test initialization fails for S3 storage without credentials."""
-        config = {"work_pool_name": "test-pool", "batch_storage": {"type": "s3", "bucket": "test-bucket"}}
 
-        with pytest.raises(ValueError, match="S3 credentials are required"):
-            WorkPoolAdapter(
-                work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-            )
+class TestGetStrategyName:
+    def test_contains_work_pool_and_type(self):
+        adapter = _build_adapter()
+        name = adapter.get_strategy_name()
+        assert "work-pool" in name
+        assert adapter.work_pool_type in name
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_init_with_default_deployment_name(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test initialization uses default deployment name."""
-        config = {"work_pool_name": "test-pool", "batch_storage": {"type": "inline"}}
 
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
+# ---------------------------------------------------------------------------
+# _resolve_job_management_config_path (static)
+# ---------------------------------------------------------------------------
 
-        assert adapter.deployment_name == BatchStrategyConstants.DEFAULT_DEPLOYMENT_NAME
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_init_with_s3_credentials_aliases(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test S3 credentials support both standard and alias names."""
-        config = {
-            "work_pool_name": "test-pool",
-            "batch_storage": {
-                "type": "s3",
-                "bucket": "test-bucket",
-                "access_key_id": "key-id",
-                "secret_access_key": "secret",  # pragma: allowlist secret
-            },
-        }
+class TestResolveConfigPath:
+    def test_uses_env_var(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        with patch.dict("os.environ", {"DOCPIPE_CONFIG_PATH": str(cfg)}):
+            result = WorkPoolAdapter._resolve_job_management_config_path()
+        assert result == cfg.resolve()
 
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        assert adapter.s3_access_key == "key-id"
-        assert adapter.s3_secret_key == "secret"  # pragma: allowlist secret
-
-
-class TestBatchTransferMethods:
-    """Test batch data transfer methods."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_transfer_batch_inline(
-        self,
-        mock_ensure_deployment,
-        mock_validate,
-        base_config,
-        mock_prefect_engine,
-        mock_batch_manager,
-        sample_batch_table,
-    ):
-        """Test inline batch transfer."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        result = adapter._transfer_batch(batch_table=sample_batch_table, batch_num=0, job_run_id="job-123")
-
-        assert result["type"] == "inline"
-        assert "data" in result
-        assert isinstance(result["data"], dict)
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._transfer_batch_local")
-    def test_transfer_batch_local(
-        self,
-        mock_transfer_local,
-        mock_ensure_deployment,
-        mock_validate,
-        mock_prefect_engine,
-        mock_batch_manager,
-        sample_batch_table,
-    ):
-        """Test local filesystem batch transfer."""
-        config = {"work_pool_name": "test-pool", "batch_storage": {"type": "local", "path": "/tmp/batches"}}
-
-        mock_transfer_local.return_value = {"type": "local", "ref": "/tmp/batches/job-123/batch-0.parquet"}
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        result = adapter._transfer_batch(batch_table=sample_batch_table, batch_num=0, job_run_id="job-123")
-
-        assert result["type"] == "local"
-        assert "ref" in result
-        mock_transfer_local.assert_called_once()
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._transfer_batch_s3")
-    def test_transfer_batch_s3(
-        self,
-        mock_transfer_s3,
-        mock_ensure_deployment,
-        mock_validate,
-        mock_prefect_engine,
-        mock_batch_manager,
-        sample_batch_table,
-    ):
-        """Test S3 batch transfer."""
-        config = {
-            "work_pool_name": "test-pool",
-            "batch_storage": {
-                "type": "s3",
-                "bucket": "test-bucket",
-                "access_key": "key",
-                "secret_key": "secret",  # pragma: allowlist secret
-            },
-        }
-
-        mock_transfer_s3.return_value = {"type": "s3", "ref": "s3://test-bucket/tmp/batches/job-123/batch-0.parquet"}
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        result = adapter._transfer_batch(batch_table=sample_batch_table, batch_num=0, job_run_id="job-123")
-
-        assert result["type"] == "s3"
-        assert "ref" in result
-        mock_transfer_s3.assert_called_once()
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_transfer_batch_inline_size_warning(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test inline transfer logs warning for large batches."""
-        # Create table that exceeds warning threshold (80% of 512KB = ~410KB) but not the limit
-        # Need to account for JSON overhead, so use smaller data
-        # Each row is ~35KB, so 10 rows = ~350KB which should trigger warning without exceeding limit
-        large_table = pa.table({"col": [b"x" * 35000 for _ in range(10)]})
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        result = adapter._transfer_batch_inline(batch_table=large_table, batch_num=0, job_run_id="job-123")
-
-        assert result["type"] == "inline"
-        # Should log warning for size approaching limit
-        mock_prefect_engine.logger.warning.assert_called()
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("pyarrow.parquet.write_table", side_effect=OSError("Permission denied"))
-    def test_transfer_batch_local_error(
-        self,
-        mock_write_table,
-        mock_ensure_deployment,
-        mock_validate,
-        mock_prefect_engine,
-        mock_batch_manager,
-        sample_batch_table,
-    ):
-        """Test local transfer handles file system errors."""
-        config = {"work_pool_name": "test-pool", "batch_storage": {"type": "local", "path": "/tmp/batches"}}
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        with pytest.raises(FlowExecutionFailedException, match="Failed to write batch"):
-            adapter._transfer_batch_local(batch_table=sample_batch_table, batch_num=0, job_run_id="job-123")
-
-
-class TestBatchExecution:
-    """Test batch execution methods."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.run")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._cleanup_batch_storage")
-    def test_execute_batches_success(
-        self,
-        mock_cleanup,
-        mock_asyncio_run,
-        mock_ensure_deployment,
-        mock_validate,
-        base_config,
-        mock_prefect_engine,
-        mock_batch_manager,
-        sample_batch_info,
-    ):
-        """Test successful batch execution."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        batches = [sample_batch_info]
-        op_flow = [{"operator": "test"}]
-        global_config = {"flow_definition": {"name": "test-flow"}}
-
-        adapter.execute_batches(batches=batches, op_flow=op_flow, global_config=global_config, job_run_id="job-123")
-
-        mock_asyncio_run.assert_called_once()
-        mock_cleanup.assert_called_once_with(job_run_id="job-123")
-        mock_prefect_engine.logger.info.assert_called()
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_get_strategy_name(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test strategy name retrieval."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        # Strategy name is "work-pool-{type}" where type defaults to "process"
-        assert adapter.get_strategy_name() == "work-pool-process"
-
-
-class TestPrefectValidation:
-    """Test Prefect connection validation."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client")
-    def test_validate_prefect_connection_success(
-        self, mock_get_client, mock_ensure_deployment, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test successful Prefect connection validation."""
-        mock_client = MagicMock()
-        mock_client.__enter__.return_value = mock_client
-        mock_client.__exit__.return_value = None
-        mock_client.api_healthcheck.return_value = None  # None means healthy
-        mock_get_client.return_value = mock_client
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        # Should not raise
-        adapter._validate_prefect_connection()
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client")
-    def test_validate_prefect_connection_failure(
-        self, mock_get_client, mock_ensure_deployment, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test Prefect connection validation failure."""
-        mock_get_client.side_effect = Exception("Connection refused")
-
-        with pytest.raises(ValueError, match="Cannot connect to Prefect Server"):
-            WorkPoolAdapter(
-                work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-            )
-
-
-class TestDeploymentManagement:
-    """Test deployment creation and management."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_ensure_deployment_exists_creates_new(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test deployment creation when it doesn't exist."""
-        # Mock the _ensure_deployment_exists to track it was called
-        mock_ensure_deployment.return_value = None
-
-        _ = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        # Verify _ensure_deployment_exists was called during initialization
-        mock_ensure_deployment.assert_called_once()
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_ensure_deployment_exists_uses_existing(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test deployment reuse when it already exists."""
-        # Mock the _ensure_deployment_exists to track it was called
-        mock_ensure_deployment.return_value = None
-
-        _ = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        # Verify _ensure_deployment_exists was called during initialization
-        mock_ensure_deployment.assert_called_once()
-
-
-class TestCleanup:
-    """Test cleanup operations."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("shutil.rmtree")
-    def test_cleanup_batch_storage_local(
-        self, mock_rmtree, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test cleanup of local batch storage."""
-        config = {"work_pool_name": "test-pool", "batch_storage": {"type": "local", "path": "/tmp/batches"}}
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        adapter._cleanup_batch_storage(job_run_id="job-123")
-
-        mock_rmtree.assert_called_once()
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_cleanup_batch_storage_inline_noop(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test cleanup is no-op for inline storage."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        # Should not raise
-        adapter._cleanup_batch_storage(job_run_id="job-123")
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch("shutil.rmtree", side_effect=OSError("Permission denied"))
-    def test_cleanup_batch_storage_error_handling(
-        self, mock_rmtree, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test cleanup handles errors gracefully."""
-        config = {"work_pool_name": "test-pool", "batch_storage": {"type": "local", "path": "/tmp/batches"}}
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        # Should not raise, just log warning
-        adapter._cleanup_batch_storage(job_run_id="job-123")
-        mock_prefect_engine.logger.warning.assert_called()
-
-
-class TestErrorHandling:
-    """Test error handling and failure scenarios."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_raise_failure_with_details(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test failure raising with detailed error information."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        failed_info = [
-            {"batch_num": 0, "run_id": "run-1", "message": "Error 1"},
-            {"batch_num": 1, "run_id": "run-2", "message": "Error 2"},
-        ]
-
-        with pytest.raises(FlowExecutionFailedException, match=r"Failed: 2.*Completed: 3.*Total: 5"):
-            adapter._raise_failure(failed_info=failed_info, completed_count=3, total_count=5)
-
-
-class TestJobManagementConfig:
-    """Test job management configuration resolution."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_resolve_job_management_config_from_env(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test job management config resolution from environment."""
+    def test_falls_back_to_default(self):
         import os
-        from unittest.mock import patch
 
-        with patch.dict(os.environ, {"DOCPIPE_CONFIG_PATH": "/custom/path/config.json"}):
-            adapter = WorkPoolAdapter(
-                work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-            )
+        env = {k: v for k, v in os.environ.items() if k != "DOCPIPE_CONFIG_PATH"}
+        with patch.dict("os.environ", env, clear=True):
+            result = WorkPoolAdapter._resolve_job_management_config_path()
+        assert result.name == "docling-pipelines-config.yaml"
 
-            config_path = adapter._resolve_job_management_config_path()
-            assert str(config_path) == "/custom/path/config.json"
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch.dict("os.environ", {}, clear=True)
-    def test_resolve_job_management_config_default(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test job management config uses default when env not set."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
+# ---------------------------------------------------------------------------
+# _get_effective_job_management_env
+# ---------------------------------------------------------------------------
+
+
+class TestGetEffectiveJobManagementEnv:
+    def test_includes_factory_env(self):
+        adapter = _build_adapter()
+        mock_factory = Mock()
+        mock_factory.resolve_worker_env.return_value = {"MY_VAR": "val"}
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.JobManagementFactory.from_default_sources",
+                return_value=mock_factory,
+            ),
+            patch.object(adapter, "_resolve_job_management_config_path", return_value=Path("/no/config.yaml")),
+        ):
+            result = adapter._get_effective_job_management_env()
+        assert "MY_VAR" in result
+
+    def test_tolerates_factory_exception(self):
+        adapter = _build_adapter()
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.JobManagementFactory.from_default_sources",
+                side_effect=RuntimeError("factory down"),
+            ),
+            patch.object(adapter, "_resolve_job_management_config_path", return_value=Path("/no/config.yaml")),
+        ):
+            result = adapter._get_effective_job_management_env()
+        assert isinstance(result, dict)
+
+
+# ---------------------------------------------------------------------------
+# _build_container_env
+# ---------------------------------------------------------------------------
+
+
+class TestBuildContainerEnv:
+    def test_fills_required_defaults(self):
+        adapter = _build_adapter()
+        with patch.object(adapter, "_get_effective_job_management_env", return_value={}):
+            result = adapter._build_container_env(base_env={}, deployment_path="/app")
+        for key in ("PREFECT_API_URL", "PREFECT_MODE", "PYTHONPATH"):
+            assert key in result
+
+    def test_does_not_override_existing_keys(self):
+        adapter = _build_adapter()
+        base = {"PREFECT_API_URL": "http://custom:4200/api"}
+        with patch.object(adapter, "_get_effective_job_management_env", return_value={}):
+            result = adapter._build_container_env(base_env=base, deployment_path=None)
+        assert result["PREFECT_API_URL"] == "http://custom:4200/api"
+
+    def test_deployment_path_none_uses_cwd(self):
+        adapter = _build_adapter()
+        with patch.object(adapter, "_get_effective_job_management_env", return_value={}):
+            result = adapter._build_container_env(base_env={}, deployment_path=None)
+        assert result["PYTHONPATH"] == str(Path.cwd())
+
+
+# ---------------------------------------------------------------------------
+# _build_job_variables
+# ---------------------------------------------------------------------------
+
+
+class TestBuildJobVariables:
+    def test_returns_none_for_unknown_config_type(self):
+        adapter = _build_adapter()
+        adapter.work_pool_runtime_config = Mock(spec=[])
+        assert adapter._build_job_variables() is None
+
+    def test_process_config_returns_env_dict(self):
+        from docpipe.core.orchestration.prefect.config.work_pool_config import ProcessWorkPoolConfig
+
+        adapter = _build_adapter()
+        adapter.work_pool_runtime_config = ProcessWorkPoolConfig(env={})
+        with patch.object(adapter, "_build_container_env", return_value={"K": "V"}):
+            result = adapter._build_job_variables()
+        assert result == {"env": {"K": "V"}}
+
+    def test_docker_config_returns_image_and_env(self):
+        from docpipe.core.orchestration.prefect.config.work_pool_config import DockerWorkPoolConfig
+
+        adapter = _build_adapter()
+        adapter.work_pool_runtime_config = DockerWorkPoolConfig(image="my-img:latest", env={})
+        with patch.object(adapter, "_build_container_env", return_value={"K": "V"}):
+            result = adapter._build_job_variables()
+        assert result["image"] == "my-img:latest"
+        assert result["env"] == {"K": "V"}
+
+    def test_docker_config_includes_networks_when_set(self):
+        from docpipe.core.orchestration.prefect.config.work_pool_config import DockerWorkPoolConfig
+
+        adapter = _build_adapter()
+        adapter.work_pool_runtime_config = DockerWorkPoolConfig(image="img", networks=["net1"])
+        with patch.object(adapter, "_build_container_env", return_value={}):
+            result = adapter._build_job_variables()
+        assert result["networks"] == ["net1"]
+
+
+# ---------------------------------------------------------------------------
+# _classify_flow_run_result
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyFlowRunResult:
+    def _fr(self, state=None) -> Mock:
+        fr = Mock()
+        fr.id = "fr-001"
+        fr.state = state
+        return fr
+
+    def test_exception_result_appends_failure(self):
+        adapter = _build_adapter()
+        failed: list[dict] = []
+        count = adapter._classify_flow_run_result(
+            batch_num=0,
+            flow_run=self._fr(),
+            result=ValueError("boom"),
+            completed_count=0,
+            failed_info=failed,
+            job_run_id="jr",
         )
+        assert len(failed) == 1
+        assert count == 0
 
-        config_path = adapter._resolve_job_management_config_path()
-        # Returns a Path object pointing to default location
-        assert config_path is not None
-        assert "docling-pipelines-config.yaml" in str(config_path)
+    def _real_flow_run(self, state):  # type: ignore[return]
+        """Return a real FlowRun instance so isinstance(result, FlowRun) passes."""
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch(
-        "docpipe.core.job_management.adapters.config.job_management_factory.JobManagementFactory.from_default_sources"
-    )
-    def test_get_effective_job_management_env(
-        self, mock_factory, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test effective job management environment retrieval."""
-        mock_instance = Mock()
-        mock_instance.resolve_worker_env.return_value = {"KEY": "value"}
-        mock_factory.return_value = mock_instance
+        return _FlowRun.model_construct(flow_id=uuid4(), state=state)
 
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
+    def test_completed_state_increments_count(self):
+        adapter = _build_adapter()
+        state = Mock()
+        state.is_completed.return_value = True
+        state.is_failed.return_value = False
+        state.is_crashed.return_value = False
+        state.is_cancelled.return_value = False
+        result = self._real_flow_run(state)
+        failed: list[dict] = []
+        count = adapter._classify_flow_run_result(
+            batch_num=0, flow_run=self._fr(state), result=result, completed_count=2, failed_info=failed, job_run_id="jr"
         )
+        assert count == 3
+        assert failed == []
 
-        env = adapter._get_effective_job_management_env()
-        assert "KEY" in env
-        assert env["KEY"] == "value"
-
-
-class TestContainerEnvironment:
-    """Test container environment building."""
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_build_container_env_basic(
-        self, mock_ensure_deployment, mock_validate, base_config, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test basic container environment building."""
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
+    def test_failed_state_appends_failure(self):
+        adapter = _build_adapter()
+        state = Mock()
+        state.is_completed.return_value = False
+        state.is_failed.return_value = True
+        state.is_crashed.return_value = False
+        state.is_cancelled.return_value = False
+        state.message = "task failed"
+        result = self._real_flow_run(state)
+        failed: list[dict] = []
+        count = adapter._classify_flow_run_result(
+            batch_num=1, flow_run=self._fr(state), result=result, completed_count=0, failed_info=failed, job_run_id="jr"
         )
+        assert len(failed) == 1
+        assert count == 0
 
-        base_env = {"EXISTING_VAR": "value"}
-        required_env = {
-            "PREFECT_API_URL": "https://prefect-server:4200/api",
-            "OLLAMA_HOST": "https://ollama-server:11434",
+    def test_none_state_returns_count_unchanged(self):
+        adapter = _build_adapter()
+        # A plain non-FlowRun result triggers the early-return path — count stays the same
+        count = adapter._classify_flow_run_result(
+            batch_num=0,
+            flow_run=self._fr(),
+            result="not-a-flow-run",
+            completed_count=5,
+            failed_info=[],
+            job_run_id="jr",
+        )
+        assert count == 5
+
+    def test_cancelled_state_logs_warning(self):
+        adapter = _build_adapter()
+        state = Mock()
+        state.is_completed.return_value = False
+        state.is_failed.return_value = False
+        state.is_crashed.return_value = False
+        state.is_cancelled.return_value = True
+        result = self._real_flow_run(state)
+        adapter._classify_flow_run_result(
+            batch_num=0, flow_run=self._fr(state), result=result, completed_count=0, failed_info=[], job_run_id="jr"
+        )
+        adapter.prefect_engine.logger.warning.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# execute_batches (public entry point)
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteBatches:
+    def test_calls_async_pipeline_and_cleanup(self):
+        adapter = _build_adapter()
+        batch = _batch(0)
+
+        async_mock = AsyncMock()
+        with (
+            patch.object(adapter, "_execute_pipelined_batches_async", async_mock),
+            patch.object(adapter, "_cleanup_batch_storage") as cleanup_mock,
+        ):
+            adapter.execute_batches(batches=[batch], op_flow=[], global_config={}, job_run_id="jr1")
+
+        async_mock.assert_awaited_once()
+        cleanup_mock.assert_called_once_with(job_run_id="jr1")
+
+    def test_logs_summary_on_success(self):
+        adapter = _build_adapter()
+        with (
+            patch.object(adapter, "_execute_pipelined_batches_async", AsyncMock()),
+            patch.object(adapter, "_cleanup_batch_storage"),
+        ):
+            adapter.execute_batches(batches=[_batch()], op_flow=[], global_config={}, job_run_id="jr1")
+        adapter.prefect_engine.logger.info.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# _wait_for_flow_runs_async (async — happy path and failure path)
+# ---------------------------------------------------------------------------
+
+
+class TestWaitForFlowRunsAsync:
+    def _mock_flow_run(self):
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        fr = _FlowRun.model_construct(flow_id=uuid4())
+        fr.id = fr.flow_id
+        return fr
+
+    @pytest.mark.asyncio
+    async def test_happy_path_no_failures(self):
+        adapter = _build_adapter()
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        fr = self._mock_flow_run()
+        completed_state = Mock()
+        completed_state.is_completed.return_value = True
+        completed_state.is_failed.return_value = False
+        completed_state.is_crashed.return_value = False
+        completed_state.is_cancelled.return_value = False
+        completed_fr = _FlowRun.model_construct(flow_id=uuid4(), state=completed_state)
+        completed_fr.id = completed_fr.flow_id
+
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run",
+            AsyncMock(return_value=completed_fr),
+        ):
+            # Should not raise
+            await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
+
+    @pytest.mark.asyncio
+    async def test_failure_raises_flow_execution_exception(self):
+        adapter = _build_adapter()
+        fr = self._mock_flow_run()
+
+        failed_state = Mock()
+        failed_state.is_completed.return_value = False
+        failed_state.is_failed.return_value = True
+        failed_state.is_crashed.return_value = False
+        failed_state.is_cancelled.return_value = False
+        failed_state.message = "worker crashed"
+
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        failed_fr = _FlowRun.model_construct(flow_id=uuid4(), state=failed_state)
+        failed_fr.id = failed_fr.flow_id
+
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run",
+                AsyncMock(return_value=failed_fr),
+            ),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
+        ):
+            with pytest.raises(FlowExecutionFailedException):
+                await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
+
+    @pytest.mark.asyncio
+    async def test_unexpected_exception_is_reraised(self):
+        """Non-Exception gather errors propagate as-is; Exception results become FlowExecutionFailedException."""
+        adapter = _build_adapter()
+        fr = self._mock_flow_run()
+
+        # wait_for_flow_run raising an Exception gets gathered as a result — ends up in failed_info
+        # and triggers FlowExecutionFailedException via _raise_failure
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run",
+                AsyncMock(side_effect=RuntimeError("connection lost")),
+            ),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
+        ):
+            with pytest.raises(FlowExecutionFailedException):
+                await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
+
+
+# ---------------------------------------------------------------------------
+# _cancel_single_run (async)
+# ---------------------------------------------------------------------------
+
+
+class TestCancelSingleRun:
+    def _mock_fr(self):
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        fr = _FlowRun.model_construct(flow_id=uuid4())
+        fr.id = fr.flow_id
+        return fr
+
+    @pytest.mark.asyncio
+    async def test_cancels_non_terminal_run(self):
+        adapter = _build_adapter()
+        fr = self._mock_fr()
+
+        current = Mock()
+        current.state = Mock()
+        current.state.is_final.return_value = False
+
+        client = AsyncMock()
+        client.read_flow_run = AsyncMock(return_value=current)
+        client.set_flow_run_state = AsyncMock()
+
+        result = await adapter._cancel_single_run(client=client, flow_run=fr, job_run_id="jr1")
+        assert result == fr.id
+        client.set_flow_run_state.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_skips_terminal_run(self):
+        adapter = _build_adapter()
+        fr = self._mock_fr()
+
+        current = Mock()
+        current.state = Mock()
+        current.state.is_final.return_value = True
+
+        client = AsyncMock()
+        client.read_flow_run = AsyncMock(return_value=current)
+
+        result = await adapter._cancel_single_run(client=client, flow_run=fr, job_run_id="jr1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_exception(self):
+        adapter = _build_adapter()
+        fr = self._mock_fr()
+
+        client = AsyncMock()
+        client.read_flow_run = AsyncMock(side_effect=RuntimeError("server err"))
+
+        result = await adapter._cancel_single_run(client=client, flow_run=fr, job_run_id="jr1")
+        assert result is None
+        adapter.prefect_engine.logger.warning.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# _cancel_remaining_runs (sync version)
+# ---------------------------------------------------------------------------
+
+
+class TestCancelRemainingRunsSync:
+    def _mock_fr(self):
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        fr = _FlowRun.model_construct(flow_id=uuid4())
+        fr.id = fr.flow_id
+        return fr
+
+    def test_cancels_each_run_via_sync_client(self):
+        adapter = _build_adapter()
+        fr = self._mock_fr()
+
+        sync_client = Mock()
+        sync_client.set_flow_run_state = Mock()
+        ctx = MagicMock()
+        ctx.__enter__ = Mock(return_value=sync_client)
+        ctx.__exit__ = Mock(return_value=False)
+
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client",
+            return_value=ctx,
+        ):
+            adapter._cancel_remaining_runs(flow_runs=[fr], failed_run_id="fr-failed", job_run_id="jr1")
+
+        sync_client.set_flow_run_state.assert_called_once()
+
+    def test_logs_warning_on_cancel_error(self):
+        adapter = _build_adapter()
+        fr = self._mock_fr()
+
+        sync_client = Mock()
+        sync_client.set_flow_run_state = Mock(side_effect=RuntimeError("cancel failed"))
+        ctx = MagicMock()
+        ctx.__enter__ = Mock(return_value=sync_client)
+        ctx.__exit__ = Mock(return_value=False)
+
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client",
+            return_value=ctx,
+        ):
+            # Should not raise
+            adapter._cancel_remaining_runs(flow_runs=[fr], failed_run_id="fr-failed", job_run_id="jr1")
+
+        adapter.prefect_engine.logger.warning.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# _cancel_remaining_runs_async
+# ---------------------------------------------------------------------------
+
+
+class TestCancelRemainingRunsAsync:
+    @pytest.mark.asyncio
+    async def test_cancels_and_waits_for_pending(self):
+        adapter = _build_adapter()
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        fr = _FlowRun.model_construct(flow_id=uuid4())
+        fr.id = fr.flow_id
+
+        async_ctx = MagicMock()
+        mock_client = AsyncMock()
+        async_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        async_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client",
+                return_value=async_ctx,
+            ),
+            patch.object(adapter, "_cancel_single_run", AsyncMock(return_value=fr.id)),
+            patch.object(adapter, "_wait_for_pending_termination", AsyncMock()),
+        ):
+            await adapter._cancel_remaining_runs_async(flow_runs=[fr], job_run_id="jr1")
+
+
+# ---------------------------------------------------------------------------
+# _ensure_deployment_exists — deployment already exists path
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureDeploymentExists:
+    def test_returns_early_when_deployment_already_exists(self):
+        adapter = _build_adapter()
+
+        existing = Mock()
+        existing.id = "dep-001"
+        # get_client(sync_client=True) is called bare (no context manager) inside _ensure_deployment_exists
+        sync_client = Mock()
+        sync_client.read_deployment_by_name = Mock(return_value=existing)
+
+        mock_subflow = Mock()
+        mock_subflow.name = "docpipe-batch-subflow"
+
+        with (
+            # Patch the local import inside _ensure_deployment_exists: "from prefect import get_client"
+            patch("prefect.get_client", return_value=sync_client),
+            patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.batch_subflow",
+                mock_subflow,
+                create=True,
+            ),
+        ):
+            adapter._ensure_deployment_exists()
+
+        adapter.prefect_engine.logger.info.assert_called()
+
+    def test_raises_runtime_error_on_create_failure(self):
+        adapter = _build_adapter()
+
+        sync_client = Mock()
+        sync_client.read_deployment_by_name = Mock(side_effect=Exception("not found"))
+        sync_client.read_flow_by_name = Mock(side_effect=[Exception("not found"), Mock(id="fid")])
+        sync_client.create_flow = Mock(return_value="flow-id-001")
+        sync_client.create_deployment = Mock(side_effect=RuntimeError("work pool missing"))
+
+        mock_subflow = Mock()
+        mock_subflow.name = "docpipe-batch-subflow"
+
+        with (
+            patch("prefect.get_client", return_value=sync_client),
+            patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.batch_subflow",
+                mock_subflow,
+                create=True,
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="Failed to create deployment"):
+                adapter._ensure_deployment_exists()
+
+
+# ---------------------------------------------------------------------------
+# _wait_for_pending_termination (async)
+# ---------------------------------------------------------------------------
+
+
+class TestWaitForPendingTermination:
+    @pytest.mark.asyncio
+    async def test_empty_pending_runs_exits_immediately(self):
+        """Empty list: while loop never executes — covers entry + info log."""
+        adapter = _build_adapter()
+        client = AsyncMock()
+        # Should complete instantly with no iterations
+        await adapter._wait_for_pending_termination(client=client, pending_runs=[], job_run_id="jr1")
+        adapter.prefect_engine.logger.info.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_timeout_logs_warning(self):
+        """Covers sleep+read+update (lines 740-743) then timeout branch (734-738).
+
+        Clock sequence:
+          call 0 → start_wait = 0.0            (line 732)
+          call 1 → loop check = 0.0  → proceed (line 734, first iteration)
+          call 2 → loop check = 100.0 → timeout (line 734, second iteration)
+        """
+        from uuid import UUID
+
+        adapter = _build_adapter()
+        run_id = UUID("00000000-0000-0000-0000-000000000002")
+
+        # Run stays non-terminal so the list stays populated after line 743
+        non_terminal = Mock()
+        non_terminal.id = run_id
+        non_terminal.state = Mock()
+        non_terminal.state.is_final.return_value = False
+
+        client = AsyncMock()
+        client.read_flow_runs = AsyncMock(return_value=[non_terminal])
+
+        mock_loop = Mock()
+        mock_loop.time.side_effect = [0.0, 0.0, 100.0]  # start, first check (pass), second check (timeout)
+
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.sleep",
+                AsyncMock(),
+            ),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.get_event_loop",
+                return_value=mock_loop,
+            ),
+        ):
+            await adapter._wait_for_pending_termination(client=client, pending_runs=[run_id], job_run_id="jr1")
+
+        adapter.prefect_engine.logger.warning.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_poll_exception_is_swallowed(self):
+        """Covers the except branch (lines 744-747): poll error is logged, not raised.
+
+        Clock sequence: start=0.0, first-check=0.0 (proceed), second-check=100.0 (timeout).
+        """
+        adapter = _build_adapter()
+        run_id = "uuid-003"
+
+        client = AsyncMock()
+        client.read_flow_runs = AsyncMock(side_effect=RuntimeError("poll error"))
+
+        mock_loop = Mock()
+        mock_loop.time.side_effect = [0.0, 0.0, 100.0]
+
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.sleep",
+                AsyncMock(),
+            ),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.get_event_loop",
+                return_value=mock_loop,
+            ),
+        ):
+            # Must not raise
+            await adapter._wait_for_pending_termination(client=client, pending_runs=[run_id], job_run_id="jr1")
+
+        adapter.prefect_engine.logger.warning.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# _ensure_deployment_exists — process worker creation path
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureDeploymentExistsCreate:
+    def _setup_create_mock(self, work_pool_type="process"):
+        """Return (adapter, sync_client, mock_subflow) ready for _ensure_deployment_exists."""
+        extra = {"type": work_pool_type}
+        if work_pool_type == "docker":
+            extra["image"] = "my-img:latest"
+        adapter = _build_adapter(extra)
+
+        sync_client = Mock()
+        sync_client.read_deployment_by_name = Mock(side_effect=Exception("not found"))
+        flow_obj = Mock()
+        flow_obj.id = "fid-001"
+        sync_client.read_flow_by_name = Mock(return_value=flow_obj)
+        sync_client.create_deployment = Mock(return_value="dep-id-001")
+
+        mock_subflow = Mock()
+        mock_subflow.name = "docpipe-batch-subflow"
+
+        return adapter, sync_client, mock_subflow
+
+    def test_creates_deployment_for_process_pool(self):
+        adapter, sync_client, mock_subflow = self._setup_create_mock("process")
+
+        with (
+            patch("prefect.get_client", return_value=sync_client),
+            patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.batch_subflow",
+                mock_subflow,
+                create=True,
+            ),
+            patch.object(adapter, "_build_job_variables", return_value=None),
+        ):
+            adapter._ensure_deployment_exists()
+
+        sync_client.create_deployment.assert_called_once()
+        adapter.prefect_engine.logger.info.assert_called()
+
+    def test_creates_deployment_for_docker_pool(self):
+        adapter, sync_client, mock_subflow = self._setup_create_mock("docker")
+
+        with (
+            patch("prefect.get_client", return_value=sync_client),
+            patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.batch_subflow",
+                mock_subflow,
+                create=True,
+            ),
+            patch.object(adapter, "_build_job_variables", return_value={"image": "my-img:latest", "env": {}}),
+        ):
+            adapter._ensure_deployment_exists()
+
+        sync_client.create_deployment.assert_called_once()
+
+    def test_registers_flow_when_not_found(self):
+        """Covers the flow-registration branch (flow not yet in Prefect Server)."""
+        adapter, sync_client, mock_subflow = self._setup_create_mock("process")
+
+        flow_obj = Mock()
+        flow_obj.id = "fid-after-create"
+        # First call raises (not found), second call returns the registered flow
+        sync_client.read_flow_by_name = Mock(side_effect=[Exception("not found"), flow_obj])
+        sync_client.create_flow = Mock(return_value="fid-after-create")
+
+        with (
+            patch("prefect.get_client", return_value=sync_client),
+            patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.batch_subflow",
+                mock_subflow,
+                create=True,
+            ),
+            patch.object(adapter, "_build_job_variables", return_value=None),
+        ):
+            adapter._ensure_deployment_exists()
+
+        sync_client.create_flow.assert_called_once()
+        sync_client.create_deployment.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _wait_for_flow_runs (sync wrapper — line 601)
+# ---------------------------------------------------------------------------
+
+
+class TestWaitForFlowRunsSync:
+    def test_delegates_to_async_impl(self):
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        adapter = _build_adapter()
+        fr = _FlowRun.model_construct(flow_id=uuid4())
+        fr.id = fr.flow_id
+
+        with patch.object(adapter, "_wait_for_flow_runs_async", AsyncMock()):
+            adapter._wait_for_flow_runs(flow_runs=[fr], job_run_id="jr1")
+
+
+# ---------------------------------------------------------------------------
+# _classify_flow_run_result — crashed branch (lines 634-646)
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyFlowRunResultCrashed:
+    def test_crashed_state_appends_failure(self):
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        adapter = _build_adapter()
+        state = Mock()
+        state.is_completed.return_value = False
+        state.is_failed.return_value = False
+        state.is_crashed.return_value = True
+        state.is_cancelled.return_value = False
+        state.message = "OOM"
+        _fid = uuid4()
+        result = _FlowRun.model_construct(flow_id=_fid, state=state)
+        result.id = _fid
+        fr = Mock()
+        fr.id = _fid
+        failed: list[dict] = []
+        count = adapter._classify_flow_run_result(
+            batch_num=3, flow_run=fr, result=result, completed_count=0, failed_info=failed, job_run_id="jr"
+        )
+        assert len(failed) == 1
+        assert "CRASHED" in failed[0]["message"] or failed[0]["message"] == "OOM"
+        assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# _wait_for_flow_runs_async — outer except branch (lines 694-700)
+# ---------------------------------------------------------------------------
+
+
+class TestWaitForFlowRunsAsyncOuterExcept:
+    @pytest.mark.asyncio
+    async def test_non_flow_exception_logs_and_reraises(self):
+        """Covers lines 694-700: asyncio.gather itself raises (not return_exceptions path)."""
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        adapter = _build_adapter()
+        fr = _FlowRun.model_construct(flow_id=uuid4())
+        fr.id = fr.flow_id
+
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
+            AsyncMock(side_effect=MemoryError("OOM")),
+        ):
+            with pytest.raises(MemoryError):
+                await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
+
+        adapter.prefect_engine.logger.error.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# _cancel_remaining_runs_async — no pending runs path (lines 762-765)
+# ---------------------------------------------------------------------------
+
+
+class TestCancelRemainingRunsAsyncNoPending:
+    @pytest.mark.asyncio
+    async def test_no_pending_skips_wait(self):
+        """When _cancel_single_run returns None for all runs, _wait_for_pending_termination is not called."""
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        adapter = _build_adapter()
+        fr = _FlowRun.model_construct(flow_id=uuid4())
+        fr.id = fr.flow_id
+
+        async_ctx = MagicMock()
+        mock_client = AsyncMock()
+        async_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        async_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client",
+                return_value=async_ctx,
+            ),
+            patch.object(adapter, "_cancel_single_run", AsyncMock(return_value=None)),
+            patch.object(adapter, "_wait_for_pending_termination", AsyncMock()) as wait_mock,
+        ):
+            await adapter._cancel_remaining_runs_async(flow_runs=[fr], job_run_id="jr1")
+
+        wait_mock.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _get_effective_job_management_env — config path exists branch (line 862)
+# ---------------------------------------------------------------------------
+
+
+class TestGetEffectiveJobManagementEnvConfigExists:
+    def test_includes_config_path_when_file_exists(self, tmp_path):
+        adapter = _build_adapter()
+        cfg = tmp_path / "docling-pipelines-config.yaml"
+        cfg.write_text("storage: duckdb\n")
+
+        mock_factory = Mock()
+        mock_factory.resolve_worker_env.return_value = {}
+
+        with (
+            patch.object(adapter, "_resolve_job_management_config_path", return_value=cfg),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.JobManagementFactory.from_default_sources",
+                return_value=mock_factory,
+            ),
+        ):
+            result = adapter._get_effective_job_management_env()
+
+        from docpipe.core.constants import EnvironmentVariables
+
+        assert EnvironmentVariables.DOCPIPE_CONFIG_PATH in result
+
+
+# ---------------------------------------------------------------------------
+# _classify_flow_run_result — no-op state branch (all state checks False → return unchanged)
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyFlowRunResultNoOp:
+    def test_non_final_non_cancelled_state_is_noop(self):
+        """Covers the 647→652 branch: is_cancelled() is False, falls through to return."""
+        from prefect.client.schemas.objects import FlowRun as _FlowRun
+
+        adapter = _build_adapter()
+        # State that is NOT completed, NOT failed, NOT crashed, NOT cancelled
+        state = Mock()
+        state.is_completed.return_value = False
+        state.is_failed.return_value = False
+        state.is_crashed.return_value = False
+        state.is_cancelled.return_value = False
+        _fid = uuid4()
+        result = _FlowRun.model_construct(flow_id=_fid, state=state)
+        result.id = _fid
+        fr = Mock()
+        fr.id = _fid
+        failed: list[dict] = []
+        count = adapter._classify_flow_run_result(
+            batch_num=0, flow_run=fr, result=result, completed_count=7, failed_info=failed, job_run_id="jr"
+        )
+        # Count unchanged, nothing appended
+        assert count == 7
+        assert failed == []
+
+
+# ---------------------------------------------------------------------------
+# _build_container_env — all keys pre-populated (covers the False branches 883-898)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildContainerEnvAllKeysPreset:
+    def test_does_not_overwrite_any_preset_key(self):
+        """All env keys already present → every 'if not in env' branch takes the False path."""
+        from docpipe.core.constants import EnvironmentVariables
+
+        adapter = _build_adapter()
+        base = {
+            EnvironmentVariables.PREFECT_API_URL: "http://a:4200/api",
+            EnvironmentVariables.PREFECT_MODE: "server",
+            EnvironmentVariables.PYTHONPATH: "/custom/path",
+            EnvironmentVariables.OLLAMA_HOST: "http://ollama:11434",
+            EnvironmentVariables.PREFECT_LOGGING_EXTRA_LOGGERS: "MY_LOGGER",
         }
-        with patch.dict("os.environ", required_env):
-            env = adapter._build_container_env(base_env=base_env, deployment_path="/app")
-
-        assert "EXISTING_VAR" in env
-        assert env["EXISTING_VAR"] == "value"
-        assert "PYTHONPATH" in env
-
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    @patch(
-        "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._get_effective_job_management_env"
-    )
-    def test_build_container_env_with_job_management(
-        self,
-        mock_get_env,
-        mock_ensure_deployment,
-        mock_validate,
-        base_config,
-        mock_prefect_engine,
-        mock_batch_manager,
-    ):
-        """Test container environment includes job management vars."""
-        mock_get_env.return_value = {"JOB_VAR": "job_value"}
-
-        adapter = WorkPoolAdapter(
-            work_pool_config=base_config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
-
-        required_env = {
-            "PREFECT_API_URL": "https://prefect-server:4200/api",
-            "OLLAMA_HOST": "https://ollama-server:11434",
-        }
-        with patch.dict("os.environ", required_env):
-            env = adapter._build_container_env(base_env={}, deployment_path="/app")
-
-        assert "JOB_VAR" in env
-        assert env["JOB_VAR"] == "job_value"
+        with patch.object(adapter, "_get_effective_job_management_env", return_value={}):
+            result = adapter._build_container_env(base_env=base, deployment_path="/app")
+        # None of the preset values should be overwritten
+        assert result[EnvironmentVariables.PREFECT_API_URL] == "http://a:4200/api"
+        assert result[EnvironmentVariables.OLLAMA_HOST] == "http://ollama:11434"
+        assert result[EnvironmentVariables.PREFECT_LOGGING_EXTRA_LOGGERS] == "MY_LOGGER"
 
 
-class TestJobVariables:
-    """Test job variables building."""
+# ---------------------------------------------------------------------------
+# _transfer_batch_inline — binary column with None value (covers 538→536 branch)
+# ---------------------------------------------------------------------------
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_build_job_variables_process(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test job variables for process work pool."""
-        config = {"work_pool_name": "test-pool", "type": "process", "batch_storage": {"type": "inline"}}
 
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
+class TestTransferBatchInlineNullBinary:
+    def test_null_binary_value_skipped_without_error(self):
+        """Covers 538→536: binary column present but value is None → no encoding attempted."""
+        adapter = _build_adapter()
+        # Binary column with a None value — exercises the False branch of `if value is not None`
+        tbl = pa.table({"id": [1, 2], "blob": pa.array([None, b"data"], type=pa.binary())})
+        with patch(
+            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.BatchStrategyConstants.get_inline_size_limit",
+            return_value=1_000_000,
+        ):
+            result = adapter._transfer_batch_inline(batch_table=tbl, batch_num=0, job_run_id="jr1")
+        # None value stays None, bytes value gets encoded
+        rows = result["data"]["data"]
+        assert rows[0]["blob"] is None
+        import base64
 
-        required_env = {
-            "PREFECT_API_URL": "https://prefect-server:4200/api",
-            "OLLAMA_HOST": "https://ollama-server:11434",
-        }
-        with patch.dict("os.environ", required_env):
-            job_vars = adapter._build_job_variables()
+        assert rows[1]["blob"] == base64.b64encode(b"data").decode()
 
-        assert job_vars is not None
-        assert isinstance(job_vars, dict)
 
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._validate_prefect_connection")
-    @patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.WorkPoolAdapter._ensure_deployment_exists")
-    def test_build_job_variables_docker(
-        self, mock_ensure_deployment, mock_validate, mock_prefect_engine, mock_batch_manager
-    ):
-        """Test job variables for docker work pool."""
-        config = {
-            "work_pool_name": "test-pool",
-            "type": "docker",
-            "batch_storage": {"type": "inline"},
-            "image": "test-image:latest",
-        }
+# ---------------------------------------------------------------------------
+# _build_container_env — job-management key already in env (covers 898→897 branch)
+# ---------------------------------------------------------------------------
 
-        adapter = WorkPoolAdapter(
-            work_pool_config=config, prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
 
-        required_env = {
-            "PREFECT_API_URL": "https://prefect-server:4200/api",
-            "OLLAMA_HOST": "https://ollama-server:11434",
-        }
-        with patch.dict("os.environ", required_env):
-            job_vars = adapter._build_job_variables()
+class TestBuildContainerEnvJobMgmtKeyConflict:
+    def test_does_not_overwrite_job_management_key_already_in_base(self):
+        """Covers 898→897: effective_job_management_env key already present in env → skip."""
+        from docpipe.core.constants import EnvironmentVariables
 
-        assert job_vars is not None
-        assert isinstance(job_vars, dict)
+        adapter = _build_adapter()
+        base = {EnvironmentVariables.PREFECT_API_URL: "http://a:4200/api"}
+        # job-management env returns a key that is already in base → the `if env_key not in env` is False
+        with patch.object(
+            adapter,
+            "_get_effective_job_management_env",
+            return_value={EnvironmentVariables.PREFECT_API_URL: "http://should-not-overwrite:4200/api"},
+        ):
+            result = adapter._build_container_env(base_env=base, deployment_path="/app")
+        assert result[EnvironmentVariables.PREFECT_API_URL] == "http://a:4200/api"
+
+
+# ---------------------------------------------------------------------------
+# _execute_pipelined_batches_async — covers lines 222-240 and 377-409
+# ---------------------------------------------------------------------------
+
+
+class TestExecutePipelinedBatchesAsync:
+    @pytest.mark.asyncio
+    async def test_batch_submission_failure_raises_flow_exception(self):
+        """
+        run_deployment raises immediately → run_single_batch fails → failed_info populated →
+        FlowExecutionFailedException raised from line 409.
+
+        The bulk poller task (create_task) is replaced with a no-op coroutine so it
+        never enters its infinite while-True loop.
+        """
+        import asyncio as _asyncio
+
+        adapter = _build_adapter()
+        batch = _batch(0)
+
+        async def _noop_poller():
+            """Immediately returns so there is no infinite loop."""
+
+        real_create_task = _asyncio.create_task
+        call_count = 0
+
+        def fake_create_task(coro, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First create_task call is the bulk poller — replace with noop
+                coro.close()  # discard the real coroutine cleanly
+                return real_create_task(_noop_poller())
+            return real_create_task(coro, **kwargs)
+
+        with (
+            patch.object(adapter, "_transfer_batch", return_value={"type": "inline", "data": {}}),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment",
+                AsyncMock(side_effect=FlowExecutionFailedException("submit failed")),
+            ),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.create_task",
+                side_effect=fake_create_task,
+            ),
+        ):
+            with pytest.raises(FlowExecutionFailedException):
+                await adapter._execute_pipelined_batches_async(
+                    batches=[batch], op_flow=[], global_config={}, job_run_id="jr1"
+                )

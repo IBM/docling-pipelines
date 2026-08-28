@@ -60,16 +60,16 @@ python tests/integration/opensearch/nl_to_sql.py --test-filter edge_case
 
 import argparse
 import json
-import os
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Callable
 
 from opensearchpy import OpenSearch, helpers
 
 # Add the examples/retrieval directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval"))
+sys.path.insert(0, str(Path(__file__).parent / "../../../examples/retrieval"))
 
 from nl_query_generator import get_comprehensive_test_queries  # type: ignore
 from ollama_nl_to_sql_converter import OllamaNLToSQLConverter  # type: ignore
@@ -97,7 +97,7 @@ class DeterministicPurchaseOrderGenerator:
         self.departments = ["IT", "Marketing", "Sales", "Operations", "HR", "Finance"]
 
         # Base date for consistent time-based queries
-        self.base_date = datetime(2026, 3, 1)
+        self.base_date = datetime(2026, 3, 1, tzinfo=UTC)
 
     def generate_test_purchase_orders(self) -> list[dict[str, Any]]:
         """
@@ -551,7 +551,7 @@ class DeterministicPurchaseOrderGenerator:
             # Check items array
             if "items" not in order or not isinstance(order["items"], list):
                 raise ValueError(f"Order {idx} missing or invalid 'items' array")
-            if len(order["items"]) == 0:
+            if not order["items"]:
                 raise ValueError(f"Order {idx} has empty 'items' array")
 
             for item_idx, item in enumerate(order["items"]):
@@ -679,7 +679,7 @@ class NLToSQLQueryEvaluator:
         """
         self.client = client
         self.index_name = index_name
-        self.base_date = datetime(2026, 3, 1)
+        self.base_date = datetime(2026, 3, 1, tzinfo=UTC)
 
         # Initialize Ollama NL to SQL converter
         self.nl_converter = OllamaNLToSQLConverter(ollama_host=ollama_host, model=ollama_model, index_name=index_name)
@@ -805,7 +805,7 @@ class NLToSQLQueryEvaluator:
         For COUNT(*) queries, the result contains a single row with the count value,
         not multiple rows. We need to extract the count value from the result data.
         """
-        if not result.datarows or len(result.datarows) == 0:
+        if not result.datarows:
             if expected_count == 0:
                 return (True, 0)
             return (False, 0)
@@ -837,7 +837,7 @@ class NLToSQLQueryEvaluator:
 
     def _validate_row_count(self, result, expected_count: int) -> tuple[bool, int]:
         """Validate the number of rows in the result"""
-        if not result.datarows or len(result.datarows) == 0:
+        if not result.datarows:
             return (False, 0)
 
         actual_count: int = len(result.datarows)
@@ -940,7 +940,7 @@ class NLToSQLQueryEvaluator:
 
         For aggregation queries (MIN, MAX, SUM, AVG), extract the aggregated value.
         """
-        if not result.datarows or len(result.datarows) == 0:
+        if not result.datarows:
             return (False, "No results")
 
         first_row = result.datarows[0]
@@ -1178,7 +1178,7 @@ def main():
 
     # Save results to file if requested
     if args.output:
-        with open(args.output, "w") as f:
+        with Path(args.output).open("w") as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to: {args.output}")
 

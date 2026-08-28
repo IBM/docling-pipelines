@@ -20,12 +20,13 @@ from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.operators.quality.classification.classification_service import ClassificationService
 from docpipe.core.operators.quality.classification.domain.models import ClassificationRequest
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
 
 
-class DocumentClassifierOperator(AbstractOperator):
+class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
     """
     Operator for classifying documents into predefined types using LLM.
 
@@ -182,9 +183,6 @@ class DocumentClassifierOperator(AbstractOperator):
         )
 
         # Column configuration
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Classification.DEFAULT_DOC_COLUMN
-        )
         self.output_column: str = config.get(
             OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Classification.DEFAULT_OUTPUT_COLUMN
         )
@@ -219,9 +217,7 @@ class DocumentClassifierOperator(AbstractOperator):
             f"model={self.model_id}, types={len(self.document_types)}"
         )
 
-    def validate(
-        self, errors: list[str], warnings: list[str], available_features: list[str]
-    ) -> None:  # NOSONAR python:S3776
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
         Validate operator configuration and dependencies using generic metadata introspection.
 
@@ -258,10 +254,10 @@ class DocumentClassifierOperator(AbstractOperator):
             if not self.document_types:
                 errors.append("document_types cannot be empty")
             elif isinstance(self.document_types, list):
-                if len(self.document_types) == 0:
+                if not self.document_types:
                     errors.append("document_types list cannot be empty")
             elif isinstance(self.document_types, dict):
-                if len(self.document_types) == 0:
+                if not self.document_types:
                     errors.append("document_types dictionary cannot be empty")
 
         # Validate confidence threshold (optional, defaults to 7.0)
@@ -291,7 +287,7 @@ class DocumentClassifierOperator(AbstractOperator):
         """
         from docpipe.utils.document_class_utils import DocumentClassUtils
 
-        return DocumentClassUtils.get_document_types()
+        return dict(DocumentClassUtils.get_document_types())
 
     def _update_classification_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int
@@ -400,7 +396,7 @@ class DocumentClassifierOperator(AbstractOperator):
             }
 
     def _validate_extensions_for_existing_content(
-        self, *, table: pa.Table, doc_contents: list, metadata: dict[str, Any]
+        self, *, table: pa.Table, doc_contents: list[Any], metadata: dict[str, Any]
     ) -> set[int]:
         """
         Validate file extensions for documents with existing content.
@@ -422,7 +418,7 @@ class DocumentClassifierOperator(AbstractOperator):
             doc_name = table[OperatorConstants.Columns.NAME][idx].as_py()
             file_ext = pathlib.Path(doc_name).suffix.lower()
 
-            if file_ext not in OperatorConstants.Extraction.CLASSIFICATION_FILE_EXTENSIONS:
+            if file_ext not in OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS:
                 doc_id = (
                     table[OperatorConstants.Columns.ID][idx].as_py()
                     if OperatorConstants.Columns.ID in table.column_names
@@ -443,9 +439,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
         return skipped_indices
 
-    def transform(
-        self, table: pa.Table, file_name: str = ""
-    ) -> tuple[list[pa.Table], dict[str, Any]]:  # NOSONAR python:S3776
+    def transform(self, table: pa.Table, file_name: str = "") -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Classify documents in the input table.
 
@@ -495,7 +489,7 @@ class DocumentClassifierOperator(AbstractOperator):
             doc_tasks = OperatorUtils.prepare_document_content_fetch(
                 table=table,
                 global_config=self.global_config,
-                supported_extensions=set(OperatorConstants.Extraction.CLASSIFICATION_FILE_EXTENSIONS),
+                supported_extensions=set(OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS),
             )
 
             logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
@@ -525,7 +519,8 @@ class DocumentClassifierOperator(AbstractOperator):
                             )
                         continue
 
-                    future = executor.submit(
+                    future = submit_task_with_context_propagation(
+                        executor,
                         OperatorUtils.extract_content,
                         task["doc_name"],
                         task["binary_content"],
@@ -567,9 +562,9 @@ class DocumentClassifierOperator(AbstractOperator):
                         )
 
         # Process each document
-        classifications: list = [None] * table.num_rows
-        confidences: list = [0] * table.num_rows
-        reasonings: list = [None] * table.num_rows
+        classifications: list[Any] = [None] * table.num_rows
+        confidences: list[Any] = [0] * table.num_rows
+        reasonings: list[Any] = [None] * table.num_rows
 
         # Use ThreadPoolExecutor for classification (I/O-bound LLM API calls)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -601,7 +596,9 @@ class DocumentClassifierOperator(AbstractOperator):
                     classifications[idx] = None
                     continue
 
-                future = executor.submit(self._classify_document, content=content, doc_name=doc_name)
+                future = submit_task_with_context_propagation(
+                    executor, self._classify_document, content=content, doc_name=doc_name
+                )
 
                 future_to_task[future] = {"idx": idx, "doc_name": doc_name, "doc_id": doc_id}
 
@@ -738,6 +735,23 @@ class DocumentClassifierOperator(AbstractOperator):
         return [output_table], metadata
 
     @staticmethod
+    def _get_classifier_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the provider_config field.
+
+        Add a new entry here when registering a new classification provider.
+        """
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+
+        return {
+            OperatorConstants.Classification.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
+                schema=LLMProviderConfig.model_json_schema()
+            ),
+            OperatorConstants.Classification.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxProviderConfig.model_json_schema()
+            ),
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
@@ -782,29 +796,10 @@ class DocumentClassifierOperator(AbstractOperator):
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration. Fields vary by provider — see the 'providers' schema for details.",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                    OperatorConstants.Config.PROPERTIES: {
-                        OperatorConstants.Config.MODEL_ID: {
-                            OperatorConstants.Misc.NAME: "Model ID",
-                            OperatorConstants.Config.DESCRIPTION: "Model identifier for the provider",
-                            OperatorConstants.Config.REQUIRED: True,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_BASE: {
-                            OperatorConstants.Misc.NAME: "API Base URL",
-                            OperatorConstants.Config.DESCRIPTION: "API endpoint URL",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_KEY: {
-                            OperatorConstants.Misc.NAME: "API Key",
-                            OperatorConstants.Config.DESCRIPTION: "Authentication key",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                    },
+                    OperatorConstants.Config.PROVIDERS: DocumentClassifierOperator._get_classifier_provider_schemas(),
                 },
                 OperatorConstants.Config.DOCUMENT_TYPES: {
                     OperatorConstants.Misc.NAME: "Document Types",

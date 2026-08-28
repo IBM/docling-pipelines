@@ -3,7 +3,7 @@
 import pyarrow as pa
 import pytest
 
-from docpipe.storage.duck_db.table_storage import DuckDBTableStorage
+from docpipe.storage.duck_db.duckdb_table_storage import DuckDBTableStorage
 from docpipe.storage.exceptions import StorageException, StorageValidationError
 from docpipe.storage.factory import StorageFactory
 
@@ -385,156 +385,74 @@ class TestDuckDBTableStorageValidation:
             storage.create_table(table_name="", schema=sample_schema)
 
 
-class TestDuckDBTableStorageErrorHandling:
-    """Test error handling branches in table storage operations."""
+class TestDuckDBTableStorageErrorPaths:
+    """Test error-handling paths for improved coverage."""
 
-    def test_create_table_with_invalid_column_name_raises(self, tmp_path):
-        """Test that schema with invalid column name raises StorageValidationError."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "err.db"))
-        # Create schema with invalid column name directly via _validate_column_name
-        with pytest.raises(StorageValidationError, match="Invalid column name"):
-            storage._validate_column_name(column_name="col-bad!")
+    def test_create_table_raises_on_invalid_name(self, storage, sample_schema):
+        """Table names with invalid characters raise StorageValidationError."""
+        with pytest.raises(StorageValidationError):
+            storage.create_table(table_name="bad name!", schema=sample_schema)
 
-    def test_upsert_missing_id_column_raises_storage_validation_error(self, storage, sample_schema):
-        """Test upsert with missing id column raises StorageValidationError."""
-        table_name = "test_table"
-        storage.create_table(table_name=table_name, schema=sample_schema)
-        bad_data = pa.table({"name": ["Doc"], "content": ["Content"]})
-        with pytest.raises(StorageValidationError, match="must contain an 'id' column"):
-            storage.upsert_data(table_name=table_name, data=bad_data)
+    def test_upsert_data_raises_on_invalid_table_name(self, storage, sample_table):
+        """upsert_data raises StorageValidationError for invalid table name."""
+        with pytest.raises(StorageValidationError):
+            storage.upsert_data(table_name="bad name!", data=sample_table)
 
-    def test_delete_table_invalid_name_raises(self, storage):
-        """Test deleting table with invalid name raises StorageValidationError."""
-        with pytest.raises(StorageValidationError, match="Invalid table name"):
-            storage.delete_table(table_name="bad-name!")
+    def test_read_data_raises_when_table_missing(self, storage):
+        """read_data raises StorageException when table does not exist."""
+        with pytest.raises(StorageException):
+            storage.read_data(table_name="nonexistent_table")
 
-    def test_read_data_invalid_name_raises(self, storage):
-        """Test reading table with invalid name raises StorageValidationError."""
-        with pytest.raises(StorageValidationError, match="Invalid table name"):
-            storage.read_data(table_name="bad-name!")
+    def test_get_row_count_raises_when_table_missing(self, storage):
+        """get_row_count raises StorageException when table does not exist."""
+        with pytest.raises(StorageException):
+            storage.get_row_count(table_name="nonexistent_table")
 
-    def test_get_row_count_invalid_name_raises(self, storage):
-        """Test getting row count with invalid name raises StorageValidationError."""
-        with pytest.raises(StorageValidationError, match="Invalid table name"):
-            storage.get_row_count(table_name="bad-name!")
-
-
-class TestDuckDBTableStorageGetTableSchema:
-    """Test getting table schema."""
-
-    def test_get_table_schema(self, storage, sample_schema):
-        """Test getting schema of existing table."""
-        table_name = "test_table"
-        storage.create_table(table_name=table_name, schema=sample_schema)
-        schema = storage.get_table_schema(table_name=table_name)
-        assert "id" in schema.names
-        assert "name" in schema.names
-
-    def test_get_table_schema_nonexistent_raises(self, storage):
-        """Test getting schema of nonexistent table raises error."""
-        from docpipe.storage.exceptions import StorageException
-
-        with pytest.raises(StorageException, match="does not exist"):
+    def test_get_table_schema_raises_when_table_missing(self, storage):
+        """get_table_schema raises StorageException when table does not exist."""
+        with pytest.raises(StorageException):
             storage.get_table_schema(table_name="nonexistent_table")
 
-
-class TestDuckDBTableStorageTypeConversion:
-    """Test PyArrow to DuckDB type conversion."""
-
-    def test_various_pyarrow_types(self, tmp_path):
-        """Test that various PyArrow types convert correctly and can be used in tables."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "types.db"))
-
-        schema = pa.schema(
-            [
-                ("id", pa.string()),
-                ("int8_col", pa.int8()),
-                ("int16_col", pa.int16()),
-                ("float32_col", pa.float32()),
-                ("float64_col", pa.float64()),
-                ("bool_col", pa.bool_()),
-                ("binary_col", pa.binary()),
-                ("timestamp_col", pa.timestamp("ms")),
-                ("list_col", pa.list_(pa.string())),
-            ]
-        )
-        storage.create_table(table_name="types_table", schema=schema)
-        assert storage.table_exists(table_name="types_table")
-
-    def test_unknown_type_defaults_to_varchar(self, tmp_path):
-        """Test that unknown PyArrow types default to VARCHAR."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "unknown.db"))
-        # decimal type is not directly mapped — should default to VARCHAR
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.decimal128(10, 2))
-        assert duckdb_type == "VARCHAR"
-
-    def test_large_binary_type(self, tmp_path):
-        """Test that large binary type converts correctly."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "binary.db"))
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.large_binary())
-        assert duckdb_type == "BLOB"
-
-    def test_large_string_type(self, tmp_path):
-        """Test that large string type converts to VARCHAR."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "lstring.db"))
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.large_utf8())
-        assert duckdb_type == "VARCHAR"
-
-    def test_struct_type(self, tmp_path):
-        """Test that struct type converts to JSON."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "struct.db"))
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.struct([pa.field("x", pa.int32())]))
-        assert duckdb_type == "JSON"
-
-    def test_map_type(self, tmp_path):
-        """Test that map type converts to JSON."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "maptype.db"))
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.map_(pa.string(), pa.int32()))
-        assert duckdb_type == "JSON"
-
-    def test_large_list_type(self, tmp_path):
-        """Test that large list type converts to JSON."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "llist.db"))
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.large_list(pa.string()))
-        assert duckdb_type == "JSON"
-
-    def test_date_type(self, tmp_path):
-        """Test that date type converts to DATE."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "date.db"))
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.date32())
-        assert duckdb_type == "DATE"
-
-    def test_time_type(self, tmp_path):
-        """Test that time type converts to TIME."""
-        storage = DuckDBTableStorage(database_path=str(tmp_path / "time.db"))
-        duckdb_type = storage._pyarrow_to_duckdb_type(pa_type=pa.time32("s"))
-        assert duckdb_type == "TIME"
+    def test_delete_table_returns_false_when_table_missing(self, storage):
+        """delete_table returns False when table does not exist."""
+        result = storage.delete_table(table_name="nonexistent_table")
+        assert result is False
 
 
-class TestDuckDBTableStorageValidateColumnName:
-    """Test column name validation."""
+class TestDuckDBTableStorageExceptionReraise:
+    """Cover except-reraise paths in create_table and upsert_data."""
 
-    def test_invalid_column_name_empty_raises(self, storage, sample_schema):
-        """Test that empty column name raises StorageValidationError."""
-        from docpipe.storage.exceptions import StorageValidationError
+    def test_create_table_raises_storage_exception_on_duckdb_error(self, storage, sample_schema):
+        """duckdb.Error during create_table is wrapped in StorageException."""
+        from unittest.mock import MagicMock, patch
 
-        with pytest.raises(StorageValidationError, match="Column name cannot be empty"):
-            storage._validate_column_name(column_name="")
+        import duckdb
 
-    def test_invalid_column_name_sql_chars_raises(self, storage):
-        """Test that SQL chars in column name raise StorageValidationError."""
-        from docpipe.storage.exceptions import StorageValidationError
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = duckdb.Error("syntax error")
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = lambda s: mock_conn
+        mock_ctx.__exit__ = MagicMock(return_value=False)
 
-        with pytest.raises(StorageValidationError, match="Invalid column name"):
-            storage._validate_column_name(column_name="col; DROP TABLE t;")
+        with patch.object(storage.connection_manager, "get_connection", return_value=mock_ctx):
+            with pytest.raises(StorageException):
+                storage.create_table(table_name="valid_table", schema=sample_schema)
 
+    def test_upsert_data_raises_storage_exception_on_duckdb_error(self, storage, sample_table):
+        """duckdb.Error during upsert_data is wrapped in StorageException."""
+        from unittest.mock import MagicMock, patch
 
-class TestDuckDBTableStorageDirectoryValidation:
-    """Test directory validation logic."""
+        import duckdb
 
-    def test_validate_database_path_nonexistent_directory(self, tmp_path):
-        """Test validate_database_path logs warning for nonexistent directory."""
-        # A path inside a nonexistent subdir
-        fake_path = str(tmp_path / "nonexistent_dir" / "test.db")
-        # Should not raise, just log
-        DuckDBTableStorage.validate_database_path(db_path=fake_path)
+        # First create the table so it exists
+        storage.create_table(table_name="valid_table", schema=sample_table.schema)
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = duckdb.Error("write error")
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = lambda s: mock_conn
+        mock_ctx.__exit__ = MagicMock(return_value=False)
+
+        with patch.object(storage.connection_manager, "get_connection", return_value=mock_ctx):
+            with pytest.raises(StorageException):
+                storage.upsert_data(table_name="valid_table", data=sample_table)

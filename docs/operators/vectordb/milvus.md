@@ -43,11 +43,10 @@ When configured with `provider: "milvus"`, the operator supports multiple index 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `provider` | string | No | "milvus" | Vector database type |
-| `index_name` | string | Yes | - | Name of the Milvus collection |
 | `doc_id_column` | string | No | "doc_id_hash" | Column containing document IDs |
 | `create_index` | boolean | No | true | Create collection if it doesn't exist |
 | `batch_size` | integer | No | 100 | Documents per batch |
-| `provider_config` | object | No | {} | Provider-specific configuration (see below) |
+| `provider_config` | object | **Yes** | - | Provider-specific configuration including the collection name (see below) |
 
 ### provider_config Structure
 
@@ -55,6 +54,7 @@ Connection and index-specific parameters are configured inside the `provider_con
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
+| `collection_name` | string | **Yes** | - | Name of the Milvus collection |
 | `auth_type` | string | No | "standalone" | Authentication type (standalone, cluster) |
 | `host` | string | Yes | - | Milvus server host |
 | `port` | integer | No | 19530 | Milvus server port |
@@ -171,8 +171,8 @@ import numpy as np
 
 config = {
     "provider": "milvus",
-    "index_name": "my_documents",
     OperatorConstants.Config.PROVIDER_CONFIG: {
+        "collection_name": "my_documents",
         "auth_type": "standalone",
         "host": "localhost",
         "port": 19530,
@@ -229,8 +229,8 @@ print(f"Indexed {metadata['processed_docs']} documents")
 ```python
 config = {
     "provider": "milvus",
-    "index_name": "multi_model_collection",
     OperatorConstants.Config.PROVIDER_CONFIG: {
+        "collection_name": "multi_model_collection",
         "host": "localhost",
         "port": 19530,
         "index_type": "HNSW",
@@ -279,8 +279,8 @@ result_tables, metadata = operator.transform(table)
 ```python
 config = {
     "provider": "milvus",
-    "index_name": "hybrid_search_collection",
     OperatorConstants.Config.PROVIDER_CONFIG: {
+        "collection_name": "hybrid_search_collection",
         "host": "localhost",
         "port": 19530,
         "add_sparse_vector": True,  # Enable BM25 sparse vectors
@@ -317,8 +317,8 @@ config = {
 ```python
 config = {
     "provider": "milvus",
-    "index_name": "custom_index",
     OperatorConstants.Config.PROVIDER_CONFIG: {
+        "collection_name": "custom_index",
         "host": "localhost",
         "port": 19530,
         "index_type": "HNSW",
@@ -342,10 +342,10 @@ config = {
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "docpipe_documents",
     "doc_id_column": "doc_id_hash",
     "create_index": true,
     "provider_config": {
+      "collection_name": "docpipe_documents",
       "auth_type": "standalone",
       "host": "localhost",
       "port": 19530,
@@ -392,7 +392,7 @@ config = {
 
 ### Multi-Model Flow Example
 
-See [`sample_flows/vectordb/milvus_integration.json`](../../../sample_flows/vectordb/milvus_integration.json) for a complete example with two embedding models.
+See [`sample_flows/vectordb/milvus_integration.json`](../../../sample_flows/vectordb/milvus_integration.json) for a complete Milvus pipeline example.
 
 ## Performance Tuning
 

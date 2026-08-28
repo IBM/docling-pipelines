@@ -57,42 +57,60 @@ class PostgresJobStatsStore(JobStatsStore):
         - DOCPIPE_POSTGRES_PASSWORD (required)
     """
 
-    def __init__(self, *, config: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        *,
+        config: dict[str, Any] | None = None,
+        job_stats_model=None,
+        node_stats_model=None,
+        session_factory=None,
+    ):
         """
         Initialize PostgreSQL job stats store.
 
         Args:
             config: Optional configuration dict (from YAML or factory)
                 - postgres: PostgreSQL connection settings
+            job_stats_model: Optional SQLModel class for job stats.
+                When provided, the default JobStatsModel is never imported or instantiated.
+            node_stats_model: Optional SQLModel class for node stats.
+                When provided, the default NodeStatsModel is never imported or instantiated.
+            session_factory: Optional session factory.
+                When provided, engine creation is skipped entirely — the caller owns the pool.
 
         Raises:
             JobStatsStoreInitializationException: If initialization fails
         """
         self.config = config or {}
-
-        # Get connection string from config or environment
-        connection_string = get_postgres_connection_string(config=self.config)
-        if not connection_string:
-            raise JobStatsStoreInitializationException(
-                message="PostgreSQL connection not configured. "
-                "Set password in YAML config or DOCPIPE_POSTGRES_PASSWORD environment variable.",
-                store_type="postgres",
-            )
+        self._job_stats_model_cls = job_stats_model
+        self._node_stats_model_cls = node_stats_model
 
         try:
-            # Create engine and session factory
-            self._engine = create_postgres_engine(connection_string=connection_string, config=self.config)
-            self._session_factory = create_session_factory(engine=self._engine)
+            if session_factory is not None:
+                # Caller owns the connection pool — skip engine creation entirely
+                self._engine = None
+                sf = session_factory
+            else:
+                # Build engine from config / environment
+                connection_string = get_postgres_connection_string(config=self.config)
+                if not connection_string:
+                    raise JobStatsStoreInitializationException(
+                        message="PostgreSQL connection not configured. "
+                        "Set password in YAML config or DOCPIPE_POSTGRES_PASSWORD environment variable.",
+                        store_type="postgres",
+                    )
+                self._engine = create_postgres_engine(connection_string=connection_string, config=self.config)
+                sf = create_session_factory(engine=self._engine)
 
-            # Initialize DAL components
-            self._job_stats_dal = JobStatsDAL(session_factory=self._session_factory)
-            self._node_stats_dal = NodeStatsDAL(session_factory=self._session_factory)
+            # Initialize DAL components, passing injected model classes
+            self._job_stats_dal = JobStatsDAL(session_factory=sf, model=job_stats_model)
+            self._node_stats_dal = NodeStatsDAL(session_factory=sf, model=node_stats_model)
 
             logger.info("PostgresJobStatsStore initialized successfully")
         except JobStatsStoreInitializationException:
             raise
         except Exception as e:
-            logger.error(f"Failed to initialize PostgresJobStatsStore: {e}")
+            logger.error("Failed to initialize PostgresJobStatsStore: %s", e)
             raise JobStatsStoreInitializationException(
                 message=f"PostgreSQL initialization failed: {e}", store_type="postgres"
             ) from e
@@ -108,11 +126,14 @@ class PostgresJobStatsStore(JobStatsStore):
             JobStatsStoreWriteException: If storage operation fails
         """
         try:
-            job_run_stats_model = PostgresModelMapper.to_db_job_stats(domain_model=job_stats)
+            job_run_stats_model = PostgresModelMapper.to_db_job_stats(
+                domain_model=job_stats,
+                job_stats_cls=self._job_stats_model_cls,
+            )
             self._job_stats_dal.upsert(job_run_stats=job_run_stats_model)
-            logger.debug(f"Stored job stats: job_run_id={job_stats.job_run_id}")
+            logger.debug("Stored job stats: job_run_id=%s", job_stats.job_run_id)
         except Exception as e:
-            logger.error(f"Failed to store job stats: {e}")
+            logger.error("Failed to store job stats: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to store job stats: {e}", job_run_id=job_stats.job_run_id, operation="store_job_stats"
             ) from e
@@ -136,7 +157,7 @@ class PostgresJobStatsStore(JobStatsStore):
                 return None
             return PostgresModelMapper.to_domain_job_stats(db_model=db_model)
         except Exception as e:
-            logger.error(f"Failed to get job stats: {e}")
+            logger.error("Failed to get job stats: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get job stats: {e}", job_run_id=job_run_id, operation="get_job_stats"
             ) from e
@@ -153,14 +174,20 @@ class PostgresJobStatsStore(JobStatsStore):
             JobStatsStoreWriteException: If storage operation fails
         """
         try:
-            node_stats_model = PostgresModelMapper.to_db_node_stats(domain_model=node_stats, job_run_id=job_run_id)
+            node_stats_model = PostgresModelMapper.to_db_node_stats(
+                domain_model=node_stats,
+                job_run_id=job_run_id,
+                node_stats_cls=self._node_stats_model_cls,
+            )
             self._node_stats_dal.upsert(node_stat=node_stats_model)
             logger.debug(
-                f"Stored node stats: job_run_id={job_run_id}, "
-                f"node_id={node_stats.node_id}, batch_id={node_stats.batch_id}"
+                "Stored node stats: job_run_id=%s, node_id=%s, batch_id=%s",
+                job_run_id,
+                node_stats.id,
+                node_stats.batch_id,
             )
         except Exception as e:
-            logger.error(f"Failed to store node stats: {e}")
+            logger.error("Failed to store node stats: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to store node stats: {e}", job_run_id=job_run_id, operation="store_node_stats"
             ) from e
@@ -185,7 +212,7 @@ class PostgresJobStatsStore(JobStatsStore):
             db_models = self._node_stats_dal.get_all_node_stats(job_run_id=job_run_id)
             return [PostgresModelMapper.to_domain_node_stats(db_model=ns) for ns in db_models]
         except Exception as e:
-            logger.error(f"Failed to get node stats: {e}")
+            logger.error("Failed to get node stats: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get node stats: {e}", job_run_id=job_run_id, operation="get_node_stats"
             ) from e
@@ -222,7 +249,7 @@ class PostgresJobStatsStore(JobStatsStore):
 
             return result
         except Exception as e:
-            logger.error(f"Failed to get batch node stats: {e}")
+            logger.error("Failed to get batch node stats: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get batch node stats: {e}", job_run_id=job_run_id, operation="get_batch_node_stats"
             ) from e
@@ -243,12 +270,17 @@ class PostgresJobStatsStore(JobStatsStore):
 
         try:
             node_stats_models = [
-                PostgresModelMapper.to_db_node_stats(domain_model=ns, job_run_id=job_run_id) for ns in node_stats_list
+                PostgresModelMapper.to_db_node_stats(
+                    domain_model=ns,
+                    job_run_id=job_run_id,
+                    node_stats_cls=self._node_stats_model_cls,
+                )
+                for ns in node_stats_list
             ]
             self._node_stats_dal.bulk_insert(node_stats=node_stats_models)
-            logger.debug(f"Bulk stored {len(node_stats_list)} node stats: job_run_id={job_run_id}")
+            logger.debug("Bulk stored %s node stats: job_run_id=%s", len(node_stats_list), job_run_id)
         except Exception as e:
-            logger.error(f"Failed to bulk store node stats: {e}")
+            logger.error("Failed to bulk store node stats: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to bulk store node stats: {e}",
                 job_run_id=job_run_id,
@@ -280,9 +312,9 @@ class PostgresJobStatsStore(JobStatsStore):
             self._job_stats_dal.atomic_increment_fields(
                 job_run_id=job_run_id, increments=increments, updates=updates, jsonb_merges=jsonb_merges
             )
-            logger.debug(f"Atomic update applied: job_run_id={job_run_id}")
+            logger.debug("Atomic update applied: job_run_id=%s", job_run_id)
         except Exception as e:
-            logger.error(f"Failed to atomically increment fields: {e}")
+            logger.error("Failed to atomically increment fields: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to atomically increment fields: {e}",
                 job_run_id=job_run_id,
@@ -316,7 +348,7 @@ class PostgresJobStatsStore(JobStatsStore):
 
             return PostgresModelMapper.to_domain_node_stats(db_model=db_model)
         except Exception as e:
-            logger.error(f"Failed to get node stats by batch and node: {e}")
+            logger.error("Failed to get node stats by batch and node: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get node stats by batch and node: {e}",
                 job_run_id=job_run_id,
@@ -339,16 +371,17 @@ class PostgresJobStatsStore(JobStatsStore):
             rows_deleted = self._job_stats_dal.delete_job_stats(job_run_id=job_run_id)
             if rows_deleted == 0:
                 raise JobStatsStoreDeleteException(message=f"Job run not found: {job_run_id}", job_run_id=job_run_id)
-            logger.info(f"Deleted job stats: job_run_id={job_run_id}")
+            logger.info("Deleted job stats: job_run_id=%s", job_run_id)
         except JobStatsStoreDeleteException:
             raise
         except Exception as e:
-            logger.error(f"Failed to delete job stats: {e}")
+            logger.error("Failed to delete job stats: %s", e)
             raise JobStatsStoreDeleteException(message=f"Failed to delete job stats: {e}", job_run_id=job_run_id) from e
 
     def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -356,7 +389,8 @@ class PostgresJobStatsStore(JobStatsStore):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (adds WHERE job_id IN (...) clause)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -368,12 +402,15 @@ class PostgresJobStatsStore(JobStatsStore):
         """
         try:
             job_run_stats_list = self._job_stats_dal.list_job_runs(
-                job_id=job_id, status=status.value if isinstance(status, ExecutionStatus) else status, limit=limit
+                job_id=job_id,
+                job_ids=job_ids,
+                status=status.value if isinstance(status, ExecutionStatus) else status,
+                limit=limit,
             )
 
             return [PostgresModelMapper.to_domain_job_stats(db_model=jrs) for jrs in job_run_stats_list]
         except Exception as e:
-            logger.error(f"Failed to list jobs: {e}")
+            logger.error("Failed to list jobs: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to list jobs: {e}", job_run_id=None, operation="list_job_runs"
             ) from e

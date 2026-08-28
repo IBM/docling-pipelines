@@ -9,6 +9,7 @@ The queries are saved to a CSV file for use in accuracy testing.
 """
 
 import csv
+from pathlib import Path
 from typing import Any
 
 
@@ -52,13 +53,13 @@ class DocumentQueryGenerator:
         """Generate queries for a specific document type"""
         if doc_type == "purchase_order":
             return self._generate_purchase_order_queries()
-        elif doc_type == "invoice":
+        if doc_type == "invoice":
             return self._generate_invoice_queries()
-        elif doc_type == "bank_statement":
+        if doc_type == "bank_statement":
             return self._generate_bank_statement_queries()
-        elif doc_type == "credit_card_statement":
+        if doc_type == "credit_card_statement":
             return self._generate_credit_card_queries()
-        elif doc_type == "passport":
+        if doc_type == "passport":
             return self._generate_passport_queries()
         return []
 
@@ -397,7 +398,7 @@ class DocumentQueryGenerator:
             "max_score",
         ]
 
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+        with Path(filename).open("w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(queries)

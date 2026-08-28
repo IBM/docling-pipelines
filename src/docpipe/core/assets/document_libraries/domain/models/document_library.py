@@ -2,28 +2,36 @@
 
 This module contains the core domain model for Document Library,
 representing a collection of Document Sets.
+
+Now extends the unified Asset base class for consistency across all asset types
+(Flow, DocumentSet, DocumentLibrary).
 """
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 from uuid import uuid4
 
+from docpipe.core.assets.common.domain.models.asset import Asset
+from docpipe.core.constants.asset_constants import AssetType
 from docpipe.core.constants.constants import DocumentLibraryConstants
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 
 
 @dataclass
-class DocumentLibrary:
-    """Domain model representing a Document Library.
+class DocumentLibrary(Asset):
+    """Domain model representing a Document Library extending unified Asset base class.
 
     A Document Library is a collection of Document Sets that provides
     organizational structure.
 
-    Attributes:
-        library_id: Unique identifier for the library (UUID)
-        name: Human-readable name (unique, required, max 256 chars)
-        description: Optional description (max 1024 chars)
+    Inherits from Asset:
+        - asset_id: Unique identifier (aliased as library_id for backward compatibility)
+        - name: Human-readable name (required)
+        - description: Optional description
+
+    DocumentLibrary-Specific Attributes:
         purpose: Optional additional information (max 1024 chars)
         original_size: Optional input size in bytes
         final_size: Optional processed size in bytes
@@ -31,11 +39,14 @@ class DocumentLibrary:
         created_by: Optional username of creator
         href: Optional hyperlink reference
         document_set_ids: List of document set IDs in this library
+
+    Backward Compatibility:
+        The library_id property aliases asset_id to maintain compatibility
+        with existing code. Both library_id and asset_id can be used
+        interchangeably.
     """
 
-    library_id: str
-    name: str
-    description: str | None = None
+    # DocumentLibrary-specific attributes (name and description inherited from Asset)
     purpose: str | None = None
     original_size: int | None = None
     final_size: int | None = None
@@ -43,6 +54,138 @@ class DocumentLibrary:
     created_by: str | None = None
     href: str | None = None
     document_set_ids: list[str] = field(default_factory=list)
+
+    def __init__(
+        self,
+        *,
+        asset_id: str | None = None,
+        library_id: str | None = None,  # Backward compatibility
+        name: str = "",
+        description: str | None = None,
+        purpose: str | None = None,
+        original_size: int | None = None,
+        final_size: int | None = None,
+        tags: list[str] | None = None,
+        created_by: str | None = None,
+        href: str | None = None,
+        document_set_ids: list[str] | None = None,
+    ) -> None:
+        """Initialize DocumentLibrary with backward compatibility for library_id parameter.
+
+        Args:
+            asset_id: Unique identifier (preferred)
+            library_id: Unique identifier (backward compatibility, aliases asset_id)
+            name: Library name
+            description: Optional description
+            purpose: Optional purpose/additional info
+            original_size: Optional input size in bytes
+            final_size: Optional processed size in bytes
+            tags: Optional list of tags
+            created_by: Optional username of creator
+            href: Optional hyperlink reference
+            document_set_ids: List of document set IDs in this library
+        """
+        # Handle backward compatibility: library_id parameter aliases asset_id
+        if library_id is not None and asset_id is None:
+            asset_id = library_id
+
+        # Generate a UUID if neither was supplied
+        if asset_id is None:
+            asset_id = str(uuid4())
+
+        # Initialize parent Asset fields
+        self.asset_id = asset_id
+        self.name = name
+        self.description = description
+
+        # Initialize DocumentLibrary-specific fields
+        self.purpose = purpose
+        self.original_size = original_size
+        self.final_size = final_size
+        self.tags = tags if tags is not None else []
+        self.created_by = created_by
+        self.href = href
+        self.document_set_ids = document_set_ids if document_set_ids is not None else []
+
+    # ── Backward-compatibility property ─────────────────────────────────────
+
+    @property
+    def library_id(self) -> str:
+        """Backward compatibility: library_id aliases asset_id."""
+        return self.asset_id  # type: ignore[return-value]
+
+    @library_id.setter
+    def library_id(self, value: str) -> None:
+        """Backward compatibility: setting library_id sets asset_id."""
+        self.asset_id = value
+
+    # ── Asset abstract method implementations ────────────────────────────────
+
+    @staticmethod
+    def get_config_key() -> str:
+        """Return YAML config key for document library repository lookup."""
+        return "documentlibrary"
+
+    @staticmethod
+    def get_collection_name() -> str:
+        """Return DuckDB collection name for document libraries."""
+        return "document_libraries"
+
+    def get_asset_type(self) -> AssetType:
+        """Return the asset type for DocumentLibrary."""
+        return AssetType.DOCUMENT_LIBRARY
+
+    def update_timestamp(self) -> None:
+        """No-op — DocumentLibrary has no timestamp field.
+
+        Required by Asset ABC. DocumentLibrary does not track modification
+        timestamps; this is a deliberate design choice matching the existing
+        domain model.
+        """
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize DocumentLibrary to a storage dictionary.
+
+        Includes both library_id and asset_id for backward compatibility,
+        matching the Flow pattern so EE repositories that key on asset_id
+        can round-trip correctly via from_dict().
+        document_set_ids is stored as a plain list — no junction table.
+        """
+        return {
+            "library_id": self.library_id,  # Backward compatibility
+            "asset_id": self.asset_id,  # Unified architecture
+            "name": self.name,
+            "description": self.description,
+            "purpose": self.purpose,
+            "original_size": self.original_size,
+            "final_size": self.final_size,
+            "tags": self.tags or [],
+            "created_by": self.created_by,
+            "href": self.href,
+            "document_set_ids": self.document_set_ids or [],
+        }
+
+    @classmethod
+    def from_dict(cls, *, data: dict[str, Any]) -> "DocumentLibrary":
+        """Deserialize a storage dictionary to a DocumentLibrary.
+
+        Accepts both library_id and asset_id for backward compatibility.
+        document_set_ids is read directly from the record.
+        """
+        # Support both library_id and asset_id keys
+        library_id = data.get("library_id") or data.get("asset_id")
+        return cls(
+            library_id=library_id,
+            name=data["name"],
+            description=data.get("description"),
+            purpose=data.get("purpose"),
+            original_size=data.get("original_size"),
+            final_size=data.get("final_size"),
+            tags=data.get("tags", []),
+            created_by=data.get("created_by"),
+            href=data.get("href"),
+            document_set_ids=data.get("document_set_ids", []),
+        )
 
     @classmethod
     def create(
@@ -78,7 +221,7 @@ class DocumentLibrary:
             DocumentLibraryInvalidDataException: If validation fails
         """
         library = cls(
-            library_id=library_id or str(uuid4()),
+            library_id=library_id,
             name=name,
             description=description,
             purpose=purpose,
@@ -92,7 +235,7 @@ class DocumentLibrary:
         library.validate()
         return library
 
-    def validate(self) -> None:  # NOSONAR python:S3776
+    def validate(self) -> None:
         """Validate the document library data.
 
         Raises:

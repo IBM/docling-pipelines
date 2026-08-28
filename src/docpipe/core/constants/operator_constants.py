@@ -35,7 +35,6 @@ class OperatorConstants:
         # Ingestion Operators
         INGEST: Final[str] = "ingest"
         INGEST_CSV: Final[str] = "ingest_csv"
-        INGEST_LOCAL: Final[str] = "ingest_local"
         INGEST_SOURCE: Final[str] = "ingest_source"
 
         # Embeddings Operators
@@ -69,6 +68,9 @@ class OperatorConstants:
         ENTITY_STORE_OPERATOR: Final[str] = "entity_store"
         OPENSEARCH: Final[str] = "opensearch"
         VECTORDB: Final[str] = "vectordb"
+
+        # Storage Output Operators
+        STORAGE_OUTPUT: Final[str] = "storage_output"
 
         # Utility Operators
         DESIGN_FLOW_OUTPUT_OPERATOR: Final[str] = "design_flow_output"
@@ -197,14 +199,17 @@ class OperatorConstants:
         FAIL_ON_ERROR: Final[str] = "fail_on_error"
         GLOBAL_CONFIG: Final[str] = "global_config"
         INGEST_SOURCE: Final[str] = "ingest_source"
+        ITEMS: Final[str] = "items"
         MAX_CONCURRENT_REQUESTS: Final[str] = "max_concurrent_requests"
         OUTPUT_COLUMN: Final[str] = "output_column"
         PARAMETERS: Final[str] = "parameters"
         PRESET: Final[str] = "preset"
         PROPERTIES: Final[str] = "properties"
         PROVIDER: Final[str] = "provider"
+        PROVIDERS: Final[str] = "providers"
         PROVIDER_CONFIG: Final[str] = "provider_config"
         PROVIDER_LITELLM: Final[str] = "litellm"
+        PROVIDER_WATSONX: Final[str] = "watsonx"
         REQUIRED: Final[str] = "required"
         USERNAME: Final[str] = "username"
 
@@ -276,9 +281,10 @@ class OperatorConstants:
         USE_DOCLING_SERVE: Final[str] = "use_docling_serve"
         DOCLING_SERVE_CONFIG: Final[str] = "docling_serve_config"
         BASE_URL: Final[str] = "base_url"
-        DO_OCR: Final[str] = "do_ocr"  # Deprecated: use OCR_PRESET
-        OCR_ENGINE: Final[str] = "ocr_engine"  # Deprecated: use OCR_PRESET
-        OCR_LANGUAGES: Final[str] = "ocr_languages"  # Deprecated: use OCR_LANG
+        DO_OCR: Final[str] = "do_ocr"
+        OCR_ENGINE: Final[str] = "ocr_engine"
+        OCR_LANGUAGES: Final[str] = "ocr_languages"
+        OCR_BLOCK: Final[str] = "ocr"  # New canonical OCR config block key
         OCR_PRESET: Final[str] = "ocr_preset"
         OCR_LANG: Final[str] = "ocr_lang"
         PDF_BACKEND: Final[str] = "pdf_backend"
@@ -382,10 +388,14 @@ class OperatorConstants:
         AUTH_TYPE_URI: Final[str] = "uri"
         AUTH_TYPE_TOKEN: Final[str] = "token"
 
-        # OpenSearch Index Configuration
+        # Provider resource name keys — each provider declares its resource name
+        # inside provider_config using the key appropriate for that backend.
+        INDEX_NAME: Final[str] = "index_name"
+        COLLECTION_NAME: Final[str] = "collection_name"
+
+        # Index / collection configuration
         CREATE_INDEX: Final[str] = "create_index"
         INDEX_MAPPINGS: Final[str] = "index_mappings"
-        INDEX_NAME: Final[str] = "index_name"
         INDEX_SETTINGS: Final[str] = "index_settings"
         INDEX_TYPE: Final[str] = "index_type"
         OPENSEARCH_FEATURE_MAPPINGS: Final[str] = "opensearch_feature_mappings"
@@ -399,6 +409,8 @@ class OperatorConstants:
         # Milvus field names (mapped names in collection schema)
         SPARSE_VECTOR_FIELD_NAME: Final[str] = "sparse_vector"
         DENSE_VECTOR_FIELD_NAME: Final[str] = "vector"
+
+        # VectorDB Metrics and Configuration
         METRIC_TYPE: Final[str] = "metric_type"
         SEMANTIC_CONFIG: Final[str] = "semantic_config"
         VECTOR_DIMENSION: Final[str] = "vector_dimension"
@@ -407,7 +419,21 @@ class OperatorConstants:
 
         # Vector DB General
         OPENSEARCH: Final[str] = "opensearch"
+        MILVUS: Final[str] = "milvus"
         VECTOR_DB_NAME: Final[str] = "vector_db_name"
+
+        # Default target field names — adapter-agnostic names used in feature mappings
+        DEFAULT_PRIMARY_KEY_FIELD: Final[str] = "pk"
+        DEFAULT_DOCUMENT_ID_FIELD: Final[str] = "document_id"
+        DEFAULT_DOCUMENT_NAME_FIELD: Final[str] = "document_name"
+        DEFAULT_TEXT_FIELD_NAME: Final[str] = "text"
+
+        # Response metadata keys written into node.parameters by FlowEnrichmentService
+        AVAILABLE_RESOURCES: Final[str] = "available_resources"
+        SELECTED_RESOURCE_SCHEMA: Final[str] = "selected_resource_schema"
+        FEATURE_MAPPINGS_RESPONSE: Final[str] = "feature_mappings"
+        IS_DOCPIPE_SUPPORTED_RESOURCE: Final[str] = "is_docpipe_supported_resource"
+        STORED_RESOURCE_METADATA: Final[str] = "stored_resource_metadata"
 
         # OpenSearch-specific parameters
         ENGINE: Final[str] = "engine"
@@ -418,8 +444,6 @@ class OperatorConstants:
         # Milvus-specific parameters
         INDEX_PARAMETERS: Final[str] = "index_parameters"
         PRIMARY_KEY_FIELD: Final[str] = "primary_key_field"
-        DEFAULT_PRIMARY_KEY_FIELD: Final[str] = "pk"
-        DEFAULT_TEXT_FIELD_NAME: Final[str] = "text"
 
         # Environment Variable Keys for OpenSearch
         OPENSEARCH_HOST: Final[str] = "OPENSEARCH_HOST"
@@ -494,6 +518,110 @@ class OperatorConstants:
         TYPE_VECTOR: Final[str] = "vector"
         TYPE_VECTOR_SPARSE: Final[str] = "vector_sparse"
 
+    class FileExtensions:
+        """File extension constants."""
+
+        # Document formats
+        EXT_PDF: Final[str] = ".pdf"
+        EXT_DOCX: Final[str] = ".docx"
+        EXT_PPTX: Final[str] = ".pptx"
+        EXT_XLSX: Final[str] = ".xlsx"
+
+        # Text formats
+        EXT_MD: Final[str] = ".md"
+        EXT_TXT: Final[str] = ".txt"
+        EXT_HTML: Final[str] = ".html"
+
+        # Image formats
+        EXT_PNG: Final[str] = ".png"
+        EXT_JPEG: Final[str] = ".jpeg"
+        EXT_JPG: Final[str] = ".jpg"
+        EXT_TIFF: Final[str] = ".tiff"
+        EXT_TIF: Final[str] = ".tif"
+        EXT_BMP: Final[str] = ".bmp"
+        EXT_WEBP: Final[str] = ".webp"
+        EXT_GIF: Final[str] = ".gif"
+        EXT_JFIF: Final[str] = ".jfif"
+
+        # Audio formats (require ASR)
+        EXT_WAV: Final[str] = ".wav"
+        EXT_MP3: Final[str] = ".mp3"
+        EXT_M4A: Final[str] = ".m4a"
+        EXT_AAC: Final[str] = ".aac"
+        EXT_OGG: Final[str] = ".ogg"
+        EXT_FLAC: Final[str] = ".flac"
+
+        # Video formats (require ASR)
+        EXT_MP4: Final[str] = ".mp4"
+        EXT_AVI: Final[str] = ".avi"
+        EXT_MOV: Final[str] = ".mov"
+
+        BASE_EXTENSIONS: Final[list[str]] = [
+            EXT_PDF,
+            EXT_DOCX,
+            EXT_PPTX,
+            EXT_XLSX,
+            EXT_MD,
+            EXT_TXT,
+            EXT_HTML,
+            EXT_PNG,
+            EXT_JPEG,
+            EXT_JPG,
+            EXT_TIFF,
+            EXT_TIF,
+            EXT_BMP,
+            EXT_WEBP,
+            EXT_GIF,
+            EXT_JFIF,
+        ]
+
+        AUDIO_VIDEO_EXTENSIONS: Final[list[str]] = [
+            EXT_WAV,
+            EXT_MP3,
+            EXT_M4A,
+            EXT_AAC,
+            EXT_OGG,
+            EXT_FLAC,
+            EXT_MP4,
+            EXT_AVI,
+            EXT_MOV,
+        ]
+
+        DOCLING_LIBRARY_BASE_EXTENSIONS: Final[list[str]] = [*BASE_EXTENSIONS]
+
+        DOCLING_LIBRARY_AUDIO_VIDEO_EXTENSIONS: Final[list[str]] = [*AUDIO_VIDEO_EXTENSIONS]
+
+        DOCLING_SERVE_EXTENSIONS: Final[list[str]] = [*BASE_EXTENSIONS]
+
+        DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY: Final[list[str]] = [
+            EXT_PDF,  # .pdf  → InputFormat.PDF
+            EXT_PNG,  # .png  → InputFormat.IMAGE
+            EXT_JPEG,  # .jpeg → InputFormat.IMAGE
+            EXT_JPG,  # .jpg  → InputFormat.IMAGE
+            EXT_TIFF,  # .tiff → InputFormat.IMAGE
+            EXT_TIF,  # .tif  → InputFormat.IMAGE
+            EXT_BMP,  # .bmp  → InputFormat.IMAGE
+            EXT_GIF,  # .gif  → InputFormat.IMAGE
+            EXT_JFIF,  # .jfif → InputFormat.IMAGE
+        ]
+
+        CLASSIFICATION_FILE_EXTENSIONS: Final[list[str]] = [
+            EXT_PDF,
+            EXT_DOCX,
+            EXT_PPTX,
+            EXT_XLSX,
+            EXT_HTML,
+            EXT_PNG,
+            EXT_JPEG,
+            EXT_JPG,
+            EXT_TIFF,
+            EXT_TIF,
+            EXT_BMP,
+            EXT_WEBP,
+            EXT_GIF,
+            EXT_JFIF,
+        ]
+
     class Extraction:
         """Document extraction constants."""
 
@@ -539,13 +667,6 @@ class OperatorConstants:
             OUTPUT_FORMAT_DOCLANG,
         ]
 
-        # File Extensions
-        TEXT_EXTENSION: Final[str] = ".txt"
-        EXTRACTION_REQUIRED_FILE_EXTENSIONS: Final[list[str]] = [".pdf", ".docx", ".pptx", ".doc", ".ppt"]
-        ACCEPTED_FILE_EXTENSIONS: Final[list[str]] = [*EXTRACTION_REQUIRED_FILE_EXTENSIONS, ".md", ".txt"]
-        INGEST_FILE_EXTENSIONS: Final[list[str]] = [*ACCEPTED_FILE_EXTENSIONS, ".json"]
-        CLASSIFICATION_FILE_EXTENSIONS: Final[list[str]] = EXTRACTION_REQUIRED_FILE_EXTENSIONS
-
         # Mapping from format name to output column name
         FORMAT_COLUMN_MAPPING: Final[dict[str, str]] = {
             OUTPUT_FORMAT_HTML: "content_html",
@@ -574,6 +695,16 @@ class OperatorConstants:
         STAGE_STATUS_RUNNING: Final[str] = "running"
         STAGE_STATUS_COMPLETED: Final[str] = "completed"
         STAGE_STATUS_FAILED: Final[str] = "failed"
+        # GPU Acceleration Configuration (Docling Library Standard Pipeline)
+        STANDARD_PIPELINE: Final[str] = "standard_pipeline"
+        ACCELERATOR: Final[str] = "accelerator"
+        DEVICE: Final[str] = "device"
+        NUM_THREADS: Final[str] = "num_threads"
+
+        # GPU Device Types
+        DEVICE_MPS: Final[str] = "mps"
+        DEVICE_CUDA: Final[str] = "cuda"
+        DEVICE_XPU: Final[str] = "xpu"
 
     class ExtractionModes:
         """Extraction mode constants for ExtractOperator."""
@@ -818,6 +949,7 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         REGEX_KEY: Final[str] = "regex"
         ROWS: Final[str] = "rows"
         SDK: Final[str] = "sdk"
+        SLEEP_SEC: Final[str] = "sleep_sec"
         SHORT_NAME: Final[str] = "short_name"
         SIZE: Final[str] = "size"
         TAGS: Final[str] = "tags"
@@ -861,6 +993,7 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         FEATURE_ATTR_DESCRIPTION: Final[str] = "description"
         FEATURE_ATTR_AVAILABLE_FOR_FILTER: Final[str] = "available_for_filter"
         FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB: Final[str] = "available_for_vector_db"
+        FEATURE_ATTR_MANDATORY_FOR_VECTOR_DB: Final[str] = "mandatory_for_vector_db"
         FEATURE_ATTR_NODE_ID: Final[str] = "node_id"
         VALUE_DATA_TYPE: Final[str] = "value_data_type"
 
@@ -950,6 +1083,7 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         # Configuration Keys
         DATABASE_PATH: Final[str] = "database_path"
         DATA_BACKEND: Final[str] = "data_backend"
+        DEFAULT_DATA_BACKEND: Final[str] = "duckdb"
         METADATA_CONFIG: Final[str] = "metadata_config"
         DATA_CONFIG: Final[str] = "data_config"
         DOCUMENT_SET_NAME: Final[str] = "document_set_name"

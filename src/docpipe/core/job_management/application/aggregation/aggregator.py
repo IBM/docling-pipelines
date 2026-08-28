@@ -131,9 +131,7 @@ class MetadataAggregator:
 
         return result
 
-    def _apply_strategy(
-        self, *, field_name: str, values: list[Any], strategy: AggregationStrategy
-    ) -> Any:  # NOSONAR python:S3776
+    def _apply_strategy(self, *, field_name: str, values: list[Any], strategy: AggregationStrategy) -> Any:
         """
         Apply aggregation strategy to a list of values.
         """

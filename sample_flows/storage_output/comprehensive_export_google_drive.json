@@ -1,0 +1,70 @@
+{
+  "flow_name": "comprehensive-export-google-drive",
+  "description": "Ingest documents from a local filesystem, extract text, then write a complete archive per document to a Google Drive folder: original binary + extracted markdown + metadata JSON sidecar. Useful for compliance, QA, and data handoff.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "provider_config": {
+          "paths": [
+            "/path/to/source_files_01",
+            "/path/to/source_files_02"
+          ],
+          "recursive": false
+        },
+        "include_filter": [
+          "pdf"
+        ],
+        "credentials": {}
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "comprehensive_export",
+        "destination_config": {
+          "provider": "google_drive",
+          "provider_config": {
+            "drive_id": "${GDRIVE_DRIVE_ID}",
+            "folder_id": "${GDRIVE_FOLDER_ID}",
+            "create_dirs": true
+          },
+          "credentials": {
+            "service_account_json_path": "${GDRIVE_SA_JSON_PATH}"
+          }
+        },
+        "output_format": {
+          "content_format": "txt",
+          "include_metadata_sidecar": true
+        },
+        "output_structure": {
+          "type": "hierarchical"
+        }
+      },
+      "depends_on": [
+        "extract"
+      ]
+    }
+  ]
+}

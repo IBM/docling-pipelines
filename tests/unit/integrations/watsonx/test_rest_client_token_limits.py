@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Unit tests for WatsonX REST client dynamic token limit functionality.
 

@@ -5,7 +5,7 @@ Tests the complete flow from S3 ingestion through extraction,
 verifying that binary_content column is properly handled.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import pyarrow as pa
@@ -27,7 +27,7 @@ class TestS3IngestExtractPipeline:
                 name="test-doc-1.pdf",
                 content=b"%PDF-1.4 Mock PDF content for testing",
                 source_url="s3://test-bucket/documents/test-doc-1.pdf",
-                modified_time=datetime(2024, 1, 1, 12, 0, 0),
+                modified_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
                 metadata={
                     "bucket": "test-bucket",
                     "key": "documents/test-doc-1.pdf",
@@ -40,7 +40,7 @@ class TestS3IngestExtractPipeline:
                 name="test-doc-2.pdf",
                 content=b"%PDF-1.4 Another mock PDF for testing",
                 source_url="s3://test-bucket/documents/test-doc-2.pdf",
-                modified_time=datetime(2024, 1, 2, 12, 0, 0),
+                modified_time=datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC),
                 metadata={
                     "bucket": "test-bucket",
                     "key": "documents/test-doc-2.pdf",
@@ -50,25 +50,21 @@ class TestS3IngestExtractPipeline:
             ),
         ]
 
-    @patch("docpipe.core.incremental_metadata.IncrementalUpdateService")
-    @patch("docpipe.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    @patch("docpipe.core.incremental_metadata.get_incremental_update_service")
     @patch("docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_s3_ingest_creates_binary_content_column(
         self,
         mock_fetch_documents,
-        mock_create_store,
-        mock_service_class,
+        mock_get_service,
         mock_s3_documents,
     ):
         """Test that S3 ingest operator sets has_binary_content metadata flag (lazy loading)."""
         from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update service
-        mock_store = Mock()
-        mock_create_store.return_value = mock_store
         mock_service = Mock()
         mock_service.get_all_processed_docs.return_value = {}
-        mock_service_class.return_value = mock_service
+        mock_get_service.return_value = mock_service
 
         # Mock async generator for fetch_documents
         async def mock_async_gen():
@@ -121,8 +117,7 @@ class TestS3IngestExtractPipeline:
         assert "name" in result_table.column_names
         assert "path" in result_table.column_names
 
-    @patch("docpipe.core.incremental_metadata.IncrementalUpdateService")
-    @patch("docpipe.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    @patch("docpipe.core.incremental_metadata.get_incremental_update_service")
     @patch("docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     @patch("docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_binary_content")
     @patch(
@@ -133,8 +128,7 @@ class TestS3IngestExtractPipeline:
         mock_extract_single,
         mock_fetch_binary,
         mock_fetch_documents,
-        mock_create_store,
-        mock_service_class,
+        mock_get_service,
         mock_s3_documents,
     ):
         """Test that extract operator works with lazy loading (no binary_content column)."""
@@ -142,11 +136,9 @@ class TestS3IngestExtractPipeline:
         from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update service
-        mock_store = Mock()
-        mock_create_store.return_value = mock_store
         mock_service = Mock()
         mock_service.get_all_processed_docs.return_value = {}
-        mock_service_class.return_value = mock_service
+        mock_get_service.return_value = mock_service
 
         # Mock async generator for fetch_documents
         async def mock_async_gen():
@@ -240,8 +232,7 @@ class TestS3IngestExtractPipeline:
         assert all(content is not None for content in contents), "All content values should be non-null"
         assert all(len(content) > 0 for content in contents), "All content values should be non-empty"
 
-    @patch("docpipe.core.incremental_metadata.IncrementalUpdateService")
-    @patch("docpipe.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    @patch("docpipe.core.incremental_metadata.get_incremental_update_service")
     @patch("docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     @patch("docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_binary_content")
     @patch(
@@ -252,8 +243,7 @@ class TestS3IngestExtractPipeline:
         mock_extract_single,
         mock_fetch_binary,
         mock_fetch_documents,
-        mock_create_store,
-        mock_service_class,
+        mock_get_service,
         mock_s3_documents,
     ):
         """Test complete pipeline: S3 ingest → Extract, verifying lazy loading behavior."""
@@ -261,11 +251,9 @@ class TestS3IngestExtractPipeline:
         from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update service
-        mock_store = Mock()
-        mock_create_store.return_value = mock_store
         mock_service = Mock()
         mock_service.get_all_processed_docs.return_value = {}
-        mock_service_class.return_value = mock_service
+        mock_get_service.return_value = mock_service
 
         # Mock async generator for fetch_documents
         async def mock_async_gen():
@@ -372,24 +360,20 @@ class TestS3IngestExtractPipeline:
             if col not in ["content", "doc_id_hash", "pages_processed"]:  # These are added/modified by extract
                 assert col in extract_table.column_names, f"Column {col} should be preserved"
 
-    @patch("docpipe.core.incremental_metadata.IncrementalUpdateService")
-    @patch("docpipe.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    @patch("docpipe.core.incremental_metadata.get_incremental_update_service")
     @patch("docpipe.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_s3_ingest_with_empty_result_handles_binary_content(
         self,
         mock_fetch_documents,
-        mock_create_store,
-        mock_service_class,
+        mock_get_service,
     ):
         """Test that empty S3 ingest result has correct schema (no binary_content with lazy loading)."""
         from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update service
-        mock_store = Mock()
-        mock_create_store.return_value = mock_store
         mock_service = Mock()
         mock_service.get_all_processed_docs.return_value = {}
-        mock_service_class.return_value = mock_service
+        mock_get_service.return_value = mock_service
 
         # Mock empty async generator
         async def mock_async_gen():

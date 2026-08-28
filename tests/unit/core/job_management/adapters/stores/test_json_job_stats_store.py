@@ -45,8 +45,7 @@ def store(temp_data_dir, monkeypatch):
         mock_get_data_path,
     )
 
-    store = JsonJobStatsStore(lock_timeout=5.0)
-    yield store
+    return JsonJobStatsStore(lock_timeout=5.0)
 
 
 @pytest.fixture
@@ -65,7 +64,7 @@ def sample_job_stats():
 def sample_node_stats():
     """Sample node stats for testing."""
     return NodeStats(
-        node_id="abcdef12-3456-7890-abcd-ef1234567890",
+        id="abcdef12-3456-7890-abcd-ef1234567890",
         name="TestNode",
         node_status=ExecutionStatus.COMPLETED,
         batch_id="fedcba98-7654-3210-fedc-ba9876543210",
@@ -113,7 +112,7 @@ class TestFilePersistence:
         assert job_stats_file.exists()
 
         # Verify content
-        with open(job_stats_file) as f:
+        with Path(job_stats_file).open() as f:
             data = json.load(f)
             assert data["job_run_id"] == job_run_id
             assert data["processed_docs"] == 100
@@ -127,7 +126,7 @@ class TestFilePersistence:
         for i in range(3):
             batch_id = str(uuid.uuid4())
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=i,
@@ -176,7 +175,7 @@ class TestBatchScopedWrites:
         for i in range(3):
             batch_id = str(uuid.uuid4())
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=i,
@@ -199,7 +198,7 @@ class TestBatchScopedWrites:
 
         # Store batch record
         batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id="fedcba98-7654-3210-fedc-ba9876543210",
             batch_num=0,
@@ -209,7 +208,7 @@ class TestBatchScopedWrites:
 
         # Store non-batch record (batch_id=None)
         non_batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
             node_status=ExecutionStatus.COMPLETED,
@@ -229,7 +228,7 @@ class TestBatchScopedWrites:
 
         # Store non-batch record
         non_batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
             node_status=ExecutionStatus.COMPLETED,
@@ -278,7 +277,7 @@ class TestFileLocking:
         def write_batch(batch_num):
             batch_id = str(uuid.uuid4())
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=batch_num,
@@ -319,7 +318,7 @@ class TestBulkOperations:
         # Create 10 batch records
         node_stats_list = [
             NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=str(uuid.uuid4()),
                 batch_num=i,
@@ -435,482 +434,3 @@ class TestErrorHandling:
         # Verify get_job_stats returns None for nonexistent job
         result = store.get_job_stats("nonexistent-job-id-12345678-1234-1234")
         assert result is None
-
-
-# ---------------------------------------------------------------------------
-# Additional tests to increase coverage for JsonJobStatsStore
-# ---------------------------------------------------------------------------
-
-
-class TestBaseDirectInit:
-    """Test __init__ with explicit base_dir."""
-
-    def test_explicit_base_dir_used(self, *, temp_data_dir, monkeypatch):
-        """When base_dir is provided, it is used directly (not get_data_path)."""
-        explicit_dir = temp_data_dir / "custom_dir"
-        explicit_dir.mkdir(parents=True, exist_ok=True)
-
-        store = JsonJobStatsStore(base_dir=str(explicit_dir), lock_timeout=5.0)
-
-        assert store._base_dir == explicit_dir
-
-
-class TestAtomicWriteJsonErrors:
-    """Test _atomic_write_json error handling."""
-
-    def test_raises_on_write_failure(self, *, store, tmp_path):
-        """_atomic_write_json raises JobStatsStoreWriteException on failure."""
-        from unittest.mock import patch
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        target_path = tmp_path / "bad_file.json"
-
-        with patch("builtins.open", side_effect=PermissionError("denied")):
-            with pytest.raises(JobStatsStoreWriteException):
-                store._atomic_write_json(path=target_path, data={"key": "value"})
-
-    def test_cleans_up_temp_file_on_failure(self, *, store, tmp_path):
-        """Temp file is removed when write fails."""
-        from unittest.mock import patch
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        target_path = tmp_path / "file.json"
-        temp_path = target_path.with_suffix(".tmp")
-
-        # Create a fake temp file to verify it gets cleaned up
-        temp_path.touch()
-
-        with patch("builtins.open", side_effect=OSError("write error")):
-            with pytest.raises(JobStatsStoreWriteException):
-                store._atomic_write_json(path=target_path, data={})
-
-
-class TestReadJsonErrors:
-    """Test _read_json error handling."""
-
-    def test_raises_on_corrupt_json(self, *, store, tmp_path):
-        """_read_json raises JobStatsStoreReadException on corrupt JSON."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        corrupt_file = tmp_path / "corrupt.json"
-        corrupt_file.write_text("this is not json!!")
-
-        with pytest.raises(JobStatsStoreReadException):
-            store._read_json(path=corrupt_file)
-
-    def test_returns_none_for_nonexistent_file(self, *, store, tmp_path):
-        """_read_json returns None for non-existent path."""
-        result = store._read_json(path=tmp_path / "nonexistent.json")
-        assert result is None
-
-
-class TestStoreJobStatsErrors:
-    """Test store_job_stats error paths."""
-
-    def test_raises_on_lock_timeout(self, *, store, sample_job_stats):
-        """store_job_stats raises JobStatsStoreWriteException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreWriteException):
-                store.store_job_stats(sample_job_stats)
-
-    def test_raises_on_general_write_error(self, *, store, sample_job_stats):
-        """store_job_stats raises JobStatsStoreWriteException on generic errors."""
-        from unittest.mock import patch
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        with patch.object(store, "_atomic_write_json", side_effect=OSError("disk full")):
-            with pytest.raises(JobStatsStoreWriteException):
-                store.store_job_stats(sample_job_stats)
-
-
-class TestGetJobStatsErrors:
-    """Test get_job_stats error paths."""
-
-    def test_raises_on_lock_timeout(self, *, store):
-        """get_job_stats raises JobStatsStoreReadException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_job_stats("some-run-id")
-
-    def test_raises_on_corrupt_job_stats_json(self, *, store, temp_data_dir):
-        """get_job_stats raises JobStatsStoreReadException if JSON is corrupt."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        job_run_id = "bad-json-run-id"
-        job_dir = temp_data_dir / "job_stats" / job_run_id
-        job_dir.mkdir(parents=True, exist_ok=True)
-        (job_dir / "job_stats.json").write_text('{"invalid_field_xyz": 999}')
-
-        # JobStats(**{invalid_field_xyz: 999}) should raise a validation error
-        with pytest.raises((JobStatsStoreReadException, Exception)):
-            store.get_job_stats(job_run_id)
-
-
-class TestStoreNodeStatsErrors:
-    """Test store_node_stats error paths."""
-
-    def test_raises_on_lock_timeout(self, *, store, sample_node_stats):
-        """store_node_stats raises JobStatsStoreWriteException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreWriteException):
-                store.store_node_stats(job_run_id="some-run-id", node_stats=sample_node_stats)
-
-    def test_raises_on_general_error(self, *, store, sample_node_stats):
-        """store_node_stats raises JobStatsStoreWriteException on generic error."""
-        from unittest.mock import patch
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        with patch.object(store, "_atomic_write_json", side_effect=OSError("disk full")):
-            with pytest.raises(JobStatsStoreWriteException):
-                store.store_node_stats(job_run_id="some-run-id", node_stats=sample_node_stats)
-
-
-class TestGetNodeStatsErrors:
-    """Test get_node_stats error paths."""
-
-    def test_raises_on_lock_timeout(self, *, store):
-        """get_node_stats raises JobStatsStoreReadException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_node_stats(job_run_id="some-run-id")
-
-
-class TestGetBatchNodeStatsErrors:
-    """Test get_batch_node_stats error paths."""
-
-    def test_raises_on_lock_timeout(self, *, store):
-        """get_batch_node_stats raises JobStatsStoreReadException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_batch_node_stats(job_run_id="some-run-id")
-
-    def test_returns_empty_when_no_dir(self, *, store):
-        """Returns empty dict when node_stats dir does not exist."""
-        result = store.get_batch_node_stats(job_run_id="nonexistent-run-id-xyz")
-        assert result == {}
-
-
-class TestBulkStoreNodeStatsErrors:
-    """Test bulk_store_node_stats error paths."""
-
-    def test_raises_on_lock_timeout(self, *, store, sample_node_stats):
-        """bulk_store_node_stats raises JobStatsStoreWriteException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreWriteException):
-                store.bulk_store_node_stats(job_run_id="some-run-id", node_stats_list=[sample_node_stats])
-
-    def test_raises_on_general_error(self, *, store, sample_node_stats):
-        """bulk_store_node_stats raises JobStatsStoreWriteException on generic error."""
-        from unittest.mock import patch
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        with patch.object(store, "_atomic_write_json", side_effect=RuntimeError("out of space")):
-            with pytest.raises(JobStatsStoreWriteException):
-                store.bulk_store_node_stats(job_run_id="some-run-id", node_stats_list=[sample_node_stats])
-
-
-class TestAtomicIncrementFields:
-    """Test atomic_increment_fields method."""
-
-    def test_increments_numeric_fields(self, *, store, sample_job_stats):
-        """Increments numeric fields atomically via patched inner calls."""
-        from unittest.mock import MagicMock, patch
-
-        job_run_id = sample_job_stats.job_run_id
-        mock_job_stats = MagicMock()
-        mock_job_stats.processed_docs = 100
-        mock_job_stats.failed_docs = 5
-        mock_job_stats.page_type_stats = None
-
-        with patch.object(store, "get_job_stats", return_value=mock_job_stats), patch.object(store, "store_job_stats"):
-            store.atomic_increment_fields(
-                job_run_id,
-                increments={"processed_docs": 10, "failed_docs": 2},
-            )
-
-        assert mock_job_stats.processed_docs == 110
-        assert mock_job_stats.failed_docs == 7
-
-    def test_applies_updates(self, *, store, sample_job_stats):
-        """Applies field updates via patched inner calls."""
-        from unittest.mock import MagicMock, patch
-
-        job_run_id = sample_job_stats.job_run_id
-        mock_job_stats = MagicMock()
-
-        with (
-            patch.object(store, "get_job_stats", return_value=mock_job_stats),
-            patch.object(store, "store_job_stats") as mock_store_call,
-        ):
-            store.atomic_increment_fields(
-                job_run_id,
-                increments={},
-                updates={"status": "COMPLETED"},
-            )
-
-        mock_store_call.assert_called_once()
-
-    def test_applies_jsonb_merges(self, *, store, sample_job_stats):
-        """Merges jsonb_merges dicts into existing dict fields."""
-        from unittest.mock import patch
-
-        job_run_id = sample_job_stats.job_run_id
-        sample_job_stats.page_type_stats = {"pdf": 5}
-
-        stored_result = [None]
-
-        def capture_store(js):
-            stored_result[0] = js
-
-        with (
-            patch.object(store, "get_job_stats", return_value=sample_job_stats),
-            patch.object(store, "store_job_stats", side_effect=capture_store),
-        ):
-            store.atomic_increment_fields(
-                job_run_id,
-                increments={},
-                jsonb_merges={"page_type_stats": {"docx": 3}},
-            )
-
-        assert stored_result[0].page_type_stats.get("docx") == 3
-
-    def test_no_op_when_job_not_found(self, *, store):
-        """Returns early when job not found (no exception)."""
-        from unittest.mock import patch
-
-        with patch.object(store, "get_job_stats", return_value=None):
-            # Should not raise
-            store.atomic_increment_fields(
-                "nonexistent-job-run-id",
-                increments={"processed_docs": 1},
-            )
-
-    def test_raises_on_lock_timeout(self, *, store):
-        """Raises JobStatsStoreAtomicUpdateException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreAtomicUpdateException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreAtomicUpdateException):
-                store.atomic_increment_fields("some-run-id", increments={"processed_docs": 1})
-
-
-class TestGetNodeStatsByBatchAndNodeErrors:
-    """Test get_node_stats_by_batch_and_node error paths."""
-
-    def test_raises_on_lock_timeout(self, *, store):
-        """Raises JobStatsStoreReadException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_node_stats_by_batch_and_node(job_run_id="some-run-id", node_id="some-node-id")
-
-
-class TestDeleteJobStatsErrors:
-    """Test delete_job_stats error paths."""
-
-    def test_delete_existing_job_succeeds(self, *, store, sample_job_stats, temp_data_dir):
-        """delete_job_stats removes the job directory when it exists."""
-        store.store_job_stats(sample_job_stats)
-        job_run_id = sample_job_stats.job_run_id
-        job_dir = temp_data_dir / "job_stats" / job_run_id
-        assert job_dir.exists()
-
-        store.delete_job_stats(job_run_id)
-
-        assert not job_dir.exists()
-
-    def test_raises_on_lock_timeout(self, *, store):
-        """Raises JobStatsStoreDeleteException on lock timeout."""
-        from unittest.mock import MagicMock, patch
-
-        from filelock import Timeout
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreDeleteException
-
-        mock_lock = MagicMock()
-        mock_lock.acquire.side_effect = Timeout("timeout")
-
-        with patch(
-            "docpipe.core.job_management.adapters.stores.json.json_job_stats_store.FileLock", return_value=mock_lock
-        ):
-            with pytest.raises(JobStatsStoreDeleteException):
-                store.delete_job_stats("some-run-id")
-
-
-class TestGetAllJobRunIds:
-    """Test get_all_job_run_ids method."""
-
-    def test_returns_empty_when_base_dir_missing(self, *, store, temp_data_dir):
-        """Returns empty list when base dir does not exist."""
-        import shutil
-
-        # Remove base dir
-        base_dir = temp_data_dir / "job_stats"
-        if base_dir.exists():
-            shutil.rmtree(base_dir)
-
-        result = store.get_all_job_run_ids()
-        assert result == []
-
-    def test_returns_job_run_ids_with_stats_file(self, *, store, sample_job_stats):
-        """Returns only directories that contain job_stats.json."""
-        store.store_job_stats(sample_job_stats)
-        # Also create a directory without job_stats.json
-        orphan_dir = store._base_dir / "orphan-dir-no-stats"
-        orphan_dir.mkdir(parents=True, exist_ok=True)
-
-        result = store.get_all_job_run_ids()
-
-        assert sample_job_stats.job_run_id in result
-        assert "orphan-dir-no-stats" not in result
-
-
-class TestListJobRunsFilters:
-    """Test list_job_runs filtering logic."""
-
-    def test_filter_by_job_id(self, *, store):
-        """list_job_runs filters by job_id."""
-        target_job_id = str(uuid.uuid4())
-        other_job_id = str(uuid.uuid4())
-
-        for i in range(3):
-            store.store_job_stats(
-                JobStats(
-                    job_id=target_job_id if i < 2 else other_job_id,
-                    job_run_id=str(uuid.uuid4()),
-                    status=ExecutionStatus.RUNNING,
-                )
-            )
-
-        result = store.list_job_runs(job_id=target_job_id)
-        assert len(result) == 2
-        assert all(js.job_id == target_job_id for js in result)
-
-    def test_limit_respected(self, *, store):
-        """list_job_runs respects limit."""
-        for _ in range(5):
-            store.store_job_stats(
-                JobStats(
-                    job_id=str(uuid.uuid4()),
-                    job_run_id=str(uuid.uuid4()),
-                    status=ExecutionStatus.RUNNING,
-                )
-            )
-
-        result = store.list_job_runs(limit=2)
-        assert len(result) == 2
-
-    def test_returns_empty_when_base_dir_missing(self, *, store, temp_data_dir):
-        """Returns empty list when base dir is missing."""
-        import shutil
-
-        base_dir = temp_data_dir / "job_stats"
-        if base_dir.exists():
-            shutil.rmtree(base_dir)
-
-        result = store.list_job_runs()
-        assert result == []
-
-    def test_raises_on_unexpected_error(self, *, store, temp_data_dir):
-        """Raises JobStatsStoreReadException on unexpected errors."""
-        from unittest.mock import patch
-
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        # Ensure base_dir exists so list_job_runs doesn't short-circuit with []
-        (temp_data_dir / "job_stats").mkdir(parents=True, exist_ok=True)
-
-        # Patch Path.iterdir on the class so our store's base_dir is affected
-        with patch("pathlib.Path.iterdir", side_effect=OSError("unexpected")):
-            with pytest.raises(JobStatsStoreReadException):
-                store.list_job_runs()

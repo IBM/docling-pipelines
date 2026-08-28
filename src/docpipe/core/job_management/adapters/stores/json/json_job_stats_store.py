@@ -138,7 +138,7 @@ class JsonJobStatsStore(JobStatsStore):
 
         temp_path = path.with_suffix(".tmp")
         try:
-            with open(temp_path, "w", encoding="utf-8") as f:
+            with Path(temp_path).open("w", encoding="utf-8") as f:
                 json.dump(
                     data,
                     f,
@@ -170,7 +170,7 @@ class JsonJobStatsStore(JobStatsStore):
             return None
 
         try:
-            with open(path, encoding="utf-8") as f:
+            with Path(path).open(encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to read JSON file {path}: {e}")
@@ -269,7 +269,7 @@ class JsonJobStatsStore(JobStatsStore):
 
         try:
             with lock.acquire(timeout=self._lock_timeout):
-                node_id = node_stats.node_id
+                node_id = node_stats.id
                 batch_id = getattr(node_stats, "batch_id", None)
 
                 path = self._get_node_stats_path(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)
@@ -369,7 +369,7 @@ class JsonJobStatsStore(JobStatsStore):
                             batch_id = getattr(node_stats, "batch_id", None)
 
                             if batch_id is not None:
-                                node_id = node_stats.node_id
+                                node_id = node_stats.id
                                 if node_id not in result:
                                     result[node_id] = {}
                                 result[node_id][batch_id] = node_stats
@@ -388,6 +388,48 @@ class JsonJobStatsStore(JobStatsStore):
                 message=f"Failed to acquire lock for batch node stats read: timeout={self._lock_timeout}s",
                 job_run_id=job_run_id,
                 operation="get_batch_node_stats",
+            ) from e
+
+    def try_store_node_stats(self, *, job_run_id: str, node_stats: NodeStats, lock_timeout: float) -> bool:
+        """Store node statistics with a caller-supplied lock timeout.
+
+        Unlike ``store_node_stats``, this method returns ``False`` instead of
+        raising when the lock cannot be acquired within ``lock_timeout`` seconds.
+        Intended for best-effort intermediate progress writes that must not
+        block the caller (e.g. periodic live-progress updates from inside a
+        running operator).
+
+        Args:
+            job_run_id: Job run identifier
+            node_stats: Node statistics to store
+            lock_timeout: Maximum seconds to wait for the lock. Pass a small
+                value (e.g. 0.5) to make the call non-blocking in practice.
+
+        Returns:
+            ``True`` if the write succeeded, ``False`` if the lock was busy.
+
+        Raises:
+            JobStatsStoreWriteException: On any error other than a lock timeout.
+        """
+        lock_path = self._get_node_stats_lock_path(job_run_id=job_run_id)
+        lock = FileLock(str(lock_path))
+
+        try:
+            with lock.acquire(timeout=lock_timeout):
+                node_id = node_stats.id
+                batch_id = getattr(node_stats, "batch_id", None)
+                path = self._get_node_stats_path(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)
+                self._atomic_write_json(path=path, data=node_stats.model_dump(by_alias=True))
+                logger.debug("try_store_node_stats: wrote node_id=%s job_run_id=%s", node_id, job_run_id)
+                return True
+        except Timeout:
+            return False
+        except Exception as e:
+            logger.error("try_store_node_stats failed: %s", e)
+            raise JobStatsStoreWriteException(
+                message=f"Failed to store node stats: {e}",
+                job_run_id=job_run_id,
+                operation="try_store_node_stats",
             ) from e
 
     def bulk_store_node_stats(self, *, job_run_id: str, node_stats_list: list[NodeStats]) -> None:
@@ -410,7 +452,7 @@ class JsonJobStatsStore(JobStatsStore):
         try:
             with lock.acquire(timeout=self._lock_timeout):
                 for node_stats in node_stats_list:
-                    node_id = node_stats.node_id
+                    node_id = node_stats.id
                     batch_id = getattr(node_stats, "batch_id", None)
 
                     path = self._get_node_stats_path(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)
@@ -595,9 +637,10 @@ class JsonJobStatsStore(JobStatsStore):
 
         return [d.name for d in self._base_dir.iterdir() if d.is_dir() and (d / "job_stats.json").exists()]
 
-    def list_job_runs(  # NOSONAR python:S3776
+    def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -605,7 +648,8 @@ class JsonJobStatsStore(JobStatsStore):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (evaluated as set membership during iteration)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -616,6 +660,8 @@ class JsonJobStatsStore(JobStatsStore):
 
         if not self._base_dir.exists():
             return result
+
+        job_ids_set = set(job_ids) if job_ids else None
 
         try:
             # Iterate through all job run directories
@@ -643,6 +689,8 @@ class JsonJobStatsStore(JobStatsStore):
 
                             # Apply filters
                             if job_id and job_stats.job_id != job_id:
+                                continue
+                            if job_ids_set and job_stats.job_id not in job_ids_set:
                                 continue
                             if status and job_stats.status != status:
                                 continue

@@ -20,6 +20,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 
+from docpipe.api.dependencies import get_flow_service
 from docpipe.api.dto.authoring_flow_dto import (
     AuthoringFlowCreateRequest,
     AuthoringFlowResponse,
@@ -45,10 +46,11 @@ from docpipe.api.dto.flow_dto import (
     PaginatedFlowResponse,
 )
 from docpipe.api.dto.mappers.flow_mapper import FlowMapper
-from docpipe.core.assets.flows.adapters.config.repository_factory import RepositoryFactory
+from docpipe.core.assets.common.adapters.repositories.local_asset_repository import LocalAssetRepository
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
-from docpipe.core.assets.flows.domain.ports.flow_repository import FlowRepository
+from docpipe.core.assets.flows.domain.models.flow import Flow
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -206,34 +208,22 @@ def get_filter_params(
     }
 
 
-# Dependency providers
+# Dependency providers (Unified Architecture)
 @lru_cache(maxsize=1)
-def get_flow_repository() -> FlowRepository:
+def get_flow_repository() -> AssetRepository[Flow]:
     """Dependency provider for flow repository (singleton).
 
-    Creates a single repository instance that is reused across all requests
-    using LRU cache. Uses FlowRepositoryFactory for repository creation.
+    Creates a single repository instance using the unified architecture.
+    Uses LocalAssetRepository[Flow] for filesystem storage.
 
     Returns:
-        FlowRepository: Configured repository instance (cached singleton)
+        AssetRepository[Flow]: Configured repository instance (cached singleton)
 
     Note:
-         Configuration is handled by RepositoryFactory via environment variables.
-         See RepositoryFactory.create_flow_repository() for configuration details.
+        Uses LocalAssetRepository[Flow] which stores flows in the configured
+        directory (from environment or config: ~/Documents/pipeline/assets)
     """
-    return RepositoryFactory.create_flow_repository()
-
-
-def get_flow_service(repository: FlowRepository = Depends(get_flow_repository)) -> FlowService:  # noqa: B008
-    """Dependency provider for flow service.
-
-    Args:
-        repository: Injected repository instance
-
-    Returns:
-        FlowService: Service instance with injected repository
-    """
-    return FlowService(repository=repository)
+    return LocalAssetRepository[Flow](asset_type=Flow)
 
 
 # Type alias for dependency injection
@@ -377,7 +367,7 @@ async def create_flow(
         from docpipe.core.assets.flows.domain.models.flow import Flow
 
         domain_flow = Flow(
-            flow_id=None,  # Will be generated
+            asset_id=None,  # Will be generated
             name=authoring_flow.flow_name,
             description=authoring_dto.description,
             definition=authoring_dto.model_dump(),  # Store validated authoring format
@@ -397,8 +387,7 @@ async def create_flow(
     # Convert domain model back to appropriate DTO based on format
     if is_elyra:
         return FlowMapper.domain_to_dto(created_flow)
-    else:
-        return FlowMapper.domain_to_authoring_dto(domain=created_flow)
+    return FlowMapper.domain_to_authoring_dto(domain=created_flow)
 
 
 @flows_router.get(
@@ -521,9 +510,8 @@ async def get_flow(
     if DocpipeConstants.FLOW_NAME in domain_flow.definition:
         # Authoring format - return flat structure with metadata
         return FlowMapper.domain_to_authoring_dto(domain=domain_flow)
-    else:
-        # Elyra format - return wrapped structure
-        return FlowMapper.domain_to_dto(domain_flow)
+    # Elyra format - return wrapped structure
+    return FlowMapper.domain_to_dto(domain_flow)
 
 
 @flows_router.get(
@@ -634,8 +622,6 @@ async def list_flows(
     Raises:
         HTTPException: If list operation fails (400, 500)
     """
-    from docpipe.core.constants.constants import DocpipeConstants
-
     limit, offset = pagination
     name = filters["name"]
     tags = filters["tags"]
@@ -650,19 +636,11 @@ async def list_flows(
         f"is_hidden={is_hidden}, is_elyra={is_elyra}"
     )
 
-    # Get flows using service with pagination and filtering
-    flows = service.list_flows(skip=offset, limit=limit, name_filter=name, tags_filter=tags, is_hidden=is_hidden)
-
-    # Filter by format
-    if is_elyra:
-        # Return only Elyra format flows
-        flows = [f for f in flows if DocpipeConstants.FLOW_NAME not in f.definition]
-    else:
-        # Return only authoring format flows
-        flows = [f for f in flows if DocpipeConstants.FLOW_NAME in f.definition]
-
-    # Get total count from service
-    total = service.count_flows(name_filter=name, tags_filter=tags, is_hidden=is_hidden)
+    # Get flows and total — format filter applied inside the service before pagination
+    flows = service.list_flows(
+        skip=offset, limit=limit, name_filter=name, tags_filter=tags, is_hidden=is_hidden, is_elyra=is_elyra
+    )
+    total = service.count_flows(name_filter=name, tags_filter=tags, is_hidden=is_hidden, is_elyra=is_elyra)
 
     logger.info(f"Successfully retrieved {len(flows)} flows (format: {'Elyra' if is_elyra else 'Authoring'})")
 
@@ -686,16 +664,15 @@ async def list_flows(
             next=next_link,
             prev=prev_link,
         )
-    else:
-        return PaginatedAuthoringFlowResponse(
-            flows=[FlowMapper.domain_to_authoring_dto(domain=flow) for flow in flows],
-            total_count=total,
-            offset=offset,
-            limit=limit,
-            first=first_link,
-            next=next_link,
-            prev=prev_link,
-        )
+    return PaginatedAuthoringFlowResponse(
+        flows=[FlowMapper.domain_to_authoring_dto(domain=flow) for flow in flows],
+        total_count=total,
+        offset=offset,
+        limit=limit,
+        first=first_link,
+        next=next_link,
+        prev=prev_link,
+    )
 
 
 @flows_router.put(
@@ -825,7 +802,7 @@ async def update_flow(
         from docpipe.core.assets.flows.domain.models.flow import Flow
 
         domain_flow = Flow(
-            flow_id=None,  # Will be set below
+            asset_id=None,  # Will be set below
             name=authoring_flow.flow_name,
             description=flow.description,
             definition=flow.model_dump(),  # Store complete authoring format
@@ -846,8 +823,7 @@ async def update_flow(
     # Convert domain model back to appropriate DTO based on format
     if is_elyra:
         return FlowMapper.domain_to_dto(updated_flow)
-    else:
-        return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
+    return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
 
 
 @flows_router.patch(
@@ -978,8 +954,7 @@ async def partial_update_flow(
     # Convert domain model back to appropriate DTO based on format
     if is_elyra:
         return FlowMapper.domain_to_dto(updated_flow)
-    else:
-        return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
+    return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
 
 
 @flows_router.delete(
@@ -1072,7 +1047,7 @@ async def delete_flow(
     logger.info(f"Successfully deleted flow {flow_id}")
 
     # Return 204 No Content on success
-    return None
+    return
 
 
 @flows_router.delete(

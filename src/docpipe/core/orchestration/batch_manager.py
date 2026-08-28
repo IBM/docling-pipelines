@@ -62,9 +62,11 @@ class BatchManager:
         """
         batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
         batch_size = global_config.get(DocpipeConstants.MICRO_BATCH_SIZE, DocpipeConstants.DEFAULT_MICRO_BATCH_SIZE)
+        if isinstance(batch_size, str) and batch_size.isdigit():
+            batch_size = int(batch_size)
         return batching_enabled, batch_size
 
-    def create_batches(self, *, table: pa.Table, batch_size: int) -> list[BatchInfo]:  # NOSONAR python:S3776
+    def create_batches(self, *, table: pa.Table, batch_size: int) -> list[BatchInfo]:
         """
         Split a PyArrow table into batches based on file size for balanced workload distribution.
 

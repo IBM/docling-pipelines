@@ -67,7 +67,7 @@ class AuthoringOperatorDTO(BaseModel):
         max_length=TYPE_MAX_LENGTH,
         pattern=TYPE_PATTERN,
         description="Operator type identifier",
-        examples=["ingest_local", "extract_operator", "embeddings"],
+        examples=["ingest_source", "extract_operator", "embeddings"],
     )
 
     name: str = Field(
@@ -76,7 +76,7 @@ class AuthoringOperatorDTO(BaseModel):
         max_length=NAME_MAX_LENGTH,
         pattern=NAME_PATTERN,
         description="Unique operator name within the flow",
-        examples=["ingest_local_folder", "extract_with_docling", "ollama_embeddings"],
+        examples=["ingest_source_filesystem", "extract_with_docling", "ollama_embeddings"],
     )
 
     config: dict[str, Any] = Field(
@@ -88,7 +88,7 @@ class AuthoringOperatorDTO(BaseModel):
     depends_on: list[str] = Field(
         default_factory=list,
         description="List of operator names this operator depends on",
-        examples=[["ingest_local_folder"], ["extract_with_docling", "semantic_chunker"]],
+        examples=[["ingest_source_filesystem"], ["extract_with_docling", "semantic_chunker"]],
     )
 
 

@@ -5,6 +5,8 @@ import logging
 import ldap
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError, ExternalServiceError
+
 from .models import User
 
 logger = logging.getLogger(__name__)
@@ -32,14 +34,10 @@ class LDAPAuthenticator:
     """LDAP authenticator class."""
 
     def __init__(self, config: LDAPConfig):
-        """Initialize LDAP authenticator.
-
-        Args:
-            config: LDAP configuration
-        """
+        """Initialize with the given LDAP configuration."""
         self.config = config
 
-    def authenticate(self, username: str, password: str) -> User | None:  # NOSONAR python:S3776
+    def authenticate(self, username: str, password: str) -> User | None:
         """Authenticate user against LDAP server.
 
         Args:
@@ -53,57 +51,146 @@ class LDAPAuthenticator:
             Exception: If LDAP connection or authentication fails
         """
         ldap_client = None
+
         try:
             ldap_client = ldap.initialize(self.config.ldap_server)
             ldap_client.set_option(ldap.OPT_REFERRALS, 0)
             ldap_client.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
 
             if self.config.ldap_use_ssl:
-                ldap_client.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+                ldap_client.set_option(
+                    ldap.OPT_X_TLS_REQUIRE_CERT,
+                    ldap.OPT_X_TLS_NEVER,
+                )
                 ldap_client.start_tls_s()
 
+            # ------------------------------------------------------------------
+            # Active Directory: authenticate directly using username@domain
+            # ------------------------------------------------------------------
             if self.config.ldap_use_active_directory:
-                if self.config.ldap_ad_domain:
-                    user_dn = f"{username}@{self.config.ldap_ad_domain}"
-                else:
-                    user_dn = f"{username}"
+                if not self.config.ldap_ad_domain:
+                    raise ConfigurationError("ldap_ad_domain must be configured when using Active Directory")
+
+                bind_dn = f"{username}@{self.config.ldap_ad_domain}"
+
+                logger.info("Attempting AD authentication for user: %s", username)
+
+                try:
+                    ldap_client.simple_bind_s(bind_dn, password)
+                except ldap.INVALID_CREDENTIALS:
+                    logger.warning("Invalid credentials for user: %s", username)
+                    return None
+
                 search_filter = f"(sAMAccountName={username})"
-                attributes = ["cn", "mail", "sAMAccountName", "userPrincipalName"]
-            else:
-                user_dn = f"uid={username},{self.config.ldap_user_dn}"
-                search_filter = f"(uid={username})"
-                attributes = ["cn", "mail", "uid"]
+                attributes = [
+                    "cn",
+                    "mail",
+                    "sAMAccountName",
+                    "userPrincipalName",
+                ]
 
-            ldap_client.simple_bind_s(user_dn, password)
+                result = ldap_client.search_s(
+                    self.config.ldap_user_dn,
+                    ldap.SCOPE_SUBTREE,
+                    search_filter,
+                    attributes,
+                )
 
-            result = ldap_client.search_s(self.config.ldap_user_dn, ldap.SCOPE_SUBTREE, search_filter, attributes)
+                email = ""
+                full_name = ""
 
-            if result:
-                _dn, attrs = result[0]
-                email = attrs.get("mail", [b""])[0].decode("utf-8") if "mail" in attrs else ""
-                full_name = attrs.get("cn", [b""])[0].decode("utf-8") if "cn" in attrs else ""
+                if result:
+                    _, attrs = result[0]
 
-                logger.info(f"Successfully authenticated user: {username}")
-                return User(username=username, email=email, full_name=full_name)
+                    email = attrs.get("mail", [b""])[0].decode("utf-8") if "mail" in attrs else ""
 
-            logger.warning(f"User not found in LDAP: {username}")
-            return None
+                    full_name = attrs.get("cn", [b""])[0].decode("utf-8") if "cn" in attrs else ""
 
-        except ldap.INVALID_CREDENTIALS:
-            logger.warning(f"Invalid credentials for user: {username}")
-            return None
+                logger.info("Successfully authenticated user: %s", username)
+
+                return User(
+                    username=username,
+                    email=email,
+                    full_name=full_name,
+                )
+
+            # ------------------------------------------------------------------
+            # Standard LDAP/OpenLDAP: find user DN first, then bind as user
+            # ------------------------------------------------------------------
+
+            ldap_client.simple_bind_s(
+                self.config.ldap_bind_dn,
+                self.config.ldap_bind_password,
+            )
+
+            search_filter = f"(uid={username})"
+            attributes = ["cn", "mail", "uid"]
+
+            result = ldap_client.search_s(
+                self.config.ldap_user_dn,
+                ldap.SCOPE_SUBTREE,
+                search_filter,
+                attributes,
+            )
+
+            if not result:
+                logger.warning("User not found in LDAP: %s", username)
+                return None
+
+            user_dn, attrs = result[0]
+
+            email = attrs.get("mail", [b""])[0].decode("utf-8") if "mail" in attrs else ""
+
+            full_name = attrs.get("cn", [b""])[0].decode("utf-8") if "cn" in attrs else ""
+
+            ldap_client.unbind_s()
+
+            ldap_client = ldap.initialize(self.config.ldap_server)
+            ldap_client.set_option(ldap.OPT_REFERRALS, 0)
+            ldap_client.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
+
+            if self.config.ldap_use_ssl:
+                ldap_client.set_option(
+                    ldap.OPT_X_TLS_REQUIRE_CERT,
+                    ldap.OPT_X_TLS_NEVER,
+                )
+                ldap_client.start_tls_s()
+
+            try:
+                ldap_client.simple_bind_s(user_dn, password)
+            except ldap.INVALID_CREDENTIALS:
+                logger.warning("Invalid credentials for user: %s", username)
+                return None
+
+            logger.info("Successfully authenticated user: %s", username)
+
+            return User(
+                username=username,
+                email=email,
+                full_name=full_name,
+            )
+
         except ldap.SERVER_DOWN:
-            logger.error(f"LDAP server is down: {self.config.ldap_server}")
-            raise Exception("LDAP server is unavailable") from None
+            logger.error("LDAP server is down: %s", self.config.ldap_server)
+            raise ExternalServiceError("LDAP server is unavailable") from None
+
+        except ldap.INVALID_DN_SYNTAX as e:
+            logger.error("LDAP DN syntax error for user %s: %s", username, e)
+            raise ConfigurationError("LDAP configuration error: invalid bind DN format") from e
+
+        except (ConfigurationError, ExternalServiceError):
+            raise
+
         except Exception as e:
-            logger.error(f"LDAP authentication error for user {username}: {e!s}")
-            raise Exception(f"LDAP authentication error: {e!s}") from e
+            logger.error("LDAP authentication error for user %s: %s", username, e)
+            raise ExternalServiceError(f"LDAP authentication error: {e!s}") from e
+
         finally:
             if ldap_client:
                 try:
                     ldap_client.unbind_s()
                 except Exception as e:
-                    logger.error(f"Error unbinding LDAP connection: {e!s}")
+                    logger.error("Failed to unbind LDAP connection: %s", e)
 
     def verify_connection(self) -> bool:
         """Verify LDAP server connection.
@@ -126,11 +213,11 @@ class LDAPAuthenticator:
             return True
 
         except Exception as e:
-            logger.error(f"LDAP connection verification failed: {e!s}")
+            logger.error("LDAP connection verification failed: %s", e)
             return False
         finally:
             if ldap_client:
                 try:
                     ldap_client.unbind_s()
                 except Exception as e:
-                    logger.error(f"Error unbinding LDAP connection: {e!s}")
+                    logger.error("Error unbinding LDAP connection: %s", e)

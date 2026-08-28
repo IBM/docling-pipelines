@@ -13,9 +13,13 @@ Features:
 
 from typing import Any, cast
 
-from sqlalchemy import Column, String, Table, delete, text
+from sqlalchemy import Column, MetaData, String, delete, text
+from sqlalchemy import Table as SATable
 from sqlmodel import select
 
+from docpipe.core.incremental_metadata.adapters.config.incremental_metadata_factory import (
+    register_incremental_update_store,
+)
 from docpipe.core.incremental_metadata.domain import (
     IncrementalMetadataRecord,
     IncrementalMetadataStore,
@@ -36,6 +40,7 @@ from .models import IncrementalMetadataPostgresModel
 logger = get_logger("INCREMENTAL_METADATA_POSTGRES")
 
 
+@register_incremental_update_store
 class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
     """
     PostgreSQL-based storage adapter for incremental metadata.
@@ -56,25 +61,31 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
         - DOCPIPE_INCREMENTAL_POSTGRES_SCHEMA (default: incremental_metadata)
     """
 
+    STORE_BACKEND = "postgresql"
+
     def __init__(self, *, config: dict[str, Any] | None = None):
         """
         Initialize PostgreSQL incremental metadata store.
 
         Args:
-            config: Optional configuration dict with PostgreSQL connection settings
+            config: Configuration dict. May contain a nested "postgres" key (as produced
+                    by the YAML config merge), or flat postgres connection keys directly.
 
         Raises:
             JobStatsStoreInitializationException: If initialization fails
         """
         self.config = config or {}
 
-        # Log the config keys being used (without password value)
-        config_keys = list(self.config.keys())
-        logger.debug(f"PostgresIncrementalMetadataStore config keys: {config_keys}")
+        # Extract flat postgres config: nested "postgres" key takes precedence
+        postgres_config = self.config.get("postgres")
+        flat_config = postgres_config if isinstance(postgres_config, dict) else self.config
 
-        # Wrap config in expected structure for get_postgres_connection_string
+        # Log the config keys being used (without password value)
+        logger.debug("PostgresIncrementalMetadataStore config keys: %s", list(flat_config.keys()))
+
+        # Wrap flat config in expected structure for get_postgres_connection_string
         # The function expects config["postgres"]["password"], etc.
-        wrapped_config = {"postgres": self.config}
+        wrapped_config = {"postgres": flat_config}
 
         # Get connection string from config or environment
         connection_string = get_postgres_connection_string(config=wrapped_config)
@@ -90,10 +101,13 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
             self._engine = create_postgres_engine(connection_string=connection_string, config=wrapped_config)
             self._session_factory = create_session_factory(engine=self._engine)
 
-            # Create schema and incremental metadata table if they don't exist
-            schema_name = self.config.get("schema", "incremental_metadata")
-            incremental_table = cast(Table, IncrementalMetadataPostgresModel.__table__)  # type: ignore[attr-defined]
-            incremental_table.schema = schema_name
+            # Create schema and incremental metadata table if they don't exist.
+            # We copy the SQLAlchemy Table into a per-instance MetaData with the
+            # target schema so we never mutate the shared class-level __table__.
+            schema_name = flat_config.get("schema", "incremental_metadata")
+            source_table = cast(SATable, IncrementalMetadataPostgresModel.__table__)  # type: ignore[attr-defined]
+            instance_metadata = MetaData(schema=schema_name)
+            incremental_table = source_table.tometadata(instance_metadata)
 
             with self._engine.begin() as connection:
                 connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
@@ -101,20 +115,21 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
             incremental_table.create(self._engine, checkfirst=True)
 
             logger.info(
-                f"PostgresIncrementalMetadataStore initialized successfully "
-                f"(schema: {schema_name}, table: {incremental_table.name})"
+                "PostgresIncrementalMetadataStore initialized successfully (schema: %s, table: %s)",
+                schema_name,
+                incremental_table.name,
             )
 
         except JobStatsStoreInitializationException:
             raise
         except Exception as e:
-            logger.error(f"Failed to initialize PostgresIncrementalMetadataStore: {e}")
+            logger.error("Failed to initialize PostgresIncrementalMetadataStore: %s", e)
             raise JobStatsStoreInitializationException(
                 message=f"PostgreSQL initialization failed: {e}", store_type="postgres"
             ) from e
 
     def get_processed_docs(self, *, job_id: str) -> dict[str, Any]:
-        """Retrieve processed document IDs with modification times (non-deleted only)."""
+        """Retrieve processed document IDs with modification times and job run IDs (non-deleted only)."""
         try:
             with self._session_factory() as session:
                 rows = (
@@ -127,7 +142,9 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
                     .scalars()
                     .all()
                 )
-                result = {row.doc_id: row.modified_time for row in rows}
+                result = {
+                    row.doc_id: {"modified_time": row.modified_time, "job_run_id": row.job_run_id} for row in rows
+                }
                 logger.debug(f"Retrieved {len(result)} processed docs for job_id={job_id}")
                 return result
 

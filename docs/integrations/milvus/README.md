@@ -30,7 +30,7 @@ MilvusAdapter (VectorStorePort)
 1. **MilvusClient** (`adapters/outbound/milvus/client.py`)
    - Manages connections to Milvus
    - Always constructs a URI internally from host/port (PyMilvusClient only accepts `uri`, not `host`/`port` directly)
-   - Handles authentication via `token="user:password"` per the pymilvus v2.6 API
+   - Handles authentication via `token="user:password"`
 
 2. **MilvusIndexManager** (`adapters/outbound/milvus/index_manager.py`)
    - Creates and manages collections
@@ -67,7 +67,6 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "my_collection",
     "embeddings_column": "embeddings",
     "vector_dimension": 384,
     "add_sparse_vector": false,
@@ -91,6 +90,7 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
       "embeddings": "vector"
     },
     "provider_config": {
+      "collection_name": "my_collection",
       "auth_type": "standalone",
       "host": "localhost",
       "port": 19530,
@@ -118,11 +118,11 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "my_collection",
     "embeddings_column": "embeddings",
     "vector_dimension": 384,
     "add_sparse_vector": false,
     "provider_config": {
+      "collection_name": "my_collection",
       "auth_type": "grpc",
       "host": "your-wxdata-instance.cloud.ibm.com",
       "port": 19530,
@@ -165,7 +165,6 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "my_collection",
     "embeddings_column": "embeddings",
     "vector_dimension": 384,
     "add_sparse_vector": false,
@@ -189,6 +188,7 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
       "embeddings": "vector"
     },
     "provider_config": {
+      "collection_name": "my_collection",
       "auth_type": "uri",
       "uri": "https://ibmlhapikey_your_username:<your-api-key>@your-wxdata-instance.cloud.ibm.com:19530",
       "database": "default",
@@ -208,7 +208,6 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "my_collection",
     "embeddings_column": "embeddings",
     "vector_dimension": 384,
     "add_sparse_vector": false,
@@ -232,6 +231,7 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
       "embeddings": "vector"
     },
     "provider_config": {
+      "collection_name": "my_collection",
       "auth_type": "token",
       "host": "your-wxdata-instance.cloud.ibm.com",
       "port": 19530,
@@ -289,7 +289,7 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `provider` | string | Yes | - | Must be "milvus" |
-| `index_name` | string | Yes | - | Collection name |
+| `provider_config.collection_name` | string | Yes | - | Name of the Milvus collection |
 | `embeddings_column` | string | No | "embeddings" | Column containing vectors |
 | `vector_dimension` | integer | No | 384 | Vector dimension (dense mode only) |
 | `add_sparse_vector` | boolean | No | false | Use BM25 sparse vectors instead of dense |
@@ -371,12 +371,12 @@ Docling Pipelines provides two example pipeline flows demonstrating different Mi
 ```json
 {
   "provider": "milvus",
-  "index_name": "sample_documents_sparse",
   "doc_id_column": "doc_id_hash",
   "embeddings_column": "embeddings",
   "add_sparse_vector": true,
   "create_index": true,
   "provider_config": {
+    "collection_name": "sample_documents_sparse",
     "auth_type": "standalone",
     "host": "localhost",
     "port": 19530,
@@ -403,12 +403,12 @@ Docling Pipelines provides two example pipeline flows demonstrating different Mi
 ```json
 {
   "provider": "milvus",
-  "index_name": "sample_documents_collection_dense",
   "doc_id_column": "doc_id_hash",
   "embeddings_column": "embeddings",
   "add_sparse_vector": false,
   "create_index": true,
   "provider_config": {
+    "collection_name": "sample_documents_collection_dense",
     "auth_type": "grpc",
     "host": "<YOUR_WXDATA_HOST>",
     "port": "<YOUR_PORT>",
@@ -513,7 +513,6 @@ For a complete working example, see [`sample_flows/vectordb/milvus_integration.j
   "type": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "documents",
     "embeddings_column": "embeddings",
     "vector_dimension": 384,
     "add_sparse_vector": false,
@@ -523,6 +522,7 @@ For a complete working example, see [`sample_flows/vectordb/milvus_integration.j
       "content": "text"
     },
     "provider_config": {
+      "collection_name": "documents",
       "auth_type": "standalone",
       "host": "localhost",
       "port": 19530,
@@ -557,7 +557,6 @@ For a complete working example, see [`sample_flows/vectordb/milvus_integration.j
   "type": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "documents_sparse",
     "embeddings_column": "embeddings",
     "add_sparse_vector": true,
     "feature_mappings": {
@@ -567,6 +566,7 @@ For a complete working example, see [`sample_flows/vectordb/milvus_integration.j
       "content": "text"
     },
     "provider_config": {
+      "collection_name": "documents_sparse",
       "auth_type": "standalone",
       "host": "localhost",
       "port": 19530,
@@ -621,7 +621,6 @@ python examples/milvus_integration_example.py
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "enterprise_docs",
     "embeddings_column": "embeddings",
     "vector_dimension": 768,
     "add_sparse_vector": false,
@@ -645,6 +644,7 @@ python examples/milvus_integration_example.py
       "embeddings": "vector"
     },
     "provider_config": {
+      "collection_name": "enterprise_docs",
       "uri": "https://milvus.wxdata.ibm.com:19530",
       "token": "${WXDATA_TOKEN}",
       "db_name": "production",
@@ -721,12 +721,6 @@ MilvusDB Error: Failed to connect using standalone auth_type: Fail connecting to
 3. Check port accessibility: `telnet localhost 19530`
 4. Verify credentials match your Milvus setup (default: `root` / `Milvus`)
 5. For wx.data, check token validity
-
-**Problem**: Adapter fails to initialize with cryptic error `'milvus'`
-```
-Failed to initialize vector database adapter 'milvus': 'milvus'
-```
-**Solution**: This was a known bug (lazy loader race condition) fixed in the current release. Ensure you are running the latest version.
 
 ### macOS gRPC DNS Resolution Issue
 
@@ -836,8 +830,8 @@ To migrate from OpenSearch to Milvus:
    ```json
    {
      "provider": "milvus",  // Changed from "opensearch"
-     "index_name": "collection_name",  // Collection instead of index
      "provider_config": {
+       "collection_name": "my_collection",
        "auth_type": "standalone",  // Required: standalone, grpc, uri, or token
        "host": "localhost",
        "port": 19530,  // Changed from 9200
@@ -870,6 +864,6 @@ To migrate from OpenSearch to Milvus:
 
 For issues or questions:
 1. Check Milvus server logs
-2. Review docpipe logs for detailed error messages
+2. Review Docling Pipelines logs for detailed error messages
 3. Consult Milvus documentation for index-specific issues
 4. For wx.data issues, contact IBM support

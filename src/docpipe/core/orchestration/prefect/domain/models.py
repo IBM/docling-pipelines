@@ -94,7 +94,9 @@ class BatchStrategyConstants:
     CONFIG_KEY_BATCH_STORAGE_BUCKET = "bucket"
     CONFIG_KEY_BATCH_STORAGE_PREFIX = "prefix"
     CONFIG_KEY_BATCH_STORAGE_ACCESS_KEY = "access_key"
-    CONFIG_KEY_BATCH_STORAGE_SECRET_KEY = "secret_key"  # pragma: allowlist secret
+    CONFIG_KEY_BATCH_STORAGE_SECRET_KEY = (
+        "secret_key"  # pragma: allowlist secret  # nosec B105 — config key name string, not a real credential
+    )
     CONFIG_KEY_BATCH_STORAGE_ENDPOINT_URL = "endpoint_url"
     CONFIG_KEY_BATCH_STORAGE_REGION = "region"
 
@@ -127,7 +129,7 @@ class BatchStrategyConstants:
                 limit = getattr(settings.server.api, "max_parameter_size", None)
                 if limit is not None and isinstance(limit, int) and limit > 0:
                     return limit
-        except Exception:
+        except Exception:  # nosec B110 — intentional: probing Prefect settings is best-effort; any version/attribute error falls through to next strategy
             pass
 
         # 2. Fallback to EnvironmentVariables constant (os.environ)

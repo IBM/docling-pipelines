@@ -357,8 +357,8 @@ def test_validate_rejects_drop_of_id_column():
             OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.ID],
         }
     )
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["id", "name", "content", "score", "language", "word_count"]
     operator.validate(errors, warnings, available_features)
 
@@ -372,8 +372,8 @@ def test_validate_rejects_drop_of_content_column():
             OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.DOC_COLUMN_DEFAULT],
         }
     )
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["id", "name", "content", "score", "language", "word_count"]
     operator.validate(errors, warnings, available_features)
 
@@ -387,8 +387,8 @@ def test_validate_rejects_drop_of_pages_processed_column():
             OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.PAGES_PROCESSED_COLUMN],
         }
     )
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = [
         "id",
         "name",
@@ -415,8 +415,8 @@ def test_validate_rejects_filter_on_nonexistent_column():
             OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["nonexistent_col > 5"],
         }
     )
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["id", "name", "content", "score", "language", "word_count"]
     operator.validate(errors, warnings, available_features)
 
@@ -429,8 +429,8 @@ def test_validate_rejects_filter_on_nonexistent_column():
 def test_validate_warns_when_no_criteria_provided():
     """No filter criteria at all should produce a warning."""
     operator = make_operator({})
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["id", "name", "content", "score", "language", "word_count"]
     operator.validate(errors, warnings, available_features)
 
@@ -705,7 +705,7 @@ def test_transform_metadata_contains_processed_docs():
 
 
 def test_transform_metadata_contains_total_docs():
-    """transform() metadata contains total_docs_count key."""
+    """transform() metadata contains documents_in_scope key."""
     table = make_table()
     operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]})
     _, metadata = operator.transform(table)
@@ -876,7 +876,8 @@ def test_duckdb_execution_failure():
     with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.BinderException("Mocked DuckDB error")
-        mock_connect.return_value = mock_con
+        mock_connect.return_value.__enter__ = MagicMock(return_value=mock_con)
+        mock_connect.return_value.__exit__ = MagicMock(return_value=False)
 
         result_tables, metadata = operator.transform(table)
         result = result_tables[0]
@@ -912,7 +913,8 @@ def test_duckdb_conversion_exception():
     with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.ConversionException("Type conversion error")
-        mock_connect.return_value = mock_con
+        mock_connect.return_value.__enter__ = MagicMock(return_value=mock_con)
+        mock_connect.return_value.__exit__ = MagicMock(return_value=False)
 
         result_tables, metadata = operator.transform(table)
         result = result_tables[0]
@@ -938,7 +940,8 @@ def test_duckdb_catalog_exception():
     with patch("docpipe.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.CatalogException("Table not found")
-        mock_connect.return_value = mock_con
+        mock_connect.return_value.__enter__ = MagicMock(return_value=mock_con)
+        mock_connect.return_value.__exit__ = MagicMock(return_value=False)
 
         result_tables, metadata = operator.transform(table)
         result = result_tables[0]

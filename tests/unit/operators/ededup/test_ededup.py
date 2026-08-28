@@ -1,5 +1,5 @@
-import os
 import unittest
+from pathlib import Path
 
 import pyarrow as pa
 from data_processing.test_support import get_tables_in_folder
@@ -27,13 +27,13 @@ class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
 
     def get_test_transform_fixtures(self) -> list[tuple]:
         # Use the correct path relative to the test file location
-        basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../fixtures"))
-        input_dir = os.path.join(basedir, "ededup_input")
-        expected_dir = os.path.join(basedir, "ededup_expected")
+        basedir = Path(__file__).resolve().parent / "../../../fixtures"
+        input_dir = str(basedir / "ededup_input")
+        expected_dir = str(basedir / "ededup_expected")
 
         # Create directories if they don't exist
-        os.makedirs(input_dir, exist_ok=True)
-        os.makedirs(expected_dir, exist_ok=True)
+        Path(input_dir).mkdir(parents=True, exist_ok=True)
+        Path(expected_dir).mkdir(parents=True, exist_ok=True)
 
         input_tables = get_tables_in_folder(input_dir)
         expected_tables = get_tables_in_folder(expected_dir)
@@ -146,7 +146,7 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
     def test_empty_table(self):
         """Test deduplication with an empty table"""
         # Create empty table with correct schema
-        data = {
+        data: dict[str, list] = {
             OperatorConstants.Columns.ID: [],
             OperatorConstants.Columns.DOC_COLUMN_DEFAULT: [],
             OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: [],
@@ -398,3 +398,75 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         self.assertEqual(metadata[Metrics.External.PROCESSED_DOCS], 3)
         self.assertEqual(metadata[Metrics.External.SKIPPED_DOCS_COUNT], 2)
         self.assertEqual(metadata[Metrics.External.REMOVED_DOCUMENTS], 2)
+
+    def test_cross_batch_deduplication(self):
+        """Test that duplicates are detected across multiple transform() calls (cross-batch dedup).
+        This verifies that _ededup_transform is reused across calls and hash state is preserved.
+        """
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
+
+        # Batch 1: Doc A, Doc B — both unique
+        batch1 = pa.table(
+            {
+                OperatorConstants.Columns.ID: ["101", "102"],
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ["Doc A", "Doc B"],
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: ["101", "102"],
+                OperatorConstants.Columns.NAME: ["Name 1", "Name 2"],
+            }
+        )
+        result1, _ = operator.transform(batch1)
+        self.assertEqual(result1[0].num_rows, 2, "Batch 1: both docs should pass through")
+
+        # Batch 2: Doc C (new), Doc A (duplicate of Batch 1)
+        batch2 = pa.table(
+            {
+                OperatorConstants.Columns.ID: ["103", "104"],
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ["Doc C", "Doc A"],
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: ["103", "104"],
+                OperatorConstants.Columns.NAME: ["Name 3", "Name 4"],
+            }
+        )
+        result2, metadata2 = operator.transform(batch2)
+        self.assertEqual(result2[0].num_rows, 1, "Batch 2: Doc A is a cross-batch duplicate and should be removed")
+        self.assertEqual(metadata2[Metrics.External.SKIPPED_DOCS_COUNT], 1)
+        self.assertEqual(metadata2[Metrics.External.REMOVED_DOCUMENTS], 1)
+
+        # Batch 3: Doc B (duplicate of Batch 1), Doc D (new)
+        batch3 = pa.table(
+            {
+                OperatorConstants.Columns.ID: ["105", "106"],
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ["Doc B", "Doc D"],
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: ["105", "106"],
+                OperatorConstants.Columns.NAME: ["Name 5", "Name 6"],
+            }
+        )
+        result3, metadata3 = operator.transform(batch3)
+        self.assertEqual(result3[0].num_rows, 1, "Batch 3: Doc B is a cross-batch duplicate and should be removed")
+        self.assertEqual(metadata3[Metrics.External.SKIPPED_DOCS_COUNT], 1)
+        self.assertEqual(metadata3[Metrics.External.REMOVED_DOCUMENTS], 1)
+
+    def test_ededup_transform_instance_is_reused(self):
+        """Test that the same _ededup_transform instance is used across calls (not recreated)."""
+        operator = EdedupOperator({})
+        first_instance = operator._ededup_transform
+
+        batch = pa.table(
+            {
+                OperatorConstants.Columns.ID: ["101"],
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ["Doc A"],
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: ["101"],
+                OperatorConstants.Columns.NAME: ["Name 1"],
+            }
+        )
+        operator.transform(batch)
+
+        self.assertIs(
+            operator._ededup_transform,
+            first_instance,
+            "_ededup_transform must be the same instance after transform() is called",
+        )

@@ -1,8 +1,12 @@
-"""Data store port interface for document sets.
+"""DocumentSetStorage port interface.
 
-This module defines the abstract interface for document set data persistence,
-following hexagonal architecture principles. Adapters must implement this interface
-to provide concrete storage implementations for PyArrow table data.
+Defines the abstract contract for the data-plane storage of document sets.
+Implementations write/read PyArrow table data to a backend-specific store and
+return an AttachmentRef describing where the data lives.
+
+Example backends:
+  - DuckDB: writes to a DuckDB table, returns AttachmentRef with
+    name=table_name and details={"database_path": ..., "table_name": ...}.
 """
 
 from abc import ABC, abstractmethod
@@ -10,171 +14,116 @@ from typing import Any
 
 import pyarrow as pa
 
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.document_sets.domain.types import HealthCheckResult
 
 
-class DocumentSetDataStore(ABC):
-    """Abstract interface for document set data persistence.
+class DocumentSetStorage(ABC):
+    """Abstract port for document set data-plane operations.
 
-    This port defines the contract for storing and retrieving document set data
-    as PyArrow tables. Adapters implementing this interface handle the actual
-    storage mechanism (e.g., DuckDB, Parquet files, Arrow IPC).
-
-    All methods use keyword-only arguments for clarity and maintainability.
-    Implementations must handle their own error conditions and raise appropriate
-    exceptions as documented.
+    Implementations handle writing and reading the actual PyArrow table data.
+    The caller never specifies table names or database paths — the adapter
+    derives those from ``doc_set_name`` and its own configuration, then returns
+    an ``AttachmentRef`` describing where the data was stored.
     """
 
     @abstractmethod
-    def create_data_table(self, *, table_name: str, schema: pa.Schema) -> None:
-        """Create a new data table with the specified schema.
+    def store(self, *, doc_set_name: str, data: pa.Table) -> AttachmentRef:
+        """Write PyArrow table data and return an AttachmentRef.
 
-        Creates a new table structure for storing document set data. The table
-        name should be unique within the data store.
-
-        Args:
-            table_name: Unique name for the data table
-            schema: PyArrow schema defining the table structure
-
-        Raises:
-            ValueError: If a table with the same name already exists
-            RuntimeError: If the data store is not accessible or configured
-        """
-        pass
-
-    @abstractmethod
-    def upsert_document_set_data(self, *, table_name: str, data: pa.Table) -> None:
-        """Insert or update document set data.
-
-        Upserts data into the specified table. If records with matching primary
-        keys exist, they are updated; otherwise, new records are inserted.
+        Creates the backing table if it does not exist, otherwise upserts on
+        the ``id`` column.
 
         Args:
-            table_name: Name of the table to upsert data into
-            data: PyArrow table containing the data to upsert
-
-        Raises:
-            KeyError: If the specified table does not exist
-            ValueError: If the data schema does not match the table schema
-            RuntimeError: If the data store is not accessible
-        """
-        pass
-
-    @abstractmethod
-    def get_document_set_data(self, *, table_name: str, limit: int | None = None) -> pa.Table:
-        """Retrieve document set data from a table.
-
-        Retrieves all or a limited number of rows from the specified table.
-
-        Args:
-            table_name: Name of the table to retrieve data from
-            limit: Maximum number of rows to return, None for all rows
+            doc_set_name: Logical name of the document set (used to derive the
+                physical table/path name).
+            data: PyArrow table to persist. Must contain an ``id`` column.
 
         Returns:
-            PyArrow table containing the requested data
+            AttachmentRef populated with backend-specific coordinates.
 
         Raises:
-            KeyError: If the specified table does not exist
-            RuntimeError: If the data store is not accessible
+            DocpipeException: If the data is invalid or the write fails.
         """
-        pass
+        ...
 
     @abstractmethod
-    def delete_document_set_data(self, *, table_name: str) -> bool:
-        """Delete all data from a table and remove the table.
-
-        Removes the table and all its data from the data store.
+    def load(self, *, attachment_ref: AttachmentRef, limit: int | None = None) -> pa.Table:
+        """Read PyArrow table data from the location described by attachment_ref.
 
         Args:
-            table_name: Name of the table to delete
+            attachment_ref: AttachmentRef returned by a previous ``store()`` call.
+            limit: Maximum number of rows to return, or None for all rows.
 
         Returns:
-            True if the table was deleted, False if it did not exist
+            PyArrow table containing the requested data.
 
         Raises:
-            RuntimeError: If the data store is not accessible
+            DocpipeException: If the attachment ref is invalid or the read fails.
         """
-        pass
+        ...
 
     @abstractmethod
-    def table_exists(self, *, table_name: str) -> bool:
-        """Check if a table exists in the data store.
+    def delete(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Drop the backing table/resource described by attachment_ref.
 
         Args:
-            table_name: Name of the table to check
+            attachment_ref: AttachmentRef identifying what to delete.
 
         Returns:
-            True if the table exists, False otherwise
+            True if the resource existed and was deleted, False if it was absent.
 
         Raises:
-            RuntimeError: If the data store is not accessible
+            DocpipeException: If the deletion fails.
         """
-        pass
+        ...
 
     @abstractmethod
-    def get_row_count(self, *, table_name: str) -> int:
-        """Get the number of rows in a table.
+    def get_metrics(self, *, attachment_ref: AttachmentRef) -> dict[str, int]:
+        """Compute aggregate metrics for the stored data.
 
         Args:
-            table_name: Name of the table to count rows in
+            attachment_ref: AttachmentRef identifying the backing resource.
 
         Returns:
-            Number of rows in the table
+            Dictionary with keys: total_documents, total_size_bytes, total_pages.
 
         Raises:
-            KeyError: If the specified table does not exist
-            RuntimeError: If the data store is not accessible
+            DocpipeException: If the attachment ref is invalid or computation fails.
         """
+        ...
 
     @abstractmethod
-    def get_table_metrics(self, *, table_name: str) -> dict[str, int]:
-        """Get aggregate metrics for a table.
-
-        Computes aggregate metrics efficiently at the storage layer
-        without materializing the entire table into memory.
+    def exists(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Check whether the backing resource described by attachment_ref exists.
 
         Args:
-            table_name: Name of the table to compute metrics for
+            attachment_ref: AttachmentRef to check.
 
         Returns:
-            Dictionary containing:
-                - total_documents: Total number of documents
-                - total_size_bytes: Sum of all document sizes
-                - total_pages: Sum of all pages processed
-
-        Raises:
-            KeyError: If the specified table does not exist
-            RuntimeError: If the data store is not accessible
+            True if the resource exists, False otherwise.
         """
-        pass
+        ...
 
     @abstractmethod
     def health_check(self) -> HealthCheckResult:
-        """Check the health status of the data store.
+        """Check the health status of the storage backend.
 
         Returns:
-            A dictionary containing health status information with keys:
-            - healthy: bool indicating if the data store is operational
-            - message: str with status description
-            - details: optional dict with additional diagnostic information
-
-        Raises:
-            No exceptions should be raised; errors should be reflected in the result
+            HealthCheckResult with healthy flag, message, and optional details.
+            Must not raise; errors must be reflected in the result.
         """
-        pass
+        ...
 
     @classmethod
     @abstractmethod
     def validate_config(cls, *, config: dict[str, Any]) -> list[str]:
-        """Validate data store configuration.
-
-        This class method validates configuration before instantiation,
-        allowing early detection of configuration errors.
+        """Validate adapter configuration before instantiation.
 
         Args:
-            config: Configuration dictionary to validate
+            config: Configuration dictionary (e.g. {"database_path": "..."}).
 
         Returns:
-            List of validation error messages, empty if configuration is valid
+            List of validation error messages; empty if configuration is valid.
         """
-        pass
+        ...

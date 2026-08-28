@@ -4,7 +4,6 @@ This service consolidates the classification logic without the hexagonal archite
 overhead, directly using LLMAdapterFactory to create provider-specific adapters.
 """
 
-import json
 from typing import Any
 
 from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
@@ -19,6 +18,7 @@ from docpipe.core.ports.llm_inference_port import LLMInferencePort
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.llm.json_parser import parse_llm_json_response
 
 logger = get_logger(__name__)
 
@@ -39,7 +39,7 @@ class ClassificationService:
         max_tokens: Maximum tokens for LLM response
     """
 
-    def __init__(  # NOSONAR python:S3776
+    def __init__(
         self,
         *,
         model_id: str | None = None,
@@ -171,8 +171,12 @@ class ClassificationService:
 
             logger.debug("Received content length: %d", len(result_text))
 
-            # Parse JSON response
-            result = self._parse_json_response(result_text)
+            # Parse JSON response using shared utility
+            try:
+                result = parse_llm_json_response(result_text, log_on_error=True)
+            except DocpipeException as exc:
+                # Convert DocpipeException to ValueError for consistent error handling
+                raise ValueError(f"Invalid JSON response from LLM: {exc!s}") from exc
 
             # Validate required fields
             if (
@@ -215,17 +219,8 @@ class ClassificationService:
                 error=None,
             )
 
-        except json.JSONDecodeError as exc:
-            logger.error("Failed to parse LLM response as JSON: %s", exc)
-            return ClassificationResponse(
-                document_type=OperatorConstants.Classification.UNKNOWN_TYPE,
-                confidence=0,
-                reasoning="",
-                success=False,
-                error=f"Invalid JSON response: {exc!s}",
-            )
         except ValueError as exc:
-            logger.error("Invalid response format from LLM: %s", exc)
+            logger.error("Failed to parse LLM response: %s", exc)
             return ClassificationResponse(
                 document_type=OperatorConstants.Classification.UNKNOWN_TYPE,
                 confidence=0,
@@ -241,37 +236,6 @@ class ClassificationService:
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                 message=f"LLM API call failed: {exc!s}",
             ) from exc
-
-    def _parse_json_response(self, response_text: str) -> dict[str, Any]:
-        """Parse JSON response from LLM, extracting JSON if embedded in text.
-
-        Args:
-            response_text: Raw response text from LLM
-
-        Returns:
-            Parsed JSON dictionary
-
-        Raises:
-            json.JSONDecodeError: If response cannot be parsed as JSON
-        """
-        json_text = response_text.strip()
-
-        try:
-            # Try to parse as JSON directly first
-            return json.loads(json_text)
-        except json.JSONDecodeError as e:
-            # Extract JSON between { and } if present
-            logger.info("Direct JSON parsing failed: %s", str(e))
-            logger.debug("Raw response: %s", response_text[:500])
-
-            if "{" in json_text and "}" in json_text:
-                start_idx = json_text.find("{")
-                end_idx = json_text.rfind("}") + 1
-                json_text = json_text[start_idx:end_idx]
-                logger.info("Extracted JSON from response")
-                return json.loads(json_text)
-            else:
-                raise ValueError(f"Invalid JSON response: {e!s}") from e
 
     def get_model_info(self) -> dict[str, Any]:
         """Get model information.

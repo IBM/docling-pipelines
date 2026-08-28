@@ -2,6 +2,7 @@
 
 from typing import Any, AsyncGenerator
 
+import httpx
 import requests
 from langchain_community.document_loaders import RecursiveUrlLoader
 from pydantic import BaseModel
@@ -143,35 +144,40 @@ class WebPageSourceAdapter(DocumentSourcePort):
         results = []
         failed_urls = []
 
-        for url in config.urls:
-            try:
-                # Test URL accessibility with a simple HEAD request
-                response = requests.head(
-                    url,
-                    timeout=config.timeout,
-                    allow_redirects=True,
-                )
-                response.raise_for_status()
-                results.append(f"✓ {url} (Status: {response.status_code})")
-            except requests.exceptions.Timeout:
-                failed_urls.append(f"✗ {url} (Timeout after {config.timeout}s)")
-            except requests.exceptions.ConnectionError:
-                failed_urls.append(f"✗ {url} (Connection failed)")
-            except requests.exceptions.HTTPError as e:
-                failed_urls.append(f"✗ {url} (HTTP error: {e})")
-            except Exception as e:
-                failed_urls.append(f"✗ {url} (Error: {e!s})")
+        try:
+            async with httpx.AsyncClient(
+                timeout=config.timeout,
+                follow_redirects=True,
+            ) as client:
+                for url in config.urls:
+                    try:
+                        # Test URL accessibility with a simple HEAD request
+                        response = await client.head(url)
+                        response.raise_for_status()
+                        results.append(f"[OK] {url} (Status: {response.status_code})")
+                    except httpx.TimeoutException:
+                        failed_urls.append(f"[FAIL] {url} (Timeout after {config.timeout}s)")
+                    except httpx.ConnectError:
+                        failed_urls.append(f"[FAIL] {url} (Connection failed)")
+                    except httpx.HTTPStatusError as e:
+                        failed_urls.append(f"[FAIL] {url} (HTTP error: {e.response.status_code})")
+                    except httpx.HTTPError as e:
+                        failed_urls.append(f"[FAIL] {url} (HTTP error: {e})")
+                    except Exception as e:
+                        failed_urls.append(f"[FAIL] {url} (Error: {e!s})")
+        except Exception as e:
+            # Handle client creation errors
+            return False, f"Failed to create HTTP client: {e!s}"
 
         # Determine overall success
         if not failed_urls:
             return True, f"Successfully connected to all {len(config.urls)} URL(s):\n" + "\n".join(results)
-        elif results:
+        if results:
             # Partial success
             all_results = results + failed_urls
             return True, f"Connected to {len(results)}/{len(config.urls)} URL(s):\n" + "\n".join(all_results)
-        else:
-            # All failed
-            return False, "Failed to connect to all URL(s):\n" + "\n".join(failed_urls)
+        # All failed
+        return False, "Failed to connect to all URL(s):\n" + "\n".join(failed_urls)
 
     def get_config_schema(self) -> type[BaseModel]:
         """

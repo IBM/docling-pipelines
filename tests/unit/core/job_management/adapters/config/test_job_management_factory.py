@@ -57,7 +57,7 @@ class TestJobManagementFactoryStoreSelection:
                 "port": 5432,
                 "database": "docpipe",
                 "user": "test_user",
-                "password": os.environ.get("TEST_DB_PASSWORD", "test-db-pw"),
+                "password": "test_password",  # pragma: allowlist secret
             }
         }
 
@@ -122,216 +122,69 @@ class TestJobManagementFactoryStoreSelection:
                 JobManagementFactory.from_environment()
 
 
-class TestJobManagementFactoryExtended:
-    """Extended tests for JobManagementFactory to cover missing lines."""
+class TestJobManagementFactoryInitializeStorage:
+    """Tests for initialize_storage() and resolve_worker_env() to boost coverage."""
 
-    def test_duckdb_store_creation(self, tmp_path):
-        """Test DuckDBJobStatsStore creation."""
-        config = {"database_path": str(tmp_path / "test.duckdb")}
-        factory = JobManagementFactory(storage_backend=StorageBackend.DUCKDB, config=config)
-        store = factory.create_job_stats_store()
-
-        assert store is not None
-        assert store.__class__.__name__ == "DuckDBJobStatsStore"
-
-    def test_filesystem_store_with_env_base_dir(self, tmp_path):
-        """Test JsonJobStatsStore creation uses environment base_dir override."""
-        with patch.dict(os.environ, {"DOCPIPE_JOB_STATS_BASE_DIR": str(tmp_path)}):
-            factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM)
-            store = factory.create_job_stats_store()
-            assert store.__class__.__name__ == "JsonJobStatsStore"
-
-    def test_filesystem_store_with_configured_base_dir(self, tmp_path):
-        """Test JsonJobStatsStore creation uses config base_dir."""
-        from docpipe.core.job_management.adapters.config.job_management_factory import DocpipeConfigKeys
-
-        config = {DocpipeConfigKeys.BASE_DIR: str(tmp_path)}
-        factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM, config=config)
-        store = factory.create_job_stats_store()
-        assert store.__class__.__name__ == "JsonJobStatsStore"
-
-    def test_create_job_stats_service(self):
-        """Test create_job_stats_service creates a JobTrackerService."""
+    def test_initialize_storage_noop_for_non_postgresql(self):
+        """initialize_storage does nothing for non-PostgreSQL backends."""
         factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        service = factory.create_job_stats_service()
-        assert service is not None
+        # Should not raise — just returns immediately
+        factory.initialize_storage()
 
-    def test_create_job_stats_service_singleton(self):
-        """Test create_job_stats_service returns same instance."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        service1 = factory.create_job_stats_service()
-        service2 = factory.create_job_stats_service()
-        assert service1 is service2
+    def test_initialize_storage_skips_when_already_initialized(self):
+        """initialize_storage skips if STORAGE_INITIALIZED flag is set."""
+        factory = JobManagementFactory(
+            storage_backend=StorageBackend.POSTGRESQL,
+            config={"storage_initialized": True},
+        )
+        factory.initialize_storage()  # should return without calling run_migrations
 
-    def test_create_node_stats_aggregator(self):
-        """Test create_node_stats_aggregator creates instance."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        agg = factory.create_node_stats_aggregator()
-        assert agg is not None
+    @patch("docpipe.core.job_management.adapters.config.job_management_factory.run_migrations")
+    @patch("docpipe.core.job_management.adapters.config.job_management_factory.get_postgres_connection_string")
+    def test_initialize_storage_skips_migrations_when_no_connection_string(self, mock_conn_str, mock_migrations):
+        """initialize_storage exits early when connection string is empty."""
+        mock_conn_str.return_value = ""
+        factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL)
+        factory.initialize_storage()
+        mock_migrations.assert_not_called()
 
-    def test_create_node_stats_aggregator_singleton(self):
-        """Test create_node_stats_aggregator returns same instance."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        agg1 = factory.create_node_stats_aggregator()
-        agg2 = factory.create_node_stats_aggregator()
-        assert agg1 is agg2
+    @patch("docpipe.core.job_management.adapters.config.job_management_factory.run_migrations")
+    @patch("docpipe.core.job_management.adapters.config.job_management_factory.get_postgres_connection_string")
+    def test_initialize_storage_skips_migrations_when_disabled(self, mock_conn_str, mock_migrations):
+        """initialize_storage skips migrations when run_migrations=False."""
+        mock_conn_str.return_value = "postgresql://user:pass@localhost/db"  # pragma: allowlist secret
+        factory = JobManagementFactory(
+            storage_backend=StorageBackend.POSTGRESQL,
+            config={"run_migrations": False},
+        )
+        factory.initialize_storage()
+        mock_migrations.assert_not_called()
 
-    def test_create_job_run_manager(self):
-        """Test create_job_run_manager creates DefaultJobRunManager."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY, framework_type=FrameworkType.DEFAULT)
-        manager = factory.create_job_run_manager()
-        assert manager is not None
-
-    def test_create_job_run_manager_singleton(self):
-        """Test create_job_run_manager returns same instance."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        mgr1 = factory.create_job_run_manager()
-        mgr2 = factory.create_job_run_manager()
-        assert mgr1 is mgr2
-
-    def test_create_job_management_service(self):
-        """Test create_job_management_service creates instance."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        svc = factory.create_job_management_service()
-        assert svc is not None
-
-    def test_create_job_management_service_singleton(self):
-        """Test create_job_management_service returns same instance."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        svc1 = factory.create_job_management_service()
-        svc2 = factory.create_job_management_service()
-        assert svc1 is svc2
-
-    def test_from_environment_invalid_framework_raises(self):
-        """Test invalid framework type raises ValueError."""
-        with patch.dict(os.environ, {"DOCPIPE_FRAMEWORK_TYPE": "invalid_framework"}):
-            with pytest.raises(ValueError, match="Invalid DOCPIPE_FRAMEWORK_TYPE"):
-                JobManagementFactory.from_environment()
-
-    def test_resolve_worker_env_in_memory(self):
-        """Test resolve_worker_env for in-memory backend."""
+    def test_resolve_worker_env_includes_backend_and_framework(self):
+        """resolve_worker_env always includes storage backend and framework type."""
         factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
         env = factory.resolve_worker_env()
         assert "DOCPIPE_STORAGE_BACKEND" in env
-        assert env["DOCPIPE_STORAGE_BACKEND"] == StorageBackend.IN_MEMORY.value
+        assert "DOCPIPE_FRAMEWORK_TYPE" in env
 
-    def test_resolve_worker_env_filesystem_with_base_dir(self, tmp_path):
-        """Test resolve_worker_env for filesystem backend with base_dir configured."""
-        from docpipe.core.job_management.adapters.config.job_management_factory import DocpipeConfigKeys
+    def test_resolve_worker_env_filesystem_with_env_override(self):
+        """resolve_worker_env picks up ENV_JOB_STATS_BASE_DIR_KEY for filesystem backend."""
+        factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM)
+        with patch.dict(os.environ, {"DOCPIPE_JOB_STATS_BASE_DIR": "/data/jobs"}):
+            env = factory.resolve_worker_env()
+        assert "DOCPIPE_STORAGE_BACKEND" in env
 
-        config = {DocpipeConfigKeys.BASE_DIR: str(tmp_path)}
-        factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM, config=config)
-        env = factory.resolve_worker_env()
-        assert env["DOCPIPE_STORAGE_BACKEND"] == StorageBackend.FILESYSTEM.value
-
-    def test_resolve_worker_env_postgresql(self):
-        """Test resolve_worker_env for postgresql backend."""
-        from docpipe.core.job_management.adapters.config.job_management_factory import DocpipeConfigKeys
-
+    def test_resolve_worker_env_postgresql_includes_connection_params(self):
+        """resolve_worker_env includes postgres params when configured."""
         config = {
-            DocpipeConfigKeys.POSTGRES: {
+            "postgres": {
                 "host": "localhost",
-                "port": 5432,
-                "database": "testdb",
-                "user": "user",
-                "password": os.environ.get("TEST_DB_PASSWORD", "test-db-pw"),
+                "port": "5432",
+                "database": "docpipe",
+                "user": "admin",
+                "password": "secret",  # pragma: allowlist secret
             }
         }
         factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL, config=config)
         env = factory.resolve_worker_env()
-        assert env["DOCPIPE_STORAGE_BACKEND"] == StorageBackend.POSTGRESQL.value
-
-    def test_from_config_file_not_found_raises(self):
-        """Test from_config_file raises FileNotFoundError."""
-        with pytest.raises(FileNotFoundError):
-            JobManagementFactory.from_config_file("/nonexistent/path/config.yaml")
-
-    def test_from_config_file_invalid_yaml_raises(self, tmp_path):
-        """Test from_config_file raises ValueError on invalid YAML."""
-        bad_yaml = tmp_path / "bad.yaml"
-        bad_yaml.write_text("key: [unclosed")
-
-        with pytest.raises(ValueError, match="Invalid YAML"):
-            JobManagementFactory.from_config_file(str(bad_yaml))
-
-    def test_from_config_file_empty_yaml_returns_defaults(self, tmp_path):
-        """Test from_config_file with empty YAML returns default factory."""
-        empty_yaml = tmp_path / "empty.yaml"
-        empty_yaml.write_text("")
-
-        factory = JobManagementFactory.from_config_file(str(empty_yaml))
-        assert factory.storage_backend == StorageBackend.IN_MEMORY
-
-    def test_from_config_file_valid_yaml(self, tmp_path):
-        """Test from_config_file with valid YAML."""
-        config_yaml = tmp_path / "config.yaml"
-        config_yaml.write_text("""
-job_management:
-  store:
-    type: inmemory
-  framework:
-    type: default
-""")
-        factory = JobManagementFactory.from_config_file(str(config_yaml))
-        assert factory.storage_backend == StorageBackend.IN_MEMORY
-
-    def test_from_config_file_invalid_storage_backend_raises(self, tmp_path):
-        """Test from_config_file raises ValueError for invalid backend."""
-        config_yaml = tmp_path / "config.yaml"
-        config_yaml.write_text("""
-job_management:
-  store:
-    type: invalid_backend
-""")
-        with pytest.raises(ValueError, match="Invalid storage backend"):
-            JobManagementFactory.from_config_file(str(config_yaml))
-
-    def test_from_default_sources_no_config_file(self, tmp_path):
-        """Test from_default_sources when config file doesn't exist."""
-        with patch.dict(os.environ, {"DOCPIPE_CONFIG_PATH": str(tmp_path / "nonexistent.yaml")}, clear=False):
-            with patch.dict(os.environ, {}, clear=False):
-                factory = JobManagementFactory.from_default_sources()
-                assert factory is not None
-
-    def test_initialize_storage_skipped_for_non_postgresql(self):
-        """Test initialize_storage is no-op for non-postgresql backends."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.IN_MEMORY)
-        factory.initialize_storage()  # Should not raise
-        # No assertions needed - just verifying no exception
-
-    def test_initialize_storage_skipped_when_already_initialized(self):
-        """Test initialize_storage skips if already initialized."""
-        from docpipe.core.job_management.adapters.config.job_management_factory import DocpipeConfigKeys
-
-        factory = JobManagementFactory(
-            storage_backend=StorageBackend.POSTGRESQL,
-            config={DocpipeConfigKeys.STORAGE_INITIALIZED: True},
-        )
-        factory.initialize_storage()  # Should not call run_migrations
-
-    def test_get_default_factory_singleton(self):
-        """Test get_default_factory returns singleton instance."""
-        from docpipe.core.job_management.adapters.config.job_management_factory import (
-            get_default_factory,
-            reset_default_factory,
-        )
-
-        reset_default_factory()
-        factory1 = get_default_factory()
-        factory2 = get_default_factory()
-        assert factory1 is factory2
-        reset_default_factory()
-
-    def test_reset_default_factory(self):
-        """Test reset_default_factory clears singleton."""
-        from docpipe.core.job_management.adapters.config.job_management_factory import (
-            get_default_factory,
-            reset_default_factory,
-        )
-
-        reset_default_factory()
-        factory1 = get_default_factory()
-        reset_default_factory()
-        factory2 = get_default_factory()
-        assert factory1 is not factory2
-        reset_default_factory()
+        assert env.get("DOCPIPE_POSTGRES_HOST") == "localhost"

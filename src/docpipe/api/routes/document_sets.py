@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 import docpipe.core.assets.document_sets.adapters.duckdb  # noqa: F401
+from docpipe.api.dependencies import get_document_set_service
 from docpipe.api.dto.document_set_dto import (
     DocumentSetCreateRequest,
     DocumentSetListResponse,
@@ -27,15 +28,6 @@ from docpipe.api.routes.document_set_utils import (
 from docpipe.core.assets.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
-from docpipe.core.assets.document_sets.domain.types import (
-    DataStoreConfig,
-    RepositoryConfig,
-)
-from docpipe.core.assets.document_sets.factories import (
-    DataStoreFactory,
-    MetadataRepositoryFactory,
-)
-from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -95,31 +87,7 @@ def get_pagination_params(
     return limit, offset
 
 
-def get_document_set_service() -> DocumentSetService:
-    """Create a document set service with factory-created components."""
-    database_path = DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH
-
-    # Create metadata repository using factory
-    metadata_config: RepositoryConfig = {"database_path": database_path}
-    metadata_repository = MetadataRepositoryFactory.create(
-        adapter_name="duckdb",
-        config=metadata_config,  # type: ignore[arg-type]
-    )
-
-    # Create data store using factory
-    data_config: DataStoreConfig = {"database_path": database_path}
-    data_store = DataStoreFactory.create(
-        adapter_name="duckdb",
-        config=data_config,  # type: ignore[arg-type]
-    )
-
-    # Create service with port interfaces
-    return DocumentSetService(
-        metadata_repository=metadata_repository,  # type: ignore[arg-type]
-        data_store=data_store,  # type: ignore[arg-type]
-    )
-
-
+# Dependency injection now handled in api/dependencies.py
 DocumentSetServiceDep = Annotated[DocumentSetService, Depends(get_document_set_service)]
 PaginationDep = Annotated[tuple[int, int], Depends(get_pagination_params)]
 
@@ -178,11 +146,11 @@ async def create_document_set(
     document_set = service.create_document_set(
         name=payload.name,
         description=payload.description,
-        database_path=DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH,
         metadata=payload.metadata,
     )
-    logger.info("Successfully created or retrieved document set %s", document_set.id)
-    return document_set_to_response(document_set=document_set)
+    attachment_ref = service.get_attachment_ref(document_set_id=document_set.asset_id)
+    logger.info("Successfully created or retrieved document set %s", document_set.asset_id)
+    return document_set_to_response(document_set=document_set, attachment_ref=attachment_ref)
 
 
 @document_sets_router.get(
@@ -224,8 +192,9 @@ async def get_document_set(
     """Retrieve a document set by ID."""
     logger.debug("Retrieving document set: %s", document_set_id)
     document_set = service.get_document_set(document_set_id=document_set_id)
+    attachment_ref = service.get_attachment_ref(document_set_id=document_set_id)
     logger.info("Successfully retrieved document set %s", document_set_id)
-    return document_set_to_response(document_set=document_set)
+    return document_set_to_response(document_set=document_set, attachment_ref=attachment_ref)
 
 
 @document_sets_router.get(
@@ -277,7 +246,13 @@ async def list_document_sets(
     items = service.list_document_sets(limit=limit, offset=offset)
     logger.info("Successfully retrieved %s document sets", len(items))
     return DocumentSetListResponse(
-        items=[document_set_to_response(document_set=item) for item in items],
+        items=[
+            document_set_to_response(
+                document_set=item,
+                attachment_ref=service.get_attachment_ref(document_set_id=item.asset_id),
+            )
+            for item in items
+        ],
         total=len(items),
         limit=limit,
         offset=offset,
@@ -328,8 +303,9 @@ async def update_document_set(
         description=payload.description,
         metadata=payload.metadata,
     )
+    attachment_ref = service.get_attachment_ref(document_set_id=document_set_id)
     logger.info("Successfully updated document set %s", document_set_id)
-    return document_set_to_response(document_set=updated_document_set)
+    return document_set_to_response(document_set=updated_document_set, attachment_ref=attachment_ref)
 
 
 @document_sets_router.delete(

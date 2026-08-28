@@ -108,8 +108,8 @@ class ExampleTester:
                 timeout=30,
             ),
             ExampleTest(
-                name="Ingest Local Folder",
-                path=self.examples_dir / "ingest_local_folder_example.py",
+                name="Ingest Filesystem Folder",
+                path=self.examples_dir / "ingest_filesystem_example.py",
                 category=TestCategory.OPERATORS,
                 expected_outputs=["completed the operator", "output table has", "rows"],
                 timeout=30,
@@ -464,12 +464,11 @@ class ExampleTester:
         if failed > 0 or errors > 0:
             print("RESULT: FAILED")
             return 1
-        elif passed > 0:
+        if passed > 0:
             print("RESULT: PASSED")
             return 0
-        else:
-            print("RESULT: NO TESTS RUN")
-            return 0
+        print("RESULT: NO TESTS RUN")
+        return 0
 
 
 def main():

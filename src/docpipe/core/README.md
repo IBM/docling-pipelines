@@ -1,6 +1,6 @@
 # Core Package
 
-This package contains the core functionality of the Docling Pipelines project, including orchestrators, operators, and runtime components.
+This package contains the core functionality of the docpipe-open project, including orchestrators, operators, and runtime components.
 
 ## Purpose
 - Orchestration framework (command-line and Python)

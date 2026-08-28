@@ -1,5 +1,7 @@
 """Unit tests for FlowService."""
 
+import logging
+import logging.handlers
 from datetime import UTC, datetime
 from unittest.mock import patch
 
@@ -8,9 +10,10 @@ import pytest
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.core.assets.flows.domain.models.flow import Flow
 from docpipe.exceptions.docpipe_exceptions import (
+    AssetInvalidDataException,
+    DocpipeException,
     FlowAlreadyExistsException,
     FlowInvalidDataException,
-    FlowNotFoundException,
 )
 
 
@@ -20,12 +23,7 @@ class TestFlowServiceCreate:
     def test_create_flow_prevents_duplicate_name(self, mock_flow_repository, sample_flow_with_id):
         """Test that create_flow prevents creating flows with duplicate names."""
         # Arrange
-        existing_flow = Flow(
-            flow_id="different-id",
-            name=sample_flow_with_id.name,  # Same name
-            definition={"doc_type": "pipeline", "pipelines": []},
-        )
-        mock_flow_repository.find_all.return_value = [existing_flow]
+        mock_flow_repository.exists_by_name.return_value = True  # Simulate duplicate name
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
@@ -39,7 +37,7 @@ class TestFlowServiceCreate:
         """Test creating a flow with valid data."""
         # Arrange
         mock_flow_repository.save.return_value = sample_flow_domain
-        mock_flow_repository.find_all.return_value = []  # No existing flows
+        mock_flow_repository.exists_by_name.return_value = False  # No duplicate name
         service = FlowService(repository=mock_flow_repository)
 
         # Act
@@ -47,7 +45,7 @@ class TestFlowServiceCreate:
 
         # Assert
         assert result == sample_flow_domain
-        mock_flow_repository.save.assert_called_once_with(sample_flow_domain)
+        mock_flow_repository.save.assert_called_once_with(asset=sample_flow_domain)
 
     def test_create_flow_validates_before_saving(self, mock_flow_repository):
         """Test that flow validation occurs before saving."""
@@ -56,7 +54,7 @@ class TestFlowServiceCreate:
         invalid_flow = Flow(name="", definition={})  # Invalid: empty name and definition
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
+        with pytest.raises(AssetInvalidDataException, match="flow name cannot be empty"):
             service.create_flow(flow=invalid_flow)
 
         # Verify save was never called
@@ -65,12 +63,7 @@ class TestFlowServiceCreate:
     def test_create_flow_with_existing_name_logs_warning(self, mock_flow_repository, sample_flow_with_id):
         """Test creating a flow when name already exists logs warning."""
         # Arrange
-        existing_flow = Flow(
-            flow_id="different-id",
-            name=sample_flow_with_id.name,  # Same name
-            definition={"doc_type": "pipeline", "pipelines": []},
-        )
-        mock_flow_repository.find_all.return_value = [existing_flow]
+        mock_flow_repository.exists_by_name.return_value = True  # Simulate duplicate name
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
@@ -85,7 +78,7 @@ class TestFlowServiceCreate:
     def test_create_flow_handles_repository_exception(self, mock_flow_repository, sample_flow_domain):
         """Test that repository exceptions bubble up naturally."""
         # Arrange
-        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.exists_by_name.return_value = False
         mock_flow_repository.save.side_effect = OSError("Disk full")
         service = FlowService(repository=mock_flow_repository)
 
@@ -97,16 +90,16 @@ class TestFlowServiceCreate:
         """Test that is_elyra=False stores flow in authoring format without transformation."""
         # Arrange
         authoring_flow = Flow(
-            flow_id="test-flow-id",
+            asset_id="test-flow-id",
             name="Test Flow",
             definition={
                 "flow_name": "Test Flow",
-                "flow": [{"type": "ingest_local", "name": "node1", "config": {}, "depends_on": []}],
+                "flow": [{"type": "ingest_source", "name": "node1", "config": {}, "depends_on": []}],
                 "global_config": {},
                 "tags": [],
             },
         )
-        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.exists_by_name.return_value = False
         mock_flow_repository.save.return_value = authoring_flow
         service = FlowService(repository=mock_flow_repository)
 
@@ -115,17 +108,17 @@ class TestFlowServiceCreate:
 
         # Assert - No transformation should occur, flow stored as-is
         assert result == authoring_flow
-        mock_flow_repository.save.assert_called_once_with(authoring_flow)
+        mock_flow_repository.save.assert_called_once_with(asset=authoring_flow)
 
     def test_create_flow_with_is_elyra_true_no_transformation(self, mock_flow_repository):
         """Test that is_elyra=True does not transform (flow already in Elyra format)."""
         # Arrange
         elyra_flow = Flow(
-            flow_id="test-flow-id",
+            asset_id="test-flow-id",
             name="Test Flow",
             definition={"doc_type": "pipeline", "pipelines": []},
         )
-        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.exists_by_name.return_value = False
         mock_flow_repository.save.return_value = elyra_flow
         service = FlowService(repository=mock_flow_repository)
 
@@ -147,11 +140,11 @@ class TestFlowServiceGet:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert - empty string
-        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be empty"):
             service.get_flow("")
 
         # Act & Assert - whitespace only
-        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be empty"):
             service.get_flow("   ")
 
         # Verify repository was never called
@@ -168,7 +161,7 @@ class TestFlowServiceGet:
 
         # Assert
         assert result == sample_flow_with_id
-        mock_flow_repository.find_by_id.assert_called_once_with("test-flow-id-123")
+        mock_flow_repository.find_by_id.assert_called_once_with(asset_id="test-flow-id-123")
 
     def test_get_flow_with_nonexistent_id_raises_error(self, mock_flow_repository):
         """Test retrieving a non-existent flow raises FlowNotFoundException."""
@@ -177,7 +170,7 @@ class TestFlowServiceGet:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(FlowNotFoundException, match="Flow test-id not found"):
+        with pytest.raises(DocpipeException, match="Asset with ID 'test-id' not found"):
             service.get_flow("test-id")
 
     def test_get_flow_handles_repository_exception(self, mock_flow_repository):
@@ -206,7 +199,7 @@ class TestFlowServiceUpdate:
 
         # Assert
         assert result == sample_flow_with_id
-        mock_flow_repository.exists.assert_called_once_with("test-flow-id-123")
+        mock_flow_repository.exists.assert_called_once_with(asset_id="test-flow-id-123")
         mock_flow_repository.update.assert_called_once()
 
     def test_update_flow_updates_timestamp(self, mock_flow_repository, sample_flow_with_id):
@@ -242,7 +235,7 @@ class TestFlowServiceUpdate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(FlowNotFoundException, match="not found"):
+        with pytest.raises(DocpipeException, match="not found"):
             service.update_flow(sample_flow_with_id)
 
     def test_update_flow_validates_before_saving(self, mock_flow_repository, sample_flow_with_id):
@@ -253,7 +246,7 @@ class TestFlowServiceUpdate:
         sample_flow_with_id.name = ""  # Make it invalid
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
+        with pytest.raises(AssetInvalidDataException, match="flow name cannot be empty"):
             service.update_flow(sample_flow_with_id)
 
         # Verify save was never called
@@ -275,33 +268,44 @@ class TestFlowServicePartialUpdate:
         # Verify repository was never called
         mock_flow_repository.find_by_id.assert_not_called()
 
-    def test_partial_update_flow_tracks_updated_fields(self, mock_flow_repository, sample_flow_with_id, caplog):
+    def test_partial_update_flow_tracks_updated_fields(self, mock_flow_repository, sample_flow_with_id):
         """Test that partial_update_flow tracks and logs updated fields."""
-        import logging
-
-        caplog.set_level(logging.INFO)
-
         # Arrange
+        updated_flow = Flow.from_dict(data=sample_flow_with_id.to_dict())
+        updated_flow.name = "new_name"
+        updated_flow.description = "new_desc"
+
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
-        mock_flow_repository.update.return_value = sample_flow_with_id
+        mock_flow_repository.partial_update.return_value = updated_flow
         service = FlowService(repository=mock_flow_repository)
         updates = {"name": "new_name", "description": "new_desc"}
 
-        # Act
-        result = service.partial_update_flow("test-flow-id-123", updates)
+        flow_logger = logging.getLogger("docpipe.core.assets.flows.application.services.flow_service")
+        handler = logging.handlers.MemoryHandler(capacity=100, flushLevel=logging.CRITICAL)
+        handler.setLevel(logging.INFO)
+        flow_logger.addHandler(handler)
+        try:
+            result = service.partial_update_flow("test-flow-id-123", updates)
+        finally:
+            flow_logger.removeHandler(handler)
+
+        log_messages = " ".join(record.getMessage() for record in handler.buffer)
 
         # Assert
         assert result.name == "new_name"
         assert result.description == "new_desc"
-        assert "Updated fields" in caplog.text
-        assert "name" in caplog.text
-        assert "description" in caplog.text
+        assert "Updated fields" in log_messages
+        assert "name" in log_messages
+        assert "description" in log_messages
 
     def test_partial_update_flow_with_name_change(self, mock_flow_repository, sample_flow_with_id):
         """Test partial update with name change."""
         # Arrange
+        updated_flow = Flow.from_dict(data=sample_flow_with_id.to_dict())
+        updated_flow.name = "Updated Flow Name"
+
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
-        mock_flow_repository.update.return_value = sample_flow_with_id
+        mock_flow_repository.partial_update.return_value = updated_flow
         service = FlowService(repository=mock_flow_repository)
         updates = {"name": "Updated Flow Name"}
 
@@ -310,13 +314,16 @@ class TestFlowServicePartialUpdate:
 
         # Assert
         assert result.name == "Updated Flow Name"
-        mock_flow_repository.update.assert_called_once()
+        mock_flow_repository.partial_update.assert_called_once()
 
     def test_partial_update_flow_without_name_change(self, mock_flow_repository, sample_flow_with_id):
         """Test partial update without name change."""
         # Arrange
+        updated_flow = Flow.from_dict(data=sample_flow_with_id.to_dict())
+        updated_flow.description = "Updated description"
+
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
-        mock_flow_repository.update.return_value = sample_flow_with_id
+        mock_flow_repository.partial_update.return_value = updated_flow
         service = FlowService(repository=mock_flow_repository)
         updates = {"description": "Updated description"}
 
@@ -325,14 +332,10 @@ class TestFlowServicePartialUpdate:
 
         # Assert
         assert result.description == "Updated description"
-        mock_flow_repository.update.assert_called_once()
+        mock_flow_repository.partial_update.assert_called_once()
 
-    def test_partial_update_flow_ignores_protected_fields(self, mock_flow_repository, sample_flow_with_id, caplog):
+    def test_partial_update_flow_ignores_protected_fields(self, mock_flow_repository, sample_flow_with_id):
         """Test that protected fields (flow_id, created_on, created_by) are not updated."""
-        import logging
-
-        caplog.set_level(logging.WARNING)
-
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
         mock_flow_repository.update.return_value = sample_flow_with_id
@@ -345,27 +348,37 @@ class TestFlowServicePartialUpdate:
             "created_by": "hacker",
         }
 
-        # Act
-        result = service.partial_update_flow("test-flow-id-123", updates)
+        flow_logger = logging.getLogger("docpipe.core.assets.flows.application.services.flow_service")
+        handler = logging.handlers.MemoryHandler(capacity=100, flushLevel=logging.CRITICAL)
+        handler.setLevel(logging.WARNING)
+        flow_logger.addHandler(handler)
+        try:
+            result = service.partial_update_flow("test-flow-id-123", updates)
+        finally:
+            flow_logger.removeHandler(handler)
+
+        log_messages = " ".join(record.getMessage() for record in handler.buffer).lower()
 
         # Assert
         assert result.flow_id == original_id
         assert result.created_on == original_created
-        # Verify warnings were logged for protected fields
-        assert "protected field" in caplog.text.lower()
+        assert "protected field" in log_messages
 
     def test_partial_update_flow_validates_before_saving(self, mock_flow_repository, sample_flow_with_id):
         """Test that validation occurs before file operations."""
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
+        # Repository raises AssetInvalidDataException when validation fails
+        mock_flow_repository.partial_update.side_effect = AssetInvalidDataException("flow name cannot be empty")
+
         service = FlowService(repository=mock_flow_repository)
         updates = {"name": ""}  # Invalid empty name
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
+        with pytest.raises(AssetInvalidDataException, match="flow name cannot be empty"):
             service.partial_update_flow("test-flow-id-123", updates)
 
-        # Verify update was never called
+        # Verify update was never called (partial_update handles validation internally)
         mock_flow_repository.update.assert_not_called()
 
     def test_partial_update_flow_with_nonexistent_id_raises_error(self, mock_flow_repository):
@@ -375,7 +388,7 @@ class TestFlowServicePartialUpdate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(FlowNotFoundException):
+        with pytest.raises(DocpipeException):
             service.partial_update_flow("nonexistent-id", {"name": "New Name"})
 
 
@@ -388,11 +401,11 @@ class TestFlowServiceDelete:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert - empty string
-        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be empty"):
             service.delete_flow("")
 
         # Act & Assert - whitespace only
-        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be empty"):
             service.delete_flow("   ")
 
         # Verify repository was never called
@@ -409,7 +422,7 @@ class TestFlowServiceDelete:
 
         # Assert
         assert result is True
-        mock_flow_repository.delete.assert_called_once_with("test-flow-id")
+        mock_flow_repository.delete.assert_called_once_with(asset_id="test-flow-id")
 
     def test_delete_flow_with_nonexistent_id(self, mock_flow_repository):
         """Test deleting a non-existent flow raises FlowNotFoundException."""
@@ -418,7 +431,7 @@ class TestFlowServiceDelete:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(FlowNotFoundException, match="Flow nonexistent-id not found"):
+        with pytest.raises(DocpipeException, match="Asset with ID 'nonexistent-id' not found"):
             service.delete_flow("nonexistent-id")
 
     def test_delete_flow_handles_repository_exception(self, mock_flow_repository):
@@ -456,7 +469,7 @@ class TestFlowServiceBulkDelete:
         assert result["total_failed"] == 0
         assert result["deleted"] == flow_ids
         assert result["failed"] == []
-        mock_flow_repository.bulk_delete.assert_called_once_with(flow_ids)
+        mock_flow_repository.bulk_delete.assert_called_once_with(asset_ids=flow_ids)
 
     def test_bulk_delete_flows_partial_failure(self, mock_flow_repository):
         """Test bulk delete with some flows succeeding and some failing."""
@@ -480,7 +493,7 @@ class TestFlowServiceBulkDelete:
         assert len(result["deleted"]) == 2
         assert len(result["failed"]) == 1
         assert result["failed"][0]["flow_id"] == "flow-2"
-        mock_flow_repository.bulk_delete.assert_called_once_with(flow_ids)
+        mock_flow_repository.bulk_delete.assert_called_once_with(asset_ids=flow_ids)
 
     def test_bulk_delete_flows_empty_list(self, mock_flow_repository):
         """Test bulk delete with empty flow_ids list raises FlowInvalidDataException."""
@@ -518,7 +531,7 @@ class TestFlowServiceBulkDelete:
         assert result["total_failed"] == 2
         assert result["deleted"] == []
         assert len(result["failed"]) == 2
-        mock_flow_repository.bulk_delete.assert_called_once_with(flow_ids)
+        mock_flow_repository.bulk_delete.assert_called_once_with(asset_ids=flow_ids)
 
     def test_bulk_delete_flows_handles_repository_exception(self, mock_flow_repository):
         """Test that repository exceptions are propagated."""
@@ -551,7 +564,7 @@ class TestFlowServiceBulkDelete:
         assert len(result["deleted"]) == 20
         assert result["total_failed"] == 0
         # Verify bulk_delete was called once with the flow_ids
-        mock_flow_repository.bulk_delete.assert_called_once_with(flow_ids)
+        mock_flow_repository.bulk_delete.assert_called_once_with(asset_ids=flow_ids)
 
     def test_bulk_delete_flows_with_thread_failures(self, mock_flow_repository):
         """Test that bulk delete handles thread failures gracefully."""
@@ -589,7 +602,7 @@ class TestFlowServiceBulkDelete:
             assert failed_item["error"]  # Error message is not empty
 
         # Verify repository was called correctly
-        mock_flow_repository.bulk_delete.assert_called_once_with(flow_ids)
+        mock_flow_repository.bulk_delete.assert_called_once_with(asset_ids=flow_ids)
 
 
 class TestFlowServiceList:
@@ -742,6 +755,145 @@ class TestFlowServiceCount:
         assert result == 3
 
 
+class TestFlowServiceListIsElyra:
+    """Tests for is_elyra format filter in list_flows."""
+
+    @pytest.fixture
+    def mixed_format_flows(self) -> list:
+        """Five flows: 3 authoring (have flow_name in definition), 2 Elyra (do not)."""
+        from datetime import UTC, datetime
+
+        from docpipe.core.assets.flows.domain.models.flow import Flow
+
+        flows = []
+        for i in range(3):
+            flows.append(
+                Flow(
+                    asset_id=f"authoring-id-{i}",
+                    name=f"Authoring Flow {i}",
+                    definition={"flow_name": f"Authoring Flow {i}", "flow": []},
+                    created_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                )
+            )
+        for i in range(2):
+            flows.append(
+                Flow(
+                    asset_id=f"elyra-id-{i}",
+                    name=f"Elyra Flow {i}",
+                    definition={"doc_type": "pipeline", "pipelines": []},
+                    created_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                )
+            )
+        return flows
+
+    def test_list_flows_is_elyra_none_returns_all(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=None returns all flows regardless of format."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(is_elyra=None)
+
+        assert len(result) == 5
+
+    def test_list_flows_is_elyra_false_returns_authoring_only(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=False returns only authoring-format flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(is_elyra=False)
+
+        assert len(result) == 3
+        assert all("flow_name" in f.definition for f in result)
+
+    def test_list_flows_is_elyra_true_returns_elyra_only(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=True returns only Elyra-format flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(is_elyra=True)
+
+        assert len(result) == 2
+        assert all("flow_name" not in f.definition for f in result)
+
+    def test_list_flows_is_elyra_filter_applied_before_pagination(self, mock_flow_repository, mixed_format_flows):
+        """Format filter is applied before pagination so limit/skip operate on the filtered set."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        # 3 authoring flows; skip=1, limit=1 should return 1 (not 0)
+        result = service.list_flows(is_elyra=False, skip=1, limit=1)
+
+        assert len(result) == 1
+        assert "flow_name" in result[0].definition
+
+
+class TestFlowServiceCountIsElyra:
+    """Tests for is_elyra format filter in count_flows."""
+
+    @pytest.fixture
+    def mixed_format_flows(self) -> list:
+        """Three authoring + two Elyra flows."""
+        from datetime import UTC, datetime
+
+        from docpipe.core.assets.flows.domain.models.flow import Flow
+
+        flows = []
+        for i in range(3):
+            flows.append(
+                Flow(
+                    asset_id=f"authoring-id-{i}",
+                    name=f"Authoring Flow {i}",
+                    definition={"flow_name": f"Authoring Flow {i}", "flow": []},
+                    created_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 1, i + 1, tzinfo=UTC),
+                )
+            )
+        for i in range(2):
+            flows.append(
+                Flow(
+                    asset_id=f"elyra-id-{i}",
+                    name=f"Elyra Flow {i}",
+                    definition={"doc_type": "pipeline", "pipelines": []},
+                    created_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                    modified_on=datetime(2024, 2, i + 1, tzinfo=UTC),
+                )
+            )
+        return flows
+
+    def test_count_flows_is_elyra_none_counts_all(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=None counts all flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(is_elyra=None) == 5
+
+    def test_count_flows_is_elyra_false_counts_authoring(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=False counts only authoring flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(is_elyra=False) == 3
+
+    def test_count_flows_is_elyra_true_counts_elyra(self, mock_flow_repository, mixed_format_flows):
+        """is_elyra=True counts only Elyra flows."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(is_elyra=True) == 2
+
+    def test_count_flows_is_elyra_consistent_with_list_flows(self, mock_flow_repository, mixed_format_flows):
+        """count_flows and list_flows return consistent totals for same filters."""
+        mock_flow_repository.find_all.return_value = mixed_format_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        count = service.count_flows(is_elyra=False)
+        listed = service.list_flows(is_elyra=False)
+
+        assert count == len(listed)
+
+
 class TestFlowServiceExists:
     """Tests for FlowService.flow_exists method."""
 
@@ -751,11 +903,11 @@ class TestFlowServiceExists:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert - empty string
-        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be empty"):
             service.flow_exists("")
 
         # Act & Assert - whitespace only
-        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+        with pytest.raises(DocpipeException, match="asset_id cannot be empty"):
             service.flow_exists("   ")
 
         # Verify repository was never called
@@ -772,7 +924,7 @@ class TestFlowServiceExists:
 
         # Assert
         assert result is True
-        mock_flow_repository.exists.assert_called_once_with("test-id")
+        mock_flow_repository.exists.assert_called_once_with(asset_id="test-id")
 
     def test_flow_exists_returns_false_for_nonexistent_flow(self, mock_flow_repository):
         """Test flow_exists returns False for non-existent flow."""
@@ -785,3 +937,183 @@ class TestFlowServiceExists:
 
         # Assert
         assert result is False
+
+
+class TestFlowServiceValidateFlowId:
+    """Tests for FlowService._validate_flow_id."""
+
+    def test_validate_flow_id_raises_on_empty_string(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service._validate_flow_id("")
+
+    def test_validate_flow_id_raises_on_whitespace(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service._validate_flow_id("   ")
+
+    def test_validate_flow_id_returns_id_when_valid(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        assert service._validate_flow_id("abc-123") == "abc-123"
+
+
+class TestFlowServiceMigrateRootPath:
+    """Tests for FlowService._migrate_root_path."""
+
+    def test_migrate_root_path_converts_root_path_to_paths_list(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "flow": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"root_path": "/data/docs"},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["flow"][0]["config"]["connection_params"]
+        assert conn["paths"] == ["/data/docs"]
+        assert "root_path" not in conn
+
+    def test_migrate_root_path_skips_nodes_already_using_paths(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "flow": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["/already/migrated"]},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["flow"][0]["config"]["connection_params"]
+        assert conn["paths"] == ["/already/migrated"]
+        assert "root_path" not in conn
+
+    def test_migrate_root_path_skips_non_filesystem_nodes(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "flow": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "s3",
+                        "connection_params": {"root_path": "/bucket"},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["flow"][0]["config"]["connection_params"]
+        # Non-filesystem node must not be touched
+        assert "root_path" in conn
+        assert "paths" not in conn
+
+    def test_migrate_root_path_returns_non_dict_definition_unchanged(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        assert service._migrate_root_path(None) is None
+        assert service._migrate_root_path("raw-string") == "raw-string"
+
+    def test_migrate_root_path_uses_dag_key_when_flow_key_absent(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        definition = {
+            "dag": [
+                {
+                    "name": "ingest",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"root_path": "/legacy"},
+                    },
+                }
+            ]
+        }
+        result = service._migrate_root_path(definition)
+        conn = result["dag"][0]["config"]["connection_params"]
+        assert conn["paths"] == ["/legacy"]
+        assert "root_path" not in conn
+
+
+class TestFlowServicePartialUpdateEdgeCases:
+    """Additional edge-case tests for partial_update_flow."""
+
+    def test_partial_update_flow_raises_on_empty_flow_id(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service.partial_update_flow("", {"description": "x"})
+
+    def test_partial_update_flow_raises_on_whitespace_flow_id(self, mock_flow_repository):
+        service = FlowService(repository=mock_flow_repository)
+        with pytest.raises(FlowInvalidDataException, match="flow_id cannot be empty"):
+            service.partial_update_flow("   ", {"description": "x"})
+
+    def test_partial_update_flow_returns_existing_when_only_unknown_fields(
+        self, mock_flow_repository, sample_flow_with_id
+    ):
+        """When updates contain only unknown fields, the existing flow is returned unchanged."""
+        mock_flow_repository.find_by_id.return_value = sample_flow_with_id
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.partial_update_flow("test-flow-id-123", {"unknown_field_xyz": "value"})
+
+        assert result == sample_flow_with_id
+        mock_flow_repository.partial_update.assert_not_called()
+
+    def test_partial_update_flow_returns_existing_when_only_protected_fields(
+        self, mock_flow_repository, sample_flow_with_id
+    ):
+        """When updates contain only protected fields, the existing flow is returned unchanged."""
+        mock_flow_repository.find_by_id.return_value = sample_flow_with_id
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.partial_update_flow("test-flow-id-123", {"flow_id": "new-id", "created_by": "hacker"})
+
+        assert result == sample_flow_with_id
+        mock_flow_repository.partial_update.assert_not_called()
+
+
+class TestFlowServiceUpdateFlowIdWhitespace:
+    """Whitespace flow_id edge case for update_flow."""
+
+    def test_update_flow_with_whitespace_id_raises_error(self, mock_flow_repository, sample_flow_domain):
+        service = FlowService(repository=mock_flow_repository)
+        sample_flow_domain.flow_id = "   "
+        with pytest.raises(FlowInvalidDataException, match="Flow ID is required for update"):
+            service.update_flow(sample_flow_domain)
+
+
+class TestFlowServiceContainerIdFilter:
+    """Tests for container_id filtering in list_flows / count_flows."""
+
+    def test_list_flows_with_container_id_filter(self, mock_flow_repository, multiple_sample_flows):
+        """list_flows filters by container_id when provided."""
+        # Give one flow a specific container_id
+        multiple_sample_flows[0].container_id = "project-abc"
+        mock_flow_repository.find_all.return_value = multiple_sample_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(container_id="project-abc")
+
+        assert len(result) == 1
+        assert result[0].container_id == "project-abc"
+
+    def test_list_flows_container_id_no_match_returns_empty(self, mock_flow_repository, multiple_sample_flows):
+        mock_flow_repository.find_all.return_value = multiple_sample_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        result = service.list_flows(container_id="nonexistent-container")
+
+        assert result == []
+
+    def test_count_flows_with_container_id_filter(self, mock_flow_repository, multiple_sample_flows):
+        multiple_sample_flows[1].container_id = "project-xyz"
+        multiple_sample_flows[2].container_id = "project-xyz"
+        mock_flow_repository.find_all.return_value = multiple_sample_flows
+        service = FlowService(repository=mock_flow_repository)
+
+        assert service.count_flows(container_id="project-xyz") == 2

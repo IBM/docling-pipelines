@@ -167,7 +167,7 @@ OPENSEARCH_PASSWORD=<strong-random-password>
 
 ### Prefect
 
-- The Prefect server and work pools should be accessible only from within the same network as the Docpipe workers.
+- The Prefect server and work pools should be accessible only from within the same network as the Docling Pipelines workers.
 - Use Prefect's built-in API key authentication for remote work pool access.
 
 ### Docker / container deployments
@@ -255,6 +255,18 @@ Key log events to monitor:
 | `Invalid authentication token provided` | Invalid or expired token reuse |
 | `LDAP server is unavailable` | Authentication service outage |
 | `Invalid OAuth2 state parameter received` | Possible CSRF attack |
+
+### Enable OpenTelemetry tracing for production
+
+Distributed tracing helps correlate authentication events with pipeline execution. Enable the telemetry integration in production:
+
+```bash
+DOCLING_PIPELINES_TELEMETRY_ENABLED=true
+OTEL_SERVICE_NAME=docpipe-production
+OTEL_EXPORTER_OTLP_ENDPOINT=https://your-collector:4317
+```
+
+See [Telemetry Setup](TELEMETRY_SETUP.md) for full configuration instructions.
 
 ---
 

@@ -21,7 +21,7 @@ class TestAuthoringCompiler:
             description="Test flow",
             global_config={"doc_column": "content"},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest", config={"paths": "./data"}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="ingest", config={"paths": "./data"}, depends_on=[]),
                 AuthoringOperator(
                     type="extract_operator", name="extract", config={"doc_column": "content"}, depends_on=["ingest"]
                 ),
@@ -67,7 +67,7 @@ class TestAuthoringCompiler:
             description="Flow with parallel paths",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="ingest", config={}, depends_on=[]),
                 AuthoringOperator(type="extract_operator", name="extract1", config={}, depends_on=["ingest"]),
                 AuthoringOperator(type="extract_operator", name="extract2", config={}, depends_on=["ingest"]),
                 AuthoringOperator(type="chunker", name="merge", config={}, depends_on=["extract1", "extract2"]),
@@ -96,7 +96,7 @@ class TestAuthoringCompiler:
             global_config={},
             flow=[
                 AuthoringOperator(
-                    type="ingest_local",
+                    type="ingest_source",
                     name="ingest",
                     config={
                         "paths": "./test-data",
@@ -126,7 +126,7 @@ class TestAuthoringCompiler:
             description="Test UUID generation",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="op1", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="op1", config={}, depends_on=[]),
                 AuthoringOperator(type="extract_operator", name="op2", config={}, depends_on=["op1"]),
                 AuthoringOperator(type="chunker", name="op3", config={}, depends_on=["op2"]),
             ],
@@ -151,7 +151,7 @@ class TestAuthoringCompiler:
             flow_name="",  # Invalid: empty name
             description="Test",
             global_config={},
-            flow=[AuthoringOperator(type="ingest_local", name="op1", config={}, depends_on=[])],
+            flow=[AuthoringOperator(type="ingest_source", name="op1", config={}, depends_on=[])],
             flow_source=FlowSource.CLI,
         )
 
@@ -168,7 +168,7 @@ class TestAuthoringCompiler:
             flow_name="global-config-test",
             description="Test global config",
             global_config=global_config,
-            flow=[AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[])],
+            flow=[AuthoringOperator(type="ingest_source", name="ingest", config={}, depends_on=[])],
             flow_source=FlowSource.CLI,
         )
 
@@ -184,8 +184,8 @@ class TestAuthoringCompiler:
             description="Test operators without dependencies",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest1", config={}, depends_on=[]),
-                AuthoringOperator(type="ingest_local", name="ingest2", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="ingest1", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="ingest2", config={}, depends_on=[]),
             ],
             flow_source=FlowSource.CLI,
         )
@@ -204,7 +204,7 @@ class TestAuthoringCompiler:
             description="Complex DAG test",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="ingest", config={}, depends_on=[]),
                 AuthoringOperator(type="extract_operator", name="extract", config={}, depends_on=["ingest"]),
                 AuthoringOperator(type="chunker", name="chunk1", config={}, depends_on=["extract"]),
                 AuthoringOperator(type="chunker", name="chunk2", config={}, depends_on=["extract"]),
@@ -235,7 +235,7 @@ class TestAuthoringCompiler:
             description="Test operator order",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="first", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="first", config={}, depends_on=[]),
                 AuthoringOperator(type="extract_operator", name="second", config={}, depends_on=["first"]),
                 AuthoringOperator(type="chunker", name="third", config={}, depends_on=["second"]),
             ],
@@ -256,7 +256,7 @@ class TestAuthoringCompiler:
             flow_name="desc-test",
             description=description,
             global_config={},
-            flow=[AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[])],
+            flow=[AuthoringOperator(type="ingest_source", name="ingest", config={}, depends_on=[])],
             flow_source=FlowSource.CLI,
         )
 
@@ -271,7 +271,7 @@ class TestAuthoringCompiler:
             flow_name="no-desc-test",
             description=None,
             global_config={},
-            flow=[AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[])],
+            flow=[AuthoringOperator(type="ingest_source", name="ingest", config={}, depends_on=[])],
             flow_source=FlowSource.CLI,
         )
 
@@ -287,7 +287,7 @@ class TestAuthoringCompiler:
             description="Test branch dependency compilation",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[]),
+                AuthoringOperator(type="ingest_source", name="ingest", config={}, depends_on=[]),
                 AuthoringOperator(
                     type="branching",
                     name="branch",

@@ -1,9 +1,11 @@
+default_language_version:
+  python: python3.12
+
 repos:
   - repo: https://github.com/astral-sh/uv-pre-commit
     # until Mend supports `uv` directly, an export to requirements.txt is needed.
     # the .whitesource.config is adjusted accordingly
-    # uv version.
-    rev: 0.10.2
+    rev: 0.11.25
     hooks:
       - id: uv-export
         files: ^(pyproject\.toml|uv\.lock)$
@@ -11,11 +13,26 @@ repos:
           [
             "--no-hashes",
             "--frozen",
-            "--no-annotate",
             "--output-file=requirements.txt",
             "--no-dev",
             "--all-packages",
           ]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+        exclude: ^tests/fixtures/
+      - id: check-case-conflict
+      - id: mixed-line-ending
 
   # Strip Jupyter notebook outputs before other checks
   - repo: https://github.com/kynan/nbstripout
@@ -26,7 +43,7 @@ repos:
 
   # Python linting and formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.5
+    rev: v0.15.20
     hooks:
       - id: ruff-format
         files: ^.*\.py$
@@ -34,14 +51,27 @@ repos:
         args: [--fix]
         files: ^.*\.py$
 
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.6
+    hooks:
+      - id: bandit
+        args: [--configfile=pyproject.toml]
+        files: ^src/.*\.py$
+
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+    rev: v2.1.0
     hooks:
       - id: mypy
-        language_version: python3.12
         args: [--ignore-missing-imports, --config-file=pyproject.toml, --python-version=3.12]
         additional_dependencies: [types-requests, types-cachetools, pydantic]
-        files: ^src/.*\.py$
+        files: ^(src|tests)/.*\.py$
+
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        args: [--fail-under=90, --ignore-init-method, --ignore-magic, --ignore-private, -e, tests, -e, scripts]
+        files: ^src/
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0

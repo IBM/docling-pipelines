@@ -1,5 +1,5 @@
 import json
-import os
+from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
@@ -23,12 +23,12 @@ def write_content_to_file(content_list, filepath):
         Path to the memmap file
     """
     # Create directory structure if it doesn't exist
-    directory = os.path.dirname(filepath)
-    if directory and not os.path.exists(directory):
-        os.makedirs(directory, exist_ok=True)
-        logger.info(f"Created directory: {directory}")
+    directory = Path(filepath).parent
+    if directory and not directory.exists():
+        directory.mkdir(parents=True, exist_ok=True)
+        logger.info("Created directory: %s", directory)
 
-    with open(filepath, "ab") as f:
+    with Path(filepath).open("ab") as f:
         for content in content_list:
             arr = np.asarray(content, dtype=np.float32)
             arr.tofile(f)
@@ -37,7 +37,7 @@ def write_content_to_file(content_list, filepath):
     if content_list and len(content_list) > 0:
         dim = len(content_list[0])
         metadata_path = filepath + DocpipeConstants.METADATA_SUFFIX
-        if not os.path.exists(metadata_path):
+        if not Path(metadata_path).exists():
             write_embedding_metadata(filepath, dim)
 
 
@@ -55,7 +55,7 @@ def write_embedding_metadata(filepath, dim):
     metadata_path = filepath + DocpipeConstants.METADATA_SUFFIX
     metadata = {"dim": dim}
 
-    with open(metadata_path, "w") as f:
+    with Path(metadata_path).open("w") as f:
         json.dump(metadata, f)
 
     logger.debug(f"Wrote embedding metadata: dim={dim} to {metadata_path}")
@@ -84,10 +84,10 @@ def read_embedding_metadata(filepath):
     """
     metadata_path = filepath + DocpipeConstants.METADATA_SUFFIX
 
-    if not os.path.exists(metadata_path):
+    if not Path(metadata_path).exists():
         raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
 
-    with open(metadata_path) as f:
+    with Path(metadata_path).open() as f:
         metadata = json.load(f)
 
     if "dim" not in metadata:
@@ -110,7 +110,7 @@ def yield_embeddings_from_memmap_file(filepath, dim):
         np.ndarray: One item of shape (dim,)
     """
     # Compute number of embeddings from file size
-    file_size = os.path.getsize(filepath)
+    file_size = Path(filepath).stat().st_size
     embeddings_size = file_size // (dim * 4)
     mmap_array = np.memmap(filepath, dtype=np.float32, mode="r", shape=(embeddings_size, dim))
     try:
@@ -146,7 +146,7 @@ def load_embeddings_from_memmap_file(filepath):
     dim = read_embedding_metadata(filepath)
 
     # Compute number of embeddings from file size
-    file_size = os.path.getsize(filepath)
+    file_size = Path(filepath).stat().st_size
     embeddings_size = file_size // (dim * 4)
 
     # Load the embeddings memory mapped file
@@ -154,8 +154,7 @@ def load_embeddings_from_memmap_file(filepath):
 
     try:
         # Convert to list of lists for JSON serialization
-        embeddings_list = [embedding.tolist() for embedding in mmap_array]
-        return embeddings_list
+        return [embedding.tolist() for embedding in mmap_array]
     finally:
         # Explicitly delete the memmap array to free memory
         del mmap_array
@@ -174,12 +173,12 @@ def write_chunks_to_file(chunks_list, filepath):
         Output binary file path
     """
     # Create directory structure if it doesn't exist
-    directory = os.path.dirname(filepath)
-    if directory and not os.path.exists(directory):
-        os.makedirs(directory, exist_ok=True)
-        logger.info(f"Created directory: {directory}")
+    directory = Path(filepath).parent
+    if directory and not directory.exists():
+        directory.mkdir(parents=True, exist_ok=True)
+        logger.info("Created directory: %s", directory)
 
-    with open(filepath, "wb") as f:
+    with Path(filepath).open("wb") as f:
         for chunk in chunks_list:
             # Convert chunk to JSON string (handles both strings and dicts)
             if isinstance(chunk, dict):
@@ -214,10 +213,10 @@ def yield_chunks_from_file(filepath):
     str
         One chunk at a time (as JSON string if it was a dict, or plain string)
     """
-    if not os.path.exists(filepath):
+    if not Path(filepath).exists():
         raise FileNotFoundError(f"Chunks file not found: {filepath}")
 
-    with open(filepath, "rb") as f:
+    with Path(filepath).open("rb") as f:
         while True:
             # Read length (4 bytes)
             length_bytes = f.read(4)
@@ -405,13 +404,13 @@ def cleanup_memmap_files(*, job_id: str, job_run_id: str) -> None:
     try:
         # Clean up chunks_files
         chunks_dir = get_data_path(sub_dir=f"/chunks_files/{job_id}/{job_run_id}")
-        if os.path.exists(chunks_dir):
+        if Path(chunks_dir).exists():
             shutil.rmtree(chunks_dir, ignore_errors=True)
             logger.info(f"Cleaned up chunks directory: {chunks_dir}")
 
         # Clean up embeddings_files
         embeddings_dir = get_data_path(sub_dir=f"/embeddings_files/{job_id}/{job_run_id}")
-        if os.path.exists(embeddings_dir):
+        if Path(embeddings_dir).exists():
             shutil.rmtree(embeddings_dir, ignore_errors=True)
             logger.info(f"Cleaned up embeddings directory: {embeddings_dir}")
 

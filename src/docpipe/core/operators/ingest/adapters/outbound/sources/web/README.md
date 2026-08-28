@@ -73,7 +73,7 @@ If downstream logic expects file timestamps, treat web-ingested records as times
 Use one seed URL with domain restriction enabled.
 
 ```json
-{
+  {
         "provider": "web",
         "connection_params": {
           "urls": [
@@ -88,7 +88,7 @@ Use one seed URL with domain restriction enabled.
           ],
           "timeout": 30
         }
-}
+  }
 ```
 
 ### Multiple seed URLs
@@ -96,7 +96,7 @@ Use one seed URL with domain restriction enabled.
 Use multiple URLs when bootstrapping content from more than one site.
 
 ```json
-{
+  {
         "provider": "web",
         "connection_params": {
           "urls": [
@@ -112,7 +112,7 @@ Use multiple URLs when bootstrapping content from more than one site.
           ],
           "timeout": 30
         }
-}
+  }
 ```
 
 ### Landing page only
@@ -120,7 +120,7 @@ Use multiple URLs when bootstrapping content from more than one site.
 Use `max_depth: 0` to ingest only the seed page without following links.
 
 ```json
-{
+  {
         "provider": "web",
         "connection_params": {
           "urls": [
@@ -131,7 +131,7 @@ Use `max_depth: 0` to ingest only the seed page without following links.
           "exclude_patterns": [],
           "timeout": 30
         }
-}
+  }
 ```
 
 ## Example Flow Configuration
@@ -210,4 +210,4 @@ Example connector test script:
 
 ## References
 
-- [LangChain RecursiveUrlLoader](https://python.langchain.com/docs/integrations/document_loaders/recursive_url_loader/)
+- [LangChain RecursiveUrlLoader](https://python.langchain.com/docs/integrations/document_loaders/recursive_url)

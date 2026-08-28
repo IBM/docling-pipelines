@@ -37,41 +37,41 @@ from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Microsoft Graph API
+# Microsoft Graph API Constants (module-level - SharePoint-specific)
 _MICROSOFT_LOGIN_URL: str = "https://login.microsoftonline.com"
 _MICROSOFT_GRAPH_API_BASE: str = "https://graph.microsoft.com/v1.0"
 _MICROSOFT_GRAPH_SCOPE: str = "https://graph.microsoft.com/.default"
 _MICROSOFT_OAUTH_TOKEN_PATH: str = "/oauth2/v2.0/token"
 
-# SharePoint permission roles
+# SharePoint Permission Role Constants (module-level - SharePoint-specific)
 _SHAREPOINT_ROLE_READ: str = "read"
 _SHAREPOINT_ROLE_WRITE: str = "write"
 _SHAREPOINT_ROLE_OWNER: str = "owner"
 
-# SharePoint identity format prefixes
+# SharePoint Identity Format Prefixes (module-level - SharePoint-specific)
 _SHAREPOINT_CLAIMS_PREFIX: str = "i:0#.f|membership|"
 _SHAREPOINT_AAD_PREFIX: str = "i:0#.f|aad|"
 _SHAREPOINT_WINDOWS_PREFIX: str = "i:0#.w|"
 
-# Graph API endpoint templates
+# Microsoft Graph API Endpoint Templates (module-level - SharePoint-specific)
 _GRAPH_PERMISSIONS_ENDPOINT: str = "/drives/{drive_id}/items/{item_id}/permissions"
 _GRAPH_ITEM_ENDPOINT: str = "/drives/{drive_id}/items/{item_id}"
 _GRAPH_GROUP_MEMBERS_ENDPOINT: str = "/groups/{group_id}/transitiveMembers"
 _GRAPH_USER_ENDPOINT: str = "/users/{user_id}"
 
-# Batch processing defaults
+# Batch Processing Defaults (module-level - SharePoint-specific)
 _DEFAULT_BATCH_SIZE: int = 10
 _DEFAULT_MAX_CONCURRENT_REQUESTS: int = 5
 _DEFAULT_REQUEST_TIMEOUT: int = 60
 
-# Configuration keys
+# Configuration Keys (module-level - SharePoint-specific)
 _CONFIG_CLIENT_ID: str = "client_id"
 _CONFIG_CLIENT_SECRET: str = "client_secret"
 _CONFIG_TENANT_ID: str = "tenant_id"
 _CONFIG_DRIVE_ID: str = "drive_id"
 _CONFIG_ITEM_ID: str = "item_id"
 
-# Graph API response keys
+# Graph API Response Keys (module-level - SharePoint-specific)
 _GRAPH_VALUE_KEY: str = "value"
 _GRAPH_NEXT_LINK_KEY: str = "@odata.nextLink"
 _GRAPH_ODATA_TYPE_KEY: str = "@odata.type"
@@ -87,13 +87,16 @@ _GRAPH_GROUP: str = "group"
 _GRAPH_EMAIL: str = "email"
 _GRAPH_DISPLAY_NAME: str = "displayName"
 
-# Permission and principal types
+# Permission Types (module-level - SharePoint-specific)
 _PERMISSION_TYPE_ALLOW: str = "allow"
 _PERMISSION_TYPE_DENY: str = "deny"
+
+# Principal Types (module-level - SharePoint-specific)
 _PRINCIPAL_TYPE_USER: str = "user"
 _PRINCIPAL_TYPE_GROUP: str = "group"
 _PRINCIPAL_TYPE_UNKNOWN: str = "unknown"
 
+# Inheritance Constants (module-level - SharePoint-specific)
 _MAX_INHERITANCE_DEPTH: int = 10
 
 
@@ -131,7 +134,24 @@ class SharePointACLConfig(BaseModel):
 
 @register_acl_adapter(OperatorConstants.ACL.PROVIDER_SHAREPOINT)
 class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
-    """ACL adapter for SharePoint via Microsoft Graph API (OAuth2 client credentials)."""
+    """Adapter for extracting ACL information from SharePoint via Microsoft Graph API.
+
+    This adapter implements the ACLExtractionPort interface for SharePoint/OneDrive
+    documents. It uses the Microsoft Graph API with OAuth2 client credentials flow
+    for authentication.
+
+    Key Capabilities:
+    - Extract permissions from SharePoint items (files/folders)
+    - Resolve inheritance recursively up to root site
+    - Expand groups transitively to individual users
+    - Normalize SharePoint identity formats to canonical email/UPN
+    - Handle shared links and organization-wide permissions
+
+    Authentication:
+    - Uses MSAL (Microsoft Authentication Library) for OAuth2
+    - Supports client credentials flow (app-only authentication)
+    - Reuses authentication pattern from MicrosoftGraphLoader
+    """
 
     ADAPTER_NAME = "sharepoint"
     ADAPTER_DISPLAY_NAME = "SharePoint ACL"
@@ -139,12 +159,13 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
     ADAPTER_VERSION = "1.0.0"
 
     def __init__(self) -> None:
+        """Initialize SharePoint ACL adapter."""
         super().__init__()
         self._token_cache: dict[str, str] = {}
         self._group_cache: dict[str, set[str]] = {}
         self._identity_cache: dict[str, str] = {}
 
-    async def extract_acl(self, *, request: ACLRequest) -> ACLResponse:  # NOSONAR python:S3776
+    async def extract_acl(self, *, request: ACLRequest) -> ACLResponse:
         """Extract effective ACL for a single SharePoint item.
 
         This method:
@@ -307,7 +328,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
                 # Fetch item details to get parent reference
                 endpoint = _GRAPH_ITEM_ENDPOINT.format(drive_id=config.drive_id, item_id=current_id)
 
-                item_data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+                item_data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
                 # Check if item has parent
                 parent_ref = item_data.get(_GRAPH_PARENT_REFERENCE)
@@ -355,7 +376,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
 
             # Handle pagination
             while endpoint:
-                data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+                data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
                 for member in data.get(_GRAPH_VALUE_KEY, []):
                     # Only include users, not nested groups
@@ -448,7 +469,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
 
             # Test by fetching drive details
             endpoint = f"/drives/{config.drive_id}"
-            rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+            rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
             logger.info(f"Successfully connected to SharePoint drive {config.drive_id}")
             return True
@@ -460,9 +481,10 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
     def build_config_from_operator_params(
         self, *, connection_params: dict, credentials: dict, provider_metadata: dict
     ) -> SharePointACLConfig:
-        """Build SharePointACLConfig from operator parameters.
+        """Build SharePoint configuration from operator parameters.
 
-        drive_id is optional; when absent, URLs are resolved to item IDs via the Graph API.
+        Note: drive_id is optional when using URL-based ACL lookups.
+        The adapter will resolve URLs to item IDs using the Graph API.
 
         Args:
             connection_params: Connection parameters from operator
@@ -473,8 +495,9 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
             SharePointACLConfig object
 
         Raises:
-            ConfigurationError: If required credentials are missing
+            ValueError: If required parameters are missing
         """
+        # Extract required credentials
         client_id = credentials.get(_CONFIG_CLIENT_ID)
         client_secret = credentials.get(_CONFIG_CLIENT_SECRET)
         tenant_id = credentials.get(_CONFIG_TENANT_ID)
@@ -485,12 +508,14 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
                 f"and {_CONFIG_TENANT_ID} in credentials"
             )
 
-        # drive_id is optional; falls back to "url-based" so URLs are resolved at extraction time
+        # Extract drive_id from connection_params or provider_metadata (optional for URL-based lookups)
+        # Use a placeholder if not provided - URLs will be resolved to drive_id + item_id
+        # Note: IngestSourceOperator stores this as 'document_library_id' in metadata
         drive_id = (
             connection_params.get(_CONFIG_DRIVE_ID)
             or provider_metadata.get(_CONFIG_DRIVE_ID)
             or provider_metadata.get("document_library_id")  # IngestSource uses this key
-            or "url-based"  # placeholder triggers URL-based resolution in _extract_item_id
+            or "url-based"
         )
 
         return SharePointACLConfig(
@@ -513,6 +538,8 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
             request_timeout=connection_params.get("request_timeout", _DEFAULT_REQUEST_TIMEOUT),
         )
 
+    # Private helper methods
+
     def _create_rest_client(self, *, config: SharePointACLConfig) -> RestClient:
         """Create RestClient for Microsoft Graph API calls.
 
@@ -532,7 +559,10 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
         )
 
     async def _get_token(self, *, config: SharePointACLConfig) -> str:
-        """Acquire an app-only OAuth2 access token via MSAL client credentials flow.
+        """Acquire OAuth2 access token via MSAL client credentials flow.
+
+        Uses MSAL (Microsoft Authentication Library) to acquire an app-only
+        access token for Microsoft Graph API.
 
         Args:
             config: SharePoint configuration
@@ -541,9 +571,10 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
             Access token string
 
         Raises:
-            ConfigurationError: If msal package is not installed
-            ExternalServiceError: If token acquisition fails
+            ImportError: If msal package is not installed
+            ValueError: If token acquisition fails
         """
+        # Check cache first
         cache_key = f"{config.tenant_id}:{config.client_id}"
         if cache_key in self._token_cache:
             return self._token_cache[cache_key]
@@ -553,29 +584,42 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
         except ImportError as e:
             raise ConfigurationError("msal package not found. Install with: pip install msal") from e
 
-        app = msal.ConfidentialClientApplication(
-            config.client_id,
-            authority=f"{_MICROSOFT_LOGIN_URL}/{config.tenant_id}",
-            client_credential=config.client_secret,
-        )
-
-        result = app.acquire_token_for_client(scopes=[_MICROSOFT_GRAPH_SCOPE])
-
-        if not isinstance(result, dict):
-            raise ExternalServiceError(
-                f"Unexpected Microsoft Graph API response type: {type(result).__name__}",
-                error_code=ErrorCode.ACL_AUTHENTICATION_FAILED,
+        try:
+            app = msal.ConfidentialClientApplication(
+                config.client_id,
+                authority=f"{_MICROSOFT_LOGIN_URL}/{config.tenant_id}",
+                client_credential=config.client_secret,
             )
 
-        access_token = result.get("access_token")
-        if not access_token:
-            error = result.get("error", "unknown")
-            error_desc = result.get("error_description", "no description")
-            raise ExternalServiceError(
-                f"Failed to acquire Microsoft Graph token: {error} - {error_desc}",
-                error_code=ErrorCode.ACL_AUTHENTICATION_FAILED,
+            result = await asyncio.to_thread(
+                app.acquire_token_for_client,
+                scopes=[_MICROSOFT_GRAPH_SCOPE],
             )
 
+            if not isinstance(result, dict):
+                raise ExternalServiceError(
+                    f"Unexpected Microsoft Graph API response type: {type(result).__name__}",
+                    error_code=ErrorCode.ACL_AUTHENTICATION_FAILED,
+                )
+
+            access_token = result.get("access_token")
+            if not access_token:
+                error = result.get("error", "unknown")
+                error_desc = result.get("error_description", "no description")
+                raise ExternalServiceError(
+                    f"Failed to acquire Microsoft Graph token: {error} - {error_desc}",
+                    error_code=ErrorCode.ACL_AUTHENTICATION_FAILED,
+                )
+        except (ConfigurationError, ExternalServiceError):
+            # Re-raise Docpipe exceptions as-is
+            raise
+        except Exception as e:
+            # Wrap authentication errors
+            raise ExternalServiceError(
+                f"Microsoft Graph authentication failed: {e!s}", error_code=ErrorCode.ACL_AUTHENTICATION_FAILED
+            ) from e
+
+        # Cache the token
         self._token_cache[cache_key] = access_token
 
         return access_token
@@ -599,7 +643,7 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
 
             endpoint = _GRAPH_PERMISSIONS_ENDPOINT.format(drive_id=config.drive_id, item_id=item_id)
 
-            data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+            data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
             for perm in data.get(_GRAPH_VALUE_KEY, []):
                 permissions.extend(self._parse_graph_permission(permission=perm))
@@ -695,11 +739,18 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
         )
 
     async def _resolve_item_id_from_url(self, *, config: SharePointACLConfig, source_url: str) -> str:
-        """Resolve a SharePoint URL to a DriveItem ID via the Graph API.
+        """Resolve SharePoint URL to DriveItem ID using Graph API.
 
-        Supports URL formats: /sites/<site>/…, /teams/<team>/…, /personal/<user>/…
-        The drive_id in config should point to the specific document library.
-        Graph API paths are relative to the drive root, so the library name segment is skipped.
+        Supports SharePoint URL formats:
+        - /sites/<site>/<library>/path/to/file
+        - /teams/<team>/<library>/path/to/file
+        - /personal/<user>/<library>/path/to/file
+
+        IMPORTANT: The drive_id in config should point to the specific library.
+        Graph API paths are relative to the drive root, so we skip the library name.
+
+        For robustness, IngestSource should store item_id in metadata
+        to avoid URL parsing. This method is a fallback for URL-based resolution.
 
         Args:
             config: SharePoint configuration with drive_id pointing to the library
@@ -715,25 +766,36 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
         from urllib.parse import quote, unquote, urlparse
 
         try:
+            # Parse URL and extract path components
             parsed = urlparse(source_url)
+            # Decode URL-encoded path first (IngestSource may provide encoded URLs)
             decoded_path = unquote(parsed.path)
+            # Split path and filter empty parts
             parts = [p for p in decoded_path.split("/") if p]
 
+            # Validate SharePoint managed path
             managed_paths = {"sites", "teams", "personal"}
 
             if len(parts) < 3 or parts[0] not in managed_paths:
                 raise ConfigurationError(
                     f"Unsupported SharePoint URL format: {source_url}. "
-                    f"Expected: https://tenant.sharepoint.com/{{sites|teams|personal}}/<name>/Library/path/to/file"
+                    f"Expected format: https://tenant.sharepoint.com/{{sites|teams|personal}}/<name>/Library/path/to/file"
                 )
 
+            # Extract components
             managed_path = parts[0]  # 'sites', 'teams', or 'personal'
-            site_name = parts[1]
-            _library_name = parts[2]
-            # Parts 3+ are the path relative to the drive root (library name is skipped)
-            relative_path = "/".join(parts[3:])
+            site_name = parts[1]  # site/team/user name
+            _library_name = parts[2]  # 'Shared Documents', etc.
+
+            # Extract path relative to drive root (skip managed_path, site/team/user name, AND library name)
+            # Example: ['sites', 'acl', 'Shared Documents', 'plaintext.txt'] -> 'plaintext.txt'
+            # Example: ['sites', 'acl', 'Shared Documents', 'folder', 'file.txt'] -> 'folder/file.txt'
+            relative_path = "/".join(parts[3:])  # Skip: managed_path, site_name, library_name
+
+            # URL-encode the path for Graph API (encode spaces and special chars, preserve slashes)
             encoded_path = quote(relative_path, safe="/")
 
+            # Choose endpoint based on whether we have a real drive_id
             if config.drive_id and config.drive_id != "url-based":
                 endpoint = f"/drives/{config.drive_id}/root:/{encoded_path}:"
             else:
@@ -741,11 +803,13 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
                 endpoint = f"/sites/{parsed.netloc}:{site_path}:/drive/root:/{encoded_path}:"
 
             logger.info(f"Resolving URL to item_id: {source_url} -> {endpoint}")
+
+            # Call Graph API to resolve path to item
             rest_client = self._create_rest_client(config=config)
             token = await self._get_token(config=config)
             headers = {"Authorization": f"Bearer {token}"}
 
-            data = rest_client.call_rest_json(method=RestMethod.GET, endpoint=endpoint, headers=headers)
+            data = rest_client.call_rest_json(method=RestMethod.GET, url=endpoint, headers=headers)
 
             item_id = data.get("id")
             if not item_id:
@@ -769,41 +833,46 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
     ) -> str:
         """Extract SharePoint item ID from resource_id, path, or metadata.
 
-        Resolution priority:
-        1. item_id from provider_metadata
-        2. id from provider_metadata
-        3. resource_id when it is not a URL
-        4. URL resolution via Graph API (fallback)
+        Priority order:
+        1. item_id from provider_metadata (set by MicrosoftGraphLoader)
+        2. id from provider_metadata (fallback)
+        3. item_id from resource_id if it's not a URL
+        4. Resolve from URL using Graph API (fallback)
 
         Args:
             config: SharePoint configuration
-            resource_id: Source identifier (URL or item ID)
-            resource_path: Resource path (may contain item ID in /items/{id} format)
-            provider_metadata: Per-document metadata from IngestSourceOperator
+            resource_id: Resource identifier (typically source_id from IngestSource - may be URL or item ID)
+            resource_path: Resource path (may contain item ID)
+            provider_metadata: Provider-specific metadata
 
         Returns:
             SharePoint item ID
 
         Raises:
-            ConfigurationError: If item ID cannot be determined
+            ValueError: If item ID cannot be extracted
         """
+        # BEST: Try to get item_id from metadata (set by MicrosoftGraphLoader)
         item_id = provider_metadata.get(_CONFIG_ITEM_ID) or provider_metadata.get(OperatorConstants.Columns.ID)
         if item_id:
             logger.info(f"Using item_id from metadata: {item_id}")
             return str(item_id)
 
+        # If resource_id looks like an item ID (not a URL), use it directly
         if resource_id and not resource_id.startswith("http") and not resource_id.startswith("/"):
             logger.info(f"Using resource_id as item_id: {resource_id}")
             return str(resource_id)
 
+        # Try to extract from path (format: /drives/{drive_id}/items/{item_id})
         match = re.search(r"/items/([^/]+)", resource_path)
         if match:
             item_id = match.group(1)
             logger.info(f"Extracted item_id from path: {item_id}")
             return item_id
 
+        # FALLBACK: Check if resource_id is a SharePoint URL and resolve it
         if resource_id and resource_id.startswith("http"):
             logger.info(f"Resolving item_id from URL: {resource_id}")
+            # Resolve URL to item ID using Graph API
             return await self._resolve_item_id_from_url(config=config, source_url=resource_id)
 
         raise ConfigurationError(

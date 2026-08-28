@@ -11,9 +11,10 @@
   "flow": [
     {
       "name": "ingest_audio_video",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./sample_documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]},
         "include_filter": "wav,mp3,mp4,m4a"
       }
     },
@@ -60,12 +61,12 @@
       "type": "vectordb",
       "config": {
         "provider": "opensearch",
-        "index_name": "audio-transcriptions",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 768,
         "create_index": true,
         "provider_config": {
+          "index_name": "audio-transcriptions",
           "host": "localhost",
           "port": 9200,
           "username": "${OPENSEARCH_USERNAME}",

@@ -40,9 +40,6 @@ class EdedupOperator(AbstractOperator):
         Parameters are: {"doc_column": "content", "doc_id_column": "doc_id_hash}
         """
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.doc_id_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
@@ -58,9 +55,11 @@ class EdedupOperator(AbstractOperator):
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
         }
+        self._ededup_transform: EdedupTransform = EdedupTransform(self.config)
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.CATEGORY: EdedupOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: EdedupOperator.is_available(),
@@ -76,8 +75,6 @@ class EdedupOperator(AbstractOperator):
         hash-for-hash to ensure exact matching.
         """
 
-        ededup_transform: EdedupTransform = EdedupTransform(self.config)
-
         logger.info(
             ">> Running Exact Deduplication Operation on Pyarrow tables as ededup_input",
             extra=self.common_log_arguments,
@@ -85,13 +82,13 @@ class EdedupOperator(AbstractOperator):
         output_tables: list[pa.Table] = []
         metadata: dict[str, Any] = {}
         try:
-            if table:
-                output_tables, _metadata = ededup_transform.transform(table=table, file_name=file_name)
+            if table is not None and table.num_rows > 0:
+                output_tables, _metadata = self._ededup_transform.transform(table=table, file_name=file_name)
                 logger.info(
                     ">> Exact Deduplication Successful!!",
                     extra=self.common_log_arguments,
                 )
-                logger.info(f"Metadata : {_metadata}", extra=self.common_log_arguments)
+                logger.info("Metadata : %s", _metadata, extra=self.common_log_arguments)
                 metadata = self.create_base_metadata(total_docs_count=_metadata.get("source_documents"))
                 metadata[Metrics.External.PROCESSED_DOCS] = _metadata.get("result_documents")
                 metadata[Metrics.External.SKIPPED_DOCS_COUNT] = _metadata.get("source_documents") - _metadata.get(

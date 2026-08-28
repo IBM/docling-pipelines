@@ -1,399 +1,316 @@
-"""
-IncrementalMetadataFactory - Dependency injection and configuration.
+"""Incremental metadata factory — adapter registry and DI container.
 
-This factory creates incremental metadata storage adapters based on configuration,
-completely independent from job management storage configuration.
-
-Configuration:
-- Supports multiple storage backends (Filesystem, PostgreSQL)
-- Environment-based configuration via YAML or environment variables
-- Independent from job stats storage configuration
+Mirrors ``JobManagementFactory``:
+- Class-level registry of ``IncrementalMetadataStore`` adapters.
+- Instance-level lazy singletons for the store and ``IncrementalUpdateService``.
+- Module-level ``get_default_factory()`` for the process-wide singleton factory instance.
+- ``get_incremental_update_service()`` convenience function for callers that
+  only need the service.
 """
+
+from __future__ import annotations
 
 import os
-from enum import StrEnum
+import threading
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import yaml
 
 from docpipe.core.constants import DocpipeConfigKeys, EnvironmentVariables
 from docpipe.core.constants.constants import _find_project_root
-from docpipe.core.incremental_metadata.adapters.stores import (
-    FilesystemIncrementalMetadataStore,
-    PostgresIncrementalMetadataStore,
-)
 from docpipe.core.incremental_metadata.domain import IncrementalMetadataStore
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.logging import get_logger
 
-logger = get_logger()
+if TYPE_CHECKING:
+    from docpipe.core.incremental_metadata.application.services import IncrementalUpdateService
 
+logger = get_logger(__name__)
 
-class IncrementalStorageBackend(StrEnum):
-    """Supported storage backends for incremental metadata."""
-
-    FILESYSTEM = "filesystem"
-    POSTGRESQL = "postgresql"
-
-
+DEFAULT_STORAGE_BACKEND = "filesystem"
 DEFAULT_CONFIG_PATH = _find_project_root() / "docling-pipelines-config.yaml"
 ENV_CONFIG_PATH_KEY = EnvironmentVariables.DOCPIPE_CONFIG_PATH
 ENV_INCREMENTAL_BASE_DIR_KEY = "DOCPIPE_INCREMENTAL_BASE_DIR"
-ENV_INCREMENTAL_STORAGE_BACKEND_KEY = "DOCPIPE_INCREMENTAL_STORAGE_BACKEND"
 
 
 class IncrementalMetadataFactory:
-    """
-    Factory for creating incremental metadata storage adapters.
+    """Adapter registry and DI container for incremental metadata.
 
-    This factory handles:
-    - Creating storage adapters based on configuration
-    - Independent configuration from job management
-    - Wiring dependencies between components
-    - Providing singleton instances where appropriate
+    Class-level registry
+    --------------------
+    Store adapters are registered via ``@register_incremental_update_store``.
 
-    Usage:
-        # Create factory with configuration
-        factory = IncrementalMetadataFactory(
-            storage_backend=IncrementalStorageBackend.FILESYSTEM,
-            config={"base_dir": "/path/to/data"}
-        )
+    Instance-level DI container
+    ---------------------------
+    Each factory instance lazily owns one store and one service.  Use
+    ``get_default_factory()`` to get the process-wide singleton factory, then
+    call ``get_store()`` or ``get_service()`` on it.
 
-        # Get storage adapter
-        store = factory.create_incremental_metadata_store()
+    Example::
+
+        service = get_incremental_update_service()   # simplest call
+        store   = get_default_factory().get_store()  # if you only need the store
     """
 
-    def __init__(
-        self,
-        storage_backend: IncrementalStorageBackend = IncrementalStorageBackend.FILESYSTEM,
-        config: dict[str, Any] | None = None,
-    ):
-        """
-        Initialize factory with configuration.
+    # ------------------------------------------------------------------ #
+    # Class-level adapter registry                                         #
+    # ------------------------------------------------------------------ #
 
-        Args:
-            storage_backend: Storage backend to use
-            config: Optional configuration dictionary
-        """
-        self.storage_backend = storage_backend
-        self.config = config or {}
-
-        # Singleton instance
-        self._store: IncrementalMetadataStore | None = None
-
-        logger.info(f"IncrementalMetadataFactory initialized: storage={storage_backend}")
-
-    def _resolve_base_dir(self) -> Path | None:
-        """
-        Resolve base directory from environment variable or configuration.
-
-        Precedence:
-        1. Environment variable (DOCPIPE_INCREMENTAL_BASE_DIR)
-        2. Configuration (base_dir key)
-        3. None (if neither is set)
-
-        Returns:
-            Resolved base directory path, or None if not configured.
-            Creates the directory if it doesn't exist.
-        """
-        base_dir_override = os.getenv(ENV_INCREMENTAL_BASE_DIR_KEY)
-        configured_base_dir = self.config.get(DocpipeConfigKeys.BASE_DIR)
-        resolved_base_dir = None
-
-        if base_dir_override:
-            resolved_base_dir = Path(base_dir_override)
-        elif configured_base_dir:
-            configured_base_dir_path = Path(configured_base_dir)
-            resolved_base_dir = (
-                configured_base_dir_path
-                if configured_base_dir_path.is_absolute()
-                else configured_base_dir_path.resolve()
-            )
-
-        if resolved_base_dir:
-            resolved_base_dir.mkdir(parents=True, exist_ok=True)
-
-        return resolved_base_dir
-
-    def create_incremental_metadata_store(self) -> IncrementalMetadataStore:
-        """
-        Create storage adapter based on configuration.
-
-        Supports:
-        - FILESYSTEM: Efficient columnar storage with PyArrow
-        - POSTGRESQL: PostgreSQL database storage (production)
-
-        Returns:
-            IncrementalMetadataStore implementation
-        """
-        if self._store is not None:
-            return self._store
-
-        match self.storage_backend:
-            case IncrementalStorageBackend.FILESYSTEM:
-                resolved_base_dir = self._resolve_base_dir()
-                lock_timeout = self.config.get(DocpipeConfigKeys.LOCK_TIMEOUT, 30.0)
-
-                self._store = FilesystemIncrementalMetadataStore(
-                    base_dir=resolved_base_dir,
-                    lock_timeout=lock_timeout,
-                    config=self.config,
-                )
-                logger.info(
-                    f"Created FilesystemIncrementalMetadataStore: "
-                    f"base_dir={resolved_base_dir}, "
-                    f"lock_timeout={lock_timeout}s"
-                )
-
-            case IncrementalStorageBackend.POSTGRESQL:
-                # Extract postgres config from nested structure if present
-                postgres_config = self.config.get(DocpipeConfigKeys.POSTGRES, {})
-                if postgres_config:
-                    # Pass postgres config at top level for the store
-                    store_config = {**postgres_config}
-                    logger.debug(f"PostgreSQL config for incremental store: {store_config}")
-                else:
-                    store_config = self.config
-
-                self._store = PostgresIncrementalMetadataStore(config=store_config)
-                schema_name = store_config.get("schema", "incremental_metadata")
-                logger.info(f"Created PostgresIncrementalMetadataStore with schema: {schema_name}")
-
-            case _:
-                raise ValueError(f"Unknown storage backend: {self.storage_backend}")
-
-        assert self._store is not None, "Incremental metadata store must be initialized"
-        return self._store
+    _stores: ClassVar[dict[str, type[IncrementalMetadataStore]]] = {}
 
     @classmethod
-    def from_config_file(cls, config_path: str) -> "IncrementalMetadataFactory":  # NOSONAR python:S3776
-        """
-        Create factory from YAML configuration file.
+    def clear_registry(cls) -> None:
+        """Clear all registered backends.  Intended for test teardown only."""
+        cls._stores.clear()
 
-        If the config file doesn't exist, falls back to default values (Filesystem storage).
+    @classmethod
+    def register(cls, store_class: type[IncrementalMetadataStore]) -> type[IncrementalMetadataStore]:
+        """Register an incremental metadata store class.
 
         Args:
-            config_path: Path to YAML configuration file
+            store_class: Must define a ``STORE_BACKEND`` class attribute.
 
         Returns:
-            IncrementalMetadataFactory instance
+            The store class unchanged (supports decorator chaining).
 
         Raises:
-            ValueError: If config is invalid
+            TypeError: If ``STORE_BACKEND`` is missing.
+        """
+        if not hasattr(store_class, "STORE_BACKEND"):
+            raise TypeError(f"Store class {store_class.__name__} must define STORE_BACKEND")
+
+        backend_name: str = store_class.STORE_BACKEND  # type: ignore[attr-defined]
+
+        if backend_name in cls._stores:
+            logger.warning("Store backend '%s' is already registered. Overwriting.", backend_name)
+
+        cls._stores[backend_name] = store_class
+        logger.debug("Registered incremental metadata store: %s", backend_name)
+        return store_class
+
+    @classmethod
+    def list_backends(cls) -> list[str]:
+        """Return all registered backend names."""
+        return list(cls._stores.keys())
+
+    # ------------------------------------------------------------------ #
+    # Instance — DI container                                              #
+    # ------------------------------------------------------------------ #
+
+    def __init__(self, *, backend: str, config: dict[str, Any] | None = None) -> None:
+        """
+        Args:
+            backend: Registered ``STORE_BACKEND`` value (e.g. ``"filesystem"``).
+            config:  Configuration dict forwarded to the store constructor.
+        """
+        self._backend = backend
+        self._config: dict[str, Any] = config or {}
+        self._store: IncrementalMetadataStore | None = None
+        self._service: IncrementalUpdateService | None = None
+
+    def get_store(self) -> IncrementalMetadataStore:
+        """Return the singleton store, creating it on first call."""
+        if self._store is None:
+            if self._backend not in IncrementalMetadataFactory._stores:
+                available = ", ".join(IncrementalMetadataFactory._stores.keys()) or "none"
+                raise DocpipeException(
+                    f"Unknown incremental metadata store backend: '{self._backend}'. Available backends: {available}"
+                )
+            store_class = IncrementalMetadataFactory._stores[self._backend]
+            self._store = store_class(config=self._config)  # type: ignore[call-arg]
+            logger.info("Created IncrementalMetadataStore: backend=%s", self._backend)
+        return self._store
+
+    def get_service(self) -> IncrementalUpdateService:
+        """Return the singleton ``IncrementalUpdateService``, creating it on first call."""
+        if self._service is None:
+            # Deferred import to avoid circular dependency at module load time.
+            from docpipe.core.incremental_metadata.application.services import (
+                IncrementalUpdateService,
+            )
+
+            self._service = IncrementalUpdateService(store=self.get_store())
+            logger.info("Created IncrementalUpdateService")
+        return self._service
+
+    # ------------------------------------------------------------------ #
+    # Named constructors                                                   #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def from_config_file(cls, *, config_path: str) -> IncrementalMetadataFactory:
+        """Build a factory from a YAML configuration file.
+
+        Falls back to the default filesystem backend when the file is absent or
+        empty.
+
+        Args:
+            config_path: Path to ``docling-pipelines-config.yaml``.
+
+        Returns:
+            Configured ``IncrementalMetadataFactory`` instance.
+
+        Raises:
+            DocpipeException: If the YAML is malformed or the resolved backend
+                is not registered.
         """
         config_file = Path(config_path)
 
         if not config_file.exists():
             logger.warning(
-                f"Configuration file not found: {config_path}. "
-                f"Using default incremental metadata configuration (Filesystem storage)."
+                "Configuration file not found: %s. Using default incremental metadata configuration.",
+                config_path,
             )
-            return cls()
+            return cls._default_backend_factory()
 
         try:
-            with open(config_file) as f:
+            with Path(config_file).open() as f:
                 yaml_config = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML configuration: {e}") from e
+            raise DocpipeException(f"Invalid YAML configuration: {e}") from e
 
         if not yaml_config:
-            logger.warning(f"Empty configuration file: {config_path}, using defaults")
-            return cls()
+            logger.warning("Empty configuration file: %s. Using defaults.", config_path)
+            return cls._default_backend_factory()
 
-        # Extract global_storage configuration (shared defaults)
-        global_storage_config = yaml_config.get(DocpipeConfigKeys.GLOBAL_STORAGE, {})
-
-        # Look for incremental_metadata section
-        incremental_config = yaml_config.get(DocpipeConfigKeys.INCREMENTAL_METADATA, {})
-        storage_config = incremental_config.get(DocpipeConfigKeys.INCREMENTAL_STORAGE, {}) or {}
-
-        # Determine storage backend with precedence: service-specific > global_storage > defaults
-        # First check service-specific config
-        storage_str = storage_config.get(DocpipeConfigKeys.TYPE)
-        # Fall back to global_storage if no service-specific config
-        if not storage_str and global_storage_config:
-            storage_str = global_storage_config.get(DocpipeConfigKeys.TYPE)
-        # Final fallback to default
-        if not storage_str:
-            storage_str = IncrementalStorageBackend.FILESYSTEM.value
-
-        try:
-            storage_backend = IncrementalStorageBackend(storage_str)
-        except ValueError:
-            # Fail fast on invalid backend
-            supported = [e.value for e in IncrementalStorageBackend]
-            raise ValueError(
-                f"Invalid storage backend '{storage_str}' for incremental metadata. Supported backends: {supported}"
-            ) from None
-
-        # Merge configuration with precedence: service-specific > global_storage > defaults
-        merged_config: dict[str, Any] = {}
-
-        # Start with global_storage config as base
-        if global_storage_config:
-            merged_config.update(global_storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
-            # Include postgres config from global_storage if present
-            if DocpipeConfigKeys.POSTGRES in global_storage_config:
-                merged_config[DocpipeConfigKeys.POSTGRES] = global_storage_config[DocpipeConfigKeys.POSTGRES]
-
-        # Override with service-specific config
-        merged_config.update(storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
-
-        # Include service-specific postgres config (overrides global if present)
-        if DocpipeConfigKeys.POSTGRES in incremental_config:
-            merged_config[DocpipeConfigKeys.POSTGRES] = incremental_config[DocpipeConfigKeys.POSTGRES]
-
-        config_source = (
-            "service-specific"
-            if storage_config.get(DocpipeConfigKeys.TYPE)
-            else ("global_storage" if global_storage_config else "defaults")
-        )
-        logger.info(
-            f"Loaded incremental metadata configuration from {config_path}: "
-            f"storage={storage_backend} (source: {config_source})"
-        )
-
-        return cls(storage_backend=storage_backend, config=merged_config)
+        backend, config = _resolve_backend_and_config(yaml_config=yaml_config)
+        logger.info("Incremental metadata factory from %s: backend=%s", config_path, backend)
+        return cls(backend=backend, config=config)
 
     @classmethod
-    def from_environment(cls) -> "IncrementalMetadataFactory":
-        """
-        Create factory from environment variables only.
+    def from_default_sources(cls) -> IncrementalMetadataFactory:
+        """Build a factory from the standard config-file / env-var path.
 
-        Environment variables:
-        - DOCPIPE_INCREMENTAL_STORAGE_BACKEND: Storage backend (default: filesystem)
-        - DOCPIPE_INCREMENTAL_BASE_DIR: Base directory for file-based storage
-
-        Returns:
-            IncrementalMetadataFactory instance
-        """
-        storage_raw = os.getenv(ENV_INCREMENTAL_STORAGE_BACKEND_KEY, IncrementalStorageBackend.FILESYSTEM.value)
-
-        try:
-            storage_backend = IncrementalStorageBackend(storage_raw)
-        except ValueError:
-            # Fail fast on invalid backend
-            supported = [e.value for e in IncrementalStorageBackend]
-            raise ValueError(
-                f"Invalid storage backend '{storage_raw}' for incremental metadata. Supported backends: {supported}"
-            ) from None
-
-        logger.info(f"Creating incremental metadata factory from environment: storage={storage_backend}")
-
-        return cls(storage_backend=storage_backend)
-
-    @classmethod
-    def from_default_sources(cls) -> "IncrementalMetadataFactory":
-        """
-        Create factory from default YAML config with environment overrides.
-
-        Precedence:
-        1. Environment variables for explicit overrides
-        2. YAML config file (incremental_metadata section)
-        3. Built-in defaults (Filesystem storage)
+        Resolution order:
+        1. ``DOCPIPE_CONFIG_PATH`` environment variable
+        2. ``<project_root>/docling-pipelines-config.yaml``
+        3. Filesystem default (when no config file is found)
         """
         config_path = Path(os.getenv(ENV_CONFIG_PATH_KEY, str(DEFAULT_CONFIG_PATH)))
-
         if config_path.exists():
             try:
-                factory = cls.from_config_file(str(config_path))
+                return cls.from_config_file(config_path=str(config_path))
             except Exception as e:
-                logger.warning(f"Failed to load incremental metadata config from {config_path}: {e}. Using defaults.")
-                factory = cls()
+                logger.warning("Failed to load config from %s: %s. Using defaults.", config_path, e)
         else:
-            logger.warning(f"Config file not found at {config_path}. Using defaults for incremental metadata.")
-            factory = cls()
+            logger.warning("Config file not found at %s. Using defaults.", config_path)
+        return cls._default_backend_factory()
 
-        # Environment variable overrides
-        storage_override = os.getenv(ENV_INCREMENTAL_STORAGE_BACKEND_KEY)
-        if storage_override:
-            try:
-                factory.storage_backend = IncrementalStorageBackend(storage_override)
-                logger.info(f"Overriding incremental metadata storage backend from environment: {storage_override}")
-            except ValueError:
-                logger.warning(
-                    f"Invalid {ENV_INCREMENTAL_STORAGE_BACKEND_KEY} '{storage_override}', "
-                    f"keeping {factory.storage_backend.value}"
-                )
-
-        logger.info(
-            f"Created incremental metadata factory from default sources: "
-            f"config_path={config_path}, storage={factory.storage_backend}"
-        )
-        return factory
+    @classmethod
+    def _default_backend_factory(cls) -> IncrementalMetadataFactory:
+        if DEFAULT_STORAGE_BACKEND not in cls._stores:
+            available = ", ".join(cls._stores.keys()) or "none"
+            raise RuntimeError(
+                f"Default storage backend '{DEFAULT_STORAGE_BACKEND}' is not registered. "
+                f"Ensure the filesystem store module is imported before calling this. "
+                f"Available backends: {available}"
+            )
+        return cls(backend=DEFAULT_STORAGE_BACKEND)
 
 
-# Singleton factory instance for convenience
-_default_incremental_factory: IncrementalMetadataFactory | None = None
+# ---------------------------------------------------------------------------
+# Decorator
+# ---------------------------------------------------------------------------
 
 
-def get_default_incremental_factory() -> IncrementalMetadataFactory:
+def register_incremental_update_store(
+    store_class: type[IncrementalMetadataStore],
+) -> type[IncrementalMetadataStore]:
+    """Register an incremental metadata store class via decorator.
+
+    The decorated class must define a ``STORE_BACKEND`` class attribute whose
+    value is the string used in YAML config to select this store
+    (e.g. ``"filesystem"``, ``"postgresql"``).
+
+    Usage::
+
+        @register_incremental_update_store
+        class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
+            STORE_BACKEND = "filesystem"
     """
-    Get default incremental metadata factory instance (singleton).
+    return IncrementalMetadataFactory.register(store_class)
 
-    Returns:
-        IncrementalMetadataFactory instance
+
+# ---------------------------------------------------------------------------
+# Internal config helper
+# ---------------------------------------------------------------------------
+
+
+def _resolve_backend_and_config(*, yaml_config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Extract backend name and merged config dict from a parsed YAML document."""
+    global_storage_config = yaml_config.get(DocpipeConfigKeys.GLOBAL_STORAGE, {})
+    incremental_config = yaml_config.get(DocpipeConfigKeys.INCREMENTAL_METADATA, {})
+    storage_config: Any | dict[Any, Any] = incremental_config.get(DocpipeConfigKeys.STORAGE, {}) or {}
+
+    # Precedence: service-specific > global_storage > default
+    backend = (
+        storage_config.get(DocpipeConfigKeys.TYPE)
+        or global_storage_config.get(DocpipeConfigKeys.TYPE)
+        or DEFAULT_STORAGE_BACKEND
+    )
+
+    if backend not in IncrementalMetadataFactory._stores:
+        available = ", ".join(IncrementalMetadataFactory._stores.keys()) or "none"
+        raise DocpipeException(f"Invalid storage backend '{backend}' for incremental metadata. Available: {available}")
+
+    # Merge config: global_storage base, overridden by service-specific block.
+    merged: dict[str, Any] = {}
+    if global_storage_config:
+        merged.update(global_storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
+        if DocpipeConfigKeys.POSTGRES in global_storage_config:
+            merged[DocpipeConfigKeys.POSTGRES] = global_storage_config[DocpipeConfigKeys.POSTGRES]
+    merged.update(storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
+    if DocpipeConfigKeys.POSTGRES in incremental_config:
+        merged[DocpipeConfigKeys.POSTGRES] = incremental_config[DocpipeConfigKeys.POSTGRES]
+
+    return backend, merged
+
+
+# ---------------------------------------------------------------------------
+# Module-level singleton factory  (mirrors get_default_factory in job_management)
+# ---------------------------------------------------------------------------
+
+_default_factory: IncrementalMetadataFactory | None = None
+_default_factory_lock: threading.Lock = threading.Lock()
+
+
+def get_default_factory() -> IncrementalMetadataFactory:
+    """Return the process-wide singleton ``IncrementalMetadataFactory``.
+
+    Built once from standard config-file / env-var sources on first call.
+    The store and service it owns are also lazy singletons on the factory.
     """
-    global _default_incremental_factory
+    global _default_factory
 
-    if _default_incremental_factory is None:
-        _default_incremental_factory = IncrementalMetadataFactory.from_default_sources()
+    if _default_factory is None:
+        with _default_factory_lock:
+            if _default_factory is None:
+                _default_factory = IncrementalMetadataFactory.from_default_sources()
 
-    return _default_incremental_factory
-
-
-def reset_default_incremental_factory() -> None:
-    """
-    Reset default incremental metadata factory instance (useful for testing).
-    """
-    global _default_incremental_factory
-    _default_incremental_factory = None
+    return _default_factory
 
 
-def create_incremental_metadata_store(*, job_id: str | None = None) -> IncrementalMetadataStore:
-    """
-    Create incremental metadata store from docling-pipelines-config.yaml.
+def set_default_factory(factory: IncrementalMetadataFactory) -> None:
+    """Replace the process-wide singleton factory.
 
-    This is the primary entry point for creating incremental metadata stores.
-    Configuration is loaded from the docling-pipelines-config.yaml file's
-    incremental_metadata section.
-
-    The store is job-agnostic and can be used across multiple jobs.
-    Job IDs are passed to individual store methods, not at creation time.
+    Intended for callers that need to install a pre-configured factory
+    before any component requests the singleton.  Thread-safe: acquires
+    the same lock used by get_default_factory().
 
     Args:
-        job_id: Optional job identifier for logging purposes only
-
-    Returns:
-        Configured incremental metadata store
-
-    Raises:
-        ValueError: If configuration is invalid or missing
-        FileNotFoundError: If required configuration file is not found
-
-    Example YAML configuration:
-        incremental_metadata:
-          storage:
-            type: "filesystem"  # Options: filesystem, postgresql
-            config:
-              base_dir: "/path/to/metadata"
-              lock_timeout: 30.0
-
-          # PostgreSQL config (when type is "postgresql")
-          postgres:
-            host: "localhost"
-            port: 5432
-            database: "docpipe"
-            user: "docpipe_user"
-            password: "${POSTGRES_PASSWORD}"
-            schema: "incremental_metadata"
+        factory: The IncrementalMetadataFactory instance to install as
+                 the process-wide singleton.
     """
-    factory = get_default_incremental_factory()
-    store = factory.create_incremental_metadata_store()
+    global _default_factory
+    with _default_factory_lock:
+        _default_factory = factory
 
-    if job_id:
-        logger.info(f"Created incremental metadata store for job_id={job_id} using {factory.storage_backend} backend")
-    else:
-        logger.info(f"Created incremental metadata store using {factory.storage_backend} backend")
 
-    return store
+def get_incremental_update_service() -> IncrementalUpdateService:
+    """Return the process-wide singleton ``IncrementalUpdateService``.
+
+    Thin convenience wrapper over ``get_default_factory().get_service()``.
+    All callers share the same store and service instance.
+    """
+    return get_default_factory().get_service()

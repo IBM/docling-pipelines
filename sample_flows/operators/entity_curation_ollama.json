@@ -8,16 +8,20 @@
     "output_folder": "./tests/fixtures/invoices",
     "storage": "disk",
     "execute_type": "local",
-    "data_storage_type":"local"
+    "data_storage_type": "local"
   },
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./tests/fixtures/invoices",
-        "include_filter": "txt,pdf,docx",
-        "max_workers": 2
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./tests/fixtures/invoices"
+          ]
+        },
+        "include_filter": "txt,pdf,docx"
       }
     },
     {

@@ -27,6 +27,7 @@ This architecture enables:
 - **Dual-Mode Operation**: Supports both text extraction and entity extraction in a single operator
 - **Multiple Text Extraction Strategies**: Docling Library (with optional VLM and ASR pipeline) and Docling Serve API
 - **Multiple Entity Extraction Strategies**: LiteLLM (including Ollama via openai/ prefix), Docling template-based, and WatsonX
+- **Streaming Pipeline**: When entity extraction is enabled, each document is submitted for entity extraction immediately after its text extraction completes, without waiting for the full batch. The two stages run concurrently, reducing end-to-end latency on large batches.
 - **Estimated Page Count Calculation**: Automatically calculates estimated page counts for extracted text
 - **Parallel Processing**: Automatic worker optimization based on CPU count
 - **Flexible Configuration**: Provider-specific parameters with sensible defaults
@@ -39,7 +40,6 @@ This architecture enables:
   "type": "extract_operator",
   "name": "extract_documents",
   "config": {
-    "max_workers": 4,
     "text_extraction": {
       "provider": "docling_library",
       "doc_column": "content",
@@ -98,6 +98,65 @@ Enable VLM pipeline for enhanced extraction with vision-language models:
   }
 }
 ```
+
+**GPU Acceleration Configuration:**
+
+Enable GPU-accelerated standard pipeline processing for PDF and image documents. The adapter builds one `DocumentConverter` at initialization and reuses it across all documents — model weights are loaded onto the GPU once per adapter execution.
+
+> **Note:** Cannot be combined with `vlm_pipeline`. Requires `max_workers: 1` and `use_processes: false`.
+
+When `device` is omitted, the best available GPU is auto-detected at runtime via torch (CUDA → MPS → XPU). Specify `device` explicitly to pin a particular GPU.
+
+```json
+{
+  "max_workers": 1,
+  "use_processes": false,
+  "text_extraction": {
+    "provider": "docling_library",
+    "doc_column": "content",
+    "provider_config": {
+      "standard_pipeline": {
+        "accelerator": {
+          "num_threads": 6
+        }
+      }
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
+}
+```
+
+Or with an explicit device:
+
+```json
+{
+  "max_workers": 1,
+  "use_processes": false,
+  "text_extraction": {
+    "provider": "docling_library",
+    "doc_column": "content",
+    "provider_config": {
+      "standard_pipeline": {
+        "accelerator": {
+          "device": "cuda",
+          "num_threads": 6
+        }
+      }
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
+}
+```
+
+**Supported GPU Devices:**
+- `mps` — Apple Metal Performance Shaders (Apple Silicon: M1/M2/M3/M4)
+- `cuda` — NVIDIA CUDA (automatic device selection)
+- `cuda:<index>` — NVIDIA CUDA on a specific device (e.g. `cuda:0`, `cuda:1`)
+- `xpu` — Intel XPU
 
 **Supported VLM Engines:**
 - `transformers`: Local inference using Transformers library
@@ -199,9 +258,13 @@ REST API-based extraction using the Docling-Serve service for scalable, producti
       "timeout": 300,
       "poll_interval": 2,
       "max_retries": 3,
-      "do_ocr": true,
-      "ocr_engine": "easyocr",
-      "ocr_languages": ["en"],
+      "ocr": {
+        "enabled": true,
+        "engine": "easyocr",
+        "engine_options": {
+          "lang": ["en"]
+        }
+      },
       "pdf_backend": "dlparse_v4",
       "table_mode": "accurate",
       "image_export_mode": "embedded"
@@ -256,6 +319,7 @@ docker-compose -f docker-compose.docling-serve.yml up -d
   - `accurate`: High accuracy (slower)
   - `fast`: Fast processing (less accurate)
 - **Image Export Options**:
+  - `placeholder`: Replace images with a placeholder (default)
   - `embedded`: Embed images in output
   - `referenced`: Reference images by path
   - `none`: Skip image export
@@ -557,6 +621,10 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `text_extraction.provider_config.vlm_pipeline.engine_options` | object | `{}`        | Engine-specific options (api_base, model_id, etc.)                  |
 | `text_extraction.provider_config.asr_pipeline`        | object  | `null`              | ASR (Automatic Speech Recognition) pipeline configuration object. Provide empty dict `{}` to enable with defaults, or omit to disable. |
 | `text_extraction.provider_config.asr_pipeline.model_id` | string | `"whisper_turbo"` | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
+| `text_extraction.provider_config.standard_pipeline` | object | `null` | Standard pipeline acceleration block. Omit entirely to use default Docling behaviour. |
+| `text_extraction.provider_config.standard_pipeline.accelerator` | object | `null` | GPU accelerator options. When present, one `DocumentConverter` is built at init and reused. **Requires `max_workers: 1` and `use_processes: false`. Cannot be combined with `vlm_pipeline`.** |
+| `text_extraction.provider_config.standard_pipeline.accelerator.device` | string | auto-detected | GPU device. Accepted: `mps`, `cuda`, `cuda:<index>` (e.g. `cuda:0`), `xpu`. When omitted, best available device is auto-detected via torch (CUDA → MPS → XPU). Validated at runtime via torch backends. |
+| `text_extraction.provider_config.standard_pipeline.accelerator.num_threads` | int | `4` | CPU-side pipeline thread count. Must be a positive integer (booleans rejected). |
 
 ### Docling Serve Provider Parameters
 
@@ -567,12 +635,89 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `text_extraction.provider_config.timeout`              | integer  | `300`                     | Request timeout in seconds                                    |
 | `text_extraction.provider_config.poll_interval`        | integer  | `2`                       | Polling interval in seconds                                   |
 | `text_extraction.provider_config.max_retries`          | integer  | `3`                       | Maximum retry attempts                                        |
-| `text_extraction.provider_config.do_ocr`               | boolean  | `true`                    | Enable OCR processing                                         |
-| `text_extraction.provider_config.ocr_engine`           | string   | `"easyocr"`               | OCR engine: `"easyocr"` or `"tesseract"`                      |
-| `text_extraction.provider_config.ocr_languages`        | array    | `null`                    | List of OCR languages (e.g., `["en", "es"]`)                  |
+| `text_extraction.provider_config.additional_formats`   | array    | `[]`                      | Additional output formats beyond markdown (e.g., `["html", "json", "text", "doctags", "doclang"]`) |
+| `text_extraction.provider_config.ocr`                  | object   | `null`                    | **Canonical OCR config block** (see OCR Configuration section below) |
 | `text_extraction.provider_config.pdf_backend`          | string   | `"dlparse_v2"`            | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
-| `text_extraction.provider_config.table_mode`           | string   | `"fast"`                  | Table extraction mode: `"accurate"` or `"fast"`               |
-| `text_extraction.provider_config.image_export_mode`    | string   | `"placeholder"`           | Image export mode: `"embedded"`, `"referenced"`, or `"none"`  |
+| `text_extraction.provider_config.table_mode`           | string   | `null`                    | Table extraction mode: `"accurate"` or `"fast"`. Not set by default; the Docling Serve instance uses its own default. |
+| `text_extraction.provider_config.image_export_mode`    | string   | `"placeholder"`           | Image export mode: `"placeholder"`, `"embedded"`, `"referenced"`, or `"none"` |
+
+
+### OCR Configuration
+
+Both `docling_library` and `docling_serve` providers accept an `ocr` block inside `provider_config`. Omitting the block entirely uses docling-pipelines defaults (OCR enabled, RapidOCR engine, default mode).
+
+```json
+"provider_config": {
+  "ocr": {
+    "enabled": true,
+    "engine": "easyocr",
+    "mode": "pdf_aware_layout_regions",
+    "engine_options": {
+      "lang": ["en", "fr"],
+      "use_gpu": false,
+      "confidence_threshold": 0.5
+    }
+  }
+}
+```
+
+#### OCR Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `ocr.enabled` | bool | `true` | Enable OCR processing. Set `false` to skip OCR entirely. |
+| `ocr.engine` | string | `"rapidocr"` | OCR engine. `"rapidocr"` is the default. |
+| `ocr.mode` | string | `"default"` | OCR scanning mode. `"pdf_aware_layout_regions"` is most efficient for mixed PDFs. |
+| `ocr.engine_options` | object | `null` | Engine-specific parameters (see table below). |
+
+#### Supported Engines
+
+| Engine | Value | Install extra | Notes |
+|---|---|---|---|
+| Auto-select | `"auto"` | none | Optional runtime selection when you explicitly want Docling to choose an installed backend. |
+| EasyOCR | `"easyocr"` | `easyocr` | Cross-platform alternative; 80+ languages. |
+| Tesseract (Python bindings) | `"tesserocr"` | `tesserocr` | Linux-focused local OCR option; 3-letter ISO 639-2 lang codes; PSM control. |
+| Tesseract (CLI) | `"tesseract"` | `tesseract` binary | Same as above via CLI; portable. |
+| RapidOCR | `"rapidocr"` | included in base install | Default OCR engine for new users; PaddlePaddle-based; multiple backends. |
+| macOS Vision | `"ocrmac"` | `ocrmac` | Optional macOS-specific alternative; Apple-only. |
+| KServe V2 | `"kserve_v2_ocr"` | custom | Remote KServe/Triton inference server. |
+| Nemotron OCR | `"nemotron-ocr"` | custom | NVIDIA Nemotron v2. |
+
+#### Installation Guidance by OS
+
+RapidOCR is included in the default PyPI install, and `ocr.engine: "rapidocr"` is the default runtime behaviour for first-run OCR.
+
+| OS / environment | Default install behaviour | Notes |
+|---|---|---|
+| macOS | `pip install docling-pipelines` | RapidOCR works out of the box. Install `docling-pipelines[ocrmac]` only if you want Apple's Vision OCR explicitly. |
+| Linux | `pip install docling-pipelines` | RapidOCR works out of the box. Install `docling-pipelines[tesserocr]` only if you want Tesseract bindings explicitly. |
+| Cross-platform / unsure | `pip install docling-pipelines` | Recommended for new users. First OCR run should work without extra setup. |
+
+#### Supported Modes
+
+| Mode | Value | Behaviour |
+|---|---|---|
+| Default | `"default"` | Docling picks automatically |
+| Full page | `"full_page"` | Scan entire page as one region |
+| Layout regions | `"layout_regions"` | Scan only layout-detected text regions |
+| PDF-aware layout regions | `"pdf_aware_layout_regions"` | Skip regions with an existing PDF text layer — most efficient for mixed PDFs |
+
+#### `engine_options` Reference
+
+| Engine | Key | Type | Notes |
+|---|---|---|---|
+| `easyocr` | `lang` | list[str] | ISO 639-1 codes, e.g. `["en", "fr"]` |
+| `easyocr` | `use_gpu` | bool/null | `null` = auto-detect |
+| `easyocr` | `confidence_threshold` | float | 0.0–1.0 |
+| `tesserocr` / `tesseract` | `lang` | list[str] | 3-letter ISO 639-2, e.g. `["eng", "fra"]` |
+| `tesserocr` / `tesseract` | `psm` | int | Page segmentation mode 0–13 |
+| `tesserocr` / `tesseract` | `path` | str/null | Tessdata directory |
+| `rapidocr` | `lang` | list[str] | Language list |
+| `rapidocr` | `backend` | string | `"onnxruntime"`, `"openvino"`, `"paddle"`, `"torch"` |
+| `rapidocr` | `text_score` | float | Detection confidence threshold |
+| `ocrmac` | `lang` | list[str] | Locale format, e.g. `["en-US"]` |
+| `ocrmac` | `recognition` | string | `"accurate"` or `"fast"` |
+
 
 ### Docling Entity Extraction Parameters
 
@@ -582,30 +727,37 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 
 **vlm_pipeline Structure:**
 
-For inline models (HuggingFace):
+Only `"inline"` models (HuggingFace) are supported. API model types are not supported by Docling's `DocumentExtractor`; use `entity_extraction.provider: "litellm"` for API-based extraction instead.
+
+Example (all fields shown with their defaults; only `repo_id` is required):
 ```json
 {
   "model_type": "inline",
-  "model_name": "ibm-granite/granite-3.0-8b-instruct",
-  "backend": "transformers|vllm|mlx",
-  "device": "cuda|cpu|mps",
-  "quantization": "4bit|8bit|none",
-  "temperature": 0.0,
-  "max_new_tokens": 2048
+  "inline_model": {
+    "repo_id": "numind/NuExtract-2.0-2B",
+    "inference_framework": "transformers",
+    "scale": 2.0,
+    "temperature": 0.0,
+    "max_new_tokens": 4096,
+    "load_in_8bit": true,
+    "torch_dtype": "bfloat16",
+    "prompt": "",
+    "response_format": "markdown"
+  }
 }
 ```
 
-For API models (Ollama, vLLM, OpenAI-compatible):
-```json
-{
-  "model_type": "api",
-  "model_name": "ibm/granite-docling:258m",
-  "api_url": "http://localhost:11434/v1/chat/completions",
-  "api_key": "optional-api-key",  # pragma: allowlist secret
-  "temperature": 0.0,
-  "max_new_tokens": 2048
-}
-```
+| `inline_model` field      | Type    | Default        | Description                                                              |
+|---------------------------|---------|----------------|--------------------------------------------------------------------------|
+| `repo_id`                 | string  | required       | HuggingFace repository ID (e.g., `"numind/NuExtract-2.0-2B"`)           |
+| `inference_framework`     | string  | `"transformers"` | Inference backend: `"transformers"`, `"vllm"`, or `"mlx"`             |
+| `scale`                   | float   | `2.0`          | Image scale factor for rendering                                         |
+| `temperature`             | float   | `0.0`          | Sampling temperature                                                     |
+| `max_new_tokens`          | integer | `4096`         | Maximum tokens to generate                                               |
+| `load_in_8bit`            | boolean | `false`        | Load model in 8-bit quantization                                         |
+| `torch_dtype`             | string  | `"bfloat16"`   | Torch data type: `"bfloat16"`, `"float16"`, `"float32"`                 |
+| `prompt`                  | string  | `""`           | Custom prompt override (leave empty to use model default)                |
+| `response_format`         | string  | `"markdown"`   | Expected response format from the model                                  |
 
 ### LiteLLM Entity Extraction Parameters
 
@@ -670,7 +822,7 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
 
 ```json
 {
-  
+
   "operator_params": {
     "text_extraction": {
       "provider": "docling_library",
@@ -689,7 +841,7 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 2,
     "text_extraction": {
@@ -719,7 +871,7 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 1,
     "text_extraction": {
@@ -751,9 +903,14 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
       "doc_column": "content",
       "provider_config": {
         "base_url": "http://localhost:5001",
-        "do_ocr": true,
-        "ocr_engine": "easyocr",
-        "ocr_languages": ["en", "es"],
+        "ocr": {
+          "enabled": true,
+          "engine": "tesseract",
+          "mode": "layout_regions",
+          "engine_options": {
+            "lang": ["eng", "spa"]
+          }
+        },
         "pdf_backend": "dlparse_v4",
         "table_mode": "accurate"
       }
@@ -769,7 +926,7 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 2,
     "text_extraction": {
@@ -803,7 +960,7 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 1,
     "text_extraction": {
@@ -834,7 +991,7 @@ When `expand_extracted_data: true`, entity fields are expanded into individual c
 
 ```json
 {
-  
+
   "operator_params": {
     "max_workers": 2,
     "text_extraction": {

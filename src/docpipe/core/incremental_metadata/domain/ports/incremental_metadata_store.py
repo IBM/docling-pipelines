@@ -23,7 +23,7 @@ class IncrementalMetadataStore(ABC):
     @abstractmethod
     def get_processed_docs(self, *, job_id: str) -> dict[str, Any]:
         """
-        Retrieve processed document IDs with their modification times.
+        Retrieve processed document IDs with their modification times and job run IDs.
 
         Returns only non-deleted documents.
 
@@ -31,12 +31,13 @@ class IncrementalMetadataStore(ABC):
             job_id: Unique identifier for the job
 
         Returns:
-            Dictionary mapping doc_id to modified_time for all processed documents
+            Dictionary mapping doc_id to {"modified_time": ..., "job_run_id": ...}
+            for all processed documents
 
         Raises:
             Exception: If retrieval operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def upsert_records(self, *, job_id: str, job_run_id: str, records: list[IncrementalMetadataRecord]) -> None:
@@ -54,7 +55,7 @@ class IncrementalMetadataStore(ABC):
         Raises:
             Exception: If upsert operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_soft_deleted_doc_ids(self, *, job_id: str) -> set[str]:
@@ -70,7 +71,7 @@ class IncrementalMetadataStore(ABC):
         Raises:
             Exception: If retrieval operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def mark_missing_docs_as_deleted(self, *, job_id: str, doc_ids: list[str]) -> set[str]:
@@ -90,7 +91,7 @@ class IncrementalMetadataStore(ABC):
         Raises:
             Exception: If marking operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def delete_docs(self, *, job_id: str, doc_ids: list[str]) -> None:
@@ -106,7 +107,7 @@ class IncrementalMetadataStore(ABC):
         Raises:
             Exception: If deletion operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def clear(self, *, job_id: str) -> None:
@@ -121,4 +122,4 @@ class IncrementalMetadataStore(ABC):
         Raises:
             Exception: If clear operation fails
         """
-        pass
+        ...

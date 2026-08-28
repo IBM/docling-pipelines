@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -28,7 +28,7 @@ def make_date_uniform(*, date_str: Any) -> str | None:
         >>> make_date_uniform(date_str="2024/01/15")
         '2024-01-15'
     """
-    if not date_str or date_str is None:
+    if not date_str:
         return None
 
     value_str = str(date_str).strip()
@@ -79,7 +79,7 @@ def make_date_uniform(*, date_str: Any) -> str | None:
 
     for fmt in text_formats:
         try:
-            dt = datetime.strptime(value_str, fmt)
+            dt = datetime.strptime(value_str, fmt).replace(tzinfo=UTC)
             return dt.strftime("%Y-%m-%d")
         except ValueError:
             continue
@@ -93,7 +93,7 @@ def make_date_uniform(*, date_str: Any) -> str | None:
             return matches[0].strftime("%Y-%m-%d")
     except ImportError:
         pass
-    except Exception:
+    except Exception:  # nosec B110 — intentional: date parsing is best-effort; any failure returns None
         pass
 
     # If all parsing attempts fail, return None

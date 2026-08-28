@@ -3,7 +3,6 @@
 Unit tests for OpenSearchClient
 """
 
-import os
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -35,7 +34,7 @@ class TestOpenSearchClientInitialization:
             host="opensearch.example.com",
             port=443,
             username="admin",
-            password=os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw"),
+            password="secret",  # pragma: allowlist secret
             use_ssl=True,
             verify_certs=False,
             timeout=120,
@@ -44,7 +43,7 @@ class TestOpenSearchClientInitialization:
         assert client.host == "opensearch.example.com"
         assert client.port == 443
         assert client.username == "admin"
-        assert client.password == os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw")
+        assert client.password == "secret"  # pragma: allowlist secret
         assert client.use_ssl is True
         assert client.verify_certs is False
         assert client.timeout == 120
@@ -126,7 +125,7 @@ class TestConnectionSetup:
             host="localhost",
             port=9200,
             username="admin",
-            password=os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw"),
+            password="admin",  # pragma: allowlist secret
             use_ssl=False,
             verify_certs=False,
         )
@@ -136,7 +135,7 @@ class TestConnectionSetup:
         assert result == mock_client
         mock_opensearch.assert_called_once()
         call_kwargs = mock_opensearch.call_args[1]
-        assert call_kwargs["http_auth"] == ("admin", os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw"))
+        assert call_kwargs["http_auth"] == ("admin", "admin")
         assert call_kwargs["use_ssl"] is False
         assert call_kwargs["verify_certs"] is False
 

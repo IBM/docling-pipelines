@@ -15,8 +15,12 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import requests
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
+    register_text_extraction_adapter,
+)
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.integrations.docling.client import DoclingServeClient
@@ -25,6 +29,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger: logging.Logger = get_logger()
 
 
+@register_text_extraction_adapter
 class DoclingServeAdapter(TextExtractionPort):
     """Adapter for remote Docling Serve document extraction.
 
@@ -39,7 +44,7 @@ class DoclingServeAdapter(TextExtractionPort):
 
     Configuration:
         docling_serve_config: Dictionary containing:
-            - base_url: Docling Serve API endpoint (default: "http://localhost:5001")
+            - base_url: Docling Serve API endpoint (default: "http://0.0.0.0:5001")
             - api_key: Optional API key for authentication
             - timeout: Request timeout in seconds (default: 300)
             - poll_interval: Polling interval in seconds (default: 2)
@@ -104,29 +109,44 @@ class DoclingServeAdapter(TextExtractionPort):
             raise ValueError("docling_serve_config is required for DoclingServeAdapter")
 
         # Extract connection parameters
-        self.base_url = docling_serve_config.get("base_url", "http://localhost:5001")
+        self.base_url = docling_serve_config.get("base_url", "http://0.0.0.0:5001")
         self.api_key = docling_serve_config.get(OperatorConstants.Config.API_KEY)
         self.timeout = docling_serve_config.get("timeout", 300)
         self.poll_interval = docling_serve_config.get("poll_interval", 2)
         self.max_retries = docling_serve_config.get("max_retries", 3)
         self.verify_ssl = docling_serve_config.get("verify_ssl", True)
 
-        # Build processing options — only include what the user explicitly configured.
-        # Markdown is always sent by the client as the default to_formats value.
+        # Build processing options (additional_formats is read from top-level config by the port base class;
+        # we pass it into processing_options so _build_options in the client can forward it to the API)
         self.processing_options: dict[str, Any] = {
-            "do_ocr": docling_serve_config.get("do_ocr", True),
             "pdf_backend": docling_serve_config.get("pdf_backend", "dlparse_v2"),
         }
 
-        # Pass additional formats through — client will merge with the mandatory "md" default.
         if self.additional_formats:
             self.processing_options["additional_formats"] = self.additional_formats
 
-        # Add optional parameters if present
-        if "ocr_engine" in docling_serve_config:
-            self.processing_options["ocr_engine"] = docling_serve_config["ocr_engine"]
-        if "ocr_languages" in docling_serve_config:
-            self.processing_options["ocr_languages"] = docling_serve_config["ocr_languages"]
+        # OCR wiring — new canonical ocr block takes precedence over flat fields
+        ocr_block = docling_serve_config.get("ocr")
+        if ocr_block:
+            self.processing_options["do_ocr"] = ocr_block.get("enabled", True)
+            engine = ocr_block.get("engine", "rapidocr")
+            # docling-serve expects ocr_preset for engine selection
+            self.processing_options["ocr_preset"] = engine
+            ocr_mode = ocr_block.get("mode")
+            if ocr_mode and ocr_mode != "default":
+                self.processing_options["ocr_mode"] = ocr_mode
+            engine_options = ocr_block.get("engine_options") or {}
+            if engine_options.get("lang"):
+                self.processing_options["ocr_languages"] = engine_options["lang"]
+        else:
+            # Backward compatibility: honour flat fields
+            self.processing_options["do_ocr"] = docling_serve_config.get("do_ocr", True)
+            if "ocr_engine" in docling_serve_config:
+                self.processing_options["ocr_preset"] = docling_serve_config["ocr_engine"]
+            if "ocr_languages" in docling_serve_config:
+                self.processing_options["ocr_languages"] = docling_serve_config["ocr_languages"]
+
+        # Add remaining optional parameters if present
         if "table_mode" in docling_serve_config:
             self.processing_options["table_mode"] = docling_serve_config["table_mode"]
         if "image_export_mode" in docling_serve_config:
@@ -138,6 +158,15 @@ class DoclingServeAdapter(TextExtractionPort):
             self.timeout,
             self.additional_formats,
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_config import (
+            DoclingServeConfig,
+        )
+
+        return DoclingServeConfig
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs: Any) -> dict[str, Any]:
         """Extract content from a single document using Docling Serve API.
@@ -170,7 +199,7 @@ class DoclingServeAdapter(TextExtractionPort):
                 file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
 
             # Handle .txt specially (Docling cannot process them)
-            if file_suffix in [OperatorConstants.Extraction.TEXT_EXTENSION]:
+            if file_suffix in [OperatorConstants.FileExtensions.EXT_TXT]:
                 return OperatorUtils.extract_text_file(
                     file_path=file_path,
                     binary_content=binary_content,

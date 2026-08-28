@@ -1,0 +1,62 @@
+{
+  "flow_name": "comprehensive-export-box",
+  "description": "Ingest documents from a Box folder, extract text, then write a complete archive per document to a Box destination folder: original binary + extracted markdown + metadata JSON sidecar. Useful for compliance, QA, and data handoff.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "box_driver",
+        "connection_params": {
+          "folder_id": "${BOX_SOURCE_FOLDER_ID}",
+          "recursive": true
+        },
+        "include_filter": ["pdf"],
+        "credentials": {
+          "credentials_json_path": "${BOX_CONFIG_PATH}"
+        }
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": ["ingest"]
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "comprehensive_export",
+        "destination_config": {
+          "provider": "box",
+          "provider_config": {
+            "folder_id": "${BOX_DEST_FOLDER_ID}",
+            "create_dirs": true
+          },
+          "credentials": {
+            "credentials_json_path": "${BOX_CONFIG_PATH}"
+          }
+        },
+        "output_format": {
+          "content_format": "txt",
+          "include_metadata_sidecar": true
+        },
+        "output_structure": {
+          "type": "hierarchical"
+        }
+      },
+      "depends_on": ["extract"]
+    }
+  ]
+}

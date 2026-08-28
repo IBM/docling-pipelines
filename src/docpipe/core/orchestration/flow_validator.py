@@ -15,6 +15,7 @@ from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrato
 from docpipe.core.orchestration.feature_propagation import (
     FeaturePropagationResult,
     FeaturePropagator,
+    disambiguate_features,
 )
 from docpipe.core.orchestration.operator_factory import OperatorFactory, OperatorFactoryProvider
 from docpipe.exceptions.docpipe_exceptions import (
@@ -23,6 +24,7 @@ from docpipe.exceptions.docpipe_exceptions import (
     ValidationAlert,
 )
 from docpipe.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
+from docpipe.types import FlowConfig
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.orchestration.flow_utils import add_validation_alert
 from docpipe.utils.orchestration.prefect_config import clean_up_prefect_home
@@ -110,7 +112,7 @@ class FlowValidator:
         1. validate(): Basic structural validation without feature tracking
         2. validate_dag(): Full validation with error accumulation
         3. validate_dag_with_features(): Validation + feature propagation results
-        4. debug_feature_propagation(): Detailed per-node feature snapshots
+        4. propagate_features_per_node(): Per-node feature propagation results
 
     Thread Safety:
         FlowValidator instances are NOT thread-safe. Each validation request
@@ -133,8 +135,11 @@ class FlowValidator:
                 {
                     "id": "ingest-1",
                     "name": "Ingest",
-                    "operator": "ingest_local",
-                    "config": {"folder_path": "/data"},
+                    "operator": "ingest_source",
+                    "config": {
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["/data/documents"]}
+                    },
                     "output_edges": [{"node_id_ref": "extract-1"}]
                 },
                 {
@@ -161,7 +166,12 @@ class FlowValidator:
         - AbstractOrchestrator: Orchestrator interface
     """
 
-    def __init__(self, *, orchestrator: AbstractOrchestrator):
+    def __init__(
+        self,
+        *,
+        orchestrator: AbstractOrchestrator,
+        feature_propagator: FeaturePropagator | None = None,
+    ):
         """Initialize the FlowValidator.
 
         Creates a validator instance tied to a specific orchestrator. The validator
@@ -170,6 +180,10 @@ class FlowValidator:
         Args:
             orchestrator: Reference to the AbstractOrchestrator instance that will
                 execute the validation traversal. Must have flow_engine initialized.
+            feature_propagator: Optional shared FeaturePropagator instance. When
+                provided the validator reuses it instead of constructing a new one,
+                avoiding a redundant operator-metadata load (e.g. when called from
+                FlowEnrichmentService which already holds a propagator).
 
         Note:
             Operator metadata loading may fail for operators requiring external services
@@ -180,6 +194,7 @@ class FlowValidator:
         self.logger = get_logger()
         self.common_log_arguments = orchestrator.common_log_arguments
         self.operator_metadata = OperatorMetadata(orchestrator=orchestrator)
+        self._node_features_cache: dict[str, dict] | None = None
         # Load operator metadata once during initialization
         # Operators that require external services may fail to load metadata
         # This is acceptable for validation as we only need structural information
@@ -190,10 +205,10 @@ class FlowValidator:
                 f"Some operators failed to load metadata (this is normal if external services are unavailable): {e!s}"
             )
             # Continue with whatever metadata was successfully loaded
-        # Initialize feature propagator
-        self.feature_propagator = FeaturePropagator()
+        # Use injected propagator when available to avoid a redundant metadata load.
+        self.feature_propagator = feature_propagator if feature_propagator is not None else FeaturePropagator()
 
-    def validate(self, *, flow_def: dict, params: dict):
+    def validate(self, *, flow_def: FlowConfig, params: FlowConfig) -> None:
         """Main validation entry point for a flow definition.
 
         Performs basic structural validation without feature propagation.
@@ -232,7 +247,7 @@ class FlowValidator:
             )
         self.validate_dag(flow_def=flow_def, global_config=global_config)
 
-    def validate_dag(self, *, flow_def: dict, global_config: dict):
+    def validate_dag(self, *, flow_def: FlowConfig, global_config: FlowConfig) -> None:
         """Validate the DAG structure and all nodes.
 
         Performs comprehensive validation including structure checks, operator
@@ -313,11 +328,12 @@ class FlowValidator:
         validate_results = ValidateStepResults(available_features={}, errors=errors, warnings=warnings)
         session_info = get_session_info()
 
-        self.validate_first_operator(dag=dag, global_config=global_config, validate_results=validate_results)
-        self.validate_acl_operator_placement(dag=dag, validate_results=validate_results)
-        self.validate_disjoint_operators(dag=dag, global_config=global_config, validate_results=validate_results)
-        self.validate_no_cycles(dag=dag, validate_results=validate_results)
-        self.validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
+        self._validate_root_operator(dag=dag, validate_results=validate_results)
+        self._validate_acl_operator_placement(dag=dag, validate_results=validate_results)
+        self._validate_storage_output_operator_placement(dag=dag, validate_results=validate_results)
+        self._validate_disjoint_operators(dag=dag, validate_results=validate_results)
+        self._validate_no_cycles(dag=dag, validate_results=validate_results)
+        self._validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
 
         def node_validation_task(task_name, op_def, result=None, link_name=None):
             return self._validate_node(
@@ -344,7 +360,7 @@ class FlowValidator:
         )
         clean_up_prefect_home()
 
-        self.validate_last_operator(dag=dag, global_config=global_config, validate_results=validate_results)
+        self.validate_last_operator(dag=dag, validate_results=validate_results)
 
         if validate_results.warnings:
             self.logger.warning(f"Validation warnings: {validate_results.warnings}")
@@ -355,7 +371,9 @@ class FlowValidator:
         if validate_results.errors or validate_results.warnings:
             raise FlowValidationException(errors=validate_results.errors, warnings=validate_results.warnings)
 
-    def validate_dag_with_features(self, *, flow_def: dict, global_config: dict) -> FeaturePropagationResult:
+    def validate_dag_with_features(
+        self, *, flow_def: FlowConfig, global_config: FlowConfig
+    ) -> FeaturePropagationResult:
         """Validate DAG and propagate features through all nodes.
 
         This method enhances the standard validate_dag() by adding feature propagation
@@ -416,7 +434,7 @@ class FlowValidator:
 
         See Also:
             - validate_dag: Standard validation without feature propagation
-            - debug_feature_propagation: Detailed per-node feature snapshots
+            - propagate_features_per_node: Per-node feature propagation results
             - FeaturePropagator.propagate_features: Core feature tracking logic
         """
         # First, run standard validation (this will raise if validation fails)
@@ -430,9 +448,13 @@ class FlowValidator:
 
         def feature_propagation_task(task_name, op_def, prev_result=None, link_name=None):
             """Task function for feature propagation traversal."""
+            node_id, operator, operator_config = self._get_required_node_fields(op_def=op_def)
+            parent_results = self._get_parent_results(prev_result=prev_result)
             node_result = self._build_node_feature_result(
-                op_def=op_def,
-                prev_result=prev_result,
+                node_id=node_id,
+                operator=operator,
+                operator_config=operator_config,
+                parent_results=parent_results,
                 global_config=global_config,
             )
             self._merge_node_result_into_propagation_result(
@@ -466,7 +488,7 @@ class FlowValidator:
 
         return propagation_result
 
-    def _validate_node(  # NOSONAR python:S3516
+    def _validate_node(
         self,
         *,
         op_def: dict[str, Any],
@@ -479,12 +501,15 @@ class FlowValidator:
         if session_info is not None:
             set_session_info(session_info=session_info)
 
+        node_id, operator_name, operator_config = self._get_required_node_fields(op_def=op_def)
+        parent_results = self._get_parent_results(prev_result=prev_result)
         node_result = self._build_node_feature_result(
-            op_def=op_def,
-            prev_result=prev_result,
+            node_id=node_id,
+            operator=operator_name,
+            operator_config=operator_config,
+            parent_results=parent_results,
             global_config=global_config,
         )
-        node_id, operator_name, _ = self._get_required_node_fields(op_def=op_def)
 
         input_features = list(node_result.get_input_features(node_id=node_id).keys())
         output_features = list(node_result.feature_metadata.keys())
@@ -496,52 +521,54 @@ class FlowValidator:
             enable_custom_operators=self.orchestrator.enable_custom_operators,
         )
 
-        if self._evaluate_node_validation_skip(
+        # Skip validation if operator should not be validated
+        if not self._evaluate_node_validation_skip(
             operator=operator_name,
             operator_factory=operator_factory,
             global_config=global_config,
         ):
-            return node_result
+            try:
+                operator_class = operator_factory.operators.get(operator_name)
 
-        try:
-            operator_class = operator_factory.operators.get(operator_name)
+                if operator_class is not None:
+                    config = (
+                        global_config
+                        | op_def.get(OperatorConstants.Config.CONFIG, {})
+                        | {DocpipeConstants.VALIDATING_FLOW: True}
+                    )
+                    operator = operator_class(config=config)
+                    operator.name = op_def.get(OperatorConstants.Columns.NAME)
+                    operator.id = op_def.get(OperatorConstants.Columns.ID)
 
-            if operator_class is None:
+                    errors: list[Any] = []
+                    warnings: list[Any] = []
+                    operator.validate(errors=errors, warnings=warnings, available_features=input_features)
+
+                    self.create_validation_alerts(op_def=op_def, messages=errors, alerts=validate_results.errors)
+                    self.create_validation_alerts(op_def=op_def, messages=warnings, alerts=validate_results.warnings)
+                else:
+                    add_validation_alert(
+                        message=ValidationMessage(
+                            message=f"Operator '{operator_name}' is not available. Please check operator name and registration.",
+                            message_code="OPERATOR_NOT_AVAILABLE",
+                        ),
+                        op_def=op_def,
+                        alerts=validate_results.errors,
+                    )
+            except FlowValidationException as exc:
+                if exc.errors:
+                    validate_results.errors.extend(exc.errors)
+                if exc.warnings:
+                    validate_results.warnings.extend(exc.warnings)
+            except Exception as exc:
                 add_validation_alert(
                     message=ValidationMessage(
-                        message=f"Operator '{operator_name}' is not available. Please check operator name and registration.",
-                        message_code="OPERATOR_NOT_AVAILABLE",
+                        message=f"Validation failed for operator '{operator_name}': {exc!s}",
+                        message_code="OPERATOR_VALIDATION_FAILED",
                     ),
                     op_def=op_def,
                     alerts=validate_results.errors,
                 )
-                return node_result
-
-            config = global_config | op_def.get(OperatorConstants.Config.CONFIG, {})
-            operator = operator_class(config=config)
-            operator.name = op_def.get(OperatorConstants.Columns.NAME)
-            operator.id = op_def.get(OperatorConstants.Columns.ID)
-
-            errors: list[Any] = []
-            warnings: list[Any] = []
-            operator.validate(errors=errors, warnings=warnings, available_features=input_features)
-
-            self.create_validation_alerts(op_def=op_def, messages=errors, alerts=validate_results.errors)
-            self.create_validation_alerts(op_def=op_def, messages=warnings, alerts=validate_results.warnings)
-        except FlowValidationException as exc:
-            if exc.errors:
-                validate_results.errors.extend(exc.errors)
-            if exc.warnings:
-                validate_results.warnings.extend(exc.warnings)
-        except Exception as exc:
-            add_validation_alert(
-                message=ValidationMessage(
-                    message=f"Validation failed for operator '{operator_name}': {exc!s}",
-                    message_code="OPERATOR_VALIDATION_FAILED",
-                ),
-                op_def=op_def,
-                alerts=validate_results.errors,
-            )
 
         return node_result
 
@@ -563,6 +590,7 @@ class FlowValidator:
                 "tags": meta.tags,
                 "available_for_filter": meta.available_for_filter,
                 "available_for_vector_db": meta.available_for_vector_db,
+                "mandatory_for_vector_db": meta.mandatory_for_vector_db,
                 "type": meta.type,
                 **({"source_node_id": meta.node_id} if meta.node_id else {}),
             }
@@ -605,18 +633,23 @@ class FlowValidator:
     def _build_node_feature_result(
         self,
         *,
-        op_def: dict[str, Any],
-        prev_result: Any,
+        node_id: str,
+        operator: str,
+        operator_config: dict[str, Any],
+        parent_results: list[FeaturePropagationResult],
         global_config: dict[str, Any],
     ) -> FeaturePropagationResult:
-        """Build propagation state for a single node from its parents."""
-        node_id, operator, operator_config = self._get_required_node_fields(op_def=op_def)
+        """Build propagation state for a single node from its parents.
 
-        parent_results = self._get_parent_results(prev_result=prev_result)
-        input_features: dict[str, dict[str, Any]] = {}
-
-        for parent_result in parent_results:
-            input_features.update(self._feature_metadata_to_dict(result=parent_result))
+        Accepts pre-extracted fields so callers that already hold them (e.g.
+        ``feature_debug_task``) avoid running ``_get_required_node_fields`` and
+        ``_get_parent_results`` a second time.
+        """
+        input_features = self._merge_parent_input_features(
+            parent_results=parent_results,
+            operator=operator,
+            operator_config=operator_config,
+        )
 
         return self.feature_propagator.propagate_features(
             node_id=node_id,
@@ -625,6 +658,79 @@ class FlowValidator:
             input_features=input_features,
             global_config=global_config,
             parent_results=parent_results,
+            source_node_id=node_id,
+        )
+
+    def _merge_parent_input_features(
+        self,
+        *,
+        parent_results: list[FeaturePropagationResult],
+        operator: str,
+        operator_config: dict[str, Any],
+    ) -> dict[str, dict[str, Any]]:
+        """Build the flat ``input_features`` dict passed into ``propagate_features()``.
+
+        For non-merge nodes (or a merge with only one upstream branch) a plain
+        dict union is sufficient — there are no conflicting keys.
+
+        For a merge node with multiple upstream branches, duplicate feature keys
+        must be disambiguated so downstream propagation tracks which branch each
+        column originates from.  The second and subsequent occurrences of a key
+        are renamed ``<key>_<link_name>``, where the link name is resolved from
+        ``operator_config["input_links"]`` via ``node_id_ref → link_name``.
+        When a parent's ``source_node_id`` cannot be resolved in that map, the
+        parent's numeric index is used as a fallback suffix.
+
+        The join key (``"id"``) is never suffixed — the first occurrence always
+        wins, consistent with the disambiguation logic in ``merge_features()``.
+        """
+        if operator != OperatorConstants.Operators.MERGE or len(parent_results) <= 1:
+            input_features: dict[str, dict[str, Any]] = {}
+            for parent_result in parent_results:
+                input_features.update(self._feature_metadata_to_dict(result=parent_result))
+            return input_features
+
+        # Build node_id → link_name lookup from input_links in the operator config.
+        input_links = operator_config.get(OperatorConstants.Merge.INPUT_LINKS, [])
+        node_id_to_link_name: dict[str, str] = {
+            lnk["node_id_ref"]: lnk[OperatorConstants.Misc.LINK_NAME]
+            for lnk in input_links
+            if lnk.get("node_id_ref") and lnk.get(OperatorConstants.Misc.LINK_NAME)
+        }
+
+        join_key = OperatorConstants.Columns.ID
+        merge_type = operator_config.get(OperatorConstants.Merge.MERGE_TYPE, OperatorConstants.Merge.ROWS)
+        column_option = operator_config.get(OperatorConstants.Merge.COLUMN_OPTION)
+
+        # For INNER_JOIN use the intersection of all parent feature sets so that
+        # the input snapshot only contains features that will actually survive the
+        # merge — branch-exclusive keys are excluded here rather than added and
+        # then dropped inside _apply_special_case_logic.
+        if (
+            merge_type == OperatorConstants.Merge.COLUMNS
+            and column_option == OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN
+        ):
+            common_keys: set[str] = set(self._feature_metadata_to_dict(result=parent_results[0]).keys())
+            for pr in parent_results[1:]:
+                common_keys.intersection_update(self._feature_metadata_to_dict(result=pr).keys())
+            common_keys.add(join_key)
+            output_feature_set = common_keys
+        else:
+            # ROWS and FULL_OUTER_JOIN both expose all keys from all parents.
+            output_feature_set = {key for pr in parent_results for key in self._feature_metadata_to_dict(result=pr)}
+
+        # Build (suffix, feature_dict) pairs for the shared disambiguation loop.
+        parent_items: list[tuple[str, dict[str, Any]]] = []
+        for index, parent_result in enumerate(parent_results):
+            link_name = (
+                node_id_to_link_name.get(parent_result.source_node_id) if parent_result.source_node_id else None
+            ) or str(index)
+            parent_items.append((link_name, self._feature_metadata_to_dict(result=parent_result)))
+
+        return disambiguate_features(
+            parent_items=parent_items,
+            output_feature_set=output_feature_set,
+            join_key=join_key,
         )
 
     def _merge_node_result_into_propagation_result(
@@ -656,8 +762,22 @@ class FlowValidator:
         if node_id in node_result.output_features_to_drop:
             propagation_result.output_features_to_drop[node_id] = node_result.output_features_to_drop[node_id]
 
-    def debug_feature_propagation(self, *, flow_def: dict, global_config: dict) -> dict[str, dict[str, Any]]:
-        """Return per-node feature propagation snapshots without changing validation behavior."""
+    def propagate_features_per_node(
+        self, *, flow_def: FlowConfig, global_config: FlowConfig
+    ) -> dict[str, dict[str, Any]]:
+        """Propagate features through the DAG and return a per-node result dict.
+
+        Unlike validate_dag_with_features(), this method does not raise on validation
+        warnings, making it safe to call on in-progress flows. Each node in the DAG
+        produces one entry in the returned dict regardless of validation state.
+
+        The result is cached on the instance after the first call. When FlowExecutor
+        calls validate() then propagate_features_per_node() on the same validator
+        instance, the second DAG traversal is skipped entirely.
+        """
+        if self._node_features_cache is not None:
+            return self._node_features_cache
+
         normalized_flow_def = flow_def
         if "definition" in normalized_flow_def:
             normalized_flow_def = normalized_flow_def["definition"]
@@ -665,7 +785,7 @@ class FlowValidator:
             normalized_flow_def = normalized_flow_def["flow"]
 
         dag = normalized_flow_def.get(DocpipeConstants.DAG, [])
-        debug_snapshots: dict[str, dict[str, Any]] = {}
+        node_features: dict[str, dict[str, Any]] = {}
         parent_node_map: dict[str, list[str]] = {}
 
         for node in dag:
@@ -674,19 +794,24 @@ class FlowValidator:
             parent_node_map[node_id] = parent_ids
 
         def feature_debug_task(task_name, op_def, prev_result=None, link_name=None):
-            node_id = op_def.get(OperatorConstants.Misc.ID)
-            operator = op_def.get(OperatorConstants.Misc.OPERATOR)
+            node_id, operator, operator_config = self._get_required_node_fields(op_def=op_def)
+            parent_results = self._get_parent_results(prev_result=prev_result)
 
+            # Pass pre-extracted fields to avoid running _get_required_node_fields
+            # and _get_parent_results a second time inside _build_node_feature_result.
             node_result = self._build_node_feature_result(
-                op_def=op_def,
-                prev_result=prev_result,
+                node_id=node_id,
+                operator=operator,
+                operator_config=operator_config,
+                parent_results=parent_results,
                 global_config=global_config,
             )
 
-            debug_snapshots[node_id] = {
+            snapshot: dict[str, Any] = {
                 "node_id": node_id,
                 "node_name": op_def.get(OperatorConstants.Misc.NAME),
                 "operator": operator,
+                "operator_config": operator_config,
                 "parent_node_ids": parent_node_map.get(node_id, []),
                 "input_features": node_result.get_input_features(node_id=node_id),
                 "output_features": node_result.get_output_features(node_id=node_id),
@@ -696,6 +821,13 @@ class FlowValidator:
                 ),
                 "global_params": dict(node_result.global_params),
             }
+
+            # Expose parent FeaturePropagationResult objects for merge strategy
+            # computation in FlowEnrichmentService._build_node_feature_metadata().
+            if operator == OperatorConstants.Operators.MERGE:
+                snapshot["parent_results"] = parent_results
+
+            node_features[node_id] = snapshot
 
             return node_result
 
@@ -714,20 +846,21 @@ class FlowValidator:
             flow_name="feature_propagation_debug_flow", task=feature_debug_task, dag=dag
         )
         clean_up_prefect_home()
-        return debug_snapshots
+        self._node_features_cache = node_features
+        return node_features
 
-    def validate_first_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
-        """Validate that the first operator in the DAG is an Ingest operator.
+    def _validate_root_operator(self, *, dag: list, validate_results: ValidateStepResults):
+        """Validate that the root operator of the DAG (no incoming edges) is an Ingest operator.
 
         Args:
             dag: List of operator definitions
-            global_config: Global configuration dictionary
             validate_results: Container for validation results
         """
-        # If the first operator is not an ingest, then add an error.
-        self.validate_operator_category(
-            op_def=dag[0],
-            global_config=global_config,
+        # Find the topological root — the node with no incoming edges — regardless of JSON array order.
+        reverse_graph = self._build_reverse_graph(dag=dag)
+        root_node = next(node for node in dag if not reverse_graph.get(node["id"]))
+        self._validate_operator_category(
+            op_def=root_node,
             expected_category=OperatorCategory.Ingest,
             error_message=ValidationMessage(
                 message=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.value,
@@ -736,7 +869,7 @@ class FlowValidator:
             alerts=validate_results.errors,
         )
 
-    def validate_disjoint_operators(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+    def _validate_disjoint_operators(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain disconnected (disjoint) operators.
 
         Args:
@@ -757,7 +890,6 @@ class FlowValidator:
                 graph=graph,
                 dag=dag,
                 id_to_index=id_to_index,
-                global_config=global_config,
                 validate_results=validate_results,
                 reported_nodes=reported_nodes,
             )
@@ -787,7 +919,6 @@ class FlowValidator:
         graph: dict,
         dag: list,
         id_to_index: dict,
-        global_config: dict,
         validate_results: ValidateStepResults,
         reported_nodes: set,
     ):
@@ -801,7 +932,6 @@ class FlowValidator:
                 terminal_node_id=terminal_node_id,
                 id_to_index=id_to_index,
                 dag=dag,
-                global_config=global_config,
                 validate_results=validate_results,
                 reported_nodes=reported_nodes,
             )
@@ -819,7 +949,6 @@ class FlowValidator:
         terminal_node_id: str,
         id_to_index: dict,
         dag: list,
-        global_config: dict,
         validate_results: ValidateStepResults,
         reported_nodes: set,
     ):
@@ -829,9 +958,7 @@ class FlowValidator:
             return
 
         terminal_node = dag[index]
-        category = self.get_operator_category(
-            op_def=terminal_node, global_config=global_config, alerts=validate_results.errors
-        )
+        category = self._get_operator_category(op_def=terminal_node, alerts=validate_results.errors)
 
         if category != OperatorCategory.VectorDB:
             add_validation_alert(
@@ -866,12 +993,10 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
 
-    def validate_acl_operator_placement(
-        self, *, dag: list, validate_results: ValidateStepResults
-    ):  # NOSONAR python:S3776
+    def _validate_acl_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate ACL operator placement in the DAG.
 
-        ACL operator must be placed immediately after an ingest operator (ingest_source or ingest_local).
+        ACL operator must be placed immediately after an ingest_source operator.
         Only one ACL operator is allowed per flow.
 
         Args:
@@ -949,9 +1074,12 @@ class FlowValidator:
 
         for parent in parent_operators:
             parent_op_name = parent.get(OperatorConstants.Misc.OPERATOR)
-            if parent_op_name == OperatorConstants.Operators.INGEST_SOURCE:
+            parent_metadata = self.operator_metadata.operator_metadata.get(parent_op_name, {})
+            parent_category = parent_metadata.get(OperatorConstants.Misc.CATEGORY)
+            if parent_category == OperatorCategory.Ingest:
                 has_valid_parent = True
-                ingest_source_parent = parent
+                if parent_op_name == OperatorConstants.Operators.INGEST_SOURCE:
+                    ingest_source_parent = parent
                 break
             predecessor_operator = parent_op_name
 
@@ -979,6 +1107,64 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
         # Early exit if no ACL operator present
+
+    def _validate_storage_output_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
+        """Validate that storage_output operators using refetch_original or comprehensive_export
+        have an upstream ingest_source operator in the DAG.
+
+        This check cannot be done inside StorageOutputOperator.validate() because
+        the ingest_source config key is only populated in global_config at runtime,
+        not during flow validation.
+        """
+        _modes_requiring_ingest_source = {"refetch_original", "comprehensive_export"}
+
+        storage_nodes = [
+            node
+            for node in dag
+            if node.get(OperatorConstants.Misc.OPERATOR) == OperatorConstants.Operators.STORAGE_OUTPUT
+            and node.get(OperatorConstants.Config.CONFIG, {}).get("mode") in _modes_requiring_ingest_source
+        ]
+        if not storage_nodes:
+            return
+
+        # Build a reverse-edge map: node_id -> list of parent node_ids
+        parent_map: dict[str, list[str]] = {n[OperatorConstants.Misc.ID]: [] for n in dag}
+        for node in dag:
+            for edge in node.get(DocpipeConstants.OUTPUT_EDGES, []):
+                target_id = edge.get("node_id_ref")
+                if target_id and target_id in parent_map:
+                    parent_map[target_id].append(node[OperatorConstants.Misc.ID])
+
+        # Map node_id -> operator name for ancestor lookup
+        id_to_operator: dict[str, str] = {
+            n[OperatorConstants.Misc.ID]: n.get(OperatorConstants.Misc.OPERATOR, "") for n in dag
+        }
+
+        def _has_ingest_source_ancestor(node_id: str) -> bool:
+            """BFS/DFS walk upward to find any ingest_source ancestor."""
+            visited: set[str] = set()
+            stack = list(parent_map.get(node_id, []))
+            while stack:
+                pid = stack.pop()
+                if pid in visited:
+                    continue
+                visited.add(pid)
+                if id_to_operator.get(pid) == OperatorConstants.Operators.INGEST_SOURCE:
+                    return True
+                stack.extend(parent_map.get(pid, []))
+            return False
+
+        for node in storage_nodes:
+            mode = node.get(OperatorConstants.Config.CONFIG, {}).get("mode", "")
+            if not _has_ingest_source_ancestor(node[OperatorConstants.Misc.ID]):
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.value.format(mode=mode),
+                        message_code=ValidationCodeMessages.STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE.name,
+                    ),
+                    op_def=node,
+                    alerts=validate_results.errors,
+                )
 
     def _build_graph(self, dag: list) -> dict:
         """Build a directed graph representation from the DAG.
@@ -1037,7 +1223,7 @@ class FlowValidator:
                 components.append(comp)
         return components
 
-    def check_duplicate_extract_operators(self, *, sequence, global_config, errors):
+    def _check_duplicate_extract_operators(self, *, sequence, errors):
         """Check for duplicate extract operators in the sequence.
 
         Args:
@@ -1052,7 +1238,7 @@ class FlowValidator:
         extract_operator_count = 0
 
         for _, op_def in enumerate(sequence):
-            category = self.get_operator_category(op_def=op_def, global_config=global_config, alerts=errors)
+            category = self._get_operator_category(op_def=op_def, alerts=errors)
             if category == OperatorCategory.Extract:
                 extract_operator_count += 1
 
@@ -1068,15 +1254,13 @@ class FlowValidator:
 
         return extract_operator_count
 
-    def validate_last_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+    def validate_last_operator(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the last operator in the DAG is a VectorDB operator."""
         if not dag:
             return
 
         last_op = dag[-1]
-        category = self.get_operator_category(
-            op_def=last_op, global_config=global_config, alerts=validate_results.errors
-        )
+        category = self._get_operator_category(op_def=last_op, alerts=validate_results.errors)
 
         if category != OperatorCategory.VectorDB:
             add_validation_alert(
@@ -1088,7 +1272,7 @@ class FlowValidator:
                 alerts=validate_results.warnings,
             )
 
-    def validate_no_cycles(self, *, dag: list, validate_results: ValidateStepResults):  # NOSONAR python:S3776
+    def _validate_no_cycles(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain cycles.
 
         Uses depth-first search with recursion stack to detect cycles.
@@ -1131,7 +1315,7 @@ class FlowValidator:
                     )
                     break
 
-    def validate_operator_availability(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+    def _validate_operator_availability(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
         """Validate that all operators in the DAG are available in the operator factory.
 
         Performs early check before DAG traversal to fail fast with clear error.
@@ -1167,11 +1351,10 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
 
-    def validate_operator_category(
+    def _validate_operator_category(
         self,
         *,
         op_def: dict,
-        global_config: dict,
         expected_category: str,
         error_message: ValidationMessage,
         alerts: list,
@@ -1180,21 +1363,19 @@ class FlowValidator:
 
         Args:
             op_def: Operator definition dictionary
-            global_config: Global configuration dictionary
             expected_category: Expected operator category
             error_message: Error message to add if validation fails
             alerts: List to collect alerts
         """
-        category = self.get_operator_category(op_def=op_def, global_config=global_config, alerts=alerts)
+        category = self._get_operator_category(op_def=op_def, alerts=alerts)
         if category != expected_category:
             add_validation_alert(message=error_message, op_def=op_def, alerts=alerts)
 
-    def get_operator_category(self, *, op_def: dict, global_config: dict, alerts: list):
+    def _get_operator_category(self, *, op_def: dict, alerts: list):
         """Get the category of an operator.
 
         Args:
             op_def: Operator definition dictionary
-            global_config: Global configuration dictionary
             alerts: List to collect alerts
 
         Returns:
@@ -1272,8 +1453,7 @@ class FlowValidator:
         Returns:
             List of duplicate node names
         """
-        duplicates = [item for item in set(nodes) if nodes.count(item) > 1]
-        return duplicates
+        return [item for item in set(nodes) if nodes.count(item) > 1]
 
     def _evaluate_node_validation_skip(
         self, operator: str, operator_factory: OperatorFactory, global_config: dict

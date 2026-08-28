@@ -36,7 +36,54 @@ def _get_operator_sort_key(item: tuple[str, dict[str, Any] | None]) -> tuple[int
     return (CATEGORY_ORDER.get(category, UNKNOWN_CATEGORY_SORT_ORDER), label.lower())
 
 
-def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = False) -> str:  # NOSONAR python:S3776
+def _format_feature_flags(feature_info: dict[str, Any]) -> list[str]:
+    """Return the list of flag labels for a feature entry."""
+    flags = []
+    if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_FILTER):
+        flags.append("filterable")
+    if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB):
+        flags.append("vectorizable")
+    if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_OPENSEARCH):
+        flags.append("opensearch")
+    if feature_info.get(OperatorConstants.Misc.IS_PRIMARY):
+        flags.append("primary")
+    return flags
+
+
+def _format_features_section(features: dict[str, Any], lines: list[str]) -> None:
+    """Append formatted output-features block to lines."""
+    lines.append(f"\nOutput Features ({len(features)}):")
+    for feature_name, feature_info in sorted(features.items()):
+        name = feature_info.get(OperatorConstants.Columns.NAME, feature_name)
+        desc = feature_info.get(OperatorConstants.Config.DESCRIPTION, "No description")
+        feature_type = feature_info.get(OperatorConstants.Misc.TYPE, "unknown")
+        lines.append(f"  \u2022 {feature_name} ({feature_type})")
+        lines.append(f"    Name: {name}")
+        lines.append(f"    Description: {desc}")
+        flags = _format_feature_flags(feature_info)
+        if flags:
+            lines.append(f"    Flags: {', '.join(flags)}")
+
+
+def _format_attributes_section(attributes: dict[str, Any], lines: list[str]) -> None:
+    """Append formatted configuration-parameters block to lines."""
+    lines.append(f"\nConfiguration Parameters ({len(attributes)}):")
+    for attr_name, attr_info in sorted(attributes.items()):
+        name = attr_info.get(OperatorConstants.Columns.NAME, attr_name)
+        desc = attr_info.get(OperatorConstants.Config.DESCRIPTION, "No description")
+        required = attr_info.get(OperatorConstants.Config.REQUIRED, False)
+        default = attr_info.get(OperatorConstants.Config.DEFAULT, None)
+        attr_type = attr_info.get(OperatorConstants.Misc.TYPE, "unknown")
+        req_marker = "[REQUIRED]" if required else "[OPTIONAL]"
+        lines.append(f"  \u2022 {attr_name} {req_marker}")
+        lines.append(f"    Name: {name}")
+        lines.append(f"    Type: {attr_type}")
+        lines.append(f"    Description: {desc}")
+        if default is not None:
+            lines.append(f"    Default: {default}")
+
+
+def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = False) -> str:
     """
     Format operator metadata into a human-readable string.
 
@@ -52,20 +99,18 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
     Returns:
         Formatted string representation of the operator
     """
-    lines = []
+    lines: list[str] = []
 
     for short_name, metadata in sorted(operator_metadata.items(), key=_get_operator_sort_key):
         if not metadata:
             continue
 
-        # Extract metadata fields
         label = metadata.get(OperatorConstants.Misc.LABEL, short_name)
         category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
         is_available = metadata.get(OperatorConstants.Misc.IS_OPERATOR_AVAILABLE, False)
         status = "Available" if is_available else "Unavailable"
         owner = metadata.get("owner") or "docpipe"
 
-        # Operator header
         lines.append(f"\n{'=' * 80}")
         lines.append(f"Operator: {label} ({short_name})")
         lines.append(f"Category: {category}")
@@ -73,60 +118,17 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
         lines.append(f"Status: {status}")
         lines.append(f"{'=' * 80}")
 
-        # Description (always shown in default and verbose)
         description = metadata.get(OperatorConstants.Config.DESCRIPTION)
-        if description:
-            lines.append(f"\nDescription: {description}")
-        else:
-            lines.append("\nDescription: No description available")
+        lines.append(f"\nDescription: {description}" if description else "\nDescription: No description available")
 
-        # Features (output columns) - always shown with details
         features = metadata.get(OperatorConstants.Config.FEATURES, {})
         if features:
-            lines.append(f"\nOutput Features ({len(features)}):")
-            for feature_name, feature_info in sorted(features.items()):
-                name = feature_info.get(OperatorConstants.Columns.NAME, feature_name)
-                desc = feature_info.get(OperatorConstants.Config.DESCRIPTION, "No description")
-                feature_type = feature_info.get(OperatorConstants.Misc.TYPE, "unknown")
+            _format_features_section(features, lines)
 
-                lines.append(f"  • {feature_name} ({feature_type})")
-                lines.append(f"    Name: {name}")
-                lines.append(f"    Description: {desc}")
-
-                # Additional flags
-                flags = []
-                if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_FILTER):
-                    flags.append("filterable")
-                if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB):
-                    flags.append("vectorizable")
-                if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_OPENSEARCH):
-                    flags.append("opensearch")
-                if feature_info.get(OperatorConstants.Misc.IS_PRIMARY):
-                    flags.append("primary")
-                if flags:
-                    lines.append(f"    Flags: {', '.join(flags)}")
-
-        # Attributes (input parameters) - always shown
         attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
         if attributes:
-            lines.append(f"\nConfiguration Parameters ({len(attributes)}):")
-            for attr_name, attr_info in sorted(attributes.items()):
-                name = attr_info.get(OperatorConstants.Columns.NAME, attr_name)
-                desc = attr_info.get(OperatorConstants.Config.DESCRIPTION, "No description")
-                required = attr_info.get(OperatorConstants.Config.REQUIRED, False)
-                default = attr_info.get(OperatorConstants.Config.DEFAULT, None)
-                attr_type = attr_info.get(OperatorConstants.Misc.TYPE, "unknown")
+            _format_attributes_section(attributes, lines)
 
-                req_marker = "[REQUIRED]" if required else "[OPTIONAL]"
-
-                lines.append(f"  • {attr_name} {req_marker}")
-                lines.append(f"    Name: {name}")
-                lines.append(f"    Type: {attr_type}")
-                lines.append(f"    Description: {desc}")
-                if default is not None:
-                    lines.append(f"    Default: {default}")
-
-        # Required features (input columns needed)
         required_features = metadata.get("required_features", [])
         if required_features:
             lines.append(f"\nRequired Input Features: {', '.join(required_features)}")
@@ -206,8 +208,7 @@ def list_operators(verbose: bool = False, summary_only: bool = True) -> str:
 
     if summary_only:
         return display_operator_summary(operator_metadata)
-    else:
-        return format_operator_details(operator_metadata, verbose=verbose)
+    return format_operator_details(operator_metadata, verbose=verbose)
 
 
 # For testing

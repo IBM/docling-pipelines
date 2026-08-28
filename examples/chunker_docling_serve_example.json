@@ -11,9 +11,14 @@
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": ["./tests/fixtures/invoices"]
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./tests/fixtures/invoices"
+          ]
+        }
       }
     },
     {

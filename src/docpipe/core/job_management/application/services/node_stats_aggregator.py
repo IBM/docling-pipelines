@@ -42,9 +42,7 @@ class NodeStatsAggregator:
         self.job_stats_store = job_stats_store
         self.metadata_aggregator = MetadataAggregator()
 
-    def get_aggregated_node_stats(
-        self, *, job_id: str, job_run_id: str
-    ) -> dict[str, NodeStats]:  # NOSONAR python:S3776
+    def get_aggregated_node_stats(self, *, job_id: str, job_run_id: str) -> dict[str, NodeStats]:
         """
         Get aggregated node statistics.
 

@@ -59,6 +59,7 @@ distributed workloads.
 | `chunk_type` | string | No | `"simple"` | Chunking strategy: `simple`, `semantic`, or `hybrid` |
 | `chunk_size` | integer | No | `2048` | Max chunk size — characters for `simple`, tokens for `hybrid`; ignored by `semantic` |
 | `chunk_overlap` | integer | No | `200` | Overlap between consecutive chunks (characters or tokens). Max `512`. |
+| `chunk_overlap_percentage` | integer | No | `20` | Overlap expressed as a percentage of `chunk_size` (0–40). Validated for `simple` and `hybrid` only. Values above 20 produce a warning. |
 | `doc_column` | string | No | `"content"` | Input column containing text to chunk |
 | `retain_original_content` | boolean | No | `false` | Keep the original content column in the output table |
 | `docling_tokenizer` | string | No | `"sentence-transformers/all-MiniLM-L6-v2"` | HuggingFace tokenizer for `hybrid` chunking only |
@@ -235,14 +236,3 @@ Ingest → Extract → Chunker → Embeddings → VectorDB
 ### Sample flow
 
 See [`sample_flows/use_cases/invoice_processing.json`](../../../sample_flows/use_cases/invoice_processing.json).
-
-- **ExtractOperator**: Extracts text content for chunking
-- **EmbeddingsOperator**: Generates embeddings from chunks
-- **VectorDBOperator**: Stores chunked and embedded content
-- **BranchingOperator**: Enables conditional chunking strategies
-
-## References
-
-- [Docling Documentation](https://github.com/DS4SD/docling)
-- [Docling-serve API](https://github.com/DS4SD/docling-serve)
-- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture overview

@@ -11,12 +11,12 @@ This example demonstrates how to use the OpenSearch operator for vector similari
    ```
 
 2. **Configure Environment Variables**
-   
+
    Create a `.env` file in the project root with your OpenSearch configuration:
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` and set your OpenSearch connection details:
    ```bash
    # OpenSearch Connection
@@ -25,18 +25,18 @@ This example demonstrates how to use the OpenSearch operator for vector similari
    OPENSEARCH_USE_SSL=true
    OPENSEARCH_VERIFY_CERTS=true
    OPENSEARCH_USERNAME=your-username
-   OPENSEARCH_PASSWORD=
-   
+   OPENSEARCH_PASSWORD=${OPENSEARCH_PASSWORD}
+
    # Index Configuration
    OPENSEARCH_INDEX_NAME=docpipe_vectors
    OPENSEARCH_VECTOR_DIMENSION=384
-   
+
    # Engine Configuration
    OPENSEARCH_ENGINE=faiss
    OPENSEARCH_ALGORITHM=hnsw
    OPENSEARCH_SPACE_TYPE=l2
    ```
-   
+
    See [Environment Setup Guide](../docs/integrations/opensearch/ENVIRONMENT_SETUP.md) for complete configuration details.
 
 ## Running the Example
@@ -149,13 +149,14 @@ To use OpenSearch in a complete pipeline:
 
 ```python
 # 1. Ingest documents
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 ingest_config = {
-    "paths": "/path/to/documents",
-    "file_extensions": [".pdf", ".docx", ".txt"]
+    "provider": "filesystem",
+    "connection_params": {"paths": ["/path/to/documents"]},
+    "include_filter": "pdf,docx,txt"
 }
-ingest_op = IngestLocalOperator(ingest_config)
+ingest_op = IngestSourceOperator(ingest_config)
 table = ingest_op.transform()
 
 # 2. Extract content

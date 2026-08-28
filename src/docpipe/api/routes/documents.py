@@ -39,9 +39,7 @@ documents_router = APIRouter(prefix="/documents", tags=["documents"])
                     "example": {
                         "id": "doc-123",
                         "content": "This is the document content...",
-                        "title": "Sample Document",
                         "metadata": {"category": "tech", "author": "John Doe"},
-                        "allowed_users": ["john.doe", "jane.smith"],
                         "created_at": "2026-05-01T10:00:00Z",
                         "updated_at": "2026-05-15T14:30:00Z",
                     }
@@ -191,9 +189,7 @@ async def get_document(
                             {
                                 "id": "doc-123",
                                 "content": "Machine learning content...",
-                                "title": "ML Guide",
                                 "metadata": {"category": "tech"},
-                                "allowed_users": ["john.doe"],
                                 "created_at": "2026-05-01T10:00:00Z",
                                 "updated_at": "2026-05-15T14:30:00Z",
                             }

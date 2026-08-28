@@ -5,6 +5,26 @@ assets_management:
       # Set this to the directory where your flow definitions are stored (flow repository).
       base_dir: sample_flows
 
+  documentset_repository:
+    type: duckdb
+    config:
+      # Database path for DuckDB storage
+      database_path: data/duckdb/document_sets.duckdb
+
+  documentlibrary_repository:
+    type: duckdb
+    config:
+      # Database path for DuckDB storage
+      database_path: data/duckdb/document_sets.duckdb
+
+projects_management:
+  project_repository:
+    type: local
+    config:
+      # Set this to the directory where project definitions are stored.
+      # Defaults to ~/Documents/pipeline/projects if not specified.
+      base_dir: sample_projects
+
 job_management:
   framework:
     type: default
@@ -17,6 +37,13 @@ job_management:
       base_dir: ./data/job_stats_store_data
 
 
+job_run_report:
+  storage:
+    # Report storage backend options: filesystem
+    # filesystem stores reports at data/{job_id}/{job_run_id}/job_report_{job_run_id}.csv
+    type: filesystem
+    config: {}
+
 incremental_metadata:
   storage:
     type: "filesystem"
@@ -24,12 +51,28 @@ incremental_metadata:
       base_dir: "./data"
       lock_timeout: 30.0
 
+flow_definition_snapshot:
+  storage:
+    type: "filesystem"
+    config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+
+# Secret provider configuration.
+# Enable Vault to allow flow configs to use vault:// references for secrets.
+# Credentials (VAULT_ROLE_ID, VAULT_SECRET_ID) must be set as environment variables.
+# See src/docpipe/integrations/secrets/hashicorp_vault.py for all supported env vars.
+secrets:
+  vault:
+    enabled: false          # Set to true to enable HashiCorp Vault integration
+    provider: hashicorp     # Provider name used in vault:// URIs
+
 #
 #    # To use DuckDB (embedded database, no server required), uncomment below:
 #    type: duckdb
 #    config:
 #      database_path: ./data/duckdb/job_stats.duckdb
-    
+
     # To use PostgreSQL (requires running PostgreSQL server), uncomment below:
 #     type: postgresql
 #     config:

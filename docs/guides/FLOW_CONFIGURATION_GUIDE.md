@@ -51,13 +51,13 @@ Docling Pipelines pipelines are defined using JSON configuration files. Here's t
 
 The `global_config` object supports the following options:
 
-| Field                | Type    | Description                      | Default           | Example                   |
-| -------------------- |---------| -------------------------------- |-------------------|---------------------------|
-| `doc_column`         | string  | Column name for document content | `"content"`       | `"content"`               |
-| `force_ingest`       | boolean | Force re-ingestion of documents  | `false`           | `true`                    |
-| `disable_validation` | boolean | Disable flow validation          | `false`           | `true`                    |
+| Field                | Type     | Description                      | Default         | Example                 |
+| -------------------- |----------| -------------------------------- |-----------------|-------------------------|
+| `doc_column`         | string   | Column name for document content | `"content"`     | `"content"`             |
+| `force_ingest`       | boolean  | Force re-ingestion of documents  | `false`         | `true`                  |
+| `disable_validation` | boolean  | Disable flow validation          | `false`         | `true`                  |
 
-**Example with global configuration:**
+**Example with global configuration**
 
 ```json
 {
@@ -120,18 +120,18 @@ When creating flows via the REST API, a `flow_id` is automatically generated and
 
 ## Operator Configuration
 
-### Operator 1: IngestLocalOperator
+### Operator 1: IngestSourceOperator
 
 Reads files from a local directory:
 
 ```json
 {
   "name": "ingest",
-  "type": "ingest_local",
+  "type": "ingest_source",
   "config": {
-    "paths": "./tests/fixtures/invoices",
-    "include_filter": ".pdf",
-    "max_workers": 2
+    "provider": "filesystem",
+    "connection_params": {"paths": ["./tests/fixtures/invoices"]},
+    "include_filter": ".pdf"
   }
 }
 ```
@@ -243,6 +243,42 @@ For LLM-powered entity extraction using Ollama models, use `entity_extraction.pr
 
 This approach uses LiteLLM to access Ollama models for flexible, LLM-powered entity extraction. This is useful when you need to extract specific fields from structured documents like invoices, forms, or receipts.
 
+#### GPU-Accelerated Text Extraction
+
+For hardware-accelerated PDF and image extraction using a local GPU. The adapter builds one `DocumentConverter` at initialization and reuses it for every document — GPU model weights are loaded once per flow execution.
+
+> Requires `max_workers: 1` and `use_processes: false`. Cannot be combined with `vlm_pipeline`.
+
+When `device` is omitted, the best available GPU is auto-detected via torch at runtime (CUDA → MPS → XPU). Specify `device` explicitly to pin a particular GPU.
+
+```json
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "standard_pipeline": {
+          "accelerator": {
+            "num_threads": 6
+          }
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
+    "max_workers": 1,
+    "use_processes": false
+  }
+}
+```
+
+**Supported devices:** `mps` (Apple Silicon), `cuda` (NVIDIA), `cuda:<index>` (e.g. `cuda:0`), `xpu` (Intel). Auto-detected when `device` is not specified.
+
 ---
 
 ### Operator 3: ChunkerOperator
@@ -305,12 +341,12 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
   "depends_on": ["embeddings"],
   "config": {
     "provider": "opensearch",
-    "index_name": "documents",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
     "vector_dimension": 384,
     "provider_config": {
+      "index_name": "documents",
       "host": "localhost",
       "port": 9200,
       "username": "admin",
@@ -367,13 +403,13 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 #### Required Parameters
 
 - **provider**: Type of vector database (uses "opensearch" by default)
-- **index_name**: Name of the OpenSearch index
+- **provider_config**: All connection parameters and the resource name for the target backend. The resource name key is provider-specific.
 - **available_features**: Defines which columns to store and their types. **Embeddings field is mandatory.**
   - Must include `embeddings` with `"type": "vector"` and `"available_for_vector_db": true`
   - Other fields are optional but recommended: content, doc_name, doc_id_hash
   - Supported types: vector, string, integer, float, boolean
-- **feature_mappings**: Maps PyArrow column names to OpenSearch field names
-  - Format: `{"pyarrow_column": "opensearch_field"}`
+- **feature_mappings**: Maps PyArrow column names to vector DB field names
+  - Format: `{"pyarrow_column": "vector_db_field"}`
   - Must include all fields defined in available_features
 
 #### Optional Provider Configurations (provider_config)
@@ -429,12 +465,12 @@ Schema templates provide reusable index configurations with consistent settings 
   "depends_on": ["embeddings"],
   "config": {
     "provider": "opensearch",
-    "index_name": "document_chunks",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
     "vector_dimension": 384,
     "provider_config": {
+      "index_name": "document_chunks",
       "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,
@@ -524,9 +560,10 @@ This creates a dependency where the `extract` operator will only run after the `
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
         "include_filter": ".pdf,.txt"
       }
     },
@@ -561,9 +598,10 @@ This creates a dependency where the `extract` operator will only run after the `
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
         "include_filter": ".pdf"
       }
     },
@@ -610,11 +648,11 @@ This creates a dependency where the `extract` operator will only run after the `
       "depends_on": ["embeddings"],
       "config": {
         "provider": "opensearch",
-        "index_name": "documents",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 768,
         "provider_config": {
+          "index_name": "documents",
           "host": "localhost",
           "port": 9200,
           "username": "admin",

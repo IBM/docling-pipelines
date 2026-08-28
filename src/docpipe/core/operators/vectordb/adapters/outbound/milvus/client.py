@@ -96,7 +96,7 @@ class MilvusClient:
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
-    def _validate_parameters(self) -> None:  # NOSONAR python:S3776
+    def _validate_parameters(self) -> None:
         """
         Validate connection parameters based on auth_type.
 
@@ -157,7 +157,7 @@ class MilvusClient:
                         error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
                     )
 
-    def connect(self) -> PyMilvusClient:  # NOSONAR python:S3776
+    def connect(self) -> PyMilvusClient:
         """
         Create and return a Milvus client with appropriate authentication.
 
@@ -203,9 +203,8 @@ class MilvusClient:
                 client_params["token"] = f"{self.username}:{self.password}"
 
             else:
-                # Standalone — construct URI from host/port; use https when secure=True
-                scheme = "https" if self.secure else "http"
-                client_params["uri"] = f"{scheme}://{self.host}:{self.port}"
+                # Standalone — construct http URI from host/port
+                client_params["uri"] = f"http://{self.host}:{self.port}"
                 if self.username and self.password:
                     client_params["token"] = f"{self.username}:{self.password}"
 

@@ -55,7 +55,7 @@ class ClassificationInfo:
 def _get_empty_node_stats(*, node_id: str) -> NodeStats:
     """Returns empty aggregated stats for a node with no batches."""
     return NodeStats(
-        node_id=node_id,
+        id=node_id,
         name="Unknown",
         start_time=0,
         end_time=0,
@@ -116,7 +116,29 @@ def _determine_aggregated_status(*, status_counts: dict[str, int], total_batches
     if status_counts[ExecutionStatus.SKIPPED.value] == total_batches:
         return ExecutionStatus.SKIPPED.value
 
-    has_failures = status_counts[ExecutionStatus.FAILED.value] > 0
+    canceled = status_counts[ExecutionStatus.CANCELED.value]
+    skipped = status_counts[ExecutionStatus.SKIPPED.value]
+    failed = status_counts[ExecutionStatus.FAILED.value]
+
+    if canceled > 0:
+        has_completed_variants = (
+            status_counts[ExecutionStatus.COMPLETED.value]
+            + status_counts[ExecutionStatus.COMPLETED_WITH_WARNINGS.value]
+            + status_counts[ExecutionStatus.COMPLETED_WITH_ERRORS.value]
+        ) > 0
+
+        # Canceled + Skipped only → Skipped (nothing actually executed)
+        if (canceled + skipped) == total_batches:
+            return ExecutionStatus.SKIPPED.value
+
+        # Canceled + any Completed variant (±Skipped) → CompletedWithWarnings
+        if has_completed_variants:
+            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+
+        # Only Canceled + Failed remain — no completed variants, no active states
+        return ExecutionStatus.FAILED.value
+
+    has_failures = failed > 0
     has_successes = (
         status_counts[ExecutionStatus.COMPLETED.value]
         + status_counts[ExecutionStatus.COMPLETED_WITH_WARNINGS.value]
@@ -150,7 +172,7 @@ def _aggregate_time_fields(*, batch_records: list[NodeStats]) -> tuple:
     aggregated_start_time = min(start_times) if start_times else 0
     aggregated_end_time = max(end_times) if end_times else 0
     aggregated_time_taken = (
-        aggregated_end_time - aggregated_start_time if aggregated_start_time > 0 and aggregated_end_time > 0 else 0
+        aggregated_end_time - aggregated_start_time if aggregated_start_time and aggregated_end_time else 0
     )
 
     return aggregated_start_time, aggregated_end_time, aggregated_time_taken
@@ -221,7 +243,7 @@ def _is_classification_operator(*, batch_records: list[NodeStats]) -> bool:
     return False
 
 
-def _extract_from_single_record(*, metadata: dict[str, Any]) -> tuple[int, int, float]:  # NOSONAR python:S3776
+def _extract_from_single_record(*, metadata: dict[str, Any]) -> tuple[int, int, float]:
     """
     Extracts extraction progress from a single record's metadata and removes transient fields.
 
@@ -375,13 +397,13 @@ def _get_classification_progress(*, batch_records: list[NodeStats]) -> Classific
     )
 
 
-def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> dict[str, Any]:  # NOSONAR python:S3776
+def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> dict[str, Any]:
     """
     Aggregates per-stage extraction progress across all batches.
 
     Handles both:
     - Running batches: Have transient extraction_stage_progress metadata
-    - Completed batches: Have persistent total_docs_count/processed_docs metadata
+    - Completed batches: Have persistent documents_in_scope/processed_docs metadata
 
     Returns dict with structure:
     {
@@ -445,7 +467,7 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
             ExecutionStatus.COMPLETED_WITH_WARNINGS.value,
             ExecutionStatus.FAILED.value,
         ):
-            # For completed/failed batches, use total_docs_count and processed_docs from nested metadata
+            # For completed/failed batches, use documents_in_scope and processed_docs from nested metadata
             total_docs = metadata.get(Metrics.External.TOTAL_DOCS, 0)
             processed_docs = metadata.get(Metrics.External.PROCESSED_DOCS, 0)
 
@@ -492,7 +514,7 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
             continue
 
         if record.node_status == ExecutionStatus.RUNNING.value:
-            # Check for total_docs field (not total_docs_count which is for completed)
+            # Check for total_docs field (not documents_in_scope which is for completed)
             total_docs = metadata.get("total_docs", 0)
 
             if total_docs > 0:
@@ -793,7 +815,7 @@ def aggregate_batch_node_stats(
     node_name = batch_records[0].name if batch_records else "Unknown"
 
     return NodeStats(
-        node_id=node_id,
+        id=node_id,
         name=node_name,
         start_time=aggregated_start_time,
         end_time=aggregated_end_time,

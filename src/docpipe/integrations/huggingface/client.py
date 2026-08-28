@@ -1,5 +1,5 @@
 # Copyright IBM Corp. 2025
-# -License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 
 """
 HuggingFace LLM Client for embeddings operations.
@@ -165,8 +165,7 @@ class HuggingFaceLLMClient(BaseLLMClient):
         try:
             if self.use_local:
                 return self._generate_local_embeddings(text)
-            else:
-                return self._generate_api_embeddings(text)
+            return self._generate_api_embeddings(text)
 
         except Exception as e:
             logger.error(f"Failed to generate embeddings with HuggingFace: {e}")
@@ -220,8 +219,7 @@ class HuggingFaceLLMClient(BaseLLMClient):
         try:
             if self.use_local:
                 return self._generate_local_embeddings_batch(texts, self.batch_size)
-            else:
-                return self._generate_api_embeddings_batch(texts, self.batch_size)
+            return self._generate_api_embeddings_batch(texts, self.batch_size)
 
         except Exception as e:
             logger.error(f"Failed to generate batch embeddings with HuggingFace: {e}")
@@ -256,9 +254,7 @@ class HuggingFaceLLMClient(BaseLLMClient):
 
         return embeddings_list
 
-    def _generate_api_embeddings_batch(
-        self, texts: list[str], batch_size: int
-    ) -> list[list[float]]:  # NOSONAR python:S3776
+    def _generate_api_embeddings_batch(self, texts: list[str], batch_size: int) -> list[list[float]]:
         """
         Generate embeddings for multiple texts using HuggingFace Inference API.
 

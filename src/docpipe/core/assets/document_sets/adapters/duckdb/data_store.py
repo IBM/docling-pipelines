@@ -1,198 +1,246 @@
-"""DuckDB adapter for document set data store.
+"""DuckDB implementation of DocumentSetStorage.
 
-This module provides a DuckDB implementation of the DocumentSetDataStore
-interface, handling PyArrow table data operations with SQL-based logic.
+Writes PyArrow table data to a DuckDB table and returns an AttachmentRef
+with the table name in the common ``name`` field and backend coordinates in
+``details``.  The table name is derived from the document set name via
+sanitize_table_name().
 """
 
 from typing import Any
 
 import pyarrow as pa
 
-from docpipe.core.assets.document_sets.domain.ports.data_store import DocumentSetDataStore
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
+from docpipe.core.assets.document_sets.adapters.duckdb.duckdb_utils import sanitize_table_name
+from docpipe.core.assets.document_sets.domain.ports.data_store import DocumentSetStorage
 from docpipe.core.assets.document_sets.domain.types import HealthCheckResult
 from docpipe.core.assets.document_sets.factories.data_store_factory import DataStoreFactory
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
-from docpipe.storage.interfaces.table_storage import TableStorage
+from docpipe.storage.interfaces.table_storage_port import TableStoragePort
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 @DataStoreFactory.register(name=OperatorConstants.DocumentSet.ADAPTER_DUCKDB, display_name="DuckDB")
-class DuckDBDocumentSetDataStore(DocumentSetDataStore):
-    """DuckDB implementation of document set data store.
+class DuckDBDocumentSetStorage(DocumentSetStorage):
+    """DuckDB implementation of the DocumentSetStorage port.
 
-    Provides data persistence using DuckDB storage backend for PyArrow tables.
-    Handles table creation, upsert operations, data retrieval, and table management.
-
-    This adapter contains DuckDB-specific logic (SQL queries) while delegating
-    generic storage operations to the TableStorage interface.
+    Derives the physical table name from the document set name and returns a
+    fully-populated AttachmentRef so the service layer never needs to know
+    where or how the data is stored.
 
     Attributes:
-        storage: TableStorage backend for database operations
+        _storage: TableStoragePort backend for DuckDB operations.
+        _database_path: Path to the DuckDB file; embedded in returned AttachmentRefs.
     """
 
-    def __init__(self, *, table_storage: TableStorage) -> None:
-        """Initialize the DuckDB data store with injected storage.
+    def __init__(self, *, table_storage: TableStoragePort, database_path: str) -> None:
+        """Initialise with injected storage and the database path.
 
         Args:
-            table_storage: TableStorage implementation (DuckDB-based)
+            table_storage: TableStoragePort implementation (DuckDB-based).
+            database_path: Path to the DuckDB file; stored so it can be embedded
+                in returned AttachmentRefs.
         """
-        self.storage = table_storage
-        logger.info("DuckDBDocumentSetDataStore initialized with injected TableStorage")
+        self._storage = table_storage
+        self._database_path = database_path
+        logger.info("DuckDBDocumentSetStorage initialised with database_path: %s", database_path)
 
-    def create_data_table(self, *, table_name: str, schema: pa.Schema) -> None:
-        """Create a new data table with the specified schema.
+    def store(self, *, doc_set_name: str, data: pa.Table) -> AttachmentRef:
+        """Write PyArrow table data to DuckDB and return an AttachmentRef.
+
+        Creates the backing table if it does not exist, otherwise upserts on
+        the ``id`` column.
 
         Args:
-            table_name: Unique name for the data table
-            schema: PyArrow schema defining the table structure
+            doc_set_name: Logical document set name; used to derive table_name.
+            data: PyArrow table to persist. Must contain an ``id`` column.
+
+        Returns:
+            AttachmentRef with backend_type="duckdb", name=table_name, and
+            details containing database_path and table_name.
 
         Raises:
-            ValueError: If a table with the same name already exists
-            RuntimeError: If the data store is not accessible or configured
+            DocpipeException: If the data is invalid or the write fails.
         """
-        try:
-            # Check if table already exists
-            if self.storage.table_exists(table_name=table_name):
-                raise DocpipeException(
-                    f"Table '{table_name}' already exists",
-                    status_code=409,
-                    error_code=ErrorCode.DOCUMENT_SET_TABLE_ALREADY_EXISTS,
-                )
+        if "id" not in data.schema.names:
+            raise DocpipeException(
+                "Data must contain an 'id' column for upsert operations",
+                status_code=400,
+                error_code=ErrorCode.DOCUMENT_SET_SCHEMA_MISMATCH,
+            )
 
-            # Create the table using storage layer
-            self.storage.create_table(table_name=table_name, schema=schema)
-            logger.info(f"Created data table: {table_name}")
+        table_name = sanitize_table_name(doc_set_name)
+
+        try:
+            if not self._storage.table_exists(table_name=table_name):
+                self._storage.create_table(table_name=table_name, schema=data.schema)
+                logger.info("Created DuckDB table: %s", table_name)
+
+            self._storage.upsert_data(table_name=table_name, data=data)
+            logger.debug("Upserted %d rows into %s", len(data), table_name)
         except DocpipeException:
             raise
         except Exception as e:
             raise DocpipeException(
-                f"Failed to create data table: {e!s}",
+                f"Failed to store data: {e!s}",
                 status_code=500,
                 error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-    def upsert_document_set_data(self, *, table_name: str, data: pa.Table) -> None:
-        """Insert or update document set data.
+        return AttachmentRef(
+            backend_type=OperatorConstants.DocumentSet.ADAPTER_DUCKDB,
+            name=table_name,
+            details={
+                OperatorConstants.DocumentSet.DATABASE_PATH: self._database_path,
+                "table_name": table_name,
+            },
+        )
+
+    def load(self, *, attachment_ref: AttachmentRef, limit: int | None = None) -> pa.Table:
+        """Read PyArrow table data from DuckDB.
 
         Args:
-            table_name: Name of the table to upsert data into
-            data: PyArrow table containing the data to upsert
-
-        Raises:
-            KeyError: If the specified table does not exist
-            ValueError: If the data schema does not match the table schema
-            RuntimeError: If the data store is not accessible
-        """
-        try:
-            # Check if table exists
-            if not self.storage.table_exists(table_name=table_name):
-                raise DocpipeException(
-                    f"Table '{table_name}' does not exist",
-                    status_code=404,
-                    error_code=ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND,
-                )
-
-            # Validate that data has an 'id' column for upsert
-            if "id" not in data.schema.names:
-                raise DocpipeException(
-                    "Data must contain an 'id' column for upsert",
-                    status_code=400,
-                    error_code=ErrorCode.DOCUMENT_SET_SCHEMA_MISMATCH,
-                )
-
-            # Upsert data using storage layer
-            self.storage.upsert_data(table_name=table_name, data=data)
-            logger.debug(f"Upserted {len(data)} rows into {table_name}")
-        except DocpipeException:
-            raise
-        except Exception as e:
-            raise DocpipeException(
-                f"Failed to upsert data: {e!s}", status_code=500, error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR
-            ) from e
-
-    def get_document_set_data(self, *, table_name: str, limit: int | None = None) -> pa.Table:
-        """Retrieve document set data from a table.
-
-        Args:
-            table_name: Name of the table to retrieve data from
-            limit: Maximum number of rows to return, None for all rows
+            attachment_ref: AttachmentRef containing table_name in details.
+            limit: Maximum number of rows to return, or None for all.
 
         Returns:
-            PyArrow table containing the requested data
+            PyArrow table with the stored data.
 
         Raises:
-            KeyError: If the specified table does not exist
-            RuntimeError: If the data store is not accessible
+            DocpipeException: If the table does not exist or the read fails.
         """
+        table_name = attachment_ref.details["table_name"]
         try:
-            # Check if table exists
-            if not self.storage.table_exists(table_name=table_name):
+            if not self._storage.table_exists(table_name=table_name):
                 raise DocpipeException(
                     f"Table '{table_name}' does not exist",
                     status_code=404,
                     error_code=ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND,
                 )
-
-            # Read data using storage layer
-            data = self.storage.read_data(table_name=table_name, limit=limit, offset=None)
-            logger.debug(f"Retrieved {len(data)} rows from {table_name}")
+            data = self._storage.read_data(table_name=table_name, limit=limit, offset=None)
+            logger.debug("Loaded %d rows from %s", len(data), table_name)
             return data
         except DocpipeException:
             raise
         except Exception as e:
             raise DocpipeException(
-                f"Failed to retrieve data: {e!s}",
+                f"Failed to load data: {e!s}",
                 status_code=500,
                 error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-    def delete_document_set_data(self, *, table_name: str) -> bool:
-        """Delete all data from a table and remove the table.
+    def delete(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Drop the DuckDB table described by attachment_ref.
 
         Args:
-            table_name: Name of the table to delete
+            attachment_ref: AttachmentRef containing table_name in details.
 
         Returns:
-            True if the table was deleted, False if it did not exist
+            True if deleted, False if the table was absent.
 
         Raises:
-            RuntimeError: If the data store is not accessible
+            DocpipeException: If the deletion fails.
         """
+        table_name = attachment_ref.details["table_name"]
         try:
-            # Check if table exists
-            if not self.storage.table_exists(table_name=table_name):
-                logger.info(f"Table not found for deletion: {table_name}")
+            if not self._storage.table_exists(table_name=table_name):
+                logger.info("Table not found for deletion: %s", table_name)
                 return False
-
-            # Delete table using storage layer
-            self.storage.delete_table(table_name=table_name)
-            logger.info(f"Deleted data table: {table_name}")
+            self._storage.delete_table(table_name=table_name)
+            logger.info("Deleted DuckDB table: %s", table_name)
             return True
         except DocpipeException:
             raise
         except Exception as e:
             raise DocpipeException(
-                f"Failed to delete table: {e!s}", status_code=500, error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR
+                f"Failed to delete table: {e!s}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-    def table_exists(self, *, table_name: str) -> bool:
-        """Check if a table exists in the data store.
+    def get_metrics(self, *, attachment_ref: AttachmentRef) -> dict[str, int]:
+        """Compute aggregate metrics via DuckDB SQL aggregation.
 
         Args:
-            table_name: Name of the table to check
+            attachment_ref: AttachmentRef containing table_name in details.
 
         Returns:
-            True if the table exists, False otherwise
+            Dictionary with keys: total_documents, total_size_bytes, total_pages.
 
         Raises:
-            RuntimeError: If the data store is not accessible
+            DocpipeException: If the table does not exist or the query fails.
+        """
+        table_name = attachment_ref.details["table_name"]
+        try:
+            if not self._storage.table_exists(table_name=table_name):
+                raise DocpipeException(
+                    f"Table '{table_name}' does not exist",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND,
+                )
+
+            column_result = self._storage.execute_query(
+                query="SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+                params=[table_name],
+            )  # nosec B608 — table_name is a sanitized identifier derived from document set name, not user input
+            column_names = [row["column_name"] for row in column_result.to_pylist()]
+
+            select_clauses = ["COUNT(*) AS total_documents"]
+            select_clauses.append(
+                "COALESCE(SUM(size), 0) AS total_size_bytes" if "size" in column_names else "0 AS total_size_bytes"
+            )
+            select_clauses.append(
+                "COALESCE(SUM(pages_processed), 0) AS total_pages"
+                if "pages_processed" in column_names
+                else "0 AS total_pages"
+            )
+
+            result_table = self._storage.execute_query(
+                query=f"SELECT {', '.join(select_clauses)} FROM {table_name}"  # nosec B608 — table_name is a sanitized identifier, not user input
+            )
+
+            if len(result_table) == 0:
+                raise DocpipeException(
+                    f"Failed to retrieve metrics for table '{table_name}'",
+                    status_code=500,
+                    error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
+                )
+
+            result = result_table.to_pylist()[0]
+            metrics = {
+                "total_documents": int(result["total_documents"]),
+                "total_size_bytes": int(result["total_size_bytes"]),
+                "total_pages": int(result["total_pages"]),
+            }
+            logger.debug("Computed metrics for %s: %s", table_name, metrics)
+            return metrics
+        except DocpipeException:
+            raise
+        except Exception as e:
+            raise DocpipeException(
+                f"Failed to compute metrics: {e!s}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
+            ) from e
+
+    def exists(self, *, attachment_ref: AttachmentRef) -> bool:
+        """Check whether the DuckDB table described by attachment_ref exists.
+
+        Args:
+            attachment_ref: AttachmentRef containing table_name in details.
+
+        Returns:
+            True if the table exists, False otherwise.
+
+        Raises:
+            DocpipeException: If the check fails.
         """
         try:
-            return self.storage.table_exists(table_name=table_name)
+            return self._storage.table_exists(table_name=attachment_ref.details["table_name"])
         except DocpipeException:
             raise
         except Exception as e:
@@ -202,172 +250,40 @@ class DuckDBDocumentSetDataStore(DocumentSetDataStore):
                 error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
             ) from e
 
-    def get_row_count(self, *, table_name: str) -> int:
-        """Get the number of rows in a table.
-
-        Args:
-            table_name: Name of the table to count rows in
-
-        Returns:
-            Number of rows in the table
-
-        Raises:
-            KeyError: If the specified table does not exist
-            RuntimeError: If the data store is not accessible
-        """
-        try:
-            # Check if table exists
-            if not self.storage.table_exists(table_name=table_name):
-                raise DocpipeException(
-                    f"Table '{table_name}' does not exist",
-                    status_code=404,
-                    error_code=ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND,
-                )
-
-            # Get row count using storage layer
-            count = self.storage.get_row_count(table_name=table_name)
-            logger.debug(f"Table {table_name} has {count} rows")
-            return count
-        except DocpipeException:
-            raise
-        except Exception as e:
-            raise DocpipeException(
-                f"Failed to get row count: {e!s}",
-                status_code=500,
-                error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
-            ) from e
-
-    def get_table_metrics(self, *, table_name: str) -> dict[str, int]:
-        """Get aggregate metrics using SQL aggregation (DuckDB-specific logic).
-
-        This method contains DuckDB-specific SQL logic for efficient metric computation.
-        The SQL query is executed via the generic storage layer execute_query method.
-
-        Args:
-            table_name: Name of the table to compute metrics for
-
-        Returns:
-            Dictionary containing:
-                - total_documents: Total number of documents
-                - total_size_bytes: Sum of all document sizes
-                - total_pages: Sum of all pages processed (0 if column doesn't exist)
-
-        Raises:
-            KeyError: If the specified table does not exist
-            RuntimeError: If the data store is not accessible
-        """
-        try:
-            # Check if table exists
-            if not self.storage.table_exists(table_name=table_name):
-                raise DocpipeException(
-                    f"Table '{table_name}' does not exist",
-                    status_code=404,
-                    error_code=ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND,
-                )
-
-            # Query to get column names from the table
-            column_query = f"""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = '{table_name}'
-            """
-            column_result = self.storage.execute_query(query=column_query)
-            column_names = [row["column_name"] for row in column_result.to_pylist()]
-
-            # Build SQL query dynamically based on available columns
-            # Always include total_documents count
-            select_clauses = ["COUNT(*) AS total_documents"]
-
-            # Add size aggregation if column exists
-            if "size" in column_names:
-                select_clauses.append("COALESCE(SUM(size), 0) AS total_size_bytes")
-            else:
-                select_clauses.append("0 AS total_size_bytes")
-
-            # Add pages_processed aggregation if column exists
-            if "pages_processed" in column_names:
-                select_clauses.append("COALESCE(SUM(pages_processed), 0) AS total_pages")
-            else:
-                select_clauses.append("0 AS total_pages")
-
-            # DuckDB-specific SQL aggregation query
-            # This SQL logic stays in the adapter, not in the storage layer
-            query = f"""
-                SELECT
-                    {", ".join(select_clauses)}
-                FROM {table_name}
-            """
-
-            # Execute via generic storage interface
-            result_table = self.storage.execute_query(query=query)
-
-            if len(result_table) == 0:
-                raise DocpipeException(
-                    f"Failed to retrieve metrics for table '{table_name}'",
-                    status_code=500,
-                    error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
-                )
-
-            # Extract first row from PyArrow table
-            result = result_table.to_pylist()[0]
-
-            metrics = {
-                "total_documents": int(result["total_documents"]),
-                "total_size_bytes": int(result["total_size_bytes"]),
-                "total_pages": int(result["total_pages"]),
-            }
-
-            logger.debug(f"Computed metrics for {table_name}: {metrics}")
-            return metrics
-        except DocpipeException:
-            raise
-        except Exception as e:
-            raise DocpipeException(
-                f"Failed to compute table metrics: {e!s}",
-                status_code=500,
-                error_code=ErrorCode.DOCUMENT_SET_DATA_STORE_ERROR,
-            ) from e
-
     def health_check(self) -> HealthCheckResult:
-        """Check the health status of the data store.
+        """Check DuckDB connectivity.
 
         Returns:
-            A dictionary containing health status information
+            HealthCheckResult indicating whether the backend is reachable.
         """
         try:
-            # Test database connectivity via storage layer
-            self.storage.execute_query(query=OperatorConstants.DocumentSet.QUERY_CONNECTIVITY_TEST)
-
+            self._storage.execute_query(query=OperatorConstants.DocumentSet.QUERY_CONNECTIVITY_TEST)
             return HealthCheckResult(
                 healthy=True,
-                message="Data store is healthy",
-                details={
-                    OperatorConstants.DocumentSet.DATABASE_PATH: getattr(self.storage, "database_path", "unknown")
-                },
+                message="Storage is healthy",
+                details={OperatorConstants.DocumentSet.DATABASE_PATH: self._database_path},
             )
         except Exception as e:
             return HealthCheckResult(
                 healthy=False,
                 message=f"Health check failed: {e}",
                 details={
-                    OperatorConstants.DocumentSet.DATABASE_PATH: getattr(self.storage, "database_path", "unknown"),
+                    OperatorConstants.DocumentSet.DATABASE_PATH: self._database_path,
                     OperatorConstants.DocumentSet.META_ERROR: str(e),
                 },
             )
 
     @classmethod
     def validate_config(cls, *, config: dict[str, Any]) -> list[str]:
-        """Validate data store configuration.
+        """Validate DuckDB storage configuration.
 
         Args:
-            config: Configuration dictionary to validate
+            config: Must contain a non-empty ``database_path`` string.
 
         Returns:
-            List of validation error messages, empty if configuration is valid
+            List of validation error messages; empty if configuration is valid.
         """
         errors = []
-
-        # Validate database_path
         db_path_key = OperatorConstants.DocumentSet.DATABASE_PATH
         if db_path_key not in config:
             errors.append(f"Missing required configuration: '{db_path_key}'")
@@ -375,8 +291,4 @@ class DuckDBDocumentSetDataStore(DocumentSetDataStore):
             errors.append(f"Configuration '{db_path_key}' must be a string")
         elif not config[db_path_key]:
             errors.append(f"Configuration '{db_path_key}' cannot be empty")
-
         return errors
-
-
-DuckDBDataStore = DuckDBDocumentSetDataStore

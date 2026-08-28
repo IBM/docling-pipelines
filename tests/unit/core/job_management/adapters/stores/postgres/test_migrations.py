@@ -187,7 +187,7 @@ class TestMigrationExecution:
         """Test that run_migrations raises error when alembic.ini is missing."""
         with patch("docpipe.core.job_management.adapters.stores.postgres.database.ALEMBIC_INI_PATH") as mock_path:
             mock_path.exists.return_value = False
-            mock_path.__str__.return_value = "/fake/path/alembic.ini"
+            mock_path.__str__.return_value = "/fake/path/alembic.ini"  # type: ignore[attr-defined]
 
             with pytest.raises(DatabaseMigrationException) as exc_info:
                 run_migrations(connection_string=mock_connection_string)

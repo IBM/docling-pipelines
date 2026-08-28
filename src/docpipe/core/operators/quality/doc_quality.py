@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
@@ -15,8 +16,8 @@ DOC_CONTENT_COLUMN_KEY: str = "doc_content_column"
 TEXT_LANG_KEY: str = "text_lang"
 DEFAULT_TEXT_LANG: str = "en"
 BAD_WORD_FILEPATH_KEY: str = "bad_word_filepath"
-BASE_PATH: str = os.path.dirname(__file__)
-BAD_WORD_FILEPATH_VALUE: str = os.path.join(BASE_PATH, "en")
+BASE_PATH: str = str(Path(__file__).parent)
+BAD_WORD_FILEPATH_VALUE: str = str(Path(__file__).parent / "en")
 if os.getenv("RUNTIME") == "CLOUD" and os.getenv("IS_SPARK_RUNTIME"):
     BAD_WORD_FILEPATH_VALUE = BAD_WORD_FILEPATH_VALUE.replace(
         "/docpipe_core.zip/docpipe_core/operators/language/readability", ""
@@ -41,21 +42,28 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         )
         config.update({BAD_WORD_FILEPATH_KEY: normalized_bad_word_filepath})
         super().__init__(config)
-        self.doc_column_name: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.doc_content_column: str = config.get(DOC_CONTENT_COLUMN_KEY, "content")
         self.text_lang: str = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
         self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: DocQuality.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocQuality.is_available(),
             OperatorConstants.Misc.LABEL: "Document Quality",
             OperatorConstants.Config.DESCRIPTION: "Compute text quality metrics for each document (word counts, ratios, lorem ipsum, bad words, etc.).",
+            OperatorConstants.Config.ATTRIBUTES: {
+                TEXT_LANG_KEY: {
+                    OperatorConstants.Misc.NAME: "Text Language",
+                    OperatorConstants.Config.DESCRIPTION: "BCP-47 language code of the document text; controls language-sensitive metrics including sentence counting, bad-word detection, and common-word checks.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_TEXT_LANG,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+            },
             OperatorConstants.Config.FEATURES: {
                 "docq_total_words": {
                     OperatorConstants.Misc.NAME: "Total Words",
@@ -129,6 +137,7 @@ class DocQuality(DocQualityTransform, AbstractOperator):
 
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:

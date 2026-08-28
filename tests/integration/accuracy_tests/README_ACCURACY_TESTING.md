@@ -278,7 +278,7 @@ for doc_type in purchase_order invoice bank_statement credit_card_statement pass
         --type $doc_type \
         --count 100 \
         --force
-    
+
     # Also export samples
     python tests/integration/accuracy_tests/sample_document_generator.py \
         --type $doc_type \
@@ -767,7 +767,7 @@ pip install pydantic tenacity pytest pytest-cov
 export OPENSEARCH_HOST=localhost
 export OPENSEARCH_PORT=9200
 export OPENSEARCH_USERNAME=admin
-export OPENSEARCH_PASSWORD=<your-opensearch-password>
+export OPENSEARCH_PASSWORD=
 export OLLAMA_HOST=http://localhost:11434
 export OLLAMA_MODEL=granite4
 ```
@@ -795,7 +795,7 @@ pip install -r requirements.txt
 ### Common Issues
 
 #### Issue: "NL to SQL converter not available"
-**Solution**: 
+**Solution**:
 ```bash
 # Check Ollama is running
 curl http://localhost:11434/api/tags
@@ -890,18 +890,18 @@ def _score_result(self, query: Dict[str, Any], sql_result: Any) -> int:
     """Custom scoring logic"""
     max_score = int(query.get('max_score', 10))
     score = 0
-    
+
     # Custom criteria
     if not sql_result.error:
         score += max_score * 0.4  # 40% for execution
-        
+
         if sql_result.total > 0:
             score += max_score * 0.4  # 40% for results
-            
+
             # Custom validation
             if self._validate_custom_criteria(query, sql_result):
                 score += max_score * 0.2  # 20% for custom criteria
-    
+
     return int(score)
 ```
 
@@ -955,7 +955,7 @@ Process multiple query files:
 for file in queries/*.csv; do
     basename=$(basename "$file" .csv)
     echo "Processing $basename..."
-    
+
     python tests/integration/accuracy_tests/document_query_evaluator.py \
         --queries "$file" \
         --output "results/${basename}_results.json"
@@ -991,7 +991,7 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       opensearch:
         image: opensearchproject/opensearch:latest
@@ -1000,29 +1000,29 @@ jobs:
         env:
           discovery.type: single-node
           DISABLE_SECURITY_PLUGIN: true
-    
+
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-      
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-      
+
       - name: Install Ollama
         run: |
           curl https://ollama.ai/install.sh | sh
           ollama pull granite4
-      
+
       - name: Run accuracy tests
         run: |
           python tests/integration/accuracy_tests/nl_to_sql.py \
             --output results.json
-      
+
       - name: Upload results
         uses: actions/upload-artifact@v2
         with:

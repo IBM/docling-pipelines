@@ -10,13 +10,16 @@
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_documents",
       "config": {
-        "paths": "./sample_documents",
-        "include_filter": "pdf,txt,docx",
-        "max_workers": 4,
-        "doc_id_hash_column": "id"
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./sample_documents"
+          ]
+        },
+        "include_filter": "pdf,txt,docx"
       }
     },
     {
@@ -40,8 +43,6 @@
         "description": "Persistent storage of extracted document content with metadata tracking",
         "database_path": "./data/document_sets/extracted_docs.duckdb",
         "data_backend": "duckdb",
-        "metadata_backend": "duckdb",
-        "retain_deleted_docs": false,
         "metadata": {
           "pipeline_version": "1.0",
           "extraction_method": "docling",

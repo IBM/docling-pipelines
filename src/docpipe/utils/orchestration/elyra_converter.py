@@ -183,7 +183,7 @@ class ElyraConverter:
 
         # Get nodes from pipeline
         nodes = pipeline.get(ElyraConstants.NODES, [])
-        if len(nodes) == 0:
+        if not nodes:
             logger.warning("No operators exist in the flow.")
             return {
                 DocpipeConstants.FLOW: {
@@ -207,6 +207,33 @@ class ElyraConverter:
                 DocpipeConstants.DAG: dag,
             }
         }
+
+    def get_global_config_from_elyra(self, *, elyra_json: dict) -> dict:
+        """
+        Extract the global_config from an Elyra pipeline JSON.
+
+        Mirrors the lookup order used during conversion:
+        1. ``app_data.properties`` (newer Elyra format)
+        2. ``app_data.ds_flow.global_config`` (legacy ds_flow format)
+
+        Args:
+            elyra_json: Elyra pipeline definition
+
+        Returns:
+            global_config dict, or an empty dict if not present
+        """
+        pipeline = self._get_primary_pipeline(elyra_json=elyra_json)
+        if pipeline is None:
+            return {}
+
+        app_data = pipeline.get(ElyraConstants.APP_DATA, {})
+
+        global_config = app_data.get(ElyraConstants.PROPERTIES, {})
+        if global_config:
+            return global_config
+
+        flow_metadata = app_data.get(ElyraConstants.DS_FLOW, {})
+        return flow_metadata.get(ElyraConstants.GLOBAL_CONFIG, {})
 
     def _get_primary_pipeline(self, *, elyra_json: dict) -> dict | None:
         """
@@ -239,7 +266,7 @@ class ElyraConverter:
         # Fallback to the first pipeline in the document
         return pipelines[0]
 
-    def _transform_pipeline_to_dag(self, *, nodes: list[dict]) -> list[dict]:  # NOSONAR python:S3776
+    def _transform_pipeline_to_dag(self, *, nodes: list[dict]) -> list[dict]:
         """
         Transform Elyra nodes with links to internal DAG format.
 
@@ -374,9 +401,7 @@ class ElyraConverter:
         self._validate_dag(graph=graph, first_nodes=first_nodes, node_count=len(transformed))
 
         # Sort topologically
-        transformed_sorted = self._sort_dag_topologically(dag=transformed)
-
-        return transformed_sorted
+        return self._sort_dag_topologically(dag=transformed)
 
     def _get_node_name(self, *, node: dict) -> str:
         """
@@ -663,10 +688,10 @@ class ElyraConverter:
         pipeline_id = str(uuid4())
 
         # Build Elyra pipeline structure
-        elyra_pipeline = {
+        return {
             ElyraConstants.DOC_TYPE: "pipeline",
             ElyraConstants.VERSION: "3.0",
-            ElyraConstants.JSON_SCHEMA: "https://api.dataplatform.ibm.com/schemas/common-pipeline/pipeline-flow/pipeline-flow-v3-schema.json",
+            ElyraConstants.JSON_SCHEMA: "http://api.dataplatform.ibm.com/schemas/common-pipeline/pipeline-flow/pipeline-flow-v3-schema.json",
             ElyraConstants.ID: str(uuid4()),
             ElyraConstants.PRIMARY_PIPELINE: pipeline_id,
             ElyraConstants.PIPELINES: [
@@ -692,11 +717,7 @@ class ElyraConverter:
             ElyraConstants.SCHEMAS: [],
         }
 
-        return elyra_pipeline
-
-    def _generate_node_layout(
-        self, *, dag: list[dict], spacing_x: int, spacing_y: int
-    ) -> dict[str, tuple[int, int]]:  # NOSONAR python:S3776
+    def _generate_node_layout(self, *, dag: list[dict], spacing_x: int, spacing_y: int) -> dict[str, tuple[int, int]]:
         """
             Processes the graph structure to create a visual layout where:
         - Main flow progresses left-to-right
@@ -819,19 +840,18 @@ class ElyraConverter:
 
                 return max_x
 
-            elif operator == OperatorConstants.Operators.MERGE:
+            if operator == OperatorConstants.Operators.MERGE:
                 # Merge node: already positioned, return next x
                 return current_x + spacing_x
 
-            else:
-                # Regular node: position children sequentially
-                next_x = current_x + spacing_x
-                for child_id in children:
-                    if child_id not in positioned:
-                        child_max_x = _position_subtree(child_id, next_x, start_y)
-                        next_x = child_max_x
+            # Regular node: position children sequentially
+            next_x = current_x + spacing_x
+            for child_id in children:
+                if child_id not in positioned:
+                    child_max_x = _position_subtree(child_id, next_x, start_y)
+                    next_x = child_max_x
 
-                return next_x
+            return next_x
 
         # Position from root nodes
         x_pos = 100
@@ -850,9 +870,7 @@ class ElyraConverter:
 
         return positions
 
-    def _convert_dag_node_to_elyra(
-        self, *, node: dict, position: tuple[int, int]
-    ) -> tuple[dict, dict]:  # NOSONAR python:S3776
+    def _convert_dag_node_to_elyra(self, *, node: dict, position: tuple[int, int]) -> tuple[dict, dict]:
         """
         Convert a single internal DAG node to Elyra node format.
 
@@ -1081,9 +1099,7 @@ class ElyraConverter:
         config[ElyraConstants.LINK_CONDITIONS] = link_conditions
         return config
 
-    def _add_links_to_elyra_nodes(
-        self, *, elyra_nodes: list[dict], dag: list[dict], port_mappings: dict
-    ) -> None:  # NOSONAR python:S3776
+    def _add_links_to_elyra_nodes(self, *, elyra_nodes: list[dict], dag: list[dict], port_mappings: dict) -> None:
         """
         Add link information to Elyra nodes based on DAG edges.
 

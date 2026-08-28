@@ -21,6 +21,7 @@ from docpipe.core.operators.extract.ports.outbound.entity_extraction import Enti
 from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.document_class_utils import DocumentClassUtils
+from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
@@ -136,7 +137,7 @@ class EntityExtractionService:
             Tuple of (list of transformed tables, metadata dictionary)
         """
         # Prepare schemas and document tasks
-        document_types, schema_templates = self._prepare_schemas(table=table)
+        document_types, schema_templates = self.prepare_schemas(table=table)
         doc_tasks = self._prepare_document_tasks(table, document_types, metadata)
         entities_list: list[dict[str, Any]] = [{} for _ in range(table.num_rows)]
 
@@ -156,7 +157,7 @@ class EntityExtractionService:
 
         return [table], metadata
 
-    def _prepare_schemas(self, *, table: pa.Table) -> tuple[list[str], dict[str, dict]]:
+    def prepare_schemas(self, *, table: pa.Table) -> tuple[list[str], dict[str, dict]]:
         """Prepare document types and load schema templates.
 
         Args:
@@ -359,7 +360,8 @@ class EntityExtractionService:
                 schema_to_use = schema_templates[doc_type]
                 logger.debug("Using schema for document type '%s' for %s", doc_type, task["doc_name"])
         content = task.get("content", task.get("binary_content", b""))
-        return executor.submit(
+        return submit_task_with_context_propagation(
+            executor,
             self.adapter.extract_entities_single,
             doc_id=task["doc_id"],
             doc_name=task["doc_name"],
@@ -402,7 +404,7 @@ class EntityExtractionService:
             logger.error("Error processing document at index %s: %s", idx, e)
             self._record_extraction_failure(task=task, error=str(e), metadata=metadata)
 
-    def _finalize_table(  # NOSONAR python:S3776
+    def _finalize_table(
         self,
         *,
         table: pa.Table,
@@ -425,7 +427,7 @@ class EntityExtractionService:
         if processed_count > 0:
             # Optionally expand entities into individual columns
             if self.expand_extracted_data and entities_list:
-                table = self._expand_entities_columns(table=table, entities_list=entities_list)
+                table = self.expand_entities_columns(table=table, entities_list=entities_list)
 
             # Add entities column - convert to JSON strings for PyArrow compatibility
             entities_json_list: list[str] = [json.dumps(entity) if entity else "{}" for entity in entities_list]
@@ -470,7 +472,7 @@ class EntityExtractionService:
         metadata[Metrics.External.NODE_STATUS] = execution_status
         return metadata
 
-    def _update_extraction_progress(  # NOSONAR python:S3776
+    def _update_extraction_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int
     ) -> None:
         """Update node stats with entity extraction stage progress.
@@ -618,7 +620,7 @@ class EntityExtractionService:
         if schema_templates:
             logger.info("Successfully loaded schemas for: %s", list(schema_templates.keys()))
 
-    def _expand_entities_columns(self, *, table: pa.Table, entities_list: list[dict[str, Any]]) -> pa.Table:
+    def expand_entities_columns(self, *, table: pa.Table, entities_list: list[dict[str, Any]]) -> pa.Table:
         """Expand entity dict into individual columns, one per entity key.
 
         Args:

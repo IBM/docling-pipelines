@@ -3,11 +3,14 @@
 import logging
 import secrets
 from abc import ABC, abstractmethod
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
 from jose import JWTError, jwt
+
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError, DocpipeException, ExternalServiceError
 
 from .models import User
 from .oauth2_config import OAuth2Config
@@ -19,14 +22,14 @@ class OAuth2Provider(ABC):
     """Base OAuth2 provider class."""
 
     def __init__(self, config: OAuth2Config):
-        """Initialize OAuth2 provider.
-
-        Args:
-            config: OAuth2 configuration
-        """
+        """Initialize with the given OAuth2 configuration."""
         self.config = config
         self._discovery_cache: dict[str, Any] | None = None
+        self._discovery_cache_time: datetime | None = None
+        self._discovery_cache_ttl: timedelta = timedelta(hours=24)
         self._jwks_cache: dict[str, Any] | None = None
+        self._jwks_cache_time: datetime | None = None
+        self._jwks_cache_ttl: timedelta = timedelta(hours=1)
 
     @abstractmethod
     def get_provider_name(self) -> str:
@@ -35,7 +38,7 @@ class OAuth2Provider(ABC):
         Returns:
             Provider name string
         """
-        pass
+        ...
 
     async def discover_endpoints(self) -> dict[str, Any]:
         """Discover OAuth2/OIDC endpoints via discovery document.
@@ -46,12 +49,18 @@ class OAuth2Provider(ABC):
         Raises:
             Exception: If discovery fails
         """
-        if self._discovery_cache is not None:
+        now = datetime.now(UTC)
+        if (
+            self._discovery_cache is not None
+            and self._discovery_cache_time is not None
+            and now - self._discovery_cache_time < self._discovery_cache_ttl
+        ):
             return self._discovery_cache
 
         if not self.config.oauth2_discovery_url:
-            logger.warning(f"No discovery URL configured for {self.get_provider_name()}")
+            logger.warning("No discovery URL configured for %s", self.get_provider_name())
             self._discovery_cache = {}
+            self._discovery_cache_time = now
             return self._discovery_cache
 
         try:
@@ -59,11 +68,12 @@ class OAuth2Provider(ABC):
                 response = await client.get(self.config.oauth2_discovery_url, timeout=10.0)
                 response.raise_for_status()
                 self._discovery_cache = response.json()
-                logger.info(f"Successfully discovered endpoints for {self.get_provider_name()}")
+                self._discovery_cache_time = datetime.now(UTC)
+                logger.info("Successfully discovered endpoints for %s", self.get_provider_name())
                 return self._discovery_cache
         except Exception as e:
-            logger.error(f"Failed to discover endpoints for {self.get_provider_name()}: {e!s}")
-            raise Exception(f"OIDC discovery failed: {e!s}") from e
+            logger.error("Failed to discover endpoints for %s: %s", self.get_provider_name(), e)
+            raise ExternalServiceError(f"OIDC discovery failed: {e!s}") from e
 
     async def get_jwks(self) -> dict[str, Any]:
         """Fetch JWKS (JSON Web Key Set) for token validation.
@@ -74,7 +84,12 @@ class OAuth2Provider(ABC):
         Raises:
             Exception: If JWKS fetch fails
         """
-        if self._jwks_cache is not None:
+        now = datetime.now(UTC)
+        if (
+            self._jwks_cache is not None
+            and self._jwks_cache_time is not None
+            and now - self._jwks_cache_time < self._jwks_cache_ttl
+        ):
             return self._jwks_cache
 
         jwks_uri = self.config.oauth2_jwks_uri
@@ -83,18 +98,21 @@ class OAuth2Provider(ABC):
             jwks_uri = discovery.get("jwks_uri", "")
 
         if not jwks_uri:
-            raise Exception("JWKS URI not configured or discovered")
+            raise ConfigurationError("JWKS URI not configured or discovered")
 
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(jwks_uri, timeout=10.0)
                 response.raise_for_status()
                 self._jwks_cache = response.json()
-                logger.info(f"Successfully fetched JWKS for {self.get_provider_name()}")
+                self._jwks_cache_time = datetime.now(UTC)
+                logger.info("Successfully fetched JWKS for %s", self.get_provider_name())
                 return self._jwks_cache
+        except ExternalServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Failed to fetch JWKS for {self.get_provider_name()}: {e!s}")
-            raise Exception(f"JWKS fetch failed: {e!s}") from e
+            logger.error("Failed to fetch JWKS for %s: %s", self.get_provider_name(), e)
+            raise ExternalServiceError(f"JWKS fetch failed: {e!s}") from e
 
     def generate_authorization_url(self, state: str | None = None) -> tuple[str, str]:
         """Generate OAuth2 authorization URL.
@@ -119,7 +137,7 @@ class OAuth2Provider(ABC):
         }
 
         authorization_url = f"{auth_endpoint}?{urlencode(params)}"
-        logger.debug(f"Generated authorization URL for {self.get_provider_name()}")
+        logger.debug("Generated authorization URL for %s", self.get_provider_name())
         return authorization_url, state
 
     async def exchange_code_for_token(self, code: str) -> dict[str, Any]:
@@ -149,11 +167,11 @@ class OAuth2Provider(ABC):
                 response = await client.post(token_endpoint, data=data, timeout=10.0)
                 response.raise_for_status()
                 token_data = response.json()
-                logger.info(f"Successfully exchanged code for token with {self.get_provider_name()}")
+                logger.info("Successfully exchanged code for token with %s", self.get_provider_name())
                 return token_data
         except Exception as e:
-            logger.error(f"Failed to exchange code for token with {self.get_provider_name()}: {e!s}")
-            raise Exception(f"Token exchange failed: {e!s}") from e
+            logger.error("Failed to exchange code for token with %s: %s", self.get_provider_name(), e)
+            raise ExternalServiceError(f"Token exchange failed: {e!s}") from e
 
     async def validate_id_token(self, id_token: str) -> dict[str, Any]:
         """Validate OIDC ID token.
@@ -180,7 +198,7 @@ class OAuth2Provider(ABC):
                     break
 
             if not key:
-                raise Exception(f"No matching key found for kid: {kid}")
+                raise ConfigurationError(f"No matching key found for kid: {kid}")
 
             payload = jwt.decode(
                 id_token,
@@ -190,15 +208,17 @@ class OAuth2Provider(ABC):
                 issuer=self.config.oidc_issuer,
             )
 
-            logger.info(f"Successfully validated ID token for {self.get_provider_name()}")
+            logger.info("Successfully validated ID token for %s", self.get_provider_name())
             return payload
 
         except JWTError as e:
-            logger.error(f"JWT validation failed for {self.get_provider_name()}: {e!s}")
-            raise Exception(f"ID token validation failed: {e!s}") from e
+            logger.error("JWT validation failed for %s: %s", self.get_provider_name(), e)
+            raise ExternalServiceError(f"ID token validation failed: {e!s}") from e
+        except DocpipeException:
+            raise
         except Exception as e:
-            logger.error(f"Token validation error for {self.get_provider_name()}: {e!s}")
-            raise Exception(f"Token validation failed: {e!s}") from e
+            logger.error("Token validation error for %s: %s", self.get_provider_name(), e)
+            raise ExternalServiceError(f"Token validation failed: {e!s}") from e
 
     async def get_user_info(self, access_token: str) -> dict[str, Any]:
         """Fetch user information from userinfo endpoint.
@@ -219,7 +239,7 @@ class OAuth2Provider(ABC):
             userinfo_endpoint = discovery.get("userinfo_endpoint", "")
 
         if not userinfo_endpoint:
-            raise Exception("Userinfo endpoint not configured or discovered")
+            raise ConfigurationError("Userinfo endpoint not configured or discovered")
 
         try:
             async with httpx.AsyncClient() as client:
@@ -230,11 +250,13 @@ class OAuth2Provider(ABC):
                 )
                 response.raise_for_status()
                 userinfo = response.json()
-                logger.info(f"Successfully fetched user info from {self.get_provider_name()}")
+                logger.info("Successfully fetched user info from %s", self.get_provider_name())
                 return userinfo
+        except ExternalServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Failed to fetch user info from {self.get_provider_name()}: {e!s}")
-            raise Exception(f"Userinfo fetch failed: {e!s}") from e
+            logger.error("Failed to fetch user info from %s: %s", self.get_provider_name(), e)
+            raise ExternalServiceError(f"Userinfo fetch failed: {e!s}") from e
 
     @abstractmethod
     async def extract_user_from_token(self, token_data: dict[str, Any]) -> User:
@@ -246,7 +268,7 @@ class OAuth2Provider(ABC):
         Returns:
             User object
         """
-        pass
+        ...
 
 
 class GoogleOAuth2Provider(OAuth2Provider):
@@ -260,7 +282,7 @@ class GoogleOAuth2Provider(OAuth2Provider):
         """Extract user from Google token data."""
         id_token = token_data.get("id_token")
         if not id_token:
-            raise Exception("No ID token in response")
+            raise ExternalServiceError("No ID token in response")
 
         payload = await self.validate_id_token(id_token)
 
@@ -282,7 +304,7 @@ class AzureADOAuth2Provider(OAuth2Provider):
         """Extract user from Azure AD token data."""
         id_token = token_data.get("id_token")
         if not id_token:
-            raise Exception("No ID token in response")
+            raise ExternalServiceError("No ID token in response")
 
         payload = await self.validate_id_token(id_token)
 
@@ -310,7 +332,7 @@ class GenericOIDCProvider(OAuth2Provider):
         elif access_token:
             payload = await self.get_user_info(access_token)
         else:
-            raise Exception("No ID token or access token in response")
+            raise ExternalServiceError("No ID token or access token in response")
 
         username = payload.get("preferred_username") or payload.get("email") or payload.get("sub") or ""
         email = payload.get("email", "")
@@ -336,7 +358,6 @@ def get_oauth2_provider(config: OAuth2Config) -> OAuth2Provider:
 
     if provider_name == "google":
         return GoogleOAuth2Provider(config)
-    elif provider_name == "azure":
+    if provider_name == "azure":
         return AzureADOAuth2Provider(config)
-    else:
-        return GenericOIDCProvider(config)
+    return GenericOIDCProvider(config)

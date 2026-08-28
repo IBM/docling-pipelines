@@ -301,6 +301,7 @@ class DocumentLibrary(BaseModel):
         tags: Optional list of tags
         created_by: Optional creator username
         href: Optional hyperlink reference
+        document_set_ids: List of document set IDs associated with this library
     """
 
     library_id: str | None = Field(
@@ -327,6 +328,11 @@ class DocumentLibrary(BaseModel):
     )
     href: str | None = Field(
         default=None, title="Href", description="The target of the hyperlink", min_length=5, max_length=8000
+    )
+    document_set_ids: list[str] = Field(
+        default_factory=list,
+        title="Document Set IDs",
+        description="List of document set IDs associated with this library",
     )
 
     model_config = ConfigDict(

@@ -1,9 +1,9 @@
 """Unit tests for operator_log_details module."""
 
 import json
-import os
 import tempfile
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -55,8 +55,7 @@ class TestOperatorLogSplit:
     def test_operator_log_split_valid(self):
         """Test splitting valid operator log."""
         value = "NodeID: node_123\nLog line 1\nLog line 2"
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
 
         assert "node_123" in result["node_sequence"]
@@ -67,8 +66,7 @@ class TestOperatorLogSplit:
     def test_operator_log_split_no_colon(self):
         """Test with log value without colon."""
         value = "No colon here"
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
 
         assert len(result["node_sequence"]) == 0
@@ -76,8 +74,7 @@ class TestOperatorLogSplit:
     def test_operator_log_split_empty_lines(self):
         """Test with empty lines in log."""
         value = "NodeID: node_456\n\nLog line\n\n"
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
 
         assert "node_456" in result["node_sequence"]
@@ -116,7 +113,7 @@ class TestReadJsonIfExists:
             result = read_json_if_exists(path=temp_path)
             assert result == test_data
         finally:
-            os.unlink(temp_path)
+            Path(temp_path).unlink()
 
     def test_read_json_if_exists_nonexistent(self):
         """Test with nonexistent file."""
@@ -140,8 +137,7 @@ class TestParseSequentialLogContent:
             ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
             "NodeID: node_2\nLog for node 2"
         )
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _parse_sequential_log_content(log_content, operator_logs_combined)
 
         assert "node_1" in result["node_sequence"]
@@ -159,8 +155,7 @@ class TestHandleDictWithLogsKey:
             "logs": ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nNodeID: node_1\nLog content",
             "jobs": {"job_id": "123"},
         }
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _handle_dict_with_logs_key(content, operator_logs_combined)
 
         assert "job_stats" in result
@@ -170,8 +165,7 @@ class TestHandleDictWithLogsKey:
     def test_handle_dict_with_logs_key_no_jobs(self):
         """Test with no jobs key."""
         content = {"logs": ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nNodeID: node_1\nLog"}
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _handle_dict_with_logs_key(content, operator_logs_combined)
 
         assert "job_stats" not in result
@@ -184,8 +178,7 @@ class TestHandleStringLogs:
     def test_handle_string_logs_basic(self):
         """Test handling string logs."""
         content = ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nNodeID: node_1\nLog content"
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _handle_string_logs(content, operator_logs_combined, None, None)
 
         assert "node_1" in result["node_sequence"]
@@ -196,8 +189,7 @@ class TestHandleStringLogs:
         """Test with job stats file."""
         mock_read_json.return_value = {"status": "completed"}
         content = ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nNodeID: node_1\nLog"
-        operator_logs_combined = {"node_sequence": []}
-
+        operator_logs_combined: dict[str, object] = {"node_sequence": []}
         result = _handle_string_logs(content, operator_logs_combined, "/path/to/job_stats.json", None)
 
         assert "job_stats" in result
@@ -323,8 +315,7 @@ class TestExtractDocumentLevelErrors:
 
     def test_extract_document_level_errors_empty(self):
         """Test with no errors."""
-        node_metadata = {OperatorConstants.Metadata.NODE_METADATA: {}}
-
+        node_metadata: dict[str, object] = {OperatorConstants.Metadata.NODE_METADATA: {}}
         result = _extract_document_level_errors(node_metadata=node_metadata)
 
         assert result == []
@@ -346,7 +337,7 @@ class TestCountAndRemoveLists:
 
         assert "total_docs" not in node_info
         assert "failed_docs" not in node_info
-        assert node_info["total_docs_count"] == 3
+        assert node_info["documents_in_scope"] == 3
         assert node_info["failed_docs_count"] == 1
         assert node_info["other_field"] == "value"
 
@@ -358,7 +349,7 @@ class TestCountAndRemoveLists:
         _count_and_remove_lists(node_info=node_info, keys_to_count=keys_to_count)
 
         assert "total_docs" in node_info
-        assert "total_docs_count" not in node_info
+        assert "documents_in_scope" not in node_info
 
 
 class TestFormatNodeStats:
@@ -374,7 +365,7 @@ class TestFormatNodeStats:
                 "total_docs": ["doc1", "doc2"],
             }
         }
-        node_sequence = ["node_1"]
+        node_sequence: list[str] = ["node_1"]
 
         result = format_node_stats(node_stats=node_stats, node_sequence=node_sequence)
 
@@ -392,7 +383,7 @@ class TestFormatNodeStats:
                 "document_level_errors": {},
             }
         }
-        node_sequence = ["node_1"]
+        node_sequence: list[str] = ["node_1"]
 
         result = format_node_stats(node_stats=node_stats, node_sequence=node_sequence)
 
@@ -403,8 +394,7 @@ class TestFormatNodeStats:
     def test_format_node_stats_empty_sequence(self):
         """Test with empty sequence."""
         node_stats = {"node_1": {OperatorConstants.Columns.NAME: "Node 1"}}
-        node_sequence = []
-
+        node_sequence: list[str] = []
         result = format_node_stats(node_stats=node_stats, node_sequence=node_sequence)
 
         parsed = json.loads(result)
@@ -426,7 +416,7 @@ class TestFormatOperatorLogs:
             "end_time": 1609459260,
             "start_time": 1609459200,
             "duration": 60.0,
-            "total_docs_count_from_logs": 10,
+            "documents_in_scope_from_logs": 10,
             "processed_docs": 10,
             "failed_docs": 0,
             "skipped_docs": 0,
@@ -450,7 +440,7 @@ class TestFormatOperatorLogs:
             "end_time": 1609459260,
             "start_time": 1609459200,
             "duration": 60.0,
-            "total_docs_count_from_logs": 5,
+            "documents_in_scope_from_logs": 5,
             "processed_docs": 5,
             "failed_docs": 0,
             "skipped_docs": 0,

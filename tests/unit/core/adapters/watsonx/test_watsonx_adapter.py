@@ -145,7 +145,7 @@ class TestWatsonXInferenceAdapter:
 
     def test_chat_empty_messages(self, adapter, mock_watsonx_client):
         """Test chat with empty messages list."""
-        messages = []
+        messages: list[dict[str, str]] = []
         mock_watsonx_client.chat.return_value = ""
 
         result = adapter.chat(messages=messages)
@@ -348,7 +348,7 @@ class TestWatsonXTextDetection:
 
     def test_detect_entities_success(self, adapter, mock_rest_client):
         """Test successful entity detection."""
-        text = "My SSN is XXX-XX-XXXX"
+        text = "My SSN is 123-45-6789"
         prompt = "Detect PII in the text"
 
         mock_detections = [
@@ -357,7 +357,7 @@ class TestWatsonXTextDetection:
                 "score": 0.98,
                 "start": 11,
                 "end": 22,
-                "text": "XXX-XX-XXXX",
+                "text": "123-45-6789",
             }
         ]
         mock_rest_client.call_rest_json.return_value = {"detections": mock_detections}
@@ -458,7 +458,7 @@ class TestWatsonXTextDetection:
         adapter.detect(text=text)
 
         call_args = mock_rest_client.call_rest_json.call_args
-        endpoint = call_args[1]["endpoint"]
+        endpoint = call_args[1]["url"]
         assert "/ml/v1/text/detection" in endpoint
 
     def test_detect_includes_container_id(self, adapter, mock_rest_client):

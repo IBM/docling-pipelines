@@ -1,13 +1,22 @@
 """Unit tests for Validation API routes."""
 
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from docpipe.api.routes.validation import get_validation_service, validation_router
+from docpipe.api.auth.dependencies import get_current_user
+from docpipe.api.routes.validation import (
+    get_flow_enrichment_service,
+    get_validation_service,
+    validation_router,
+)
+from docpipe.core.assets.flows.application.services.flow_enrichment_service import FlowEnrichmentService
 from docpipe.core.assets.flows.application.services.validation_service import ValidationService
+from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+from tests.unit.api.routes.conftest import mock_current_user
 
 
 @pytest.fixture
@@ -30,6 +39,7 @@ def app():
 
     app = FastAPI()
     app.include_router(validation_router)
+    app.dependency_overrides[get_current_user] = mock_current_user
 
     # Register exception handlers in same order as main.py
     app.add_exception_handler(DocpipeException, docpipe_exception_handler)
@@ -43,7 +53,7 @@ def app():
 @pytest.fixture
 def client(app):
     """Create FastAPI test client."""
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -330,7 +340,7 @@ class TestValidationAlertDTOStructure:
                     "message_code": "operator.not_found",
                     "node_id": "550e8400-e29b-41d4-a716-446655440001",
                     "node_name": "Ingest Node",
-                    "operator": "IngestLocalOperator",
+                    "operator": "IngestSourceOperator",
                 }
             ],
             "warnings": [],
@@ -348,7 +358,7 @@ class TestValidationAlertDTOStructure:
         assert error["message_code"] == "operator.not_found"
         assert error["node_id"] == "550e8400-e29b-41d4-a716-446655440001"
         assert error["node_name"] == "Ingest Node"
-        assert error["operator"] == "IngestLocalOperator"
+        assert error["operator"] == "IngestSourceOperator"
 
     def test_validation_alert_dto_accepts_minimal_fields(self, client, override_service, sample_flow_data):
         """Test that ValidationAlertDTO works with minimal fields."""
@@ -465,3 +475,249 @@ class TestFlowValidationResponseStructure:
         assert data["warnings"] == []
         assert isinstance(data["errors"], list)
         assert isinstance(data["warnings"], list)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures — enrich_flow_features
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_enrichment_service():
+    """Create mock FlowEnrichmentService."""
+    return Mock(spec=FlowEnrichmentService)
+
+
+@pytest.fixture
+def override_enrichment_service(app, mock_enrichment_service):
+    """Override the get_flow_enrichment_service dependency."""
+    app.dependency_overrides[get_flow_enrichment_service] = lambda: mock_enrichment_service
+    yield mock_enrichment_service
+    app.dependency_overrides.clear()
+
+
+def _minimal_elyra_flow(**extra: Any) -> dict[str, Any]:
+    """Return a minimal valid Elyra pipeline body."""
+    return {
+        "doc_type": "pipeline",
+        "version": "3.0",
+        "pipelines": [
+            {
+                "nodes": [
+                    {"id": "node-1", "op": "ingest_source", "parameters": {}},
+                    {"id": "node-2", "op": "chunker", "parameters": {}},
+                ],
+                "app_data": {"ds_flow": {"name": "Test Flow", "global_config": {}}},
+            }
+        ],
+        **extra,
+    }
+
+
+def _enriched_flow() -> dict[str, Any]:
+    """Return a mock enriched Elyra flow as the service would return it."""
+    return {
+        "doc_type": "pipeline",
+        "version": "3.0",
+        "pipelines": [
+            {
+                "nodes": [
+                    {
+                        "id": "node-1",
+                        "op": "ingest_source",
+                        "parameters": {
+                            "available_features": {},
+                            "input_features": {},
+                            "output_features": {
+                                "id": {
+                                    "name": "id",
+                                    "type": "string",
+                                    "node_id": "node-1",
+                                    "description": "",
+                                    "available_for_filter": True,
+                                    "available_for_vector_db": False,
+                                    "tags": [],
+                                },
+                                "content": {
+                                    "name": "content",
+                                    "type": "string",
+                                    "node_id": "node-1",
+                                    "description": "",
+                                    "available_for_filter": True,
+                                    "available_for_vector_db": False,
+                                    "tags": [],
+                                },
+                            },
+                        },
+                    },
+                    {
+                        "id": "node-2",
+                        "op": "chunker",
+                        "parameters": {
+                            "available_features": {},
+                            "input_features": {
+                                "content": {
+                                    "name": "content",
+                                    "type": "string",
+                                    "node_id": "node-1",
+                                    "description": "",
+                                    "available_for_filter": True,
+                                    "available_for_vector_db": False,
+                                    "tags": [],
+                                },
+                            },
+                            "output_features": {
+                                "chunk": {
+                                    "name": "chunk",
+                                    "type": "string",
+                                    "node_id": "node-2",
+                                    "description": "",
+                                    "available_for_filter": True,
+                                    "available_for_vector_db": False,
+                                    "tags": [],
+                                },
+                            },
+                        },
+                    },
+                ],
+                "app_data": {"ds_flow": {"name": "Test Flow", "global_config": {}}},
+            }
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Tests: happy path
+# ---------------------------------------------------------------------------
+
+
+class TestEnrichFlowFeaturesEndpoint:
+    """Tests for POST /validation/enrich_flow_features."""
+
+    def test_returns_200_with_enriched_flow(self, client, override_enrichment_service):
+        """Valid Elyra flow returns 200 with enriched flow body."""
+        override_enrichment_service.enrich_flow_with_features.return_value = _enriched_flow()
+
+        response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        assert response.status_code == 200
+        assert "pipelines" in response.json()
+
+    def test_response_nodes_contain_feature_metadata_keys(self, client, override_enrichment_service):
+        """Each node in the response has input/output/available_features in parameters."""
+        override_enrichment_service.enrich_flow_with_features.return_value = _enriched_flow()
+
+        response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        for node in response.json()["pipelines"][0]["nodes"]:
+            assert "input_features" in node["parameters"]
+            assert "output_features" in node["parameters"]
+            assert "available_features" in node["parameters"]
+
+    def test_passes_full_request_body_to_service(self, client, override_enrichment_service):
+        """The entire request body is forwarded to enrich_flow_with_features."""
+        flow = _minimal_elyra_flow()
+        override_enrichment_service.enrich_flow_with_features.return_value = _enriched_flow()
+
+        client.post("/validation/enrich_flow_features", json=flow)
+
+        call_kwargs = override_enrichment_service.enrich_flow_with_features.call_args[1]
+        assert call_kwargs["flow_definition"]["doc_type"] == "pipeline"
+        assert call_kwargs["flow_definition"]["pipelines"] == flow["pipelines"]
+
+    def test_service_called_exactly_once(self, client, override_enrichment_service):
+        """Service is called exactly once per request."""
+        override_enrichment_service.enrich_flow_with_features.return_value = _enriched_flow()
+
+        client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        override_enrichment_service.enrich_flow_with_features.assert_called_once()
+
+    def test_response_content_type_is_json(self, client, override_enrichment_service):
+        """Response Content-Type is application/json."""
+        override_enrichment_service.enrich_flow_with_features.return_value = _enriched_flow()
+
+        response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        assert "application/json" in response.headers["content-type"]
+
+    def test_response_preserves_top_level_elyra_keys(self, client, override_enrichment_service):
+        """Keys outside pipelines (doc_type, version) are preserved in the response."""
+        override_enrichment_service.enrich_flow_with_features.return_value = _enriched_flow()
+
+        response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        data = response.json()
+        assert data["doc_type"] == "pipeline"
+        assert data["version"] == "3.0"
+
+
+# ---------------------------------------------------------------------------
+# Tests: error handling
+# ---------------------------------------------------------------------------
+
+
+class TestEnrichFlowFeaturesErrorHandling:
+    """Tests for error responses from enrich_flow_features.
+
+    Both ValueError and FlowValidationException bubble up to the middleware.
+    ValueError → generic_exception_handler → 400 invalid_parameter.
+    FlowValidationException(status_code=400) → docpipe_exception_handler → 400.
+    """
+
+    def test_value_error_returns_400(self, client, override_enrichment_service):
+        """Service raising ValueError → 400."""
+        override_enrichment_service.enrich_flow_with_features.side_effect = ValueError("flow_definition is required")
+
+        response = client.post("/validation/enrich_flow_features", json={})
+
+        assert response.status_code == 400
+
+    def test_value_error_code_is_invalid_parameter(self, client, override_enrichment_service):
+        """ValueError is handled by generic_exception_handler with code 'invalid_parameter'."""
+        override_enrichment_service.enrich_flow_with_features.side_effect = ValueError("flow_definition is required")
+
+        response = client.post("/validation/enrich_flow_features", json={})
+
+        errors = response.json()["errors"]
+        assert errors[0]["code"] == "invalid_parameter"
+        assert "flow_definition is required" in errors[0]["message"]
+
+    def test_value_error_custom_message_surfaced(self, client, override_enrichment_service):
+        """ValueError message is preserved in the 400 response."""
+        override_enrichment_service.enrich_flow_with_features.side_effect = ValueError("Missing pipelines key")
+
+        response = client.post("/validation/enrich_flow_features", json={"doc_type": "pipeline"})
+
+        assert response.status_code == 400
+        assert "Missing pipelines key" in response.json()["errors"][0]["message"]
+
+    def test_flow_validation_exception_returns_400(self, client, override_enrichment_service):
+        """FlowValidationException(status_code=400) → docpipe_exception_handler → 400."""
+        override_enrichment_service.enrich_flow_with_features.side_effect = FlowValidationException(
+            errors=[{"code": "CYCLE_DETECTED", "message": "Dependency cycle in DAG"}]
+        )
+
+        response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        assert response.status_code == 400
+
+    def test_flow_validation_exception_error_code(self, client, override_enrichment_service):
+        """FlowValidationException is handled by docpipe_exception_handler."""
+        override_enrichment_service.enrich_flow_with_features.side_effect = FlowValidationException(
+            errors=[{"code": "CYCLE_DETECTED", "message": "Dependency cycle in DAG"}]
+        )
+
+        response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        data = response.json()
+        assert "errors" in data
+        assert response.status_code == 400
+
+    def test_flow_validation_exception_with_empty_errors_returns_400(self, client, override_enrichment_service):
+        """FlowValidationException with no errors still returns 400."""
+        override_enrichment_service.enrich_flow_with_features.side_effect = FlowValidationException(errors=[])
+
+        response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
+
+        assert response.status_code == 400

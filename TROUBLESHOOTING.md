@@ -40,7 +40,7 @@ echo $PYTHONPATH  # Should include src
 curl http://localhost:11434/api/tags
 
 # 5. Check OpenSearch service
-curl -u admin:changeme http://localhost:9200
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
 
 # 6. Check Milvus service
 python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Milvus: Connected')"
@@ -52,7 +52,7 @@ pwd  # Should end with /docling-pipelines
 ollama list
 
 # 9. Check OpenSearch cluster health
-curl -u admin:changeme "http://localhost:9200/_cluster/health?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 ```
 
 **Health Check Script:**
@@ -74,7 +74,7 @@ echo "4. Ollama Service:"
 curl -s http://localhost:11434/api/tags > /dev/null && echo "✅ Ollama running" || echo "❌ Ollama not responding"
 echo ""
 echo "5. OpenSearch Service:"
-curl -s -u admin:changeme http://localhost:9200 > /dev/null && echo "✅ OpenSearch running" || echo "❌ OpenSearch not responding"
+curl -s -u admin:MyStrongPass123! http://localhost:9200 > /dev/null && echo "✅ OpenSearch running" || echo "❌ OpenSearch not responding"
 echo ""
 echo "6. Milvus Service:"
 python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530)" 2>/dev/null && echo "✅ Milvus running" || echo "❌ Milvus not responding"
@@ -676,7 +676,7 @@ Error code: opensearch_connection_failed
 
 ```bash
 # Check if OpenSearch is running
-curl -u admin:changeme http://localhost:9200
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
 ```
 
 **Solutions:**
@@ -705,7 +705,7 @@ podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
 4. **Verify cluster health:**
 
 ```bash
-curl -u admin:changeme "http://localhost:9200/_cluster/health?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 ```
 
 ---
@@ -725,7 +725,7 @@ Error code: opensearch_index_error
 
 ```bash
 # Check if index already exists
-curl -u admin:changeme "http://localhost:9200/_cat/indices?v"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/indices?v"
 ```
 
 **Solutions:**
@@ -734,10 +734,10 @@ curl -u admin:changeme "http://localhost:9200/_cat/indices?v"
 
 ```bash
 # Delete index
-curl -X DELETE -u admin:changeme "http://localhost:9200/my-index"
+curl -X DELETE -u admin:MyStrongPass123! "http://localhost:9200/my-index"
 
 # Verify deletion
-curl -u admin:changeme "http://localhost:9200/_cat/indices?v"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/indices?v"
 ```
 
 2. **Check index settings in flow configuration:**
@@ -785,10 +785,10 @@ curl -u admin:changeme "http://localhost:9200/_cat/indices?v"
 
 ```bash
 # Check cluster health
-curl -u admin:changeme "http://localhost:9200/_cluster/health?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 # Check shard allocation
-curl -u admin:changeme "http://localhost:9200/_cat/shards?v"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/shards?v"
 ```
 
 **Solutions:**
@@ -832,7 +832,7 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 # Username: admin
 # Password: <your-opensearch-password>
 
-curl -u admin:<your-opensearch-password> http://localhost:9200
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
 ```
 
 2. **Check if credentials were changed:**
@@ -874,7 +874,7 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
    ```bash
    # Docker
    docker ps | grep milvus
-   
+
    # Podman
    podman ps | grep milvus
    ```
@@ -1126,10 +1126,11 @@ Message code: INGEST_OPERATOR_MISPLACED
 {
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_1",
       "config": {
-        "paths": "sample_documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["sample_documents"]}
       }
     }
   ]
@@ -1207,7 +1208,7 @@ ls -la sample_documents/
 ```bash
 # Verify services are running
 curl http://localhost:11434/api/tags
-curl -u admin:changeme http://localhost:9200
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
 ```
 
 ---
@@ -1711,10 +1712,11 @@ Message code: EXTRACT_OPERATOR_MISSING
 {
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_1",
       "config": {
-        "paths": "./sample_documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]}
       }
     },
     {
@@ -2045,7 +2047,7 @@ docling-pipelines --flow-file my_flow.json > pipeline.log 2>&1
 ```bash
 # Each operator logs to the same output stream
 # Look for operator name in log messages:
-# [INFO] Operator: ingest_local_folder - Processing...
+# [INFO] Operator: ingest_source_filesystem - Processing...
 ```
 
 **Service logs:**
@@ -2070,8 +2072,8 @@ podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
 **Typical log format:**
 
 ```
-[2024-01-15 10:30:45] [INFO] [ingest_local_folder] Processing folder: sample_documents
-[2024-01-15 10:30:46] [INFO] [ingest_local_folder] Found 5 files
+[2024-01-15 10:30:45] [INFO] [ingest_source_filesystem] Processing folder: sample_documents
+[2024-01-15 10:30:46] [INFO] [ingest_source_filesystem] Found 5 files
 [2024-01-15 10:30:47] [INFO] [extract_operator] Extracting content from file1.pdf
 [2024-01-15 10:30:50] [ERROR] [extract_operator] Failed to extract: Connection refused
 ```
@@ -2225,13 +2227,13 @@ ollama pull model-name  # Re-pulls latest version
 
 ```bash
 # Cluster health
-curl -u admin:changeme "http://localhost:9200/_cluster/health?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 # Node info
-curl -u admin:changeme "http://localhost:9200/_nodes?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_nodes?pretty"
 
 # Indices
-curl -u admin:changeme "http://localhost:9200/_cat/indices?v"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/indices?v"
 ```
 
 #### OpenSearch Performance Issues
@@ -2240,10 +2242,10 @@ curl -u admin:changeme "http://localhost:9200/_cat/indices?v"
 
 ```bash
 # Check cluster stats
-curl -u admin:changeme "http://localhost:9200/_cluster/stats?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/stats?pretty"
 
 # Increase refresh interval
-curl -X PUT -u admin:changeme "http://localhost:9200/my-index/_settings" \
+curl -X PUT -u admin:MyStrongPass123! "http://localhost:9200/my-index/_settings" \
   -H 'Content-Type: application/json' \
   -d '{"index": {"refresh_interval": "30s"}}'
 ```
@@ -2252,7 +2254,7 @@ curl -X PUT -u admin:changeme "http://localhost:9200/my-index/_settings" \
 
 ```bash
 # Check heap usage
-curl -u admin:changeme "http://localhost:9200/_cat/nodes?v&h=heap.percent,heap.current,heap.max"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/nodes?v&h=heap.percent,heap.current,heap.max"
 
 # Adjust heap size in docker/docker-compose.opensearch.yml
 # OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
@@ -2263,13 +2265,13 @@ curl -u admin:changeme "http://localhost:9200/_cat/nodes?v&h=heap.percent,heap.c
 **Delete index:**
 
 ```bash
-curl -X DELETE -u admin:changeme "http://localhost:9200/my-index"
+curl -X DELETE -u admin:MyStrongPass123! "http://localhost:9200/my-index"
 ```
 
 **Reindex data:**
 
 ```bash
-curl -X POST -u admin:changeme "http://localhost:9200/_reindex" \
+curl -X POST -u admin:MyStrongPass123! "http://localhost:9200/_reindex" \
   -H 'Content-Type: application/json' \
   -d '{
     "source": {"index": "old-index"},
@@ -2280,7 +2282,7 @@ curl -X POST -u admin:changeme "http://localhost:9200/_reindex" \
 **Check index mapping:**
 
 ```bash
-curl -u admin:changeme "http://localhost:9200/my-index/_mapping?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/my-index/_mapping?pretty"
 ```
 
 ---
@@ -2740,7 +2742,7 @@ A: The Python import path is not configured. Set PYTHONPATH from the project roo
 ```bash
 # Health check
 curl http://localhost:11434/api/tags
-curl -u admin:changeme http://localhost:9200
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
 
 # Check logs
 docling-pipelines --flow-file my_flow.json 2>&1 | tee debug.log
@@ -2799,7 +2801,7 @@ cat my_flow.json
 curl http://localhost:11434/api/tags
 
 # OpenSearch
-curl -u admin:changeme "http://localhost:9200/_cluster/health?pretty"
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 ```
 
 ---
@@ -2820,7 +2822,8 @@ curl -u admin:changeme "http://localhost:9200/_cluster/health?pretty"
 
 **Examples:**
 
-- Sample flows: [`sample_flows/`](sample_flows/) - Organized by use case and operator type
+- Sample flows: [`sample_flows/`](sample_flows/)
+- Test flows: [`sample_flows/`](sample_flows/)
 
 ---
 
@@ -2863,7 +2866,7 @@ docling-pipelines --flow-file my_flow.json 2>&1 | tee debug.log
 
 # Service health checks
 curl http://localhost:11434/api/tags
-curl -u admin:changeme http://localhost:9200
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
 
 # Cleanup
 podman-compose -f docker/docker-compose.opensearch.yml down -v

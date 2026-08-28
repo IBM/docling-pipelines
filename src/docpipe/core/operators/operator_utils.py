@@ -1,20 +1,22 @@
+"""Utility functions and helpers shared across docpipe operators."""
+
 import datetime
 import hashlib
+import importlib.util
 import io
 import json
 import os
+import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pyarrow as pa
 import pyarrow.compute as pc
 from charset_normalizer import from_bytes
-from docling.datamodel.base_models import FormatToExtensions, InputFormat
-from docling.document_converter import DocumentConverter
-from docling_core.types.io import DocumentStream
 from pyarrow import Table
 
 from docpipe.core.constants.constants import (
+    AttributeDataTypes,
     DocsStructure,
     ExecutionStatus,
     Metrics,
@@ -47,6 +49,75 @@ status_codes = {
 
 hash_functions = hashlib.sha3_512
 logger = get_logger()
+
+# ---------------------------------------------------------------------------
+# DocumentConverter per-thread cache
+# ---------------------------------------------------------------------------
+# DocumentConverter (docling-parse 7.x) is not thread-safe: calling .convert()
+# concurrently from multiple threads on the same instance causes segfaults on
+# macOS (arm64) and is unreliable on Linux. Each thread gets its own converter
+# instance, keyed by a stable MD5 hash of the format_options configuration so
+# that different pipeline configs (e.g. standard vs OCR-disabled) remain separate.
+_DOCLING_AVAILABLE = importlib.util.find_spec("docling") is not None
+if _DOCLING_AVAILABLE:
+    from docling.document_converter import DocumentConverter
+
+# Thread-local storage: each thread has its own dict[cache_key -> DocumentConverter]
+_thread_local_converters = threading.local()
+
+
+def _converter_cache_key(converter_config: dict | None) -> str:
+    """Return a stable MD5 cache key for a given DocumentConverter configuration.
+
+    Args:
+        converter_config: Dict optionally containing ``format_options`` key.
+
+    Returns:
+        A hex digest string that uniquely identifies the configuration.
+    """
+    if not converter_config or "format_options" not in converter_config:
+        return "default"
+    key_parts = {str(fmt): type(opt).__name__ for fmt, opt in converter_config["format_options"].items()}
+    return hashlib.md5(json.dumps(key_parts, sort_keys=True).encode(), usedforsecurity=False).hexdigest()  # nosec B324
+
+
+def _get_or_create_converter(converter_config: dict | None) -> Any:
+    """Return a per-thread DocumentConverter, constructing it once per thread per unique config.
+
+    Each worker thread builds its own ``DocumentConverter`` instance so that
+    concurrent ``convert()`` calls never share state — avoiding the segfault
+    triggered by calling docling-parse 7.x from multiple threads simultaneously.
+
+    Args:
+        converter_config: Optional dict with ``format_options`` for the converter.
+
+    Returns:
+        A ``DocumentConverter`` instance owned by the calling thread.
+
+    Raises:
+        RuntimeError: If docling is not installed.
+    """
+    if not _DOCLING_AVAILABLE:
+        raise RuntimeError("docling is not installed. Install with: pip install 'docling-pipelines-slim[extract]'")
+
+    cache_key = _converter_cache_key(converter_config)
+
+    # Ensure the thread-local dict exists
+    if not hasattr(_thread_local_converters, "cache"):
+        _thread_local_converters.cache = {}
+
+    thread_cache: dict[str, Any] = _thread_local_converters.cache
+
+    if cache_key not in thread_cache:
+        logger.info("Creating DocumentConverter for cache key: %s", cache_key)
+        if converter_config and "format_options" in converter_config:
+            thread_cache[cache_key] = DocumentConverter(format_options=converter_config["format_options"])
+        else:
+            thread_cache[cache_key] = DocumentConverter()
+    else:
+        logger.debug("DocumentConverter cache hit for key: %s", cache_key)
+
+    return thread_cache[cache_key]
 
 
 def sanitize_doc_id_for_filename(doc_id: str) -> str:
@@ -97,19 +168,19 @@ def get_supported_file_extensions() -> str:
     Returns:
         Comma-separated string of file extensions (e.g., "pdf,docx,mp3,wav")
     """
+
     # Base extensions always supported
-    base_extensions = ["pdf", "docx", "pptx", "txt", "md", "png", "jpeg", "jpg", "tiff", "tif", "bmp", "webp"]
+    supported_extensions: list[str] = OperatorConstants.FileExtensions.BASE_EXTENSIONS
 
     # Add audio/video extensions only if ASR is available
-    # Audio: WAV, MP3, M4A, AAC, OGG, FLAC
-    # Video: MP4, AVI, MOV
     if is_asr_available():
-        audio_video_extensions = ["wav", "mp3", "m4a", "aac", "ogg", "flac", "mp4", "avi", "mov"]
-        base_extensions.extend(audio_video_extensions)
-    return ",".join(base_extensions)
+        supported_extensions.extend(OperatorConstants.FileExtensions.AUDIO_VIDEO_EXTENSIONS)
+
+    # Strip leading dots before joining (constants have dots, but return format should not)
+    return ",".join(ext.lstrip(".") for ext in supported_extensions)
 
 
-def resolve_env_var(value):  # NOSONAR python:S3776
+def resolve_env_var(value: Any) -> Any:
     if not isinstance(value, str):
         return value
     if value.startswith("${") and value.endswith("}"):
@@ -119,11 +190,10 @@ def resolve_env_var(value):  # NOSONAR python:S3776
             parts = env_var_name.split(":", 1)
             env_var_name = parts[0]
             default_value = parts[1].lstrip("-")  # Remove optional '-' after colon
-            resolved = os.getenv(env_var_name, default_value)
-        else:
-            resolved = os.getenv(env_var_name)
-            if resolved is None:
-                raise ValueError(f"Environment variable {env_var_name} is not set")
+            return os.getenv(env_var_name, default_value)
+        resolved = os.getenv(env_var_name)
+        if resolved is None:
+            raise ValueError(f"Environment variable {env_var_name} is not set")
         return resolved
     if value.startswith("$"):
         env_var_name = value[1:]
@@ -163,22 +233,19 @@ class OperatorUtils:
             'Completed'
         """
         if failed_count > 0 and processed_count == 0:
-            return ExecutionStatus.FAILED.value
-        elif failed_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        elif skipped_count > 0 and processed_count == 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-        elif skipped_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-        else:
-            return ExecutionStatus.COMPLETED.value
+            return str(ExecutionStatus.FAILED.value)
+        if failed_count > 0:
+            return str(ExecutionStatus.COMPLETED_WITH_ERRORS.value)
+        if skipped_count > 0:
+            return str(ExecutionStatus.COMPLETED_WITH_WARNINGS.value)
+        return str(ExecutionStatus.COMPLETED.value)
 
     @staticmethod
     def validate_columns(
-        table: pa.Table | list,
+        table: pa.Table | list[str],
         required: list[str],
         operator_name: str,
-        error_messages: list | None = None,
+        error_messages: list[ValidationMessage] | None = None,
     ) -> None:
         """
         Check if required columns exist in the provided available features or table.
@@ -191,8 +258,8 @@ class OperatorUtils:
         if isinstance(table, pa.Table):
             table = table.schema.names
 
-        missing_features = []
-        missing_operators = []
+        missing_features: list[str] = []
+        missing_operators: list[str] = []
 
         result = True
         for r in required:
@@ -242,13 +309,25 @@ class OperatorUtils:
 
     @staticmethod
     def get_feature(
-        name,
-        description,
-        type,
-        available_for_filter=False,
-        available_for_vector_db=False,
-        mandatory_for_vector_db=False,
-    ):
+        name: str,
+        description: str,
+        type: str,
+        available_for_filter: bool = False,
+        available_for_vector_db: bool = False,
+        mandatory_for_vector_db: bool = False,
+    ) -> dict[str, Any]:
+        """Build a feature descriptor dict from the given attributes.
+
+        Args:
+            name: Column name.
+            description: Human-readable description.
+            type: Data type string.
+            available_for_filter: Whether the feature can be used as a filter.
+            available_for_vector_db: Whether the feature can be stored in a vector DB.
+            mandatory_for_vector_db: Whether the feature is mandatory in a vector DB.
+
+        Returns:
+            Dict containing the feature descriptor."""
         return {
             OperatorConstants.Misc.NAME: name,
             OperatorConstants.Config.DESCRIPTION: description,
@@ -297,15 +376,18 @@ class OperatorUtils:
                 else pa.array([""] * skipped_table.num_rows)
             )
 
-            # Build the list of skipped docs using array indexing
+            # Build the list of skipped docs using to_pylist() + zip (one C→Python boundary crossing per column)
+            skipped_ids = skipped_ids_array.to_pylist()
+            skipped_names = skipped_names_array.to_pylist()
+            skipped_paths = skipped_paths_array.to_pylist()
             skipped_docs_list = [
                 {
-                    "id": skipped_ids_array[i].as_py(),
-                    "name": skipped_names_array[i].as_py(),
+                    "id": doc_id,
+                    "name": doc_name,
                     "reason": reason,
-                    "document_url": str(skipped_paths_array[i].as_py() or ""),
+                    "document_url": str(doc_path or ""),
                 }
-                for i in range(skipped_table.num_rows)
+                for doc_id, doc_name, doc_path in zip(skipped_ids, skipped_names, skipped_paths, strict=True)
             ]
 
         return {
@@ -314,7 +396,7 @@ class OperatorUtils:
         }
 
     @staticmethod
-    def get_aggregated_flow_logs(job_id, jobrun_id):
+    def get_aggregated_flow_logs(job_id: str, jobrun_id: str) -> dict[str, Any]:
         """
         Private method to retrieve operator logs based on the execution environment.
 
@@ -329,8 +411,8 @@ class OperatorUtils:
 
         _log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
 
-        if os.path.exists(aggregated_job_log_path):
-            with open(aggregated_job_log_path) as file:
+        if Path(aggregated_job_log_path).exists():
+            with Path(aggregated_job_log_path).open() as file:
                 aggregated_flow_logs = json.load(file)
         else:
             return {"message": "Logs are not available.!"}
@@ -340,10 +422,10 @@ class OperatorUtils:
             job_stats = aggregated_flow_logs["job_stats"]
             if isinstance(job_stats, dict):
                 normalize_node_stats_for_dto(job_stats_data=job_stats)
-        return aggregated_flow_logs
+        return dict(aggregated_flow_logs)
 
     @staticmethod
-    def determine_final_job_status(*, node_stats_list: dict) -> ExecutionStatus:
+    def determine_final_job_status(*, node_stats_list: dict[str, Any]) -> ExecutionStatus:
         """Determines the most severe job status from a list of node statuses."""
         if not node_stats_list:
             return ExecutionStatus.STARTING
@@ -367,9 +449,16 @@ class OperatorUtils:
     @staticmethod
     def get_unique_ids(
         tables: pa.Table | list[pa.Table] | dict[str, pa.Table] | None,
-        id_col=OperatorConstants.Misc.ID,
-    ):
+        id_col: str = OperatorConstants.Misc.ID,
+    ) -> list[Any]:
+        """Return a deduplicated list of document IDs from one or more tables.
 
+        Args:
+            tables: A single table, a list of tables, or a dict of tables.
+            id_col: Column name to read IDs from.
+
+        Returns:
+            Ordered list of unique IDs."""
         if not tables:  # empty list
             return []
 
@@ -410,7 +499,7 @@ class OperatorUtils:
             return None
 
     @staticmethod
-    def is_operator_present_in_flow(flow_definition: dict, operator: str) -> bool:
+    def is_operator_present_in_flow(flow_definition: dict[str, Any], operator: str) -> bool:
         """
         Check if any operator in the flow definition is an ACL operator.
 
@@ -422,20 +511,19 @@ class OperatorUtils:
         if not flow_definition or not isinstance(flow_definition, dict):
             return False
 
-        exists = any(node.get("operator") == operator for node in flow_definition.get("dag", []))
-
-        return exists
+        return any(node.get("operator") == operator for node in flow_definition.get("dag", []))
 
     @staticmethod
-    def remove_rows(*, table: pa.Table, remove_row_idx: list) -> pa.Table:
+    def remove_rows(*, table: pa.Table, remove_row_idx: list[int]) -> pa.Table:
         """
         Removes the rows for the given list of indexes in remove_row_idx from the table
         """
-        indices_to_keep = [i for i in range(table.num_rows) if i not in remove_row_idx]
+        remove_set = set(remove_row_idx)
+        indices_to_keep = [i for i in range(table.num_rows) if i not in remove_set]
         return table.take(pa.array(indices_to_keep, type=pa.int64()))
 
     @staticmethod
-    def remove_all_rows(*, table: pa.Table, remove_row_id: list):
+    def remove_all_rows(*, table: pa.Table, remove_row_id: list[Any]) -> pa.Table:
         """
         Removes all the rows for the given list of ID from the table.
 
@@ -451,12 +539,17 @@ class OperatorUtils:
 
         # Create mask: True for rows to keep (not in failed_ids)
         keep_mask = pc.invert(pc.is_in(id_col, failed_ids_array))  # type: ignore[attr-defined]
-        table = table.filter(keep_mask)
-
-        return table
+        return table.filter(keep_mask)
 
     @staticmethod
     def find_doc_count(*, table: pa.Table) -> int:
+        """Return the number of unique documents in a table.
+
+        Args:
+            table: The PyArrow table to count.
+
+        Returns:
+            Count of unique document names, or row count if name column is absent."""
         if not table:
             return 0
         if table.num_rows == 0:
@@ -468,6 +561,13 @@ class OperatorUtils:
 
     @staticmethod
     def find_doc_count_from_tables(*, tables: list[pa.Table]) -> int:
+        """Return the number of unique documents across multiple tables.
+
+        Args:
+            tables: List of PyArrow tables.
+
+        Returns:
+            Count of unique document names across all tables."""
         doc_names: set[str] = set()
         for table in tables:
             if table.num_rows > 0:
@@ -475,7 +575,13 @@ class OperatorUtils:
         return len(doc_names)
 
     @staticmethod
-    def validate_link_name(*, link_name: str, existing_link_names: set, errors: list):
+    def validate_link_name(*, link_name: str, existing_link_names: set[str], errors: list[str]) -> None:
+        """Validate a link name for uniqueness and presence.
+
+        Args:
+            link_name: The link name to validate.
+            existing_link_names: Set of already-registered lowercased link names.
+            errors: List to append error messages to."""
         if not link_name:
             errors.append("Missing link name. Please provide a link name.")
             return
@@ -486,7 +592,7 @@ class OperatorUtils:
             existing_link_names.add(key)
 
     @staticmethod
-    def doc_id_hash(*, content) -> str:
+    def doc_id_hash(*, content: str) -> str:
         """
         Uses the content and adds a column with unique hash
         """
@@ -509,9 +615,9 @@ class OperatorUtils:
         detected_encoding = from_bytes(binary_content).best()
         if detected_encoding and detected_encoding.encoding:
             return str(detected_encoding)
-        else:  # pragma: no cover
-            # Fallback to a default encoding if detection failsF
-            return binary_content.decode("utf-8", errors="replace")
+        # pragma: no cover
+        # Fallback to a default encoding if detection failsF
+        return binary_content.decode("utf-8", errors="replace")
 
     @staticmethod
     def upsert_fields_in_schema(*, schema: pa.Schema, updates: dict[str, pa.DataType]) -> pa.Schema:
@@ -536,15 +642,23 @@ class OperatorUtils:
         return pa.schema(updated_fields)
 
     @staticmethod
-    def remove_internal_metrics_from_metadata(metadata) -> dict:
+    def remove_internal_metrics_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+        """Extract internal metrics from metadata, mutating the dict in-place.
+
+        Args:
+            metadata: The metadata dict to strip internal keys from.
+
+        Returns:
+            Dict containing only the extracted internal keys."""
         internal_metadata = {}
-        for key in list(metadata.keys()):
+        for key, value in list(metadata.items()):
             if key in internal_metrics:
-                internal_metadata[key] = metadata.pop(key)
+                internal_metadata[key] = value
+                del metadata[key]
         return internal_metadata
 
     @staticmethod
-    def drop_features_from_table(output_features_to_drop: list, table: Table) -> Table:
+    def drop_features_from_table(output_features_to_drop: list[str], table: Table) -> Table:
         """
 
         Parameters
@@ -567,12 +681,20 @@ class OperatorUtils:
 
     @staticmethod
     def rename_features_and_save_original(
-        *, updated_features: list | None = None, input_features: dict | Table | None = None
+        *, updated_features: list[dict[str, Any]] | None = None, input_features: dict[str, Any] | Table | None = None
     ) -> Any | None:
+        """Rename features in a table or feature dict and preserve the original name.
+
+        Args:
+            updated_features: List of rename-mapping dicts with 'old_feature' and 'new_feature'.
+            input_features: A PyArrow Table or a feature dict to rename.
+
+        Returns:
+            Renamed PyArrow Table if input was a Table; None otherwise."""
         if not input_features or not updated_features:
             return None
 
-        existing_features: set | dict = (
+        existing_features: set[str] | dict[str, Any] = (
             set(input_features.schema.names) if isinstance(input_features, Table) else input_features
         )
 
@@ -595,9 +717,17 @@ class OperatorUtils:
     def _build_rename_map(
         *, updated_features: list[dict[str, Any]] | None = None, existing_features: set[str] | dict[str, Any]
     ) -> dict[str, str]:
+        """Build an old->new name mapping from the updated_features list.
+
+        Args:
+            updated_features: List of rename-mapping dicts.
+            existing_features: The current set or dict of feature names.
+
+        Returns:
+            Dict mapping old feature names to new feature names."""
         rename_map: dict[str, str] = {}
-        seen_old: set = set()
-        seen_new: set = set()
+        seen_old: set[str] = set()
+        seen_new: set[str] = set()
 
         if updated_features is None:
             return rename_map
@@ -626,7 +756,15 @@ class OperatorUtils:
         return rename_map
 
     @staticmethod
-    def _validate_feature(upd: dict, idx: int):
+    def _validate_feature(upd: dict[str, Any], idx: int) -> None:
+        """Validate a single rename-mapping dict entry.
+
+        Args:
+            upd: The mapping dict to validate.
+            idx: Index of the entry (for error messages).
+
+        Raises:
+            ValueError: If the entry is malformed."""
         if not isinstance(upd, dict):
             OperatorUtils._raise_value_error(
                 f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}"
@@ -652,10 +790,22 @@ class OperatorUtils:
         old_name: str,
         new_name: str,
         idx: int,
-        seen_old: set,
-        seen_new: set,
+        seen_old: set[str],
+        seen_new: set[str],
         input_features: Any,
-    ):
+    ) -> None:
+        """Check for duplicate old or new feature names in a rename mapping.
+
+        Args:
+            old_name: The old feature name being mapped.
+            new_name: The new feature name.
+            idx: Index of the current entry.
+            seen_old: Set of already-seen old names.
+            seen_new: Set of already-seen new names.
+            input_features: Existing features for collision detection.
+
+        Raises:
+            ValueError: If a duplicate is detected."""
         if old_name in seen_old:
             OperatorUtils._raise_value_error(f"Duplicate mapping for old_feature '{old_name}' at index {idx}")
 
@@ -665,7 +815,15 @@ class OperatorUtils:
             )
 
     @staticmethod
-    def _validate_existing_features(rename_map: dict[str, str], existing_features: set | dict):
+    def _validate_existing_features(rename_map: dict[str, str], existing_features: set[str] | dict[str, Any]) -> None:
+        """Assert that all old feature names in the rename map exist in the current feature set.
+
+        Args:
+            rename_map: Old->new feature name mapping.
+            existing_features: Current set or dict of feature names.
+
+        Raises:
+            KeyError: If any old name is absent."""
         feature_set = existing_features if isinstance(existing_features, set) else set(existing_features.keys())
         missing_old = [old for old in rename_map if old not in feature_set]
         if missing_old:
@@ -675,6 +833,17 @@ class OperatorUtils:
 
     @staticmethod
     def _rename_table(input_table: Table, rename_map: dict[str, str]) -> Table:
+        """Apply a rename map to a PyArrow table's column names.
+
+        Args:
+            input_table: The table to rename.
+            rename_map: Old->new column name mapping.
+
+        Returns:
+            A new table with renamed columns.
+
+        Raises:
+            ValueError: If renaming would produce duplicate column names."""
         new_names_ordered = [rename_map.get(name, name) for name in input_table.schema.names]
 
         if len(new_names_ordered) != len(set(new_names_ordered)):
@@ -687,7 +856,15 @@ class OperatorUtils:
             raise
 
     @staticmethod
-    def _validate_dict_mandatory(rename_map: dict[str, str], input_features: dict):
+    def _validate_dict_mandatory(rename_map: dict[str, str], input_features: dict[str, Any]) -> None:
+        """Raise if any feature being renamed is marked as mandatory.
+
+        Args:
+            rename_map: Old->new feature name mapping.
+            input_features: Feature dict to inspect.
+
+        Raises:
+            FlowValidationException: If a mandatory feature is targeted for rename."""
         mandatory_features = OperatorUtils.get_mandatory_features(
             check_features=list(rename_map.keys()), input_features=input_features
         )
@@ -705,7 +882,12 @@ class OperatorUtils:
             )
 
     @staticmethod
-    def _apply_dict_rename(input_features: dict, rename_map: dict[str, str]):
+    def _apply_dict_rename(input_features: dict[str, Any], rename_map: dict[str, str]) -> None:
+        """Apply a rename map to a feature dict in-place, preserving the original name.
+
+        Args:
+            input_features: The feature dict to mutate.
+            rename_map: Old->new feature name mapping."""
         for old_name, new_name in rename_map.items():
             feature = input_features.pop(old_name, None)
 
@@ -718,25 +900,39 @@ class OperatorUtils:
             input_features[new_name] = feature
 
     @staticmethod
-    def get_mandatory_features(*, check_features: list, input_features: dict):
+    def get_mandatory_features(*, check_features: list[str], input_features: dict[str, Any]) -> list[str]:
+        """Return the list of features that are marked as mandatory.
+
+        Args:
+            check_features: Feature names to check.
+            input_features: Feature dict containing tag metadata.
+
+        Returns:
+            List of mandatory feature names among check_features."""
         if not check_features or not input_features:
             return []
 
-        mandatory_features = [
+        return [
             feature
             for feature, value in input_features.items()
             if feature in check_features
             and OperatorConstants.Misc.MANDATORY in value.get(OperatorConstants.Misc.TAGS, [])
         ]
-        return mandatory_features
 
     @staticmethod
-    def _raise_value_error(msg: str):
+    def _raise_value_error(msg: str) -> None:
+        """Log an error and raise a ValueError.
+
+        Args:
+            msg: The error message to log and raise.
+
+        Raises:
+            ValueError: Always."""
         logger.error(msg, stack_info=True, exc_info=True)
         raise ValueError(msg)
 
     @staticmethod
-    def validate_filter_criteria(*, criteria_list, criteria_json) -> tuple[bool, bool]:
+    def validate_filter_criteria(*, criteria_list: Any, criteria_json: Any) -> tuple[bool, bool]:
         """
         Validates filter criteria for operators that use criteria_list and criteria_json.
 
@@ -760,7 +956,7 @@ class OperatorUtils:
         return criteria_valid, json_valid
 
     @staticmethod
-    def _validate_criteria_json(*, criteria_json) -> bool:
+    def _validate_criteria_json(*, criteria_json: Any) -> bool:
         """
         Recursively validates criteria_json structure (matches runtime behavior).
 
@@ -793,9 +989,88 @@ class OperatorUtils:
         return False
 
     @staticmethod
-    def prepare_document_content_fetch(  # NOSONAR python:S3776
+    def _resolve_doc_id(*, table: pa.Table, row_idx: int) -> str:
+        """Resolve the document identifier for a single row."""
+        if OperatorConstants.Columns.ID in table.column_names:
+            return table[OperatorConstants.Columns.ID][row_idx].as_py()
+        if OperatorConstants.Columns.PATH in table.column_names:
+            return table[OperatorConstants.Columns.PATH][row_idx].as_py()
+        return f"doc_{row_idx}"
+
+    @staticmethod
+    def _build_doc_metadata(
+        *, table: pa.Table, row_idx: int, doc_name: str, metadata_list: list[str | None]
+    ) -> dict[str, Any]:
+        """Build the document metadata dict used for on-demand binary content fetching."""
+        doc_metadata: dict[str, Any] = {"name": doc_name}
+
+        if OperatorConstants.Columns.PATH in table.column_names:
+            doc_metadata["path"] = table[OperatorConstants.Columns.PATH][row_idx].as_py()
+        if "source_id" in table.column_names:
+            doc_metadata["source_id"] = table["source_id"][row_idx].as_py()
+        if "source" in table.column_names:
+            doc_metadata["source"] = table["source"][row_idx].as_py()
+
+        metadata_str = metadata_list[row_idx]
+        if metadata_str:
+            try:
+                metadata_dict = json.loads(metadata_str)
+                if "item_id" in metadata_dict:
+                    doc_metadata["item_id"] = metadata_dict["item_id"]
+                if "drive_id" in metadata_dict:
+                    doc_metadata["drive_id"] = metadata_dict["drive_id"]
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        return doc_metadata
+
+    @staticmethod
+    def _prepare_single_document(
+        *,
+        table: pa.Table,
+        row_idx: int,
+        global_config: dict[str, Any],
+        supported_extensions: set[str] | None,
+        metadata_list: list[str | None],
+    ) -> dict[str, Any]:
+        """Prepare fetch task dict for a single table row."""
+        doc_id = OperatorUtils._resolve_doc_id(table=table, row_idx=row_idx)
+        doc_name = (
+            table[OperatorConstants.Columns.NAME][row_idx].as_py()
+            if OperatorConstants.Columns.NAME in table.column_names
+            else f"document_{row_idx}"
+        )
+
+        if supported_extensions:
+            file_ext = Path(doc_name).suffix.lower()
+            if file_ext not in supported_extensions:
+                return {
+                    "idx": row_idx,
+                    "doc_id": doc_id,
+                    "doc_name": doc_name,
+                    "error": f"Unsupported file extension: {file_ext}",
+                    "skip_reason": "unsupported_extension",
+                }
+
+        if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:
+            binary_content = table[OperatorConstants.Columns.BINARY_CONTENT][row_idx].as_py()
+        else:
+            # Import here to avoid circular dependency
+            from docpipe.utils.operators.binary_content_fetcher import get_binary_content
+
+            doc_metadata = OperatorUtils._build_doc_metadata(
+                table=table, row_idx=row_idx, doc_name=doc_name, metadata_list=metadata_list
+            )
+            binary_content = get_binary_content(doc_metadata=doc_metadata, global_config=global_config)
+            if binary_content is None:
+                raise ValueError(f"Failed to fetch binary content for document {doc_name}")
+
+        return {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}
+
+    @staticmethod
+    def prepare_document_content_fetch(
         *, table: pa.Table, global_config: dict[str, Any] | None = None, supported_extensions: set[str] | None = None
-    ) -> list:
+    ) -> list[dict[str, Any]]:
         """
         Prepare to fetch document content from a PyArrow table row using on-demand fetching.
 
@@ -829,99 +1104,162 @@ class OperatorUtils:
             ValueError: If binary content cannot be fetched from any source
 
         """
-        doc_tasks = []
         global_config = global_config or {}
 
+        metadata_list: list[str | None] = (
+            table[OperatorConstants.Metadata.METADATA].to_pylist()
+            if OperatorConstants.Metadata.METADATA in table.column_names
+            else [None] * table.num_rows
+        )
+
+        doc_tasks = []
         for row_idx in range(table.num_rows):
             try:
-                doc_id = None
-                if OperatorConstants.Columns.ID in table.column_names:
-                    doc_id = table[OperatorConstants.Columns.ID][row_idx].as_py()
-                elif OperatorConstants.Columns.PATH in table.column_names:
-                    doc_id = table[OperatorConstants.Columns.PATH][row_idx].as_py()
-                else:
-                    doc_id = f"doc_{row_idx}"
-                doc_name = (
-                    table[OperatorConstants.Columns.NAME][row_idx].as_py()
-                    if OperatorConstants.Columns.NAME in table.column_names
-                    else f"document_{row_idx}"
-                )
-
-                # Check file extension if validation is requested
-                if supported_extensions:
-                    file_ext = Path(doc_name).suffix.lower()
-                    if file_ext not in supported_extensions:
-                        doc_tasks.append(
-                            {
-                                "idx": row_idx,
-                                "doc_id": doc_id,
-                                "doc_name": doc_name,
-                                "error": f"Unsupported file extension: {file_ext}",
-                                "skip_reason": "unsupported_extension",
-                            }
-                        )
-                        continue  # Skip binary content fetch for unsupported files
-
-                # Get binary content using on-demand fetching strategy
-                if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:
-                    # Backward compatibility: Use pre-loaded binary content if available
-                    binary_content = table[OperatorConstants.Columns.BINARY_CONTENT][row_idx].as_py()
-                else:
-                    # Build document metadata for on-demand fetching
-                    doc_metadata = {"name": doc_name}
-
-                    # Add path if available
-                    if OperatorConstants.Columns.PATH in table.column_names:
-                        doc_metadata["path"] = table[OperatorConstants.Columns.PATH][row_idx].as_py()
-
-                    # Add source_id if available (for cloud sources)
-                    if "source_id" in table.column_names:
-                        doc_metadata["source_id"] = table["source_id"][row_idx].as_py()
-
-                    # Add source if available (for cloud sources)
-                    if "source" in table.column_names:
-                        doc_metadata["source"] = table["source"][row_idx].as_py()
-
-                    # Add metadata column content if available (contains item_id for OneDrive/SharePoint)
-                    if OperatorConstants.Metadata.METADATA in table.column_names:
-                        metadata_str = table[OperatorConstants.Metadata.METADATA][row_idx].as_py()
-                        if metadata_str:
-                            import json
-
-                            try:
-                                metadata_dict = json.loads(metadata_str)
-                                # Extract item_id if present (for OneDrive/SharePoint lazy loading)
-                                if "item_id" in metadata_dict:
-                                    doc_metadata["item_id"] = metadata_dict["item_id"]
-                            except (json.JSONDecodeError, TypeError):
-                                pass
-
-                    # Use binary content fetcher utility to fetch binary content on-demand
-                    # Import here to avoid circular dependency
-                    from docpipe.utils.operators.binary_content_fetcher import get_binary_content
-
-                    binary_content = get_binary_content(
-                        doc_metadata=doc_metadata,
-                        global_config=global_config,
-                    )
-
-                    if binary_content is None:
-                        raise ValueError(f"Failed to fetch binary content for document {doc_name}")
-
                 doc_tasks.append(
-                    {
-                        "idx": row_idx,
-                        "doc_id": doc_id,
-                        "doc_name": doc_name,
-                        "binary_content": binary_content,
-                    }
+                    OperatorUtils._prepare_single_document(
+                        table=table,
+                        row_idx=row_idx,
+                        global_config=global_config,
+                        supported_extensions=supported_extensions,
+                        metadata_list=metadata_list,
+                    )
                 )
             except Exception as e:
-                logger.error(f"Error preparing document at index {row_idx}: {e!s}")
+                logger.error("Error preparing document at index %s: %s", row_idx, str(e))
                 doc_tasks.append(
                     {"idx": row_idx, "doc_id": f"doc_{row_idx}", "doc_name": f"document_{row_idx}", "error": str(e)}
                 )
         return doc_tasks
+
+    @staticmethod
+    def _resolve_schema_refs(schema: dict[str, Any]) -> dict[str, Any]:
+        """Flatten Pydantic JSON Schema ``$defs``/``$ref``/``anyOf`` pointer indirection.
+
+        Inlines every ``$ref``, collapses ``anyOf: [<type>, {type: null}]`` nullable
+        wrappers (preserving sibling keys such as ``default`` and ``description``),
+        and drops the top-level ``$defs`` block.
+
+        Args:
+            schema: Raw dict from ``model_json_schema()``.
+
+        Returns:
+            Copy of the schema with all pointer indirection resolved.
+        """
+        defs = schema.get("$defs", {})
+
+        def _resolve(node: Any) -> Any:
+            if not isinstance(node, dict):
+                return node
+            if "$ref" in node:
+                ref_name = node["$ref"].split("/")[-1]
+                return _resolve(defs.get(ref_name, node))
+            if "anyOf" in node:
+                non_null = [b for b in node["anyOf"] if b != {"type": "null"}]
+                if len(non_null) == 1:
+                    branch = _resolve(non_null[0])
+                    if isinstance(branch, dict):
+                        # Sibling keys (default, description, title) win over branch keys.
+                        merged = {k: v for k, v in node.items() if k != "anyOf"}
+                        for k, v in branch.items():
+                            if k not in merged:
+                                merged[k] = v
+                        return {k: _resolve(v) for k, v in merged.items()}
+                # Note: anyOf with 2+ non-null branches (e.g. int | str union types) is not
+                # collapsed — _to_docpipe will produce a node with no 'type' key in that case.
+            return {k: _resolve(v) for k, v in node.items()}
+
+        return _resolve({k: v for k, v in schema.items() if k != "$defs"})
+
+    # Maps JSON Schema primitive types to docpipe AttributeDataTypes values.
+    _JSON_TYPE_TO_DOCPIPE: ClassVar[dict[str, str]] = {
+        "string": AttributeDataTypes.STRING,
+        "integer": AttributeDataTypes.INTEGER,
+        "number": AttributeDataTypes.DOUBLE,
+        "boolean": AttributeDataTypes.BOOLEAN,
+        "array": AttributeDataTypes.LIST,
+        "object": AttributeDataTypes.JSON,
+    }
+
+    @staticmethod
+    def model_schema_to_docpipe(
+        *,
+        schema: dict[str, Any],
+        overrides: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert ``model_json_schema()`` output to docpipe metadata vocabulary.
+
+        Resolves ``$ref``/``anyOf`` pointer indirection then translates the result
+        to the keys ``OperatorFeature`` and the UI expect (``name``, ``type``,
+        ``description``, ``default``, ``properties``, ``required``, ``valid_values``).
+
+        Use ``overrides`` to inject docpipe-only keys that Pydantic never produces
+        (e.g. ``tags``, ``available_for_filter``, ``min_value``). The caller can
+        also mutate individual fields inside the returned ``properties`` dict after
+        the call — the result is a plain dict.
+
+        Args:
+            schema: Raw dict from ``model_json_schema()``.
+            overrides: Docpipe-only keys merged onto the top-level result after
+                translation. Override values win on conflict.
+
+        Returns:
+            Dict in docpipe metadata vocabulary ready for embedding inside a
+            ``providers`` entry of an operator ``get_metadata()`` response.
+        """
+        resolved = OperatorUtils._resolve_schema_refs(schema)
+        result = OperatorUtils._to_docpipe(node=resolved, required_fields=set(), field_key="")
+        if overrides:
+            result.update(overrides)
+        return result
+
+    @staticmethod
+    def _to_docpipe(*, node: Any, required_fields: set[str], field_key: str = "") -> Any:
+        """Recursively translate a resolved JSON Schema node to docpipe vocabulary.
+
+        Args:
+            node: Resolved JSON Schema dict (no ``$ref`` or ``anyOf`` remaining).
+            required_fields: Field names (JSON Schema property keys) declared required
+                by the parent object's JSON Schema ``required`` array.
+            field_key: The JSON Schema property key for this node as it appears in the
+                parent's ``properties`` dict. Used to check membership in
+                ``required_fields`` — must be the raw key, not the Pydantic title.
+
+        Returns:
+            Translated dict, or the original value unchanged for non-dict nodes.
+        """
+        if not isinstance(node, dict):
+            return node
+
+        docpipe: dict[str, Any] = {}
+
+        if "title" in node:
+            docpipe[OperatorConstants.Misc.NAME] = node["title"]
+
+        if "type" in node:
+            docpipe[OperatorConstants.Misc.TYPE] = OperatorUtils._JSON_TYPE_TO_DOCPIPE.get(node["type"], node["type"])
+
+        for key in (OperatorConstants.Config.DESCRIPTION, OperatorConstants.Config.DEFAULT):
+            if key in node:
+                docpipe[key] = node[key]
+
+        # JSON Schema stores required fields as an array on the parent object node.
+        # The check must use field_key (the raw JSON Schema property key, e.g.
+        # "index_name") — NOT the Pydantic title (e.g. "Index Name") stored in
+        # docpipe[NAME] — because required_fields contains property keys.
+        if field_key and field_key in required_fields:
+            docpipe[OperatorConstants.Config.REQUIRED] = True
+
+        if OperatorConstants.Config.PROPERTIES in node:
+            child_required = set(node.get(OperatorConstants.Config.REQUIRED, []))
+            docpipe[OperatorConstants.Config.PROPERTIES] = {
+                k: OperatorUtils._to_docpipe(node=v, required_fields=child_required, field_key=k)
+                for k, v in node[OperatorConstants.Config.PROPERTIES].items()
+            }
+
+        if "enum" in node:
+            docpipe[OperatorConstants.Config.VALID_VALUES] = node["enum"]
+
+        return docpipe
 
     @staticmethod
     def get_optimal_workers(is_cpu_intensive: bool = False) -> int:
@@ -945,11 +1283,11 @@ class OperatorUtils:
             # Basic extraction is more I/O-bound (file reading, PDF parsing)
             optimal = min(cpu_count * 2, 16)  # Cap at 16 to avoid excessive threads
 
-        logger.info(f"Auto-detected optimal workers: {optimal} (CPU count: {cpu_count}, OS: {system})")
+        logger.info("Auto-detected optimal workers: %s (CPU count: %s, OS: %s)", optimal, cpu_count, system)
         return optimal
 
     @staticmethod
-    def detect_extension_from_bytes(binary_content: bytes) -> str:  # NOSONAR python:S3776
+    def detect_extension_from_bytes(binary_content: bytes) -> str:
         """
         Detect the file extension from the magic bytes of binary content.
         Used when the document name / path has no extension (e.g. a cloud URL).
@@ -964,15 +1302,7 @@ class OperatorUtils:
 
         # ZIP-based Office formats (docx, xlsx, pptx) and plain ZIP
         if binary_content[:2] == b"PK":
-            # Inspect the central directory for known Office content-type markers
-            content_sample = binary_content[:2048]
-            if b"word/" in content_sample:
-                return ".docx"
-            if b"xl/" in content_sample:
-                return ".xlsx"
-            if b"ppt/" in content_sample:
-                return ".pptx"
-            return ".docx"  # generic ZIP-based Office fallback
+            return OperatorUtils.detect_extension_zip_based_office_formats(binary_content)
 
         # Legacy OLE2 Office formats (doc, xls, ppt)
         if binary_content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
@@ -1007,6 +1337,25 @@ class OperatorUtils:
             pass
 
         return ""
+
+    @staticmethod
+    def detect_extension_zip_based_office_formats(binary_content: bytes) -> str:
+        # Inspect the central directory for known Office content-type markers
+        """Detect the Office format of a ZIP-based document from its bytes.
+
+        Args:
+            binary_content: The binary content to inspect.
+
+        Returns:
+            Dotted extension string: '.docx', '.xlsx', or '.pptx'."""
+        content_sample = binary_content[:2048]
+        if b"word/" in content_sample:
+            return ".docx"
+        if b"xl/" in content_sample:
+            return ".xlsx"
+        if b"ppt/" in content_sample:
+            return ".pptx"
+        return ".docx"  # generic ZIP-based Office fallback
 
     @staticmethod
     def _export_docling_formats(
@@ -1126,11 +1475,12 @@ class OperatorUtils:
             }
 
     @staticmethod
-    def extract_content(  # NOSONAR python:S3776
+    def extract_content(
         file_path: str,
         binary_content: bytes,
         converter_config: dict[str, Any] | None = None,
         additional_formats: list[str] | None = None,
+        converter: Any = None,
     ) -> dict[str, Any]:
         """
         Common method for document extraction using Docling's DocumentConverter.
@@ -1151,6 +1501,10 @@ class OperatorUtils:
                                Options: 'html', 'json', 'text', 'doctags', 'doclang'.
                                Each format creates a separate column in the output.
                                Note: Markdown is ALWAYS generated and should NOT be included in this list.
+            converter: Optional pre-built DocumentConverter instance. When provided,
+                       ``converter_config`` is ignored and the supplied converter is used
+                       directly. Intended for GPU-accelerated adapters that construct the
+                       converter once and reuse it across documents.
 
         Returns:
             Dictionary containing:
@@ -1179,24 +1533,26 @@ class OperatorUtils:
         logger.info("Processing file with Docling (formats: %s): %s", all_formats, file_path)
 
         try:
+            from docling.datamodel.base_models import FormatToExtensions, InputFormat
+            from docling_core.types.io import DocumentStream
+
             # Determine the effective file extension
             file_suffix = Path(file_path).suffix.lower()
             if not file_suffix:
                 file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
 
             # Handle .txt files specially (Docling cannot process them)
-            if file_suffix in [OperatorConstants.Extraction.TEXT_EXTENSION]:
+            if file_suffix in [OperatorConstants.FileExtensions.EXT_TXT]:
                 return OperatorUtils.extract_text_file(
                     file_path=file_path,
                     binary_content=binary_content,
                     additional_formats=additional_formats,
                 )
 
-            # Initialize converter with optional configuration
-            if converter_config and "format_options" in converter_config:
-                converter = DocumentConverter(format_options=converter_config["format_options"])
-            else:
-                converter = DocumentConverter()
+            # Use supplied converter when provided (GPU path), otherwise retrieve
+            # (or lazily construct) the singleton converter for this config.
+            if converter is None:
+                converter = _get_or_create_converter(converter_config)
 
             # Create DocumentStream from binary content (no temporary file needed)
             audio_video_suffixes = {f".{extension.lower()}" for extension in FormatToExtensions[InputFormat.AUDIO]}
@@ -1224,10 +1580,10 @@ class OperatorUtils:
             try:
                 content_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = result.document.export_to_markdown()
                 formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN)
-                logger.info(f"Generated markdown format for {file_path}")
+                logger.info("Generated markdown format for %s", file_path)
             except Exception as e:
                 # Markdown is mandatory - if it fails, the entire extraction fails
-                logger.error(f"Failed to generate mandatory markdown format for {file_path}: {e}")
+                logger.error("Failed to generate mandatory markdown format for %s: %s", file_path, e)
                 return {
                     OperatorConstants.Extraction.SUCCESS: False,
                     OperatorConstants.Extraction.ERROR: f"Failed to generate mandatory markdown format: {e}",
@@ -1281,14 +1637,14 @@ class OperatorUtils:
             }
 
 
-def get_missing_operator(features: list[str]):
+def get_missing_operator(features: list[str]) -> set[str]:
     from docpipe.core.operators.operator_metadata import OperatorMetadata
 
     operator_metadata = OperatorMetadata()
     feature_operators_map = operator_metadata.get_feature_operators_map()
-    operator_list = set()
+    operator_list: set[str] = set()
     for feature in features:
-        oplist: list = feature_operators_map.get(feature, [])
+        oplist: list[str] = feature_operators_map.get(feature, [])
         # Temporary change to omit Extract Json operator name from validation failure logs
         if "Extract Json" in oplist:
             oplist.remove("Extract Json")

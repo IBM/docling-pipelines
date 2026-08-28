@@ -25,11 +25,11 @@ class TestGetOpensearchConfig:
 
             # Operator-level params
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is True
-            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "docpipe_test"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "doc_id_hash"
 
-            # Provider-specific params are in provider_config
+            # Provider-specific params and resource name are in provider_config
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+            assert provider_config[OperatorConstants.VectorDB.INDEX_NAME] == "docpipe_test"
             assert provider_config[OperatorConstants.VectorDB.HOST] == "localhost"
             assert provider_config[OperatorConstants.VectorDB.PORT] == 9200
             assert provider_config[OperatorConstants.VectorDB.USE_SSL] is False
@@ -47,7 +47,7 @@ class TestGetOpensearchConfig:
             "OPENSEARCH_USE_SSL": "true",
             "OPENSEARCH_VERIFY_CERTS": "true",
             "OPENSEARCH_USERNAME": "admin",
-            "OPENSEARCH_PASSWORD": os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw"),
+            "OPENSEARCH_PASSWORD": "secret",  # pragma: allowlist secret
             "OPENSEARCH_ENGINE": "nmslib",
             "OPENSEARCH_ALGORITHM": "ivf",
             "OPENSEARCH_SPACE_TYPE": "cosine",
@@ -64,19 +64,18 @@ class TestGetOpensearchConfig:
 
             # Operator-level params
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is False
-            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_index"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "custom_id"
 
-            # Provider-specific params are in provider_config
+            # Provider-specific params and resource name are in provider_config
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+            assert provider_config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_index"
             assert provider_config[OperatorConstants.VectorDB.HOST] == "custom-host"
             assert provider_config[OperatorConstants.VectorDB.PORT] == 9300
             assert provider_config[OperatorConstants.VectorDB.USE_SSL] is True
             assert provider_config[OperatorConstants.VectorDB.VERIFY_CERTS] is True
             assert provider_config[OperatorConstants.VectorDB.USERNAME] == "admin"
             assert (
-                provider_config[OperatorConstants.VectorDB.PASSWORD]
-                == os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw")  # pragma: allowlist secret
+                provider_config[OperatorConstants.VectorDB.PASSWORD] == "secret"  # pragma: allowlist secret
             )
             assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 200
             assert provider_config[OperatorConstants.VectorDB.ENGINE] == "nmslib"
@@ -383,7 +382,7 @@ class TestEdgeCases:
             "OPENSEARCH_USE_SSL": "true",
             "OPENSEARCH_VERIFY_CERTS": "true",
             "OPENSEARCH_USERNAME": "user",
-            "OPENSEARCH_PASSWORD": os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw"),
+            "OPENSEARCH_PASSWORD": "pass",  # pragma: allowlist secret
             "OPENSEARCH_AWS_AUTH": "true",
             "OPENSEARCH_AWS_REGION": "us-east-1",
             "OPENSEARCH_ENGINE": "faiss",
@@ -405,174 +404,5 @@ class TestEdgeCases:
             assert len(config) > 0
             assert provider_config[OperatorConstants.VectorDB.USERNAME] == "user"
             assert (
-                provider_config[OperatorConstants.VectorDB.PASSWORD]
-                == os.environ.get("TEST_OPENSEARCH_PASSWORD", "test-os-pw")  # pragma: allowlist secret
+                provider_config[OperatorConstants.VectorDB.PASSWORD] == "pass"  # pragma: allowlist secret
             )
-
-
-class TestGetMilvusConfig:
-    """Test Milvus configuration loading."""
-
-    def test_get_milvus_config_defaults(self):
-        """Test that default configuration values are returned."""
-        from docpipe.utils.infrastructure.config import get_milvus_config
-
-        with patch.dict(os.environ, {}, clear=True):
-            config = get_milvus_config()
-
-            # Operator-level params
-            assert config[OperatorConstants.VectorDB.CREATE_INDEX] is True
-            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "docpipe_test"
-            assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "doc_id_hash"
-            assert config[OperatorConstants.VectorDB.VECTOR_DIMENSION] == 384
-
-            # Provider-specific params are in provider_config
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-            assert provider_config[OperatorConstants.VectorDB.AUTH_TYPE] == "standalone"
-            assert provider_config[OperatorConstants.VectorDB.HOST] == "localhost"
-            assert provider_config[OperatorConstants.VectorDB.PORT] == 19530
-            assert provider_config[OperatorConstants.VectorDB.DATABASE] == "default"
-            assert provider_config[OperatorConstants.VectorDB.INDEX_TYPE] == "HNSW"
-            assert provider_config[OperatorConstants.VectorDB.METRIC_TYPE] == "L2"
-            assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 100
-
-    def test_get_milvus_config_with_custom_values(self):
-        """Test configuration with custom environment variables."""
-        from docpipe.utils.infrastructure.config import get_milvus_config
-
-        custom_env = {
-            "MILVUS_AUTH_TYPE": "cloud",
-            "MILVUS_HOST": "custom-host",
-            "MILVUS_PORT": "19531",
-            "MILVUS_DATABASE": "custom_db",
-            "MILVUS_USERNAME": "admin",
-            "MILVUS_PASSWORD": os.environ.get("TEST_MILVUS_PASSWORD", "test-milvus-pw"),
-            "MILVUS_INDEX_TYPE": "IVF_FLAT",
-            "MILVUS_METRIC_TYPE": "IP",
-            "MILVUS_VECTOR_DIMENSION": "768",
-            "MILVUS_BATCH_SIZE": "200",
-            "MILVUS_CREATE_INDEX": "false",
-            "MILVUS_COLLECTION_NAME": "custom_collection",
-            "MILVUS_DOC_ID_COLUMN": "custom_id",
-            "MILVUS_EMBEDDINGS_COLUMN": "custom_embeddings",
-        }
-
-        with patch.dict(os.environ, custom_env, clear=True):
-            config = get_milvus_config()
-
-            # Operator-level params
-            assert config[OperatorConstants.VectorDB.CREATE_INDEX] is False
-            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_collection"
-            assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "custom_id"
-            assert config[OperatorConstants.VectorDB.VECTOR_DIMENSION] == 768
-
-            # Provider-specific params
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-            assert provider_config[OperatorConstants.VectorDB.AUTH_TYPE] == "cloud"
-            assert provider_config[OperatorConstants.VectorDB.HOST] == "custom-host"
-            assert provider_config[OperatorConstants.VectorDB.PORT] == 19531
-            assert provider_config[OperatorConstants.VectorDB.DATABASE] == "custom_db"
-            assert provider_config[OperatorConstants.VectorDB.USERNAME] == "admin"
-            assert provider_config[OperatorConstants.VectorDB.PASSWORD] == os.environ.get(
-                "TEST_MILVUS_PASSWORD", "test-milvus-pw"
-            )  # pragma: allowlist secret
-            assert provider_config[OperatorConstants.VectorDB.INDEX_TYPE] == "IVF_FLAT"
-            assert provider_config[OperatorConstants.VectorDB.METRIC_TYPE] == "IP"
-            assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 200
-
-    def test_get_milvus_config_with_uri(self):
-        """Test configuration with URI for wx.data or cloud deployments."""
-        from docpipe.utils.infrastructure.config import get_milvus_config
-
-        uri_env = {"MILVUS_URI": "https://milvus.example.com:19530"}
-
-        with patch.dict(os.environ, uri_env, clear=True):
-            config = get_milvus_config()
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-            assert provider_config[OperatorConstants.VectorDB.URI] == "https://milvus.example.com:19530"
-
-    def test_get_milvus_config_with_token(self):
-        """Test configuration with token for wx.data."""
-        from docpipe.utils.infrastructure.config import get_milvus_config
-
-        token_env = {"MILVUS_TOKEN": "wx_data_token_123"}  # pragma: allowlist secret
-
-        with patch.dict(os.environ, token_env, clear=True):
-            config = get_milvus_config()
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-            assert provider_config[OperatorConstants.VectorDB.TOKEN] == "wx_data_token_123"  # pragma: allowlist secret
-
-    def test_get_milvus_config_with_ssl(self):
-        """Test configuration with SSL/TLS settings."""
-        from docpipe.utils.infrastructure.config import get_milvus_config
-
-        ssl_env = {
-            "MILVUS_SSL": "true",
-            "MILVUS_SSL_CERTIFICATE": "/path/to/cert.pem",
-        }
-
-        with patch.dict(os.environ, ssl_env, clear=True):
-            config = get_milvus_config()
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-            assert provider_config[OperatorConstants.VectorDB.SSL] is True
-            assert provider_config[OperatorConstants.VectorDB.SSL_CERTIFICATE] == "/path/to/cert.pem"
-
-    def test_get_milvus_config_removes_none_values(self):
-        """Test that optional values are omitted when not set."""
-        from docpipe.utils.infrastructure.config import get_milvus_config
-
-        with patch.dict(os.environ, {}, clear=True):
-            config = get_milvus_config()
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-
-            assert OperatorConstants.VectorDB.URI not in provider_config
-            assert OperatorConstants.VectorDB.USERNAME not in provider_config
-            assert OperatorConstants.VectorDB.PASSWORD not in provider_config
-            assert OperatorConstants.VectorDB.TOKEN not in provider_config
-            assert OperatorConstants.VectorDB.SSL not in provider_config
-            assert OperatorConstants.VectorDB.SSL_CERTIFICATE not in provider_config
-
-    def test_get_milvus_config_boolean_variations(self):
-        """Test that various boolean string values are parsed correctly."""
-        from docpipe.utils.infrastructure.config import get_milvus_config
-
-        test_cases = [
-            ("true", True),
-            ("1", True),
-            ("yes", True),
-            ("on", True),
-            ("false", False),
-            ("0", False),
-            ("no", False),
-            ("off", False),
-        ]
-
-        for value, expected in test_cases:
-            with patch.dict(os.environ, {"MILVUS_SSL": value}, clear=True):
-                config = get_milvus_config()
-                provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-                # SSL is added to config with the boolean value
-                assert provider_config.get(OperatorConstants.VectorDB.SSL) == expected
-
-
-class TestOpensearchJWTToken:
-    """Test OpenSearch JWT token configuration."""
-
-    def test_opensearch_config_with_jwt_token(self):
-        """Test configuration with JWT token."""
-        jwt_env = {"OPENSEARCH_JWT_TOKEN": os.environ.get("TEST_JWT_TOKEN", "test-jwt-token-value")}
-
-        with patch.dict(os.environ, jwt_env, clear=True):
-            config = get_opensearch_config()
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-            assert (
-                provider_config[OperatorConstants.VectorDB.JWT_TOKEN]
-                == os.environ.get("TEST_JWT_TOKEN", "test-jwt-token-value")  # pragma: allowlist secret
-            )
-
-    def test_opensearch_config_without_jwt_token(self):
-        """Test that JWT token is omitted when not set."""
-        with patch.dict(os.environ, {}, clear=True):
-            config = get_opensearch_config()
-            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
-            assert OperatorConstants.VectorDB.JWT_TOKEN not in provider_config

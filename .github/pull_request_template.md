@@ -1,17 +1,11 @@
 <!--
 Note -
-1. PR title must follow Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/#summary
-   Format: <type>[optional scope][optional !]: <description>
-   Types: fix | feat | docs | style | refactor | perf | test | build | ci | chore | revert
-   Example: feat(chunker): add sliding window chunking strategy
-   Append ! before the colon for breaking changes: feat(api)!: remove deprecated endpoint
-2. Tag the issue this PR resolves (or remove the Issue section if there is none)
-3. Headings that are not applicable to the PR can be removed from the below template
+1. Ensure that an appropriate title is given to the PR in the Title bar of the PR
+2. Headings that are not applicable to the PR can be removed from the below template
 -->
 
 ## Issue
-<!-- Tag the issue this PR resolves, or remove this section if there is none -->
-Resolves #
+- <!-- Tag the issue link to the PR for which the changes are done -->
 
 ## Dev Tracking
 <!-- Link to epic or parent task if this PR is part of a larger feature/epic -->
@@ -46,7 +40,7 @@ Resolves #
 - [ ] CONTRIBUTING.md (if changing development workflow or code standards)
 - [ ] USER_GUIDE_PIPELINE_SETUP.md (if changing installation, setup, or execution)
 - [ ] QUICKSTART.md (if changing quick start steps or examples)
-- [ ] OPERATOR_REFERENCE.md (if adding/modifying operators)
+- [ ] docs/reference/OPERATORS.md (if adding/modifying operators)
 - [ ] TROUBLESHOOTING.md (if discovering new issues or solutions)
 - [ ] Operator documentation in docs/operators/ (if operator added/modified)
 - [ ] N/A - No documentation updates needed

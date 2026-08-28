@@ -8,6 +8,8 @@ focused on business logic only.
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pydantic import BaseModel
+
 
 class LLMServicePort(ABC):
     """Port interface for LLM embedding services.
@@ -33,6 +35,12 @@ class LLMServicePort(ABC):
         """
         self.model_name = model_name
 
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        ...
+
     @abstractmethod
     def generate_embeddings(self, text: str) -> list[float]:
         """Generate embedding vector for text.
@@ -46,7 +54,7 @@ class LLMServicePort(ABC):
         Raises:
             Exception: If embedding generation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
@@ -67,7 +75,7 @@ class LLMServicePort(ABC):
         Raises:
             Exception: If embedding generation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_model_token_limit(self) -> int:
@@ -76,7 +84,7 @@ class LLMServicePort(ABC):
         Returns:
             Maximum number of tokens the model can process
         """
-        pass
+        ...
 
     def get_embedding_dimension(self) -> int | None:
         """Get embedding vector dimension.

@@ -4,8 +4,11 @@ Unit tests for FastText Language Detection Adapter
 Tests the FastText adapter integration with the LanguageDetect operator.
 """
 
+import tempfile
 import threading
 import time
+from pathlib import Path
+from unittest.mock import patch
 
 import pyarrow as pa
 import pytest
@@ -66,7 +69,7 @@ class TestLanguageDetectFastText:
         """Test that operator initializes correctly with FastText provider"""
         operator = LanguageDetect(sample_config)
 
-        assert operator.doc_column_name == "content"
+        assert operator.doc_column == "content"
         assert operator.filter_value is False
         assert operator.language_provider == "fasttext"
         assert operator.language_adapter is not None
@@ -421,6 +424,59 @@ class TestLanguageDetectFastText:
         assert manager._load_failed is False
         assert manager._load_error is None
         assert manager._ref_count == 0
+
+
+class TestFastTextModelManagerGetModelPath:
+    """Unit tests for FastTextModelManager._get_model_path()"""
+
+    def test_env_var_set_uses_env_path(self, reset_fasttext_singleton):
+        """When FASTTEXT_MODEL_PATH is set, _get_model_path() returns that exact path."""
+        manager = FastTextModelManager()
+        manager._model_path = None  # clear cache so method re-evaluates
+
+        custom_path = "/some/custom/path/lid.176.ftz"
+        with patch.dict("os.environ", {"FASTTEXT_MODEL_PATH": custom_path}):
+            result = manager._get_model_path()
+
+        assert result == Path(custom_path)
+
+    def test_env_var_unset_uses_temp_dir(self, reset_fasttext_singleton):
+        """When FASTTEXT_MODEL_PATH is not set, fallback path is under tempfile.gettempdir()."""
+        manager = FastTextModelManager()
+        manager._model_path = None
+
+        with patch.dict("os.environ", {}, clear=True):
+            # Remove the key if present
+            import os as _os
+
+            _os.environ.pop("FASTTEXT_MODEL_PATH", None)
+            result = manager._get_model_path()
+
+        expected = Path(tempfile.gettempdir()) / "models/fasttext/lid.176.ftz"
+        assert result == expected
+
+    def test_path_cached_after_first_call(self, reset_fasttext_singleton):
+        """_get_model_path() returns the same object on subsequent calls (caching)."""
+        manager = FastTextModelManager()
+        manager._model_path = None
+
+        with patch.dict("os.environ", {"FASTTEXT_MODEL_PATH": "/tmp/lid.176.ftz"}):
+            first = manager._get_model_path()
+            second = manager._get_model_path()
+
+        assert first is second
+
+    def test_env_var_overrides_fallback(self, reset_fasttext_singleton):
+        """Env var path wins over the tempdir fallback."""
+        manager = FastTextModelManager()
+        manager._model_path = None
+
+        env_path = "/models/fasttext/lid.176.ftz"
+        with patch.dict("os.environ", {"FASTTEXT_MODEL_PATH": env_path}):
+            result = manager._get_model_path()
+
+        assert str(result) == env_path
+        assert tempfile.gettempdir() not in str(result)
 
 
 if __name__ == "__main__":

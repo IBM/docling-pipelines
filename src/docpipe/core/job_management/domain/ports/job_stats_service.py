@@ -5,9 +5,12 @@ This is the PRIMARY PORT used by the orchestrator for all job stats operations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from docpipe.core.constants import ExecutionStatus
+
+if TYPE_CHECKING:
+    from docpipe.core.job_management.domain.models import JobStats, NodeStats
 
 
 class JobStatsService(ABC):
@@ -39,7 +42,7 @@ class JobStatsService(ABC):
         flow_name: str,
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ):
+    ) -> "JobStats":
         """
         Start tracking a new job run with initial statistics.
 
@@ -59,10 +62,10 @@ class JobStatsService(ABC):
         Raises:
             JobRunAlreadyExistsException: If job_run_id already exists
         """
-        pass
+        ...
 
     @abstractmethod
-    def get_job_run_stats(self, *, job_run_id: str):
+    def get_job_run_stats(self, *, job_run_id: str) -> "JobStats | None":
         """
         Retrieve job-level statistics WITHOUT node_stats aggregation (lightweight).
 
@@ -75,10 +78,12 @@ class JobStatsService(ABC):
         Returns:
             JobStats if found, None otherwise
         """
-        pass
+        ...
 
     @abstractmethod
-    def get_job(self, *, job_run_id: str, include_node_stats: bool = True, include_batch_stats: bool = False):
+    def get_job(
+        self, *, job_run_id: str, include_node_stats: bool = True, include_batch_stats: bool = False
+    ) -> "JobStats | None":
         """
         Retrieve complete job statistics with optional aggregation.
 
@@ -92,7 +97,7 @@ class JobStatsService(ABC):
         Returns:
             JobStats with requested statistics if found, None otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def end_job(self, *, job_run_id: str, status: str, job_run_stats: dict[str, Any] | None = None) -> None:
@@ -109,7 +114,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def start_node_execution(
@@ -138,7 +143,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def complete_node_execution(
@@ -179,7 +184,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def fail_node_execution(
@@ -213,7 +218,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def cancel_node_execution(
@@ -240,7 +245,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def abort_node_execution(
@@ -271,7 +276,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def skip_node_execution(
@@ -302,10 +307,12 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
-    def update_node_stats(self, *, job_run_id: str, node_id: str, node_stats, batch_id: str | None = None) -> None:
+    def update_node_stats(
+        self, *, job_run_id: str, node_id: str, node_stats: "NodeStats", batch_id: str | None = None
+    ) -> None:
         """
         Update node-level statistics.
 
@@ -321,7 +328,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def get_node_stats(self, *, job_id: str, job_run_id: str) -> dict[str, Any]:
@@ -340,7 +347,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def update_doc_counts(self, *, job_run_id: str, metadata: dict[str, Any], operator_category: str) -> None:
@@ -357,7 +364,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def bulk_store_node_stats(self, *, job_id: str, job_run_id: str, node_stats_list: list[Any]) -> None:
@@ -375,10 +382,10 @@ class JobStatsService(ABC):
             JobRunNotFoundException: If job_run_id not found
             JobStatsStoreWriteException: If bulk operation fails
         """
-        pass
+        ...
 
     @abstractmethod
-    def store_job_stats(self, *, job_stats) -> None:
+    def store_job_stats(self, *, job_stats: "JobStats") -> None:
         """
         Store or update job-level statistics.
 
@@ -388,10 +395,10 @@ class JobStatsService(ABC):
         Raises:
             JobStatsStoreWriteException: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
-    def request_cancel_job(self, *, job_run_id: str):
+    def request_cancel_job(self, *, job_run_id: str) -> None:
         """
         Initiate cancellation process for a running job.
 
@@ -406,7 +413,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def cancel_job_run_if_cancelling(self, *, job_run_id: str, job_log_path: str | None = None) -> bool:
@@ -420,7 +427,7 @@ class JobStatsService(ABC):
         Returns:
             True if job was canceled, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     def request_delete_job_run(self, *, job_run_id: str) -> str:
@@ -436,7 +443,7 @@ class JobStatsService(ABC):
         Raises:
             JobRunNotFoundException: If job_run_id not found
         """
-        pass
+        ...
 
     @abstractmethod
     def is_job_run_complete(self, *, job_run_id: str) -> bool:
@@ -449,10 +456,12 @@ class JobStatsService(ABC):
         Returns:
             True if job is in terminal state, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
-    def determine_and_update_final_documents_count(self, *, job_stats, dag_nodes: list[dict[str, Any]]) -> None:
+    def determine_and_update_final_documents_count(
+        self, *, job_stats: "JobStats", dag_nodes: list[dict[str, Any]]
+    ) -> None:
         """
         Determine final status of each document and update job statistics.
 
@@ -460,10 +469,10 @@ class JobStatsService(ABC):
             job_stats: Job statistics object to update (JobStats)
             dag_nodes: List of DAG nodes with input/output edges
         """
-        pass
+        ...
 
     @abstractmethod
-    def write_job_logs(self, *, job_stats, job_log_path: str) -> None:
+    def write_job_logs(self, *, job_stats: "JobStats", job_log_path: str) -> None:
         """
         Write job statistics to log file.
 
@@ -474,13 +483,14 @@ class JobStatsService(ABC):
         Raises:
             JobStatsStoreWriteException: If file write fails
         """
-        pass
+        ...
 
     @abstractmethod
     def list_job_runs(
         self,
         *,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[Any]:
@@ -488,14 +498,15 @@ class JobStatsService(ABC):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (bulk lookup, uses IN clause in SQL stores)
             status: Optional filter by status
             limit: Maximum number of results
 
         Returns:
             List of JobStats matching filters (sorted by start_time desc)
         """
-        pass
+        ...
 
     @abstractmethod
     def get_job_run_logs(self, *, job_run_id: str) -> list[str]:
@@ -508,7 +519,7 @@ class JobStatsService(ABC):
         Returns:
             List of synthesized log lines
         """
-        pass
+        ...
 
     @abstractmethod
     def create_pending_batch_node_stats(
@@ -534,7 +545,25 @@ class JobStatsService(ABC):
             JobRunNotFoundException: If job_run_id not found
             JobStatsStoreWriteException: If bulk operation fails
         """
-        pass
+        ...
+
+    @abstractmethod
+    def mark_pending_batches_as_skipped(self, *, job_run_id: str, reason: str) -> None:
+        """
+        Mark all PENDING/QUEUED batch node stats as SKIPPED.
+
+        Used in fail-fast mode when flow fails before all batches execute.
+        This ensures proper status aggregation - without this, pending batches
+        cause operators to show as "Running" instead of their actual terminal status.
+
+        Args:
+            job_run_id: Job run identifier
+            reason: Reason for skipping (e.g., "Skipped - flow failed in fail-fast mode")
+
+        Raises:
+            JobRunNotFoundException: If job_run_id not found
+        """
+        ...
 
     @abstractmethod
     def get_formatted_job_stats(self, *, job_run_id: str, include_logs: bool = False) -> Any:
@@ -548,4 +577,69 @@ class JobStatsService(ABC):
         Returns:
             JobRunStatusResponse DTO ready for API response
         """
-        pass
+        ...
+
+    @abstractmethod
+    def get_flow_definition(self, *, job_run_id: str) -> dict[str, Any] | None:
+        """
+        Retrieve the flow definition snapshot for a specific job run.
+
+        This method abstracts the storage backend (local filesystem, S3, COS, etc.)
+        and returns the flow definition that was persisted at job run creation time.
+
+        Args:
+            job_run_id: Job run identifier
+
+        Returns:
+            Flow definition dictionary if found, None otherwise
+
+        Raises:
+            JobRunNotFoundException: If job_run_id not found in stats service
+            JobStatsStoreReadException: If flow definition file cannot be read
+        """
+        ...
+
+    @abstractmethod
+    def save_flow_definition(
+        self,
+        *,
+        job_id: str,
+        job_run_id: str,
+        flow_definition: dict[str, Any],
+        params: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Save flow definition JSON to filesystem for audit and reproducibility.
+
+        This method stores the flow definition that was used for a specific job run,
+        enabling retrieval via get_flow_definition for debugging and audit purposes.
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+            flow_definition: Flow definition dictionary to save
+            params: Optional execution parameters passed to the flow
+
+        Raises:
+            DocpipeException: If flow definition cannot be saved
+        """
+        ...
+
+    @abstractmethod
+    def detect_partial_batch_failure(self, *, job_stats: "JobStats", global_config: dict) -> bool:
+        """
+        Detect if this is a partial batch failure scenario.
+
+        Returns True if:
+        - Micro-batching is enabled
+        - continue_on_batch_failure is True
+        - Some (but not all) batch node stats have FAILED status
+
+        Args:
+            job_stats: Job statistics including batch_node_stats
+            global_config: Global configuration dictionary (required)
+
+        Returns:
+            True if partial batch failure detected, False otherwise
+        """
+        ...

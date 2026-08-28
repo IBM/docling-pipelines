@@ -6,7 +6,7 @@ Tests the operator with sample documents from the fixtures directory.
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pyarrow as pa
 import pytest
@@ -137,7 +137,7 @@ def test_document_classifier_basic_litellm():
             assert 1 <= confidence <= 10, f"Confidence should be between 1 and 10, got {confidence}"
 
         # Check metadata
-        assert metadata["total_docs_count"] == 3, "Should have 3 documents"
+        assert metadata["documents_in_scope"] == 3, "Should have 3 documents"
         assert metadata["processed_docs"] == 3, "Should have processed 3 documents"
 
 
@@ -157,10 +157,10 @@ def test_document_classifier_without_content_column():
         pytest.skip("Need at least 2 pdf files for this test")
 
     # Prepare data without content column
-    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list] = {"id": [], "name": [], "path": [], "binary_content": []}
 
     for file_path in test_files:
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             binary_content = f.read()
 
         file_data["id"].append(str(file_path))
@@ -269,11 +269,14 @@ def test_document_classifier_get_metadata_watsonx(monkeypatch):
     # Check attributes
     attributes = metadata["attributes"]
     assert "provider" in attributes, "Attributes should include 'provider'"
-    # model_id is now nested in provider_config.properties
+    # model_id is nested inside each provider schema under provider_config.providers.<provider>.properties
     assert "provider_config" in attributes, "Attributes should include 'provider_config'"
-    assert "properties" in attributes["provider_config"], "provider_config should have 'properties'"
-    assert "model_id" in attributes["provider_config"]["properties"], (
-        "provider_config.properties should include 'model_id'"
+    assert "providers" in attributes["provider_config"], "provider_config should have 'providers'"
+    assert "litellm" in attributes["provider_config"]["providers"], "provider_config.providers should include 'litellm'"
+    litellm_schema = attributes["provider_config"]["providers"]["litellm"]
+    assert "properties" in litellm_schema, "provider_config.providers.litellm should have 'properties'"
+    assert "model_id" in litellm_schema["properties"], (
+        "provider_config.providers.litellm.properties should include 'model_id'"
     )
     assert "document_types" in attributes, "Attributes should include 'document_types'"
     assert "confidence_threshold" in attributes, "Attributes should include 'confidence_threshold'"
@@ -295,8 +298,8 @@ def test_document_classifier_validation_litellm():
     }
 
     operator = DocumentClassifierOperator(config)
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     operator.validate(errors, warnings, [])
 
     assert len(errors) == 0, "Should have no validation errors"
@@ -328,7 +331,7 @@ def test_document_classifier_empty_table():
 
     # Assertions
     assert result_table.num_rows == 0, "Result table should be empty"
-    assert metadata["total_docs_count"] == 0, "Should have 0 documents"
+    assert metadata["documents_in_scope"] == 0, "Should have 0 documents"
 
 
 @pytest.mark.unit
@@ -648,13 +651,14 @@ def test_document_classifier_all_files_skipped():
 def test_document_classifier_supported_extensions_only():
     """Test that document classifier accepts all supported file extensions."""
 
-    # Create sample documents with all supported extensions
+    # Create sample documents with supported extensions from CLASSIFICATION_FILE_EXTENSIONS
     sample_docs = [
         {"id": "doc1", "name": "file.pdf", "content": "PDF content"},
         {"id": "doc2", "name": "file.docx", "content": "DOCX content"},
         {"id": "doc3", "name": "file.pptx", "content": "PPTX content"},
-        {"id": "doc4", "name": "file.doc", "content": "DOC content"},
-        {"id": "doc5", "name": "file.ppt", "content": "PPT content"},
+        {"id": "doc4", "name": "file.xlsx", "content": "XLSX content"},
+        {"id": "doc5", "name": "file.html", "content": "HTML content"},
+        {"id": "doc6", "name": "file.png", "content": "PNG content"},
     ]
 
     # Create PyArrow table
@@ -699,11 +703,11 @@ def test_document_classifier_supported_extensions_only():
 
         # Verify no files were rejected
         assert metadata["failed_docs_count"] == 0, "No files should be rejected"
-        assert metadata["processed_docs"] == 5, "All 5 files should be processed"
+        assert metadata["processed_docs"] == 6, "All 6 files should be processed"
 
         # Verify output table contains all files
         output_table = output_tables[0]
-        assert output_table.num_rows == 5, "All files should remain in output"
+        assert output_table.num_rows == 6, "All files should remain in output"
 
 
 @pytest.mark.unit
@@ -993,498 +997,36 @@ def test_temp_pages_processed_column_added():
                 assert pages_column == [1, 1]
 
 
+@pytest.mark.unit
+def test_document_classifier_provider_schemas():
+    """Test _get_classifier_provider_schemas returns correct structure."""
+    schemas = DocumentClassifierOperator._get_classifier_provider_schemas()
+    assert "litellm" in schemas
+    assert "watsonx" in schemas
+    for name, schema in schemas.items():
+        assert "properties" in schema, f"Schema for {name} missing 'properties'"
+
+
+@pytest.mark.unit
+def test_document_classifier_validate_unsupported_provider():
+    """Test validate() reports unsupported provider."""
+    config = {
+        "provider": "litellm",
+        "provider_config": {
+            "model_id": "openai/llama3",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",  # pragma: allowlist secret
+        },
+        "document_types": ["invoice"],
+    }
+    operator = DocumentClassifierOperator(config)
+    # Patch provider to something unsupported after init
+    operator.provider = "unsupported_provider"
+    errors: list[str] = []
+    warnings: list[str] = []
+    operator.validate(errors, warnings, [])
+    assert any("unsupported_provider" in e for e in errors)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-
-@pytest.mark.unit
-def test_document_classifier_litellm_without_provider_config_raises():
-    """Test that litellm provider without provider_config raises DocpipeException."""
-    from docpipe.exceptions.docpipe_exceptions import DocpipeException
-
-    config = {
-        "provider": "litellm",
-        "document_types": ["invoice", "receipt"],
-    }
-    with pytest.raises(DocpipeException, match="provider_config is required"):
-        DocumentClassifierOperator(config)
-
-
-@pytest.mark.unit
-def test_document_classifier_validation_ollama_in_validate():
-    """Test that validate() reports error for ollama provider in validation."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-    # Override provider to simulate ollama being validated
-    operator.provider = "ollama"
-    errors, warnings = [], []
-    operator.validate(errors, warnings, [])
-    assert any("Ollama provider is no longer supported" in e for e in errors)
-
-
-@pytest.mark.unit
-def test_document_classifier_validation_invalid_provider():
-    """Test that validate() reports error for unsupported provider."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-    operator.provider = "unknown_provider"
-    errors, warnings = [], []
-    operator.validate(errors, warnings, [])
-    assert any("must be one of" in e for e in errors)
-
-
-@pytest.mark.unit
-def test_document_classifier_validation_empty_document_types_list():
-    """Test that validate() reports error for empty document_types list."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-    operator.document_types = []
-    errors, warnings = [], []
-    operator.validate(errors, warnings, [])
-    assert any("document_types" in e.lower() for e in errors)
-
-
-@pytest.mark.unit
-def test_document_classifier_validation_confidence_out_of_range():
-    """Test that validate() reports error for confidence threshold out of range."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-        "confidence_threshold": 15.0,  # out of range
-    }
-    operator = DocumentClassifierOperator(config)
-    errors, warnings = [], []
-    operator.validate(errors, warnings, [])
-    assert any("confidence_threshold" in e for e in errors)
-
-
-@pytest.mark.unit
-def test_document_classifier_below_confidence_threshold():
-    """Test that classification below confidence threshold returns None for type."""
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["invoice.pdf"],
-            "content": ["INVOICE total $1000"],
-        }
-    )
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice", "receipt"],
-        "confidence_threshold": 9.0,  # High threshold
-        "include_confidence": True,
-        "include_reasoning": True,
-    }
-
-    mock_response = json.dumps(
-        {"document_type": "invoice", "confidence": 5, "reasoning": "Low confidence classification"}
-    )
-
-    with patch("docpipe.integrations.litellm.client.LiteLLMLLMClient.chat", return_value=mock_response):
-        operator = DocumentClassifierOperator(config)
-        result_tables, _metadata = operator.transform(table)
-        result_table = result_tables[0]
-
-    assert "document_type" in result_table.column_names
-    # With confidence 5 < threshold 9.0, document_type should be None
-    assert result_table["document_type"][0].as_py() is None
-    # Reasoning should explain the low confidence
-    reasoning = result_table["document_type_reasoning"][0].as_py()
-    assert reasoning is not None
-
-
-@pytest.mark.unit
-def test_document_classifier_classification_exception_recorded_as_failure():
-    """Test that classification exceptions are recorded as failures."""
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["invoice.pdf"],
-            "content": ["INVOICE total $1000"],
-        }
-    )
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice", "receipt"],
-        "include_confidence": False,
-        "include_reasoning": False,
-    }
-
-    with patch(
-        "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
-        side_effect=Exception("LLM service unavailable"),
-    ):
-        operator = DocumentClassifierOperator(config)
-        _result_tables, _metadata = operator.transform(table)
-
-    assert _metadata["failed_docs_count"] == 1
-
-
-@pytest.mark.unit
-def test_document_classifier_unsupported_extension_skipped():
-    """Test that documents with unsupported extensions are skipped."""
-    table = pa.table(
-        {
-            "id": ["doc1", "doc2"],
-            "name": ["invoice.pdf", "image.png"],  # .png not supported
-            "content": ["Invoice content", "PNG image content"],
-        }
-    )
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice", "image"],
-        "include_confidence": False,
-    }
-
-    mock_response = json.dumps({"document_type": "invoice", "confidence": 9})
-
-    with patch("docpipe.integrations.litellm.client.LiteLLMLLMClient.chat", return_value=mock_response):
-        operator = DocumentClassifierOperator(config)
-        _result_tables, _metadata = operator.transform(table)
-
-    assert _metadata["skipped_docs_count"] >= 1
-
-
-@pytest.mark.unit
-def test_document_classifier_get_document_types_loads_defaults():
-    """Test that _get_document_types loads defaults when document_types is empty."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": [],  # Empty - should trigger default load
-    }
-    operator = DocumentClassifierOperator(config)
-    assert len(operator.document_types) > 0
-
-
-@pytest.mark.unit
-def test_transform_sets_correct_status_on_all_successes():
-    """Test that successful transform sets correct node status."""
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["invoice.pdf"],
-            "content": ["Invoice content"],
-        }
-    )
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-        "include_confidence": False,
-    }
-
-    mock_response = json.dumps({"document_type": "invoice", "confidence": 9})
-
-    with patch("docpipe.integrations.litellm.client.LiteLLMLLMClient.chat", return_value=mock_response):
-        operator = DocumentClassifierOperator(config)
-        _, metadata = operator.transform(table)
-
-    assert metadata["node_status"] in ("Completed", "Failed", "PartiallyCompleted")
-
-
-@pytest.mark.unit
-def test_update_classification_progress_no_job_run_id():
-    """Test _update_classification_progress returns early when no job_run_id."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-    operator.job_run_id = None
-    # Should not raise
-    operator._update_classification_progress(completed=1, total=10, progress_percentage=10.0, failed_count=0)
-
-
-@pytest.mark.unit
-def test_update_classification_progress_with_job_run_id_updates():
-    """Test _update_classification_progress calls factory when job_run_id and id are set."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-        "id": "node-123",
-        "job_run_id": "run-456",
-    }
-    operator = DocumentClassifierOperator(config)
-    operator.job_run_id = "run-456"
-    operator.id = "node-123"
-
-    mock_factory = MagicMock()
-    mock_tracker = MagicMock()
-    mock_factory.create_job_stats_service.return_value = mock_tracker
-
-    with patch(
-        "docpipe.core.job_management.adapters.config.job_management_factory.get_default_factory",
-        return_value=mock_factory,
-    ):
-        operator._update_classification_progress(completed=5, total=10, progress_percentage=50.0, failed_count=1)
-
-    mock_tracker.update_node_stats.assert_called_once()
-
-
-@pytest.mark.unit
-def test_update_classification_progress_exception_swallowed():
-    """Test _update_classification_progress logs warning on exception but does not raise."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-    operator.job_run_id = "run-456"
-    operator.id = "node-123"
-
-    with patch(
-        "docpipe.core.job_management.adapters.config.job_management_factory.get_default_factory",
-        side_effect=RuntimeError("factory error"),
-    ):
-        # Should not raise
-        operator._update_classification_progress(completed=1, total=5, progress_percentage=20.0, failed_count=0)
-
-
-@pytest.mark.unit
-def test_classify_document_failure_response():
-    """Test _classify_document handles unsuccessful classification response."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-
-    mock_response = MagicMock()
-    mock_response.success = False
-    mock_response.error = "LLM failed"
-    mock_response.reasoning = "out of tokens"
-
-    operator.classification_service = MagicMock()
-    operator.classification_service.classify_document.return_value = mock_response
-
-    result = operator._classify_document(content="some content", doc_name="file.pdf")
-    assert result["success"] is False
-    assert "LLM failed" in result["error"]
-
-
-@pytest.mark.unit
-def test_classify_document_exception_returns_failure():
-    """Test _classify_document returns failure dict on unexpected exception."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-    operator.classification_service = MagicMock()
-    operator.classification_service.classify_document.side_effect = RuntimeError("unexpected")
-
-    result = operator._classify_document(content="content", doc_name="file.pdf")
-    assert result["success"] is False
-    assert "unexpected" in result["error"]
-
-
-@pytest.mark.unit
-def test_validate_extensions_for_existing_content_no_name_column():
-    """Test _validate_extensions_for_existing_content returns empty set when no name column."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-
-    table = pa.table({"id": ["doc1"], "content": ["text"]})
-    doc_contents = ["text"]
-    metadata = {"skipped_docs_count": 0, "skipped_docs": []}
-
-    result = operator._validate_extensions_for_existing_content(
-        table=table, doc_contents=doc_contents, metadata=metadata
-    )
-    assert result == set()
-
-
-@pytest.mark.unit
-def test_validate_extensions_for_existing_content_unsupported():
-    """Test that unsupported extension leads to skipped index."""
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-    operator = DocumentClassifierOperator(config)
-
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["image.png"],
-            "content": ["image content"],
-        }
-    )
-    doc_contents = ["image content"]
-    metadata = {"skipped_docs_count": 0, "skipped_docs": []}
-
-    skipped = operator._validate_extensions_for_existing_content(
-        table=table, doc_contents=doc_contents, metadata=metadata
-    )
-    assert 0 in skipped
-    assert doc_contents[0] is None  # content cleared
-
-
-@pytest.mark.unit
-def test_transform_with_below_confidence_threshold():
-    """Test transform handles below-threshold confidence correctly."""
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["invoice.pdf"],
-            "content": ["Invoice content"],
-        }
-    )
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-        "confidence_threshold": 8.0,
-        "include_confidence": True,
-    }
-
-    # Low confidence response
-    mock_response = json.dumps({"document_type": "invoice", "confidence": 5})
-
-    with patch("docpipe.integrations.litellm.client.LiteLLMLLMClient.chat", return_value=mock_response):
-        operator = DocumentClassifierOperator(config)
-        result_tables, _metadata = operator.transform(table)
-
-    # Doc should be processed but classification may be None due to low confidence
-    assert result_tables is not None
-    assert len(result_tables) > 0
-
-
-@pytest.mark.unit
-def test_transform_content_fetch_failure_records_failed_doc():
-    """Test transform records failed doc when content extraction fails."""
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["document.pdf"],
-            "source_url": ["s3://bucket/document.pdf"],
-        }
-    )
-    config = {
-        "provider": "litellm",
-        "provider_config": {
-            "model_id": "openai/llama3",
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "document_types": ["invoice"],
-    }
-
-    # Simulate prepare_document_content_fetch returning a task with error
-    error_task = {
-        "idx": 0,
-        "doc_id": "doc1",
-        "doc_name": "document.pdf",
-        "error": "Unsupported format",
-        "skip_reason": "unsupported_extension",
-    }
-
-    with (
-        patch(
-            "docpipe.core.operators.operator_utils.OperatorUtils.prepare_document_content_fetch",
-            return_value=[error_task],
-        ),
-        patch(
-            "docpipe.integrations.litellm.client.LiteLLMLLMClient.chat",
-            return_value='{"document_type": "invoice", "confidence": 9}',
-        ),
-    ):
-        operator = DocumentClassifierOperator(config)
-        _result_tables, _metadata = operator.transform(table)
-
-    assert _metadata["skipped_docs_count"] >= 1

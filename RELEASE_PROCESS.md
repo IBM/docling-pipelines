@@ -135,8 +135,16 @@ git push origin vX.Y.Z
 ```bash
 source .venv/bin/activate
 uv build
+
+# run the complete unit tests suite
+uv run pytest -m unit
+
+# additional safeguard, run detect secrets
+uv run detect-secrets audit ./
+
 # Verify the wheel and source distribution
 twine check dist/*
+
 # Publish to PyPI
 twine upload dist/*
 ```

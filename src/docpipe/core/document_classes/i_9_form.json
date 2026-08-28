@@ -31,7 +31,7 @@
         {
           "name": "social_security_number",
           "examples": [
-            "XXX-XX-XXXX"
+            "xxx-xx-xxxx"
           ],
           "description": "SSN if the employee chooses to provide it (unless required for E-Verify).",
           "extraction_instructions": ""

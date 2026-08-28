@@ -13,6 +13,7 @@ Schema Alignment:
 """
 
 import csv
+from pathlib import Path
 from typing import Any
 
 
@@ -1213,7 +1214,7 @@ def write_queries_to_csv(queries: list[dict[str, Any]], filename: str) -> None:
     ]
 
     try:
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+        with Path(filename).open("w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
 

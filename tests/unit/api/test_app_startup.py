@@ -7,15 +7,21 @@ including health checks, API documentation, and middleware.
 import pytest
 from fastapi.testclient import TestClient
 
+from docpipe.api.auth.dependencies import get_current_user
+from docpipe.api.auth.models import User
 from docpipe.api.main import app
+from docpipe.api.middleware.security_headers import API_CSP, DOCS_CSP
 
 
 @pytest.fixture(scope="module")
 def client() -> TestClient:
     """Create a test client for the FastAPI application.
 
-    Uses module scope for efficiency since the app doesn't change between tests.
+    Bypasses authentication so endpoint behaviour can be tested in isolation.
     """
+    app.dependency_overrides[get_current_user] = lambda: User(
+        username="testuser", email="test@example.com", full_name="Test User"
+    )
     return TestClient(app)
 
 
@@ -26,7 +32,7 @@ class TestApplicationStartup:
         """Test that the FastAPI application starts without errors."""
         assert client is not None
         assert app.title == "Docpipe Opensource API"
-        assert app.version == "1.0.0"
+        assert app.version == "0.1.0"
 
 
 class TestCoreEndpoints:
@@ -82,15 +88,37 @@ class TestCoreEndpoints:
 class TestMiddleware:
     """Test middleware functionality."""
 
-    def test_security_headers_present_in_responses(self, *, client: TestClient):
-        """Test that security headers are present in responses."""
+    def test_security_headers_present_in_api_responses(self, *, client: TestClient):
+        """Test that security headers are present in API responses."""
         response = client.get("/health")
 
         assert response.status_code == 200
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-frame-options"] == "DENY"
         assert response.headers["referrer-policy"] == "no-referrer"
-        assert "content-security-policy" in response.headers
+        assert response.headers["content-security-policy"] == API_CSP
+
+    def test_strict_csp_applied_to_api_paths(self, *, client: TestClient):
+        """Non-docs paths must receive the strict CSP (no unsafe-inline/unsafe-eval)."""
+        response = client.get("/health")
+
+        csp = response.headers["content-security-policy"]
+        assert "unsafe-inline" not in csp
+        assert "unsafe-eval" not in csp
+
+    def test_relaxed_csp_applied_to_swagger_docs(self, *, client: TestClient):
+        """Swagger UI path must receive the relaxed CSP so the UI can load."""
+        response = client.get("/api/v1/docs")
+
+        assert response.status_code == 200
+        assert response.headers["content-security-policy"] == DOCS_CSP
+
+    def test_relaxed_csp_applied_to_redoc(self, *, client: TestClient):
+        """ReDoc path must also receive the relaxed CSP."""
+        response = client.get("/api/v1/redoc")
+
+        assert response.status_code == 200
+        assert response.headers["content-security-policy"] == DOCS_CSP
 
     def test_transaction_id_header_present_in_responses(self, *, client: TestClient):
         """Test that transaction ID header is present in responses."""

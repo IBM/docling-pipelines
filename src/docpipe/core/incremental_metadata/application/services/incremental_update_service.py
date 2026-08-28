@@ -61,7 +61,13 @@ class IncrementalUpdateService:
         return set(table[OperatorConstants.Misc.ID].to_pylist()) if table.num_rows != 0 else set()
 
     def save_metadata_for_incremental_update(
-        self, *, job_id: str, job_run_id: str, tables: list[pa.Table], failed_doc_ids: list[Any] | None = None
+        self,
+        *,
+        job_id: str,
+        job_run_id: str,
+        tables: list[pa.Table],
+        failed_doc_ids: list[Any] | None = None,
+        non_recoverable_docs_table: pa.Table | None = None,
     ) -> None:
         """
         Save incremental metadata for processed documents.
@@ -70,41 +76,61 @@ class IncrementalUpdateService:
             job_id: Job identifier
             job_run_id: Job run identifier
             tables: List of PyArrow tables containing document metadata
-            failed_doc_ids: Optional list of document IDs that failed processing
+            failed_doc_ids: Optional list of document IDs that failed processing (both recoverable and non-recoverable)
+            non_recoverable_docs_table: Optional PyArrow table containing non-recoverable docs with (id, name, modified_time)
 
         Raises:
             FlowExecutionFailedException: If saving metadata fails
         """
         try:
-            records: list[IncrementalMetadataRecord] = []
-            failed_doc_ids_set = set(failed_doc_ids or [])
+            # Merge all tables into a single table
+            table_to_save: pa.Table | None = None
+            if tables:
+                for table in tables:
+                    if table.num_rows == 0:
+                        continue
 
-            for table in tables:
-                if table.num_rows == 0:
-                    continue
-
-                table = table.select(
-                    [
-                        OperatorConstants.Misc.ID,
-                        OperatorConstants.Misc.NAME,
-                        OperatorConstants.Metadata.MODIFIED_TIME,
-                    ]
-                )
-
-                filtered_table = self.filter_rows(table=table, ids_to_delete=list(failed_doc_ids_set))
-                if filtered_table is None or filtered_table.num_rows == 0:
-                    continue
-
-                records.extend(
-                    self._prepare_records_for_save(
-                        table=filtered_table,
-                        job_id=job_id,
-                        job_run_id=job_run_id,
+                    # Select required columns
+                    table = table.select(
+                        [
+                            OperatorConstants.Misc.ID,
+                            OperatorConstants.Misc.NAME,
+                            OperatorConstants.Metadata.MODIFIED_TIME,
+                        ]
                     )
-                )
 
-            if not records:
+                    if table_to_save is None:
+                        table_to_save = table
+                    else:
+                        table_to_save = self.concatenate_tables(table1=table_to_save, table2=table)
+
+            # Process non-recoverable docs and merge with successful docs
+            table_to_save, recoverable_failed_ids = self._process_non_recoverable_docs(
+                table_to_save=table_to_save,
+                non_recoverable_docs_table=non_recoverable_docs_table,
+                failed_doc_ids=failed_doc_ids,
+                job_id=job_id,
+                job_run_id=job_run_id,
+            )
+
+            # After merging, check if we have anything to save
+            if table_to_save is None or table_to_save.num_rows == 0:
+                logger.info(f"No documents to save to incremental metadata for job_id={job_id}")
                 return
+
+            # Filter out ONLY recoverable failed docs from the merged table
+            table_to_save = self.filter_rows(table=table_to_save, ids_to_delete=recoverable_failed_ids)
+
+            if table_to_save is None or table_to_save.num_rows == 0:
+                logger.info(f"No documents remaining after filtering for job_id={job_id}")
+                return
+
+            # Convert table to records and save
+            records = self._prepare_records_for_save(
+                table=table_to_save,
+                job_id=job_id,
+                job_run_id=job_run_id,
+            )
 
             self.store.upsert_records(job_id=job_id, job_run_id=job_run_id, records=records)
             logger.info(
@@ -115,6 +141,74 @@ class IncrementalUpdateService:
             raise FlowExecutionFailedException(
                 f"Failed to save incremental metadata for job_id={job_id}, job_run_id={job_run_id}. Error: {exc!s}"
             ) from exc
+
+    def _process_non_recoverable_docs(
+        self,
+        *,
+        table_to_save: pa.Table | None,
+        non_recoverable_docs_table: pa.Table | None,
+        failed_doc_ids: list[Any] | None,
+        job_id: str,
+        job_run_id: str,
+    ) -> tuple[pa.Table | None, list[str]]:
+        """
+        Process non-recoverable docs and merge with successful docs table.
+
+        Non-recoverable documents are permanent failures that should be marked as processed
+        to prevent reprocessing in subsequent incremental runs.
+
+        Args:
+            table_to_save: Table with successful docs
+            non_recoverable_docs_table: Table with non-recoverable docs (id, name, modified_time)
+            failed_doc_ids: List of all failed doc IDs (both recoverable and non-recoverable)
+            job_id: Job identifier
+            job_run_id: Job run identifier
+
+        Returns:
+            Tuple of (merged_table, recoverable_failed_ids)
+        """
+        # Extract non-recoverable doc IDs from the table for filtering
+        non_recoverable_doc_ids: list[str] = []
+        if non_recoverable_docs_table and non_recoverable_docs_table.num_rows > 0:
+            non_recoverable_doc_ids = non_recoverable_docs_table[OperatorConstants.Misc.ID].to_pylist()
+            logger.info(f"Processing {len(non_recoverable_doc_ids)} non-recoverable docs from table")
+
+        # Calculate recoverable failed doc IDs (failed_doc_ids - non_recoverable_doc_ids)
+        recoverable_failed_ids = list(failed_doc_ids or [])
+        if failed_doc_ids and non_recoverable_doc_ids:
+            recoverable_failed_ids = list(set(failed_doc_ids) - set(non_recoverable_doc_ids))
+            logger.info(
+                f"Filtering out {len(recoverable_failed_ids)} recoverable failed docs, "
+                f"keeping {len(non_recoverable_doc_ids)} non-recoverable docs in metadata"
+            )
+
+        # Merge non-recoverable docs table with successful docs table
+        if non_recoverable_docs_table is not None and non_recoverable_docs_table.num_rows > 0:
+            logger.info(f"Processing {non_recoverable_docs_table.num_rows} non-recoverable docs for metadata save")
+
+            non_rec_prepared = non_recoverable_docs_table.select(
+                [
+                    OperatorConstants.Misc.ID,
+                    OperatorConstants.Misc.NAME,
+                    OperatorConstants.Metadata.MODIFIED_TIME,
+                ]
+            )
+
+            if table_to_save is not None and table_to_save.num_rows > 0:
+                successful_count = table_to_save.num_rows
+                merged_table = self.concatenate_tables(table1=table_to_save, table2=non_rec_prepared)
+                logger.info(
+                    f"Merged {non_rec_prepared.num_rows} non-recoverable docs with "
+                    f"{successful_count} successful docs. Total: {merged_table.num_rows}"
+                )
+                table_to_save = merged_table
+            else:
+                table_to_save = non_rec_prepared
+                logger.info(
+                    f"No successful docs this run. Saving {non_rec_prepared.num_rows} non-recoverable docs to metadata"
+                )
+
+        return table_to_save, recoverable_failed_ids
 
     def concatenate_tables(self, *, table1: pa.Table, table2: pa.Table) -> pa.Table:
         """
@@ -341,5 +435,4 @@ class IncrementalUpdateService:
             set(result_table[OperatorConstants.Misc.ID].to_pylist()) if result_table.num_rows != 0 else set()
         )
 
-        ids_to_delete = list(input_doc_ids - output_doc_ids)
-        return ids_to_delete
+        return list(input_doc_ids - output_doc_ids)

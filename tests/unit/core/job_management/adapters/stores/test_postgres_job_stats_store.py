@@ -64,7 +64,7 @@ class TestPostgresJobStatsStoreInterface:
     def sample_node_stats_dto(self):
         """Sample NodeStats for testing."""
         return NodeStats(
-            node_id="abcdef12-3456-7890-abcd-ef1234567890",
+            id="abcdef12-3456-7890-abcd-ef1234567890",
             name="Test Node",
             node_status=ExecutionStatus.COMPLETED,
             start_time=1704067200,
@@ -110,8 +110,8 @@ class TestPostgresJobStatsStoreInterface:
         mock_get_conn_str.assert_called_once()
         mock_create_engine.assert_called_once()
         mock_create_session.assert_called_once_with(engine=mock_engine)
-        mock_job_dal_class.assert_called_once_with(session_factory=mock_session_factory)
-        mock_node_dal_class.assert_called_once_with(session_factory=mock_session_factory)
+        mock_job_dal_class.assert_called_once_with(session_factory=mock_session_factory, model=None)
+        mock_node_dal_class.assert_called_once_with(session_factory=mock_session_factory, model=None)
 
     @patch(
         "docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
@@ -139,6 +139,7 @@ class TestPostgresJobStatsStoreInterface:
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
             store._job_stats_dal = Mock()
+            store._job_stats_model_cls = None
 
             # Call store_job_stats
             store.store_job_stats(sample_job_stats_dto)
@@ -185,6 +186,9 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None
+            mock_job_run_stats.report_status = None
+            mock_job_run_stats.report_generation_started_at = None
+            mock_job_run_stats.report_generation_completed_at = None
 
             store._job_stats_dal.get_by_job_run_id.return_value = mock_job_run_stats
 
@@ -207,6 +211,7 @@ class TestPostgresJobStatsStoreInterface:
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
             store._node_stats_dal = Mock()
+            store._node_stats_model_cls = None
 
             # Call store_node_stats
             store.store_node_stats(job_run_id="test-run-456", node_stats=sample_node_stats_dto)
@@ -252,6 +257,7 @@ class TestPostgresJobStatsStoreInterface:
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
             store._node_stats_dal = Mock()
+            store._node_stats_model_cls = None
 
             # Call bulk_store_node_stats
             node_stats_list = [sample_node_stats_dto]
@@ -321,6 +327,9 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None
+            mock_job_run_stats.report_status = None
+            mock_job_run_stats.report_generation_started_at = None
+            mock_job_run_stats.report_generation_completed_at = None
 
             store._job_stats_dal.list_job_runs.return_value = [mock_job_run_stats]
 
@@ -330,4 +339,179 @@ class TestPostgresJobStatsStoreInterface:
             # Verify result
             assert len(result) == 1
             assert result[0].job_id == test_job_id
-            store._job_stats_dal.list_job_runs.assert_called_once_with(job_id=test_job_id, status=None, limit=10)
+            store._job_stats_dal.list_job_runs.assert_called_once_with(
+                job_id=test_job_id, job_ids=None, status=None, limit=10
+            )
+
+
+class TestPostgresJobStatsStoreInjectedModel:
+    """
+    Tests for PostgresJobStatsStore with injected model classes and session factory.
+
+    Verifies that when a caller provides their own model classes and session factory,
+    the store uses them exclusively — the default OSS models are never instantiated.
+    """
+
+    @pytest.fixture
+    def mock_injected_job_stats_model(self):
+        """Mock SQLModel class simulating an injected job stats model."""
+        model = Mock()
+        model.__name__ = "InjectedJobStatsModel"
+        return model
+
+    @pytest.fixture
+    def mock_injected_node_stats_model(self):
+        """Mock SQLModel class simulating an injected node stats model."""
+        model = Mock()
+        model.__name__ = "InjectedNodeStatsModel"
+        return model
+
+    @pytest.fixture
+    def mock_session_factory(self):
+        """Mock session factory."""
+        return Mock()
+
+    @pytest.fixture
+    def sample_job_stats(self):
+        return JobStats(
+            job_id="12345678-1234-1234-1234-123456789012",
+            job_run_id="87654321-4321-4321-4321-210987654321",
+            status=ExecutionStatus.RUNNING,
+            message="Test job",
+            start_time=1704067200,
+            end_time=0,
+            duration=0,
+            total_docs=100,
+            processed_docs=50,
+            completed_docs=45,
+            failed_docs=5,
+            skipped_docs=0,
+        )
+
+    @pytest.fixture
+    def sample_node_stats(self):
+        return NodeStats(
+            id="abcdef12-3456-7890-abcd-ef1234567890",
+            name="Test Node",
+            node_status=ExecutionStatus.COMPLETED,
+            start_time=1704067200,
+            end_time=1704067260,
+            time_taken=60,
+            total_docs=["doc1"],
+            docs_completed=["doc1"],
+            failed_docs=[],
+            skipped_docs=[],
+            batch_id=None,
+        )
+
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.JobStatsDAL")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.NodeStatsDAL")
+    def test_injected_session_factory_skips_engine_creation(
+        self,
+        mock_node_dal_class,
+        mock_job_dal_class,
+        mock_injected_job_stats_model,
+        mock_injected_node_stats_model,
+        mock_session_factory,
+    ):
+        """When session_factory is injected, no engine is created and DALs receive injected models."""
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        store = PostgresJobStatsStore(
+            job_stats_model=mock_injected_job_stats_model,
+            node_stats_model=mock_injected_node_stats_model,
+            session_factory=mock_session_factory,
+        )
+
+        # Engine must not be created
+        assert store._engine is None
+
+        # DALs must be initialised with the injected session factory and model classes
+        mock_job_dal_class.assert_called_once_with(
+            session_factory=mock_session_factory,
+            model=mock_injected_job_stats_model,
+        )
+        mock_node_dal_class.assert_called_once_with(
+            session_factory=mock_session_factory,
+            model=mock_injected_node_stats_model,
+        )
+
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.JobStatsDAL")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.NodeStatsDAL")
+    def test_store_job_stats_uses_injected_model(
+        self,
+        mock_node_dal_class,
+        mock_job_dal_class,
+        mock_injected_job_stats_model,
+        mock_injected_node_stats_model,
+        mock_session_factory,
+        sample_job_stats,
+    ):
+        """store_job_stats instantiates the injected model class, not the OSS default."""
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        store = PostgresJobStatsStore(
+            job_stats_model=mock_injected_job_stats_model,
+            node_stats_model=mock_injected_node_stats_model,
+            session_factory=mock_session_factory,
+        )
+
+        store.store_job_stats(sample_job_stats)
+
+        # The injected model class must have been called (instantiated) by the mapper
+        mock_injected_job_stats_model.assert_called_once()
+        # The OSS NodeStatsModel must not have been instantiated
+        mock_injected_node_stats_model.assert_not_called()
+
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.JobStatsDAL")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.NodeStatsDAL")
+    def test_store_node_stats_uses_injected_model(
+        self,
+        mock_node_dal_class,
+        mock_job_dal_class,
+        mock_injected_job_stats_model,
+        mock_injected_node_stats_model,
+        mock_session_factory,
+        sample_node_stats,
+    ):
+        """store_node_stats instantiates the injected model class, not the OSS default."""
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        store = PostgresJobStatsStore(
+            job_stats_model=mock_injected_job_stats_model,
+            node_stats_model=mock_injected_node_stats_model,
+            session_factory=mock_session_factory,
+        )
+
+        store.store_node_stats(job_run_id="test-run-456", node_stats=sample_node_stats)
+
+        # The injected node model class must have been called (instantiated) by the mapper
+        mock_injected_node_stats_model.assert_called_once()
+        # The OSS JobStatsModel must not have been instantiated
+        mock_injected_job_stats_model.assert_not_called()
+
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.JobStatsDAL")
+    @patch("docpipe.core.job_management.adapters.stores.postgres.postgres_job_stats_store.NodeStatsDAL")
+    def test_bulk_store_node_stats_uses_injected_model(
+        self,
+        mock_node_dal_class,
+        mock_job_dal_class,
+        mock_injected_job_stats_model,
+        mock_injected_node_stats_model,
+        mock_session_factory,
+        sample_node_stats,
+    ):
+        """bulk_store_node_stats instantiates the injected model class for every record."""
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        store = PostgresJobStatsStore(
+            job_stats_model=mock_injected_job_stats_model,
+            node_stats_model=mock_injected_node_stats_model,
+            session_factory=mock_session_factory,
+        )
+
+        store.bulk_store_node_stats(job_run_id="test-run-456", node_stats_list=[sample_node_stats, sample_node_stats])
+
+        # Called once per record
+        assert mock_injected_node_stats_model.call_count == 2
+        mock_injected_job_stats_model.assert_not_called()

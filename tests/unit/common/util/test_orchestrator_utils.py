@@ -3,6 +3,7 @@
 import os
 import shutil
 import tempfile
+from pathlib import Path
 from queue import Queue
 from unittest.mock import Mock, patch
 
@@ -75,7 +76,7 @@ class TestCreateLogFolders:
             assert "job_123" in result
             assert "run_456" in result
             assert "job_stats.json" in result
-            assert os.path.exists(os.path.dirname(result))
+            assert Path(Path(result).parent).exists()
 
     @patch("docpipe.utils.infrastructure.filesystem.get_data_path")
     def test_create_log_folders_agg_logs_type(self, mock_data_path):
@@ -102,16 +103,16 @@ class TestWriteJobLogs:
 
             write_job_logs(job_stats, temp_path)
 
-            assert os.path.exists(temp_path)
-            with open(temp_path) as f:
+            assert Path(temp_path).exists()
+            with Path(temp_path).open() as f:
                 import json
 
                 content = json.load(f)
                 assert content["status"] == "completed"
                 assert content["duration"] == 60.5
         finally:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
+            if Path(temp_path).exists():
+                Path(temp_path).unlink()
 
 
 class TestSetPrefectEnvVariables:
@@ -132,7 +133,7 @@ class TestSetPrefectEnvVariables:
         # Cleanup
         if PREFECT_HOME in os.environ:
             prefect_home = os.environ[PREFECT_HOME]
-            if os.path.exists(prefect_home):
+            if Path(prefect_home).exists():
                 shutil.rmtree(prefect_home, ignore_errors=True)
             del os.environ[PREFECT_HOME]
 
@@ -160,15 +161,15 @@ class TestCleanUpPrefectHome:
     def test_clean_up_prefect_home_removes_temp_dir(self):
         """Test that Prefect home directory is cleaned up."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            prefect_temp = os.path.join(tmpdir, "prefect_test")
-            os.makedirs(prefect_temp)
+            prefect_temp = str(Path(tmpdir) / "prefect_test")
+            Path(prefect_temp).mkdir(parents=True)
 
             os.environ[PREFECT_HOME] = prefect_temp
 
             clean_up_prefect_home()
 
             # Directory should be removed
-            assert not os.path.exists(prefect_temp)
+            assert not Path(prefect_temp).exists()
 
             # Cleanup env var
             if PREFECT_HOME in os.environ:
@@ -177,8 +178,8 @@ class TestCleanUpPrefectHome:
     def test_clean_up_prefect_home_with_debug(self):
         """Test cleanup doesn't happen in debug mode."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            prefect_temp = os.path.join(tmpdir, "prefect_test")
-            os.makedirs(prefect_temp)
+            prefect_temp = str(Path(tmpdir) / "prefect_test")
+            Path(prefect_temp).mkdir(parents=True)
 
             os.environ[PREFECT_HOME] = prefect_temp
             os.environ[PREFECT_DEBUG] = "true"
@@ -186,7 +187,7 @@ class TestCleanUpPrefectHome:
             clean_up_prefect_home()
 
             # Directory should still exist in debug mode
-            assert os.path.exists(prefect_temp)
+            assert Path(prefect_temp).exists()
 
             # Cleanup
             if PREFECT_HOME in os.environ:
@@ -201,46 +202,46 @@ class TestSafeRmtree:
     def test_safe_rmtree_valid_temp_dir(self):
         """Test removing valid temp directory."""
         temp_root = tempfile.gettempdir()
-        test_dir = os.path.join(temp_root, "prefect_test_dir")
-        os.makedirs(test_dir, exist_ok=True)
+        test_dir = str(Path(temp_root) / "prefect_test_dir")
+        Path(test_dir).mkdir(parents=True, exist_ok=True)
 
         result = _safe_rmtree(test_dir, prefix="prefect_")
 
         assert result is True
-        assert not os.path.exists(test_dir)
+        assert not Path(test_dir).exists()
 
     def test_safe_rmtree_outside_temp(self):
         """Test that directories outside temp are not removed."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a directory outside system temp
-            test_dir = os.path.join(tmpdir, "test_dir")
-            os.makedirs(test_dir)
+            test_dir = str(Path(tmpdir) / "test_dir")
+            Path(test_dir).mkdir(parents=True)
 
             result = _safe_rmtree(test_dir, prefix="prefect_")
 
             # Should refuse to delete
             assert result is False
-            assert os.path.exists(test_dir)
+            assert Path(test_dir).exists()
 
     def test_safe_rmtree_wrong_prefix(self):
         """Test that directories with wrong prefix are not removed."""
         temp_root = tempfile.gettempdir()
-        test_dir = os.path.join(temp_root, "wrong_prefix_dir")
-        os.makedirs(test_dir, exist_ok=True)
+        test_dir = str(Path(temp_root) / "wrong_prefix_dir")
+        Path(test_dir).mkdir(parents=True, exist_ok=True)
 
         try:
             result = _safe_rmtree(test_dir, prefix="prefect_")
 
             assert result is False
-            assert os.path.exists(test_dir)
+            assert Path(test_dir).exists()
         finally:
-            if os.path.exists(test_dir):
+            if Path(test_dir).exists():
                 shutil.rmtree(test_dir, ignore_errors=True)
 
     def test_safe_rmtree_nonexistent_path(self):
         """Test with nonexistent path."""
         temp_root = tempfile.gettempdir()
-        test_dir = os.path.join(temp_root, "prefect_nonexistent")
+        test_dir = str(Path(temp_root) / "prefect_nonexistent")
 
         result = _safe_rmtree(test_dir, prefix="prefect_")
 
@@ -277,7 +278,7 @@ class TestCombineCumulativeDeletedRows:
 
     def test_combine_cumulative_deleted_rows_basic(self):
         """Test combining deleted rows."""
-        deleted_rows = Queue()
+        deleted_rows: Queue = Queue()
         deleted_rows.put(pa.table({"id": [1, 2], "name": ["a", "b"]}))
         deleted_rows.put(pa.table({"id": [3, 4], "name": ["c", "d"]}))
 
@@ -289,7 +290,7 @@ class TestCombineCumulativeDeletedRows:
 
     def test_combine_cumulative_deleted_rows_different_schemas(self):
         """Test combining tables with different schemas."""
-        deleted_rows = Queue()
+        deleted_rows: Queue = Queue()
         deleted_rows.put(pa.table({"id": [1, 2], "col1": ["a", "b"]}))
         deleted_rows.put(pa.table({"id": [3, 4], "col2": ["c", "d"]}))
 
@@ -302,7 +303,7 @@ class TestCombineCumulativeDeletedRows:
 
     def test_combine_cumulative_deleted_rows_empty(self):
         """Test with empty queue."""
-        deleted_rows = Queue()
+        deleted_rows: Queue = Queue()
 
         result = combine_cumulative_deleted_rows(deleted_rows)
 

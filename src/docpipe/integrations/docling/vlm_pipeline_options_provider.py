@@ -15,7 +15,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
 
-IBM_CLOUD_IAM_TOKEN_URL = "https://iam.cloud.ibm.com/identity/token"
+IBM_CLOUD_IAM_TOKEN_URL = "https://iam.cloud.ibm.com/identity/token"  # nosec B105
 IAM_TOKEN_REQUEST_TIMEOUT = 30
 
 
@@ -43,7 +43,7 @@ class VlmPipelineOptionsProvider(ABC):
         Raises:
             ValueError: If required configuration is missing or invalid
         """
-        pass
+        ...
 
     @abstractmethod
     def validate_config(self, *, config: dict[str, Any]) -> None:
@@ -56,7 +56,7 @@ class VlmPipelineOptionsProvider(ABC):
         Raises:
             ValueError: If configuration is invalid or missing required fields
         """
-        pass
+        ...
 
     @staticmethod
     def _normalize_openai_compatible_url(*, api_base: str | None, default_url: str) -> str:
@@ -185,7 +185,7 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         # Create engine options
         engine_options = ApiVlmEngineOptions(
-            runtime_type=VlmEngineType.API,
+            engine_type=VlmEngineType.API,
             url=api_base_url,
             headers=headers,
             params=params,
@@ -256,7 +256,7 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
             # Make POST request with form data
             token_data = client.call_rest_json(
                 method=RestMethod.POST,
-                endpoint=IBM_CLOUD_IAM_TOKEN_URL,
+                url=IBM_CLOUD_IAM_TOKEN_URL,
                 form_data={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": api_key},
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
@@ -313,7 +313,7 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
         timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         engine_options = ApiVlmEngineOptions(
-            runtime_type=VlmEngineType.API_OPENAI,
+            engine_type=VlmEngineType.API_OPENAI,
             url=api_base_url,
             headers=headers,
             params=params,
@@ -378,7 +378,7 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
         timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         engine_options = ApiVlmEngineOptions(
-            runtime_type=VlmEngineType.API_OLLAMA,
+            engine_type=VlmEngineType.API_OLLAMA,
             url=api_base_url,
             params=params if params else {},
             timeout=timeout,
@@ -395,7 +395,6 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
     def validate_config(self, *, config: dict[str, Any]) -> None:
         """Ollama has minimal configuration requirements."""
-        pass
 
 
 class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
@@ -429,7 +428,7 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
         timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         engine_options = ApiVlmEngineOptions(
-            runtime_type=VlmEngineType.API_LMSTUDIO,
+            engine_type=VlmEngineType.API_LMSTUDIO,
             url=api_base_url,
             timeout=timeout,
         )
@@ -445,7 +444,6 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
     def validate_config(self, *, config: dict[str, Any]) -> None:
         """LM Studio has minimal configuration requirements."""
-        pass
 
 
 class GenericApiPipelineOptionsProvider(VlmPipelineOptionsProvider):
@@ -494,7 +492,7 @@ class GenericApiPipelineOptionsProvider(VlmPipelineOptionsProvider):
         timeout = config.get(OperatorConstants.Config.REQUEST_TIMEOUT, 90)
 
         engine_options = ApiVlmEngineOptions(
-            runtime_type=VlmEngineType.API,
+            engine_type=VlmEngineType.API,
             url=api_base_url,
             headers=headers if headers else {},
             params=params if params else {},
@@ -550,7 +548,6 @@ class TransformersPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
     def validate_config(self, *, config: dict[str, Any]) -> None:
         """Transformers has minimal configuration requirements."""
-        pass
 
 
 class MlxPipelineOptionsProvider(VlmPipelineOptionsProvider):
@@ -581,7 +578,6 @@ class MlxPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
     def validate_config(self, *, config: dict[str, Any]) -> None:
         """MLX has minimal configuration requirements."""
-        pass
 
 
 class VlmPipelineOptionsProviderFactory:

@@ -15,7 +15,7 @@ from docpipe.core.constants.constants import ExecutionStatus
 class NodeStatsFields:
     """Field names for NodeStats domain model and database columns."""
 
-    NODE_ID = "node_id"
+    NODE_ID = "node_id"  # DB column name — keep as "node_id"
     NAME = "name"
     NODE_STATUS = "node_status"
     ERROR = "error"
@@ -49,7 +49,7 @@ class NodeStats(BaseModel):
     """
 
     # Identity Fields
-    node_id: str
+    id: str
     name: str
 
     # Status & Error

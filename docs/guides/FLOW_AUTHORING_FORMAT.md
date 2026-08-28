@@ -41,8 +41,8 @@ The authoring format is a simplified JSON structure for defining Docling Pipelin
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
-      "config": {"path": "./data"}
+      "type": "ingest_source",
+      "config": {"provider": "filesystem", "connection_params": {"paths": ["./data"]}}
     },
     {
       "name": "extract",
@@ -64,8 +64,8 @@ The authoring format is a simplified JSON structure for defining Docling Pipelin
         "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
         "app_data": {
           "component_parameters": {
-            "operator": "ingest_local",
-            "config": {"path": "./data"}
+            "operator": "ingest_source",
+            "config": {"provider": "filesystem", "connection_params": {"paths": ["./data"]}}
           }
         },
         "outputs": [{
@@ -123,9 +123,10 @@ The authoring format is a simplified JSON structure for defining Docling Pipelin
   "flow": [
     {
       "name": "ingest_docs",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
         "include_filter": "pdf,txt"
       }
     },
@@ -178,10 +179,10 @@ Use the operator's class name or short name:
 
 ```json
 {
-  "type": "ingest_local"        // ✅ Short name
+  "type": "ingest_source"        // ✅ Short name
 }
 {
-  "type": "IngestLocalOperator" // ✅ Class name (also works)
+  "type": "IngestSourceOperator" // ✅ Class name (also works)
 }
 ```
 
@@ -248,7 +249,7 @@ At least one operator must have no dependencies (entry point):
 ```json
 {
   "name": "start_here",
-  "type": "ingest_local",
+  "type": "ingest_source",
   "depends_on": [],  // Entry point - no dependencies
   "config": {}
 }
@@ -323,8 +324,8 @@ flow_def = {
     "flow": [
         {
             "name": "ingest",
-            "type": "ingest_local",
-            "config": {"paths": "./data"}
+            "type": "ingest_source",
+            "config": {"provider": "filesystem", "connection_params": {"paths": ["./data"]}}
         }
     ]
 }
@@ -364,9 +365,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
   "flow": [
     {
       "name": "ingest_pdfs",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./pdfs",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./pdfs"]},
         "include_filter": "pdf"
       }
     },
@@ -404,9 +406,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
         "include_filter": "pdf,txt,md"
       }
     },
@@ -446,8 +449,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "depends_on": ["embed"],
       "config": {
         "provider": "opensearch",
-        "index_name": "documents",
-        "vector_dimension": 768
+        "vector_dimension": 768,
+        "provider_config": {
+          "index_name": "documents"
+        }
       }
     }
   ],
@@ -468,9 +473,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./mixed_docs"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./mixed_docs"]}
       }
     },
     {
@@ -540,9 +546,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "/data/documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["/data/documents"]},
         "include_filter": "txt,pdf",
         "max_files": 10000
       }
@@ -587,8 +594,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "depends_on": ["embed"],
       "config": {
         "provider": "opensearch",
-        "index_name": "documents",
-        "vector_dimension": 384
+        "vector_dimension": 384,
+        "provider_config": {
+          "index_name": "documents"
+        }
       }
     }
   ],

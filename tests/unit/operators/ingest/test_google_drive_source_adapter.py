@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+from collections import deque
 from datetime import datetime
 from unittest.mock import Mock, mock_open, patch
 
@@ -105,8 +106,11 @@ class TestGoogleDriveSourceAdapter:
 
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch("builtins.open", mock_open(read_data=b"data")),
-            patch("pickle.load", return_value=creds),
+            patch("pathlib.Path.open", mock_open(read_data='{"token": "data"}')),
+            patch(
+                "google.oauth2.credentials.Credentials.from_authorized_user_info",
+                return_value=creds,
+            ),
         ):
             result = adapter._get_credentials(config)
 
@@ -116,17 +120,80 @@ class TestGoogleDriveSourceAdapter:
         adapter = GoogleDriveSourceAdapter()
         config = self.make_config()
         creds = Mock(valid=False, expired=True, refresh_token="token")
+        creds.to_json.return_value = '{"token": "data"}'
 
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch("builtins.open", mock_open(read_data=b"data")),
-            patch("pickle.load", return_value=creds),
-            patch("pickle.dump"),
+            patch("pathlib.Path.is_file", return_value=True),
+            patch("pathlib.Path.open", mock_open(read_data='{"token": "data"}')),
+            patch("pathlib.Path.mkdir"),
+            patch(
+                "google.oauth2.credentials.Credentials.from_authorized_user_info",
+                return_value=creds,
+            ),
         ):
             result = adapter._get_credentials(config)
 
         creds.refresh.assert_called_once()
         assert result is creds
+
+    def test_get_credentials_service_account_path_uses_service_account_loader(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = GoogleDriveSourceConfig(
+            service_account_json_path="/tmp/service-account.json",
+            drive_id=None,
+            folder_id="folder123",
+            folder_path=None,
+            recursive=False,
+            max_file_size_mb=None,
+        )
+
+        with patch.object(adapter, "_load_service_account_credentials", return_value=Mock()) as mock_loader:
+            adapter._get_credentials(config)
+
+        mock_loader.assert_called_once_with(config)
+
+    def test_refresh_or_run_oauth_flow_reauths_when_refresh_fails(self):
+        creds = Mock(expired=True, refresh_token="token")
+        creds.refresh.side_effect = RuntimeError("refresh failed")
+        new_creds = Mock()
+        new_creds.to_json.return_value = '{"token": "new"}'
+        flow_instance = Mock()
+        flow_instance.run_local_server.return_value = new_creds
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+            patch("pathlib.Path.mkdir"),
+            patch("pathlib.Path.open", mock_open()),
+            patch(
+                "google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file",
+                return_value=flow_instance,
+            ),
+        ):
+            result = GoogleDriveSourceAdapter._refresh_or_run_oauth_flow(
+                creds=creds,
+                credentials_path=__import__("pathlib").Path("/tmp/credentials.json"),
+                token_path=__import__("pathlib").Path("/tmp/token.json"),
+                scopes=["scope1"],
+            )
+
+        assert result is new_creds
+        creds.refresh.assert_called_once()
+        flow_instance.run_local_server.assert_called_once_with(port=0)
+
+    def test_refresh_or_run_oauth_flow_raises_when_credentials_path_is_not_file(self):
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=False),
+        ):
+            with pytest.raises(ValueError, match="Credentials path is not a file"):
+                GoogleDriveSourceAdapter._refresh_or_run_oauth_flow(
+                    creds=None,
+                    credentials_path=__import__("pathlib").Path("/tmp/credentials.json"),
+                    token_path=__import__("pathlib").Path("/tmp/token.json"),
+                    scopes=["scope1"],
+                )
 
     def test_get_credentials_missing_credentials_file_raises(self):
         adapter = GoogleDriveSourceAdapter()
@@ -166,7 +233,7 @@ class TestGoogleDriveSourceAdapter:
         assert docs[0].modified_time == datetime.fromisoformat("2024-01-01T10:00:00+00:00")
         # Verify metadata is stored for lazy loading
         assert docs[0].metadata["file_id"] == "doc1"
-        assert "credentials_path" not in docs[0].metadata
+        assert docs[0].metadata["credentials_path"] == "/tmp/credentials.json"
 
     def test_fetch_documents_wraps_errors(self):
         adapter = GoogleDriveSourceAdapter()
@@ -203,3 +270,321 @@ class TestGoogleDriveSourceAdapter:
             success, message = asyncio.run(adapter.test_connection(config))
             assert success is False
             assert "Connection test failed" in message
+
+    def test_load_service_account_credentials_success(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = GoogleDriveSourceConfig(
+            service_account_json_path="/tmp/service-account.json",
+            drive_id=None,
+            folder_id="folder123",
+            folder_path=None,
+            recursive=False,
+            max_file_size_mb=None,
+        )
+        creds = Mock()
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+            patch(
+                "google.oauth2.service_account.Credentials.from_service_account_file",
+                return_value=creds,
+            ),
+        ):
+            result = adapter._load_service_account_credentials(config)
+
+        assert result is creds
+
+    def test_load_service_account_credentials_missing_file_raises(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = GoogleDriveSourceConfig(
+            service_account_json_path="/tmp/service-account.json",
+            drive_id=None,
+            folder_id="folder123",
+            folder_path=None,
+            recursive=False,
+            max_file_size_mb=None,
+        )
+
+        with patch("pathlib.Path.exists", return_value=False):
+            with pytest.raises(ValueError, match="Failed to load service account credentials"):
+                adapter._load_service_account_credentials(config)
+
+    def test_build_drive_query_includes_mime_filters(self):
+        adapter = GoogleDriveSourceAdapter()
+
+        query = adapter._build_drive_query(
+            folder_id="folder123",
+            file_extensions=[".pdf", ".txt"],
+        )
+
+        assert "'folder123' in parents" in query
+        assert "trashed = false" in query
+        assert "mimeType = 'application/pdf'" in query
+        assert "mimeType = 'text/plain'" in query
+        assert "application/vnd.google-apps.folder" in query
+
+    def test_process_page_items_stops_at_max_files(self):
+        adapter = GoogleDriveSourceAdapter()
+        all_files: list[dict[str, str]] = []
+        folders_to_process: deque[str] = deque()
+        items = [
+            {"id": "folder1", "mimeType": "application/vnd.google-apps.folder"},
+            {"id": "file1", "mimeType": "application/pdf"},
+            {"id": "file2", "mimeType": "application/pdf"},
+        ]
+
+        reached_limit = adapter._process_page_items(
+            items=items,
+            all_files=all_files,
+            folders_to_process=folders_to_process,
+            recursive=True,
+            max_files=1,
+        )
+
+        assert reached_limit is True
+        assert all_files == [{"id": "file1", "mimeType": "application/pdf"}]
+        assert list(folders_to_process) == ["folder1"]
+
+    def test_resolve_workspace_extension_returns_expected_mapped_extension(self):
+        adapter = GoogleDriveSourceAdapter()
+
+        extension = adapter._resolve_workspace_extension(
+            file_ext="",
+            file_mime="application/vnd.google-apps.presentation",
+        )
+
+        assert extension == ".pptx"
+
+    def test_fetch_folder_pages_returns_true_when_max_files_reached(self):
+        adapter = GoogleDriveSourceAdapter()
+        service = Mock()
+        service.files.return_value.list.return_value.execute.return_value = {
+            "files": [{"id": "file1", "mimeType": "application/pdf"}],
+            "nextPageToken": None,
+        }
+        config = GoogleDriveSourceConfig(
+            credentials_path="/tmp/credentials.json",
+            token_path="/tmp/token.json",
+            drive_id=None,
+            folder_id="folder123",
+            folder_path=None,
+            recursive=False,
+            max_files=1,
+            max_file_size_mb=None,
+        )
+
+        reached = adapter._fetch_folder_pages(
+            service=service,
+            folder_id="folder123",
+            config=config,
+            all_files=[],
+            folders_to_process=deque(),
+        )
+
+        assert reached is True
+
+    def test_list_files_from_drive_stops_after_max_files(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = GoogleDriveSourceConfig(
+            credentials_path="/tmp/credentials.json",
+            token_path="/tmp/token.json",
+            drive_id=None,
+            folder_id="folder123",
+            folder_path=None,
+            recursive=False,
+            max_files=1,
+            max_file_size_mb=None,
+        )
+
+        with (
+            patch.object(adapter, "_get_credentials", return_value=Mock()),
+            patch("googleapiclient.discovery.build", return_value=Mock()),
+            patch.object(adapter, "_fetch_folder_pages", return_value=True) as mock_fetch,
+        ):
+            files = adapter._list_files_from_drive(config=config)
+
+        assert files == []
+        mock_fetch.assert_called_once()
+
+    def test_should_skip_file_checks_workspace_extension_and_size(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = GoogleDriveSourceConfig(
+            credentials_path="/tmp/credentials.json",
+            token_path="/tmp/token.json",
+            drive_id=None,
+            folder_id="folder123",
+            folder_path=None,
+            recursive=False,
+            file_extensions=[".docx"],
+            max_file_size_mb=1,
+        )
+
+        skipped_for_size = adapter._should_skip_file(
+            file_metadata={
+                "name": "workspace-doc",
+                "mimeType": "application/vnd.google-apps.document",
+                "size": str(2 * 1024 * 1024),
+            },
+            config=config,
+        )
+        skipped_for_extension = adapter._should_skip_file(
+            file_metadata={
+                "name": "file.pdf",
+                "mimeType": "application/pdf",
+                "size": "10",
+            },
+            config=config,
+        )
+
+        assert skipped_for_size is True
+        assert skipped_for_extension is True
+
+    def test_fetch_binary_content_uses_content_endpoint_when_no_download_url(self):
+        adapter = GoogleDriveSourceAdapter()
+        mock_service = Mock()
+        files_resource = Mock()
+        metadata_request = Mock()
+        metadata_request.execute.return_value = {
+            "mimeType": "application/pdf",
+            "name": "file.pdf",
+        }
+        media_request = Mock()
+        files_resource.get.return_value = metadata_request
+        files_resource.get_media.return_value = media_request
+        mock_service.files.return_value = files_resource
+
+        downloader_instance = Mock()
+        downloader_instance.next_chunk.side_effect = [(None, True)]
+
+        with (
+            patch.object(adapter, "_get_credentials", return_value=Mock()),
+            patch("googleapiclient.discovery.build", return_value=mock_service),
+            patch(
+                "googleapiclient.http.MediaIoBaseDownload",
+                return_value=downloader_instance,
+            ),
+        ):
+            result = adapter.fetch_binary_content(
+                source_id="doc123",
+                connection_params={"folder_id": "folder123"},
+                credentials={"credentials_path": "/tmp/credentials.json"},
+            )
+
+        assert result == b""
+        files_resource.get_media.assert_called_once_with(fileId="doc123")
+
+    def test_fetch_documents_raises_import_error_when_google_client_missing(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = self.make_config()
+
+        with patch.object(adapter, "_list_files_from_drive", side_effect=ImportError("missing client")):
+            with pytest.raises(ImportError, match="Google API client not installed"):
+                asyncio.run(collect_async(adapter.fetch_documents(config)))
+
+    def test_test_connection_returns_false_when_google_client_missing(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = self.make_config()
+
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "googleapiclient.discovery":
+                raise ImportError("missing client")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            success, message = asyncio.run(adapter.test_connection(config))
+
+        assert success is False
+        assert "Google API client not installed" in message
+
+    def test_get_config_schema_returns_google_drive_config(self):
+        adapter = GoogleDriveSourceAdapter()
+        assert adapter.get_config_schema() is GoogleDriveSourceConfig
+
+    def test_build_config_from_operator_params_includes_optional_fields(self):
+        adapter = GoogleDriveSourceAdapter()
+
+        config = adapter.build_config_from_operator_params(
+            connection_params={
+                "folder_id": "folder123",
+                "recursive": False,
+                "drive_id": "drive1",
+                "folder_path": "Docs",
+                "file_id": "doc123",
+                "max_file_size_mb": 2,
+            },
+            credentials={
+                "service_account_json_path": "/tmp/service.json",
+            },
+            included_extensions=[".pdf"],
+            max_files=7,
+        )
+
+        config_data = config.model_dump()
+        assert config_data["drive_id"] == "drive1"
+        assert config_data["folder_path"] == "Docs"
+        assert config_data["file_id"] == "doc123"
+        assert config_data["max_file_size_mb"] == 2
+        assert config_data["max_files"] == 7
+        assert config_data["service_account_json_path"] == "/tmp/service.json"
+
+    def test_fetch_documents_single_file_returns_metadata_only(self):
+        adapter = GoogleDriveSourceAdapter()
+        config = GoogleDriveSourceConfig(
+            credentials_path="/tmp/credentials.json",
+            token_path="/tmp/token.json",
+            drive_id=None,
+            file_id="doc123",
+            folder_id=None,
+            folder_path=None,
+            recursive=False,
+            max_file_size_mb=None,
+        )
+        file_metadata = {
+            "id": "doc123",
+            "name": "single.pdf",
+            "mimeType": "application/pdf",
+            "size": "42",
+            "modifiedTime": "2024-01-03T10:00:00Z",
+            "webViewLink": "https://drive.google.com/file/d/doc123",
+        }
+
+        with patch.object(
+            adapter,
+            "_fetch_single_gdrive_file",
+            return_value=adapter._prepare_document(file_metadata=file_metadata, config=config),
+        ):
+            docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
+
+        assert len(docs) == 1
+        assert docs[0].id == "doc123"
+        assert docs[0].content == b""
+        assert docs[0].metadata["file_id"] == "doc123"
+
+    def test_fetch_binary_content_returns_none_for_unsupported_workspace_type(self):
+        adapter = GoogleDriveSourceAdapter()
+        mock_service = Mock()
+        files_resource = Mock()
+        metadata_request = Mock()
+        metadata_request.execute.return_value = {
+            "mimeType": "application/vnd.google-apps.form",
+            "name": "form-file",
+        }
+        files_resource.get.return_value = metadata_request
+        mock_service.files.return_value = files_resource
+
+        with (
+            patch.object(adapter, "_get_credentials", return_value=Mock()),
+            patch("googleapiclient.discovery.build", return_value=mock_service),
+        ):
+            result = adapter.fetch_binary_content(
+                source_id="doc123",
+                connection_params={"folder_id": "folder123"},
+                credentials={"credentials_path": "/tmp/credentials.json"},
+            )
+
+        assert result is None

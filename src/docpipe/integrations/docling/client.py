@@ -163,7 +163,7 @@ class DoclingServeClient:
         # Error handler — use register() to add new error types as needed
         self.error_handler = DoclingServeErrorHandler(base_url=self.base_url)
 
-        logger.info("Initialized DoclingServeClient with base_url=%s", self.base_url)
+        logger.info(f"Initialized DoclingServeClient with base_url={self.base_url}")
 
     def _build_options(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """
@@ -181,7 +181,6 @@ class DoclingServeClient:
         """
         default_options: dict[str, Any] = {
             "do_ocr": True,
-            "ocr_preset": "auto",
             "pdf_backend": "dlparse_v2",
             "do_table_structure": True,
             "table_cell_matching": True,
@@ -256,12 +255,12 @@ class DoclingServeClient:
                 raise FileNotFoundError(f"File not found: {file_path}")
             content = path.read_bytes()
             actual_filename = path.name
-            logger.info("Submitting document: %s", file_path)
+            logger.info(f"Submitting document: {file_path}")
         else:
             # binary_content is guaranteed to be bytes here due to validation above
             content = binary_content  # type: ignore[assignment]
             actual_filename = filename if filename else OperatorConstants.Extraction.DEFAULT_FALLBACK_FILENAME
-            logger.info("Submitting document from binary content with filename: %s", actual_filename)
+            logger.info(f"Submitting document from binary content with filename: {actual_filename}")
 
         # Submit request using multipart/form-data
         endpoint = "/v1/convert/file/async"
@@ -293,7 +292,7 @@ class DoclingServeClient:
             Task ID from response
 
         Raises:
-            DocpipeException: For HTTP or network errors
+            DocpipeException: For HTTP or network errors, including unsupported format errors
         """
         # Determine MIME type based on file extension
         mime_type = "application/octet-stream"
@@ -306,11 +305,8 @@ class DoclingServeClient:
                 ".txt": "text/plain",
                 ".pdf": "application/pdf",
                 ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                ".doc": "application/msword",
                 ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ".xls": "application/vnd.ms-excel",
                 ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                ".ppt": "application/vnd.ms-powerpoint",
             }
             mime_type = mime_map.get(ext, "application/octet-stream")
 
@@ -323,9 +319,9 @@ class DoclingServeClient:
         try:
             result = self.rest_client.call_rest_multipart(
                 method=RestMethod.POST,
-                endpoint=endpoint,
+                url=endpoint,
                 files=files,
-                data=data,
+                form_data=data,
                 headers=self.custom_headers,
             )
         except DocpipeException as e:
@@ -341,7 +337,7 @@ class DoclingServeClient:
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             )
 
-        logger.info("Document submitted successfully, task_id=%s, params=%s", task_id, list(data.keys()))
+        logger.info(f"Document submitted successfully, task_id={task_id}, params={list(data.keys())}")
         return task_id
 
     def _poll_for_completion(
@@ -370,7 +366,7 @@ class DoclingServeClient:
         interval = poll_interval if poll_interval is not None else self.poll_interval
         start_time = time.time()
 
-        logger.info("Polling status for task_id=%s with timeout=%ss", task_id, timeout)
+        logger.info(f"Polling status for task_id={task_id} with timeout={timeout}s")
 
         while True:
             elapsed = time.time() - start_time
@@ -387,22 +383,20 @@ class DoclingServeClient:
                 task_status = result.get("task_status", "unknown").upper()
                 file_label = filename if filename is not None else "unknown"
 
-                logger.info("Polling task %s for file '%s': status=%s", task_id, file_label, task_status)
+                logger.info(f"Polling task {task_id} for file '{file_label}': status={task_status}")
 
                 if task_status == "SUCCESS":
-                    logger.info("Task %s completed successfully", task_id)
+                    logger.info(f"Task {task_id} completed successfully")
                     return result
 
                 if task_status == "FAILURE":
                     error_msg = result.get("error_message", "Unknown error")
                     logger.error(
-                        "Task %s failed with error: %s. "
-                        "If this is an 'Internal processing error', check that the processing "
-                        "parameters sent to docling-serve are supported by this deployment "
-                        "(e.g. ocr_engine, table_mode, pdf_backend). "
-                        "See the submission log above for the params that were sent.",
-                        task_id,
-                        error_msg,
+                        f"Task {task_id} failed with error: {error_msg}. "
+                        f"If this is an 'Internal processing error', check that the processing "
+                        f"parameters sent to docling-serve are supported by this deployment "
+                        f"(e.g. ocr_engine, table_mode, pdf_backend). "
+                        f"See the submission log above for the params that were sent.",
                         extra={"task_id": task_id, "full_response": result},
                     )
                     raise DocpipeException(
@@ -412,7 +406,7 @@ class DoclingServeClient:
                     )
 
                 # Continue polling for PENDING/STARTED/unknown statuses
-                logger.debug("Task %s status: %s, continuing to poll...", task_id, task_status)
+                logger.debug(f"Task {task_id} status: {task_status}, continuing to poll...")
                 time.sleep(interval)
 
             except DocpipeException as e:
@@ -420,7 +414,7 @@ class DoclingServeClient:
                 if e.error_code != ErrorCode.CONNECTION_ERROR:
                     raise
                 # For connection errors, log and retry
-                logger.warning("Connection error during polling: %s, retrying...", e)
+                logger.warning(f"Connection error during polling: {e}, retrying...")
                 time.sleep(interval)
 
     def poll_status(
@@ -477,15 +471,15 @@ class DoclingServeClient:
         try:
             return self.rest_client.call_rest_json(
                 method=RestMethod.GET,
-                endpoint=endpoint,
+                url=endpoint,
                 headers=self.custom_headers,
             )
         except DocpipeException as e:
             # Only retry on 404 errors (task not found during pod transitions)
             if e.status_code == 404:
                 logger.warning(
-                    "Task not found (404) at %s. This may occur during pod restarts or HPA scaling. Retrying...",
-                    endpoint,
+                    f"Task not found (404) at {endpoint}. "
+                    f"This may occur during pod restarts or HPA scaling. Retrying..."
                 )
                 raise  # Let decorator handle retry
             # For other errors, raise immediately without retry
@@ -505,15 +499,15 @@ class DoclingServeClient:
             DocpipeException: For HTTP or network errors
         """
         endpoint = f"/v1/result/{task_id}"
-        logger.info("Retrieving result for task_id=%s", task_id)
+        logger.info(f"Retrieving result for task_id={task_id}")
 
         result = self.rest_client.call_rest_json(
             method=RestMethod.GET,
-            endpoint=endpoint,
+            url=endpoint,
             headers=self.custom_headers,
         )
 
-        logger.info("Result retrieved successfully for task_id=%s", task_id)
+        logger.info(f"Result retrieved successfully for task_id={task_id}")
         return result
 
     def process_document(
@@ -561,9 +555,9 @@ class DoclingServeClient:
             timeout=timeout,
             filename=filename,
         )
-        logger.info("Final status response for task_id=%s: %s", task_id, final_response)
+        logger.info(f"Final Status before: {task_id}, {final_response}")
         final_status = str(final_response.get("task_status", "")).upper()
-        logger.info("Final status for task_id=%s: %s", task_id, final_status)
+        logger.info(f"Final Status: {task_id}, {final_status}")
         if final_status != "SUCCESS":
             error_message = final_response.get("error_message", "Unknown Error")
             raise DocpipeException(

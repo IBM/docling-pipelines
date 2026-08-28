@@ -1,4 +1,3 @@
-import os
 import time
 
 import pyarrow as pa
@@ -43,8 +42,8 @@ class TestRedactionOperator:
         assert stats[1] == 0
         assert stats[2] == 2
 
-        # Check metadata
-        assert metadata[Metrics.External.PROCESSED_DOCS] == 2  # Only docs with redactions
+        # Check metadata — PROCESSED_DOCS counts all rows that passed through the operator
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 3
         assert metadata["total_redactions"] == 3
 
     def test_redaction_with_regex_pattern(self):
@@ -57,10 +56,7 @@ class TestRedactionOperator:
         }
         operator = RedactionOperator(config=config)
 
-        _ssn = os.environ.get("TEST_SSN", "000-00-0000")
-        _ssn2 = os.environ.get("TEST_SSN_2", "000-11-0000")
-        _ssn3 = os.environ.get("TEST_SSN_3", "000-22-0000")
-        content = pa.array([f"SSN: {_ssn}", "No SSN here", f"Multiple: {_ssn2} and {_ssn3}"])
+        content = pa.array(["SSN: 123-45-6789", "No SSN here", "Multiple: 111-22-3333 and 444-55-6666"])
         names = pa.array(["doc1", "doc2", "doc3"])
         ids = pa.array([1, 2, 3])
         input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])

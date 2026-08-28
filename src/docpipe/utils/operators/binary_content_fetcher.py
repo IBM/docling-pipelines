@@ -6,6 +6,10 @@ This module provides functions to fetch binary content on-demand, supporting bot
 
 The on-demand fetching strategy allows operators to defer binary content fetching until
 it's actually needed, reducing memory usage and improving performance.
+
+Adapter instances are cached at module level keyed by provider name so that a single
+authenticated client is reused across all documents in a batch, avoiding a new auth
+round-trip per document.
 """
 
 from pathlib import Path
@@ -19,6 +23,11 @@ from docpipe.core.operators.ingest.ports.outbound.document_source import Documen
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Module-level cache: provider name → adapter instance.
+# Adapter instances hold their own per-session auth caches (tokens, Drive services,
+# Box clients) so reusing them across documents eliminates repeated auth round-trips.
+_adapter_cache: dict[str, DocumentSourcePort] = {}
 
 
 def get_binary_content(
@@ -34,7 +43,7 @@ def get_binary_content(
 
     Strategy:
     1. If global_config contains ingest_source: Use cloud provider adapter to fetch on-demand
-    2. Otherwise: Read from local file path (existing IngestLocal behavior)
+    2. Otherwise: Read from local file path
 
     Args:
         doc_metadata: Document metadata containing 'path', 'source_id', 'source', etc.
@@ -76,30 +85,31 @@ def get_binary_content(
         ingest_source = global_config.get(OperatorConstants.Config.INGEST_SOURCE)
 
         doc_name = doc_metadata.get("name") or doc_metadata.get("source_id") or doc_metadata.get("path", "unknown")
-        logger.info(
-            f"get_binary_content called for '{doc_name}': "
-            f"ingest_source_present={ingest_source is not None}, "
-            f"global_config_keys={list(global_config.keys())}"
+        logger.debug(
+            "get_binary_content called for '%s': ingest_source_present=%s",
+            doc_name,
+            ingest_source is not None,
         )
 
         if ingest_source:
-            # Cloud source: Use adapter to fetch binary content
-            logger.info(
-                f"Using cloud source adapter for '{doc_name}', provider={ingest_source.get(OperatorConstants.Config.PROVIDER)}"
+            logger.debug(
+                "Using cloud source adapter for '%s', provider=%s",
+                doc_name,
+                ingest_source.get(OperatorConstants.Config.PROVIDER),
             )
             return _fetch_from_cloud_source(
                 doc_metadata=doc_metadata,
                 ingest_source=ingest_source,
             )
-        else:
-            # Local source: Read from filesystem
-            logger.info(f"Using local filesystem for '{doc_name}'")
-            return _read_from_local_file(doc_metadata=doc_metadata)
+        logger.debug("Using local filesystem for '%s'", doc_name)
+        return _read_from_local_file(doc_metadata=doc_metadata)
 
     except Exception as e:
         doc_name = doc_metadata.get("name") or doc_metadata.get("source_id") or doc_metadata.get("path", "unknown")
         logger.error(
-            f"Failed to fetch binary content for document '{doc_name}': {e}",
+            "Failed to fetch binary content for document '%s': %s",
+            doc_name,
+            e,
             exc_info=True,
         )
         return None
@@ -154,18 +164,14 @@ def get_adapter_for_provider(
         # Check if provider is registered
         if not SourceAdapterFactory.is_registered(provider):
             available = ", ".join(SourceAdapterFactory.get_registered_names())
-            logger.error(f"Provider '{provider}' is not registered. Available providers: {available}")
+            logger.error("Provider '%s' is not registered. Available providers: %s", provider, available)
             return None
 
         # Create adapter instance
-        adapter = SourceAdapterFactory.create(provider)
-        return adapter
+        return SourceAdapterFactory.create(provider)
 
     except Exception as e:
-        logger.error(
-            f"Failed to create adapter for provider '{provider}': {e}",
-            exc_info=True,
-        )
+        logger.error("Failed to create adapter for provider '%s': %s", provider, e, exc_info=True)
         return None
 
 
@@ -194,7 +200,7 @@ def _fetch_from_cloud_source(
     credentials = ingest_source.get(OperatorConstants.Config.CREDENTIALS, {})
 
     if not provider:
-        logger.error(f"Missing '{OperatorConstants.Config.PROVIDER}' in ingest_source configuration")
+        logger.error("Missing '%s' in ingest_source configuration", OperatorConstants.Config.PROVIDER)
         return None
 
     # Get source identifier
@@ -219,19 +225,28 @@ def _fetch_from_cloud_source(
         else:
             resolved_connection_params[key] = value
 
-    # For OneDrive/SharePoint: Pass item_id in credentials if available
-    # This allows the adapter to extract the actual item ID when source_id is a web URL
+    # For OneDrive/SharePoint: Pass item_id and drive_id in credentials if available
+    # This allows the adapter to use the correct drive and item IDs when source_id is a web URL
     if "item_id" in doc_metadata:
         resolved_credentials = {**resolved_credentials, "item_id": doc_metadata["item_id"]}
+        logger.debug("Added item_id to credentials: %s", doc_metadata["item_id"])
+    if "drive_id" in doc_metadata:
+        resolved_credentials = {**resolved_credentials, "drive_id": doc_metadata["drive_id"]}
+        logger.debug("Added drive_id to credentials: %s", doc_metadata["drive_id"])
+    else:
+        logger.debug("drive_id not found in doc_metadata. Available keys: %s", list(doc_metadata.keys()))
 
     # Use dynamic adapter lookup
     if not SourceAdapterFactory.is_registered(provider):
-        logger.error(f"No adapter registered for provider: {provider}")
+        logger.error("No adapter registered for provider: %s", provider)
         return None
 
     try:
-        # Get adapter instance
-        adapter = SourceAdapterFactory.create(provider)
+        # Reuse cached adapter instance so its internal auth caches (tokens, Drive
+        # services, Box clients) persist across all documents in a batch.
+        if provider not in _adapter_cache:
+            _adapter_cache[provider] = SourceAdapterFactory.create(provider)
+        adapter = _adapter_cache[provider]
 
         # Call adapter's fetch_binary_content method with resolved credentials
         return adapter.fetch_binary_content(
@@ -240,7 +255,7 @@ def _fetch_from_cloud_source(
             credentials=resolved_credentials,
         )
     except Exception as e:
-        logger.error(f"Failed to fetch binary content using {provider} adapter: {e}", exc_info=True)
+        logger.error("Failed to fetch binary content using %s adapter: %s", provider, e, exc_info=True)
         return None
 
 
@@ -252,40 +267,43 @@ def _read_from_local_file(
     Read binary content from local filesystem.
 
     This is an internal helper function that handles local file reading,
-    matching the existing IngestLocal behavior.
+    matching the existing IngestSource filesystem behavior.
 
     Args:
-        doc_metadata: Document metadata containing 'path' key
+        doc_metadata: Document metadata containing 'path' or 'source' key
 
     Returns:
         Binary content as bytes, or None if file not found or error occurred
     """
-    file_path = doc_metadata.get("path")
+    from urllib.parse import unquote, urlparse
+
+    # Try to get file path from various metadata fields
+    file_path = doc_metadata.get("path") or doc_metadata.get("source") or doc_metadata.get("source_id")
 
     if not file_path:
-        logger.error("Document metadata missing 'path' for local file reading")
+        logger.error("Document metadata missing 'path', 'source', or 'source_id' for local file reading")
         return None
 
     try:
+        # Parse file:// URLs to extract actual path
+        if isinstance(file_path, str) and file_path.startswith("file://"):
+            parsed = urlparse(file_path)
+            file_path = unquote(parsed.path)
+
         path = Path(file_path)
 
         if not path.exists():
-            logger.error(f"Local file not found: {file_path}")
+            logger.error("Local file not found: %s", file_path)
             return None
 
         if not path.is_file():
-            logger.error(f"Path is not a file: {file_path}")
+            logger.error("Path is not a file: %s", file_path)
             return None
 
         # Read binary content
-        with open(path, "rb") as f:
-            content = f.read()
-
-        return content
+        with Path(path).open("rb") as f:
+            return f.read()
 
     except Exception as e:
-        logger.error(
-            f"Failed to read local file '{file_path}': {e}",
-            exc_info=True,
-        )
+        logger.error("Failed to read local file '%s': %s", file_path, e, exc_info=True)
         return None

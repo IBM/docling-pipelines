@@ -106,7 +106,7 @@ def example_1_basic_indexing():
     _result_tables, metadata = operator.transform(table)
 
     print("\n4. Indexing Results:")
-    print(f"   Total documents: {metadata['total_docs_count']}")
+    print(f"   Total documents: {metadata['documents_in_scope']}")
     print(f"   Processed: {metadata['processed_docs']}")
     print(f"   Failed: {metadata['failed_docs_count']}")
     print(f"   Skipped: {metadata['skipped_docs_count']}")
@@ -179,7 +179,7 @@ def example_2_lucene_engine():
     _result_tables, metadata = operator.transform(table)
 
     print("\n4. Results:")
-    print(f"   Processed: {metadata['processed_docs']}/{metadata['total_docs_count']}")
+    print(f"   Processed: {metadata['processed_docs']}/{metadata['documents_in_scope']}")
     print(f"   Batches: {metadata.get('number_of_batches', 0)}")
 
     return operator
@@ -264,7 +264,7 @@ def example_4_batch_processing():
     _result_tables, metadata = operator.transform(table)
 
     print("\n4. Batch Processing Results:")
-    print(f"   Total documents: {metadata['total_docs_count']}")
+    print(f"   Total documents: {metadata['documents_in_scope']}")
     print(f"   Processed: {metadata['processed_docs']}")
     print(f"   Number of batches: {metadata.get('number_of_batches', 0)}")
     print(f"   Average batch size: {metadata['processed_docs'] / max(metadata.get('number_of_batches', 1), 1):.1f}")
@@ -314,7 +314,7 @@ def example_5_error_handling():
     _result_tables, metadata = operator.transform(table)
 
     print("\n3. Error Handling Results:")
-    print(f"   Total documents: {metadata['total_docs_count']}")
+    print(f"   Total documents: {metadata['documents_in_scope']}")
     print(f"   Processed: {metadata['processed_docs']}")
     print(f"   Skipped: {metadata['skipped_docs_count']}")
     print(f"   Failed: {metadata['failed_docs_count']}")

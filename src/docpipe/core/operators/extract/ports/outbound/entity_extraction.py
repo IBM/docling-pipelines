@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.utils.infrastructure.logging import get_logger
@@ -130,7 +131,29 @@ class EntityExtractionPort(ABC):
         Args:
             config: Full configuration dictionary
         """
-        pass
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        ...
+
+    @classmethod
+    @abstractmethod
+    def build_provider_config(cls, *, entity_extraction_config: dict[str, Any], doc_column: str) -> dict[str, Any]:
+        """Build adapter-specific config from the nested entity_extraction config block.
+
+        Called by the factory before instantiation. Returns a dict that is merged
+        into full_config alongside global_config and max_workers.
+
+        Args:
+            entity_extraction_config: Nested entity_extraction configuration dictionary
+            doc_column: Document column name from text_extraction config
+
+        Returns:
+            Adapter-specific configuration dictionary
+        """
 
     @abstractmethod
     def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -151,7 +174,7 @@ class EntityExtractionPort(ABC):
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
-        pass
+        ...
 
     @abstractmethod
     def extract_entities_single(
@@ -177,4 +200,4 @@ class EntityExtractionPort(ABC):
                 "doc_content": str | None     # Optional extracted text content
             }
         """
-        pass
+        ...

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import asyncio
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-import requests
 from pydantic import ValidationError
 
 from docpipe.core.operators.ingest.adapters.outbound.sources.web.adapter import (
@@ -415,8 +414,14 @@ class TestWebPageSourceAdapter:
 
         mock_response = Mock()
         mock_response.status_code = 200
+        mock_response.raise_for_status = Mock(return_value=None)
 
-        with patch("requests.head", return_value=mock_response):
+        mock_client = AsyncMock()
+        mock_client.head = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             success, message = asyncio.run(adapter.test_connection(config=config))
 
         assert success is True
@@ -431,8 +436,14 @@ class TestWebPageSourceAdapter:
 
         mock_response = Mock()
         mock_response.status_code = 200
+        mock_response.raise_for_status = Mock(return_value=None)
 
-        with patch("requests.head", return_value=mock_response):
+        mock_client = AsyncMock()
+        mock_client.head = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             success, message = asyncio.run(adapter.test_connection(config=config))
 
         assert success is True
@@ -441,32 +452,47 @@ class TestWebPageSourceAdapter:
     def test_test_connection_partial_success(self):
         """Test connection test with some URLs failing."""
         adapter = WebPageSourceAdapter()
-        config = self.make_config(urls=["https://example.com", "https://fail.com"])
+        config = self.make_config(urls=["https://example.com", "https://test.com"])
 
-        def mock_head(url, **kwargs):
-            if "fail.com" in url:
-                raise requests.exceptions.ConnectionError("Connection failed")
+        async def mock_head(url, **kwargs):
+            if "test.com" in url:
+                import httpx
+
+                raise httpx.ConnectError("Connection failed")
             mock_response = Mock()
             mock_response.status_code = 200
+            mock_response.raise_for_status = Mock(return_value=None)
             return mock_response
 
-        with patch("requests.head", side_effect=mock_head):
+        mock_client = AsyncMock()
+        mock_client.head = mock_head
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             success, message = asyncio.run(adapter.test_connection(config=config))
 
         assert success is True  # Partial success still returns True
         assert "Connected to 1/2 URL(s)" in message
         assert "example.com" in message
-        assert "fail.com" in message
+        assert "test.com" in message
 
     def test_test_connection_all_failure(self):
         """Test connection test with all URLs failing."""
         adapter = WebPageSourceAdapter()
         config = self.make_config()
 
-        with patch(
-            "requests.head",
-            side_effect=requests.exceptions.ConnectionError("Connection failed"),
-        ):
+        async def mock_head(url, **kwargs):
+            import httpx
+
+            raise httpx.ConnectError("Connection failed")
+
+        mock_client = AsyncMock()
+        mock_client.head = mock_head
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             success, message = asyncio.run(adapter.test_connection(config=config))
 
         assert success is False
@@ -478,7 +504,17 @@ class TestWebPageSourceAdapter:
         adapter = WebPageSourceAdapter()
         config = self.make_config(timeout=5)
 
-        with patch("requests.head", side_effect=requests.exceptions.Timeout):
+        async def mock_head(url, **kwargs):
+            import httpx
+
+            raise httpx.TimeoutException("Timeout")
+
+        mock_client = AsyncMock()
+        mock_client.head = mock_head
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             success, message = asyncio.run(adapter.test_connection(config=config))
 
         assert success is False
@@ -489,10 +525,19 @@ class TestWebPageSourceAdapter:
         adapter = WebPageSourceAdapter()
         config = self.make_config()
 
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Not Found")
+        async def mock_head(url, **kwargs):
+            import httpx
 
-        with patch("requests.head", return_value=mock_response):
+            mock_response = Mock()
+            mock_response.status_code = 404
+            raise httpx.HTTPStatusError("404 Not Found", request=Mock(), response=mock_response)
+
+        mock_client = AsyncMock()
+        mock_client.head = mock_head
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             success, message = asyncio.run(adapter.test_connection(config=config))
 
         assert success is False

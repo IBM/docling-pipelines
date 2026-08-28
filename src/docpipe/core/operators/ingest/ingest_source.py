@@ -3,7 +3,8 @@ import hashlib
 import importlib
 import itertools
 import json
-from typing import Any, ClassVar, Iterator, cast
+import pathlib
+from typing import Any, Iterator, cast
 
 import pyarrow as pa
 
@@ -17,11 +18,9 @@ from docpipe.core.constants.constants import (
     Metrics,
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.incremental_metadata import IncrementalUpdateService
-from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
+from docpipe.core.incremental_metadata import get_incremental_update_service
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.core.operators.ingest.ingest_utils import (
-    filter_based_on_extension,
     get_filter_extensions,
     is_doc_previously_processed,
 )
@@ -33,7 +32,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 MICROSOFT_LOGIN_URL = "https://login.microsoftonline.com"
 MICROSOFT_GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
 MICROSOFT_GRAPH_SCOPE = "https://graph.microsoft.com/.default"
-MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"
+MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"  # nosec B105 - URL path segment, not a credential
 
 
 class MicrosoftGraphLoader(BaseLoader):
@@ -45,26 +44,6 @@ class MicrosoftGraphLoader(BaseLoader):
     and call /me/drives/ endpoints that are incompatible with app-only tokens.
     """
 
-    # Supported text-extractable file extensions
-    TEXT_EXTENSIONS: ClassVar[set[str]] = {
-        ".pdf",
-        ".docx",
-        ".doc",
-        ".ppt",
-        ".bmp",
-        ".gif",
-        ".jfif",
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".tiff",
-        ".tif",
-        ".html",
-        ".xlsx",
-        ".md",
-        ".txt",
-    }
-
     def __init__(
         self,
         drive_id: str,
@@ -73,6 +52,7 @@ class MicrosoftGraphLoader(BaseLoader):
         tenant_id: str,
         folder_path: str | None = None,
         recursive: bool = True,
+        max_download_workers: int = 8,
     ):
         self.drive_id = drive_id
         self.client_id = client_id
@@ -80,6 +60,7 @@ class MicrosoftGraphLoader(BaseLoader):
         self.tenant_id = tenant_id
         self.folder_path = folder_path
         self.recursive = recursive
+        self.max_download_workers = max_download_workers
         self._token = None
 
         # Initialize RestClient with appropriate configuration for Microsoft Graph API
@@ -91,6 +72,16 @@ class MicrosoftGraphLoader(BaseLoader):
             config=rest_config,
             base_url=MICROSOFT_GRAPH_API_BASE,
         )
+
+        # Reuse a single download client for direct download URLs.
+        # Creating a new RestClient per file adds a full HTTPS handshake per download.
+        download_config = RestClientConfig(
+            timeout=120,
+            max_retries=3,
+            retry_backoff_factor=2.0,
+            verify_ssl=True,
+        )
+        self._download_client = RestClient(config=download_config)
 
     def _get_token(self) -> str:
         """Acquire an app-only access token via MSAL client credentials flow."""
@@ -119,7 +110,17 @@ class MicrosoftGraphLoader(BaseLoader):
         self._token = access_token
         return access_token
 
-    def _list_files(self, folder_item_id: str | None = None) -> list[dict]:  # NOSONAR python:S3776
+    def _process_items(self, *, items: list[dict], files: list[dict]) -> list[str]:
+        """Separate folders from files and return folder IDs to recurse into."""
+        folder_ids = []
+        for item in items:
+            if "folder" in item:
+                folder_ids.append(item["id"])
+            else:
+                files.append(item)
+        return folder_ids
+
+    def _list_files(self, folder_item_id: str | None = None) -> list[dict]:
         """Recursively list all files in the drive (or a specific folder)."""
         token = self._get_token()
         headers = {"Authorization": f"Bearer {token}"}
@@ -129,79 +130,103 @@ class MicrosoftGraphLoader(BaseLoader):
         else:
             endpoint = f"/drives/{self.drive_id}/root/children"
 
-        files = []
+        files: list[dict] = []
         while endpoint:
-            # Use RestClient for API call
             data = self._rest_client.call_rest_json(
                 method=RestMethod.GET,
-                endpoint=endpoint,
+                url=endpoint,
                 headers=headers,
             )
 
-            for item in data.get("value", []):
-                if "folder" in item:
-                    if self.recursive:
-                        files.extend(self._list_files(folder_item_id=item["id"]))
-                else:
-                    files.append(item)
+            folder_ids = self._process_items(items=data.get("value", []), files=files)
+            if self.recursive:
+                for folder_id in folder_ids:
+                    files.extend(self._list_files(folder_item_id=folder_id))
 
-            # Handle pagination - extract endpoint from nextLink
             next_link = data.get("@odata.nextLink")
-            if next_link:
-                # Extract the path after the base URL
-                endpoint = next_link.replace(MICROSOFT_GRAPH_API_BASE, "")
-            else:
-                endpoint = None  # type: ignore[assignment]
+            endpoint = next_link.replace(MICROSOFT_GRAPH_API_BASE, "") if next_link else None  # type: ignore[assignment]
 
         return files
 
     def _download_file(self, item: dict) -> bytes:
-        """Download file content from Graph API."""
+        """Download file content from Graph API.
+
+        Reuses ``self._download_client`` (created once in ``__init__``) instead of
+        creating a new RestClient per file, which avoids a full HTTPS handshake
+        overhead for every document.
+        """
         token = self._get_token()
         headers = {"Authorization": f"Bearer {token}"}
         download_url = item.get("@microsoft.graph.downloadUrl")
 
         if not download_url:
-            # Fallback: get download URL via API
+            # Fallback: fetch via Graph API endpoint (follows redirect automatically)
             endpoint = f"/drives/{self.drive_id}/items/{item['id']}/content"
             response = self._rest_client.call_rest(
                 method=RestMethod.GET,
-                endpoint=endpoint,
+                url=endpoint,
                 headers=headers,
                 expected_status_codes=[200, 302],  # 302 for redirects
             )
             return response.content
 
-        # For direct download URLs, create a temporary RestClient without base_url
-        # since download URLs are complete URLs
-        temp_config = RestClientConfig(
-            timeout=120,  # Longer timeout for file downloads
-            max_retries=3,
-            retry_backoff_factor=2.0,
-            verify_ssl=True,
-        )
-        temp_client = RestClient(config=temp_config)
-        response = temp_client.call_rest(
+        # Direct download URL — reuse the shared client (no base_url needed)
+        response = self._download_client.call_rest(
             method=RestMethod.GET,
-            endpoint=download_url,
+            url=download_url,
         )
         return response.content
 
+    def _download_item(self, item: dict) -> Document:
+        """Download a single item and return a Document (used by thread pool)."""
+        try:
+            binary_content = self._download_file(item)
+            metadata = {
+                "source": item.get("name", ""),
+                "drive_id": self.drive_id,
+                "item_id": item.get("id", ""),
+                "size": item.get("size", 0),
+                "last_modified": item.get("lastModifiedDateTime", ""),
+                "web_url": item.get("webUrl", ""),
+                "mime_type": item.get("file", {}).get("mimeType", ""),
+                "has_binary_content": True,
+            }
+            doc = Document(page_content="", metadata=metadata)
+            doc._binary_content = binary_content  # type: ignore[attr-defined]
+            return doc
+        except Exception as e:
+            logger.error("Failed to download file %s: %s", item.get("name", ""), e, exc_info=True)
+            return Document(
+                page_content="",
+                metadata={
+                    "source": item.get("name", ""),
+                    "error": str(e),
+                    "drive_id": self.drive_id,
+                    "item_id": item.get("id", ""),
+                },
+            )
+
     def lazy_load(self) -> Iterator[Document]:
-        """Lazily load documents from the Microsoft Graph API drive."""
+        """Lazily load documents from the Microsoft Graph API drive.
+
+        Downloads are parallelized with a ThreadPoolExecutor so that
+        ``max_download_workers`` files are fetched concurrently instead of one
+        at a time, reducing total wall-clock time proportionally.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         # Resolve folder path to an item ID if specified
         folder_item_id = None
         if self.folder_path:
             token = self._get_token()
             headers = {"Authorization": f"Bearer {token}"}
-            # Normalize path
             path = self.folder_path.strip("/")
             endpoint = f"/drives/{self.drive_id}/root:/{path}"
 
             try:
                 data = self._rest_client.call_rest_json(
                     method=RestMethod.GET,
-                    endpoint=endpoint,
+                    url=endpoint,
                     headers=headers,
                 )
                 folder_item_id = data.get("id")
@@ -209,42 +234,16 @@ class MicrosoftGraphLoader(BaseLoader):
                 raise ValueError(f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {e!s}") from e
 
         files = self._list_files(folder_item_id=folder_item_id)
-        for item in files:
-            try:
-                # Download binary content immediately
-                binary_content = self._download_file(item)
 
-                metadata = {
-                    "source": item.get("name", ""),
-                    "drive_id": self.drive_id,
-                    "item_id": item.get("id", ""),
-                    "size": item.get("size", 0),
-                    "last_modified": item.get("lastModifiedDateTime", ""),
-                    "web_url": item.get("webUrl", ""),
-                    "mime_type": item.get("file", {}).get("mimeType", ""),
-                    "has_binary_content": True,
-                }
-
-                # Create Document and attach binary content
-                doc = Document(page_content="", metadata=metadata)
-                doc._binary_content = binary_content  # type: ignore[attr-defined]
-                yield doc
-            except Exception as e:
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to download file {item.get('name', '')}: {e!s}", exc_info=True)
-                yield Document(
-                    page_content="",
-                    metadata={
-                        "source": item.get("name", ""),
-                        "error": str(e),
-                        "drive_id": self.drive_id,
-                        "item_id": item.get("id", ""),
-                    },
-                )
+        # Download files in parallel — sequential downloads are the primary bottleneck
+        # for SharePoint/OneDrive ingest when processing large libraries.
+        with ThreadPoolExecutor(max_workers=self.max_download_workers) as pool:
+            future_to_item = {pool.submit(self._download_item, item): item for item in files}
+            for future in as_completed(future_to_item):
+                yield future.result()
 
     def load(self) -> list[Document]:
+        """Load."""
         return list(self.lazy_load())
 
 
@@ -342,8 +341,23 @@ class IngestSourceOperator(AbstractOperator):
         self.connection_params: dict[str, Any] = config.get(CONNECTION_PARAMS_KEY, {})
         self.credentials: dict[str, Any] = config.get(CREDENTIALS_KEY, {})
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
+
+        # Get supported extensions
+        from docpipe.core.operators.operator_utils import get_supported_file_extensions
+
+        supported_extensions_str = get_supported_file_extensions()
+        self.supported_extensions: list[str] = [
+            f".{ext}" if not ext.startswith(".") else ext for ext in supported_extensions_str.split(",")
+        ]
+
+        # Parse and validate included/excluded extensions
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
+
+        # Default to supported extensions if no include filter specified
+        if self.included_extensions is None:
+            self.included_extensions = self.supported_extensions
+
         self.force_ingest: bool = config.get(DocpipeConstants.FORCE_INGEST, False)
         self.doc_id_hash: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
@@ -354,6 +368,34 @@ class IngestSourceOperator(AbstractOperator):
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
         }
         self.previously_processed_docs_dict: dict[str, Any] | None = None
+
+        # Validate extensions
+        self._validate_extensions()
+
+    def _validate_extensions(self) -> None:
+        """
+        Validate that included and excluded extensions are subsets of supported extensions.
+
+        Raises:
+            ValueError: If unsupported extensions are specified
+        """
+        # Validate included_extensions are subset of supported extensions
+        if self.included_extensions:
+            unsupported = set(self.included_extensions) - set(self.supported_extensions)
+            if unsupported:
+                raise ValueError(
+                    f"Unsupported file extensions in include_filter: {', '.join(sorted(unsupported))}. "
+                    f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
+                )
+
+        # Validate excluded_extensions are subset of supported extensions
+        if self.excluded_extensions:
+            unsupported = set(self.excluded_extensions) - set(self.supported_extensions)
+            if unsupported:
+                raise ValueError(
+                    f"Unsupported file extensions in exclude_filter: {', '.join(sorted(unsupported))}. "
+                    f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
+                )
 
     def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -366,18 +408,8 @@ class IngestSourceOperator(AbstractOperator):
             Tuple of (list of output tables, metadata dictionary)
         """
 
-        # Initialize incremental update service
-        job_id_for_tracking: str = ""
-        if self.context_id:
-            job_id_for_tracking = self.context_id
-        else:
-            if self.job_id:
-                job_id_for_tracking = self.job_id
-            else:
-                job_id_for_tracking = ""
-
-        store = create_incremental_metadata_store(job_id=job_id_for_tracking if job_id_for_tracking else None)
-        incremental_service = IncrementalUpdateService(store=store)
+        incremental_service = get_incremental_update_service()
+        job_id_for_tracking: str = self.context_id or self.job_id or ""
 
         self.previously_processed_docs_dict = (
             None if self.force_ingest else incremental_service.get_all_processed_docs(job_id=job_id_for_tracking)
@@ -394,7 +426,7 @@ class IngestSourceOperator(AbstractOperator):
         if doc_data:
             output_table = pa.Table.from_pylist(doc_data)
         else:
-            # Create empty table with expected schema (matches IngestLocalOperator output)
+            # Create empty table with expected schema
             output_table = pa.Table.from_pydict(
                 {
                     "id": [],
@@ -433,7 +465,7 @@ class IngestSourceOperator(AbstractOperator):
 
         return [output_table], metadata
 
-    def process_documents(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:  # NOSONAR python:S3776
+    def process_documents(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Process documents from the configured LangChain loader or new adapter.
 
@@ -456,72 +488,80 @@ class IngestSourceOperator(AbstractOperator):
 
         try:
             logger.info(
-                f"Loading documents from {self.provider}",
+                "Loading documents from %s",
+                self.provider,
                 extra=self.common_log_arguments,
             )
 
             # Get document iterator (lazy loading)
             if SourceAdapterFactory.is_registered(self.provider):
                 # Use async generator for memory-efficient streaming
-                doc_data = self._process_documents_from_adapter(metadata)
-                return doc_data
+                return self._process_documents_from_adapter(metadata)
+            loader: BaseLoader = self._get_loader()
+            # Use lazy_load if available, otherwise fall back to load()
+            if hasattr(loader, "lazy_load"):
+                documents = cast(Iterator[Document], loader.lazy_load())
             else:
-                loader: BaseLoader = self._get_loader()
-                # Use lazy_load if available, otherwise fall back to load()
-                if hasattr(loader, "lazy_load"):
-                    documents = cast(Iterator[Document], loader.lazy_load())
-                else:
-                    documents = iter(loader.load())
+                documents = iter(loader.load())
 
-                # Process documents in batches until max_files newly processed docs reached
-                while processed_count < self.max_files:
-                    # Fetch next batch of documents
-                    batch = list(itertools.islice(documents, self.max_files))
+            # Process documents in batches until max_files newly processed docs reached
+            while processed_count < self.max_files:
+                # Fetch next batch of documents
+                batch = list(itertools.islice(documents, self.max_files))
 
-                    if not batch:
-                        # No more documents available
+                if not batch:
+                    logger.info(
+                        "No more documents available. Total fetched: %d, processed: %d",
+                        total_fetched,
+                        processed_count,
+                        extra=self.common_log_arguments,
+                    )
+                    break
+
+                total_fetched += len(batch)
+                logger.info(
+                    "Fetched batch of %d documents (total fetched: %d)",
+                    len(batch),
+                    total_fetched,
+                    extra=self.common_log_arguments,
+                )
+
+                # Process each document in the batch
+                for idx, doc in enumerate(batch):
+                    if processed_count >= self.max_files:
                         logger.info(
-                            f"No more documents available. Total fetched: {total_fetched}, processed: {processed_count}",
+                            "Reached max files limit: %d",
+                            self.max_files,
                             extra=self.common_log_arguments,
                         )
                         break
 
-                    total_fetched += len(batch)
-                    logger.info(
-                        f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
-                        extra=self.common_log_arguments,
-                    )
+                    # Calculate global index for this document
+                    global_idx = total_fetched - len(batch) + idx
 
-                    # Process each document in the batch
-                    for idx, doc in enumerate(batch):
-                        if processed_count >= self.max_files:
-                            logger.info(
-                                f"Reached max files limit: {self.max_files}",
-                                extra=self.common_log_arguments,
-                            )
-                            break
+                    # Process individual document
+                    processed_doc: dict[str, Any] | None = self.process_document(doc, global_idx, metadata)
+                    if processed_doc:
+                        doc_data.append(processed_doc)
+                        processed_count += 1
 
-                        # Calculate global index for this document
-                        global_idx = total_fetched - len(batch) + idx
+                # If we've processed enough documents, stop fetching more batches
+                if processed_count >= self.max_files:
+                    break
 
-                        # Process individual document
-                        processed_doc: dict[str, Any] | None = self.process_document(doc, global_idx, metadata)
-                        if processed_doc:
-                            doc_data.append(processed_doc)
-                            processed_count += 1
-
-                    # If we've processed enough documents, stop fetching more batches
-                    if processed_count >= self.max_files:
-                        break
-
-                logger.info(
-                    f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
-                    extra=self.common_log_arguments,
-                )
+            logger.info(
+                "Fetched %d documents, processed %d new documents from %s",
+                total_fetched,
+                processed_count,
+                self.provider,
+                extra=self.common_log_arguments,
+            )
 
         except Exception as e:
             logger.error(
-                f"Error loading documents from {self.provider}: {e!s}",
+                "Error loading documents from %s: %s",
+                self.provider,
+                e,
                 extra=self.common_log_arguments,
             )
             self.record_failed_document(
@@ -559,6 +599,7 @@ class IngestSourceOperator(AbstractOperator):
 
         # Process documents using async generator with batch-fetch logic
         async def process_async_generator():
+            """Process async generator."""
             nonlocal processed_count, total_fetched
 
             batch: list[Document] = []
@@ -589,7 +630,9 @@ class IngestSourceOperator(AbstractOperator):
                 # Process batch when it reaches batch_size
                 if len(batch) >= batch_size:
                     logger.info(
-                        f"Fetched batch of {len(batch)} documents (total fetched: {total_fetched})",
+                        "Fetched batch of %d documents (total fetched: %d)",
+                        len(batch),
+                        total_fetched,
                         extra=self.common_log_arguments,
                     )
 
@@ -597,7 +640,8 @@ class IngestSourceOperator(AbstractOperator):
                     for idx, doc in enumerate(batch):
                         if processed_count >= self.max_files:
                             logger.info(
-                                f"Reached max files limit: {self.max_files}",
+                                "Reached max files limit: %d",
+                                self.max_files,
                                 extra=self.common_log_arguments,
                             )
                             return  # Stop processing
@@ -616,7 +660,9 @@ class IngestSourceOperator(AbstractOperator):
             # Process remaining documents in final batch
             if batch and processed_count < self.max_files:
                 logger.info(
-                    f"Fetched final batch of {len(batch)} documents (total fetched: {total_fetched})",
+                    "Fetched final batch of %d documents (total fetched: %d)",
+                    len(batch),
+                    total_fetched,
                     extra=self.common_log_arguments,
                 )
 
@@ -644,7 +690,10 @@ class IngestSourceOperator(AbstractOperator):
             asyncio.run(process_async_generator())
 
         logger.info(
-            f"Fetched {total_fetched} documents, processed {processed_count} new documents from {self.provider}",
+            "Fetched %d documents, processed %d new documents from %s",
+            total_fetched,
+            processed_count,
+            self.provider,
             extra=self.common_log_arguments,
         )
 
@@ -696,18 +745,45 @@ class IngestSourceOperator(AbstractOperator):
         try:
             # Extract source information
             source: str = doc.metadata.get("source", f"unknown_{idx}")
+            doc_name: str = doc.metadata.get("name", source)
 
-            # Check file extension filter
-            if filter_based_on_extension(source, self.excluded_extensions, self.included_extensions):
+            # Get extension for filtering
+            # First try metadata (set by adapters), then fall back to filename
+            file_extension: str = doc.metadata.get("extension", "")
+            if not file_extension:
+                file_extension = pathlib.Path(doc_name).suffix.lower()
+
+            # Ensure extension starts with dot
+            if file_extension and not file_extension.startswith("."):
+                file_extension = f".{file_extension}"
+
+            # Check excluded extensions first
+            if self.excluded_extensions and file_extension in self.excluded_extensions:
                 logger.info(
-                    f"Skipping document based on filter: {source}",
+                    "Skipping document based on exclusion filter: %s",
+                    source,
                     extra=self.common_log_arguments,
                 )
                 self.record_skipped_document(
                     metadata=metadata,
                     doc_id=source,
                     doc_name=source,
-                    reason="File extension filtered out",
+                    reason="File extension in exclusion list",
+                )
+                return None
+
+            # Check included extensions
+            if self.included_extensions and file_extension not in self.included_extensions:
+                logger.info(
+                    "Skipping document based on inclusion filter: %s",
+                    source,
+                    extra=self.common_log_arguments,
+                )
+                self.record_skipped_document(
+                    metadata=metadata,
+                    doc_id=source,
+                    doc_name=source,
+                    reason="File extension not in inclusion list",
                 )
                 return None
 
@@ -732,7 +808,8 @@ class IngestSourceOperator(AbstractOperator):
                 modified_time=modified_time,
             ):
                 logger.info(
-                    f"Skipping already processed document: {source}",
+                    "Skipping already processed document: %s",
+                    source,
                     extra=self.common_log_arguments,
                 )
                 self.record_skipped_document(
@@ -744,14 +821,16 @@ class IngestSourceOperator(AbstractOperator):
                 return None
 
             # Extract document format from metadata
-            document_format: str = doc.metadata.get("extension", "")
+            # Use file_extension (already computed and validated) instead of re-reading from metadata
+            document_format: str = file_extension if file_extension else doc.metadata.get("extension", "")
 
             source_id = doc.metadata.get("source_id", source)
 
             # Create processed document
+            # Use doc_name (actual filename) for the name field, not source (URL)
             processed_doc: dict[str, Any] = {
                 "id": doc_id,
-                "name": source,
+                "name": doc_name,
                 "document_format": document_format,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source_id,
@@ -760,7 +839,9 @@ class IngestSourceOperator(AbstractOperator):
             }
 
             logger.info(
-                f"Successfully processed document: {source} (format: {document_format})",
+                "Successfully processed document: %s (format: %s)",
+                source,
+                document_format,
                 extra=self.common_log_arguments,
             )
             return processed_doc
@@ -808,7 +889,7 @@ class IngestSourceOperator(AbstractOperator):
 
         # 2. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
-        elif self.provider == "custom":
+        if self.provider == "custom":
             loader_path = self.connection_params.get("loader_class_path")
             if not loader_path:
                 raise ValueError("Provider is 'custom' but 'loader_class_path' is missing.")
@@ -824,8 +905,7 @@ class IngestSourceOperator(AbstractOperator):
             init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
             return loader_class(**init_kwargs)
 
-        else:
-            raise ValueError(f"Provider '{self.provider}' is not supported.")
+        raise ValueError(f"Provider '{self.provider}' is not supported.")
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -846,7 +926,7 @@ class IngestSourceOperator(AbstractOperator):
                 OperatorConstants.Columns.NAME: "Document Name",
                 OperatorConstants.Config.DESCRIPTION: "The source name or file name of the document",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "path": {
@@ -910,6 +990,7 @@ class IngestSourceOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Config.VALID_VALUES: sorted(ADAPTER_MANAGED_PROVIDERS | {"custom"}),
                 },
                 CONNECTION_PARAMS_KEY: {
                     OperatorConstants.Columns.NAME: "Connection Parameters",

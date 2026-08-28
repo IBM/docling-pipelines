@@ -237,6 +237,17 @@ class JobStatsDto(BaseModel):
     )
     user_entitlements: dict[str, Any] | None = Field(default_factory=dict, description=USER_ENTITLEMENTS_DESC)
 
+    # Report Generation Status
+    report_status: str | None = Field(
+        default=None, description="Report generation status: GENERATING, COMPLETED, FAILED, or NOT_AVAILABLE"
+    )
+    report_generation_started_at: int | None = Field(
+        default=None, description="Timestamp when report generation started"
+    )
+    report_generation_completed_at: int | None = Field(
+        default=None, description="Timestamp when report generation completed or failed"
+    )
+
     # Nested Statistics (Populated by aggregation)
     node_stats: dict[str, NodeStatsDto] = Field(default_factory=dict, description=NODE_STATS_DESC)
     batch_node_stats: dict[str, dict[str, NodeStatsDto]] = Field(

@@ -6,11 +6,13 @@ This adapter implements the VectorStorePort interface for Milvus.
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
 from docpipe.core.operators.vectordb.adapters.outbound.milvus.batch_processor import MilvusBatchProcessor
 from docpipe.core.operators.vectordb.adapters.outbound.milvus.client import MilvusClient
+from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import MilvusConfig
 from docpipe.core.operators.vectordb.adapters.outbound.milvus.index_manager import MilvusIndexManager
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.utils.infrastructure.logging import get_logger
@@ -45,19 +47,19 @@ class MilvusAdapter(VectorStorePort):
     def __init__(self, **adapter_config: Any) -> None:
         """Initialize Milvus adapter.
 
-        All parameters are extracted from adapter_config, which contains the merged
-        provider_config and operator-level parameters.
+        All parameters are extracted from adapter_config, which is the provider_config
+        dict passed directly from VectorDBOperator.
 
         Args:
-            **adapter_config: Configuration dictionary containing:
-                Operator-level parameters (added by VectorDBOperator):
-                - index_name: Name of the collection (Milvus uses "collection" for data container)
+            **adapter_config: Configuration dictionary (from provider_config) containing:
+                Resource configuration:
+                - collection_name: Name of the collection (required)
                 - vector_dimension: Dimension of vector embeddings
                 - embeddings_column: Name of embeddings column
                 - available_features: Feature configuration
                 - feature_mappings: Column to field mappings
 
-                Provider-specific parameters (from provider_config):
+                Connection and provider-specific parameters:
                 - host: Milvus server host (default: localhost)
                 - port: Milvus server port (default: 19530)
                 - uri: Full URI for connection (for wx.data or cloud deployments)
@@ -72,8 +74,10 @@ class MilvusAdapter(VectorStorePort):
                 - metric_type: Similarity metric (L2, IP, COSINE)
                 - index_parameters: Index-specific parameters
         """
-        # Extract operator-level parameters (added by VectorDBOperator)
-        index_name = adapter_config.get(OperatorConstants.VectorDB.INDEX_NAME)
+        # collection_name is now part of provider_config — validate it is present
+        self.collection_name = adapter_config.get(OperatorConstants.VectorDB.COLLECTION_NAME)
+        if not self.collection_name:
+            raise ValueError("provider_config.collection_name is required for the Milvus adapter")
         self.embeddings_column = adapter_config.get(
             OperatorConstants.Columns.EMBEDDINGS_COLUMN, OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
         )
@@ -84,9 +88,8 @@ class MilvusAdapter(VectorStorePort):
             OperatorConstants.VectorDB.ADD_SPARSE_VECTOR, OperatorConstants.VectorDB.ADD_SPARSE_VECTOR_DEFAULT
         )
         available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
-        feature_mappings = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+        feature_mappings: list[dict[str, str]] = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
 
-        self.collection_name = index_name
         self.primary_key_field = OperatorConstants.VectorDB.DEFAULT_PRIMARY_KEY_FIELD
 
         # Extract connection parameters from provider_config in adapter_config
@@ -157,6 +160,11 @@ class MilvusAdapter(VectorStorePort):
             f"Initialized MilvusAdapter for collection: {self.collection_name} "
             f"(index: {index_type}, metric: {metric_type})"
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        return MilvusConfig
 
     def index_documents(self, documents: list[tuple[str, dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:
         """Index documents in Milvus.
@@ -231,6 +239,10 @@ class MilvusAdapter(VectorStorePort):
         except Exception as e:
             logger.warning(f"Error during collection refresh: {e}")
 
+    def validate_existing_schema(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate existing Milvus collection schema against runtime vector dimensions."""
+        self.index_manager.validate_existing_collection(dimension_mapping=dimension_mapping)
+
     def index_exists(self) -> bool:
         """Check if the Milvus collection already exists.
 
@@ -265,3 +277,14 @@ class MilvusAdapter(VectorStorePort):
             Dictionary mapping column names to their dimensions
         """
         return detect_all_vector_dimensions(table=table, vector_columns=vector_columns)
+
+    def get_chunk_ids_for_documents(self, doc_ids: list[str]) -> dict[str, set[str]]:
+        """Return all existing chunk PKs grouped by doc ID.
+
+        Args:
+            doc_ids: List of doc_id_hash values to look up.
+
+        Returns:
+            Mapping of doc_id -> set of chunk PKs.
+        """
+        return self.batch_processor.get_chunk_ids_for_documents(doc_ids=doc_ids)

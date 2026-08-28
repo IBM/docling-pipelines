@@ -278,9 +278,9 @@ def test_validation_requires_merge_type():
     }
     operator = MergeOperator(config)
 
-    errors = []
-    warnings = []
-    available_features = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features: list[str] = []
     operator.validate(errors=errors, warnings=warnings, available_features=available_features)
     assert len(errors) > 0
     assert any("merge_type" in str(err).lower() for err in errors)
@@ -294,9 +294,9 @@ def test_validation_requires_column_option_for_column_merge():
     }
     operator = MergeOperator(config)
 
-    errors = []
-    warnings = []
-    available_features = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features: list[str] = []
     operator.validate(errors=errors, warnings=warnings, available_features=available_features)
     assert len(errors) > 0
     assert any("column_option" in str(err).lower() for err in errors)
@@ -310,9 +310,9 @@ def test_validation_requires_minimum_two_input_links():
     }
     operator = MergeOperator(config)
 
-    errors = []
-    warnings = []
-    available_features = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features: list[str] = []
     operator.validate(errors=errors, warnings=warnings, available_features=available_features)
     assert len(errors) > 0
 
@@ -325,9 +325,9 @@ def test_validation_rejects_invalid_merge_type():
     }
     operator = MergeOperator(config)
 
-    errors = []
-    warnings = []
-    available_features = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features: list[str] = []
     operator.validate(errors=errors, warnings=warnings, available_features=available_features)
     assert len(errors) > 0
 
@@ -341,9 +341,9 @@ def test_validation_rejects_invalid_column_option():
     }
     operator = MergeOperator(config)
 
-    errors = []
-    warnings = []
-    available_features = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features: list[str] = []
     operator.validate(errors=errors, warnings=warnings, available_features=available_features)
     assert len(errors) > 0
 
@@ -356,9 +356,9 @@ def test_validation_passes_with_valid_row_config():
     }
     operator = MergeOperator(config)
 
-    errors = []
-    warnings = []
-    available_features = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features: list[str] = []
     operator.validate(errors=errors, warnings=warnings, available_features=available_features)
     assert len(errors) == 0
 
@@ -372,9 +372,9 @@ def test_validation_passes_with_valid_column_config():
     }
     operator = MergeOperator(config)
 
-    errors = []
-    warnings = []
-    available_features = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features: list[str] = []
     operator.validate(errors=errors, warnings=warnings, available_features=available_features)
     assert len(errors) == 0
 
@@ -396,7 +396,7 @@ def test_transform_returns_metadata():
 
 
 def test_metadata_contains_total_docs():
-    """Metadata contains total_docs_count."""
+    """Metadata contains documents_in_scope."""
     table1 = make_table(num_rows=2, id_prefix="a")
     table2 = make_table(num_rows=2, id_prefix="b")
 
@@ -503,6 +503,28 @@ def test_get_metadata_contains_required_keys():
     assert OperatorConstants.Config.ATTRIBUTES in meta
 
 
+def test_get_metadata_input_links_attribute():
+    """input_links is present, required, and exposes an items schema with link_name property."""
+    meta = MergeOperator.get_metadata()
+    assert OperatorConstants.Merge.INPUT_LINKS in meta[OperatorConstants.Config.ATTRIBUTES]
+    attr = meta[OperatorConstants.Config.ATTRIBUTES][OperatorConstants.Merge.INPUT_LINKS]
+    assert attr[OperatorConstants.Config.REQUIRED] is True
+    assert OperatorConstants.Config.ITEMS in attr
+    properties = attr[OperatorConstants.Config.ITEMS][OperatorConstants.Config.PROPERTIES]
+    assert OperatorConstants.Misc.LINK_NAME in properties
+
+
+def test_get_metadata_column_option_valid_values():
+    """column_option exposes inner_join and full_outer as valid_values."""
+    meta = MergeOperator.get_metadata()
+    attr = meta[OperatorConstants.Config.ATTRIBUTES][OperatorConstants.Merge.COLUMN_OPTION]
+    assert OperatorConstants.Config.VALID_VALUES in attr
+    assert set(attr[OperatorConstants.Config.VALID_VALUES]) == {
+        OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN,
+        OperatorConstants.Merge.FULL_OUTER_JOIN,
+    }
+
+
 # ---------------------------------------------------------------------------
 # 8. Complex type handling
 # ---------------------------------------------------------------------------
@@ -568,6 +590,138 @@ def test_column_merge_with_struct_columns():
     assert "metadata" in result.column_names
     assert "info" in result.column_names
     assert result.num_rows == 2
+
+
+# ---------------------------------------------------------------------------
+# 9. Remap correctness — values, not just column presence
+# ---------------------------------------------------------------------------
+
+
+def test_column_merge_unsupported_remap_values_are_correct():
+    """pc.take remap produces correct cell values matched to the right row."""
+    table1 = pa.table({"id": ["a", "b", "c"], "name": ["doc_a", "doc_b", "doc_c"]})
+    table2 = pa.table(
+        {
+            "id": ["c", "a", "b"],  # deliberately shuffled
+            "embeddings": [[3.0, 3.1], [1.0, 1.1], [2.0, 2.1]],
+        }
+    )
+
+    config = {
+        "merge_type": "columns",
+        "column_option": "inner_join",
+        "input_links": [{"link_name": "t1"}, {"link_name": "t2"}],
+    }
+    result = MergeOperator(config).transform(table=pa.table({}), tables={"t1": table1, "t2": table2})[0][0]
+
+    # Row order is driven by table1 (left side of join): a, b, c
+    assert result.column("id").to_pylist() == ["a", "b", "c"]
+    # Embeddings must be matched to correct IDs — not left in source order
+    assert result.column("embeddings").to_pylist() == [[1.0, 1.1], [2.0, 2.1], [3.0, 3.1]]
+
+
+def test_column_merge_multiple_unsupported_cols_same_table():
+    """Multiple unsupported columns from the same table are all remapped correctly (hoisted ID array path)."""
+    table1 = pa.table({"id": ["x", "y", "z"], "score": [10, 20, 30]})
+    table2 = pa.table(
+        {
+            "id": ["z", "x", "y"],  # shuffled
+            "embeddings": [[0.3], [0.1], [0.2]],
+            "chunks": [["z1", "z2"], ["x1"], ["y1", "y2"]],
+        }
+    )
+
+    config = {
+        "merge_type": "columns",
+        "column_option": "inner_join",
+        "input_links": [{"link_name": "t1"}, {"link_name": "t2"}],
+    }
+    result = MergeOperator(config).transform(table=pa.table({}), tables={"t1": table1, "t2": table2})[0][0]
+
+    # Row order: x, y, z (driven by table1)
+    assert result.column("id").to_pylist() == ["x", "y", "z"]
+    assert result.column("embeddings").to_pylist() == [[0.1], [0.2], [0.3]]
+    assert result.column("chunks").to_pylist() == [["x1"], ["y1", "y2"], ["z1", "z2"]]
+
+
+def test_column_merge_id_column_not_duplicated():
+    """The id column appears exactly once in the output and holds correct values."""
+    table1 = pa.table({"id": ["1", "2"], "name": ["a", "b"]})
+    table2 = pa.table({"id": ["1", "2"], "embeddings": [[0.1, 0.2], [0.3, 0.4]]})
+
+    config = {
+        "merge_type": "columns",
+        "column_option": "inner_join",
+        "input_links": [{"link_name": "t1"}, {"link_name": "t2"}],
+    }
+    result = MergeOperator(config).transform(table=pa.table({}), tables={"t1": table1, "t2": table2})[0][0]
+
+    assert result.column_names.count("id") == 1
+    assert result.column("id").to_pylist() == ["1", "2"]
+
+
+def test_column_merge_full_outer_unsupported_col_fills_none_for_missing_ids():
+    """Full-outer join: rows with no match in the unsupported-column source get None."""
+    # table1 has id "3" which table2 does not — full outer keeps it with None embedding
+    table1 = pa.table({"id": ["1", "2", "3"], "name": ["a", "b", "c"]})
+    table2 = pa.table({"id": ["1", "2"], "embeddings": [[0.1, 0.2], [0.3, 0.4]]})
+
+    config = {
+        "merge_type": "columns",
+        "column_option": "full_outer",
+        "input_links": [{"link_name": "t1"}, {"link_name": "t2"}],
+    }
+    result = MergeOperator(config).transform(table=pa.table({}), tables={"t1": table1, "t2": table2})[0][0]
+
+    emb = result.column("embeddings").to_pylist()
+    # id "3" has no match in table2 — its embedding slot must be None
+    idx_3 = result.column("id").to_pylist().index("3")
+    assert emb[idx_3] is None
+    # ids "1" and "2" have correct values
+    idx_1 = result.column("id").to_pylist().index("1")
+    idx_2 = result.column("id").to_pylist().index("2")
+    assert emb[idx_1] == [0.1, 0.2]
+    assert emb[idx_2] == [0.3, 0.4]
+
+
+def test_column_merge_high_dimensional_embeddings_remap_correctly():
+    """High-dimensional embedding arrays (1536-d) are remapped to the correct ID without Python materialisation regression."""
+    dim = 1536
+    n = 50
+    ids = [str(i) for i in range(n)]
+    # Source table has IDs in reverse order to maximally exercise the remap path.
+    # Embedding value at source position p is float(p), paired with id str(n-1-p).
+    # So the expected embedding for id k is [float(n-1-k)] * dim.
+    source_ids = list(reversed(ids))
+    source_embeddings = [[float(p)] * dim for p in range(n)]
+
+    # Build ground truth: id → expected embedding value
+    id_to_expected = {source_ids[p]: float(p) for p in range(n)}
+
+    table1 = pa.table({"id": ids, "name": [f"doc_{i}" for i in ids]})
+    table2 = pa.table(
+        {
+            "id": source_ids,
+            "embeddings": pa.array(source_embeddings, type=pa.list_(pa.float32())),
+        }
+    )
+
+    config = {
+        "merge_type": "columns",
+        "column_option": "inner_join",
+        "input_links": [{"link_name": "t1"}, {"link_name": "t2"}],
+    }
+    result = MergeOperator(config).transform(table=pa.table({}), tables={"t1": table1, "t2": table2})[0][0]
+
+    assert result.num_rows == n
+    result_ids = result.column("id").to_pylist()
+    result_embeddings = result.column("embeddings").to_pylist()
+
+    for doc_id, embedding in zip(result_ids, result_embeddings, strict=False):
+        expected_val = id_to_expected[doc_id]
+        assert all(v == pytest.approx(expected_val) for v in embedding), (
+            f"Embedding for id={doc_id} was not remapped correctly: expected {expected_val}, got {embedding[0]}"
+        )
 
 
 if __name__ == "__main__":

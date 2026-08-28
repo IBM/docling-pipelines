@@ -1,4 +1,4 @@
-# Docling Pipelines User Guide: Complete Setup and Execution
+# Docling Pipelines Pipeline User Guide: Complete Setup and Execution
 
 This comprehensive guide walks you through setting up and executing a complete Docling Pipelines pipeline from document ingestion to vector storage in OpenSearch.
 
@@ -296,7 +296,7 @@ ffmpeg -version
 **1. Clone the repository:**
 
 ```bash
-git clone https://github.com/IBM/docling-pipelines.git
+git clone https://github.ibm.com/wdp-gov/docling-pipelines.git
 cd docling-pipelines
 ```
 
@@ -337,12 +337,14 @@ This command:
 ```bash
 # From project root
 source .venv/bin/activate
+pre-commit install
 ```
 
 **Windows:**
 
 ```bash
 .venv\Scripts\activate
+pre-commit install
 ```
 
 **4. Configure environment variables:**
@@ -354,6 +356,8 @@ cp .env.example .env
 # The default values work for local development
 # Edit .env if you need to customize settings
 ```
+
+> **HashiCorp Vault (optional):** If your organisation uses Vault for secret management, set `secrets.vault.enabled: true` in `docling-pipelines-config.yaml` and supply `VAULT_ROLE_ID` and `VAULT_SECRET_ID` as environment variables. See the [Architecture Guide — HashiCorp Vault Integration](ARCHITECTURE.md) for full details.
 
 ### Verify Installation
 
@@ -639,7 +643,7 @@ Docling Pipelines provides clean, formatted console output showing pipeline prog
  Started: 2024-01-15 10:30:00
 ================================================================================
 
-[ingest] Starting ingest_local...
+[ingest] Starting ingest_source...
 
 ================================================================================
  ingest (COMPLETED)

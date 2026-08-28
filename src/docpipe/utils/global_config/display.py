@@ -3,9 +3,7 @@
 from docpipe.core.orchestration.global_config_metadata import GlobalConfigMetadata, GlobalConfigParam
 
 
-def format_global_config_details(  # NOSONAR python:S3776
-    params: dict[str, GlobalConfigParam], *, category_filter: str | None = None
-) -> str:
+def format_global_config_details(params: dict[str, GlobalConfigParam], *, category_filter: str | None = None) -> str:
     """
     Format global configuration parameters into a human-readable detailed view.
 
@@ -55,7 +53,7 @@ def format_global_config_details(  # NOSONAR python:S3776
     return "\n".join(lines)
 
 
-def display_global_config_summary(*, category_filter: str | None = None) -> str:  # NOSONAR python:S3776
+def display_global_config_summary(*, category_filter: str | None = None) -> str:
     """
     Display a summary table of global configuration parameters.
 
@@ -141,8 +139,7 @@ def list_global_config(*, verbose: bool = False, category: str | None = None) ->
 
     if verbose:
         return format_global_config_details(params, category_filter=category)
-    else:
-        return display_global_config_summary(category_filter=category)
+    return display_global_config_summary(category_filter=category)
 
 
 # For testing

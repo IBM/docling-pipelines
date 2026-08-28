@@ -1,0 +1,195 @@
+{
+  "flow_name": "branching-dual-embeddings-pipeline",
+  "description": "Advanced pipeline with branching: Ingest -> Extract -> Chunk -> Branch -> (Embeddings Model 1, Embeddings Model 2) -> Merge -> Document Set -> OpenSearch",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local",
+    "data_storage_type": "local"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest_documents",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./sample_documents"
+          ]
+        },
+        "include_filter": "pdf,txt,docx"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_content",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      },
+      "depends_on": [
+        "ingest_documents"
+      ]
+    },
+    {
+      "type": "chunker",
+      "name": "chunk_documents",
+      "config": {
+        "chunk_type": "semantic",
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "semantic_embeddings_model": "nomic-embed-text",
+        "retain_original_content": false
+      },
+      "depends_on": [
+        "extract_content"
+      ]
+    },
+    {
+      "type": "branching",
+      "name": "branch_for_embeddings",
+      "config": {
+        "branches": {
+          "embedding_branch_1": {},
+          "embedding_branch_2": {}
+        }
+      },
+      "depends_on": [
+        "chunk_documents"
+      ]
+    },
+    {
+      "type": "embeddings",
+      "name": "embeddings_model_1",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY:-ollama}"
+        },
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.1
+      },
+      "depends_on": [
+        "branch_for_embeddings.embedding_branch_1"
+      ]
+    },
+    {
+      "type": "embeddings",
+      "name": "embeddings_model_2",
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/granite-embedding:278m",
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY:-ollama}"
+        },
+        "embeddings_column": "embeddings_alt",
+        "overlap_ratio": 0.1
+      },
+      "depends_on": [
+        "branch_for_embeddings.embedding_branch_2"
+      ]
+    },
+    {
+      "type": "merge",
+      "name": "merge_embeddings",
+      "config": {
+        "merge_type": "columns",
+        "column_option": "inner_join",
+        "input_links": [
+          {
+            "link_name": "embeddings_model_1"
+          },
+          {
+            "link_name": "embeddings_model_2"
+          }
+        ]
+      },
+      "depends_on": [
+        "embeddings_model_1",
+        "embeddings_model_2"
+      ]
+    },
+    {
+      "type": "document_set",
+      "name": "store_in_document_set",
+      "config": {
+        "document_set_name": "dual_embeddings_dataset",
+        "description": "Document set with dual embeddings from branching pipeline",
+        "data_backend": "duckdb"
+      },
+      "depends_on": [
+        "merge_embeddings"
+      ]
+    },
+    {
+      "type": "vectordb",
+      "name": "store_in_opensearch",
+      "config": {
+        "provider": "opensearch",
+        "doc_id_column": "doc_id_hash",
+        "create_index": true,
+        "provider_config": {
+          "index_name": "dual-embeddings-index",
+          "host": "localhost",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
+          },
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
+          },
+          {
+            "feature_name": "name",
+            "mapped_column_name": "doc_name"
+          },
+          {
+            "feature_name": "path",
+            "mapped_column_name": "file_path"
+          },
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
+          },
+          {
+            "feature_name": "embeddings_alt",
+            "mapped_column_name": "vector_embeddings_alt"
+          },
+          {
+            "feature_name": "chunk_id",
+            "mapped_column_name": "chunk_id"
+          },
+          {
+            "feature_name": "chunk_index",
+            "mapped_column_name": "chunk_index"
+          }
+        ]
+      },
+      "depends_on": [
+        "store_in_document_set"
+      ]
+    }
+  ]
+}

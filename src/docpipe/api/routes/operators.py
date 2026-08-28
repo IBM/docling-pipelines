@@ -1,32 +1,26 @@
-"""Operator metadata API routes.
+"""Operator API routes.
 
-This module provides REST API endpoints for retrieving operator metadata including
-operator configurations, features, and capabilities. It follows the standard
-router → service → domain architecture pattern.
+Provides REST endpoints for operator introspection: retrieving operator metadata.
+Follows the standard router -> service -> domain layering.
 
 Architecture:
     Router Layer (this file)
-        ↓
+        |
     Service Layer (OperatorMetadataService)
-        ↓
-    Domain Layer (OperatorMetadata)
+        |
+    Domain Layer
 
 Error Handling Strategy:
-    All endpoints delegate to service layer which raises DocpipeException:
-    - DocpipeException (500): Operator metadata retrieval failure
-    - Error handler middleware converts DocpipeException to ErrorResponse DTO format
-    - All errors logged with transaction ID for request tracing
-    - No try/catch in router - exceptions bubble naturally to middleware
+    - GET /metadata: delegates entirely to OperatorMetadataService; DocpipeException
+      bubbles to the error_handler middleware which converts it to a 500 ErrorResponse.
 
 Endpoints:
-    GET /api/v1/operators/metadata - Retrieve metadata for all operators
+    GET /api/v1/operators/metadata - Retrieve metadata for all registered operators
 
 Dependencies:
-    - OperatorMetadataService: Injected via get_operator_metadata_service()
-    - Uses @lru_cache for singleton pattern in API context
+    - OperatorMetadataService: singleton via get_operator_metadata_service()
 """
 
-import logging
 from functools import lru_cache
 from typing import Annotated
 
@@ -35,8 +29,9 @@ from fastapi import APIRouter, Depends
 from docpipe.api.dto.error_dto import ErrorResponse
 from docpipe.api.dto.operator_dto import OperatorMetadataItem
 from docpipe.core.operators.application.services.operator_metadata_service import OperatorMetadataService
+from docpipe.utils.infrastructure.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 operators_router = APIRouter(prefix="/operators", tags=["Operators"])
 
@@ -227,6 +222,8 @@ def get_operator_metadata(service: OperatorMetadataServiceDep) -> dict[str, Oper
             features=meta.get("features", {}),
             required_features=meta.get("required_features", []),
             attributes=meta.get("attributes", {}),
+            owner=meta.get("owner"),
+            is_operator_available=meta.get("is_operator_available"),
         )
 
     return operators_dict

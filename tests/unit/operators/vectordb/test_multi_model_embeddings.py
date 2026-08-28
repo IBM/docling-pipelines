@@ -3,7 +3,6 @@ Unit tests for multi-model embeddings support in VectorDB operator.
 Tests dimension detection and index creation with multiple vector columns.
 """
 
-import os
 from unittest.mock import MagicMock, Mock, patch
 
 import pyarrow as pa
@@ -22,7 +21,6 @@ class TestMultiModelEmbeddings:
         """Configuration for VectorDB operator with multiple embedding columns."""
         return {
             OperatorConstants.Config.PROVIDER: "opensearch",
-            OperatorConstants.VectorDB.INDEX_NAME: "multi_model_test",
             OperatorConstants.VectorDB.CREATE_INDEX: True,
             OperatorConstants.Columns.DOC_ID_COLUMN: "doc_id_hash",
             OperatorConstants.Config.AVAILABLE_FEATURES: {
@@ -51,13 +49,14 @@ class TestMultiModelEmbeddings:
                     "type": "string",
                 },
             },
-            OperatorConstants.Config.FEATURE_MAPPINGS: {
-                "doc_id_hash": "pk",
-                "embeddings": "vector_embeddings",
-                "embeddings_alt": "vector_embeddings_alt",
-                "text": "text",
-            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [
+                {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+                {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+                {"feature_name": "embeddings_alt", "mapped_column_name": "vector_embeddings_alt"},
+                {"feature_name": "text", "mapped_column_name": "text"},
+            ],
             OperatorConstants.Config.PROVIDER_CONFIG: {
+                OperatorConstants.VectorDB.INDEX_NAME: "multi_model_test",
                 OperatorConstants.VectorDB.HOST: "localhost",
                 OperatorConstants.VectorDB.PORT: 9200,
                 OperatorConstants.VectorDB.ENGINE: "faiss",
@@ -131,6 +130,7 @@ class TestMultiModelEmbeddings:
         mock_adapter.index_exists = Mock(return_value=False)  # Index doesn't exist, so create_index will be called
         mock_adapter.detect_all_vector_dimensions = Mock(return_value={"embeddings": 4, "embeddings_alt": 6})
         mock_adapter.create_index = Mock()
+        mock_adapter.validate_existing_schema = Mock()
         mock_adapter.insert_documents = Mock(return_value=(3, 0, []))
 
         with patch(
@@ -155,6 +155,7 @@ class TestMultiModelEmbeddings:
         mock_adapter.index_exists = Mock(return_value=True)  # Skip index creation
         mock_adapter.detect_all_vector_dimensions = Mock(return_value={"embeddings": 4, "embeddings_alt": 6})
         mock_adapter.create_index = Mock()
+        mock_adapter.validate_existing_schema = Mock()
         inserted_docs = []
 
         def capture_docs(documents):
@@ -170,6 +171,11 @@ class TestMultiModelEmbeddings:
         ):
             operator = VectorDBOperator(multi_model_config)
             operator.transform(dual_embeddings_table)
+
+            mock_adapter.create_index.assert_not_called()
+            mock_adapter.validate_existing_schema.assert_called_once_with(
+                dimension_mapping={"embeddings": 4, "embeddings_alt": 6}
+            )
 
             # Verify documents have both embedding columns
             assert len(inserted_docs) == 3
@@ -267,7 +273,6 @@ class TestMilvusMultiModelInterface:
         """Configuration for Milvus adapter."""
         return {
             OperatorConstants.Config.PROVIDER: "milvus",
-            OperatorConstants.VectorDB.INDEX_NAME: "test_collection",
             OperatorConstants.VectorDB.CREATE_INDEX: True,
             OperatorConstants.Columns.DOC_ID_COLUMN: "doc_id_hash",
             OperatorConstants.Config.AVAILABLE_FEATURES: {
@@ -285,16 +290,17 @@ class TestMilvusMultiModelInterface:
                     "type": "vector",
                 },
             },
-            OperatorConstants.Config.FEATURE_MAPPINGS: {
-                "doc_id_hash": "pk",
-                "embeddings": "vector_embeddings",
-            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [
+                {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+                {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+            ],
             OperatorConstants.Config.PROVIDER_CONFIG: {
+                "collection_name": "test_collection",
                 "auth_type": "standalone",
                 "host": "localhost",
                 "port": 19530,
                 "username": "root",
-                "password": os.environ.get("TEST_MILVUS_PASSWORD", "test-milvus-pw"),
+                "password": "Milvus",  # pragma: allowlist secret
                 "database": "default",
                 "secure": False,
                 "index_type": "HNSW",

@@ -1,5 +1,5 @@
 # Copyright IBM Corp. 2025
-# -License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 
 """PII and HAP detection service using common LLM infrastructure.
 
@@ -7,9 +7,7 @@ This service provides a unified interface for PII/HAP detection across different
 providers (WatsonX, LiteLLM) by wrapping the common port interfaces.
 """
 
-import json
-import os
-import re
+from pathlib import Path
 from typing import Any
 
 from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
@@ -23,12 +21,9 @@ from docpipe.core.ports.llm_inference_port import LLMInferencePort
 from docpipe.core.ports.text_detection_port import TextDetectionPort
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.llm import PromptManager, parse_llm_json_response
 
 logger = get_logger(__name__)
-
-# Prompt cache for LLM-based detection
-_prompt_cache: dict[str, Any] = {"static_prompt": None}
-PROMPT_EXAMPLES_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pii_prompt_examples.json")
 
 
 class PIIHAPService:
@@ -66,6 +61,10 @@ class PIIHAPService:
         self.provider = provider.lower()
         self.model_id = model_id
         self.provider_config = provider_config or {}
+
+        # Initialize prompt manager for LLM-based detection
+        prompt_path = Path(__file__).parent.parent / "pii_prompt_examples.json"
+        self._prompt_manager = PromptManager(prompt_path)
 
         # Determine detection path based on provider
         if self.provider == "watsonx":
@@ -140,9 +139,8 @@ class PIIHAPService:
             if self.use_specialized_api:
                 # WatsonX path: Use specialized detection API
                 return self._detect_via_specialized_api(payload=payload, text=text)
-            else:
-                # LiteLLM path: Use prompt-based detection
-                return self._detect_via_llm(payload=payload, text=text)
+            # LiteLLM path: Use prompt-based detection
+            return self._detect_via_llm(payload=payload, text=text)
 
         except DocpipeException:
             raise
@@ -208,8 +206,8 @@ class PIIHAPService:
         hap_threshold = detectors.get("hap", {}).get("threshold", 0.8)
         pii_threshold = detectors.get("pii", {}).get("threshold", 0.5)
 
-        # Build prompt
-        static_prompt = self._load_static_prompt()
+        # Build prompt using PromptManager
+        static_prompt = self._prompt_manager.load_prompt()
         dynamic_prompt = (
             f"Now analyze the following text, applying thresholds "
             f"hap={hap_threshold} and pii={pii_threshold}:\n\n"
@@ -223,32 +221,13 @@ class PIIHAPService:
                 temperature=0.0,
             )
 
-            if not raw_response:
-                raise DocpipeException(message="LLM inference failed: Model returned empty response", status_code=500)
+            # Parse JSON response using reusable utility
+            result_dict = parse_llm_json_response(
+                raw_response,
+                log_on_error=True,
+                log_level="debug",
+            )
 
-            # Parse JSON response
-            try:
-                result_dict = json.loads(raw_response)
-            except json.JSONDecodeError as err:
-                # Try to extract JSON from markdown or mixed content
-                match = re.search(r"{.*}", raw_response, re.DOTALL)
-                if match:
-                    try:
-                        result_dict = json.loads(match.group(0))
-                    except json.JSONDecodeError:
-                        # Log full response at DEBUG level only to avoid PII leakage
-                        logger.debug(f"Failed to parse extracted JSON. Full response: {raw_response}")
-                        raise DocpipeException(
-                            message="LLM inference failed: Invalid JSON format in model response",
-                            status_code=500,
-                        ) from err
-                else:
-                    # Log full response at DEBUG level only to avoid PII leakage in error messages
-                    logger.debug(f"Failed to parse JSON from model response. Full response: {raw_response}")
-                    raise DocpipeException(
-                        message="LLM inference failed: Model response does not contain valid JSON",
-                        status_code=500,
-                    ) from err
         except DocpipeException:
             # Re-raise DocpipeException as-is
             raise
@@ -265,34 +244,9 @@ class PIIHAPService:
 
         return PIIHAPDetectionResponse(detections=detection_results, input_text=text)
 
-    def _load_static_prompt(self) -> str:
-        """Load and cache the static prompt with examples from JSON file.
-
-        Returns:
-            Formatted prompt string with description and examples
-        """
-        if _prompt_cache["static_prompt"] is not None:
-            return _prompt_cache["static_prompt"]
-
-        with open(PROMPT_EXAMPLES_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-
-        description = data.get("description", "")
-        examples = data.get("examples", [])
-
-        prompt = description + "\n\n"
-        for ex in examples:
-            input_text = ex["input"]
-            output_json = json.dumps(ex["output"], indent=2)
-            prompt += f'Input:\n"""{input_text}"""\n\nOutput:\n{output_json}\n\n'
-
-        _prompt_cache["static_prompt"] = prompt
-        return prompt
-
     def cleanup(self) -> None:
         """Cleanup resources if needed.
 
         This method is called when the service is no longer needed.
         Currently a no-op as the common adapters handle their own cleanup.
         """
-        pass

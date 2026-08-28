@@ -14,9 +14,9 @@ from docpipe.exceptions.docpipe_exceptions import DocpipeException
 def mock_repository():
     """Create a properly configured mock repository."""
     repo = Mock()
-    repo.create.return_value = None
-    repo.get_by_id.return_value = None
-    repo.get_by_name.return_value = None
+    repo.save.return_value = None
+    repo.find_by_id.return_value = None
+    repo.find_by_name.return_value = None
     repo.list_all.return_value = []
     repo.update.return_value = None
     repo.delete.return_value = True
@@ -58,7 +58,7 @@ class TestDocumentLibraryServiceCreate:
     def test_create_library_success(self, service, mock_repository, sample_library_domain):
         """Test successful library creation."""
         # Arrange
-        mock_repository.create.return_value = sample_library_domain
+        mock_repository.save.return_value = sample_library_domain
 
         # Act
         result = service.create_library(
@@ -68,7 +68,7 @@ class TestDocumentLibraryServiceCreate:
 
         # Assert
         assert result == sample_library_domain
-        mock_repository.create.assert_called_once()
+        mock_repository.save.assert_called_once()
 
     def test_create_library_with_invalid_name_raises_error(self, service):
         """Test that creating library with invalid name raises error."""
@@ -83,19 +83,19 @@ class TestDocumentLibraryServiceGet:
     def test_get_library_success(self, service, mock_repository, sample_library_with_id):
         """Test successful library retrieval."""
         # Arrange
-        mock_repository.get_by_id.return_value = sample_library_with_id
+        mock_repository.find_by_id.return_value = sample_library_with_id
 
         # Act
         result = service.get_library(library_id=sample_library_with_id.library_id)
 
         # Assert
         assert result == sample_library_with_id
-        mock_repository.get_by_id.assert_called_once_with(library_id=sample_library_with_id.library_id)
+        mock_repository.find_by_id.assert_called_once_with(asset_id=sample_library_with_id.library_id)
 
     def test_get_library_not_found_raises_error(self, service, mock_repository):
         """Test that getting nonexistent library raises error."""
         # Arrange
-        mock_repository.get_by_id.return_value = None
+        mock_repository.find_by_id.return_value = None
 
         # Act & Assert
         with pytest.raises(DocpipeException):
@@ -118,17 +118,14 @@ class TestDocumentLibraryServiceList:
         assert len(result) == 5
         mock_repository.list_all.assert_called_once()
 
-    def test_count_libraries(self, service, mock_repository):
-        """Test counting libraries."""
-        # Arrange
-        mock_repository.count_all.return_value = 10
+    def test_count_libraries(self, service, mock_repository, multiple_sample_libraries):
+        """Test counting libraries — delegates to AssetService.count_all()."""
+        mock_repository.find_all.return_value = multiple_sample_libraries
 
-        # Act
-        result = service.count_libraries()
+        result = service.count_all()
 
-        # Assert
-        assert result == 10
-        mock_repository.count_all.assert_called_once()
+        assert result == len(multiple_sample_libraries)
+        mock_repository.find_all.assert_called()
 
 
 class TestDocumentLibraryServiceUpdate:
@@ -137,7 +134,7 @@ class TestDocumentLibraryServiceUpdate:
     def test_update_library_success(self, service, mock_repository, sample_library_with_id):
         """Test successful library update."""
         # Arrange
-        mock_repository.get_by_id.return_value = sample_library_with_id
+        mock_repository.find_by_id.return_value = sample_library_with_id
         updated_library = sample_library_with_id
         updated_library.name = "Updated Name"
         mock_repository.update.return_value = updated_library
@@ -166,7 +163,7 @@ class TestDocumentLibraryServiceDelete:
 
         # Assert
         assert result is True
-        mock_repository.delete.assert_called_once_with(library_id="test-id")
+        mock_repository.delete.assert_called_once_with(asset_id="test-id")
 
 
 class TestDocumentLibraryServiceDocumentSets:
@@ -174,37 +171,29 @@ class TestDocumentLibraryServiceDocumentSets:
 
     def test_add_document_set_success(self, service, mock_repository, sample_library_domain):
         """Test successfully adding document set to library."""
-        # Arrange - use sample_library_domain which has no existing sets
-        mock_repository.get_by_id.return_value = sample_library_domain
+        mock_repository.find_by_id.return_value = sample_library_domain
         mock_repository.update.return_value = sample_library_domain
 
-        # Act
         service.add_document_set(
             library_id=sample_library_domain.library_id,
             document_set_id="new-set-id",
         )
 
-        # Assert
-        mock_repository.add_document_set_to_library.assert_called_once()
+        mock_repository.update.assert_called_once()
 
     def test_add_document_sets_bulk_success(self, service, mock_repository, sample_library_domain):
         """Test successfully adding multiple document sets to library (bulk operation)."""
-        # Arrange - use sample_library_domain which has no existing sets
-        mock_repository.get_by_id.return_value = sample_library_domain
+        mock_repository.find_by_id.return_value = sample_library_domain
         mock_repository.update.return_value = sample_library_domain
         document_set_ids = ["set-1", "set-2", "set-3"]
 
-        # Act
         service.add_document_sets_bulk(
             library_id=sample_library_domain.library_id,
             document_set_ids=document_set_ids,
         )
 
-        # Assert - should use bulk method (1 call) instead of N individual calls
-        mock_repository.add_document_sets_bulk.assert_called_once_with(
-            library_id=sample_library_domain.library_id,
-            document_set_ids=document_set_ids,
-        )
+        # Single update call (not N individual calls)
+        mock_repository.update.assert_called_once()
 
     def test_add_document_sets_bulk_validates_document_set_existence(
         self,
@@ -214,8 +203,9 @@ class TestDocumentLibraryServiceDocumentSets:
         sample_library_domain,
     ):
         """Test bulk add validates each document set exists before insert."""
-        mock_repository.get_by_id.return_value = sample_library_domain
-        mock_document_set_service.document_set_exists.return_value = True
+        mock_repository.find_by_id.return_value = sample_library_domain
+        mock_repository.update.return_value = sample_library_domain
+        mock_document_set_service.exists.return_value = True
         document_set_ids = ["set-1", "set-2", "set-3"]
 
         service_with_document_set_validation.add_document_sets_bulk(
@@ -223,11 +213,8 @@ class TestDocumentLibraryServiceDocumentSets:
             document_set_ids=document_set_ids,
         )
 
-        assert mock_document_set_service.document_set_exists.call_count == 3
-        mock_repository.add_document_sets_bulk.assert_called_once_with(
-            library_id=sample_library_domain.library_id,
-            document_set_ids=document_set_ids,
-        )
+        assert mock_document_set_service.exists.call_count == 3
+        mock_repository.update.assert_called_once()
 
     def test_add_document_sets_bulk_raises_when_document_set_missing(
         self,
@@ -237,8 +224,8 @@ class TestDocumentLibraryServiceDocumentSets:
         sample_library_domain,
     ):
         """Test bulk add fails before insert when a document set does not exist."""
-        mock_repository.get_by_id.return_value = sample_library_domain
-        mock_document_set_service.document_set_exists.side_effect = [True, False]
+        mock_repository.find_by_id.return_value = sample_library_domain
+        mock_document_set_service.exists.side_effect = [True, False]
 
         with pytest.raises(DocpipeException):
             service_with_document_set_validation.add_document_sets_bulk(
@@ -246,51 +233,36 @@ class TestDocumentLibraryServiceDocumentSets:
                 document_set_ids=["set-1", "missing-set"],
             )
 
-        mock_repository.add_document_sets_bulk.assert_not_called()
+        mock_repository.update.assert_not_called()
 
     def test_remove_document_set_success(self, service, mock_repository, sample_library_with_id):
         """Test successfully removing document set from library."""
-        # Arrange - sample_library_with_id has ["set-1", "set-2"]
-        mock_repository.get_by_id.return_value = sample_library_with_id
+        mock_repository.find_by_id.return_value = sample_library_with_id
         mock_repository.update.return_value = sample_library_with_id
 
-        # Act - remove an existing set
         service.remove_document_set(
             library_id=sample_library_with_id.library_id,
             document_set_id="set-1",
         )
 
-        # Assert
-        mock_repository.remove_document_set_from_library.assert_called_once()
+        mock_repository.update.assert_called_once()
 
     def test_remove_document_sets_bulk_success(self, service, mock_repository, sample_library_with_id):
         """Test successfully removing multiple document sets from library (bulk operation)."""
-        # Arrange - sample_library_with_id has ["set-1", "set-2"]
-        mock_repository.get_by_id.return_value = sample_library_with_id
+        mock_repository.find_by_id.return_value = sample_library_with_id
         mock_repository.update.return_value = sample_library_with_id
-        document_set_ids = ["set-1", "set-2"]  # Remove only existing sets
 
-        # Act
         service.remove_document_sets_bulk(
             library_id=sample_library_with_id.library_id,
-            document_set_ids=document_set_ids,
+            document_set_ids=["set-1", "set-2"],
         )
 
-        # Assert - should use bulk method (1 call) instead of N individual calls
-        mock_repository.remove_document_sets_bulk.assert_called_once_with(
-            library_id=sample_library_with_id.library_id,
-            document_set_ids=document_set_ids,
-        )
+        mock_repository.update.assert_called_once()
 
-    def test_get_document_sets_success(self, service, mock_repository):
-        """Test getting document sets for library."""
-        # Arrange
-        expected_sets = ["set-1", "set-2", "set-3"]
-        mock_repository.get_document_sets_for_library.return_value = expected_sets
+    def test_get_document_sets_success(self, service, mock_repository, sample_library_with_id):
+        """Test getting document sets for library returns ids from the domain object."""
+        mock_repository.find_by_id.return_value = sample_library_with_id
 
-        # Act
-        result = service.get_document_sets(library_id="test-id")
+        result = service.get_document_sets(library_id=sample_library_with_id.library_id)
 
-        # Assert
-        assert result == expected_sets
-        mock_repository.get_document_sets_for_library.assert_called_once_with(library_id="test-id")
+        assert result == sample_library_with_id.document_set_ids

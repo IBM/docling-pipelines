@@ -92,7 +92,7 @@ class ACLQueryBuilder:
                 {
                     "multi_match": {
                         "query": query_text,
-                        "fields": ["content", "title", "metadata.*"],
+                        "fields": ["text", "content", "title"],
                         "type": "best_fields",
                         "operator": "or",
                     }
@@ -160,7 +160,7 @@ class ACLQueryBuilder:
             )
             return False
 
-        if len(allowed_users) == 0:
+        if not allowed_users:
             logger.debug("allowed_users is empty - access denied")
             return False
 
@@ -185,7 +185,10 @@ class ACLQueryBuilder:
             return False
 
         # Type narrowing: at this point allowed_users is guaranteed to be list[str]
-        assert allowed_users is not None
+        if (
+            allowed_users is None
+        ):  # pragma: no cover — validate_allowed_users already guards this; defensive narrowing for type checker
+            raise RuntimeError("allowed_users unexpectedly None after validation")
         has_access = username in allowed_users
         logger.debug(
             "User %s access check: %s (allowed_users=%s)",

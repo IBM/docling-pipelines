@@ -12,7 +12,6 @@ from docpipe.core.job_management.domain.models import NodeStatsFields
 from docpipe.exceptions.docpipe_exceptions import PostgresOperationException
 from docpipe.utils.infrastructure.logging import get_logger
 
-from ..models import NodeStatsModel
 from .base_dao import BaseDAO
 
 logger = get_logger()
@@ -25,21 +24,24 @@ class NodeStatsDAL:
     Handles persistence and retrieval of node-level statistics with micro-batching support.
     """
 
-    def __init__(self, *, session_factory):
+    def __init__(self, *, session_factory, model=None):
         """
         Initialize NodeStatsDAL with session factory.
 
         Args:
             session_factory: SQLAlchemy session factory
+            model: Optional SQLModel class to use instead of the default
         """
-        self._dao = BaseDAO(model=NodeStatsModel, session_factory=session_factory)
+        from ..models import NodeStatsModel
 
-    def upsert(self, *, node_stat: NodeStatsModel) -> None:
+        self._dao = BaseDAO(model=model or NodeStatsModel, session_factory=session_factory)
+
+    def upsert(self, *, node_stat) -> None:
         """
         Insert or update node stats using PostgreSQL's ON CONFLICT.
 
         Args:
-            node_stat: NodeStatsModel model instance
+            node_stat: Node stats model instance
 
         Raises:
             PostgresOperationException: If upsert operation fails
@@ -93,12 +95,12 @@ class NodeStatsDAL:
                 message=f"Failed to upsert node stats: {e}", operation="upsert", table="node_stats"
             ) from e
 
-    def bulk_insert(self, *, node_stats: list[NodeStatsModel]) -> None:
+    def bulk_insert(self, *, node_stats: list) -> None:
         """
         Bulk insert multiple node stats records.
 
         Args:
-            node_stats: List of NodeStatsModel model instances
+            node_stats: List of node stats model instances
 
         Raises:
             PostgresOperationException: If bulk insert fails
@@ -114,9 +116,7 @@ class NodeStatsDAL:
                 message=f"Failed to bulk insert node stats: {e}", operation="bulk_insert", table="node_stats"
             ) from e
 
-    def get_node_stats_by_run_batch(
-        self, *, node_id: str, job_run_id: str, batch_id: str | None = None
-    ) -> NodeStatsModel | None:
+    def get_node_stats_by_run_batch(self, *, node_id: str, job_run_id: str, batch_id: str | None = None):
         """
         Get node stats by node_id, job_run_id, and batch_id.
 
@@ -126,22 +126,19 @@ class NodeStatsDAL:
             batch_id: Batch identifier (None for aggregated stats)
 
         Returns:
-            NodeStatsModel if found, None otherwise
+            Model instance if found, None otherwise
 
         Raises:
             PostgresOperationException: If query fails
         """
         try:
-            query = (
-                select(NodeStatsModel)
-                .where(NodeStatsModel.node_id == node_id)
-                .where(NodeStatsModel.job_run_id == job_run_id)
-            )
+            model = self._dao.model
+            query = select(model).where(model.node_id == node_id).where(model.job_run_id == job_run_id)
 
             if batch_id is None:
-                query = query.where(NodeStatsModel.batch_id.is_(None))  # type: ignore[union-attr]
+                query = query.where(model.batch_id.is_(None))  # type: ignore[union-attr]
             else:
-                query = query.where(NodeStatsModel.batch_id == batch_id)
+                query = query.where(model.batch_id == batch_id)
 
             return self._dao.get_first_by_query(query=query)
         except Exception as e:
@@ -150,7 +147,7 @@ class NodeStatsDAL:
                 message=f"Failed to get node stats: {e}", operation="get", table="node_stats"
             ) from e
 
-    def get_aggregated_node_stats(self, *, job_run_id: str) -> list[NodeStatsModel]:
+    def get_aggregated_node_stats(self, *, job_run_id: str):
         """
         Get all aggregated node stats (batch_id IS NULL) for a job run.
 
@@ -158,16 +155,15 @@ class NodeStatsDAL:
             job_run_id: Job run identifier
 
         Returns:
-            List of NodeStatsModel with batch_id=NULL
+            List of model instances with batch_id=NULL
 
         Raises:
             PostgresOperationException: If query fails
         """
         try:
+            model = self._dao.model
             query = (
-                select(NodeStatsModel)
-                .where(NodeStatsModel.job_run_id == job_run_id)
-                .where(NodeStatsModel.batch_id.is_(None))  # type: ignore[union-attr]
+                select(model).where(model.job_run_id == job_run_id).where(model.batch_id.is_(None))  # type: ignore[union-attr]
             )
             return self._dao.get_by_query(query=query)
         except Exception as e:
@@ -176,7 +172,7 @@ class NodeStatsDAL:
                 message=f"Failed to get aggregated node stats: {e}", operation="get_aggregated", table="node_stats"
             ) from e
 
-    def get_batch_node_stats(self, *, job_run_id: str) -> list[NodeStatsModel]:
+    def get_batch_node_stats(self, *, job_run_id: str):
         """
         Get all batch-level node stats (batch_id IS NOT NULL) for a job run.
 
@@ -184,16 +180,15 @@ class NodeStatsDAL:
             job_run_id: Job run identifier
 
         Returns:
-            List of NodeStatsModel with batch_id NOT NULL
+            List of model instances with batch_id NOT NULL
 
         Raises:
             PostgresOperationException: If query fails
         """
         try:
+            model = self._dao.model
             query = (
-                select(NodeStatsModel)
-                .where(NodeStatsModel.job_run_id == job_run_id)
-                .where(NodeStatsModel.batch_id.isnot(None))  # type: ignore[union-attr]
+                select(model).where(model.job_run_id == job_run_id).where(model.batch_id.isnot(None))  # type: ignore[union-attr]
             )
             return self._dao.get_by_query(query=query)
         except Exception as e:
@@ -202,7 +197,7 @@ class NodeStatsDAL:
                 message=f"Failed to get batch node stats: {e}", operation="get_batch", table="node_stats"
             ) from e
 
-    def get_all_node_stats(self, *, job_run_id: str) -> list[NodeStatsModel]:
+    def get_all_node_stats(self, *, job_run_id: str):
         """
         Get ALL node stats (both batch and non-batch) for a job run.
 
@@ -210,13 +205,14 @@ class NodeStatsDAL:
             job_run_id: Job run identifier
 
         Returns:
-            List of all NodeStatsModel for the job run
+            List of all model instances for the job run
 
         Raises:
             PostgresOperationException: If query fails
         """
         try:
-            query = select(NodeStatsModel).where(NodeStatsModel.job_run_id == job_run_id)
+            model = self._dao.model
+            query = select(model).where(model.job_run_id == job_run_id)
             return self._dao.get_by_query(query=query)
         except Exception as e:
             logger.error(f"Failed to get all node stats: {e}")
@@ -235,8 +231,9 @@ class NodeStatsDAL:
             True if job has batch records, False otherwise
         """
         try:
+            model = self._dao.model
             condition = (
-                (NodeStatsModel.job_run_id == job_run_id) & (NodeStatsModel.batch_id.isnot(None))  # type: ignore[union-attr]
+                (model.job_run_id == job_run_id) & (model.batch_id.isnot(None))  # type: ignore[union-attr]
             )
             return self._dao.exists(condition=condition)
         except Exception:

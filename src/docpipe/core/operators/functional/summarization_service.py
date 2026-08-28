@@ -249,8 +249,7 @@ class SummarizationService:
         # Normalize markdown headers
         text = re.sub(r"(?m)^#+\s+Paragraph\b", "Paragraph", text)
         # Normalize colons and brackets
-        text = re.sub(r"Paragraph\s*(\d+)\s*[:\]]+", r"Paragraph \1:", text)
-        return text
+        return re.sub(r"Paragraph\s*(\d+)\s*[:\]]+", r"Paragraph \1:", text)
 
     def _extract_clean_summary(self, *, content: str) -> str:
         """Extract and clean summary content from raw paragraph text.

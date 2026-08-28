@@ -74,6 +74,7 @@ def cleanup_after_test():
 
 
 @pytest.mark.unit
+@pytest.mark.slow
 def test_extract_operator_doclang_format_exact_match():
     """Test that doclang format output has correct structure and content."""
     import pyarrow as pa
@@ -85,7 +86,7 @@ def test_extract_operator_doclang_format_exact_match():
     if not test_file.exists():
         pytest.skip(f"Test file not found: {test_file}")
 
-    with open(test_file, "rb") as f:
+    with Path(test_file).open("rb") as f:
         binary_content = f.read()
 
     # Create PyArrow table
@@ -125,7 +126,7 @@ def test_extract_operator_doclang_format_exact_match():
     _validate_doclang_structure(actual_doclang)
 
     # Verify metadata
-    assert metadata["total_docs_count"] == 1
+    assert metadata["documents_in_scope"] == 1
     assert metadata["processed_docs"] == 1
 
     print("\nDocLang format test passed!")
@@ -136,6 +137,7 @@ def test_extract_operator_doclang_format_exact_match():
 
 
 @pytest.mark.unit
+@pytest.mark.slow
 def test_extract_operator_doclang_structure_validation():
     """Test that doclang format contains expected structural elements."""
     import pyarrow as pa
@@ -147,7 +149,7 @@ def test_extract_operator_doclang_structure_validation():
     if not test_file.exists():
         pytest.skip(f"Test file not found: {test_file}")
 
-    with open(test_file, "rb") as f:
+    with Path(test_file).open("rb") as f:
         binary_content = f.read()
 
     # Create PyArrow table
@@ -198,6 +200,7 @@ def test_extract_operator_doclang_structure_validation():
 
 
 @pytest.mark.unit
+@pytest.mark.slow
 def test_extract_operator_doclang_not_generated_by_default():
     """Test that doclang column is not created when not in additional_formats."""
     import pyarrow as pa
@@ -209,7 +212,7 @@ def test_extract_operator_doclang_not_generated_by_default():
     if not test_file.exists():
         pytest.skip(f"Test file not found: {test_file}")
 
-    with open(test_file, "rb") as f:
+    with Path(test_file).open("rb") as f:
         binary_content = f.read()
 
     # Create PyArrow table

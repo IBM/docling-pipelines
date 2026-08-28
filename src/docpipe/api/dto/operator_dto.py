@@ -52,18 +52,28 @@ from docpipe.api.dto.field_definitions import (
     OPERATOR_FEATURE_DESCRIPTION_MAX_LENGTH,
     OPERATOR_FEATURE_DESCRIPTION_MIN_LENGTH,
     OPERATOR_FEATURE_FILTER_DESC,
+    OPERATOR_FEATURE_IS_PRIMARY_DESC,
+    OPERATOR_FEATURE_MANDATORY_VECTOR_DB_DESC,
+    OPERATOR_FEATURE_NAME_DESC,
     OPERATOR_FEATURE_NAME_MAX_LENGTH,
     OPERATOR_FEATURE_NAME_MIN_LENGTH,
     OPERATOR_FEATURE_NAME_PATTERN,
+    OPERATOR_FEATURE_OPENSEARCH_DESC,
+    OPERATOR_FEATURE_PROPERTIES_DESC,
+    OPERATOR_FEATURE_PROVIDERS_DESC,
     OPERATOR_FEATURE_REQUIRED_DESC,
+    OPERATOR_FEATURE_TAGS_DESC,
+    OPERATOR_FEATURE_VALID_VALUES_DESC,
     OPERATOR_FEATURE_VECTOR_DB_DESC,
     OPERATOR_FEATURES_DESC,
     OPERATOR_FEATURES_MAX,
     OPERATOR_FEATURES_MIN,
+    OPERATOR_IS_AVAILABLE_DESC,
     OPERATOR_LABEL_DESC,
     OPERATOR_LABEL_MAX_LENGTH,
     OPERATOR_LABEL_MIN_LENGTH,
     OPERATOR_LABEL_PATTERN,
+    OPERATOR_OWNER_DESC,
     OPERATOR_REQUIRED_FEATURES_DESC,
     OPERATOR_REQUIRED_FEATURES_MAX,
     OPERATOR_REQUIRED_FEATURES_MIN,
@@ -125,6 +135,12 @@ class OperatorFeature(BaseModel):
             "vector_sparse",
         ],
     )
+    name: str | None = Field(
+        default=None,
+        min_length=OPERATOR_FEATURE_NAME_MIN_LENGTH,
+        max_length=OPERATOR_FEATURE_NAME_MAX_LENGTH,
+        description=OPERATOR_FEATURE_NAME_DESC,
+    )
     description: str | None = Field(
         default=None,
         min_length=OPERATOR_FEATURE_DESCRIPTION_MIN_LENGTH,
@@ -136,6 +152,13 @@ class OperatorFeature(BaseModel):
     default: Any | None = Field(default=None, description=OPERATOR_FEATURE_DEFAULT_DESC)
     available_for_filter: bool | None = Field(default=None, description=OPERATOR_FEATURE_FILTER_DESC)
     available_for_vector_db: bool | None = Field(default=None, description=OPERATOR_FEATURE_VECTOR_DB_DESC)
+    available_for_opensearch: bool | None = Field(default=None, description=OPERATOR_FEATURE_OPENSEARCH_DESC)
+    mandatory_for_vector_db: bool | None = Field(default=None, description=OPERATOR_FEATURE_MANDATORY_VECTOR_DB_DESC)
+    is_primary: bool | None = Field(default=None, description=OPERATOR_FEATURE_IS_PRIMARY_DESC)
+    tags: list[str] | None = Field(default=None, description=OPERATOR_FEATURE_TAGS_DESC)
+    properties: dict[str, Any] | None = Field(default=None, description=OPERATOR_FEATURE_PROPERTIES_DESC)
+    valid_values: list[Any] | None = Field(default=None, description=OPERATOR_FEATURE_VALID_VALUES_DESC)
+    providers: dict[str, Any] | None = Field(default=None, description=OPERATOR_FEATURE_PROVIDERS_DESC)
 
 
 class OperatorMetadataItem(BaseModel):
@@ -237,6 +260,8 @@ class OperatorMetadataItem(BaseModel):
         description=OPERATOR_ATTRIBUTES_DESC,
         json_schema_extra={"minProperties": OPERATOR_ATTRIBUTES_MIN, "maxProperties": OPERATOR_ATTRIBUTES_MAX},
     )
+    owner: str | None = Field(default=None, description=OPERATOR_OWNER_DESC)
+    is_operator_available: bool | None = Field(default=None, description=OPERATOR_IS_AVAILABLE_DESC)
 
     model_config = {
         "json_schema_extra": {

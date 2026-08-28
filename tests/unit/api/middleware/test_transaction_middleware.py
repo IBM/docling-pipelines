@@ -1,7 +1,7 @@
 """Tests for transaction middleware."""
 
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import Request
@@ -24,8 +24,7 @@ def mock_call_next():
     """Create a mock call_next function."""
 
     async def call_next(request):
-        response = Response(content="test", status_code=200)
-        return response
+        return Response(content="test", status_code=200)
 
     return call_next
 
@@ -154,3 +153,103 @@ async def test_transaction_middleware_generated_id_in_response(mock_request, moc
     # Verify response uses X-Transaction-ID header
     assert response.headers["X-Transaction-ID"] == transaction_id
     assert "X-Global-Transaction-Id" not in response.headers
+
+
+class TestTransactionMiddlewareMetrics:
+    """Test that TransactionMiddleware records HTTP request metrics."""
+
+    @pytest.fixture
+    def mock_request(self):
+        request = MagicMock(spec=Request)
+        request.state = MagicMock()
+        request.headers = {}
+        request.url.path = "/api/v1/operators"
+        request.method = "GET"
+        return request
+
+    @pytest.mark.anyio
+    async def test_record_http_request_called_on_success(self, mock_request):
+        """record_http_request should be called with correct args after a 200 response."""
+
+        async def call_next(request):
+            return Response(content="ok", status_code=200)
+
+        mock_telemetry = MagicMock()
+        mock_telemetry.start_span.return_value = None
+
+        with patch(
+            "docpipe.api.middleware.transaction_middleware.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            middleware = TransactionMiddleware(app=MagicMock())
+            await middleware.dispatch(mock_request, call_next)
+
+        mock_telemetry.record_http_request.assert_called_once()
+        call_kwargs = mock_telemetry.record_http_request.call_args.kwargs
+        assert call_kwargs["method"] == "GET"
+        assert call_kwargs["path"] == "/api/v1/operators"
+        assert call_kwargs["status_code"] == 200
+        assert call_kwargs["duration_ms"] >= 0
+
+    @pytest.mark.anyio
+    async def test_record_http_request_called_on_server_error(self, mock_request):
+        """record_http_request should be called even on 500 responses."""
+
+        async def call_next(request):
+            return Response(content="err", status_code=500)
+
+        mock_telemetry = MagicMock()
+        mock_telemetry.start_span.return_value = None
+
+        with patch(
+            "docpipe.api.middleware.transaction_middleware.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            middleware = TransactionMiddleware(app=MagicMock())
+            await middleware.dispatch(mock_request, call_next)
+
+        call_kwargs = mock_telemetry.record_http_request.call_args.kwargs
+        assert call_kwargs["status_code"] == 500
+
+    @pytest.mark.anyio
+    async def test_duration_is_positive(self, mock_request):
+        """duration_ms passed to record_http_request must be >= 0."""
+        import asyncio
+
+        async def call_next(request):
+            await asyncio.sleep(0.01)
+            return Response(content="ok", status_code=200)
+
+        mock_telemetry = MagicMock()
+        mock_telemetry.start_span.return_value = None
+
+        with patch(
+            "docpipe.api.middleware.transaction_middleware.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            middleware = TransactionMiddleware(app=MagicMock())
+            await middleware.dispatch(mock_request, call_next)
+
+        duration_ms = mock_telemetry.record_http_request.call_args.kwargs["duration_ms"]
+        assert duration_ms >= 0
+
+    @pytest.mark.anyio
+    async def test_span_ended_in_finally(self, mock_request):
+        """end_span must be called in the finally block even if call_next raises."""
+
+        async def call_next(request):
+            raise RuntimeError("handler crashed")
+
+        mock_telemetry = MagicMock()
+        mock_span = MagicMock()
+        mock_telemetry.start_span.return_value = mock_span
+
+        with patch(
+            "docpipe.api.middleware.transaction_middleware.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            middleware = TransactionMiddleware(app=MagicMock())
+            with pytest.raises(RuntimeError):
+                await middleware.dispatch(mock_request, call_next)
+
+        mock_telemetry.end_span.assert_called_once_with(mock_span)

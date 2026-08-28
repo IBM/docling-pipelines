@@ -1,7 +1,9 @@
+"""Logging utilities for docpipe operator execution tracking."""
+
 import copy
 import datetime
 import json
-import os
+from pathlib import Path
 from typing import Any
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
@@ -14,7 +16,7 @@ def epoch_to_datetime(*, epoch_time):
     """Converts epoch time to a datetime object."""
     if not epoch_time:
         return ""
-    return datetime.datetime.fromtimestamp(epoch_time)
+    return datetime.datetime.fromtimestamp(epoch_time, tz=datetime.UTC)
 
 
 def _operator_log_split(*, value, operator_logs_combined):
@@ -33,22 +35,20 @@ def _operator_log_split(*, value, operator_logs_combined):
 
 def get_log_and_job_file_path(*, job_id, jobrun_id):
     # Path structure: ./data/<job_id>/<job_run_id>/docpipe_logs/
+    """Get log and job file path."""
     log_app_location = DocpipeConstants.DOCPIPE_LOGS
     log_job_run_file_name = "flow_execute.log"
     job_log_file_name = "job_stats.json"
     log_location_path = get_data_path()
 
-    stats_dir = os.path.join(log_location_path, job_id, str(jobrun_id), log_app_location)
+    stats_dir = Path(log_location_path) / job_id / str(jobrun_id) / log_app_location
 
-    log_final_path = os.path.join(stats_dir, log_job_run_file_name)
-    job_log_final_path = os.path.join(stats_dir, job_log_file_name)
-    aggregated_job_log_path = os.path.join(stats_dir, "flow_execute_aggregated.json")
+    log_final_path = str(stats_dir / log_job_run_file_name)
+    job_log_final_path = str(stats_dir / job_log_file_name)
+    aggregated_job_log_path = str(stats_dir / "flow_execute_aggregated.json")
 
-    nodes_metadata_final_path = os.path.join(
-        log_location_path,
-        job_id,
-        str(jobrun_id),
-        OperatorConstants.Config.NODES_METADATA_FILE,
+    nodes_metadata_final_path = str(
+        Path(log_location_path) / job_id / str(jobrun_id) / OperatorConstants.Config.NODES_METADATA_FILE
     )
     return (
         log_final_path,
@@ -59,6 +59,7 @@ def get_log_and_job_file_path(*, job_id, jobrun_id):
 
 
 def retrieve_operator_logs(*, job_id, jobrun_id):
+    """Retrieve operator logs."""
     (
         log_final_path,
         job_log_final_path,
@@ -75,29 +76,28 @@ def retrieve_operator_logs(*, job_id, jobrun_id):
     # # If database returns empty, try aggregated file (new format) or fall back to old sequential flow format
     # if not content:
     # Try new aggregated format first
-    if os.path.exists(aggregated_job_log_path):
+    if Path(aggregated_job_log_path).exists():
         aggregated_content = read_json_if_exists(path=aggregated_job_log_path)
         if aggregated_content:
             # Aggregated file has complete structure, return it
             return aggregated_content
 
     # Fall back to old sequential flow format (backward compatibility)
-    if os.path.exists(log_final_path):
-        with open(log_final_path) as file:
+    if Path(log_final_path).exists():
+        with Path(log_final_path).open() as file:
             content = file.read()
 
-    operator_logs_combined = get_logs(
+    return get_logs(
         content=content,
         job_log_final_path=job_log_final_path,
         nodes_metadata_final_path=nodes_metadata_final_path,
     )
-    return operator_logs_combined
 
 
 def read_json_if_exists(*, path):
     """Reads and returns JSON if file exists."""
-    if path and os.path.exists(path):
-        with open(path) as f:
+    if path and Path(path).exists():
+        with Path(path).open() as f:
             return json.load(f)
     return None
 
@@ -184,6 +184,7 @@ def get_logs(*, content, job_log_final_path: str | None = None, nodes_metadata_f
 
 
 def retrieve_node_specific_operator_logs(*, job_id, jobrun_id, node_id):
+    """Retrieve node specific operator logs."""
     return retrieve_operator_logs(job_id=job_id, jobrun_id=jobrun_id).get(node_id)
 
 
@@ -210,9 +211,11 @@ def _count_and_remove_lists(*, node_info: dict, keys_to_count: list) -> None:
     """
     Converts lists in node_info to count values and removes the original lists.
     """
+    _key_rename = {"total_docs": Metrics.External.TOTAL_DOCS}
     for key in keys_to_count:
         if key in node_info and isinstance(node_info[key], list):
-            node_info[f"{key}_count"] = len(node_info[key])
+            count_key = _key_rename.get(key, f"{key}_count")
+            node_info[count_key] = len(node_info[key])
             del node_info[key]
 
 
@@ -237,11 +240,11 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
         metadata = node_info.get(OperatorConstants.Metadata.NODE_METADATA, {})
         if node_info.get(Metrics.External.START_TIME):
             node_info[Metrics.External.START_TIME] = datetime.datetime.fromtimestamp(
-                node_info[Metrics.External.START_TIME]
+                node_info[Metrics.External.START_TIME], tz=datetime.UTC
             ).strftime("%Y-%m-%d %H:%M:%S")
         if node_info.get(Metrics.External.END_TIME):
             node_info[Metrics.External.END_TIME] = datetime.datetime.fromtimestamp(
-                node_info[Metrics.External.END_TIME]
+                node_info[Metrics.External.END_TIME], tz=datetime.UTC
             ).strftime("%Y-%m-%d %H:%M:%S")
         # Extract and append document-level errors if present
         if metadata:
@@ -260,6 +263,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
 
 
 def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | None = None) -> str:
+    """Format operator logs."""
     status = job_stats.get("status")
     job_status = status.value if status is not None and isinstance(status, ExecutionStatus) else status
 
@@ -275,7 +279,7 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | 
         node_stats = format_node_stats(node_stats=node_stats_value, node_sequence=node_sequence)
     else:
         node_stats = ""
-    complete_message = f"""
+    return f"""
 >>> The flow execution is {job_status}.
 >>> Job Statistics:
     > Job ID          : {job_id}
@@ -295,4 +299,3 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | 
     {node_stats}
     >>> ===============================================================
     """
-    return complete_message

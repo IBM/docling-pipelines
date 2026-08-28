@@ -1,6 +1,6 @@
 [run]
 branch = True
-source = src/docpipe_app
+source = src/docpipe
 omit =
     */tests/*
     */test_*.py

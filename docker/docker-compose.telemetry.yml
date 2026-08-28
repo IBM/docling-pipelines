@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Jaeger all-in-one for local development
+  # Includes collector, query service, and UI
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: docling-pipelines-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+      - "14268:14268"  # Jaeger collector HTTP
+      - "14250:14250"  # Jaeger collector gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=info
+    networks:
+      - docling-pipelines-telemetry
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Docling Pipelines API with telemetry enabled
+  docling-pipelines-api:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    container_name: docling-pipelines-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Telemetry Configuration
+      - TELEMETRY_ENABLED=true
+      - OTEL_SERVICE_NAME=docling-pipelines-dev
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_VERSION=0.1.0
+      - OTEL_DEPLOYMENT_ENVIRONMENT=development
+
+      # Python Path
+      - PYTHONPATH=/app/src
+
+      # Optional: Add other Docling Pipelines configuration
+      # - OPENSEARCH_HOST=opensearch
+      # - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ../sample_flows:/app/sample_flows:ro
+      - ../sample_documents:/app/sample_documents:ro
+    depends_on:
+      jaeger:
+        condition: service_healthy
+    networks:
+      - docling-pipelines-telemetry
+    command: ["uvicorn", "docpipe.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+networks:
+  docling-pipelines-telemetry:
+    driver: bridge

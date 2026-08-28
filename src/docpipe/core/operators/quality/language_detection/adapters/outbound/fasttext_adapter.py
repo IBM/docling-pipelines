@@ -101,12 +101,11 @@ class FastTextAdapter(LanguageServicePort):
 
             # Extract language code (remove '__label__' prefix)
             # predictions[0] is a tuple of labels, predictions[1] is array of probabilities
-            if len(predictions) >= 2 and len(predictions[0]) > 0 and len(predictions[1]) > 0:
+            if len(predictions) >= 2 and predictions[0] and predictions[1]:
                 language_code = predictions[0][0].replace("__label__", "")
                 confidence = float(predictions[1][0])
                 return LanguageDetectionResult(language_code=language_code, confidence=confidence)
-            else:
-                raise ValueError("FastText returned invalid predictions")
+            raise ValueError("FastText returned invalid predictions")
 
         except ValueError:
             # Re-raise ValueError as-is

@@ -230,12 +230,6 @@ Direct `"provider": "ollama"` support was removed. Migrate as follows:
 Ingest → Extract → PIIAndHAPAnnotator → [Chunker → Embeddings → VectorDB]
 ```
 
-## References
-
-- [Common Infrastructure Documentation](../../../src/docpipe/core/adapters/llm_adapter_factory.py)
-- [Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/)
-- [Ports and Adapters Pattern](https://herbertograca.com/2017/09/14/ports-adapters-architecture/)
-
 ## Sample Flow
 
 See [`sample_flows/operators/pii_hap_detection.json`](../../../sample_flows/operators/pii_hap_detection.json) for a complete example using PII and HAP detection.

@@ -261,6 +261,9 @@ class TestLanguageDetectOperator:
         assert OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE in metadata[OperatorConstants.Config.ATTRIBUTES]
         assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
         assert OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
+        provider_attr = metadata[OperatorConstants.Config.ATTRIBUTES]["language_provider"]
+        assert OperatorConstants.Config.VALID_VALUES in provider_attr
+        assert set(provider_attr[OperatorConstants.Config.VALID_VALUES]) == set(LanguageAdapterFactory.list_adapters())
 
     def test_operator_transform_basic(self, sample_config, sample_table):
         """Test basic language detection transformation"""
@@ -281,9 +284,14 @@ class TestLanguageDetectOperator:
         assert metadata[Metrics.External.TOTAL_DOCS] == 3
         assert metadata[Metrics.External.PROCESSED_DOCS] == 3
 
-    def test_operator_transform_detects_languages(self, sample_config, sample_table):
+    def test_operator_transform_detects_languages(self, sample_table):
         """Test that operator correctly detects languages"""
-        operator = LanguageDetect(sample_config)
+        config = {
+            "doc_column": "content",
+            "language_provider": "langdetect",
+            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: False,
+        }
+        operator = LanguageDetect(config)
         result_tables, _metadata = operator.transform(sample_table)
         result_table = result_tables[0]
 

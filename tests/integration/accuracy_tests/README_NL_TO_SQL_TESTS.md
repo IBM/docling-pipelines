@@ -369,4 +369,4 @@ When adding queries, assign appropriate complexity:
 
 ## License
 
-Same as parent project. 
+Same as parent project.

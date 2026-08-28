@@ -1,6 +1,7 @@
 """Tests for schema template loading functionality in OpenSearchIndexManager."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -49,7 +50,7 @@ class TestSchemaTemplateLoading:
         """Test loading schema template from file."""
         # Create temporary schema file
         schema_file = tmp_path / "test_schema.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(sample_schema_template, f)
 
         # Initialize index manager with schema template path and available features
@@ -108,7 +109,7 @@ class TestSchemaTemplateLoading:
         """Test fallback when schema file contains invalid JSON."""
         # Create file with invalid JSON
         schema_file = tmp_path / "invalid_schema.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             f.write("{ invalid json }")
 
         manager = OpenSearchIndexManager(
@@ -176,7 +177,7 @@ class TestSchemaTemplateLoading:
         }
 
         schema_file = tmp_path / "nested_schema.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -224,7 +225,7 @@ class TestSchemaTemplateLoading:
         }
 
         schema_file = tmp_path / "params_schema.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -290,7 +291,7 @@ class TestSchemaTemplateLoading:
         }
 
         schema_file = tmp_path / "analyzer_test_schema.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         # Use feature mappings to rename content -> document_content
@@ -306,10 +307,10 @@ class TestSchemaTemplateLoading:
                 "title": {"type": "string", "available_for_vector_db": True},
                 "embeddings": {"type": "vector", "available_for_vector_db": True},
             },
-            feature_mappings={
-                "content": "document_content",
-                "title": "document_title",
-            },
+            feature_mappings=[
+                {"feature_name": "content", "mapped_column_name": "document_content"},
+                {"feature_name": "title", "mapped_column_name": "document_title"},
+            ],
         )
 
         dimension_mapping = {"embeddings": 384}
@@ -366,7 +367,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "basic_override.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -397,7 +398,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "boost_override.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -428,7 +429,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "copy_to_override.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -470,7 +471,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "multiple_overrides.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -506,7 +507,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "priority_test.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -516,7 +517,7 @@ class TestIndexingRules:
             available_features={
                 "content": {"type": "string", "available_for_vector_db": True},
             },
-            feature_mappings={"content": "document_content"},
+            feature_mappings=[{"feature_name": "content", "mapped_column_name": "document_content"}],
         )
 
         dimension_mapping = {"embeddings": 384}
@@ -538,7 +539,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "fallback_test.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -548,7 +549,7 @@ class TestIndexingRules:
             available_features={
                 "content": {"type": "string", "available_for_vector_db": True},
             },
-            feature_mappings={"content": "document_content"},
+            feature_mappings=[{"feature_name": "content", "mapped_column_name": "document_content"}],
         )
 
         dimension_mapping = {"embeddings": 384}
@@ -568,7 +569,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "system_type_fallback.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -600,7 +601,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "invalid_field_type.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -614,7 +615,7 @@ class TestIndexingRules:
 
         # Should raise DocpipeException for unknown field type
         with pytest.raises(DocpipeException) as exc_info:
-            dimension_mapping = {}
+            dimension_mapping: dict[str, int] = {}
             manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify error message contains helpful information
@@ -638,7 +639,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "empty_analysis.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -679,7 +680,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "nested_merge.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -718,7 +719,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "allowlist_test.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(
@@ -753,7 +754,7 @@ class TestIndexingRules:
         }
 
         schema_file = tmp_path / "dict_format.json"
-        with open(schema_file, "w") as f:
+        with Path(schema_file).open("w") as f:
             json.dump(schema, f)
 
         manager = OpenSearchIndexManager(

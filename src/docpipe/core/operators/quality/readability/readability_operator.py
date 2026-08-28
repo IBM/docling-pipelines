@@ -58,10 +58,12 @@ class ReadabilityOperator(AbstractOperator):
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
         }
+        # Initialize our custom readability metrics calculator
         self.metrics_calculator = ReadabilityMetrics()
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: ReadabilityOperator.category.value,
@@ -161,52 +163,69 @@ class ReadabilityOperator(AbstractOperator):
         }
 
     @staticmethod
-    def get_static_required_features() -> list[str]:
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
-
-    @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def _calculate_scores_for_text(self, *, text: str) -> dict[str, float]:
+        """Calculate readability scores for a single text"""
         if not text:
             return dict.fromkeys(self.score_list, 0.0)
+
         stats = self.metrics_calculator.text_stats(text=text)
         scores = {}
+
         for score in self.score_list:
             method = getattr(self.metrics_calculator, score)
             scores[score] = method(stats=stats)
+
         return scores
 
     def _process_all_rows(self, *, content_column: pa.Array) -> dict[str, list[float]]:
+        """Process all rows and build score columns"""
         score_columns: dict[str, list[float]] = {score: [] for score in self.score_list}
+
         content_list = content_column.to_pylist()
+
         for text in content_list:
             text = text if text is not None else ""
             scores = self._calculate_scores_for_text(text=text)
+
             for score in self.score_list:
                 score_columns[score].append(scores[score])
+
         return score_columns
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform function for readability scores - calculates only requested metrics"""
+        # Get the content column
         if self.contents_column_name not in table.column_names:
             raise ValueError(f"Content column '{self.contents_column_name}' not found in table")
+
         content_column = table.column(self.contents_column_name)
+
+        # Calculate readability scores for each document
         score_columns = self._process_all_rows(content_column=content_column)
+
+        # Create new columns for each score
         new_columns = []
         new_fields = []
+
         for score in self.score_list:
             new_columns.append(pa.array(score_columns[score], type=pa.float64()))
             new_fields.append(pa.field(score, pa.float64()))
+
+        # Combine original table with new score columns
         transformed_table = table.append_column(new_fields[0], new_columns[0])
         for i in range(1, len(new_fields)):
             transformed_table = transformed_table.append_column(new_fields[i], new_columns[i])
+
         metadata = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
         metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
         return [transformed_table], metadata
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """Validate."""
         if not self.score_list:
             warnings.append("At least one readability score must be selected")
         elif not set(self.score_list).issubset(set(DEFAULT_READABILITY_SCORES)):

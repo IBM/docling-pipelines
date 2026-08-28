@@ -200,6 +200,33 @@ class TestBatchContextExecutorIntegration:
         assert len(call_kwargs["failed_docs"]) == 1
         assert call_kwargs["failed_docs"][0] == "doc2"
 
+    def test_failed_docs_excluded_from_docs_completed(
+        self, mock_job_stats_service, executor_params_with_batch, sample_table
+    ):
+        """Failed and skipped doc IDs must not appear in docs_completed (fixes 2/4 display bug)."""
+        from docpipe.core.orchestration.python.python_operator_executor import PythonOperatorExecutor
+
+        executor = PythonOperatorExecutor(
+            name="test_node",
+            operator="noop",
+            params=executor_params_with_batch,
+            job_stats_service=mock_job_stats_service,
+        )
+
+        # doc1=success, doc2=failed, doc3=skipped — all present in the output table
+        metadata = {
+            "node_status": ExecutionStatus.COMPLETED.value,
+            "failed_docs": [{"id": "doc2"}],
+            "skipped_docs": [{"id": "doc3"}],
+            "processed_docs": 1,
+        }
+        executor.update_final_node_stats(tables=[sample_table], metadata=metadata)
+
+        call_kwargs = mock_job_stats_service.complete_node_execution.call_args.kwargs
+        assert call_kwargs["docs_completed"] == ["doc1"], "failed/skipped IDs must be excluded from docs_completed"
+        assert call_kwargs["failed_docs"] == ["doc2"]
+        assert call_kwargs["skipped_docs"] == ["doc3"]
+
     def test_batch_context_with_dict_tables(self, mock_job_stats_service, executor_params_with_batch, sample_table):
         """Test batch context with dict of tables (branching scenario)."""
         from docpipe.core.orchestration.python.python_operator_executor import (
@@ -418,4 +445,4 @@ class TestBatchStateTransitions:
         # When abort is implemented, add tests like:
         # - test_running_to_aborted_transition_with_batch_context
         # - test_cancelled_batch_calls_abort_node_execution
-        pass
+        ...  # noqa: PIE790

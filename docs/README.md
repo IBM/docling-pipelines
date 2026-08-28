@@ -23,6 +23,7 @@ Task-oriented guides to help you accomplish specific goals:
 - **[Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)** - Build custom data source connectors
 - **[Custom Operators Guide](guides/CUSTOM_OPERATORS_GUIDE.md)** - Create your own operators
 - **[External Operator Integration](guides/EXTERNAL_OPERATOR_INTEGRATION.md)** - Integrate external operators
+- **[Testing Standards](guides/TESTING_STANDARDS.md)** - Coverage requirements, test organisation, fixtures, and naming conventions
 
 ### Advanced Topics
 - **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)** - Production deployment and optimization
@@ -39,12 +40,12 @@ Task-oriented guides to help you accomplish specific goals:
 Configuration examples and patterns for all operators:
 
 ### Core Pipeline Operators
-- **[IngestLocal](operators/ingest/ingest_local_readme.md)** - Ingest documents from local filesystem
-- **[IngestSource](operators/ingest/ingest_source_readme.md)** - Ingest from external sources (S3, SharePoint, etc.)
+- **[IngestSource](operators/ingest/ingest_source_readme.md)** - Ingest documents from local filesystem or external sources (S3, SharePoint, etc.)
 - **[Extract](operators/extract/extract_operator_readme.md)** - Extract text and entities from documents
 - **[Chunker](operators/functional/chunker_readme.md)** - Split documents into chunks
 - **[Embeddings](operators/functional/embeddings_readme.md)** - Generate vector embeddings
-- **[VectorDB](operators/vectordb/vectordb_readme.md)** - Store vectors in OpenSearch or Milvus
+- **[VectorDB](operators/vectordb/)** - Store vectors in OpenSearch or Milvus
+- **[StorageOutput](operators/storage/storage_output_readme.md)** - Write documents to a file destination (filesystem, etc.)
 
 ### All Operator Configurations
 Browse the complete list of operator configuration examples in the [operators/](operators/) directory.
@@ -88,8 +89,9 @@ Resources for contributors:
 
 Internal documentation for maintainers:
 
-- **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
 - **[Metadata Aggregation Strategy](internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Metadata aggregation in micro-batching
+- **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
+- **[Unified Asset Architecture](internals/UNIFIED_ASSET_ARCHITECTURE.md)** - Complete reference for the common asset layer: domain models, ports, adapters, factories, and service wiring
 
 ## 🚀 Deployment
 
@@ -118,6 +120,8 @@ docs/
 └── deployment/          # Deployment guides
 ```
 
+**Note:** Comprehensive operator documentation (architecture, implementation details) is located in the source code directories at `src/docpipe/core/operators/*/README.md`.
+
 ## 🔍 Finding What You Need
 
 **I want to...**
@@ -127,7 +131,7 @@ docs/
 - **Write my first flow** → [Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)
 - **Look up a parameter** → [Global Config Reference](reference/GLOBAL_CONFIG.md) or [Operator Reference](reference/OPERATORS.md)
 - **See operator config examples** → [Operator Configs Directory](operators/)
-- **Understand operator internals** → Browse [operator documentation](operators/)
+- **Understand operator internals** → Check `src/docpipe/core/operators/*/README.md` in source code
 - **Use the Python API** → [Python API Guide](guides/PYTHON_API_GUIDE.md)
 - **Use the REST API** → [REST API Server](api/REST_API_SERVER.md)
 - **Set up OAuth2 authentication** → [OAuth2 Authentication Guide](api/OAUTH2_AUTHENTICATION.md)

@@ -1,5 +1,5 @@
 # Copyright IBM Corp. 2025
-# -License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 
 """
 LiteLLM Client for unified multi-provider LLM operations.
@@ -123,11 +123,11 @@ class LiteLLMLLMClient(BaseLLMClient):
         # Infer from model name patterns
         if model_name.startswith("gpt-") or "text-embedding" in model_name:
             return "openai"
-        elif model_name.startswith("claude-"):
+        if model_name.startswith("claude-"):
             return "anthropic"
-        elif model_name.startswith("command-") or model_name.startswith("embed-"):
+        if model_name.startswith(("command-", "embed-")):
             return "cohere"
-        elif model_name.startswith("ollama/"):
+        if model_name.startswith("ollama/"):
             return "ollama"
 
         # Default to openai
@@ -297,7 +297,7 @@ class LiteLLMLLMClient(BaseLLMClient):
             ) from e
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
-    def chat(self, messages: list[dict[str, str]], **kwargs) -> str:  # NOSONAR python:S3776
+    def chat(self, messages: list[dict[str, str]], **kwargs) -> str:
         """
         Generate chat completion using LiteLLM.
 

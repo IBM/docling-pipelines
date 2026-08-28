@@ -47,7 +47,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_job_stats(self, job_run_id: str) -> JobStats | None:
@@ -63,7 +63,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def store_node_stats(self, *, job_run_id: str, node_stats: NodeStats) -> None:
@@ -79,7 +79,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If storage operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_node_stats(self, *, job_run_id: str) -> list[NodeStats]:
@@ -99,7 +99,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_batch_node_stats(self, *, job_run_id: str) -> dict[str, dict[str, NodeStats]]:
@@ -118,7 +118,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def bulk_store_node_stats(self, *, job_run_id: str, node_stats_list: list[NodeStats]) -> None:
@@ -134,7 +134,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If bulk operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def atomic_increment_fields(
@@ -142,7 +142,7 @@ class JobStatsStore(ABC):
         job_run_id: str,
         increments: dict[str, int],
         updates: dict[str, Any] | None = None,
-        jsonb_merges: dict[str, dict] | None = None,
+        jsonb_merges: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """
         Atomically increment numeric fields and update others.
@@ -159,7 +159,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreWriteException: If atomic update fails
         """
-        pass
+        ...
 
     @abstractmethod
     def get_node_stats_by_batch_and_node(
@@ -179,7 +179,7 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If read operation fails
         """
-        pass
+        ...
 
     @abstractmethod
     def delete_job_stats(self, job_run_id: str) -> None:
@@ -194,12 +194,13 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreDeleteException: If job_run_id not found or deletion fails
         """
-        pass
+        ...
 
     @abstractmethod
     def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -207,7 +208,8 @@ class JobStatsStore(ABC):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (bulk lookup, uses IN clause in SQL stores)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -217,4 +219,4 @@ class JobStatsStore(ABC):
         Raises:
             JobStatsStoreReadException: If list operation fails
         """
-        pass
+        ...

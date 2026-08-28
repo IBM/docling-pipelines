@@ -11,7 +11,7 @@ from opensearchpy import OpenSearch, helpers
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.utils.infrastructure.logging import get_logger
-from docpipe.utils.operators.vectordb_utils import calculate_batch_size_bytes
+from docpipe.utils.operators.vectordb_utils import build_mapping_dict, calculate_batch_size_bytes, feature_mapping_items
 
 logger = get_logger()
 
@@ -63,7 +63,7 @@ class OpenSearchBatchProcessor:
         index_name: str,
         batch_size: int = DEFAULT_BATCH_SIZE,
         available_features: dict[str, Any] | None = None,
-        feature_mappings: dict[str, str] | None = None,
+        feature_mappings: list[dict[str, str]] | None = None,
     ) -> None:
         """
         Initialize the batch processor.
@@ -73,15 +73,16 @@ class OpenSearchBatchProcessor:
             index_name: Name of the index
             batch_size: Maximum documents per batch
             available_features: Feature configuration
-            feature_mappings: Column to field mappings
+            feature_mappings: Canonical list-of-dicts column to field mappings
         """
         self.client = client
         self.index_name = index_name
         self.batch_size = batch_size
         self.available_features = available_features or {}
-        self.feature_mappings = feature_mappings or {}
+        self.feature_mappings: list[dict[str, str]] = feature_mappings or []
+        self._mapping_dict: dict[str, str] = build_mapping_dict(mappings=self.feature_mappings)
 
-    def prepare_document(self, *, row_data: dict[str, Any]) -> dict[str, Any]:  # NOSONAR python:S3776
+    def prepare_document(self, *, row_data: dict[str, Any]) -> dict[str, Any]:
         """
         Prepare a document for indexing by mapping columns to index fields.
 
@@ -97,7 +98,7 @@ class OpenSearchBatchProcessor:
         doc: dict[str, Any] = {}
 
         # Process fields defined in feature_mappings
-        for feature_name, mapped_name in self.feature_mappings.items():
+        for feature_name, mapped_name in feature_mapping_items(self.feature_mappings):
             # Get value from row data
             value = row_data.get(feature_name)
 
@@ -108,7 +109,7 @@ class OpenSearchBatchProcessor:
             feature_config: dict[str, Any] = self.available_features.get(feature_name, {})
 
             # Skip if explicitly marked as unavailable for vector db
-            if feature_config.get(OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB) is False:
+            if not feature_config.get(OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, True):
                 continue
 
             # Skip binary data types that cannot be JSON serialized
@@ -137,7 +138,7 @@ class OpenSearchBatchProcessor:
 
         return doc
 
-    def _normalize_metadata_column(self, *, row_data: dict[str, Any], target_name: str) -> Any:  # NOSONAR python:S3776
+    def _normalize_metadata_column(self, *, row_data: dict[str, Any], target_name: str) -> Any:
         """
         Normalize metadata column names and derive missing values.
 
@@ -176,9 +177,7 @@ class OpenSearchBatchProcessor:
                     "html": "text/html",
                     "md": "text/markdown",
                     "csv": "text/csv",
-                    "doc": "application/msword",
                     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    "xls": "application/vnd.ms-excel",
                     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 }
                 return mime_map.get(extension)
@@ -406,3 +405,65 @@ class OpenSearchBatchProcessor:
         except Exception as e:
             logger.error(f"Error getting document count: {e!s}")
             return 0
+
+    def get_chunk_ids_for_documents(self, *, doc_ids: list[str]) -> dict[str, set[str]]:
+        """Return all existing chunk PKs grouped by doc ID.
+
+        Searches the index for every document whose stored doc_id_hash field
+        matches any of the supplied doc IDs and returns their OpenSearch ``_id``
+        values (chunk PKs) grouped by parent doc ID.
+
+        The stored field name for doc_id_hash is resolved from feature_mappings
+        so user-overridden field names are handled correctly.
+
+        Args:
+            doc_ids: List of doc_id_hash values to look up.
+
+        Returns:
+            Mapping of doc_id -> set of chunk PKs. Doc IDs with no indexed
+            chunks are omitted from the result.
+        """
+        if not doc_ids:
+            return {}
+
+        # Resolve the stored field name via _mapping_dict (built from feature_mappings at init).
+        doc_id_field: str = self._mapping_dict.get(
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+        )
+
+        # Page size for search_after pagination. Keeps each request small while
+        # handling any number of chunks without hitting the 10 000 result window cap.
+        page_size = 1000
+
+        try:
+            result: dict[str, set[str]] = {}
+            query: dict[str, Any] = {
+                "query": {"terms": {doc_id_field: doc_ids}},
+                "_source": [doc_id_field],
+                "size": page_size,
+                "sort": [{"_id": "asc"}],
+            }
+
+            while True:
+                response: dict[str, Any] = self.client.search(index=self.index_name, body=query)
+                hits: list[dict[str, Any]] = response.get("hits", {}).get("hits", [])
+
+                for hit in hits:
+                    chunk_pk: str = hit["_id"]
+                    parent_doc_id: str | None = hit.get("_source", {}).get(doc_id_field)
+                    if parent_doc_id:
+                        result.setdefault(parent_doc_id, set()).add(chunk_pk)
+
+                # A page smaller than page_size (including empty) means no more results
+                if len(hits) < page_size:
+                    break
+
+                # Advance the cursor to the next page
+                query["search_after"] = hits[-1]["sort"]
+
+            return result
+
+        except Exception as e:
+            logger.error("Error querying PKs by doc IDs: %s", e)
+            return {}

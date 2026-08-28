@@ -53,12 +53,12 @@ def basic_features():
 @pytest.fixture
 def feature_mappings():
     """Feature mappings"""
-    return {
-        "doc_id": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings",
-        "metadata": "meta",
-    }
+    return [
+        {"feature_name": "doc_id", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        {"feature_name": "metadata", "mapped_column_name": "meta"},
+    ]
 
 
 class TestBatchProcessorInitialization:
@@ -215,10 +215,10 @@ class TestDocumentPreparation:
         }
 
         # feature_mappings defines which fields to include
-        mappings = {
-            "included": "included",
-            "excluded": "excluded",
-        }
+        mappings = [
+            {"feature_name": "included", "mapped_column_name": "included"},
+            {"feature_name": "excluded", "mapped_column_name": "excluded"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -321,7 +321,7 @@ class TestBatchCreation:
         """Test creating multiple batches based on size limit"""
         # Define features so documents aren't filtered out
         features = {"content": {"available_for_vector_db": True, "type": "string"}}
-        mappings = {"content": "content"}
+        mappings = [{"feature_name": "content", "mapped_column_name": "content"}]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -347,7 +347,7 @@ class TestBatchCreation:
         """Test batch action structure"""
         # Define features so documents aren't filtered out
         features = {"content": {"available_for_vector_db": True, "type": "string"}}
-        mappings = {"content": "content"}
+        mappings = [{"feature_name": "content", "mapped_column_name": "content"}]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -865,6 +865,91 @@ class TestDocumentCount:
         count = processor.get_document_count()
 
         assert count == 0
+
+
+class TestQueryPksByDocIds:
+    """Tests for OpenSearchBatchProcessor.get_chunk_ids_for_documents()."""
+
+    def test_returns_empty_dict_for_empty_input(self, mock_client) -> None:
+        """Empty doc_ids list must return {} without calling the client."""
+        processor = OpenSearchBatchProcessor(client=mock_client, index_name="test_index")
+        result = processor.get_chunk_ids_for_documents(doc_ids=[])
+        assert result == {}
+        mock_client.search.assert_not_called()
+
+    def test_returns_pks_grouped_by_doc_id(self, mock_client) -> None:
+        """Hits must be grouped by their doc_id_hash source field value."""
+        mock_client.search.return_value = {
+            "hits": {
+                "hits": [
+                    {"_id": "pk_a1", "sort": ["pk_a1"], "_source": {"doc_id_hash": "doc_a"}},
+                    {"_id": "pk_a2", "sort": ["pk_a2"], "_source": {"doc_id_hash": "doc_a"}},
+                    {"_id": "pk_b1", "sort": ["pk_b1"], "_source": {"doc_id_hash": "doc_b"}},
+                ]
+            }
+        }
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a", "doc_b"])
+        assert result == {"doc_a": {"pk_a1", "pk_a2"}, "doc_b": {"pk_b1"}}
+
+    def test_paginates_until_partial_page(self, mock_client) -> None:
+        """When the first page is exactly 1000 hits a second request must be made."""
+        page1_hits = [{"_id": f"pk_{i}", "sort": [f"pk_{i}"], "_source": {"doc_id_hash": "doc_a"}} for i in range(1000)]
+        page2_hits = [{"_id": "pk_last", "sort": ["pk_last"], "_source": {"doc_id_hash": "doc_a"}}]
+        mock_client.search.side_effect = [
+            {"hits": {"hits": page1_hits}},
+            {"hits": {"hits": page2_hits}},
+        ]
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert len(result["doc_a"]) == 1001
+        assert mock_client.search.call_count == 2
+
+    def test_stops_on_empty_page(self, mock_client) -> None:
+        """An empty page terminates pagination and returns an empty result."""
+        mock_client.search.return_value = {"hits": {"hits": []}}
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {}
+        assert mock_client.search.call_count == 1
+
+    def test_uses_feature_mapping_for_field_name(self, mock_client) -> None:
+        """An overridden feature mapping must be used as the query field."""
+        mock_client.search.return_value = {
+            "hits": {"hits": [{"_id": "pk1", "sort": ["pk1"], "_source": {"document_id": "doc_a"}}]}
+        }
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "document_id"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {"doc_a": {"pk1"}}
+        query_body = mock_client.search.call_args[1]["body"]
+        assert "document_id" in query_body["query"]["terms"]
+
+    def test_returns_empty_dict_on_exception(self, mock_client) -> None:
+        """A client exception must be swallowed and return {}."""
+        mock_client.search.side_effect = Exception("connection refused")
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {}
 
 
 if __name__ == "__main__":

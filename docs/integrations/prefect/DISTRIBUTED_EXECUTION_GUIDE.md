@@ -78,7 +78,7 @@ Distributed execution allows Docling Pipelines pipelines to process data across 
 
 - Docling Pipelines installed and configured
 - Python 3.12+ with virtual environment activated
-- PYTHONPATH set correctly (see [USER_GUIDE_PIPELINE_SETUP.md](../../../USER_GUIDE_PIPELINE_SETUP.md))
+- PYTHONPATH set correctly (see [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md))
 - Ollama and OpenSearch running (for operators that require them)
 
 ---
@@ -116,7 +116,7 @@ docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.j
 Run distributed execution on a single machine to understand work pools before moving to Docker.
 
 **When to use:**
-- Testing distributed execution locally 
+- Testing distributed execution locally
 - Understanding work pools and workers (see [Work Pools](https://docs.prefect.io/latest/concepts/work-pools/) and [Workers](https://docs.prefect.io/latest/concepts/workers/))
 - Validating flow configurations (see [Deployments](https://docs.prefect.io/latest/concepts/deployments/))
 
@@ -561,7 +561,7 @@ services:
   docpipe-submitter:
     volumes:
       - batch-data:/data/batches
-  
+
   docpipe-worker:
     volumes:
       - batch-data:/data/batches
@@ -622,9 +622,10 @@ volumes:
   "flow": [
     {
       "name": "ingest_documents",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "/data/input",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["/data/input"]},
         "include_filter": "pdf,txt,docx"
       }
     },
@@ -793,7 +794,7 @@ docling-pipelines --flow-file your-flow.json
 
 - **Prefect UI**: http://localhost:4200
 - **MinIO Console**: http://localhost:9001 (minioadmin/minioadmin)
-- **OpenSearch Dashboards**: http://localhost:5601 (admin/changeme)
+- **OpenSearch Dashboards**: http://localhost:5601 (admin/&lt;your-opensearch-password&gt;)
 
 #### Key Configuration Points
 
@@ -1208,7 +1209,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 | `OPENSEARCH_HOST` | For OpenSearch | OpenSearch host | `localhost` |
 | `OPENSEARCH_PORT` | For OpenSearch | OpenSearch port | `9200` |
 | `OPENSEARCH_USERNAME` | For OpenSearch | Username | `admin` |
-| `OPENSEARCH_PASSWORD` | For OpenSearch | Password | `changeme` |
+| `OPENSEARCH_PASSWORD` | For OpenSearch | Password | `<your-opensearch-password>` |
 | `OPENSEARCH_USE_SSL` | For OpenSearch | Use SSL | `false` |
 | `OPENSEARCH_VERIFY_CERTS` | For OpenSearch | Verify certificates | `false` |
 
@@ -1598,7 +1599,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 | `OPENSEARCH_HOST` | For OpenSearch | OpenSearch host | `localhost` |
 | `OPENSEARCH_PORT` | For OpenSearch | OpenSearch port | `9200` |
 | `OPENSEARCH_USERNAME` | For OpenSearch | Username | `admin` |
-| `OPENSEARCH_PASSWORD` | For OpenSearch | Password | `changeme` |
+| `OPENSEARCH_PASSWORD` | For OpenSearch | Password | `<your-opensearch-password>` |
 | `OPENSEARCH_USE_SSL` | For OpenSearch | Use SSL | `false` |
 | `OPENSEARCH_VERIFY_CERTS` | For OpenSearch | Verify certificates | `false` |
 
@@ -1687,5 +1688,5 @@ Distributed execution in Docling Pipelines enables horizontal scaling and improv
 5. **Follow Best Practices**: Use descriptive names, set resource limits, secure credentials
 
 For additional help, consult:
-- [USER_GUIDE_PIPELINE_SETUP.md](../../../USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
+- [`USER_GUIDE_PIPELINE_SETUP.md`](../../../USER_GUIDE_PIPELINE_SETUP.md) - Complete setup guide
 - [Prefect Documentation](https://docs.prefect.io/concepts/work-pools/) - Official Prefect docs

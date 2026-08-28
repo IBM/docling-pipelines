@@ -9,7 +9,6 @@ This module provides a flexible REST client that supports:
 - Configurable timeouts and SSL verification
 """
 
-import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -26,8 +25,9 @@ from tenacity import (
 
 from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
 from docpipe.exceptions.error_codes import ErrorCode
+from docpipe.utils.infrastructure.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RestMethod(Enum):
@@ -52,11 +52,11 @@ METHOD_CONFIG: dict[RestMethod, MethodConfig] = {
         "supports_body": False,
     },
     RestMethod.POST: {
-        "expected_status_codes": [200, 201],
+        "expected_status_codes": [200, 201, 207],
         "supports_body": True,
     },
     RestMethod.PUT: {
-        "expected_status_codes": [200, 204],
+        "expected_status_codes": [200, 201, 204],
         "supports_body": True,
     },
     RestMethod.PATCH: {
@@ -70,23 +70,22 @@ METHOD_CONFIG: dict[RestMethod, MethodConfig] = {
 }
 
 
-def sanitize_sensitive_data(data: dict[str, Any] | str) -> dict[str, Any] | str:
+def sanitize_sensitive_data(data: Any, redact_value: str = "***REDACTED***") -> Any:
     """
     Redact sensitive information from data for logging purposes.
 
     Args:
-        data: Dictionary or string containing potentially sensitive data
+        data: Dictionary, list, string, or other value containing potentially sensitive data
+        redact_value: The string to substitute for redacted values (default: "***REDACTED***")
 
     Returns:
         Sanitized copy of the data with sensitive values redacted
     """
-    redacted = "[REDACTED]"
-
-    # Patterns to match sensitive data
+    # Patterns to match sensitive data in strings
     sensitive_patterns = [
-        (r'(token|password|api[_-]?key|secret|authorization)[\s:=]+["\']?([^"\'\s,}]+)', r"\1: " + redacted),
-        (r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer " + redacted),
-        (r"Basic\s+[A-Za-z0-9+/]+=*", "Basic " + redacted),
+        (r'(token|password|api[_-]?key|secret|authorization)[\s:=]+["\']?([^"\'\s,}]+)', r"\1: " + redact_value),
+        (r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer " + redact_value),
+        (r"Basic\s+[A-Za-z0-9+/]+=*", "Basic " + redact_value),
     ]
 
     if isinstance(data, dict):
@@ -94,16 +93,15 @@ def sanitize_sensitive_data(data: dict[str, Any] | str) -> dict[str, Any] | str:
         for key, value in data.items():
             # Check if key contains sensitive keywords
             if any(keyword in key.lower() for keyword in ["token", "password", "key", "secret", "auth"]):
-                sanitized[key] = redacted
-            elif isinstance(value, dict):
-                sanitized[key] = sanitize_sensitive_data(value)
-            elif isinstance(value, str):
-                sanitized[key] = sanitize_sensitive_data(value)
+                sanitized[key] = redact_value
             else:
-                sanitized[key] = value
+                sanitized[key] = sanitize_sensitive_data(value, redact_value)
         return sanitized
 
-    elif isinstance(data, str):
+    if isinstance(data, list):
+        return [sanitize_sensitive_data(item, redact_value) for item in data]
+
+    if isinstance(data, str):
         sanitized_str = data
         for pattern, replacement in sensitive_patterns:
             sanitized_str = re.sub(pattern, replacement, sanitized_str, flags=re.IGNORECASE)
@@ -202,197 +200,159 @@ class RestClient:
 
     def call_rest_json(
         self,
+        *,
         method: RestMethod,
-        endpoint: str,
+        url: str,
+        action: str | None = None,
         json_data: dict[str, Any] | None = None,
         form_data: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         expected_status_codes: list[int] | None = None,
+        timeout: int | None = None,
+        verify: bool | str | None = None,
     ) -> dict[str, Any]:
         """
-        Make a REST call expecting JSON response.
+        Make a REST call and return the parsed JSON response body.
 
         Args:
             method: HTTP method to use
-            endpoint: API endpoint
+            url: API endpoint URL or path
+            action: Optional human-readable description for logging and error messages
             json_data: Optional JSON body data
             form_data: Optional form-encoded body data (mutually exclusive with json_data)
-            params: Optional query parameters
+            query_params: Optional query parameters
             headers: Optional request headers
             expected_status_codes: Optional list of expected status codes
+            timeout: Per-call timeout override; falls back to config.timeout
+            verify: Per-call SSL verification override; falls back to config.verify_ssl
 
         Returns:
-            Parsed JSON response as dictionary
+            Parsed JSON response body as a dictionary
 
         Raises:
-            DocpipeException: If request fails or response is not valid JSON
+            ExternalServiceError: If request fails
         """
-        response = self.call_rest(
+        return self.call_rest(
             method=method,
-            endpoint=endpoint,
+            url=url,
+            action=action,
             json_data=json_data,
             form_data=form_data,
-            params=params,
+            query_params=query_params,
             headers=headers,
             expected_status_codes=expected_status_codes,
-        )
-
-        try:
-            return response.json()
-        except ValueError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
-            raise ExternalServiceError(
-                message=f"Response is not valid JSON: {e!s}",
-                error_code=ErrorCode.INVALID_RESPONSE,
-            ) from e
+            timeout=timeout,
+            verify=verify,
+        ).json()
 
     def call_rest_multipart(
         self,
+        *,
         method: RestMethod,
-        endpoint: str,
+        url: str,
+        action: str | None = None,
         files: dict[str, tuple[str, bytes, str]] | None = None,
-        data: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
+        form_data: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         expected_status_codes: list[int] | None = None,
+        timeout: int | None = None,
+        verify: bool | str | None = None,
     ) -> dict[str, Any]:
         """
-        Make a REST call with multipart/form-data encoding expecting JSON response.
+        Make a REST call with multipart/form-data and return the parsed JSON response body.
+
+        Delegates to ``call_rest`` passing files and form data, so it benefits from
+        retry logic, logging, and status-code handling in one place.
 
         Args:
             method: HTTP method to use
-            endpoint: API endpoint
+            url: API endpoint URL or path
+            action: Optional human-readable description for logging and error messages
             files: Dictionary of files to upload {field_name: (filename, content, mime_type)}
-            data: Optional form data fields
-            params: Optional query parameters
+            form_data: Optional form data fields to send alongside files
+            query_params: Optional query parameters
             headers: Optional request headers
             expected_status_codes: Optional list of expected status codes
+            timeout: Per-call timeout override; falls back to config.timeout
+            verify: Per-call SSL verification override; falls back to config.verify_ssl
 
         Returns:
-            Parsed JSON response as dictionary
+            Parsed JSON response body as a dictionary
 
         Raises:
-            DocpipeException: If request fails or response is not valid JSON
+            ExternalServiceError: If request fails
         """
-        url = self._build_url(endpoint)
-        request_headers = self._build_headers(headers)
-
-        if expected_status_codes is None:
-            expected_status_codes = METHOD_CONFIG[method]["expected_status_codes"]
-
-        # Log request details (don't log file content)
-        log_msg = f"Making {method.value} multipart request to {url}"
-        if params:
-            log_msg += f" with params: {sanitize_sensitive_data(params)}"
-        logger.info(log_msg)
-        logger.debug(f"Headers: {sanitize_sensitive_data(request_headers)}")
-        if data:
-            logger.debug(f"Form data: {sanitize_sensitive_data(data)}")
-        if files:
-            logger.debug(f"Files: {list(files.keys())}")
-
-        try:
-            response = self.session.request(
-                method=method.value,
-                url=url,
-                files=files,
-                data=data,
-                params=params,
-                headers=request_headers,
-                timeout=self.config.timeout,
-                verify=self.config.verify_ssl,
-            )
-
-            # Log response
-            logger.info(f"Response status: {response.status_code}")
-            logger.debug(f"Response headers: {dict(response.headers)}")
-
-            # Check status code
-            if expected_status_codes and response.status_code not in expected_status_codes:
-                error_msg = f"Unexpected status code {response.status_code}. Expected one of {expected_status_codes}. Response: {response.text[:500]}"
-                logger.error(error_msg)
-                raise ExternalServiceError(
-                    message=error_msg,
-                    error_code=ErrorCode.HTTP_ERROR,
-                    status_code=response.status_code,
-                )
-
-            # Parse JSON response
-            try:
-                return response.json()
-            except ValueError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                raise ExternalServiceError(
-                    message=f"Response is not valid JSON: {e!s}",
-                    error_code=ErrorCode.INVALID_RESPONSE,
-                ) from e
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e!s}")
-            raise ExternalServiceError(
-                message=f"REST request failed: {e!s}",
-                error_code=ErrorCode.CONNECTION_ERROR,
-            ) from e
+        return self.call_rest(
+            method=method,
+            url=url,
+            action=action,
+            form_data=form_data,
+            files=files,
+            query_params=query_params,
+            headers=headers,
+            expected_status_codes=expected_status_codes,
+            timeout=timeout,
+            verify=verify,
+        ).json()
 
     def call_rest(
         self,
+        *,
         method: RestMethod,
-        endpoint: str,
+        url: str,
+        action: str | None = None,
         json_data: dict[str, Any] | None = None,
         form_data: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         expected_status_codes: list[Any] | None = None,
+        timeout: int | None = None,
+        verify: bool | str | None = None,
     ) -> Response:
         """
         Make a generic REST call.
 
         Args:
             method: HTTP method to use
-            endpoint: API endpoint
+            url: API endpoint URL or path
+            action: Optional human-readable description for logging and error messages
             json_data: Optional JSON body data
             form_data: Optional form-encoded body data (mutually exclusive with json_data)
-            params: Optional query parameters
+            files: Optional files for multipart upload
+            query_params: Optional query parameters
             headers: Optional request headers
             expected_status_codes: Optional list of expected status codes
+            timeout: Per-call timeout override; falls back to config.timeout
+            verify: Per-call SSL verification override; falls back to config.verify_ssl
 
         Returns:
             Response object
 
         Raises:
-            DocpipeException: If request fails
+            ExternalServiceError: If request fails
         """
-        url = self._build_url(endpoint)
+        built_url = self._build_url(url)
         request_headers = self._build_headers(headers)
 
         if expected_status_codes is None:
             expected_status_codes = METHOD_CONFIG[method]["expected_status_codes"]
 
-        # Log request details with sanitized data
-        log_msg = f"Making {method.value} request to {url}"
-        if params:
-            log_msg += f" with params: {sanitize_sensitive_data(params)}"
-        logger.info(log_msg)
-        logger.debug(f"Headers: {sanitize_sensitive_data(request_headers)}")
-        if json_data:
-            logger.debug(f"Body: {sanitize_sensitive_data(json_data)}")
-        if form_data:
-            logger.debug(f"Form data: {sanitize_sensitive_data(form_data)}")
-
         try:
             response = self._call_rest_method(
                 method=method,
-                url=url,
+                url=built_url,
                 json_data=json_data,
                 form_data=form_data,
-                params=params,
+                files=files,
+                params=query_params,
                 headers=request_headers,
+                timeout=timeout,
+                verify=verify,
+                expected_status_codes=expected_status_codes,
             )
-
-            # Log response
-            logger.info(f"Response status: {response.status_code}")
-            logger.debug(f"Response headers: {dict(response.headers)}")
 
             # Check status code
             if expected_status_codes and response.status_code not in expected_status_codes:
@@ -406,8 +366,15 @@ class RestClient:
 
             return response
 
+        except requests.exceptions.HTTPError as e:
+            logger.error("Request failed: %s", e)
+            raise ExternalServiceError(
+                message=f"REST request failed: {e!s}",
+                error_code=ErrorCode.HTTP_ERROR,
+                status_code=e.response.status_code if e.response is not None else None,
+            ) from e
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e!s}")
+            logger.error("Request failed: %s", e)
             raise ExternalServiceError(
                 message=f"REST request failed: {e!s}",
                 error_code=ErrorCode.CONNECTION_ERROR,
@@ -419,8 +386,13 @@ class RestClient:
         url: str,
         json_data: dict[str, Any] | None = None,
         form_data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        stream: bool = False,
+        timeout: int | None = None,
+        verify: bool | str | None = None,
+        expected_status_codes: list[int] | None = None,
     ) -> Response:
         """
         Internal method to make REST call with retry logic.
@@ -430,8 +402,15 @@ class RestClient:
             url: Complete URL
             json_data: Optional JSON body data
             form_data: Optional form-encoded body data (mutually exclusive with json_data)
+            files: Optional files for multipart upload
             params: Optional query parameters
             headers: Optional request headers
+            stream: Whether to stream the response body
+            timeout: Per-call timeout override; falls back to config.timeout
+            verify: Per-call SSL verification override; falls back to config.verify_ssl
+            expected_status_codes: Status codes that should be returned as-is even if
+                they would normally raise (e.g. 404 when absence is a valid outcome).
+                When None, any non-2xx response that raises HTTPError is re-raised.
 
         Returns:
             Response object
@@ -443,21 +422,46 @@ class RestClient:
         if json_data is not None and form_data is not None:
             raise ValueError("json_data and form_data are mutually exclusive")
 
+        request_type = "multipart " if files is not None else ""
+        if params:
+            logger.info(
+                "Making %s %srequest to %s with params: %s",
+                method.value,
+                request_type,
+                url,
+                sanitize_sensitive_data(params),
+            )
+        else:
+            logger.info("Making %s %srequest to %s", method.value, request_type, url)
+        logger.debug("Headers: %s", sanitize_sensitive_data(headers))
+        if json_data is not None:
+            logger.debug("Body: %s", sanitize_sensitive_data(json_data))
+        if form_data is not None:
+            logger.debug("Form data: %s", sanitize_sensitive_data(form_data))
+        if files is not None:
+            logger.debug("Files: %s", list(files.keys()))
+
         response = self.session.request(
             method=method.value,
             url=url,
             json=json_data,
             data=form_data,
+            files=files,
             params=params,
             headers=headers,
-            timeout=self.config.timeout,
-            verify=self.config.verify_ssl,
+            timeout=timeout if timeout is not None else self.config.timeout,
+            verify=verify if verify is not None else self.config.verify_ssl,
+            stream=stream,
         )
 
-        # Raise HTTPError for 5xx status codes to trigger retry logic.
-        # Note: Retry only occurs if tenacity conditions are met (ConnectionError, Timeout, HTTPError)
-        # and within the configured max_attempts. 4xx errors are NOT retried.
-        if 500 <= response.status_code < 600:
+        logger.info("Response status: %s", response.status_code)
+        logger.debug("Response headers: %s", dict(response.headers))
+
+        try:
             response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            if expected_status_codes and response.status_code in expected_status_codes:
+                return response
+            raise
 
         return response

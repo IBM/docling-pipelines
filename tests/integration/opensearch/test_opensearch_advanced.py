@@ -18,6 +18,7 @@ from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager 
     OpenSearchEngineTypes,
     VectorSimilarityTypes,
 )
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.config import get_opensearch_config
 
 # Check if .env file exists
@@ -57,16 +58,16 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
     config = get_opensearch_config()
 
     # Override with test-specific settings
+    provider_cfg = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+    provider_cfg[OperatorConstants.VectorDB.ENGINE] = engine
+    provider_cfg[OperatorConstants.VectorDB.ALGORITHM] = algorithm
+    provider_cfg[OperatorConstants.VectorDB.SPACE_TYPE] = space_type
+    provider_cfg["index_name"] = f"test_{engine}_{algorithm}_{space_type}"
     config.update(
         {
             "provider": "opensearch",
-            "index_name": f"test_{engine}_{algorithm}_{space_type}",
             "vector_dimension": 128,
-            OperatorConstants.Config.PROVIDER_CONFIG: {
-                OperatorConstants.VectorDB.ENGINE: engine,
-                OperatorConstants.VectorDB.ALGORITHM: algorithm,
-                OperatorConstants.VectorDB.SPACE_TYPE: space_type,
-            },
+            OperatorConstants.Config.PROVIDER_CONFIG: provider_cfg,
             "available_features": {
                 "doc_id_hash": {
                     "available_for_vector_db": True,
@@ -119,21 +120,19 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
                 use_ssl=provider_config.get(OperatorConstants.VectorDB.USE_SSL, True),
                 verify_certs=provider_config.get(OperatorConstants.VectorDB.VERIFY_CERTS, True),
             )
-            os_client.get_client().indices.delete(index=config["index_name"])
+            os_client.get_client().indices.delete(index=config[OperatorConstants.Config.PROVIDER_CONFIG]["index_name"])
             print("  ✅ Cleaned up index")
 
             return True, "Success"
-        else:
-            return False, f"Only indexed {metadata['processed_docs']}/5 documents"
+        return False, f"Only indexed {metadata['processed_docs']}/5 documents"
 
     except Exception as e:
         error_msg = str(e)
         if "Invalid space_type" in error_msg:
             return False, f"Space type '{space_type}' not supported"
-        elif "mapper_parsing_exception" in error_msg:
+        if "mapper_parsing_exception" in error_msg:
             return False, f"Mapping error: {error_msg[:100]}"
-        else:
-            return False, f"{type(e).__name__}: {error_msg[:100]}"
+        return False, f"{type(e).__name__}: {error_msg[:100]}"
 
 
 def test_all_engines():
@@ -182,10 +181,10 @@ def test_schema_evolution():
 
     # Get base config from environment
     base_config = get_opensearch_config()
+    base_config[OperatorConstants.Config.PROVIDER_CONFIG]["index_name"] = "test_schema_evolution"
     base_config.update(
         {
             "provider": "opensearch",
-            "index_name": "test_schema_evolution",
             "vector_dimension": 128,
             "create_index": True,
         }
@@ -282,7 +281,7 @@ def test_schema_evolution():
         print(f"  ✅ Total documents in index: {count}")
 
         # Cleanup
-        client.indices.delete(index=base_config["index_name"])
+        client.indices.delete(index=base_config[OperatorConstants.Config.PROVIDER_CONFIG]["index_name"])
         print("  ✅ Cleaned up index")
 
         return True
@@ -342,11 +341,13 @@ def test_error_handling():
     print("\nTest 3.2: Invalid engine name")
     try:
         config = base_config.copy()
-        config["index_name"] = "test_invalid_engine"
-        config[OperatorConstants.Config.PROVIDER_CONFIG] = {OperatorConstants.VectorDB.ENGINE: "invalid_engine"}
+        config[OperatorConstants.Config.PROVIDER_CONFIG] = {
+            "index_name": "test_invalid_engine",
+            OperatorConstants.VectorDB.ENGINE: "invalid_engine",
+        }
         operator = VectorDBOperator(config)
-        tests.append(("Invalid engine", False, "Should have raised ValueError"))
-    except ValueError as e:
+        tests.append(("Invalid engine", False, "Should have raised DocpipeException"))
+    except DocpipeException as e:
         if "Invalid engine" in str(e):
             tests.append(("Invalid engine", True, "Correct error message"))
             print(f"  ✅ Correctly raised: {str(e)[:100]}")
@@ -357,14 +358,14 @@ def test_error_handling():
     print("\nTest 3.3: Incompatible engine-algorithm combination")
     try:
         config = base_config.copy()
-        config["index_name"] = "test_incompatible"
         config[OperatorConstants.Config.PROVIDER_CONFIG] = {
+            "index_name": "test_incompatible",
             OperatorConstants.VectorDB.ENGINE: "lucene",
             OperatorConstants.VectorDB.ALGORITHM: "ivf",  # Lucene doesn't support IVF
         }
         operator = VectorDBOperator(config)
-        tests.append(("Incompatible combo", False, "Should have raised ValueError"))
-    except ValueError as e:
+        tests.append(("Incompatible combo", False, "Should have raised DocpipeException"))
+    except DocpipeException as e:
         if "not supported by engine" in str(e):
             tests.append(("Incompatible combo", True, "Correct error message"))
             print(f"  ✅ Correctly raised: {str(e)[:100]}")
@@ -375,7 +376,7 @@ def test_error_handling():
     print("\nTest 3.4: Documents with missing IDs")
     try:
         config = base_config.copy()
-        config["index_name"] = "test_missing_ids"
+        config[OperatorConstants.Config.PROVIDER_CONFIG]["index_name"] = "test_missing_ids"
         operator = VectorDBOperator(config)
 
         # Create OpenSearch client for cleanup
@@ -413,7 +414,7 @@ def test_error_handling():
         else:
             tests.append(("Missing IDs", False, f"Wrong counts: {metadata}"))
 
-        client.indices.delete(index=config["index_name"])
+        client.indices.delete(index=config[OperatorConstants.Config.PROVIDER_CONFIG]["index_name"])
 
     except Exception as e:
         tests.append(("Missing IDs", False, f"Unexpected error: {str(e)[:100]}"))
@@ -422,14 +423,14 @@ def test_error_handling():
     print("\nTest 3.5: Empty table")
     try:
         config = base_config.copy()
-        config["index_name"] = "test_empty"
+        config[OperatorConstants.Config.PROVIDER_CONFIG]["index_name"] = "test_empty"
         operator = VectorDBOperator(config)
 
         empty_table = pa.table({"doc_id_hash": [], "embeddings": []})
 
         _result, metadata = operator.transform(empty_table)
 
-        if metadata["total_docs_count"] == 0 and metadata["processed_docs"] == 0:
+        if metadata["documents_in_scope"] == 0 and metadata["processed_docs"] == 0:
             tests.append(("Empty table", True, "Handled gracefully"))
             print("  ✅ Correctly handled empty table")
         else:

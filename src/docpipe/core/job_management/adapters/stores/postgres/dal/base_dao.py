@@ -65,6 +65,7 @@ class BaseDAO[T: SQLModel]:
         """Get record by primary key."""
 
         def op(session: Session):
+            """Op."""
             return session.get(self.model, id)
 
         return self.execute_with_session(fn=op)
@@ -73,6 +74,7 @@ class BaseDAO[T: SQLModel]:
         """Get all records."""
 
         def op(session: Session):
+            """Op."""
             statement = select(self.model)
             results = session.execute(statement)
             return list(results.scalars().all())
@@ -83,6 +85,7 @@ class BaseDAO[T: SQLModel]:
         """Add single record with refresh."""
 
         def op(session: Session):
+            """Op."""
             session.add(obj)
             session.flush()
             session.refresh(obj)
@@ -101,6 +104,7 @@ class BaseDAO[T: SQLModel]:
             return
 
         def op(session: Session):
+            """Op."""
             session.add_all(objs)
             session.flush()
 
@@ -112,6 +116,7 @@ class BaseDAO[T: SQLModel]:
         """
 
         def op(session: Session):
+            """Op."""
             session.merge(obj)
             session.flush()
 
@@ -131,6 +136,7 @@ class BaseDAO[T: SQLModel]:
         """
 
         def op(session: Session):
+            """Op."""
             values = {}
             # SQLModel instances have __table__ at runtime via SQLAlchemy
             for c in obj.__table__.columns:  # type: ignore[attr-defined]
@@ -152,6 +158,7 @@ class BaseDAO[T: SQLModel]:
         """Delete records matching condition."""
 
         def op(session: Session):
+            """Op."""
             stmt = delete(self.model).where(condition)
             result = session.execute(stmt)
             # CursorResult has rowcount at runtime
@@ -163,6 +170,7 @@ class BaseDAO[T: SQLModel]:
         """Get records matching query."""
 
         def op(session: Session):
+            """Op."""
             results = session.execute(query)
             return list(results.scalars().all())
 
@@ -172,6 +180,7 @@ class BaseDAO[T: SQLModel]:
         """Get first record matching query."""
 
         def op(session: Session):
+            """Op."""
             result = session.execute(query.limit(1))
             return result.scalar_one_or_none()
 
@@ -181,6 +190,7 @@ class BaseDAO[T: SQLModel]:
         """Check if record exists matching condition."""
 
         def op(session: Session):
+            """Op."""
             stmt = select(self.model).where(condition).limit(1)
             result = session.execute(stmt)
             return result.scalar_one_or_none() is not None
@@ -226,6 +236,7 @@ class BaseDAO[T: SQLModel]:
         """
 
         def op(session: Session):
+            """Op."""
             values = {}
 
             if increments:

@@ -1,7 +1,8 @@
 """Google Drive source adapter using Google Drive API."""
 
-import os
-import pickle
+import hashlib
+import json
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator
@@ -47,89 +48,111 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from Google Drive using Google Drive API"
     SOURCE_VERSION = "3.0.0"
 
-    def _get_credentials(
-        self, config: GoogleDriveSourceConfig
-    ) -> Credentials | ServiceAccountCredentials:  # NOSONAR python:S3776
+    def __init__(self) -> None:
+        # Cache (creds, service) keyed by a hash of the credentials config so a single
+        # Drive API client is reused for all documents in a batch.
+        self._service_cache: dict[str, tuple[Any, Any]] = {}
+
+    @staticmethod
+    def _credentials_cache_key(config: GoogleDriveSourceConfig) -> str:
+        """Return a stable cache key for the given credentials configuration."""
+        key_material = json.dumps(
+            {
+                "credentials_path": config.credentials_path,
+                "service_account_json_path": config.service_account_json_path,
+                "scopes": sorted(config.scopes),
+            },
+            sort_keys=True,
+        )
+        return hashlib.sha256(key_material.encode()).hexdigest()
+
+    @staticmethod
+    def _load_service_account_credentials(config: GoogleDriveSourceConfig) -> ServiceAccountCredentials:
+        """Load service account credentials from file, raising clear errors on failure."""
+        service_account_path = None
+        try:
+            if config.service_account_json_path is None:
+                raise ValueError("Service account JSON path is None")
+            service_account_path = Path(config.service_account_json_path)
+            if not service_account_path.exists():
+                raise FileNotFoundError(f"Service account file not found: {service_account_path}")
+            if not service_account_path.is_file():
+                raise ValueError(f"Service account path is not a file: {service_account_path}")
+            return ServiceAccountCredentials.from_service_account_file(str(service_account_path), scopes=config.scopes)
+        except PermissionError as e:
+            raise PermissionError(
+                f"Permission denied accessing service account file: {service_account_path}. Original error: {e}"
+            ) from e
+        except Exception as e:
+            raise ValueError(f"Failed to load service account credentials from {service_account_path}: {e}") from e
+
+    @staticmethod
+    def _refresh_or_run_oauth_flow(
+        *, creds: Credentials | None, credentials_path: Path, token_path: Path, scopes: list[str]
+    ) -> Credentials:
+        """Return valid OAuth2 credentials, refreshing or re-running the flow as needed."""
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                creds = None
+
+        if not creds:
+            try:
+                if not credentials_path.exists():
+                    raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
+                if not credentials_path.is_file():
+                    raise ValueError(f"Credentials path is not a file: {credentials_path}")
+                flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes=scopes)
+                creds = flow.run_local_server(port=0)
+            except PermissionError as e:
+                raise PermissionError(
+                    f"Permission denied accessing credentials file: {credentials_path}. "
+                    f"On macOS, you may need to grant Terminal/Python access to the file location in "
+                    f"System Preferences > Security & Privacy > Files and Folders. "
+                    f"Original error: {e}"
+                ) from e
+            except Exception as e:
+                raise ValueError(f"Failed to load credentials from {credentials_path}: {e}") from e
+
+        token_path.parent.mkdir(parents=True, exist_ok=True)
+        with Path(token_path).open("w") as token:
+            token.write(creds.to_json())
+
+        return creds
+
+    def _get_credentials(self, config: GoogleDriveSourceConfig) -> Credentials | ServiceAccountCredentials:
         """
         Get or create credentials for Google Drive API.
 
         Supports two authentication methods:
         1. OAuth2 (user authentication): Interactive flow with token caching
         2. Service Account (server-to-server): Non-interactive authentication
-
-        Args:
-            config: Google Drive configuration with credentials path
-
-        Returns:
-            Credentials: Valid Google OAuth2 or Service Account credentials
         """
-        # Service Account authentication
         if config.is_service_account():
-            service_account_path = None
-            try:
-                if config.service_account_json_path is None:
-                    raise ValueError("Service account JSON path is None")
-                service_account_path = Path(config.service_account_json_path)
-                if not service_account_path.exists():
-                    raise FileNotFoundError(f"Service account file not found: {service_account_path}")
-                if not service_account_path.is_file():
-                    raise ValueError(f"Service account path is not a file: {service_account_path}")
+            return self._load_service_account_credentials(config)
 
-                creds = ServiceAccountCredentials.from_service_account_file(
-                    str(service_account_path), scopes=config.scopes
-                )
-                return creds
-            except PermissionError as e:
-                raise PermissionError(
-                    f"Permission denied accessing service account file: {service_account_path}. Original error: {e}"
-                ) from e
-            except Exception as e:
-                raise ValueError(f"Failed to load service account credentials from {service_account_path}: {e}") from e
-
-        # OAuth2 authentication
         if config.credentials_path is None:
             raise ValueError("OAuth credentials path is None")
 
-        creds = None
         token_path = Path(config.get_token_path())
         credentials_path = Path(config.credentials_path)
 
+        creds = None
         if token_path.exists():
             try:
-                with open(token_path, "rb") as token:
-                    creds = pickle.load(token)
+                with Path(token_path).open("r") as token:
+                    creds = Credentials.from_authorized_user_info(json.loads(token.read()))
             except Exception:
-                pass
+                logger.debug("Failed to load cached token from %s, will re-authenticate", token_path)
 
         if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                try:
-                    creds.refresh(Request())
-                except Exception:
-                    creds = None
-
-            if not creds:
-                try:
-                    if not credentials_path.exists():
-                        raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
-                    if not credentials_path.is_file():
-                        raise ValueError(f"Credentials path is not a file: {credentials_path}")
-
-                    flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes=config.scopes)
-                    creds = flow.run_local_server(port=0)
-                except PermissionError as e:
-                    raise PermissionError(
-                        f"Permission denied accessing credentials file: {credentials_path}. "
-                        f"On macOS, you may need to grant Terminal/Python access to the file location in "
-                        f"System Preferences > Security & Privacy > Files and Folders. "
-                        f"Original error: {e}"
-                    ) from e
-                except Exception as e:
-                    raise ValueError(f"Failed to load credentials from {credentials_path}: {e}") from e
-
-            token_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(token_path, "wb") as token:
-                pickle.dump(creds, token)
+            creds = self._refresh_or_run_oauth_flow(
+                creds=creds,
+                credentials_path=credentials_path,
+                token_path=token_path,
+                scopes=config.scopes,
+            )
 
         return creds
 
@@ -140,8 +163,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Creates document with metadata only, no binary content download.
         Binary content is fetched on-demand by Extract operator.
         """
-        doc_id = file_metadata.get("id", "")
-        doc_name = file_metadata.get("name", "unknown")
+        doc_id = file_metadata.get(OperatorConstants.Columns.ID, "")
+        doc_name = file_metadata.get(OperatorConstants.Columns.NAME, "unknown")
 
         # Parse modified time if available
         modified_time = None
@@ -159,7 +182,17 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         mime_type = file_metadata.get("mimeType", "application/octet-stream")
 
         # Get file extension
-        extension = os.path.splitext(doc_name)[1].lower()
+        extension = Path(doc_name).suffix.lower()
+
+        # For Google Workspace files, derive extension from MIME type
+        if not extension and mime_type.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
+            workspace_extensions = {
+                OperatorConstants.MimeTypes.GOOGLE_APPS_DOCUMENT: ".docx",
+                OperatorConstants.MimeTypes.GOOGLE_APPS_SPREADSHEET: ".xlsx",
+                OperatorConstants.MimeTypes.GOOGLE_APPS_PRESENTATION: ".pptx",
+                OperatorConstants.MimeTypes.GOOGLE_APPS_DRAWING: ".pdf",
+            }
+            extension = workspace_extensions.get(mime_type, extension)
 
         # Build source URL
         source_url = file_metadata.get("webViewLink", f"https://drive.google.com/file/d/{doc_id}")
@@ -180,66 +213,80 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 "source_id": doc_id,  # Store file ID for binary fetching
                 "drive_name": doc_name,
                 "web_view_link": source_url,
+                # Store credentials for lazy loading
+                "credentials_path": config.credentials_path,
+                "service_account_json_path": config.service_account_json_path,
                 "folder_id": config.folder_id,
-                "provider": "google_drive",
             },
         )
 
-    def _list_files_from_drive(self, *, config: GoogleDriveSourceConfig) -> list[dict]:  # NOSONAR python:S3776
-        """
-        List files from Google Drive using Drive API v3 (metadata only, no download).
+    def _build_drive_query(self, *, folder_id: str, file_extensions: list[str]) -> str:
+        """Build the Drive API query string for a given folder and optional extension filter."""
+        query_parts = [f"'{folder_id}' in parents", "trashed = false"]
 
-        Returns list of file metadata dictionaries.
-        """
-        try:
-            from googleapiclient.discovery import build
-        except ImportError:
-            raise ImportError(
-                "Google API client not installed. Install with: pip install google-api-python-client"
-            ) from None
-
-        creds = self._get_credentials(config)
-        service = build("drive", "v3", credentials=creds)
-
-        # Build query
-        query_parts = [f"'{config.folder_id}' in parents"]
-        query_parts.append("trashed = false")
-
-        # Add file type filter if specified
-        if config.file_extensions:
-            # Map extensions to mime types where possible
-            mime_conditions = []
-            for ext in config.file_extensions:
-                if ext == ".pdf":
-                    mime_conditions.append("mimeType = 'application/pdf'")
-                elif ext in [".doc", ".docx"]:
-                    mime_conditions.append("mimeType contains 'document'")
-                elif ext in [".xls", ".xlsx"]:
-                    mime_conditions.append("mimeType contains 'spreadsheet'")
-                elif ext in [".ppt", ".pptx"]:
-                    mime_conditions.append("mimeType contains 'presentation'")
-
+        if file_extensions:
+            extension_mime_map = {
+                OperatorConstants.FileExtensions.EXT_PDF: "mimeType = 'application/pdf'",
+                OperatorConstants.FileExtensions.EXT_DOCX: "mimeType contains 'document'",
+                OperatorConstants.FileExtensions.EXT_XLSX: "mimeType contains 'spreadsheet'",
+                OperatorConstants.FileExtensions.EXT_PPTX: "mimeType contains 'presentation'",
+                OperatorConstants.FileExtensions.EXT_TXT: "mimeType = 'text/plain'",
+            }
+            mime_conditions = [extension_mime_map[ext] for ext in file_extensions if ext in extension_mime_map]
             if mime_conditions:
+                mime_conditions.append("mimeType = 'application/vnd.google-apps.folder'")
                 query_parts.append(f"({' or '.join(mime_conditions)})")
 
-        query = " and ".join(query_parts)
+        return " and ".join(query_parts)
 
-        # List files with pagination
-        # Optimize pageSize based on max_files to reduce unnecessary API calls
-        files: list[dict[str, Any]] = []
+    def _process_page_items(
+        self,
+        *,
+        items: list[dict],
+        all_files: list[dict],
+        folders_to_process: deque,
+        recursive: bool,
+        max_files: int | None,
+    ) -> bool:
+        """
+        Process a page of Drive API results, separating files from folders.
+
+        Returns True if the max_files limit has been reached.
+        """
+        for item in items:
+            if item.get("mimeType") == "application/vnd.google-apps.folder":
+                if recursive:
+                    folders_to_process.append(item["id"])
+            else:
+                all_files.append(item)
+                if max_files is not None and len(all_files) >= max_files:
+                    return True
+        return False
+
+    def _fetch_folder_pages(
+        self,
+        *,
+        service: Any,
+        folder_id: str,
+        config: GoogleDriveSourceConfig,
+        all_files: list[dict],
+        folders_to_process: deque,
+    ) -> bool:
+        """Fetch all pages for one folder, populating all_files/folders_to_process.
+
+        Returns True when the max_files limit is reached.
+        """
+        query = self._build_drive_query(
+            folder_id=folder_id,
+            file_extensions=config.file_extensions or [],
+        )
         page_token = None
 
         while True:
-            # Determine optimal page size
-            if config.max_files is not None:
-                remaining = config.max_files - len(files)
-                if remaining <= 0:
-                    break
-                # If max_files < 100, use max_files as pageSize; otherwise use 100
-                page_size = min(remaining, 100)
-            else:
-                # No max_files limit, use default page size
-                page_size = 100
+            if config.max_files is not None and len(all_files) >= config.max_files:
+                return True
+
+            page_size = min(config.max_files - len(all_files), 100) if config.max_files is not None else 100
 
             results = (
                 service.files()
@@ -253,66 +300,123 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 .execute()
             )
 
-            items = results.get("files", [])
-            files.extend(items)
-
-            # Stop if we've reached max_files limit
-            if config.max_files is not None and len(files) >= config.max_files:
-                break
+            if self._process_page_items(
+                items=results.get("files", []),
+                all_files=all_files,
+                folders_to_process=folders_to_process,
+                recursive=config.recursive,
+                max_files=config.max_files,
+            ):
+                return True
 
             page_token = results.get("nextPageToken")
             if not page_token:
                 break
 
-        # Apply recursive folder traversal if needed
-        if config.recursive:
-            # Find folders and recursively list their contents
-            folders = [f for f in files if f.get("mimeType") == "application/vnd.google-apps.folder"]
-            for folder in folders:
-                # Create temporary config for subfolder
-                subfolder_config = GoogleDriveSourceConfig(
-                    **{**config.model_dump(), "folder_id": folder["id"], "recursive": True}
+        return False
+
+    def _get_drive_service(self, *, config: GoogleDriveSourceConfig) -> Any:
+        """Return a cached Drive API service for the given credentials configuration.
+
+        The service (and its underlying credentials) is created once and reused for all
+        documents in a batch, avoiding a repeated ``build()`` + ``_get_credentials()``
+        round-trip per document.
+        """
+        try:
+            from googleapiclient.discovery import build
+        except ImportError:
+            raise ImportError(
+                "Google API client not installed. Install with: pip install google-api-python-client"
+            ) from None
+
+        cache_key = self._credentials_cache_key(config)
+        if cache_key not in self._service_cache:
+            creds = self._get_credentials(config)
+            service = build("drive", "v3", credentials=creds)
+            self._service_cache[cache_key] = (creds, service)
+
+        _creds, service = self._service_cache[cache_key]
+        return service
+
+    def _list_files_from_drive(self, *, config: GoogleDriveSourceConfig) -> list[dict]:
+        """
+        List files from Google Drive using Drive API v3 (metadata only, no download).
+
+        Returns list of file metadata dictionaries.
+        """
+        service = self._get_drive_service(config=config)
+
+        all_files: list[dict[str, Any]] = []
+        folders_to_process: deque[str] = deque([config.folder_id] if config.folder_id else [])
+
+        while folders_to_process:
+            current_folder_id = folders_to_process.popleft()
+            if self._fetch_folder_pages(
+                service=service,
+                folder_id=current_folder_id,
+                config=config,
+                all_files=all_files,
+                folders_to_process=folders_to_process,
+            ):
+                return all_files
+
+        return all_files
+
+    @staticmethod
+    def _resolve_workspace_extension(*, file_ext: str, file_mime: str) -> str:
+        """Return the derived file extension for a Google Workspace MIME type, or the original extension."""
+        if file_ext or not file_mime.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
+            return file_ext
+        workspace_extensions = {
+            OperatorConstants.MimeTypes.GOOGLE_APPS_DOCUMENT: ".docx",
+            OperatorConstants.MimeTypes.GOOGLE_APPS_SPREADSHEET: ".xlsx",
+            OperatorConstants.MimeTypes.GOOGLE_APPS_PRESENTATION: ".pptx",
+            OperatorConstants.MimeTypes.GOOGLE_APPS_DRAWING: ".pdf",
+        }
+        return workspace_extensions.get(file_mime, file_ext)
+
+    def _should_skip_file(self, *, file_metadata: dict, config: GoogleDriveSourceConfig) -> bool:
+        """Return True if the file should be skipped based on extension or size filters."""
+        file_name = file_metadata.get(OperatorConstants.Columns.NAME, "")
+        file_mime = file_metadata.get("mimeType", "")
+
+        if config.file_extensions:
+            file_ext = Path(file_name).suffix.lower()
+            file_ext = self._resolve_workspace_extension(file_ext=file_ext, file_mime=file_mime)
+            if file_ext not in config.file_extensions:
+                logger.debug("Skipping %s: extension '%s' not in %s", file_name, file_ext, config.file_extensions)
+                return True
+
+        if config.max_file_size_mb:
+            file_size_mb = int(file_metadata.get("size", 0)) / (1024 * 1024)
+            if file_size_mb > config.max_file_size_mb:
+                logger.debug(
+                    "Skipping %s: size %.2fMB exceeds limit %sMB",
+                    file_name,
+                    file_size_mb,
+                    config.max_file_size_mb,
                 )
-                files.extend(self._list_files_from_drive(config=subfolder_config))
+                return True
 
-        # Filter out folders from final list
-        files = [f for f in files if f.get("mimeType") != "application/vnd.google-apps.folder"]
+        return False
 
-        return files
-
-    def _iter_documents(self, config: GoogleDriveSourceConfig) -> list[Document]:  # NOSONAR python:S3776
+    def _iter_documents(self, config: GoogleDriveSourceConfig) -> list[Document]:
         """
         List Google Drive files and create documents with metadata only (lazy loading).
 
         No binary content is downloaded - that happens on-demand via fetch_binary_content().
         """
-        # List files from Google Drive (metadata only)
         files = self._list_files_from_drive(config=config)
+        logger.info("Found %s files in Google Drive folder '%s'", len(files), config.folder_id)
 
-        logger.info(f"Found {len(files)} files in Google Drive folder '{config.folder_id}'")
-
-        # Convert to domain documents
         documents = []
         for file_metadata in files:
-            # Apply file extension filter if specified
-            if config.file_extensions:
-                file_name = file_metadata.get("name", "")
-                file_ext = os.path.splitext(file_name)[1].lower()
-                if file_ext not in config.file_extensions:
-                    continue
-
-            # Apply file size filter if specified
-            if config.max_file_size_mb:
-                file_size = int(file_metadata.get("size", 0))
-                file_size_mb = file_size / (1024 * 1024)
-                if file_size_mb > config.max_file_size_mb:
-                    continue
-
+            if self._should_skip_file(file_metadata=file_metadata, config=config):
+                continue
             doc = self._prepare_document(file_metadata=file_metadata, config=config)
             documents.append(doc)
-            logger.debug(f"Created document metadata for Google Drive file: {doc.name} ({doc.size} bytes)")
+            logger.debug("Created document metadata for Google Drive file: %s (%s bytes)", doc.name, doc.size)
 
-        # Count file extensions for logging
         extension_counts: dict[str, int] = {}
         for doc in documents:
             extension = doc.extension or "unknown"
@@ -321,10 +425,20 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         if extension_counts:
             logger.info("  File breakdown by extension:")
             for extension, count in sorted(extension_counts.items(), key=lambda x: x[1], reverse=True):
-                logger.info(f"    - {extension}: {count} file(s)")
+                logger.info("    - %s: %s file(s)", extension, count)
 
-        logger.info(f"Created {len(documents)} document metadata entries from Google Drive")
+        logger.info("Created %s document metadata entries from Google Drive", len(documents))
         return documents
+
+    def _fetch_single_gdrive_file(self, *, config: GoogleDriveSourceConfig) -> Document:
+        """Fetch metadata for a single Google Drive file by file_id."""
+        service = self._get_drive_service(config=config)
+        file_metadata = (
+            service.files()
+            .get(fileId=config.file_id, fields="id, name, mimeType, size, modifiedTime, webViewLink")
+            .execute()
+        )
+        return self._prepare_document(file_metadata=file_metadata, config=config)
 
     async def fetch_documents(self, config: GoogleDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
@@ -341,13 +455,16 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             ValueError: If credentials are invalid or folder not found
         """
         try:
+            if config.file_id:
+                logger.info("Fetching single file from Google Drive: file_id=%s", config.file_id)
+                yield self._fetch_single_gdrive_file(config=config)
+                return
+
             fetched_count = 0
             for document in self._iter_documents(config):
-                # Check max_files limit
                 if config.max_files is not None and fetched_count >= config.max_files:
-                    logger.info(f"Reached max_files limit ({config.max_files}), stopping fetch")
+                    logger.info("Reached max_files limit (%s), stopping fetch", config.max_files)
                     break
-
                 yield document
                 fetched_count += 1
         except ImportError as e:
@@ -395,7 +512,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         """
         return GoogleDriveSourceConfig
 
-    def fetch_binary_content(  # NOSONAR python:S3776
+    def fetch_binary_content(
         self,
         *,
         source_id: str,
@@ -415,26 +532,17 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         """
         try:
             from io import BytesIO
-
-            from googleapiclient.discovery import build
         except ImportError:
             logger.error("Google API client not installed. Install with: pip install google-api-python-client")
             return None
 
         try:
-            # Build minimal config for authentication
+            # Build minimal config for authentication — used as cache key
             credentials_path = credentials.get("credentials_path")
             service_account_json_path = credentials.get("service_account_json_path")
-            folder_id = connection_params.get("folder_id")
-            if not folder_id:
-                logger.warning(
-                    "No folder_id specified in connection_params. Defaulting to 'root' which will scan entire Google Drive. "
-                    "This may be slow for large drives. Consider specifying a specific folder_id for better performance."
-                )
-                folder_id = "root"
+            folder_id = connection_params.get("folder_id") or "root"
 
-            # Create minimal config for authentication
-            config_dict = {
+            config_dict: dict[str, Any] = {
                 "folder_id": folder_id,
                 "recursive": False,
                 "file_extensions": [],
@@ -444,66 +552,60 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
             if credentials_path:
                 config_dict["credentials_path"] = credentials_path
-                config_dict["token_path"] = credentials.get("token_path", "~/.docpipe/google_drive_token.pickle")
+                config_dict["token_path"] = credentials.get("token_path", "~/.docpipe/google_drive_token.json")
 
             if service_account_json_path:
                 config_dict["service_account_json_path"] = service_account_json_path
 
             temp_config = GoogleDriveSourceConfig(**config_dict)
 
-            # Get credentials
-            creds = self._get_credentials(temp_config)
+            # Reuse cached service — avoids repeated _get_credentials() + build() per document
+            service = self._get_drive_service(config=temp_config)
 
-            # Build Drive API service
-            service = build("drive", "v3", credentials=creds)
-
-            # Download file content
-            logger.info(f"Downloading binary content from Google Drive: file_id={source_id}")
+            logger.info("Downloading binary content from Google Drive: file_id=%s", source_id)
 
             # Get file metadata first to check mime type
             file_metadata = service.files().get(fileId=source_id, fields="mimeType,name").execute()
             mime_type = file_metadata.get("mimeType", "")
-            file_name = file_metadata.get("name", "unknown")
+            file_name = file_metadata.get(OperatorConstants.Columns.NAME, "unknown")
 
             # Handle Google Workspace files (need to export)
             if mime_type.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
                 # Export Google Workspace files
-                export_mime_type = None
-                if "document" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.PDF
-                elif "spreadsheet" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.EXCEL_XLSX
-                elif "presentation" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.PDF
-                elif "drawing" in mime_type:
-                    export_mime_type = OperatorConstants.MimeTypes.PDF
+                workspace_export_mime_map = {
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_DOCUMENT: OperatorConstants.MimeTypes.PDF,
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_SPREADSHEET: OperatorConstants.MimeTypes.EXCEL_XLSX,
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_PRESENTATION: OperatorConstants.MimeTypes.PDF,
+                    OperatorConstants.MimeTypes.GOOGLE_APPS_DRAWING: OperatorConstants.MimeTypes.PDF,
+                }
+                export_mime_type = workspace_export_mime_map.get(mime_type)
 
                 if export_mime_type:
                     request = service.files().export_media(fileId=source_id, mimeType=export_mime_type)
                 else:
-                    logger.warning(f"Unsupported Google Workspace file type: {mime_type} for {file_name}")
+                    logger.warning("Unsupported Google Workspace file type: %s for %s", mime_type, file_name)
                     return None
             else:
                 # Regular file download
                 request = service.files().get_media(fileId=source_id)
 
             # Download content
-            file_buffer = BytesIO()
             from googleapiclient.http import MediaIoBaseDownload
 
+            file_buffer = BytesIO()
             downloader = MediaIoBaseDownload(file_buffer, request)
             done = False
             while not done:
                 status, done = downloader.next_chunk()
                 if status:
-                    logger.debug(f"Download progress: {int(status.progress() * 100)}%")
+                    logger.debug("Download progress: %s%%", int(status.progress() * 100))
 
             content = file_buffer.getvalue()
-            logger.info(f"Successfully downloaded {len(content)} bytes from Google Drive: {source_id}")
+            logger.info("Successfully downloaded %s bytes from Google Drive: %s", len(content), source_id)
             return content
 
         except Exception as e:
-            logger.error(f"Error fetching binary content from Google Drive {source_id}: {e}", exc_info=True)
+            logger.error("Error fetching binary content from Google Drive %s: %s", source_id, e, exc_info=True)
             return None
 
     def build_config_from_operator_params(
@@ -556,6 +658,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             config_dict["drive_id"] = resolve_env_var(connection_params["drive_id"])
         if "folder_path" in connection_params:
             config_dict["folder_path"] = resolve_env_var(connection_params["folder_path"])
+        if "file_id" in connection_params:
+            config_dict["file_id"] = resolve_env_var(connection_params["file_id"])
         if "max_file_size_mb" in connection_params:
             config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
 
