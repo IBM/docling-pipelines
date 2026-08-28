@@ -237,45 +237,44 @@ def temp_duckdb_path(tmp_path):
 @pytest.fixture(scope="function")
 def cleanup_test_document_sets():
     """
-    Clean up test document sets after each test.
+    Clean up test document sets before and after each test.
     Only removes document sets with test-related names to avoid deleting user data.
     """
     from pathlib import Path
 
     import duckdb
 
-    yield  # Run test first
+    from docpipe.core.constants.constants import DocpipeConstants
 
-    # Clean up after test
-    backend_dir = Path(__file__).parent.parent / "src" / "docpipe_app" / "backend"
-    db_path = backend_dir / "document_sets.duckdb"
+    db_path = Path(DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH)
 
-    if db_path.exists():
-        try:
-            conn = duckdb.connect(str(db_path))
+    def _delete_test_document_sets():
+        if db_path.exists():
+            try:
+                conn = duckdb.connect(str(db_path))
+                result = conn.execute("""
+                    SELECT id, table_name FROM document_sets
+                    WHERE name LIKE '%Test%'
+                       OR name LIKE '%Minimal%'
+                       OR name LIKE '%Extended%'
+                       OR name LIKE '%Update%'
+                """).fetchall()
+                for doc_set_id, table_name in result:
+                    try:
+                        conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+                    except Exception:
+                        pass
+                    try:
+                        conn.execute("DELETE FROM document_sets WHERE id = ?", [doc_set_id])
+                    except Exception:
+                        pass
+                conn.close()
+            except Exception:
+                pass  # Ignore errors if database doesn't exist or is locked
 
-            # Get all test document sets (those with "Test" in the name)
-            result = conn.execute("""
-                SELECT id, table_name FROM document_sets
-                WHERE name LIKE '%Test%'
-            """).fetchall()
-
-            for doc_set_id, table_name in result:
-                # Drop the data table
-                try:
-                    conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-                except Exception:
-                    pass
-
-                # Delete from metadata table
-                try:
-                    conn.execute("DELETE FROM document_sets WHERE id = ?", [doc_set_id])
-                except Exception:
-                    pass
-
-            conn.close()
-        except Exception:
-            pass  # Ignore errors if database doesn't exist or is locked
+    _delete_test_document_sets()  # Clean up before the test (stale state from prior runs)
+    yield
+    _delete_test_document_sets()  # Clean up after the test
 
 
 # ============================================================================

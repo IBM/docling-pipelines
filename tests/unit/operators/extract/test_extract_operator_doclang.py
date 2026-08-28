@@ -40,13 +40,17 @@ def _validate_doclang_structure(doclang_xml: str) -> None:
     expected_content = [
         "INVOICE NUMBER",
         "0298878900",
-        "Feb 10, 2020",
         "STRATFORD",
         "GRAND TOTAL",
         "15,163",
     ]
     for content in expected_content:
         assert content in doclang_xml, f"DocLang should contain '{content}'"
+
+    # Date check: docling may encode the comma as a Unicode fullwidth comma (\uff0c)
+    # depending on the version, so check the date parts independently
+    assert "Feb 10" in doclang_xml, "DocLang should contain 'Feb 10'"
+    assert "2020" in doclang_xml, "DocLang should contain '2020'"
 
     # 4. Structure Counts (with tolerance)
     text_count = doclang_xml.count("<text>")
