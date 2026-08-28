@@ -11,6 +11,7 @@ from docpipe.core.operators.vectordb import VectorDBOperator
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import VectorStoreFactory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.config import get_opensearch_config
+from docpipe.utils.operators.vectordb_utils import generate_composite_pk, generate_positional_pk
 
 
 @pytest.fixture
@@ -279,13 +280,15 @@ class TestChunkedEmbeddings:
         # Verify structure matches real OpenSearch output
         for action in all_actions:
             assert "_id" in action
-            assert "_source" in action
-            assert "text" in action["_source"]
-            assert "vector_embeddings" in action["_source"]
-            assert "pk" in action["_source"]
+            assert action["_op_type"] == "update"
+            assert "doc" in action
+            assert action["doc_as_upsert"] is True
+            assert "text" in action["doc"]
+            assert "vector_embeddings" in action["doc"]
+            assert "pk" in action["doc"]
 
             # Key assertion: text field contains chunk content, not full document
-            text_content = action["_source"]["text"]
+            text_content = action["doc"]["text"]
             assert "Full content of document" not in text_content
             assert "chunk of doc" in text_content
 
@@ -836,13 +839,61 @@ class TestVectorDBOperatorGetMetadataProviders:
         assert "milvus" in provider_config["providers"]
 
 
+class TestGeneratePositionalPk:
+    """Tests for generate_positional_pk() from vectordb_utils."""
+
+    def test_returns_expected_format(self) -> None:
+        """PK must be a 128-char SHA3-512 hex digest followed by _chunk_{index}."""
+        import hashlib
+
+        pk = generate_positional_pk(file_id="file.pdf", chunk_index=0)
+        file_hash = hashlib.sha3_512(b"file.pdf").hexdigest()
+        assert pk == f"{file_hash}_chunk_0"
+
+    def test_different_files_same_index_produce_different_pks(self) -> None:
+        """Two files at the same chunk position must not collide."""
+        pk1 = generate_positional_pk(file_id="/docs/file_a.pdf", chunk_index=0)
+        pk2 = generate_positional_pk(file_id="/docs/file_b.pdf", chunk_index=0)
+        assert pk1 != pk2
+
+    def test_same_file_different_indices_produce_different_pks(self) -> None:
+        """Different chunk positions in the same file must produce different PKs."""
+        pk1 = generate_positional_pk(file_id="/docs/file.pdf", chunk_index=0)
+        pk2 = generate_positional_pk(file_id="/docs/file.pdf", chunk_index=1)
+        assert pk1 != pk2
+
+    def test_deterministic(self) -> None:
+        """Same inputs must always produce the same PK."""
+        pk1 = generate_positional_pk(file_id="file.pdf", chunk_index=3)
+        pk2 = generate_positional_pk(file_id="file.pdf", chunk_index=3)
+        assert pk1 == pk2
+
+    def test_handles_zero_index(self) -> None:
+        """Chunk index 0 is valid and must not raise."""
+        pk = generate_positional_pk(file_id="file.pdf", chunk_index=0)
+        assert "_chunk_0" in pk
+
+    def test_handles_special_characters_in_file_id(self) -> None:
+        """Special characters in file_id must not raise."""
+        pk = generate_positional_pk(
+            file_id="/path/with spaces/and-dashes/file (1).pdf",
+            chunk_index=2,
+        )
+        assert "_chunk_2" in pk
+
+    def test_content_change_does_not_change_pk(self) -> None:
+        """PK must be identical regardless of chunk content — only position matters."""
+        pk1 = generate_positional_pk(file_id="file.pdf", chunk_index=1)
+        pk2 = generate_positional_pk(file_id="file.pdf", chunk_index=1)
+        assert pk1 == pk2
+
+
 class TestGenerateCompositePk:
-    """Tests for VectorDBOperator.generate_composite_pk()."""
+    """Tests for generate_composite_pk() from vectordb_utils."""
 
     def test_returns_expected_format(self) -> None:
         """PK must be two full 128-char SHA3-512 hex segments joined by underscore."""
-        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
-            pk = VectorDBOperator.generate_composite_pk(file_id="file.pdf", chunk_content="hello world")
+        pk = generate_composite_pk(file_id="file.pdf", chunk_content="hello world")
         parts = pk.split("_")
         assert len(parts) == 2
         assert all(len(p) == 128 for p in parts)
@@ -850,20 +901,20 @@ class TestGenerateCompositePk:
 
     def test_different_files_same_content_produce_different_pks(self) -> None:
         """Two files with identical content must not collide."""
-        pk1 = VectorDBOperator.generate_composite_pk(file_id="/docs/file_a.pdf", chunk_content="same text")
-        pk2 = VectorDBOperator.generate_composite_pk(file_id="/docs/file_b.pdf", chunk_content="same text")
+        pk1 = generate_composite_pk(file_id="/docs/file_a.pdf", chunk_content="same text")
+        pk2 = generate_composite_pk(file_id="/docs/file_b.pdf", chunk_content="same text")
         assert pk1 != pk2
 
     def test_same_file_different_content_produces_different_pks(self) -> None:
         """Different chunks of the same file must produce different PKs."""
-        pk1 = VectorDBOperator.generate_composite_pk(file_id="/docs/file.pdf", chunk_content="chunk one")
-        pk2 = VectorDBOperator.generate_composite_pk(file_id="/docs/file.pdf", chunk_content="chunk two")
+        pk1 = generate_composite_pk(file_id="/docs/file.pdf", chunk_content="chunk one")
+        pk2 = generate_composite_pk(file_id="/docs/file.pdf", chunk_content="chunk two")
         assert pk1 != pk2
 
     def test_deterministic(self) -> None:
         """Same inputs must always produce the same PK."""
-        pk1 = VectorDBOperator.generate_composite_pk(file_id="file.pdf", chunk_content="text")
-        pk2 = VectorDBOperator.generate_composite_pk(file_id="file.pdf", chunk_content="text")
+        pk1 = generate_composite_pk(file_id="file.pdf", chunk_content="text")
+        pk2 = generate_composite_pk(file_id="file.pdf", chunk_content="text")
         assert pk1 == pk2
 
     def test_matches_expected_hash_values(self) -> None:
@@ -875,16 +926,16 @@ class TestGenerateCompositePk:
         fh = hashlib.sha3_512(file_id.encode()).hexdigest()
         ch = hashlib.sha3_512(chunk_content.encode()).hexdigest()
         expected = f"{fh}_{ch}"
-        assert VectorDBOperator.generate_composite_pk(file_id=file_id, chunk_content=chunk_content) == expected
+        assert generate_composite_pk(file_id=file_id, chunk_content=chunk_content) == expected
 
     def test_handles_empty_strings(self) -> None:
         """Empty inputs are valid — SHA3-512 of empty string is well-defined."""
-        pk = VectorDBOperator.generate_composite_pk(file_id="", chunk_content="")
+        pk = generate_composite_pk(file_id="", chunk_content="")
         assert len(pk) == 257  # 128 + "_" + 128
 
     def test_handles_special_characters_in_file_id(self) -> None:
         """Special characters in file_id must not raise."""
-        pk = VectorDBOperator.generate_composite_pk(
+        pk = generate_composite_pk(
             file_id="/path/with spaces/and-dashes/file (1).pdf",
             chunk_content="text",
         )
@@ -951,7 +1002,8 @@ class TestStalePkCleanup:
     def test_stale_pks_are_deleted_before_insert(self, mock_adapter, stale_cleanup_config, chunked_table) -> None:
         """PKs present in the store but absent from the new run must be deleted."""
         stale_pk = "old_stale_pk_that_no_longer_exists"
-        mock_adapter.get_chunk_ids_for_documents.return_value = {"abc123": {stale_pk}}
+        # Existing PKs are keyed by stable file ID (the 'id' column value).
+        mock_adapter.get_chunk_ids_for_documents.return_value = {"/docs/file_a.pdf": {stale_pk}}
         with patch(
             "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create", return_value=mock_adapter
         ):
@@ -961,17 +1013,20 @@ class TestStalePkCleanup:
         deleted = mock_adapter.delete_documents_by_ids.call_args[0][0]
         assert stale_pk in deleted
 
-    def test_new_pks_are_not_deleted(self, mock_adapter, stale_cleanup_config, chunked_table) -> None:
-        """PKs that are part of the current run must never appear in the delete call."""
-        pk0 = VectorDBOperator.generate_composite_pk(file_id="/docs/file_a.pdf", chunk_content="chunk one")
-        pk1 = VectorDBOperator.generate_composite_pk(file_id="/docs/file_a.pdf", chunk_content="chunk two")
-        mock_adapter.get_chunk_ids_for_documents.return_value = {"abc123": {pk0, pk1}}
+    def test_existing_pks_are_deleted_before_reinsert(self, mock_adapter, stale_cleanup_config, chunked_table) -> None:
+        """All existing PKs for a file are deleted before re-inserting (delete-then-insert upsert)."""
+        pk0 = "existing_pk_0"
+        pk1 = "existing_pk_1"
+        mock_adapter.get_chunk_ids_for_documents.return_value = {"/docs/file_a.pdf": {pk0, pk1}}
         with patch(
             "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create", return_value=mock_adapter
         ):
             op = VectorDBOperator(stale_cleanup_config)
             op.transform(chunked_table)
-        mock_adapter.delete_documents_by_ids.assert_not_called()
+        mock_adapter.delete_documents_by_ids.assert_called_once()
+        deleted = mock_adapter.delete_documents_by_ids.call_args[0][0]
+        assert pk0 in deleted
+        assert pk1 in deleted
 
     def test_insert_proceeds_even_if_cleanup_raises(self, mock_adapter, stale_cleanup_config, chunked_table) -> None:
         """A failure in stale PK cleanup must not prevent index_documents from being called."""
@@ -982,6 +1037,90 @@ class TestStalePkCleanup:
             op = VectorDBOperator(stale_cleanup_config)
             op.transform(chunked_table)
         mock_adapter.index_documents.assert_called_once()
+
+
+class TestChunkPkBranching:
+    """Tests verifying that transform() picks the correct PK method based on adapter.ADAPTER_NAME."""
+
+    @pytest.fixture
+    def branching_config(self):
+        return {
+            "provider": "opensearch",
+            "provider_config": {"index_name": "test_index"},
+            "available_features": {
+                "doc_id_hash": {
+                    "type": "string",
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                },
+                "embeddings": {
+                    "type": "vector",
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                },
+            },
+            "feature_mappings": {"doc_id_hash": "doc_id_hash", "embeddings": "embeddings"},
+        }
+
+    @pytest.fixture
+    def chunked_table(self):
+        return pa.table(
+            {
+                "id": ["/docs/file_a.pdf"],
+                "doc_id_hash": ["abc123"],
+                "content": ["full doc text"],
+                "chunked_content": [[{"chunk": "chunk one"}, {"chunk": "chunk two"}]],
+                "embeddings": [[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]],
+            }
+        )
+
+    def test_opensearch_adapter_uses_positional_pk(self, branching_config, chunked_table) -> None:
+        """Adapter configured with positional strategy produces hash_chunk_{index} PKs."""
+        mock_adapter = MagicMock()
+        mock_adapter.generate_chunk_pk.side_effect = lambda *, file_id, chunk_index, chunk_content: (
+            generate_positional_pk(file_id=file_id, chunk_index=chunk_index)
+        )
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_documents.return_value = (2, [])
+        mock_adapter.get_chunk_ids_for_documents.return_value = {}
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(branching_config)
+            op.transform(chunked_table)
+
+        documents_arg = mock_adapter.index_documents.call_args[0][0]
+        chunk_pks = [pk for pk, _ in documents_arg]
+        expected_pk0 = generate_positional_pk(file_id="/docs/file_a.pdf", chunk_index=0)
+        expected_pk1 = generate_positional_pk(file_id="/docs/file_a.pdf", chunk_index=1)
+        assert chunk_pks == [expected_pk0, expected_pk1]
+
+    def test_non_opensearch_adapter_uses_composite_pk(self, branching_config, chunked_table) -> None:
+        """Adapter configured with content-hash strategy produces file_hash_content_hash PKs."""
+        mock_adapter = MagicMock()
+        mock_adapter.generate_chunk_pk.side_effect = lambda *, file_id, chunk_index, chunk_content: (
+            generate_composite_pk(file_id=file_id, chunk_content=chunk_content)
+        )
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_documents.return_value = (2, [])
+        mock_adapter.get_chunk_ids_for_documents.return_value = {}
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(branching_config)
+            op.transform(chunked_table)
+
+        documents_arg = mock_adapter.index_documents.call_args[0][0]
+        chunk_pks = [pk for pk, _ in documents_arg]
+        expected_pk0 = generate_composite_pk(file_id="/docs/file_a.pdf", chunk_content="chunk one")
+        expected_pk1 = generate_composite_pk(file_id="/docs/file_a.pdf", chunk_content="chunk two")
+        assert chunk_pks == [expected_pk0, expected_pk1]
 
 
 if __name__ == "__main__":

@@ -639,32 +639,34 @@ class TestQueryPksByDocIds:
         mock_client.query.assert_not_called()
 
     def test_returns_pks_grouped_by_doc_id(self, mock_client) -> None:
-        """Rows must be grouped by their doc_id_hash field value."""
-        mock_client.query.return_value = [
-            {"pk": "pk_a1", "doc_id_hash": "doc_a"},
-            {"pk": "pk_a2", "doc_id_hash": "doc_a"},
-            {"pk": "pk_b1", "doc_id_hash": "doc_b"},
-        ]
-        processor = MilvusBatchProcessor(
-            client=mock_client,
-            collection_name="test_collection",
-            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
-        )
-        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a", "doc_b"])
-        assert result == {"doc_a": {"pk_a1", "pk_a2"}, "doc_b": {"pk_b1"}}
+        """Rows returned by each per-doc prefix query must be grouped by file_id."""
+        import hashlib
 
-    def test_uses_feature_mapping_for_field_name(self, mock_client) -> None:
-        """An overridden feature mapping must appear in the filter expression."""
-        mock_client.query.return_value = [{"pk": "pk1", "document_id": "doc_a"}]
-        processor = MilvusBatchProcessor(
-            client=mock_client,
-            collection_name="test_collection",
-            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "document_id"}],
-        )
-        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
-        assert result == {"doc_a": {"pk1"}}
+        hash_a = hashlib.sha3_512(b"doc_a").hexdigest()
+        hash_b = hashlib.sha3_512(b"doc_b").hexdigest()
+
+        # query is called once per doc_id — return different rows for each call
+        mock_client.query.side_effect = [
+            [{"pk": f"{hash_a}_c1"}, {"pk": f"{hash_a}_c2"}],  # doc_a
+            [{"pk": f"{hash_b}_c1"}],  # doc_b
+        ]
+        processor = MilvusBatchProcessor(client=mock_client, collection_name="test_collection")
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a", "doc_b"])
+        assert result == {
+            "doc_a": {f"{hash_a}_c1", f"{hash_a}_c2"},
+            "doc_b": {f"{hash_b}_c1"},
+        }
+
+    def test_uses_pk_prefix_filter(self, mock_client) -> None:
+        """Filter expression must be a pk like query using the sha3_512 prefix of the file_id."""
+        import hashlib
+
+        hash_a = hashlib.sha3_512(b"doc_a").hexdigest()
+        mock_client.query.return_value = [{"pk": f"{hash_a}_c1"}]
+        processor = MilvusBatchProcessor(client=mock_client, collection_name="test_collection")
+        processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
         call_kwargs = mock_client.query.call_args[1]
-        assert "document_id" in call_kwargs["filter"]
+        assert call_kwargs["filter"] == f'pk like "{hash_a}_%"'
 
     def test_skips_rows_with_empty_pk(self, mock_client) -> None:
         """Rows with an empty PK value must be excluded from the result."""

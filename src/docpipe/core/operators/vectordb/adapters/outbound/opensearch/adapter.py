@@ -17,7 +17,11 @@ from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import 
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.utils.infrastructure.logging import get_logger
-from docpipe.utils.operators.vectordb_utils import detect_all_vector_dimensions, detect_vector_dimension
+from docpipe.utils.operators.vectordb_utils import (
+    detect_all_vector_dimensions,
+    detect_vector_dimension,
+    generate_positional_pk,
+)
 
 logger = get_logger(__name__)
 
@@ -263,3 +267,19 @@ class OpenSearchAdapter(VectorStorePort):
             Mapping of doc_id -> set of chunk PKs.
         """
         return self.batch_processor.get_chunk_ids_for_documents(doc_ids=doc_ids)
+
+    def generate_chunk_pk(self, *, file_id: str, chunk_index: int, chunk_content: str) -> str:
+        """Generate a positional primary key for this chunk.
+
+        OpenSearch uses positional PKs so the same chunk position always maps
+        to the same document, enabling native in-place upserts on re-ingest.
+
+        Args:
+            file_id: The file identifier.
+            chunk_index: Zero-based position of the chunk within the document.
+            chunk_content: The text content of the chunk (unused by this strategy).
+
+        Returns:
+            Positional PK string in the format ``{file_hash}_chunk_{chunk_index}``.
+        """
+        return generate_positional_pk(file_id=file_id, chunk_index=chunk_index)
