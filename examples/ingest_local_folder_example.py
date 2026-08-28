@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-Example: Local Folder Ingestion
+Example: Local Folder Ingestion via IngestSourceOperator
 
 This example demonstrates how to ingest documents from a local folder
-using the IngestLocalOperator.
+using the IngestSourceOperator with the filesystem provider.
+
+Note: IngestLocalOperator was removed. Use IngestSourceOperator with
+provider="filesystem" instead — see ingest_filesystem_example.py for the
+full equivalent.
 """
 
 import sys
@@ -15,16 +19,16 @@ import pyarrow as pa
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 
 def main() -> None:  # pragma: no cover
-    """Test the IngestLocalOperator with a sample configuration."""
+    """Ingest documents from a local folder using IngestSourceOperator (filesystem provider)."""
     # 1. Construct the operator with the required configuration and input parameters
-    operator: IngestLocalOperator = IngestLocalOperator(
+    operator: IngestSourceOperator = IngestSourceOperator(
         {
-            "doc_column": "content",
-            "paths": "tests/fixtures/invoices",
+            "provider": "filesystem",
+            "connection_params": {"paths": ["tests/fixtures/invoices"]},
             "include_filter": "pdf,txt",
         }
     )
@@ -45,7 +49,7 @@ def main() -> None:  # pragma: no cover
     table: pa.Table = table_list[0]
     print(f"output metadata : {metadata}")
     if table_list[0].num_rows:  # avoid printing if table is empty
-        print("Found docs: ", table["name"], table["size"])
+        print("Found docs: ", table["name"])
 
 
 if __name__ == "__main__":  # pragma: no cover

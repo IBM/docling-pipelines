@@ -14,7 +14,7 @@ It connects to cloud document sources (S3, OneDrive, SharePoint, Google Drive, B
 
 ## Features
 
-- 📥 **Multi-source ingestion** — local filesystem, Amazon S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, CSV, and web pages
+- 📥 **Multi-source ingestion** — local filesystem, Amazon S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, and web pages
 - 📄 **Document extraction** — PDF, DOCX, HTML, images, and more via Docling, with optional VLM and ASR pipelines
 - 🧠 **Entity extraction** — LLM-based extraction via LiteLLM (100+ providers), IBM watsonx.ai, or Docling templates
 - ✂️ **Chunking** — Docling-native and semantic chunking strategies
@@ -87,12 +87,12 @@ Check out the full [documentation](docs/README.md) for installation, flow author
 
 | Category | Operators |
 |---|---|
-| **Ingest** | Local Filesystem & Remote Source Ingest (`ingest_source`) — [filesystem, S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, CSV, web](docs/operators/ingest/ingest_source_readme.md) |
+| **Ingest** | Local Filesystem & Remote Source Ingest (`ingest_source`) — [filesystem, S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, web](docs/operators/ingest/ingest_source_readme.md) |
 | **Extract** | Document Extractor (`extract_operator`), ACL Extraction (`acl_operator`) |
 | **Functional** | Chunking (`chunker`), Embeddings (`embeddings`), Branching Operator (`branching`), Merge Operator (`merge`), Document ID Hash (`doc_id_hash`), Entity Curation (`entity_curation`), No-op (`noop`) |
 | **Quality** | Language Annotator (`lang_detect`), Readability Operator (`readability`), PII and HAP Annotator (`pii_and_hap`), Document Classifier (`document_classifier`), Annotation Filter (`sql_filter`), Redaction (`redaction`), De-duplicator (`ededup`), ML Text Enrichment (`ml_enrichment`), Document Quality (`doc_quality`) |
 | **VectorDB** | Vector Database (`vectordb`) — OpenSearch, Milvus |
-| **Storage** | Document Set (`document_set`) — DuckDB-backed document collections |
+| **Storage** | Document Set (`document_set`) — DuckDB-backed document collections, Storage Output (`storage_output`) — write pipeline output to filesystem, S3, IBM COS, and more |
 
 For per-operator configuration guides, see [Operator Configuration Guides](docs/reference/OPERATORS.md).
 

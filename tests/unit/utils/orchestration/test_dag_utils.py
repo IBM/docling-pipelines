@@ -17,7 +17,7 @@ class TestExtractDagNodes:
     def test_runtime_format_returns_dag_list(self):
         """Runtime format with 'dag' key returns the list directly."""
         dag_nodes = [
-            {"id": "uuid-1", "name": "Ingest", "operator": "IngestLocalOperator"},
+            {"id": "uuid-1", "name": "Ingest", "operator": "IngestSourceOperator"},
             {"id": "uuid-2", "name": "Extract", "operator": "ExtractOperator"},
         ]
         flow_definition = {"dag": dag_nodes, "name": "test-flow"}
@@ -52,7 +52,7 @@ class TestExtractDagNodes:
         """Authoring format without node_stats cannot reconstruct — returns empty."""
         flow_definition = {
             "flow": [
-                {"name": "Ingest", "type": "IngestLocalOperator", "depends_on": []},
+                {"name": "Ingest", "type": "IngestSourceOperator", "depends_on": []},
                 {"name": "Extract", "type": "ExtractOperator", "depends_on": ["Ingest"]},
             ]
         }
@@ -65,7 +65,7 @@ class TestExtractDagNodes:
         """Authoring format + node_stats reconstructs dag nodes with real UUIDs."""
         flow_definition = {
             "flow": [
-                {"name": "Ingest", "type": "IngestLocalOperator", "depends_on": []},
+                {"name": "Ingest", "type": "IngestSourceOperator", "depends_on": []},
                 {"name": "Extract", "type": "ExtractOperator", "depends_on": ["Ingest"]},
             ]
         }
@@ -88,7 +88,7 @@ class TestExtractDagNodes:
         assert ingest_uuid in by_id
         ingest_node = by_id[ingest_uuid]
         assert ingest_node["name"] == "Ingest"
-        assert ingest_node["operator"] == "IngestLocalOperator"
+        assert ingest_node["operator"] == "IngestSourceOperator"
         assert ingest_node["input_edges"] == []
         # Ingest has Extract as output
         assert len(ingest_node["output_edges"]) == 1
@@ -108,7 +108,7 @@ class TestExtractDagNodes:
         """Handles node_stats where values are dicts (not objects with .name)."""
         flow_definition = {
             "flow": [
-                {"name": "Ingest", "type": "IngestLocalOperator", "depends_on": []},
+                {"name": "Ingest", "type": "IngestSourceOperator", "depends_on": []},
             ]
         }
 
@@ -125,7 +125,7 @@ class TestExtractDagNodes:
         """Authoring nodes without depends_on key default to no dependencies."""
         flow_definition = {
             "flow": [
-                {"name": "Ingest", "type": "IngestLocalOperator"},  # no depends_on key
+                {"name": "Ingest", "type": "IngestSourceOperator"},  # no depends_on key
             ]
         }
         node_stats = {"uuid-x": SimpleNamespace(name="Ingest")}

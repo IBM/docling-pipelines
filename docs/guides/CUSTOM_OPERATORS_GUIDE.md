@@ -790,7 +790,7 @@ version = "0.1.0"
 description = "Custom operators for Docling Pipelines"
 requires-python = ">=3.12"
 dependencies = [
-    "docpipe>=0.1.0",
+    "docling-pipelines>=1.0.0",
 ]
 
 # Register operators via entry points
@@ -1198,9 +1198,6 @@ S3 support is an **optional advanced feature** for enterprise deployments that n
 ```bash
 # Using uv
 uv pip install boto3
-
-# Or install Docling Pipelines with AWS extras
-uv sync --extra aws
 ```
 
 2. **Configure AWS credentials** (boto3 uses standard AWS credential chain):

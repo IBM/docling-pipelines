@@ -5,7 +5,7 @@ description = "Example custom operators package for Docpipe"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "docpipe>=0.1.0",
+    "docling-pipelines>=1.0.0",
 ]
 
 [project.entry-points."docpipe.operators"]

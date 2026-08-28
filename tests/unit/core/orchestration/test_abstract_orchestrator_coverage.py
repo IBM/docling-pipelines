@@ -56,7 +56,7 @@ class TestGetIngestSummaryMessage:
         mock_table = MagicMock()
         mock_table.num_rows = 1
         result = orchestrator._get_ingest_summary_message(
-            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_local"}
+            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_source"}
         )
         assert result is None
 
@@ -64,7 +64,7 @@ class TestGetIngestSummaryMessage:
         mock_table = MagicMock()
         mock_table.num_rows = 0
         result = orchestrator._get_ingest_summary_message(
-            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_local"}
+            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_source"}
         )
         assert result == "No documents are ingested."
 
@@ -72,7 +72,7 @@ class TestGetIngestSummaryMessage:
         mock_table = MagicMock()
         mock_table.num_rows = 0
         result = orchestrator._get_ingest_summary_message(
-            output_table=mock_table, deleted_docs_count=3, operator={"operator": "ingest_local"}
+            output_table=mock_table, deleted_docs_count=3, operator={"operator": "ingest_source"}
         )
         assert "3 documents were removed" in result
 

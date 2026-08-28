@@ -27,7 +27,7 @@ Micro-batching default behavior: CLI, REST job runs, and `DocpipeFlowManager` de
 | `src/docpipe/api/services/` | API-layer services: OpenSearch queries, ACL query builder |
 | `src/docpipe/core/operators/abstract_operator.py` | `AbstractOperator` base — extends `data_processing.AbstractTableTransform`; defines contract |
 | `src/docpipe/core/operators/operator_registry.py` | `DOCPIPE_OPERATORS` frozenset; `get_docpipe_operators()` merges OSS + external providers |
-| `src/docpipe/core/operators/ingest/` | `IngestLocalOperator`, `IngestSourceOperator` |
+| `src/docpipe/core/operators/ingest/` | `IngestSourceOperator` |
 | `src/docpipe/core/operators/extract/` | `ExtractOperator` — docling-based text + entity extraction |
 | `src/docpipe/core/operators/functional/` | `BranchingOperator`, `ChunkerOperator`, `EmbeddingsOperator`, `MergeOperator`, `DocIdHashOperator`, `NOOPOperator`, `EntityCurationOperator` |
 | `src/docpipe/core/operators/quality/` | `DocumentClassifierOperator`, `DocQuality`, `EdedupOperator`, `LanguageDetect`, `MLEnrichmentOperator`, `PIIAndHAPAnnotator`, `ReadabilityOperator`, `RedactionOperator`, `SQLFilterOperator` |

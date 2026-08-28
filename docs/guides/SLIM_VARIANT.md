@@ -39,23 +39,23 @@ result = manager.execute()
 
 ### Build slim wheel
 
-> **Note:** The command below is for local builds only. In CI, the slim wheel is built and pushed to Artifactory automatically by the `Build and Push Wheel` Jenkins stage alongside the main wheel. The published artifact is available at `dataconn-maven-local/docling-pipelines/<VERSION>/`.
+> **Note:** The command below is for local builds only. In CI, the slim wheel is built and published to PyPI by the GitHub Actions release workflow alongside the main wheel.
 
 ```bash
 cd slim/
 uv build --wheel
 ```
 
-Result: `slim/dist/docling_pipelines_slim-0.1.0-py3-none-any.whl`
+Result: `slim/dist/docling_pipelines_slim-<VERSION>-py3-none-any.whl` (version derived from Git tag via hatch-vcs).
 
 ### Install from wheel
 
 ```bash
 # Standard wheel installation
-pip install ./dist/docling_pipelines_slim-0.1.0-py3-none-any.whl
+pip install ./dist/docling_pipelines_slim-*.whl
 
 # With support for extraction operator
-pip install "./dist/docling_pipelines_slim-0.1.0-py3-none-any.whl[extract]"
+pip install "./dist/docling_pipelines_slim-*.whl[extract]"
 ```
 
 ## Operator Availability
@@ -66,7 +66,8 @@ Core operators are available in slim. Optional operator support requires install
 |----------|---------|-----------------|
 | `ingest_source` | ✓ | — |
 | `extract_operator` | ✗ | `extract` |
-| `chunker` | ✓ | — |
+| `chunker` (fixed-size / sentence modes) | ✓ | — |
+| `chunker` (hybrid / docling-split modes) | ✗ | `extract` |
 | `embeddings` (litellm, watsonx, ollama providers) | ✓ | — |
 | `embeddings` (HuggingFace local provider) | ✗ | `extract` |
 | `lang_detect`, `redaction` | ✓ | — |

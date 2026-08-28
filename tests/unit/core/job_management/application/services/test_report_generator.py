@@ -63,14 +63,14 @@ class TestJobReportGeneratorInitialization:
         )
 
         dag_nodes = [
-            {"id": INGEST_NODE_ID, "name": "IngestLocal"},
+            {"id": INGEST_NODE_ID, "name": "IngestSource"},
             {"id": EXTRACT_NODE_ID, "name": "Extract"},
         ]
 
         generator = JobReportGenerator(job_stats=job_stats, dag_nodes=dag_nodes)
 
         assert len(generator.node_id_to_name) == 2
-        assert generator.node_id_to_name[INGEST_NODE_ID] == "IngestLocal"
+        assert generator.node_id_to_name[INGEST_NODE_ID] == "IngestSource"
         assert generator.node_id_to_name[EXTRACT_NODE_ID] == "Extract"
 
 

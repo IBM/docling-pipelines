@@ -5,7 +5,7 @@ vault:// URI scheme. Credentials for vault connectivity are read from
 environment variables (typically via .env file for local development).
 
 Usage in flow.json:
-    "password": ""  # pragma: allowlist secret
+    "password": "vault://hashicorp/opensearch/credentials#password"  # pragma: allowlist secret
 
 Supported providers:
     - hashicorp: HashiCorp Vault (AppRole authentication)

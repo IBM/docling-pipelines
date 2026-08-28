@@ -500,7 +500,7 @@ for failed_doc in metadata['failed_docs']:
 
 ## Related Operators
 
-- **IngestLocalOperator**: Ingest documents from local filesystem
+- **IngestSourceOperator**: Ingest documents from local filesystem or remote sources
 - **ExtractOperator**: Extract content from documents
 - **ChunkerOperator**: Chunk documents for vector storage
 - **EmbeddingsOperator**: Generate embeddings from text

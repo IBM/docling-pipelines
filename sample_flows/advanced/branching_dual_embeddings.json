@@ -1,6 +1,6 @@
 {
   "flow_name": "branching-dual-embeddings-pipeline",
-  "description": "Advanced pipeline with branching: Ingest -> Extract -> Chunk -> Branch -> (Embeddings Model 1, Embeddings Model 2) -> Merge -> Document Set -> OpenSearch",
+  "description": "Advanced pipeline with branching: Ingest -> Extract -> Chunk -> Branch -> (Embeddings Model 1, Embeddings Model 2) -> Merge -> Document Set -> OpenSearch (uses ingest_source with filesystem provider)",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -10,12 +10,14 @@
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_documents",
       "config": {
-        "paths": "./sample_documents",
-        "include_filter": "pdf,txt,docx",
-        "max_workers": 4
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": ["./sample_documents"]
+        },
+        "include_filter": "pdf,txt,docx"
       }
     },
     {

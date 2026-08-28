@@ -512,7 +512,7 @@ See [`docs/integrations/opensearch/`](../../integrations/opensearch/) for troubl
 
 ## Related Operators
 
-- **IngestLocalOperator**: Ingest documents from local filesystem
+- **IngestSourceOperator**: Ingest documents from local filesystem or remote sources
 - **ExtractOperator**: Extract content from documents
 - **DoclingChunkerOperator**: Chunk documents for vector storage
 - **EmbeddingsOperator**: Generate embeddings from text

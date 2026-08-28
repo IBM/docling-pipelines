@@ -9,7 +9,7 @@ Ingests document metadata from cloud storage and collaboration platforms (S3, Sh
 
 ## Overview
 
-`IngestSourceOperator` provides a unified interface for multiple cloud document sources using LangChain document loaders. Like `IngestLocalOperator`, it is a **metadata-only** operator — it discovers files and emits path/metadata rows; text content is extracted by a downstream `ExtractOperator`.
+`IngestSourceOperator` provides a unified interface for multiple document sources. It is a **metadata-only** operator — it discovers files and emits path/metadata rows; text content is extracted by a downstream `ExtractOperator`.
 
 ---
 
@@ -180,7 +180,7 @@ node_config = {
         'recursive': False  # Optional: include subfolders
     },
     'credentials': {
-        'credentials_json_path': '/path/to/client_secret.json',
+        'credentials_path': '/path/to/client_secret.json',
         'token_path': '/path/to/token.json',  # Optional
         'scopes': ['https://www.googleapis.com/auth/drive.readonly']  # Optional
     }

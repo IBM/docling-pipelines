@@ -39,7 +39,7 @@ Pre-release versions use the format `MAJOR.MINOR.PATCH-{qualifier}.N`:
 
 ### Version Source of Truth
 
-The authoritative version is defined in [`pyproject.toml`](pyproject.toml) under `[project].version`. All tags and distribution artifacts derive their version from this value.
+The authoritative version is derived from the **Git tag**. `pyproject.toml` uses `dynamic = ["version"]` with `hatch-vcs` — the version is set automatically from the tag at build time. Do not manually edit `[project].version`.
 
 ### Version Tagging
 
@@ -62,7 +62,7 @@ Git tags use the prefix `v`, e.g. `v1.2.3`. Tags are immutable: once a tag is pu
 Before every release, confirm all of the following:
 
 - [ ] All planned items in the milestone are merged or explicitly deferred
-- [ ] `pyproject.toml` version updated
+- [ ] Git tag pushed (version is derived automatically via hatch-vcs — no manual edit to pyproject.toml needed)
 - [ ] `CHANGELOG.md` entry written for this version
 - [ ] Migration guide created (MAJOR or breaking MINOR only)
 - [ ] All CI checks pass on `main`
@@ -92,13 +92,13 @@ git checkout -b release/vX.Y.Z
 
 For PATCH releases, cherry-pick fixes onto the existing release branch or work directly on `main`.
 
-### 2. Update the version
+### 2. Create and push the Git tag
 
-Edit [`pyproject.toml`](pyproject.toml):
+The version is derived automatically from the Git tag via `hatch-vcs`. Do not edit `pyproject.toml` manually.
 
-```toml
-[project]
-version = "X.Y.Z"
+```bash
+git tag -s vX.Y.Z -m "Release vX.Y.Z"
+git push public vX.Y.Z
 ```
 
 ### 3. Update CHANGELOG.md
@@ -149,7 +149,7 @@ twine check dist/*
 twine upload dist/*
 ```
 
-CI (GitHub Actions / Jenkins) automates steps 7 and 8 on tag push.
+CI (GitHub Actions) automates step 7 when a GitHub Release is **published** (the `pypi.yml` workflow triggers on `release: [published]`, not on tag push alone). Create the GitHub Release in step 8 to trigger the PyPI publish.
 
 ### 8. Create a GitHub Release
 

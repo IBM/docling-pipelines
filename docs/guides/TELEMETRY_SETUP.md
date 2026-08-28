@@ -214,7 +214,7 @@ Use these fields in Grafana to jump directly from a log line to its trace.
 ```
 Flow Execution
 ├── HTTP POST /api/v1/flows/execute
-│   ├── operator.IngestLocalOperator
+│   ├── operator.IngestSourceOperator
 │   │   └── processed_docs: 10
 │   ├── operator.ExtractOperator
 │   │   └── processed_docs: 10

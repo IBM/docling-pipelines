@@ -103,7 +103,7 @@ class TestLocalFlowRepository:
         assert expected_path.exists()
 
         # Verify content
-        with open(expected_path) as f:
+        with expected_path.open() as f:
             saved_data = json.load(f)
 
         assert saved_data["flow_id"] == sample_flow.flow_id
@@ -114,7 +114,7 @@ class TestLocalFlowRepository:
         flow = Flow(
             name="My Test Flow!",
             definition={"doc_type": "pipeline", "pipelines": []},
-            flow_id=str(uuid4()),
+            asset_id=str(uuid4()),
         )
 
         repository.save(flow)
@@ -148,7 +148,7 @@ class TestLocalFlowRepository:
         flow_id = str(uuid4())
 
         # Create flow with one name
-        flow1 = Flow(name="Original Name", definition={"doc_type": "pipeline", "pipelines": []}, flow_id=flow_id)
+        flow1 = Flow(name="Original Name", definition={"doc_type": "pipeline", "pipelines": []}, asset_id=flow_id)
         repository.save(flow1)
 
         # Should find it by ID
@@ -168,7 +168,7 @@ class TestLocalFlowRepository:
             flow = Flow(
                 name=f"Flow {i}",
                 definition={"doc_type": "pipeline", "pipelines": []},
-                flow_id=str(uuid4()),
+                asset_id=str(uuid4()),
             )
             flows_to_save.append(flow)
             repository.save(flow)
@@ -237,7 +237,7 @@ class TestLocalFlowRepository:
         corrupted_filename = f"corrupted-flow_{corrupted_flow_id}.json"
         corrupted_file_path = temp_flows_dir / corrupted_filename
 
-        corrupted_data = {
+        corrupted_data: dict = {
             "flow_id": corrupted_flow_id,
             "container_kind": None,
             "container_id": None,
@@ -249,12 +249,16 @@ class TestLocalFlowRepository:
             "flow_version": "2.0",
         }
 
-        with open(corrupted_file_path, "w") as f:
+        with corrupted_file_path.open("w") as f:
             json.dump(corrupted_data, f)
 
-        # Call find_all() - should skip corrupted file and return only valid flow
-        with caplog.at_level(logging.WARNING):
+        # Attach caplog handler directly — docpipe logger has propagate=False
+        repo_logger = logging.getLogger("docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository")
+        repo_logger.addHandler(caplog.handler)
+        try:
             flows = repository.find_all()
+        finally:
+            repo_logger.removeHandler(caplog.handler)
 
         # Verify only the valid flow is returned
         assert len(flows) == 1
@@ -316,7 +320,7 @@ class TestLocalFlowRepository:
 
     def test_save_without_flow_id_raises_error(self, repository):
         """Test that saving flow without ID raises ValueError."""
-        flow = Flow(name="Test", definition={"doc_type": "pipeline", "pipelines": []}, flow_id=None)
+        flow = Flow(name="Test", definition={"doc_type": "pipeline", "pipelines": []}, asset_id=None)
         # Flow.__post_init__ will generate an ID, so we need to explicitly set to None
         flow.flow_id = None
 
@@ -326,9 +330,9 @@ class TestLocalFlowRepository:
     def test_concurrent_flows_with_similar_names(self, repository):
         """Test handling multiple flows with similar names."""
         flows = [
-            Flow(name="Test Flow", definition={"nodes": []}, flow_id=str(uuid4())),
-            Flow(name="Test Flow", definition={"nodes": []}, flow_id=str(uuid4())),
-            Flow(name="Test_Flow", definition={"nodes": []}, flow_id=str(uuid4())),
+            Flow(name="Test Flow", definition={"nodes": []}, asset_id=str(uuid4())),
+            Flow(name="Test Flow", definition={"nodes": []}, asset_id=str(uuid4())),
+            Flow(name="Test_Flow", definition={"nodes": []}, asset_id=str(uuid4())),
         ]
 
         for flow in flows:
@@ -405,7 +409,7 @@ class TestLocalFlowRepository:
         # Create 100 flow files
         flows = []
         for i in range(100):
-            flow = Flow(name=f"Flow {i}", definition={"nodes": []}, flow_id=str(uuid4()))
+            flow = Flow(name=f"Flow {i}", definition={"nodes": []}, asset_id=str(uuid4()))
             flows.append(flow)
             repository.save(flow)
 
@@ -509,10 +513,13 @@ class TestLocalFlowRepository:
         """Test that delete logs info message when flow not found."""
         import logging
 
-        caplog.set_level(logging.INFO)
-
-        non_existent_id = str(uuid4())
-        result = repository.delete(non_existent_id)
+        repo_logger = logging.getLogger("docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository")
+        repo_logger.addHandler(caplog.handler)
+        try:
+            non_existent_id = str(uuid4())
+            result = repository.delete(non_existent_id)
+        finally:
+            repo_logger.removeHandler(caplog.handler)
 
         assert result is False
         assert "not found for deletion" in caplog.text
@@ -521,10 +528,13 @@ class TestLocalFlowRepository:
         """Test that delete logs success message when flow deleted."""
         import logging
 
-        caplog.set_level(logging.INFO)
-
-        repository.save(sample_flow)
-        result = repository.delete(sample_flow.flow_id)
+        repo_logger = logging.getLogger("docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository")
+        repo_logger.addHandler(caplog.handler)
+        try:
+            repository.save(sample_flow)
+            result = repository.delete(sample_flow.flow_id)
+        finally:
+            repo_logger.removeHandler(caplog.handler)
 
         assert result is True
         assert "Successfully deleted flow" in caplog.text
@@ -552,7 +562,7 @@ class TestLocalFlowRepository:
         assert LocalFlowRepository.FILE_EXTENSION == ".json"
 
         # Verify it's used in glob operations
-        sample_flow = Flow(name="Test", definition={"nodes": []}, flow_id=str(uuid4()))
+        sample_flow = Flow(name="Test", definition={"nodes": []}, asset_id=str(uuid4()))
         repository.save(sample_flow)
 
         # find_all should use FILE_EXTENSION
@@ -1077,8 +1087,12 @@ class TestLocalFlowRepositoryAdditionalCoverage:
         bad_file = temp_flows_dir / "noflowid.json"
         bad_file.write_text('{"something": "else"}')
 
-        with caplog.at_level(logging.WARNING):
+        repo_logger = logging.getLogger("docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository")
+        repo_logger.addHandler(caplog.handler)
+        try:
             flows = repository.find_all()
+        finally:
+            repo_logger.removeHandler(caplog.handler)
 
         assert len(flows) == 1
         assert any("Could not extract flow_id" in r.message for r in caplog.records)
@@ -1185,7 +1199,7 @@ class TestLocalFlowRepositoryAdditionalCoverage:
             flow = Flow(
                 name=f"Flow {i}",
                 definition={"doc_type": "pipeline", "pipelines": []},
-                flow_id=str(uuid4()),
+                asset_id=str(uuid4()),
             )
             repository.save(flow)
             flows.append(flow)
@@ -1208,7 +1222,7 @@ class TestLocalFlowRepositoryAdditionalCoverage:
         existing_flow = Flow(
             name="Existing",
             definition={"doc_type": "pipeline", "pipelines": []},
-            flow_id=str(uuid4()),
+            asset_id=str(uuid4()),
         )
         repository.save(existing_flow)
 

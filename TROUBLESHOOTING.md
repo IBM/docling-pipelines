@@ -2670,7 +2670,7 @@ A: Yes, any Ollama model that supports embeddings. Update `model_name` in Embedd
 ### Pipeline Questions
 
 **Q: How do I process multiple folders?**  
-A: Use multiple IngestLocalFolder operators or use IngestSource with multiple paths.
+A: Use `IngestSourceOperator` with multiple paths in `connection_params.paths` (e.g. `["./folder1", "./folder2"]`).
 
 **Q: Can I skip the chunking step?**  
 A: Yes, but embeddings will be generated for entire documents, which may not be optimal for large documents.

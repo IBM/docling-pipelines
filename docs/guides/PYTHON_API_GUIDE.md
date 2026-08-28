@@ -271,13 +271,13 @@ Building docling-pipelines
   - Building sdist
   - Built docling-pipelines-1.0.0.tar.gz
   - Building wheel
-  - Built docpipe-0.1.0-py3-none-any.whl
+  - Built docling_pipelines-1.0.0-py3-none-any.whl
 ```
 
 **Step 2: Install the WHL Package in Your Notebook Environment**
 
 ```bash
-uv pip install dist/docpipe-<version>-py3-none-any.whl
+uv pip install dist/docling_pipelines-<version>-py3-none-any.whl
 ```
 
 **Step 3: Install Jupyter (if not already installed)**

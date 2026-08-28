@@ -32,6 +32,6 @@ def sample_flow():
     return Flow(
         name="Test Flow",
         definition={"doc_type": "pipeline", "pipelines": []},
-        flow_id=str(uuid4()),
+        asset_id=str(uuid4()),
         description="A test flow",
     )

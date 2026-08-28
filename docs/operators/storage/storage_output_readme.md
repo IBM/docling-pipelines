@@ -14,7 +14,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 ## Key Features
 
 - Three write modes covering the most common output use cases
-- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem`, `s3`, `ibm_cos`, `sharepoint`, and `onedrive`
+- Pluggable destination backend via `DestinationAdapterFactory` — supports `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `box`, and `google_drive`
 - Path templating with per-document variables (`{doc_id}`, `{name}`, `{year}`, `{month}`, `{day}`, `{relative_dir}`)
 - Hierarchical output that mirrors the source directory tree; when multiple source paths are configured each root is namespaced by its folder name
 - Overwrite control — skip existing files and record `skipped` status per document
@@ -67,7 +67,7 @@ filesystem, and is the right choice when you need portable, human-readable outpu
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, or `onedrive` |
+| `provider` | string | Yes | — | Destination adapter name: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `box`, or `google_drive` |
 | `provider_config` | object | Yes | — | Provider-specific connection parameters (see below) |
 | `credentials` | object | No | `{}` | Provider-specific credentials |
 
@@ -138,6 +138,28 @@ Requires the `msal` and `requests` packages.
 | `client_id` | string | Yes | Azure AD application (client) ID. Supports `"${ENV_VAR}"` resolution |
 | `client_secret` | string | Yes | Azure AD client secret. Supports `"${ENV_VAR}"` resolution |
 | `tenant_id` | string | Yes | Azure AD tenant (directory) ID. Supports `"${ENV_VAR}"` resolution |
+
+### Provider: `box`
+
+| Field | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `credentials_path` | string | Yes | — | Path to Box JWT/App config JSON file. Supports `${ENV_VAR}` and `~/` expansion |
+| `folder_id` | string | No | `"0"` | ID of the target Box folder. `"0"` = authenticated user's root folder |
+| `create_dirs` | boolean | No | `true` | Automatically create intermediate sub-folders on upload |
+
+### Provider: `google_drive`
+
+| Field | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `folder_id` | string | Yes | — | Google Drive folder ID to write files into |
+| `drive_id` | string | No | `null` | Shared Drive ID (leave null for My Drive) |
+| `create_dirs` | boolean | No | `true` | Automatically create intermediate sub-folders |
+| `service_account_json_path` | string | No* | `null` | Path to Service Account JSON key file (alternative to OAuth2) |
+| `credentials_path` | string | No* | `null` | Path to OAuth2 client secrets JSON file |
+| `token_path` | string | No | `null` | Path to cache the OAuth2 token. Defaults to the credentials directory |
+| `scopes` | list[string] | No | Drive read/write scope | OAuth2 scopes |
+
+*One of `service_account_json_path` or `credentials_path` is required.
 
 ### `output_format`
 
@@ -373,7 +395,7 @@ Output layout per document:
 of `processed_content`, `refetch_original`, or `comprehensive_export`.
 
 **`ValueError: Unknown destination adapter: 'xyz'`** — The `provider` field in `destination_config`
-does not match any registered adapter. Use `filesystem`, `s3`, `ibm_cos`, `sharepoint`, or `onedrive`.
+does not match any registered adapter. Use `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `box`, or `google_drive`.
 
 **`write_status = failed` with `destination directory does not exist and create_dirs is disabled`** —
 The output directory (filesystem), prefix (S3/IBM COS), or folder path (SharePoint) does not exist

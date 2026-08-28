@@ -254,7 +254,7 @@ class TestAfterBatchesPrepared:
         batch.batch_id = "b1"
         batch.batch_num = 0
         op_flow = [
-            {"id": "n0", "name": "Ingest", "operator": "ingest_local"},
+            {"id": "n0", "name": "Ingest", "operator": "ingest_source"},
             {"id": "n1", "name": "Extract", "operator": "extract_operator"},
         ]
         handler.after_batches_prepared(batches=[batch], op_flow=op_flow, global_config={"enable_micro_batching": True})

@@ -789,7 +789,7 @@ All parameters are nested under `entity_extraction.provider_config`:
 
 ## Input/Output Data Formats
 
-### Input columns (from IngestLocalOperator or IngestSourceOperator)
+### Input columns (from IngestSourceOperator)
 
 | Column | Type | Required | Description |
 |---|---|---|---|

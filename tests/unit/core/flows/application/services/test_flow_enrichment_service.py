@@ -839,7 +839,7 @@ class TestBuildNodeFeatureMetadataVectorDB:
 
     def test_non_vectordb_nodes_have_no_vdb_keys(self):
         """Non-vectordb operators must never have VDB keys in their response."""
-        for op in ("ingest_local", "chunker", "sql_filter", "merge", "embeddings"):
+        for op in ("ingest_source", "chunker", "sql_filter", "merge", "embeddings"):
             nfr = _make_node_feature_result(
                 operator_config={"provider_config": {"host": "localhost"}},
             )

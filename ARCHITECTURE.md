@@ -91,7 +91,6 @@ graph TB
             EXT[ExtractOperator]
         end
         subgraph "Ingest"
-            ILO[IngestLocalOperator]
             ISO[IngestSourceOperator]
         end
         subgraph "Functional"
@@ -305,7 +304,6 @@ graph LR
     OP --> VDB[VectorDB]
     OP --> STO[Storage]
 
-    ING --> I1[IngestLocalOperator]
     ING --> I2[IngestSourceOperator]
 
     EXT --> E1[ExtractOperator]
@@ -1407,7 +1405,7 @@ The platform supports multiple input sources and optional quality operators, but
 ```mermaid
 graph LR
     SRC[Input Source]
-    ING[IngestLocalOperator / IngestSourceOperator]
+    ING[IngestSourceOperator]
     EXT[ExtractOperator]
     CHK[Chunker]
     EMB[EmbeddingsOperator]

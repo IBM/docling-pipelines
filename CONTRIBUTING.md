@@ -628,7 +628,7 @@ pytest -v -m slow
 **Why filter by speed?**
 - **Fast tests** (< 1 second): Run frequently during development for quick feedback
 - **Slow tests**: Run before committing to ensure comprehensive validation
-- **CI/CD**: Jenkins CI excludes slow tests to keep build times reasonable
+- **CI/CD**: GitHub Actions CI excludes slow tests to keep build times reasonable
 
 #### The @pytest.mark.slow Marker
 
@@ -683,9 +683,9 @@ pytest tests/unit/operators/test_chunker.py -v
 - Use `-m "not slow"` during rapid development for faster feedback
 - Run slow tests before committing with `-m slow`
 
-**Jenkins CI:**
+**GitHub Actions CI:**
 - Automatically excludes slow tests to maintain reasonable build times
-- Configured in Jenkinsfile with `-m "not slow"`
+- Configured in the CI workflow with `-m "not slow"`
 - Ensures fast feedback on pull requests
 
 **Best Practice:**
