@@ -310,7 +310,9 @@ module = [
     "datefinder",
     "datefinder.*",
     "re2",
-    "re2.*"
+    "re2.*",
+    "opentelemetry",
+    "opentelemetry.*"
 ]
 ignore_missing_imports = true
 follow_imports = "silent"

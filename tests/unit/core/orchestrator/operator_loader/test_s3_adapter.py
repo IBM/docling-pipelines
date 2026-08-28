@@ -28,8 +28,8 @@ class TestS3AdapterResolveAwsAccountId:
         from docpipe.integrations.aws.s3_utils import resolve_aws_account_id
 
         mock_sts = Mock()
-        error_response = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
-        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")
+        error_response: dict = {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}}
+        mock_sts.get_caller_identity.side_effect = ClientError(error_response, "GetCallerIdentity")  # type: ignore[arg-type]
 
         with patch.object(s3_utils.boto3, "client", return_value=mock_sts):
             result = resolve_aws_account_id()
