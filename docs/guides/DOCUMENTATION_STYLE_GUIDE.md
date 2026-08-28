@@ -40,7 +40,7 @@ This guide defines the writing, formatting, and diagram conventions for all docu
 - File names use `UPPER_SNAKE_CASE.md` for root-level docs and `lower_snake_case.md` for files inside `docs/`.
 - Every new doc must be linked from at least one parent file (e.g., `docs/README.md`, `CONTRIBUTING.md`, or a parent `README.md`).
 - Do not create duplicate documentation for the same topic. Extend an existing file instead.
-- **Do not create separate `<name>_config.md` files alongside operator docs.** All parameter and configuration content belongs in the operator's `<operator_name>_readme.md`.
+- **Do not create `<name>_config.md` files alongside operator READMEs.** All parameter and configuration content belongs in `README.md`. The separate config file pattern is retired.
 
 ---
 
@@ -373,7 +373,7 @@ or link to `docs/internals/OPERATOR_ARCHITECTURE_<name>.md` for long content.
 
 - Architecture diagrams before `## Architecture` (the last section)
 - Migration notes or "Phase N" implementation history — those go in `CHANGELOG.md`
-- Additional files in the same directory — each operator has exactly one `<operator_name>_readme.md`
+- A separate `<name>_config.md` file in the same directory
 - `## Contributing`, `## License`, or `## Version History` sections
 - Duplicating content from `docs/reference/OPERATORS.md` — link instead
 

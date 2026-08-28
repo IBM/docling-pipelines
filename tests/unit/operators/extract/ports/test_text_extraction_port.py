@@ -1,9 +1,15 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Unit tests for page_count functionality in TextExtractionPort.
 Tests the _process_extraction_result method's page count calculation logic.
 """
 
+from typing import Any
+
 import pytest
+from pydantic import BaseModel
 
 from docpipe.core.constants.constants import Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
@@ -18,6 +24,11 @@ class MockTextExtractionAdapter(TextExtractionPort):
 
     def __init__(self, *, config: dict):
         super().__init__(config=config)
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return a no-op config schema for testing."""
+        return BaseModel
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs) -> dict:
         """Mock implementation."""
@@ -55,10 +66,10 @@ class TestTextExtractionPageCount:
         # Setup
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 5}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -72,6 +83,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify
@@ -82,10 +94,10 @@ class TestTextExtractionPageCount:
         # Setup
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 7.0}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -99,6 +111,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify
@@ -112,10 +125,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {}  # No page_count
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -129,6 +142,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - 6000 chars / 3000 chars per page = 2 pages
@@ -140,10 +154,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = "Short"
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -157,6 +171,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - minimum 1 page
@@ -168,10 +183,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = ""
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -185,6 +200,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - minimum 1 page even for empty content
@@ -196,10 +212,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = None
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -213,6 +229,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - minimum 1 page
@@ -225,10 +242,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 0}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -242,6 +259,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - falls back to character-based calculation
@@ -254,10 +272,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": -5}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -271,6 +289,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - falls back to character-based calculation
@@ -283,10 +302,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": "invalid"}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -300,6 +319,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - falls back to character-based calculation
@@ -312,10 +332,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": None}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -329,6 +349,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - falls back to character-based calculation
@@ -341,10 +362,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -358,6 +379,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - rounds up to 2 pages
@@ -370,10 +392,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -387,6 +409,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify
@@ -399,10 +422,10 @@ class TestTextExtractionPageCount:
         base_result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
         base_result[OperatorConstants.Metadata.METADATA] = {"page_count": 15}
         doc_contents = [""]
-        doc_metadata_list = [{}]
-        format_lists = {}
+        doc_metadata_list: list[dict[str, Any]] = [{}]
+        format_lists: dict[str, list[Any]] = {}
         doc_pages_processed = [0]
-        remove_row_idx = []
+        remove_row_idx: list[int] = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
 
         # Execute
@@ -416,6 +439,7 @@ class TestTextExtractionPageCount:
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
+            non_recoverable_doc_ids=[],
         )
 
         # Verify - uses native page_count (15) not character-based (10)

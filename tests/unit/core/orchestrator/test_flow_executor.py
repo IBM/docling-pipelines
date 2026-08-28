@@ -2,11 +2,14 @@
 
 import json
 import tempfile
-from unittest.mock import Mock, patch
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.orchestration.flow_executor import FlowExecutor
 from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
@@ -31,9 +34,7 @@ class TestFlowExecutor:
             assert executor.flow_def["name"] == "Test Flow"
             assert executor.flow_def["description"] == "Test Description"
         finally:
-            import os
-
-            os.unlink(temp_path)
+            Path(temp_path).unlink()
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
     def test_init_with_flow_def_dict(self, mock_session):
@@ -205,6 +206,53 @@ class TestFlowExecutor:
             executor.execute(orchestrator=mock_orchestrator, params=params)
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
+    @patch("docpipe.core.orchestration.flow_executor.FlowValidator")
+    def test_execute_injects_available_features_into_node_config(self, mock_validator, mock_session):
+        """Propagated available_features are written directly into each node's config dict."""
+        mock_session.return_value = Mock(
+            get_common_log_arguments=Mock(return_value={}),
+            job_run_id="run_123",
+            job_id="job_123",
+        )
+
+        propagated_features = {
+            "embeddings": {
+                "available_for_vector_db": True,
+                "type": "vector",
+            }
+        }
+        mock_validator_instance = Mock()
+        mock_validator_instance.propagate_features_per_node.return_value = {
+            "node-2": {OperatorConstants.Config.AVAILABLE_FEATURES: propagated_features}
+        }
+        mock_validator.return_value = mock_validator_instance
+
+        mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = None
+        mock_tracker_instance = Mock()
+        mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
+        mock_orchestrator.job_tracker = mock_tracker_instance
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
+        mock_orchestrator.execute.return_value = Mock()
+
+        node: dict[str, Any] = {"id": "node-2"}
+        flow_def = {"name": "Test", "global_config": {}, "dag": [node]}
+        executor = FlowExecutor(flow_def=flow_def)
+
+        params = {DocpipeConstants.JOB_RUN_ID: "run_123", DocpipeConstants.JOB_ID: "job_123"}
+        executor.execute(orchestrator=mock_orchestrator, params=params)
+
+        # available_features must be injected directly into the node's config dict,
+        # not tunnelled through params or global_config.
+        node_config: dict[str, Any] = node.get("config", {})
+        assert node_config.get(OperatorConstants.Config.AVAILABLE_FEATURES) == propagated_features
+        assert "_propagated_node_features" not in params
+        mock_validator_instance.propagate_features_per_node.assert_called_once_with(
+            flow_def=flow_def,
+            global_config={},
+        )
+
+    @patch("docpipe.core.orchestration.flow_executor.get_session_info")
     def test_cancel(self, mock_session):
         """Test cancel method."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -338,51 +386,172 @@ class TestFlowExecutor:
         mock_gc.get_stats.assert_called_once()
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
-    @patch("docpipe.core.orchestration.flow_executor.gc")
-    def test_print_diagnostic_info_with_trace_memory(self, mock_gc, mock_session):
-        """Test print_diagnostic_info when trace_memory_allocations is enabled."""
+    @patch("docpipe.core.orchestration.flow_executor.FlowValidator")
+    def test_execute_saves_flow_definition(self, mock_validator, mock_session):
+        """Test that execute() calls job_stats_service.save_flow_definition when job_id and job_run_id are provided."""
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id=None, job_id=None)
 
-        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
-        mock_gc.get_stats.return_value = []
+        mock_validator_instance = Mock()
+        mock_validator.return_value = mock_validator_instance
 
-        flow_def = {"name": "Test", "dag": []}
+        mock_job_stats_service = Mock()
+        # Mock cancel_job_run_if_cancelling to return False so execution continues
+        mock_job_stats_service.cancel_job_run_if_cancelling.return_value = False
 
-        with patch.dict("os.environ", {DocpipeConstants.TRACE_MEMORY_ALLOCATIONS: "true"}):
-            executor = FlowExecutor(flow_def=flow_def)
-            executor.trace_memory_allocations = True
+        mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = mock_job_stats_service
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
+        mock_orchestrator.execute.return_value = Mock()
+        mock_orchestrator.initialize = Mock()
 
-            # Create mock snapshot with stats
-            mock_stat1 = Mock()
-            mock_stat1.traceback = [Mock(filename="/path/to/module/file.py", lineno=10)]
-            mock_stat1.size = 2048
-            mock_stat2 = Mock()
-            mock_stat2.traceback = [Mock(filename="/other/module/other.py", lineno=20)]
-            mock_stat2.size = 1024
-            mock_snapshot = Mock()
-            mock_snapshot.statistics.return_value = [mock_stat1, mock_stat2]
+        flow_def = {"name": "Test Flow", "dag": [{"id": "node1"}]}
+        original_flow = {"flow_name": "Test Flow", "flow": [{"name": "node1", "type": "test"}]}
+        executor = FlowExecutor(flow_def=flow_def, original_flow_def=original_flow)
 
-            with (
-                patch("tracemalloc.take_snapshot", return_value=mock_snapshot),
-                patch("linecache.getline", return_value="x = 1\n"),
-            ):
-                # linecache.getline returns non-empty — covers line 173
-                executor.print_diagnostic_info(limit=1)
+        job_id = "test_job_789"
+        job_run_id = "test_run_012"
+        params = {DocpipeConstants.JOB_ID: job_id, DocpipeConstants.JOB_RUN_ID: job_run_id}
 
-        mock_gc.get_stats.assert_called()
+        executor.execute(orchestrator=mock_orchestrator, params=params)
+
+        # Verify job_stats_service.save_flow_definition was called with original flow
+        mock_job_stats_service.save_flow_definition.assert_called_once_with(
+            job_id=job_id, job_run_id=job_run_id, flow_definition=original_flow, params=params
+        )
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
-    def test_cancel_and_pause_and_resume_without_orchestrator(self, mock_session):
-        """Test cancel/pause/resume with no orchestrator set (guard clause)."""
-        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
+    @patch("docpipe.core.orchestration.flow_executor.FlowValidator")
+    def test_execute_skips_save_when_no_job_ids(self, mock_validator, mock_session):
+        """Test that execute() skips saving when job_id or job_run_id is missing."""
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id=None, job_id=None)
+
+        mock_validator_instance = Mock()
+        mock_validator.return_value = mock_validator_instance
+
+        mock_job_stats_service = Mock()
+        mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = mock_job_stats_service
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
+        mock_orchestrator.execute.return_value = Mock()
+
         flow_def = {"name": "Test", "dag": []}
         executor = FlowExecutor(flow_def=flow_def)
-        executor._FlowExecutor__orchestrator = None
 
-        # None of these should raise
-        executor.cancel()
-        executor.pause()
-        executor.resume()
+        # Execute without job_id and job_run_id
+        executor.execute(orchestrator=mock_orchestrator, params={})
+
+        # Verify save_flow_definition was not called
+        mock_job_stats_service.save_flow_definition.assert_not_called()
 
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# Additional FlowExecutor tests (merged from test_flow_executor_coverage.py)
+# ---------------------------------------------------------------------------
+
+
+def _make_executor_simple(flow_def=None):
+    """Build a FlowExecutor without needing a patched session."""
+    with patch("docpipe.core.orchestration.flow_executor.get_session_info") as mock_session:
+        mock_session.return_value = Mock(
+            get_common_log_arguments=Mock(return_value={}),
+            job_run_id=None,
+            job_id=None,
+        )
+        return FlowExecutor(flow_def=flow_def or {"name": "test", "dag": []})
+
+
+class TestFlowExecutorNoOrchestrator:
+    def test_execute_raises_when_no_orchestrator(self):
+        executor = _make_executor_simple()
+        with pytest.raises(ValueError, match="No orchestrator"):
+            executor.execute(orchestrator=None, params={})
+
+
+class TestFlowExecutorCancelPauseResume:
+    def test_cancel_with_orchestrator(self):
+        executor = _make_executor_simple()
+        mock_orch = MagicMock()
+        executor._FlowExecutor__orchestrator = mock_orch
+        executor.cancel()
+        mock_orch.cancel.assert_called_once()
+
+    def test_cancel_without_orchestrator(self):
+        executor = _make_executor_simple()
+        executor._FlowExecutor__orchestrator = None
+        executor.cancel()  # should not raise
+
+    def test_pause_with_orchestrator(self):
+        executor = _make_executor_simple()
+        mock_orch = MagicMock()
+        executor._FlowExecutor__orchestrator = mock_orch
+        executor.pause()
+        mock_orch.pause.assert_called_once()
+
+    def test_resume_with_orchestrator(self):
+        executor = _make_executor_simple()
+        mock_orch = MagicMock()
+        executor._FlowExecutor__orchestrator = mock_orch
+        executor.resume()
+        mock_orch.resume.assert_called_once()
+
+
+class TestFlowExecutorDiagnostics:
+    def test_start_stop_diagnostic_no_trace(self):
+        executor = _make_executor_simple()
+        executor.trace_memory_allocations = False
+        executor.start_diagnostic_collection()
+        executor.stop_diagnostic_collection()
+
+    def test_print_diagnostic_no_trace(self):
+        executor = _make_executor_simple()
+        executor.trace_memory_allocations = False
+        executor.print_diagnostic_info()  # should not raise
+
+    def test_print_diagnostic_with_trace(self):
+        import tracemalloc
+
+        executor = _make_executor_simple()
+        executor.trace_memory_allocations = True
+        tracemalloc.start()
+        try:
+            snapshot = tracemalloc.take_snapshot()
+            executor.print_diagnostic_info(snapshot=snapshot, limit=2)
+        finally:
+            tracemalloc.stop()
+
+
+class TestFlowExecutorStr:
+    def test_str_representation(self):
+        executor = _make_executor_simple(flow_def={"name": "MyFlow", "description": "Desc", "dag": []})
+        result = str(executor)
+        assert "MyFlow" in result
+
+
+class TestFlowExecutorSaveFlowDefinitionError:
+    @patch("docpipe.core.orchestration.flow_executor.get_session_info")
+    def test_execute_continues_when_save_flow_def_fails(self, mock_session):
+        mock_session.return_value = Mock(
+            get_common_log_arguments=Mock(return_value={}),
+            job_run_id="run1",
+            job_id="job1",
+        )
+        executor = FlowExecutor(flow_def={"name": "f", "dag": []})
+
+        mock_orch = MagicMock()
+        mock_orch.job_stats_service = MagicMock()
+        mock_orch.job_stats_service.cancel_job_run_if_cancelling.return_value = False
+        mock_orch.job_stats_service.save_flow_definition.side_effect = RuntimeError("disk full")
+        mock_orch.execute.return_value = None
+        mock_orch.flow_execution_event_handler.job_log_path = "/tmp/log"
+
+        with patch("docpipe.core.orchestration.flow_executor.FlowValidator") as mock_val:
+            mock_val.return_value.validate.return_value = None
+            executor.execute(
+                orchestrator=mock_orch,
+                params={DocpipeConstants.JOB_ID: "job1", DocpipeConstants.JOB_RUN_ID: "run1"},
+            )
+        mock_orch.execute.assert_called_once()

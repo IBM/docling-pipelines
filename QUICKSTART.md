@@ -72,7 +72,7 @@ After setup completes, verify services are running:
 curl http://localhost:11434/api/tags
 
 # Check OpenSearch (should return cluster info)
-curl -u admin:changeme http://localhost:9200
+curl -u admin:MyStrongPass123! http://localhost:9200
 ```
 
 ✅ **Success**: Both commands return JSON responses  
@@ -91,7 +91,7 @@ The repository includes sample text files ready to process:
 ```bash
 # View existing sample documents
 ls -la sample_documents/
-# Output: hello.txt, 1kb_file.txt
+# Output includes: hello.txt, 1kb_file.txt samples
 ```
 
 **Note:** The sample flow processes these .txt files. You can add your own PDF, TXT, or DOCX files to this directory if desired.
@@ -101,6 +101,10 @@ ls -la sample_documents/
 ```bash
 # Set PYTHONPATH (from project root)
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+
+# Activate the shell configuration file.
+source ~/.zshrc # if ~/.zshrc exists.
+source ~/.bashrc # if ~/.bashrc exists.
 
 # Activate virtual environment (from project root)
 source .venv/bin/activate
@@ -124,7 +128,7 @@ Docling Pipelines provides clean, formatted console output showing pipeline prog
  Started: 2024-01-15 10:30:00
 ================================================================================
 
-[ingest] Starting ingest_local...
+[ingest] Starting ingest_source...
 
 ================================================================================
  ingest (COMPLETED)
@@ -150,7 +154,7 @@ Docling Pipelines provides clean, formatted console output showing pipeline prog
  Operator Summary:
  Operator                       Status               Duration     Docs
  ------------------------------------------------------------------------------
- ingest_local_folder            Completed            < 1s         2/2
+ ingest_source_filesystem       Completed            < 1s         2/2
  extract_with_docling           Completed            < 1s         2/2
  simple_chunker                 Completed            1.00s        2/2
  ollama_embeddings              Completed            1.00s        2/2
@@ -170,7 +174,7 @@ Check that your document was processed and stored in OpenSearch:
 
 ```bash
 # Query the index
-curl -u admin:changeme \
+curl -u admin:MyStrongPass123! \
   "http://localhost:9200/sample-documents-index/_search?pretty" \
   -H 'Content-Type: application/json' \
   -d '{"query": {"match_all": {}}, "size": 1}'
@@ -198,13 +202,11 @@ Your document went through this pipeline:
 
 **Each operator did:**
 
-1. **IngestLocalFolder**: Read `hello.txt` from disk
-2. **ExtractOperator**: Extracted structured content using docling_library provider
-3. **Chunker**: Split into simple fixed-size chunks (~512 chars each with 50 char overlap)
+1. **IngestSourceOperator** (filesystem provider): Read `hello.txt` from disk
+2. **ExtractOperator**: Extracted structured content using docling_library mode
+3. **Chunker**: Split into simple chunks (~512 chars each)
 4. **EmbeddingsOperator**: Generated vector embeddings using Ollama
 5. **VectorDBOperator**: Stored in OpenSearch for similarity search
-
-**Note:** The default flow uses **simple chunking** for reliability and ease of setup. For advanced users, semantic chunking is available which creates content-aware boundaries using embeddings (requires Ollama with models like `granite4` or `nomic-embed-text`). See the [troubleshooting section](#semantic-chunking-errors) for more details.
 
 ---
 
@@ -253,7 +255,7 @@ docling-pipelines --list-operators --verbose
 - **[Architecture Overview](ARCHITECTURE.md)** - System design and operator details
 - **[README](README.md)** - Full operator reference and examples
 - **[Job Stats Metadata Aggregation Guide](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer rules for micro-batch metadata aggregation
-- **[Examples Directory](examples/)** - More complex pipeline examples
+- **[Sample Flows Directory](sample_flows/README.md)** - More pipeline examples by category and use case
 
 ---
 
@@ -291,14 +293,14 @@ curl http://localhost:11434/api/tags
 **OpenSearch not responding:**
 ```bash
 # Check if running
-curl -u admin:changeme http://localhost:9200
+curl -u admin:MyStrongPass123! http://localhost:9200
 
 # If not, start manually
 podman-compose -f docker/docker-compose.opensearch.yml up -d
 
 # Wait 30 seconds for startup
 sleep 30
-curl -u admin:changeme http://localhost:9200
+curl -u admin:MyStrongPass123! http://localhost:9200
 ```
 
 ### Pipeline Errors
@@ -323,26 +325,6 @@ ollama list
 # If missing, download required model
 ollama pull nomic-embed-text
 ```
-
-**Semantic chunking errors:**
-
-**Note:** The default `complete_pipeline_flow.json` uses simple chunking. This section applies if you've modified your flow to use semantic chunking.
-
-If you see an error like `"This server does not support embeddings"` or embeddings-related failures:
-
-```bash
-# This error occurs with semantic chunking when Ollama model doesn't support embeddings
-# Solution 1: Ensure the embeddings model is available
-ollama pull granite4
-
-# Solution 2: Switch to simple chunking (edit your flow JSON)
-# Change the chunker config from:
-#   "chunk_type": "semantic"
-# To:
-#   "chunk_type": "simple"
-```
-
-**Note:** Semantic chunking creates content-aware boundaries using embeddings for better chunk quality, but requires an Ollama embeddings model. Simple chunking uses fixed-size chunks and doesn't require embeddings.
 
 **"Connection refused" to OpenSearch:**
 ```bash
@@ -378,10 +360,10 @@ ls -la sample_flows/quickstart/complete_pipeline_ollama.json
    # Stop services
    podman-compose -f docker/docker-compose.opensearch.yml down
    pkill -f "ollama serve"
-   
+
    # Remove config
    rm .docpipe_setup_config docpipe_setup.log
-   
+
    # Re-run setup
    ./scripts/setup_docling_pipelines_environment.sh
    ```
@@ -406,7 +388,7 @@ docling-pipelines --list-operators --verbose
 
 # Check services
 curl http://localhost:11434/api/tags  # Ollama
-curl -u admin:changeme http://localhost:9200  # OpenSearch
+curl -u admin:MyStrongPass123! http://localhost:9200  # OpenSearch
 
 # Stop services
 podman-compose -f docker/docker-compose.opensearch.yml down
@@ -419,7 +401,7 @@ pkill -f "ollama serve"
 
 - 📖 **Full Documentation**: [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md)
 - 🏗️ **Architecture**: [`ARCHITECTURE.md`](ARCHITECTURE.md)
-- 💡 **Examples**: [`examples/`](examples/) directory
+- 💡 **Examples**: [`sample_flows/README.md`](sample_flows/README.md)
 - 🐛 **Issues**: Check existing issues or create a new one
 
 **Happy data processing! 🚀**

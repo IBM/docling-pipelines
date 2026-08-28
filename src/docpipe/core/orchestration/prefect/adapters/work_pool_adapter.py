@@ -17,10 +17,12 @@ Supports configurable batch data transfer:
 
 import asyncio
 import base64
+import contextlib
 import json
 import os
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -210,7 +212,7 @@ class WorkPoolAdapter(BatchExecutionPort):
 
         self.prefect_engine.logger.info("All batches completed successfully", extra={"job_run_id": job_run_id})
 
-    async def _execute_pipelined_batches_async(  # NOSONAR python:S3776
+    async def _execute_pipelined_batches_async(
         self, *, batches: list[BatchInfo], op_flow: list[dict], global_config: dict, job_run_id: str
     ) -> None:
         """
@@ -250,7 +252,7 @@ class WorkPoolAdapter(BatchExecutionPort):
 
                     try:
                         flow_runs = await client.read_flow_runs(
-                            flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=ids_to_check))
+                            flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=[UUID(i) for i in ids_to_check]))
                         )
 
                         for fr in flow_runs:
@@ -266,6 +268,7 @@ class WorkPoolAdapter(BatchExecutionPort):
         poller_task = asyncio.create_task(_bulk_poll_runs())
 
         async def run_single_batch(batch_info: BatchInfo):
+            """Run single batch."""
             nonlocal completed_count
             async with semaphore:
                 try:
@@ -384,10 +387,8 @@ class WorkPoolAdapter(BatchExecutionPort):
         finally:
             # Cancel poller and wait for clean shutdown
             poller_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await poller_task  # Wait for cancellation to complete
-            except asyncio.CancelledError:
-                pass  # Expected when cancelling
 
             # CRITICAL: If we break due to failure (or an exception occurs),
             # we must cancel ALL background tasks that haven't finished yet.
@@ -430,10 +431,9 @@ class WorkPoolAdapter(BatchExecutionPort):
         """
         if self.batch_storage_type == BatchStorageType.S3:
             return self._transfer_batch_s3(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
-        elif self.batch_storage_type == BatchStorageType.LOCAL:
+        if self.batch_storage_type == BatchStorageType.LOCAL:
             return self._transfer_batch_local(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
-        else:
-            return self._transfer_batch_inline(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
+        return self._transfer_batch_inline(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
 
     def _create_s3_filesystem(self):
         """
@@ -496,10 +496,10 @@ class WorkPoolAdapter(BatchExecutionPort):
 
     def _transfer_batch_local(self, *, batch_table: pa.Table, batch_num: int, job_run_id: str) -> dict[str, Any]:
         """Write batch to local shared filesystem and return path."""
-        batch_dir = os.path.join(self.batch_storage_path, job_run_id)
-        os.makedirs(batch_dir, exist_ok=True)
+        batch_dir = Path(self.batch_storage_path) / job_run_id
+        batch_dir.mkdir(parents=True, exist_ok=True)
 
-        local_path = os.path.join(batch_dir, f"batch-{batch_num}.parquet")
+        local_path = str(batch_dir / f"batch-{batch_num}.parquet")
 
         try:
             # Replace memmap paths with actual data before writing to local storage
@@ -570,7 +570,7 @@ class WorkPoolAdapter(BatchExecutionPort):
                 f"3. Disable the limit entirely (not recommended):\n"
                 f"   export PREFECT_SERVER_API_MAX_PARAMETER_SIZE=0"
             )
-        elif size_bytes > warning_threshold:
+        if size_bytes > warning_threshold:
             self.prefect_engine.logger.warning(
                 f"Batch {batch_num}: size {size_bytes:,} bytes approaching "
                 f"Prefect parameter limit ({size_limit:,} bytes, controlled by PREFECT_SERVER_API_MAX_PARAMETER_SIZE). "
@@ -601,9 +601,58 @@ class WorkPoolAdapter(BatchExecutionPort):
         # Run async waiting in event loop (Prefect docs pattern)
         asyncio.run(self._wait_for_flow_runs_async(flow_runs=flow_runs, job_run_id=job_run_id))
 
-    async def _wait_for_flow_runs_async(
-        self, *, flow_runs: list[FlowRun], job_run_id: str
-    ) -> None:  # NOSONAR python:S3776
+    def _classify_flow_run_result(
+        self,
+        *,
+        batch_num: int,
+        flow_run: FlowRun,
+        result: Any,
+        completed_count: int,
+        failed_info: list[dict],
+        job_run_id: str,
+    ) -> int:
+        """Classify a single finished flow-run result and update failed_info / completed_count.
+
+        Returns the updated completed_count.
+        """
+        if isinstance(result, Exception):
+            failed_info.append({"batch_num": batch_num, "run_id": str(flow_run.id), "message": str(result)})
+            self.prefect_engine.logger.error(
+                f"Error waiting for batch {batch_num} (flow_run={flow_run.id}): {result}",
+                extra={"job_run_id": job_run_id},
+                exc_info=True,
+            )
+            return completed_count
+
+        if not isinstance(result, FlowRun) or result.state is None:
+            return completed_count
+
+        if result.state.is_completed():
+            completed_count += 1
+            self.prefect_engine.logger.info(
+                f"Batch {batch_num} completed (flow_run={flow_run.id})", extra={"job_run_id": job_run_id}
+            )
+        elif result.state.is_failed() or result.state.is_crashed():
+            state_type = "CRASHED" if result.state.is_crashed() else "FAILED"
+            failed_info.append(
+                {
+                    "batch_num": batch_num,
+                    "run_id": str(flow_run.id),
+                    "message": result.state.message or f"Flow {state_type.lower()}",
+                }
+            )
+            self.prefect_engine.logger.error(
+                f"Batch {batch_num} {state_type} (flow_run={flow_run.id}): {result.state.message}",
+                extra={"job_run_id": job_run_id},
+            )
+        elif result.state.is_cancelled():
+            self.prefect_engine.logger.warning(
+                f"Batch {batch_num} was cancelled (flow_run={flow_run.id})", extra={"job_run_id": job_run_id}
+            )
+
+        return completed_count
+
+    async def _wait_for_flow_runs_async(self, *, flow_runs: list[FlowRun], job_run_id: str) -> None:
         """
         Async implementation of concurrent flow run waiting.
 
@@ -611,71 +660,32 @@ class WorkPoolAdapter(BatchExecutionPort):
         https://docs.prefect.io/llms-full.txt lines 77865-77880
         """
         completed_count = 0
-        failed_info = []
+        failed_info: list[dict] = []
 
         try:
-            # Create coroutines for all flow runs (concurrent waiting)
             coros = [
                 wait_for_flow_run(
                     flow_run_id=flow_run.id,
-                    timeout=10800,  # 3 hours timeout per batch
-                    log_states=True,  # Log state transitions
+                    timeout=10800,
+                    log_states=True,
                 )
                 for flow_run in flow_runs
             ]
 
-            # Wait for all concurrently
             finished_runs = await asyncio.gather(*coros, return_exceptions=True)
 
-            # Process results
             for batch_num, (flow_run, result) in enumerate(zip(flow_runs, finished_runs, strict=True)):
-                if isinstance(result, Exception):
-                    # Exception during wait (timeout, connection error, etc.)
-                    failed_info.append(
-                        {
-                            "batch_num": batch_num,
-                            "run_id": str(flow_run.id),
-                            "message": str(result),
-                        }
-                    )
-                    self.prefect_engine.logger.error(
-                        f"Error waiting for batch {batch_num} (flow_run={flow_run.id}): {result}",
-                        extra={"job_run_id": job_run_id},
-                        exc_info=True,
-                    )
-                elif isinstance(result, FlowRun) and result.state is not None and result.state.is_completed():
-                    completed_count += 1
-                    self.prefect_engine.logger.info(
-                        f"Batch {batch_num} completed (flow_run={flow_run.id})", extra={"job_run_id": job_run_id}
-                    )
-                elif (
-                    isinstance(result, FlowRun)
-                    and result.state is not None
-                    and (result.state.is_failed() or result.state.is_crashed())
-                ):
-                    # Handle both Failed and Crashed states as failures
-                    state_type = "CRASHED" if result.state.is_crashed() else "FAILED"
-                    failed_info.append(
-                        {
-                            "batch_num": batch_num,
-                            "run_id": str(flow_run.id),
-                            "message": result.state.message or f"Flow {state_type.lower()}",
-                        }
-                    )
-                    self.prefect_engine.logger.error(
-                        f"Batch {batch_num} {state_type} (flow_run={flow_run.id}): {result.state.message}",
-                        extra={"job_run_id": job_run_id},
-                    )
-                elif isinstance(result, FlowRun) and result.state is not None and result.state.is_cancelled():
-                    self.prefect_engine.logger.warning(
-                        f"Batch {batch_num} was cancelled (flow_run={flow_run.id})", extra={"job_run_id": job_run_id}
-                    )
+                completed_count = self._classify_flow_run_result(
+                    batch_num=batch_num,
+                    flow_run=flow_run,
+                    result=result,
+                    completed_count=completed_count,
+                    failed_info=failed_info,
+                    job_run_id=job_run_id,
+                )
 
-            # If any failures, cancel remaining and raise
             if failed_info:
-                # Cancel any still-running flows
                 await self._cancel_remaining_runs_async(flow_runs=flow_runs, job_run_id=job_run_id)
-
                 self._raise_failure(
                     failed_info=failed_info, completed_count=completed_count, total_count=len(flow_runs)
                 )
@@ -690,9 +700,54 @@ class WorkPoolAdapter(BatchExecutionPort):
             )
             raise
 
-    async def _cancel_remaining_runs_async(
-        self, *, flow_runs: list[FlowRun], job_run_id: str
-    ) -> None:  # NOSONAR python:S3776
+    async def _cancel_single_run(self, *, client: Any, flow_run: FlowRun, job_run_id: str) -> Any | None:
+        """Cancel a single flow run if it is not already in a terminal state.
+
+        Returns the flow_run.id when a Cancelling request was sent, otherwise None.
+        """
+        try:
+            current_run = await client.read_flow_run(flow_run.id)
+            if current_run.state and current_run.state.is_final():
+                return None
+            await client.set_flow_run_state(
+                flow_run_id=flow_run.id,
+                state=Cancelling(message="Cancelled due to batch failure (fail-fast)"),
+            )
+            self.prefect_engine.logger.info(f"Cancelled flow_run={flow_run.id}", extra={"job_run_id": job_run_id})
+            return flow_run.id
+        except Exception as e:
+            self.prefect_engine.logger.warning(
+                f"Failed to cancel flow_run={flow_run.id}: {e}",
+                extra={"job_run_id": job_run_id},
+            )
+            return None
+
+    async def _wait_for_pending_termination(self, *, client: Any, pending_runs: list, job_run_id: str) -> None:
+        """Poll until all pending-cancellation runs reach a terminal state or 60 s elapse."""
+        from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterId
+
+        self.prefect_engine.logger.info(
+            f"Waiting for {len(pending_runs)} flow runs to reach terminal state...",
+            extra={"job_run_id": job_run_id},
+        )
+        start_wait = asyncio.get_event_loop().time()
+        while pending_runs:
+            if asyncio.get_event_loop().time() - start_wait > 60:
+                self.prefect_engine.logger.warning(
+                    f"Timeout waiting for {len(pending_runs)} flow runs to terminate",
+                    extra={"job_run_id": job_run_id},
+                )
+                break
+            await asyncio.sleep(2.0)
+            try:
+                runs = await client.read_flow_runs(flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=pending_runs)))
+                pending_runs[:] = [run.id for run in runs if run.state and not run.state.is_final()]
+            except Exception as e:
+                self.prefect_engine.logger.warning(
+                    f"Error while polling cancelled runs: {e}", extra={"job_run_id": job_run_id}
+                )
+
+    async def _cancel_remaining_runs_async(self, *, flow_runs: list[FlowRun], job_run_id: str) -> None:
         """
         Cancel all flow runs (async version for use within async context).
         Waits for runs to reach a terminal state to prevent late updates from workers.
@@ -701,64 +756,17 @@ class WorkPoolAdapter(BatchExecutionPort):
             flow_runs: List of flow runs to cancel
             job_run_id: Parent job run ID for logging context
         """
-        from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterId
-
         async with get_client() as client:
             pending_runs = []
             for flow_run in flow_runs:
-                try:
-                    # Fetch current state to avoid cancelling finished runs
-                    current_run = await client.read_flow_run(flow_run.id)
-                    if current_run.state and current_run.state.is_final():
-                        continue
+                run_id = await self._cancel_single_run(client=client, flow_run=flow_run, job_run_id=job_run_id)
+                if run_id is not None:
+                    pending_runs.append(run_id)
 
-                    await client.set_flow_run_state(
-                        flow_run_id=flow_run.id,
-                        state=Cancelling(message="Cancelled due to batch failure (fail-fast)"),
-                    )
-                    pending_runs.append(flow_run.id)
-                    self.prefect_engine.logger.info(
-                        f"Cancelled flow_run={flow_run.id}", extra={"job_run_id": job_run_id}
-                    )
-                except Exception as e:
-                    self.prefect_engine.logger.warning(
-                        f"Failed to cancel flow_run={flow_run.id}: {e}",
-                        extra={"job_run_id": job_run_id},
-                    )
-
-            # Wait for all cancelling runs to reach a terminal state
-            # This prevents lagging workers from updating job stats after we mark it as FAILED
             if pending_runs:
-                self.prefect_engine.logger.info(
-                    f"Waiting for {len(pending_runs)} flow runs to reach terminal state...",
-                    extra={"job_run_id": job_run_id},
+                await self._wait_for_pending_termination(
+                    client=client, pending_runs=pending_runs, job_run_id=job_run_id
                 )
-
-                # Wait up to 60 seconds for runs to terminate
-                start_wait = asyncio.get_event_loop().time()
-                while pending_runs:
-                    if asyncio.get_event_loop().time() - start_wait > 60:
-                        self.prefect_engine.logger.warning(
-                            f"Timeout waiting for {len(pending_runs)} flow runs to terminate",
-                            extra={"job_run_id": job_run_id},
-                        )
-                        break
-
-                    await asyncio.sleep(2.0)
-
-                    try:
-                        runs = await client.read_flow_runs(
-                            flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=pending_runs))
-                        )
-                        still_pending = []
-                        for run in runs:
-                            if run.state and not run.state.is_final():
-                                still_pending.append(run.id)
-                        pending_runs = still_pending
-                    except Exception as e:
-                        self.prefect_engine.logger.warning(
-                            f"Error while polling cancelled runs: {e}", extra={"job_run_id": job_run_id}
-                        )
 
     def _cancel_remaining_runs(self, *, flow_runs: list[FlowRun], failed_run_id: str, job_run_id: str) -> None:
         """
@@ -869,29 +877,18 @@ class WorkPoolAdapter(BatchExecutionPort):
         env = base_env.copy()
 
         if EnvironmentVariables.PREFECT_API_URL not in env:
-            prefect_api_url = os.getenv(EnvironmentVariables.PREFECT_API_URL)
-            if prefect_api_url:
-                env[EnvironmentVariables.PREFECT_API_URL] = prefect_api_url
-            else:
-                raise ValueError(
-                    f"{EnvironmentVariables.PREFECT_API_URL} is not set. "
-                    "Container workers cannot reach the Prefect API without it. "
-                    "Set this environment variable to the Prefect server URL (e.g. https://prefect-server:4200/api)."
-                )
+            env[EnvironmentVariables.PREFECT_API_URL] = os.getenv(
+                EnvironmentVariables.PREFECT_API_URL,
+                "http://prefect-server:4200/api",
+            )
         if EnvironmentVariables.PREFECT_MODE not in env:
             env[EnvironmentVariables.PREFECT_MODE] = "server"
         if EnvironmentVariables.PYTHONPATH not in env:
-            env[EnvironmentVariables.PYTHONPATH] = deployment_path or os.getcwd()
+            env[EnvironmentVariables.PYTHONPATH] = deployment_path or str(Path.cwd())
         if EnvironmentVariables.OLLAMA_HOST not in env:
-            ollama_host = os.getenv(EnvironmentVariables.OLLAMA_HOST)
-            if ollama_host:
-                env[EnvironmentVariables.OLLAMA_HOST] = ollama_host
-            else:
-                raise ValueError(
-                    f"{EnvironmentVariables.OLLAMA_HOST} is not set. "
-                    "Container workers running Ollama-based operators require this variable. "
-                    "Set this environment variable to the Ollama endpoint URL (e.g. https://ollama-server:11434)."
-                )
+            env[EnvironmentVariables.OLLAMA_HOST] = os.getenv(
+                EnvironmentVariables.OLLAMA_HOST, "http://localhost:11434"
+            )
         # Enable DOCPIPE logger integration in worker subprocesses
         if EnvironmentVariables.PREFECT_LOGGING_EXTRA_LOGGERS not in env:
             env[EnvironmentVariables.PREFECT_LOGGING_EXTRA_LOGGERS] = os.getenv(
@@ -933,7 +930,7 @@ class WorkPoolAdapter(BatchExecutionPort):
 
         return None
 
-    def _ensure_deployment_exists(self) -> None:  # NOSONAR python:S3776
+    def _ensure_deployment_exists(self) -> None:
         """
         Ensure the batch subflow deployment exists in Prefect Server.
 
@@ -1002,10 +999,10 @@ class WorkPoolAdapter(BatchExecutionPort):
             #
             # If deployment_path is None (default), we fall back to os.getcwd().
             if isinstance(self.work_pool_runtime_config, ProcessWorkPoolConfig):
-                worker_code_dir = self.work_pool_runtime_config.deployment_path or os.getcwd()
+                worker_code_dir = self.work_pool_runtime_config.deployment_path or str(Path.cwd())
                 self.prefect_engine.logger.info(
                     f"Process work pool: worker code directory = {worker_code_dir}"
-                    f" (source={'config' if self.work_pool_runtime_config.deployment_path else 'os.getcwd()'})"
+                    f" (source={'config' if self.work_pool_runtime_config.deployment_path else 'Path.cwd()'})"
                 )
 
                 deployment_params = {
@@ -1087,8 +1084,8 @@ class WorkPoolAdapter(BatchExecutionPort):
             try:
                 import shutil
 
-                batch_dir = os.path.join(self.batch_storage_path, job_run_id)
-                if os.path.exists(batch_dir):
+                batch_dir = Path(self.batch_storage_path) / job_run_id
+                if batch_dir.exists():
                     shutil.rmtree(batch_dir)
                     self.prefect_engine.logger.info(
                         f"Cleaned up batch storage: {batch_dir}", extra={"job_run_id": job_run_id}

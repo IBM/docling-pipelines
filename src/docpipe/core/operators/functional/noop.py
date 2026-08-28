@@ -4,7 +4,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from docpipe.core.constants.constants import DocpipeConstants, Metrics
+from docpipe.core.constants.constants import AttributeDataTypes, DocpipeConstants, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -32,7 +32,7 @@ class NOOPOperator(AbstractOperator):
         # Make sure that the param name corresponds to the name used in apply_input_params method
         # of NOOPTransformConfiguration class
         super().__init__(config)
-        self.sleep: int = config.get("sleep_sec", 1)
+        self.sleep: int = config.get(OperatorConstants.Misc.SLEEP_SEC, 1)
         self.common_log_arguments: dict[str, Any] = {
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
@@ -40,12 +40,23 @@ class NOOPOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: NOOPOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: NOOPOperator.is_available(),
             OperatorConstants.Misc.LABEL: "No-op",
             OperatorConstants.Config.DESCRIPTION: "Pass-through operator for testing and debugging",
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.Misc.SLEEP_SEC: {
+                    OperatorConstants.Misc.NAME: "Sleep Duration",
+                    OperatorConstants.Config.DESCRIPTION: "Seconds to sleep before passing data through. Use a value > 0 to simulate slow operators.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 1,
+                    OperatorConstants.Filtering.MIN_VALUE: 0,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+            },
         }
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:

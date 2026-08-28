@@ -31,7 +31,7 @@ class LLMInferencePort(ABC):
         Raises:
             Exception: Provider-specific errors
         """
-        pass
+        ...
 
     @abstractmethod
     def generate(self, *, prompt: str, **kwargs: Any) -> str:
@@ -47,7 +47,7 @@ class LLMInferencePort(ABC):
         Raises:
             Exception: Provider-specific errors
         """
-        pass
+        ...
 
     def validate(self) -> dict[str, Any]:
         """Template method for validation.

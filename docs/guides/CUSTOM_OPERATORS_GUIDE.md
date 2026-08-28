@@ -68,7 +68,7 @@ Before creating custom operators, ensure you have:
 - ✅ **PyArrow familiarity**: Understanding of PyArrow tables (basic level)
 - ✅ **Docling Pipelines experience**: Successfully run at least one Docling Pipelines flow
 
-**New to Docling Pipelines?** Complete the [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md) first to understand the basics of flows and operators.
+**New to Docling Pipelines?** Complete the [`USER_GUIDE_PIPELINE_SETUP.md`](../../USER_GUIDE_PIPELINE_SETUP.md) first to understand the basics of flows and operators.
 
 ---
 
@@ -118,9 +118,10 @@ Create a flow JSON file (`hello_flow.json`):
   "flow": [
     {
       "name": "ingest_1",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": ["./sample_documents"]
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]}
       }
     },
     {
@@ -429,13 +430,7 @@ manager.register_custom_operators(package_names=["/path/to/custom_operators"])
 result = manager.execute()
 ```
 
-**Important:** The `package_names` parameter expects **filesystem paths** (absolute or relative) or S3 URIs, NOT Python import paths. Python package import paths (like `"my_company.operators"`) are not currently supported.
-
-**Examples of valid paths:**
-- Absolute path: `"/home/user/custom_operators"`
-- Relative path: `"./my_custom_operators"`
-- Relative with trailing slash: `"custom_operators/"`
-- S3 URI: `"s3://my-bucket/operators/"`
+**Note:** Supports filesystem paths, S3 URIs, and installed Python package names.
 
 ### Verifying Registration
 
@@ -482,9 +477,10 @@ Reference custom operators by their `short_name` in flow JSON files:
   "flow": [
     {
       "name": "ingest_1",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": ["./documents"]
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]}
       }
     },
     {
@@ -791,10 +787,10 @@ my_custom_operators/
 [project]
 name = "my-custom-operators"
 version = "0.1.0"
-description = "Custom operators for Docpipe"
+description = "Custom operators for Docling Pipelines"
 requires-python = ">=3.12"
 dependencies = [
-    "docpipe>=0.1.0",
+    "docling-pipelines>=1.0.0",
 ]
 
 # Register operators via entry points
@@ -1153,7 +1149,7 @@ pip install my-custom-operators>=1.0.0,<2.0.0
 #### Best Practices for Packages
 
 1. **Clear Documentation**: Include comprehensive README with usage examples
-2. **Version Dependencies**: Specify compatible docpipe versions in dependencies
+2. **Version Dependencies**: Specify compatible Docling Pipelines versions in dependencies
 3. **Entry Points**: Register operators via entry points for better discovery
 4. **Testing**: Include tests in your package
 5. **Changelog**: Maintain a CHANGELOG.md for version history
@@ -1202,9 +1198,6 @@ S3 support is an **optional advanced feature** for enterprise deployments that n
 ```bash
 # Using uv
 uv pip install boto3
-
-# Or install docpipe with AWS extras
-uv sync --extra aws
 ```
 
 2. **Configure AWS credentials** (boto3 uses standard AWS credential chain):
@@ -1319,7 +1312,7 @@ export DOCPIPE_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
 
 ## Complete Reference Example
 
-A complete working example is available in the docpipe repository at:
+A complete working example is available in the Docling Pipelines repository at:
 - **File**: `examples/custom_operators/example_custom_operator.py`
 - **Purpose**: Demonstrates adding a custom field to documents
 - **Features**: Shows all required methods with proper implementation
@@ -1327,7 +1320,7 @@ A complete working example is available in the docpipe repository at:
 **To use the example:**
 
 ```bash
-# Clone the docpipe repository
+# Clone the Docling Pipelines repository
 git clone https://github.com/your-org/docling-pipelines.git
 
 # Navigate to examples

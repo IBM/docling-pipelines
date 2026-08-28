@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Unit tests for DoclingServeAdapter.
 """
@@ -56,7 +59,7 @@ class TestDoclingServeAdapter:
 
     def test_init_missing_docling_serve_config(self):
         """Test adapter initialization fails without docling_serve_config."""
-        config = {}
+        config: dict[str, object] = {}
         with pytest.raises(ValueError, match="docling_serve_config is required"):
             DoclingServeAdapter(config=config)
 
@@ -397,11 +400,11 @@ class TestDoclingServeAdapter:
         assert call_kwargs["options"]["pdf_backend"] == "dlparse_v2"
 
     def test_extract_single_document_with_optional_config_parameters(self):
-        """Test adapter with optional configuration parameters."""
+        """Test adapter with optional configuration parameters (deprecated flat fields)."""
         config = {
             "docling_serve_config": {
                 "base_url": "http://localhost:5001",
-                "ocr_engine": "tesseract",
+                "ocr_engine": "tesseract",  # deprecated — maps to ocr_preset
                 "ocr_languages": ["eng", "fra"],
                 "table_mode": "accurate",
                 "image_export_mode": "embedded",
@@ -409,7 +412,8 @@ class TestDoclingServeAdapter:
         }
         adapter = DoclingServeAdapter(config=config)
 
-        assert adapter.processing_options["ocr_engine"] == "tesseract"
+        # ocr_engine maps to ocr_preset in the backward-compat path
+        assert adapter.processing_options["ocr_preset"] == "tesseract"
         assert adapter.processing_options["ocr_languages"] == ["eng", "fra"]
         assert adapter.processing_options["table_mode"] == "accurate"
         assert adapter.processing_options["image_export_mode"] == "embedded"
@@ -623,186 +627,624 @@ class TestDoclingServeAdapter:
         adapter = DoclingServeAdapter(config=config)
         assert adapter.verify_ssl is True
 
+    def test_init_with_additional_formats_empty(self):
+        """Test adapter initialization with empty additional_formats (markdown-only)."""
+        config = {
+            "additional_formats": [],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == []
+        assert "additional_formats" not in adapter.processing_options
 
+    def test_init_with_additional_formats_single(self):
+        """Test adapter initialization with single additional format."""
+        config = {
+            "additional_formats": ["html"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == ["html"]
+        assert adapter.processing_options["additional_formats"] == ["html"]
+
+    def test_init_with_additional_formats_multiple(self):
+        """Test adapter initialization with multiple additional formats."""
+        config = {
+            "additional_formats": ["html", "json", "text"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == ["html", "json", "text"]
+        assert adapter.processing_options["additional_formats"] == ["html", "json", "text"]
+
+    def test_init_without_additional_formats_defaults_to_empty(self):
+        """Test that additional_formats defaults to empty list when not specified."""
+        config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.additional_formats == []
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_additional_formats_html(self, mock_client_class):
+        """Test extraction with HTML additional format."""
+        config = {
+            "additional_formats": ["html"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "# Markdown content",
+                "html_content": "<h1>HTML content</h1>",
+            },
+            "processing_time": 2.0,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown content"
+        assert result[OperatorConstants.Columns.CONTENT_HTML] == "<h1>HTML content</h1>"
+        assert "html" in result[OperatorConstants.Metadata.METADATA]["formats"]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_additional_formats_multiple(self, mock_client_class):
+        """Test extraction with multiple additional formats."""
+        config = {
+            "additional_formats": ["html", "json", "text"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "# Markdown",
+                "html_content": "<h1>HTML</h1>",
+                "json_content": {"pages": [{"page_no": 1}]},
+                "text_content": "Plain text",
+            },
+            "processing_time": 2.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
+        assert result[OperatorConstants.Columns.CONTENT_HTML] == "<h1>HTML</h1>"
+        assert result[OperatorConstants.Columns.CONTENT_TEXT] == "Plain text"
+        assert OperatorConstants.Columns.CONTENT_JSON in result
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        assert "markdown" in formats
+        assert "html" in formats
+        assert "json" in formats
+        assert "text" in formats
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_markdown_only_no_additional_formats(self, mock_client_class):
+        """Test extraction with markdown only (no additional formats requested)."""
+        config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {"md_content": "# Markdown only"},
+            "processing_time": 1.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown only"
+        assert OperatorConstants.Columns.CONTENT_HTML not in result
+        assert OperatorConstants.Columns.CONTENT_JSON not in result
+        assert OperatorConstants.Columns.CONTENT_TEXT not in result
+        assert result[OperatorConstants.Metadata.METADATA]["formats"] == ["markdown"]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_doclang_format(self, mock_client_class):
+        """Test extraction with doclang additional format."""
+        config = {
+            "additional_formats": ["doclang"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "# Markdown",
+                "doclang_content": "DocLang formatted content",
+            },
+            "processing_time": 2.0,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
+        assert result[OperatorConstants.Columns.CONTENT_DOCLANG] == "DocLang formatted content"
+        assert "doclang" in result[OperatorConstants.Metadata.METADATA]["formats"]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_unsupported_format_error_422(self, mock_client_class):
+        """Test that 422 errors for unsupported formats provide clear guidance via error classifier."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+        from docpipe.exceptions.error_codes import ErrorCode
+
+        config = {
+            "additional_formats": ["html", "json"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        # Simulate enhanced 422 error from docling client (enhanced by error classifier)
+        enhanced_error_msg = (
+            "The docling-serve instance at http://localhost:5001 rejected the requested output formats. "
+            "This typically occurs when using an older docling-serve version that does not support "
+            "one or more of the requested formats: ['md', 'html', 'json']. "
+            "\n\nTo resolve this issue:\n"
+            "1. Upgrade docling-serve to the latest version, OR\n"
+            "2. Remove unsupported formats from 'text_extraction.provider_config.additional_formats' in your flow configuration.\n"
+            "\nOriginal error: Unexpected status code 422"
+        )
+        mock_client_instance.process_document.side_effect = DocpipeException(
+            message=enhanced_error_msg,
+            status_code=422,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+        )
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert OperatorConstants.Extraction.ERROR in result
+        error_msg = result[OperatorConstants.Extraction.ERROR]
+        # Verify the error message contains helpful guidance (from error classifier)
+        assert "docling-serve" in error_msg.lower()
+        assert "format" in error_msg.lower()
+        assert "upgrade" in error_msg.lower()
+        assert "additional_formats" in error_msg.lower()
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_format_compatibility_error_message(self, mock_client_class):
+        """Test that format-related error messages trigger compatibility guidance via error classifier."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+        from docpipe.exceptions.error_codes import ErrorCode
+
+        config = {
+            "additional_formats": ["doctags"],
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+            },
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        # Simulate enhanced format-related error from docling client (enhanced by error classifier)
+        enhanced_error_msg = (
+            "The docling-serve instance at http://localhost:5001 rejected the requested output formats. "
+            "This typically occurs when using an older docling-serve version that does not support "
+            "one or more of the requested formats: ['md', 'doctags']. "
+            "\n\nTo resolve this issue:\n"
+            "1. Upgrade docling-serve to the latest version, OR\n"
+            "2. Remove unsupported formats from 'text_extraction.provider_config.additional_formats' in your flow configuration.\n"
+            "\nOriginal error: Invalid format 'doctags' not supported"
+        )
+        mock_client_instance.process_document.side_effect = DocpipeException(
+            message=enhanced_error_msg,
+            status_code=400,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+        )
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert OperatorConstants.Extraction.ERROR in result
+        error_msg = result[OperatorConstants.Extraction.ERROR]
+        # Verify helpful guidance is provided (from error classifier)
+        assert "additional_formats" in error_msg.lower()
+        assert "upgrade" in error_msg.lower()
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_with_non_format_error_passes_through(self, mock_client_class):
+        """Test that non-format errors are passed through without modification."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+        from docpipe.exceptions.error_codes import ErrorCode
+
+        config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
+        adapter = DoclingServeAdapter(config=config)
+
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        # Simulate a different type of error (not format-related)
+        mock_client_instance.process_document.side_effect = DocpipeException(
+            message="Connection timeout",
+            status_code=500,
+            error_code=ErrorCode.CONNECTION_ERROR,
+        )
+        mock_client_class.return_value = mock_client_instance
+
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert OperatorConstants.Extraction.ERROR in result
+        error_msg = result[OperatorConstants.Extraction.ERROR]
+        # Should contain original error, not format guidance
+        assert "Connection timeout" in error_msg
+        assert "upgrade docling-serve" not in error_msg.lower()
+
+
+# ---------------------------------------------------------------------------
+# v2 response format tests (presigned artifact URIs)
+# Missing lines: 296, 297, 299, 303, 305-352
+# ---------------------------------------------------------------------------
 class TestDoclingServeAdapterV2Response:
-    """Tests for _extract_from_v2_response (docling-serve artifact URI format)."""
+    """Tests for the v2 artifact-URI response format from docling-serve."""
 
     @pytest.fixture
     def adapter(self):
-        return DoclingServeAdapter(
-            config={
-                "docling_serve_config": {
-                    "base_url": "http://localhost:5001",
-                    "timeout": 300,
-                    "poll_interval": 2,
-                    "max_retries": 3,
-                }
-            }
-        )
+        return DoclingServeAdapter(config={"docling_serve_config": {"base_url": "http://localhost:5001"}})
 
     @pytest.fixture
-    def adapter_with_html(self):
-        return DoclingServeAdapter(
-            config={
-                "docling_serve_config": {
-                    "base_url": "http://localhost:5001",
-                    "timeout": 300,
-                    "poll_interval": 2,
-                    "max_retries": 3,
-                },
-                "additional_formats": ["html"],
-            }
-        )
+    def adapter_with_formats(self):
+        config = {
+            "additional_formats": ["html", "json"],
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+        }
+        return DoclingServeAdapter(config=config)
 
-    def _make_v2_result(self, artifacts: list) -> dict:
-        return {"documents": [{"artifacts": artifacts}]}
+    # ------------------------------------------------------------------
+    # helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _mock_get(url_to_text: dict[str, str]):
+        """Return a requests.get side_effect that maps URL substrings to text."""
+        import requests as _requests
 
+        def _side_effect(url, *, timeout=60, verify=True):
+            for key, text in url_to_text.items():
+                if key in url:
+                    resp = MagicMock()
+                    resp.text = text
+                    resp.raise_for_status = MagicMock()
+                    return resp
+            raise _requests.RequestException(f"No mock for URL: {url}")
+
+        return _side_effect
+
+    # ------------------------------------------------------------------
+    # happy path
+    # ------------------------------------------------------------------
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_response_extracts_markdown(self, mock_get, adapter):
-        """Happy path: markdown artifact URI is fetched and stored as doc content."""
-        mock_get.return_value = MagicMock(text="# Hello World", raise_for_status=MagicMock())
-        result = {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "https://s3/md"}]}]}
+    def test_v2_markdown_only(self, mock_get, mock_client_class, adapter):
+        """v2 response with markdown artifact: content is fetched from URI."""
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "http://s3/doc.md"}]}],
+            "processing_time": 1.5,
+        }
+        mock_get.side_effect = self._mock_get({"doc.md": "# Fetched Markdown"})
 
-        result_dict, formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
 
-        mock_get.assert_called_once_with("https://s3/md", timeout=60, verify=True)
-        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Hello World"
-        assert OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN in formats
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Fetched Markdown"
+        assert "markdown" in result[OperatorConstants.Metadata.METADATA]["formats"]
 
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_response_fetches_additional_format(self, mock_get, adapter_with_html):
-        """Additional format (html) URI is fetched and stored in the correct column."""
-        mock_get.side_effect = [
-            MagicMock(text="# Markdown", raise_for_status=MagicMock()),
-            MagicMock(text="<h1>HTML</h1>", raise_for_status=MagicMock()),
-        ]
-        result = {
+    def test_v2_html_artifact(self, mock_get, mock_client_class, adapter_with_formats):
+        """v2 response with html artifact is mapped to content_html column."""
+        mock_client_class.return_value.process_document.return_value = {
             "documents": [
                 {
                     "artifacts": [
-                        {"artifact_type": "markdown", "uri": "https://s3/md"},
-                        {"artifact_type": "html", "uri": "https://s3/html"},
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                        {"artifact_type": "html", "uri": "http://s3/doc.html"},
                     ]
                 }
-            ]
+            ],
+            "processing_time": 2.0,
         }
+        mock_get.side_effect = self._mock_get({"doc.md": "# Markdown", "doc.html": "<h1>HTML</h1>"})
 
-        result_dict, formats = adapter_with_html._extract_from_v2_response(result=result, file_path="doc.pdf")
+        result = adapter_with_formats.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
 
-        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
-        assert result_dict[OperatorConstants.Columns.CONTENT_HTML] == "<h1>HTML</h1>"
-        assert OperatorConstants.Extraction.OUTPUT_FORMAT_HTML in formats
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
+        assert result[OperatorConstants.Columns.CONTENT_HTML] == "<h1>HTML</h1>"
+        assert "html" in result[OperatorConstants.Metadata.METADATA]["formats"]
 
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_response_skips_unrequested_formats(self, mock_get, adapter):
-        """Artifacts for formats not requested are not fetched."""
-        mock_get.return_value = MagicMock(text="# Markdown", raise_for_status=MagicMock())
-        result = {
+    def test_v2_json_artifact_is_pretty_printed(self, mock_get, mock_client_class, adapter_with_formats):
+        """v2 JSON artifact text is re-serialised as pretty-printed JSON."""
+        raw_json = '{"pages":[{"page_no":1}],"text":"hello"}'
+        mock_client_class.return_value.process_document.return_value = {
             "documents": [
                 {
                     "artifacts": [
-                        {"artifact_type": "markdown", "uri": "https://s3/md"},
-                        {"artifact_type": "html", "uri": "https://s3/html"},
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                        {"artifact_type": "json", "uri": "http://s3/doc.json"},
                     ]
                 }
-            ]
+            ],
+            "processing_time": 1.5,
         }
+        mock_get.side_effect = self._mock_get({"doc.md": "# Markdown", "doc.json": raw_json})
 
-        _result_dict, formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
+        result = adapter_with_formats.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
 
-        # html was not requested — only one fetch for markdown
-        assert mock_get.call_count == 1
-        assert OperatorConstants.Extraction.OUTPUT_FORMAT_HTML not in formats
-
-    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_response_skips_artifact_with_missing_uri(self, mock_get, adapter):
-        """Artifact with empty URI is skipped gracefully without crashing."""
-        result = {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": ""}]}]}
-
-        result_dict, _formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
-
-        mock_get.assert_not_called()
-        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
-
-    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_response_failed_fetch_is_skipped(self, mock_get, adapter):
-        """A fetch error on an artifact is logged and skipped; extraction continues."""
-        mock_get.side_effect = Exception("network error")
-        result = {"documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "https://s3/md"}]}]}
-
-        result_dict, _formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
-
-        assert result_dict[OperatorConstants.Extraction.SUCCESS] is True
-        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
-
-    def test_v2_response_empty_documents_list(self, adapter):
-        """v2 response with no documents returns empty markdown content."""
-        result = {"documents": []}
-
-        result_dict, formats = adapter._extract_from_v2_response(result=result, file_path="doc.pdf")
-
-        assert result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
-        assert OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN in formats
-
-    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_response_json_artifact_is_serialised(self, mock_get, adapter):
-        """JSON artifact content is parsed and re-serialised to a string."""
-        adapter_json = DoclingServeAdapter(
-            config={
-                "docling_serve_config": {"base_url": "http://localhost:5001"},
-                "additional_formats": ["json"],
-            }
-        )
-        mock_get.side_effect = [
-            MagicMock(text="# Markdown", raise_for_status=MagicMock()),
-            MagicMock(text='{"key": "value"}', raise_for_status=MagicMock()),
-        ]
-        result = {
-            "documents": [
-                {
-                    "artifacts": [
-                        {"artifact_type": "markdown", "uri": "https://s3/md"},
-                        {"artifact_type": "json", "uri": "https://s3/json"},
-                    ]
-                }
-            ]
-        }
-
-        result_dict, _formats = adapter_json._extract_from_v2_response(result=result, file_path="doc.pdf")
-
-        json_col = OperatorConstants.Columns.CONTENT_JSON
-        assert json_col in result_dict
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
         import json
 
-        parsed = json.loads(result_dict[json_col])
-        assert parsed["key"] == "value"
+        parsed = json.loads(result[OperatorConstants.Columns.CONTENT_JSON])
+        assert parsed["text"] == "hello"
 
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
-    def test_extract_single_document_routes_to_v2_when_documents_key_present(self, mock_client_class, adapter):
-        """extract_single_document uses v2 path when 'documents' key is in the API response."""
-        mock_instance = MagicMock()
-        mock_instance.process_document.return_value = {
-            "documents": [{"artifacts": [{"artifact_type": "markdown", "uri": ""}]}],
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_json_invalid_body_kept_as_text(self, mock_get, mock_client_class, adapter_with_formats):
+        """v2 JSON artifact that is not valid JSON is kept as raw text."""
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                        {"artifact_type": "json", "uri": "http://s3/doc.json"},
+                    ]
+                }
+            ],
             "processing_time": 1.0,
         }
-        mock_client_class.return_value = mock_instance
+        mock_get.side_effect = self._mock_get({"doc.md": "# Markdown", "doc.json": "not-valid-json{"})
 
-        result = adapter.extract_single_document(file_path="doc.pdf", binary_content=b"data")
+        result = adapter_with_formats.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
-        assert OperatorConstants.Metadata.METADATA in result
+        # Kept as the raw string rather than crashing
+        assert result[OperatorConstants.Columns.CONTENT_JSON] == "not-valid-json{"
+
+    # ------------------------------------------------------------------
+    # edge / error cases
+    # ------------------------------------------------------------------
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_v2_empty_documents_list(self, mock_client_class, adapter):
+        """v2 response with an empty documents list returns empty markdown."""
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [],
+            "processing_time": 0.5,
+        }
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
 
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
-    def test_extract_single_document_routes_to_v1_when_document_key_present(self, mock_client_class, adapter):
-        """extract_single_document uses v1 path when 'document' key is in the API response."""
-        mock_instance = MagicMock()
-        mock_instance.process_document.return_value = {
-            "document": {"md_content": "# V1 Content"},
-            "processing_time": 0.8,
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_artifact_fetch_failure_skipped(self, mock_get, mock_client_class, adapter):
+        """Network error when fetching a v2 artifact is logged and skipped; overall result succeeds."""
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [{"artifacts": [{"artifact_type": "markdown", "uri": "http://s3/doc.md"}]}],
+            "processing_time": 1.0,
         }
-        mock_client_class.return_value = mock_instance
+        mock_get.side_effect = Exception("Timeout")
 
-        result = adapter.extract_single_document(file_path="doc.pdf", binary_content=b"data")
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        # Fetch failed but the adapter handles it gracefully
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        # Markdown was not populated since the fetch failed
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_v2_artifact_missing_uri_not_fetched(self, mock_client_class, adapter):
+        """v2 artifact without a URI field is silently skipped."""
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [{"artifacts": [{"artifact_type": "markdown"}]}],  # no uri key
+            "processing_time": 1.0,
+        }
+
+        with patch(
+            "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get"
+        ) as mock_get:
+            result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+            mock_get.assert_not_called()
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
-        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# V1 Content"
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_unknown_artifact_type_ignored(self, mock_get, mock_client_class, adapter):
+        """Unknown artifact types not in ARTIFACT_TYPE_TO_FORMAT are ignored."""
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                        {"artifact_type": "unknown_format", "uri": "http://s3/unknown"},
+                    ]
+                }
+            ],
+            "processing_time": 1.0,
+        }
+        mock_get.side_effect = self._mock_get({"doc.md": "# Markdown"})
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown"
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_markdown_missing_from_artifacts_still_prepended(
+        self, mock_get, mock_client_class, adapter_with_formats
+    ):
+        """If no markdown artifact was successfully fetched, markdown is prepended to formats."""
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "html", "uri": "http://s3/doc.html"},
+                    ]
+                }
+            ],
+            "processing_time": 1.0,
+        }
+        mock_get.side_effect = self._mock_get({"doc.html": "<h1>HTML only</h1>"})
+
+        result = adapter_with_formats.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        # markdown is inserted at index 0 even when not in artifacts
+        assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+
+
+# ---------------------------------------------------------------------------
+# Tests for get_config_schema()
+# ---------------------------------------------------------------------------
+class TestDoclingServeAdapterConfigSchema:
+    """Tests for the get_config_schema() static method and the DoclingServeConfig model."""
+
+    def test_returns_docling_serve_config_class(self):
+        """Returns the DoclingServeConfig Pydantic model (not an instance)."""
+        from pydantic import BaseModel
+
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_config import (
+            DoclingServeConfig,
+        )
+
+        schema_cls = DoclingServeAdapter.get_config_schema()
+        assert schema_cls is DoclingServeConfig
+        assert issubclass(schema_cls, BaseModel)
+
+    def test_callable_on_class_without_instance(self):
+        """get_config_schema is a @staticmethod — callable without instantiation."""
+        result = DoclingServeAdapter.get_config_schema()
+        assert result is not None
+
+    def test_schema_has_required_fields(self):
+        """DoclingServeConfig contains every documented user-facing field."""
+        fields = DoclingServeAdapter.get_config_schema().model_fields
+        for name in (
+            "base_url",
+            "api_key",
+            "timeout",
+            "poll_interval",
+            "max_retries",
+            "verify_ssl",
+            "do_ocr",
+            "pdf_backend",
+        ):
+            assert name in fields, f"Expected field '{name}' missing from schema"
+
+    def test_defaults_are_sensible(self):
+        """DoclingServeConfig instantiates with documented defaults."""
+        cfg = DoclingServeAdapter.get_config_schema()()
+        assert cfg.base_url == "http://0.0.0.0:5001"
+        assert cfg.timeout == 300
+        assert cfg.poll_interval == 2
+        assert cfg.max_retries == 3
+        assert cfg.verify_ssl is True
+        assert cfg.do_ocr is True
+        assert cfg.pdf_backend == "dlparse_v2"
+        assert cfg.api_key is None
+
+    def test_model_json_schema_is_non_empty_dict(self):
+        """model_json_schema() returns a dict with at least one property."""
+        js = DoclingServeAdapter.get_config_schema().model_json_schema()
+        assert isinstance(js, dict)
+        assert js.get("properties")
+
+    def test_image_export_mode_default(self):
+        cfg = DoclingServeAdapter.get_config_schema()()
+        assert cfg.image_export_mode == "placeholder"
+
+    def test_ocr_engine_default_is_none(self):
+        cfg = DoclingServeAdapter.get_config_schema()()
+        assert cfg.ocr_engine is None
+
+    @pytest.mark.parametrize("value", ["dlparse_v2", "pypdfium2"])
+    def test_pdf_backend_valid(self, value):
+        cfg = DoclingServeAdapter.get_config_schema()(pdf_backend=value)
+        assert cfg.pdf_backend == value
+
+    def test_pdf_backend_invalid_raises(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            DoclingServeAdapter.get_config_schema()(pdf_backend="unknown_backend")
+
+    @pytest.mark.parametrize("value", ["placeholder", "embedded"])
+    def test_image_export_mode_valid(self, value):
+        cfg = DoclingServeAdapter.get_config_schema()(image_export_mode=value)
+        assert cfg.image_export_mode == value
+
+    def test_image_export_mode_invalid_raises(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            DoclingServeAdapter.get_config_schema()(image_export_mode="raw")
+
+    def test_ocr_engine_accepts_arbitrary_string(self):
+        """ocr_engine is str | None — server-dependent, no enum constraint."""
+        cfg = DoclingServeAdapter.get_config_schema()(ocr_engine="tesseract")
+        assert cfg.ocr_engine == "tesseract"
+
+    # --- valid_values surfaces in JSON schema ---
+
+    def test_pdf_backend_enum_in_json_schema(self):
+        schema = DoclingServeAdapter.get_config_schema().model_json_schema()
+        assert "enum" in schema["properties"]["pdf_backend"]
+
+    def test_image_export_mode_enum_in_json_schema(self):
+        schema = DoclingServeAdapter.get_config_schema().model_json_schema()
+        assert "enum" in schema["properties"]["image_export_mode"]
+
+    def test_ocr_engine_no_enum_in_json_schema(self):
+        """ocr_engine is str | None — no enum constraint expected."""
+        schema = DoclingServeAdapter.get_config_schema().model_json_schema()
+        assert "enum" not in str(schema["properties"]["ocr_engine"])

@@ -320,7 +320,7 @@ class TestExtractOperatorRealWorld:
         # Create table from real files
         documents = []
         for pdf_file in pdf_files[:3]:  # Test with first 3 files
-            with open(pdf_file, "rb") as f:
+            with Path(pdf_file).open("rb") as f:
                 content = f.read()
             documents.append(
                 {
@@ -373,14 +373,12 @@ class TestExtractOperatorRealWorld:
         """Test Docling Serve with OCR on scanned documents"""
         # This test would use scanned PDF documents that require OCR
         # Requires Docling-Serve running with OCR enabled
-        pass
 
     @pytest.mark.skip(reason="Requires VLM models and significant compute resources")
     def test_vlm_with_complex_layouts(self):
         """Test VLM extraction on documents with complex layouts"""
         # This test would use documents with tables, images, and complex formatting
         # Requires VLM models and GPU resources
-        pass
 
     def test_template_extraction_with_expansion(self):
         """Test template extraction with expand_extracted_data enabled"""

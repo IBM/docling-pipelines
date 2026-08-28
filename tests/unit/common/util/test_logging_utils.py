@@ -13,6 +13,7 @@ from docpipe.utils.infrastructure.logging import (
     ConditionalFormatter,
     get_log_level,
     get_logger,
+    setup_logging,
 )
 
 
@@ -60,7 +61,17 @@ class TestGetLogger:
 
         assert logger is not None
         assert isinstance(logger, logging.Logger)
-        assert logger.propagate is False
+
+    def test_get_logger_propagate_true_when_no_real_handler(self):
+        """A fresh logger with only a NullHandler has propagate=True."""
+        # Use a unique name to guarantee no prior state from other tests
+        fresh = logging.getLogger("docpipe.test.fresh_propagate_check")
+        fresh.handlers = []
+        fresh.propagate = False  # reset to worst-case state
+
+        result = get_logger("docpipe.test.fresh_propagate_check")
+
+        assert result.propagate is True
 
     def test_get_logger_with_custom_name(self):
         """Test getting logger with custom name."""
@@ -81,37 +92,49 @@ class TestGetLogger:
         assert logger.level == logging.WARNING
 
     def test_get_logger_with_file_output(self, tmp_path):
-        """Test getting logger with file output."""
+        """Test that get_logger ignores the file argument (file handlers belong in setup_logging)."""
         log_file = str(tmp_path / "test.log")
-        logger = get_logger(name="test_file_logger", file=log_file)
+        logger = get_logger(name="test_file_logger_ignored", file=log_file)
 
-        # Check that file handler was added
+        # file argument is ignored by get_logger — no FileHandler should be added
         file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
-        assert len(file_handlers) > 0
+        assert len(file_handlers) == 0
 
-    def test_get_logger_without_json_format(self):
-        """Test logger uses normal format by default."""
+    def test_get_logger_has_only_null_handler(self):
+        """Test that get_logger attaches only a NullHandler (no StreamHandler)."""
+        logger = get_logger(name="test_null_handler_only")
+
+        assert len(logger.handlers) == 1
+        assert isinstance(logger.handlers[0], logging.NullHandler)
+
+    def test_setup_logging_without_json_format(self, tmp_path):
+        """Test setup_logging installs a non-JSON StreamHandler by default."""
         with patch.dict(os.environ, {"DS_LOG_JSON": "False"}, clear=True):
-            logger = get_logger(name="test_normal_format")
+            setup_logging()
+            root = logging.getLogger("docpipe")
+            stream_handlers = [
+                h
+                for h in root.handlers
+                if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+            ]
+            assert len(stream_handlers) >= 1
+            assert not isinstance(stream_handlers[0].formatter, ConditionalFormatter)
 
-            # Check that handlers use normal formatter
-            for handler in logger.handlers:
-                if isinstance(handler, logging.StreamHandler):
-                    assert not isinstance(handler.formatter, ConditionalFormatter)
-
-    def test_get_logger_with_json_format(self):
-        """Test logger uses JSON format when enabled."""
+    def test_setup_logging_with_json_format(self):
+        """Test setup_logging installs ConditionalFormatter when DS_LOG_JSON=True."""
         with patch.dict(os.environ, {"DS_LOG_JSON": "True"}, clear=True):
-            logger = get_logger(name="test_json_format")
-
-            # Check that handlers use ConditionalFormatter
-            has_conditional_formatter = False
-            for handler in logger.handlers:
-                if isinstance(handler, logging.StreamHandler):
-                    if isinstance(handler.formatter, ConditionalFormatter):
-                        has_conditional_formatter = True
-
-            assert has_conditional_formatter
+            # Reset handlers to test fresh installation
+            root = logging.getLogger("docpipe")
+            root.handlers = []
+            setup_logging()
+            stream_handlers = [
+                h
+                for h in root.handlers
+                if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+            ]
+            assert any(isinstance(h.formatter, ConditionalFormatter) for h in stream_handlers)
+            # Restore
+            root.handlers = []
 
     def test_get_logger_does_not_duplicate_handlers(self):
         """Test that calling get_logger multiple times doesn't duplicate handlers."""
@@ -126,10 +149,10 @@ class TestGetLogger:
         # Handler count should not increase
         assert final_handler_count == initial_handler_count
 
-    def test_get_logger_propagate_is_false(self):
-        """Test that logger propagate is set to False."""
-        logger = get_logger()
-        assert logger.propagate is False
+    def test_get_logger_propagate_is_true(self):
+        """Test that get_logger sets propagate to True for library-safe usage."""
+        logger = get_logger(name="test_propagate_true")
+        assert logger.propagate is True
 
     def test_get_logger_with_different_levels(self):
         """Test getting loggers with different log levels."""
@@ -337,3 +360,185 @@ class TestEdgeCases:
         unicode_name = "测试日志器"
         logger = get_logger(name=unicode_name)
         assert logger.name == unicode_name
+
+
+class TestEmbeddedLibraryUsage:
+    """Test that docpipe behaves correctly when used as an embedded library.
+
+    Simulates the scenario where a host application embeds docpipe and controls
+    all logging output through its own infrastructure.
+    """
+
+    def test_host_handler_receives_all_docpipe_records(self):
+        """A handler on the root docpipe logger receives records from all child loggers via propagation."""
+        captured: list[logging.LogRecord] = []
+
+        class CapturingHandler(logging.Handler):
+            def emit(self, record):
+                captured.append(record)
+
+        root = logging.getLogger("docpipe")
+        handler = CapturingHandler()
+        root.addHandler(handler)
+
+        # Simulate records from two different docpipe child loggers
+        get_logger("docpipe.core.operators.functional.doc_id_hash").warning("hash warning")
+        get_logger("docpipe.integrations.docling.client").info("docling info")
+
+        root.removeHandler(handler)
+
+        assert len(captured) == 2
+
+    def test_host_filter_on_handler_rewrites_logger_name(self):
+        """A renaming Filter attached to the handler rewrites record.name for all propagated records.
+
+        Filters must be attached to the handler, not the logger, to intercept
+        records that propagate up from child loggers.
+        """
+
+        class RenamingFilter(logging.Filter):
+            def filter(self, record):
+                record.name = record.name.replace("docpipe", "host_app")
+                return True
+
+        captured: list[logging.LogRecord] = []
+
+        class CapturingHandler(logging.Handler):
+            def emit(self, record):
+                captured.append(record)
+
+        root = logging.getLogger("docpipe")
+        handler = CapturingHandler()
+        handler.addFilter(RenamingFilter())
+        root.addHandler(handler)
+
+        get_logger("docpipe.core.operators.extract.extract_operator").info("extraction done")
+
+        root.removeHandler(handler)
+
+        assert len(captured) == 1
+        assert captured[0].name == "host_app.core.operators.extract.extract_operator"
+
+    def test_no_setup_logging_means_no_console_output(self):
+        """Without setup_logging(), the root docpipe logger has no StreamHandler — only NullHandler."""
+        root = logging.getLogger("docpipe")
+        # setup_logging() may have been called by another test; reset to simulate clean embed
+        original_handlers = root.handlers[:]
+        original_propagate = root.propagate
+        root.handlers = []
+        root.propagate = True
+
+        get_logger("docpipe.test.embedded_silence")
+        stream_handlers = [h for h in root.handlers if isinstance(h, logging.StreamHandler)]
+        assert len(stream_handlers) == 0
+
+        # Restore
+        root.handlers = original_handlers
+        root.propagate = original_propagate
+
+    def test_propagate_true_allows_host_root_handler_to_receive_records(self):
+        """With propagate=True, docpipe records reach the Python root logger's handlers."""
+        root_logger = logging.getLogger()
+        captured: list[logging.LogRecord] = []
+
+        class CapturingHandler(logging.Handler):
+            def emit(self, record):
+                captured.append(record)
+
+        handler = CapturingHandler()
+        root_logger.addHandler(handler)
+
+        # Ensure docpipe root logger propagates and has no blocking handlers
+        docpipe_root = logging.getLogger("docpipe")
+        original_handlers = docpipe_root.handlers[:]
+        original_propagate = docpipe_root.propagate
+        docpipe_root.handlers = []
+        docpipe_root.propagate = True
+
+        get_logger("docpipe.core.operators.quality.ededup").warning("dedup warning")
+
+        root_logger.removeHandler(handler)
+        docpipe_root.handlers = original_handlers
+        docpipe_root.propagate = original_propagate
+
+        docpipe_records = [r for r in captured if r.name.startswith("docpipe")]
+        assert len(docpipe_records) == 1
+        assert docpipe_records[0].message == "dedup warning"
+
+
+class TestConditionalFormatterTraceCorrelation:
+    """Test that ConditionalFormatter injects trace_id and span_id for log-trace correlation."""
+
+    @pytest.fixture
+    def formatter(self):
+        return ConditionalFormatter(datefmt="%H:%M:%S")
+
+    @pytest.fixture
+    def basic_record(self):
+        return logging.LogRecord(
+            name="test_logger",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="hello",
+            args=(),
+            exc_info=None,
+        )
+
+    def _format_json(self, formatter, record) -> dict:
+        import json
+
+        with patch("docpipe.core.models.session_info.get_session_info") as mock_session:
+            session = MagicMock()
+            session.transaction_id = "tx-1"
+            mock_session.return_value = session
+            return json.loads(formatter.format(record))
+
+    def test_trace_id_and_span_id_present_in_output(self, formatter, basic_record):
+        """JSON output must always contain trace_id and span_id keys."""
+        parsed = self._format_json(formatter, basic_record)
+        assert "trace_id" in parsed
+        assert "span_id" in parsed
+
+    def test_trace_id_and_span_id_empty_when_telemetry_disabled(self, formatter, basic_record):
+        """When telemetry is disabled, both fields should be empty strings."""
+        mock_telemetry = MagicMock()
+        mock_telemetry.get_trace_context.return_value = {"trace_id": "", "span_id": ""}
+
+        with patch(
+            "docpipe.utils.infrastructure.telemetry_service.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            parsed = self._format_json(formatter, basic_record)
+
+        assert parsed["trace_id"] == ""
+        assert parsed["span_id"] == ""
+
+    def test_trace_id_and_span_id_populated_when_span_active(self, formatter, basic_record):
+        """When a span is active, trace_id and span_id should be hex strings."""
+        mock_telemetry = MagicMock()
+        mock_telemetry.get_trace_context.return_value = {
+            "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+            "span_id": "00f067aa0ba902b7",
+        }
+
+        with patch(
+            "docpipe.utils.infrastructure.telemetry_service.get_telemetry_service",
+            return_value=mock_telemetry,
+        ):
+            parsed = self._format_json(formatter, basic_record)
+
+        assert parsed["trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+        assert parsed["span_id"] == "00f067aa0ba902b7"
+
+    def test_formatter_resilient_when_telemetry_raises(self, formatter, basic_record):
+        """If get_telemetry_service raises, formatter should not propagate the error."""
+        with patch(
+            "docpipe.utils.infrastructure.telemetry_service.get_telemetry_service",
+            side_effect=Exception("telemetry unavailable"),
+        ):
+            parsed = self._format_json(formatter, basic_record)
+
+        # Keys must still be present with empty fallback
+        assert parsed["trace_id"] == ""
+        assert parsed["span_id"] == ""

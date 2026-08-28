@@ -35,7 +35,7 @@ class AuthoringOperator:
     """Domain model for an operator in the authoring format.
 
     Attributes:
-        type: Operator type (e.g., 'ingest_local', 'extract_operator')
+        type: Operator type (e.g., 'ingest_source', 'extract_operator')
         name: Optional unique name for this operator instance
         depends_on: List of operator names this operator depends on
                    Supports dot notation for branch references (e.g., 'branch_op.branch_name')
@@ -47,9 +47,7 @@ class AuthoringOperator:
     depends_on: list[str] = field(default_factory=list)
     config: dict[str, Any] = field(default_factory=dict)
 
-    def validate(  # NOSONAR python:S3776
-        self, *, all_operator_names: set[str], operator_map: dict[str, "AuthoringOperator"]
-    ) -> list[str]:
+    def validate(self, *, all_operator_names: set[str], operator_map: dict[str, "AuthoringOperator"]) -> list[str]:
         """Validate operator configuration.
 
         Args:
@@ -158,7 +156,7 @@ class AuthoringOperator:
             )
             return errors
 
-        if len(branches) == 0:
+        if not branches:
             errors.append(f"Branching operator '{self.name}' must define at least one branch")
             return errors
 
@@ -215,7 +213,7 @@ class AuthoringFlow:
     global_config: dict[str, Any] = field(default_factory=dict)
     flow_source: FlowSource = FlowSource.CLI
 
-    def validate(self) -> None:  # NOSONAR python:S3776
+    def validate(self) -> None:
         """Validate the entire authoring flow.
 
         Raises:
@@ -285,7 +283,7 @@ class AuthoringFlow:
             error_message = "Authoring flow validation failed:\n" + "\n".join(f"  - {err}" for err in errors)
             raise FlowInvalidDataException(message=error_message, field_name="flow")
 
-    def _check_circular_dependencies(self) -> list[str]:  # NOSONAR python:S3776
+    def _check_circular_dependencies(self) -> list[str]:
         """Check for circular dependencies in the flow.
 
         Returns:

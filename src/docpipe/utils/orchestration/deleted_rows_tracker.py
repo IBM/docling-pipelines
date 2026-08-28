@@ -94,12 +94,7 @@ def update_deleted_rows(
 
     current_combined = _combine_tables(current_tables, "current tables")
 
-    if (
-        previous_combined is None
-        or current_combined is None
-        or previous_combined.num_rows == 0
-        or current_combined.num_rows == 0
-    ):
+    if previous_combined is None or current_combined is None or previous_combined.num_rows == 0:
         return pa.table({})
 
     # ---- Detect deleted rows ----

@@ -490,9 +490,9 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
         try:
             result = client.call_rest_json(
                 method=RestMethod.POST,
-                endpoint=detection_url,
+                url=detection_url,
                 json_data=request_payload,
-                params=params,
+                query_params=params,
                 expected_status_codes=[200],
             )
             detections = result.get(OperatorConstants.PIIHAP.DETECTIONS_FIELD, [])

@@ -30,7 +30,7 @@ Set the `DOCPIPE_CUSTOM_OPERATORS` environment variable to enable auto-discovery
 
 ```bash
 export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
-docling-pipelines --flow-file sample_flows/custom_operators_demo_flow.json
+docling-pipelines --flow-file sample_flows/custom_operators/custom_operators_demo.json
 ```
 
 ### Method 2: Flow Configuration
@@ -64,12 +64,12 @@ result = manager.execute()
 
 ## Demo Flow
 
-A complete demo flow is available at `sample_flows/custom_operators_demo_flow.json` that demonstrates both operators in action:
+A complete demo flow is available at `sample_flows/custom_operators/custom_operators_demo.json` that demonstrates both operators in action:
 
 ```bash
 # Run the demo (requires DOCPIPE_CUSTOM_OPERATORS environment variable)
 export DOCPIPE_CUSTOM_OPERATORS="my_custom_operators"
-docling-pipelines --flow-file sample_flows/custom_operators_demo_flow.json
+docling-pipelines --flow-file sample_flows/custom_operators/custom_operators_demo.json
 ```
 
 The demo flow:

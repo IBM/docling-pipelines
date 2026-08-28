@@ -3,7 +3,7 @@
 Example: Operator Metadata Retrieval
 
 This example demonstrates how to retrieve metadata for all available operators
-in the docpipe-opensource framework.
+in the docling-pipelines framework.
 """
 
 import sys

@@ -62,9 +62,48 @@ class OperatorMetadata:
         self.operator_metadata: dict[str, dict[str, Any]] = {}
         self.orchestrator = orchestrator
 
-    def get_operator_metadata(
-        self, *, internal_features: bool = False
-    ) -> dict[str, dict[str, Any]]:  # NOSONAR python:S3776
+    @staticmethod
+    def _extract_config_values(*, short_name: str, cls: Any, operator_factory: Any) -> tuple[dict[str, Any], list[str]]:
+        """Extract config_values and required_features from an operator class.
+
+        Falls back to instantiating the operator when get_metadata() is not static.
+        """
+        try:
+            config_values = cls.get_metadata()
+            required_features = cls.get_required_features()
+        except TypeError as e:
+            logger.debug(
+                "Operator '%s' has non-static get_metadata(), instantiating for backward compatibility", short_name
+            )
+            op = operator_factory.get_operator(operator_name=short_name)
+            if op is None:
+                raise ValueError(f"Failed to instantiate operator '{short_name}'") from e
+            config_values = op.get_metadata()
+            required_features = op.get_required_features()
+        return config_values, required_features
+
+    @staticmethod
+    def _filter_internal_features(*, config_values: dict[str, Any]) -> None:
+        """Remove features tagged as 'internal' from config_values in-place."""
+        features = config_values.get(OperatorConstants.Config.FEATURES, {})
+        config_values[OperatorConstants.Config.FEATURES] = {
+            k: v
+            for k, v in features.items()
+            if OperatorConstants.Misc.INTERNAL_FEATURE not in v.get(OperatorConstants.Misc.TAGS, [])
+        }
+
+    @staticmethod
+    def _log_failed_operators(*, failed_operator_list: dict[str, Exception], operator_factory: Any) -> None:
+        """Warn for operators that claim to be available but failed to load metadata."""
+        available_failed = [
+            op_name
+            for op_name, _exc in failed_operator_list.items()
+            if (op := operator_factory.get_operator(operator_name=op_name)) is not None and op.is_available()
+        ]
+        if available_failed:
+            logger.warning("Metadata missing for available operators: %s", available_failed)
+
+    def get_operator_metadata(self, *, internal_features: bool = False) -> dict[str, dict[str, Any]]:
         """Extract and return metadata for all registered operators.
 
         This method:
@@ -89,14 +128,6 @@ class OperatorMetadata:
             - features: Dict of feature definitions
             - required_features: List of required input feature names
 
-        Example:
-            >>> metadata = OperatorMetadata()
-            >>> all_ops = metadata.get_operator_metadata(internal_features=False)
-            >>> print(all_ops['extract_operator']['label'])
-            'Extract Operator'
-            >>> print(all_ops['extract_operator']['required_features'])
-            []
-
         Note:
             - Operators that fail to initialize return empty metadata dict
             - Failed operators are logged as warnings if they claim to be available
@@ -105,8 +136,6 @@ class OperatorMetadata:
         refresh_operator_metadata: dict[str, dict[str, Any]] = {}
         failed_operator_list: dict[str, Exception] = {}
 
-        # Get operator factory for Python orchestrator (used for metadata extraction)
-        # If orchestrator is provided, use its custom operator settings
         if self.orchestrator is not None:
             operator_factory = OperatorFactoryProvider.get_operator_factory(
                 orchestrator=OrchestratorType.PYTHON,
@@ -115,67 +144,30 @@ class OperatorMetadata:
             )
         else:
             operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
-        logger.info(f"Discovering operators: {list(operator_factory.operators.keys())}")
+        logger.info("Discovering operators: %s", list(operator_factory.operators.keys()))
 
-        # Iterate through all registered operators
         for short_name, cls in operator_factory.operators.items():
             try:
-                # Extract metadata from operator class
-                # Try static method first (new approach), fall back to instance method (backward compatibility)
-                try:
-                    config_values = cls.get_metadata()
-                except TypeError as e:
-                    # Backward compatibility: get_metadata() is not static, instantiate operator
-                    logger.debug(
-                        f"Operator '{short_name}' has non-static get_metadata(), instantiating for backward compatibility"
-                    )
-                    op = operator_factory.get_operator(operator_name=short_name)
-                    if op is None:
-                        raise ValueError(f"Failed to instantiate operator '{short_name}'") from e
-                    config_values = op.get_metadata()
-
-                # Get required features from static method
-                required_features = cls.get_required_features()
+                config_values, required_features = self._extract_config_values(
+                    short_name=short_name, cls=cls, operator_factory=operator_factory
+                )
                 config_values["required_features"] = required_features
-
-                # Add owner from class attribute
                 config_values["owner"] = getattr(cls, "owner", "docpipe")
 
-                # Filter internal features if requested
                 if not internal_features:
-                    features = config_values.get(OperatorConstants.Config.FEATURES, {})
-                    # Keep only features that don't have 'internal' tag
-                    filtered_features = {
-                        k: v
-                        for k, v in features.items()
-                        if OperatorConstants.Misc.INTERNAL_FEATURE not in v.get(OperatorConstants.Misc.TAGS, [])
-                    }
-                    config_values[OperatorConstants.Config.FEATURES] = filtered_features
+                    self._filter_internal_features(config_values=config_values)
 
                 refresh_operator_metadata[short_name] = config_values
 
             except Exception as e:
-                # Operator failed to initialize - store empty metadata
                 refresh_operator_metadata[short_name] = {}
                 failed_operator_list[short_name] = e
-                logger.debug(f"Operator '{short_name}' failed to initialize: {e}", exc_info=True)
-                continue
+                logger.debug("Operator '%s' failed to initialize: %s", short_name, e, exc_info=True)
 
-        # Update cached metadata
         self.operator_metadata.update(refresh_operator_metadata)
 
-        # Log warnings for operators that claim to be available but failed
-        if len(failed_operator_list) > 0:
-            # Filter to only operators that claim to be available
-            updated_operator_list: dict[str, Exception] = {}
-
-            for op_name, exception in failed_operator_list.items():
-                operator = operator_factory.get_operator(operator_name=op_name)
-                if operator is not None and operator.is_available():
-                    updated_operator_list[op_name] = exception
-
-            if updated_operator_list:
-                logger.warning(f"Metadata missing for available operators: {list(updated_operator_list.keys())}")
+        if failed_operator_list:
+            self._log_failed_operators(failed_operator_list=failed_operator_list, operator_factory=operator_factory)
 
         return self.operator_metadata
 
@@ -224,9 +216,8 @@ class OperatorMetadata:
                 if purpose is None:
                     # Return all features
                     return dict(features.items())
-                else:
-                    # Filter by purpose (e.g., available_for_filter, available_for_vector_db)
-                    return {k: v for k, v in features.items() if v.get(purpose, False)}
+                # Filter by purpose (e.g., available_for_filter, available_for_vector_db)
+                return {k: v for k, v in features.items() if v.get(purpose, False)}
 
         return {}
 
@@ -278,10 +269,8 @@ class OperatorMetadata:
         if len(features) > 0:
             if purpose is None:
                 return dict(features.items())
-            else:
-                return {k: v for k, v in features.items() if v.get(purpose, False)}
-        else:
-            return features
+            return {k: v for k, v in features.items() if v.get(purpose, False)}
+        return features
 
     def required_feature_names(self, *, short_name: str) -> list[str]:
         """Get list of required input feature names for an operator.

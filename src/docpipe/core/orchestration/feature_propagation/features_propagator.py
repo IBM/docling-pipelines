@@ -4,9 +4,9 @@ This module contains the FeaturePropagator class which handles feature
 propagation through DAG flows using operator metadata and special case logic.
 """
 
-import re
 from typing import Any
 
+from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.operator_metadata import OperatorMetadata
 from docpipe.core.orchestration.feature_propagation.models import (
@@ -23,11 +23,51 @@ from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
-# Pre-compile SQL SELECT pattern at module level for performance.
-# Uses a negated character class instead of .*? to avoid ReDoS via backtracking:
-# SQL column lists cannot contain unquoted semicolons or newlines, so [^;\n] is
-# a safe and precise bound for the capture group.
-_SQL_SELECT_PATTERN = re.compile(r"SELECT\s+([^;\n]+?)\s+FROM", re.IGNORECASE)
+
+def disambiguate_features(
+    *,
+    parent_items: list[tuple[str, Any]],
+    output_feature_set: set[str],
+    join_key: str,
+) -> dict[str, Any]:
+    """Merge per-parent feature sequences with join-key protection and suffix disambiguation.
+
+    Shared by :class:`FeaturePropagator` (operating on ``FeatureMetadata`` objects) and
+    :class:`FlowValidator` (operating on plain feature-definition dicts).  The value type
+    is generic (``Any``) so the same routine serves both call sites.
+
+    Algorithm:
+        - ``join_key`` is inserted with ``setdefault``; only the first occurrence is kept,
+          and it is never suffixed.
+        - Any feature not in ``output_feature_set`` is skipped entirely.
+        - The first occurrence of every other key is inserted plain.
+        - A second (or later) occurrence of the same key is inserted as ``key_<suffix>``
+          where *suffix* is the first element of the ``(suffix, feature_dict)`` pair.
+
+    Args:
+        parent_items: Ordered list of ``(suffix, feature_dict)`` pairs — one per parent
+            branch.  ``suffix`` is used only when disambiguating duplicates.
+        output_feature_set: Gate set — only features whose key is in this set are emitted.
+            Pass ``set(all_keys)`` for FULL_OUTER_JOIN; pass the intersection for
+            INNER_JOIN (though inner-join callers should use plain ``update()`` instead).
+        join_key: Primary-key column (always ``"id"``).  Protected from suffixing and
+            de-duplicated by first-occurrence-wins.
+
+    Returns:
+        Merged dict preserving insertion order (Python 3.7+).
+    """
+    result: dict[str, Any] = {}
+    for suffix, feature_dict in parent_items:
+        for feature, value in feature_dict.items():
+            if feature not in output_feature_set:
+                continue
+            if feature == join_key:
+                result.setdefault(feature, value)
+            elif feature in result:
+                result[f"{feature}_{suffix}"] = value
+            else:
+                result[feature] = value
+    return result
 
 
 class FeaturePropagator:
@@ -123,6 +163,7 @@ class FeaturePropagator:
         input_features: dict[str, Any],
         global_config: dict[str, Any],
         parent_results: list[FeaturePropagationResult] | None = None,
+        source_node_id: str | None = None,
     ) -> FeaturePropagationResult:
         """Generic feature propagation using operator metadata.
 
@@ -136,8 +177,9 @@ class FeaturePropagator:
             3. Load operator metadata to get operator-defined output features
             4. Merge operator features with input features
             5. Apply special case logic (Extract/SQLFilter/Merge)
-            6. Propagate global parameters (e.g., embeddings_model_id)
-            7. Compute and store output features (new features only)
+            6. Apply output_features_to_drop (generic, any operator)
+            7. Propagate global parameters (e.g., embeddings_model_id)
+            8. Compute and store output features (new features only)
 
         Feature Merging Rules:
             - Input features are preserved unless explicitly dropped
@@ -147,7 +189,7 @@ class FeaturePropagator:
 
         Special Case Operators:
             - Extract: Adds/removes entity features based on entity_extraction.provider
-            - SQLFilter: Removes features not in SELECT clause
+            - SQLFilter: Drops explicitly listed features via features_to_drop config key
             - Merge: Combines features from multiple parent nodes
             - VectorDB: Produces no output features (terminal operator)
 
@@ -158,8 +200,9 @@ class FeaturePropagator:
                 'chunker', 'vectordb'). Must match registered operator name.
             operator_config: Operator-specific configuration dict. Used for:
                 - Extract: entity_extraction.provider
-                - SQLFilter: sql_query
-                - Merge: merge_type, column_option, features_to_drop
+                - SQLFilter: features_to_drop (explicit list of column names to remove)
+                - Merge: merge_type, column_option
+                - Any operator: output_features_to_drop (generic drop applied after special-case logic)
                 - Embeddings: model_id
             input_features: Features available from parent operators. Dict mapping
                 feature names to feature definition dicts containing:
@@ -184,42 +227,39 @@ class FeaturePropagator:
 
         Example:
             ```python
-            # Propagate through Extract operator
+            # Propagate through Extract operator with entity extraction enabled
             result = propagator.propagate_features(
                 node_id="extract-1",
                 operator_short_name="extract_operator",
                 operator_config={
                     "entity_extraction": {
                         "provider": "litellm",
-                        "provider_config": {
-                            "model_id": "openai/llama3.2"
-                        }
+                        "provider_config": {"model_id": "openai/llama3.2"},
                     }
                 },
                 input_features={
                     "id": {
                         "description": "Document ID",
                         "tags": ["mandatory"],
-                        "available_for_filter": True,
+                        "available_for_filter": False,
                         "available_for_vector_db": False,
-                        "type": "string"
+                        "type": "string",
                     },
                     "content": {
                         "description": "Document content",
                         "tags": ["mandatory"],
                         "available_for_filter": False,
                         "available_for_vector_db": False,
-                        "type": "string"
-                    }
+                        "type": "string",
+                    },
                 },
                 global_config={},
-                parent_results=[]
+                parent_results=[],
             )
 
-            # Check output features
+            # New features introduced by this node (entity extraction active)
             output_features = result.get_output_features(node_id="extract-1")
-            print(f"New features: {list(output_features.keys())}")
-            # Output: ['text', 'entities', 'document_type']
+            # output_features will contain "entities" and "document_type"
             ```
 
         Performance:
@@ -239,6 +279,7 @@ class FeaturePropagator:
             - OperatorMetadata.get_features: Operator feature lookup
         """
         result = FeaturePropagationResult()
+        result.source_node_id = source_node_id if source_node_id is not None else node_id
         parent_results = parent_results or []
 
         # Store input features explicitly
@@ -250,6 +291,9 @@ class FeaturePropagator:
         available_for_filter_key = OperatorConstants.Config.AVAILABLE_FOR_FILTER
         available_for_vector_db_key = OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB
 
+        # Cache constant key to avoid repeated attribute lookups
+        mandatory_for_vector_db_key = OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB
+
         # Start with input features in metadata, preserving upstream metadata shape
         for feature_name, feature_def in input_features.items():
             result.add_feature(
@@ -257,8 +301,9 @@ class FeaturePropagator:
                 node_id=feature_def.get("source_node_id", node_id),
                 description=feature_def.get(OperatorConstants.Config.DESCRIPTION, ""),
                 tags=feature_def.get("tags", []),
-                available_for_filter=feature_def.get(available_for_filter_key, True),
+                available_for_filter=feature_def.get(available_for_filter_key, False),
                 available_for_vector_db=feature_def.get(available_for_vector_db_key, False),
+                mandatory_for_vector_db=feature_def.get(mandatory_for_vector_db_key, False),
                 type=feature_def.get("type", OperatorConstants.Types.TYPE_STRING),
             )
 
@@ -277,11 +322,15 @@ class FeaturePropagator:
                 tags=feature_def.get("tags", []),
                 available_for_filter=feature_def.get(
                     available_for_filter_key,
-                    input_feature.get(available_for_filter_key, True),
+                    input_feature.get(available_for_filter_key, False),
                 ),
                 available_for_vector_db=feature_def.get(
                     available_for_vector_db_key,
                     input_feature.get(available_for_vector_db_key, False),
+                ),
+                mandatory_for_vector_db=feature_def.get(
+                    mandatory_for_vector_db_key,
+                    input_feature.get(mandatory_for_vector_db_key, False),
                 ),
                 type=feature_def.get("type", input_feature.get("type", OperatorConstants.Types.TYPE_STRING)),
             )
@@ -292,50 +341,71 @@ class FeaturePropagator:
             operator_config=operator_config,
             result=result,
             node_id=node_id,
-            global_config=global_config,
             parent_results=parent_results,
         )
+
+        # Serialise output features BEFORE applying output_features_to_drop.
+        # output_features represents what this node *introduces* to the pipeline —
+        # a dropped feature is still produced here; it just won't reach downstream
+        # nodes. Serialising after the pop would incorrectly hide dropped features
+        # from the node's own output_features snapshot.
+        if operator_short_name == OperatorConstants.Operators.VECTORDB:
+            pre_drop_output_features: dict[str, Any] = {}
+        else:
+            pre_drop_output_features = {
+                feature_name: self.feature_metadata_to_dict(feature_meta=result.feature_metadata[feature_name])
+                for feature_name in result.feature_metadata
+                if feature_name not in input_feature_names
+            }
+
+        # Apply output_features_to_drop for any operator — generic, not operator-specific.
+        # Drops features from downstream propagation only (feature_metadata is what
+        # flows to the next node's input_features).
+        output_features_to_drop = operator_config.get(DocpipeConstants.OUTPUT_FEATURES_TO_DROP, [])
+        if output_features_to_drop:
+            mandatory_features = result.get_mandatory_features()
+            dropped_mandatory = [f for f in output_features_to_drop if f in mandatory_features]
+            if dropped_mandatory:
+                raise FlowValidationException(
+                    errors=[
+                        ValidationAlert(
+                            ErrorCode.FLOW_VALIDATION_FAILED.value,
+                            f"Cannot drop mandatory features: {dropped_mandatory} in {operator_short_name} operator",
+                            message_code="MANDATORY_FEATURES_DROPPED",
+                        )
+                    ]
+                )
+            for feature in output_features_to_drop:
+                result.feature_metadata.pop(feature, None)
+            output_features_to_drop_obj = OutputFeaturesToDrop()
+            output_features_to_drop_obj.add_features(features=output_features_to_drop)
+            result.set_output_features_to_drop(node_id=node_id, features_to_drop=output_features_to_drop_obj)
 
         # Propagate global parameters
         self._propagate_global_params(
             operator_short_name=operator_short_name, operator_config=operator_config, result=result
         )
 
-        # Compute output features efficiently
-        if operator_short_name == OperatorConstants.Operators.VECTORDB:
-            output_feature_names = set()
-        else:
-            output_feature_names = set(result.feature_metadata.keys()) - input_feature_names
-
-        # Store post-propagation output features explicitly for debugging/inspection
-        if output_feature_names:
-            result.set_output_features(
-                node_id=node_id,
-                features={
-                    feature_name: self._feature_metadata_to_dict(feature_meta=result.feature_metadata[feature_name])
-                    for feature_name in output_feature_names
-                },
-            )
-        else:
-            result.set_output_features(node_id=node_id, features={})
+        # Store the pre-drop snapshot: dropped features still appear in this node's
+        # output_features (they were introduced here; they just stop propagating downstream).
+        result.set_output_features(node_id=node_id, features=pre_drop_output_features)
 
         return result
 
-    def _apply_special_case_logic(  # NOSONAR python:S3776
+    def _apply_special_case_logic(
         self,
         *,
         operator_short_name: str,
         operator_config: dict[str, Any],
         result: FeaturePropagationResult,
         node_id: str,
-        global_config: dict[str, Any],
         parent_results: list[FeaturePropagationResult],
     ) -> FeaturePropagationResult:
         """Apply operator-specific feature propagation logic.
 
         Only three operators need special handling:
         1. Extract: Adds/removes entity features based on entity_extraction.provider
-        2. SQLFilter: Removes features based on SELECT clause
+        2. SQLFilter: Drops explicitly listed features via features_to_drop config key
         3. Merge: Combines features from multiple inputs
 
         Args:
@@ -343,14 +413,15 @@ class FeaturePropagator:
             operator_config: Operator configuration
             result: Current propagation result
             node_id: Node identifier
-            global_config: Global configuration
+            parent_results: Parent propagation results (required for Merge)
 
         Returns:
             Updated FeaturePropagationResult
         """
         if operator_short_name == OperatorConstants.Operators.EXTRACT_OPERATOR:
-            # Extract operator: Add/remove entity features based on entity extraction mode
-            entity_mode = operator_config.get(
+            # Extract operator: Add/remove entity features based on entity extraction mode.
+            # Config structure: {"entity_extraction": {"provider": "litellm"}}
+            entity_mode = (operator_config.get(OperatorConstants.Config.ENTITY_EXTRACTION) or {}).get(
                 OperatorConstants.Config.PROVIDER,
                 OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
             )
@@ -384,21 +455,11 @@ class FeaturePropagator:
                     )
 
         elif operator_short_name == OperatorConstants.Operators.SQL_FILTER:
-            # SQLFilter: Parse SELECT clause to determine output features
-            sql_query = operator_config.get("sql_query", "")
-            if sql_query:
-                # Parse SELECT clause to get selected features
-                selected_features = self._parse_sql_select(sql_query=sql_query)
-
-                # If SELECT *, keep all features
-                if not selected_features:
-                    return result
-
-                # Remove features not in SELECT (use set for O(1) lookup)
-                selected_features_set = set(selected_features)
-                features_to_drop = [f for f in result.feature_metadata.keys() if f not in selected_features_set]
-
-                # Validate mandatory features aren't dropped
+            # SQLFilter only filters rows — it never modifies column schema.
+            # The only legitimate way to drop features at this node is via an
+            # explicit features_to_drop list in the operator config.
+            features_to_drop = operator_config.get(OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY, [])
+            if features_to_drop:
                 mandatory_features = result.get_mandatory_features()
                 dropped_mandatory = [f for f in features_to_drop if f in mandatory_features]
                 if dropped_mandatory:
@@ -412,61 +473,40 @@ class FeaturePropagator:
                         ]
                     )
 
-                # Drop features
+                # Guard before deleting: features_to_drop may reference names
+                # not present in result.feature_metadata
                 for feature in features_to_drop:
-                    if feature in result.feature_metadata:
-                        del result.feature_metadata[feature]
+                    result.feature_metadata.pop(feature, None)
 
-                # Track dropped features
                 features_to_drop_obj = OutputFeaturesToDrop()
                 features_to_drop_obj.add_features(features=features_to_drop)
                 result.set_output_features_to_drop(node_id=node_id, features_to_drop=features_to_drop_obj)
 
         elif operator_short_name == OperatorConstants.Operators.MERGE:
             merge_type = operator_config.get(OperatorConstants.Merge.MERGE_TYPE, OperatorConstants.Merge.ROWS)
-            column_option = None
-            if merge_type == OperatorConstants.Merge.COLUMNS:
-                column_option = operator_config.get(OperatorConstants.Merge.COLUMN_OPTION)
 
             if parent_results:
-                merged_features = self.merge_features(
+                column_option = (
+                    operator_config.get(OperatorConstants.Merge.COLUMN_OPTION)
+                    if merge_type == OperatorConstants.Merge.COLUMNS
+                    else None
+                )
+                input_links = operator_config.get(OperatorConstants.Merge.INPUT_LINKS, [])
+                node_id_to_link_name: dict[str, str] | None = {
+                    lnk["node_id_ref"]: lnk[OperatorConstants.Misc.LINK_NAME]
+                    for lnk in input_links
+                    if lnk.get("node_id_ref") and lnk.get(OperatorConstants.Misc.LINK_NAME)
+                } or None
+                result.feature_metadata = self.merge_features(
                     parent_results=parent_results,
                     merge_type=merge_type,
                     column_option=column_option,
+                    node_id_to_link_name=node_id_to_link_name,
                 )
-
-                result.feature_metadata = merged_features
-
-            # Handle features_to_drop configuration
-            features_to_drop = operator_config.get("features_to_drop", [])
-            if features_to_drop:
-                # Validate mandatory features aren't dropped
-                mandatory_features = result.get_mandatory_features()
-                dropped_mandatory = [f for f in features_to_drop if f in mandatory_features]
-                if dropped_mandatory:
-                    raise FlowValidationException(
-                        errors=[
-                            ValidationAlert(
-                                ErrorCode.FLOW_VALIDATION_FAILED.value,
-                                f"Cannot drop mandatory features: {dropped_mandatory} in Merge operator",
-                                message_code="MANDATORY_FEATURES_DROPPED",
-                            )
-                        ]
-                    )
-
-                # Drop features
-                for feature in features_to_drop:
-                    if feature in result.feature_metadata:
-                        del result.feature_metadata[feature]
-
-                # Track dropped features
-                features_to_drop_obj = OutputFeaturesToDrop()
-                features_to_drop_obj.add_features(features=features_to_drop)
-                result.set_output_features_to_drop(node_id=node_id, features_to_drop=features_to_drop_obj)
 
         return result
 
-    def _feature_metadata_to_dict(self, *, feature_meta: FeatureMetadata) -> dict[str, Any]:
+    def feature_metadata_to_dict(self, *, feature_meta: FeatureMetadata) -> dict[str, Any]:
         """Convert feature metadata object to a debug-friendly dictionary."""
         feature_dict: dict[str, Any] = {
             OperatorConstants.Config.DESCRIPTION: feature_meta.description,
@@ -474,6 +514,7 @@ class FeaturePropagator:
             "type": feature_meta.type,
             OperatorConstants.Config.AVAILABLE_FOR_FILTER: feature_meta.available_for_filter,
             OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: feature_meta.available_for_vector_db,
+            OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: feature_meta.mandatory_for_vector_db,
         }
 
         if feature_meta.node_id:
@@ -496,43 +537,13 @@ class FeaturePropagator:
             if model_id:
                 result.global_params[OperatorConstants.Config.EMBEDDINGS_MODEL_ID] = model_id
 
-    def _parse_sql_select(self, *, sql_query: str) -> list[str]:
-        """Parse SQL SELECT clause to extract selected columns.
-
-        Args:
-            sql_query: SQL query string
-
-        Returns:
-            List of selected column names (empty list means SELECT *)
-        """
-        # Use pre-compiled module-level regex pattern for performance
-        match = _SQL_SELECT_PATTERN.search(sql_query)
-        if not match:
-            return []
-
-        select_clause = match.group(1).strip()
-
-        # Handle SELECT *
-        if select_clause == "*":
-            return []  # Return empty to indicate all features
-
-        # Split by comma and clean up, removing aliases in one pass
-        cleaned_columns = []
-        for col in select_clause.split(","):
-            col = col.strip()
-            # Remove aliases (e.g., "column AS alias" -> "column")
-            if " AS " in col.upper():
-                col = col.split(" AS ")[0].strip()
-            cleaned_columns.append(col)
-
-        return cleaned_columns
-
-    def merge_features(  # NOSONAR python:S3776
+    def merge_features(
         self,
         *,
         parent_results: list[FeaturePropagationResult],
         merge_type: str,
         column_option: str | None = None,
+        node_id_to_link_name: dict[str, str] | None = None,
     ) -> dict[str, FeatureMetadata]:
         """Merge features from multiple parent results using runtime merge semantics.
 
@@ -557,6 +568,14 @@ class FeaturePropagator:
                 - "inner_join_duplicate_column": Intersection of features
                 - "full_outer_join": Union with disambiguation
                 - None: Defaults to union behavior
+            node_id_to_link_name: Optional mapping of parent node ID to its link
+                name (e.g. {"eb1c423b": "Link_5", "878a7925": "Link_6"}).
+                Built from input_links[].{node_id_ref → link_name} by the caller.
+                When provided and column_option is FULL_OUTER_JOIN, duplicate
+                feature names are suffixed with the link name of the branch they
+                came from (e.g. "name_Link_6").
+                Falls back to numeric index suffix when absent or when a result
+                has no source_node_id / no matching entry in the map.
 
         Returns:
             Dict mapping feature names to FeatureMetadata objects. The returned
@@ -575,54 +594,25 @@ class FeaturePropagator:
 
             COLUMNS + FULL_OUTER_JOIN:
                 - Keeps all features from all parents
-                - Duplicate feature names get suffix: feature_0, feature_1, etc.
+                - Duplicate feature names get suffix: feature_LinkName or feature_N
                 - Join key (id) is never duplicated
                 - Result = all features with disambiguation
 
-        Example (ROWS merge):
+        Example (COLUMNS + FULL_OUTER_JOIN with link names):
             ```python
-            parent1_features = {"id": meta1, "content": meta2}
-            parent2_features = {"id": meta3, "metadata": meta4}
-
-            result = propagator.merge_features(
-                parent_results=[result1, result2],
-                merge_type="rows",
-                column_option=None
-            )
-            # Result: {"id": meta1, "content": meta2, "metadata": meta4}
-            ```
-
-        Example (COLUMNS + INNER_JOIN):
-            ```python
-            parent1_features = {"id": meta1, "content": meta2, "title": meta3}
-            parent2_features = {"id": meta4, "content": meta5, "author": meta6}
-
             result = propagator.merge_features(
                 parent_results=[result1, result2],
                 merge_type="columns",
-                column_option="inner_join_duplicate_column"
+                column_option="full_outer",
+                node_id_to_link_name={"node-a": "Link_5", "node-b": "Link_6"},
             )
-            # Result: {"id": meta1, "content": meta2}  # Only common features
-            ```
-
-        Example (COLUMNS + FULL_OUTER_JOIN):
-            ```python
-            parent1_features = {"id": meta1, "content": meta2}
-            parent2_features = {"id": meta3, "content": meta4}
-
-            result = propagator.merge_features(
-                parent_results=[result1, result2],
-                merge_type="columns",
-                column_option="full_outer_join"
-            )
-            # Result: {"id": meta1, "content_0": meta2, "content_1": meta4}
+            # Result: {"id": meta1, "name": meta2, "name_Link_6": meta4}
             ```
 
         Note:
             - The join key is always "id" (OperatorConstants.Columns.ID)
             - Empty parent_results returns empty dict
             - Feature metadata is taken from first parent containing the feature
-            - Disambiguation suffixes are 0-indexed based on parent order
 
         See Also:
             - _apply_special_case_logic: Calls this method for Merge operator
@@ -634,51 +624,55 @@ class FeaturePropagator:
         join_key = OperatorConstants.Columns.ID
 
         if merge_type == OperatorConstants.Merge.ROWS:
-            # Merge all features from all parents
+            # Union of all parent feature sets — vertical row concatenation.
+            # Duplicate keys are resolved by last-write-wins; schema differences
+            # between branches are intentionally ignored for this strategy.
             merged_features: dict[str, FeatureMetadata] = {}
             for parent in parent_results:
                 merged_features.update(parent.feature_metadata)
             return merged_features
 
         if merge_type == OperatorConstants.Merge.COLUMNS:
-            if column_option == OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN:
-                # Find common features across all parents
-                common_features = set(parent_results[0].feature_metadata.keys())
-                for parent in parent_results[1:]:
-                    common_features.intersection_update(parent.feature_metadata.keys())
-                common_features.add(join_key)
+            if column_option in (
+                OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN,
+                OperatorConstants.Merge.FULL_OUTER_JOIN,
+            ):
+                # Determine the output feature set for each strategy:
+                #   inner_join  — intersection of all parent feature sets; features
+                #                 exclusive to one branch are excluded entirely.
+                #   full_outer  — union of all parent feature sets; every feature
+                #                 from every branch is present.
+                # The join key ("id") is always included regardless of strategy.
+                if column_option == OperatorConstants.Columns.INNER_JOIN_DUPLICATE_COLUMN:
+                    common_features: set[str] = set(parent_results[0].feature_metadata.keys())
+                    for parent in parent_results[1:]:
+                        common_features.intersection_update(parent.feature_metadata.keys())
+                    common_features.add(join_key)
+                    output_feature_set = common_features
+                else:
+                    output_feature_set = {feature for parent in parent_results for feature in parent.feature_metadata}
 
-                # Build intersected features dict
-                intersected_features: dict[str, FeatureMetadata] = {}
-                for feature in common_features:
-                    for parent in parent_results:
-                        if feature in parent.feature_metadata:
-                            intersected_features[feature] = parent.feature_metadata[feature]
-                            break
-                return intersected_features
-
-            if column_option == OperatorConstants.Merge.FULL_OUTER_JOIN:
-                # Count feature occurrences across parents (excluding join key)
-                feature_counts: dict[str, int] = {}
-                for parent in parent_results:
-                    for feature in parent.feature_metadata:
-                        if feature != join_key:
-                            feature_counts[feature] = feature_counts.get(feature, 0) + 1
-
-                # Build merged features with disambiguation
-                merged_outer_features: dict[str, FeatureMetadata] = {}
+                # Build (suffix, feature_dict) pairs for the shared disambiguation loop.
+                # The link name comes from node_id_to_link_name[parent.source_node_id];
+                # falls back to the parent's numeric index when the map is absent or
+                # the parent has no source_node_id.
+                parent_items: list[tuple[str, dict[str, FeatureMetadata]]] = []
                 for index, parent in enumerate(parent_results):
-                    for feature, meta in parent.feature_metadata.items():
-                        if feature == join_key:
-                            merged_outer_features[feature] = meta
-                        elif feature_counts[feature] > 1:
-                            merged_outer_features[f"{feature}_{index}"] = meta
-                        else:
-                            merged_outer_features[feature] = meta
+                    link_name = (
+                        node_id_to_link_name.get(parent.source_node_id)
+                        if node_id_to_link_name and parent.source_node_id
+                        else None
+                    )
+                    suffix = link_name if link_name else str(index)
+                    parent_items.append((suffix, parent.feature_metadata))
 
-                return merged_outer_features
+                return disambiguate_features(
+                    parent_items=parent_items,
+                    output_feature_set=output_feature_set,
+                    join_key=join_key,
+                )
 
-        # Fallback: merge all features
+        # Unrecognised merge_type/column_option combination — return the plain union.
         fallback_merged_features: dict[str, FeatureMetadata] = {}
         for parent in parent_results:
             fallback_merged_features.update(parent.feature_metadata)

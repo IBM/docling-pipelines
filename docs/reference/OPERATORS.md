@@ -14,7 +14,6 @@ title: Operator Reference
     - [Common Operator Contract](#common-operator-contract)
       - [Operator Ownership Attribute](#operator-ownership-attribute)
     - [Ingest Operators](#ingest-operators)
-      - [IngestLocalOperator](#ingestlocaloperator)
       - [IngestSourceOperator](#ingestsourceoperator)
     - [Extract Operators](#extract-operators)
       - [ExtractOperator](#extractoperator)
@@ -39,6 +38,7 @@ title: Operator Reference
       - [VectorDBOperator](#vectordboperator)
     - [Storage Operators](#storage-operators)
       - [DocumentSetOperator](#documentsetoperator)
+      - [StorageOutputOperator](#storageoutputoperator)
   - [DocpipeFlowManager API](#docpipeflowmanager-api)
     - [Constructor](#constructor)
     - [`validate()`](#validate)
@@ -104,7 +104,7 @@ This reference is organized around four entry points:
 ### How to use this reference
 
 - Use the operator sections when authoring flow JSON.
-- Use the flow manager section when embedding docpipe in Python code.
+- Use the flow manager section when embedding Docling Pipelines in Python code.
 - Use the CLI section when running or validating flows from the shell.
 - For classification-specific architecture details, see [`docs/operators/quality/document_classifier_readme.md`](../operators/quality/document_classifier_readme.md), which documents the simplified service-based architecture used by `DocumentClassifierOperator`.
 
@@ -139,118 +139,20 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 #### Operator Ownership Attribute
 
-All operators must declare an `owner` attribute to support priority-based resolution when multiple operators share the same `short_name`.
-
-**Where to Add the Owner Attribute:**
-
-The `owner` attribute must be declared as a **class variable** at the top of your operator class, alongside `short_name` and `category`.
-
-**Important**: To override an existing docpipe operator, use the **same `short_name`** as the docpipe operator. The priority system will ensure your custom operator (priority 2) takes precedence over the docpipe operator (priority 1).
+All operators must declare an `owner` class variable to support priority-based resolution when multiple operators share the same `short_name`.
 
 ```python
-from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from docpipe.core.constants.operator_constants import OperatorConstants
-
-class CustomChunkerOperator(AbstractOperator):
-    """Custom chunking operator that overrides the docpipe chunker."""
-
-    # Class-level attributes (declare these at the top)
-    short_name: str = OperatorConstants.Operators.CHUNKER  # Same as docpipe chunker!
-    category: OperatorCategory = OperatorCategory.Functional
-    owner: str = "custom"  # REQUIRED: This gives priority 1 (overrides docpipe)
-
-    def __init__(self, *, config: dict[str, Any]) -> None:
-        super().__init__(config=config)
-        # Your custom chunking logic here
-```
-
-**Key Point**: When both docpipe's `ChunkerOperator` and your `CustomChunkerOperator` have `short_name = "chunker"`, the operator factory will load **only your custom operator** because it has higher priority (1 vs 2), and lower priority numbers carry higher precedence.
-
-**For Docpipe Operators:**
-
-```python
+# Built-in docpipe operators
 from docpipe.core.constants.constants import DocpipeConstants
+owner: str = DocpipeConstants.OWNER_DOCPIPE  # MUST be set for all built-in operators
 
-owner: str = DocpipeConstants.OWNER_DOCPIPE  # MUST be explicitly set for built-in operators
+# Custom operators
+owner: str = "custom"  # MUST be set for all custom operators
 ```
 
-**For Custom Operators:**
-
-```python
-owner: str = "custom"  # MUST be explicitly set as shown above
-```
-
-**Why This Matters:**
-
-- Custom operators with `owner="custom"` receive **priority 1** (highest)
-- Docpipe operators with `owner="docpipe"` receive **priority 2**
-- Operators without an explicit `owner` attribute inherit `owner=None` from [`AbstractOperator`](../../src/docpipe/core/operators/abstract_operator.py#L32), which are treated as custom operators
-- During operator loading, the factory validates that custom operators (not in DOCPIPE_OPERATORS frozenset) have `owner="custom"` and **rejects** those with `owner="docpipe"`
-- **All built-in docpipe operators must explicitly set** `owner = DocpipeConstants.OWNER_DOCPIPE`
-- The `owner` attribute is included in operator metadata and can be queried via `OperatorMetadata.get_operator_metadata()`
-
-**Priority Resolution Example:**
-
-If both a docpipe operator and custom operator have `short_name="chunker"`:
-
-- Custom operator with `owner="custom"` → **Selected** (priority 1, highest)
-- Docpipe operator with `owner="docpipe"` → Overridden (priority 2)
-
-See [`OperatorFactory`](../../src/docpipe/core/orchestration/operator_factory.py#L97) for implementation details.
+For full details on the priority system, override behaviour, and registering custom tiers, see [CONTRIBUTING.md — Custom Operator Requirements](../../CONTRIBUTING.md#custom-operator-requirements) and [External Operator Integration — Operator Priority](../guides/EXTERNAL_OPERATOR_INTEGRATION.md#operator-priority-and-override).
 
 ### Ingest Operators
-
-#### IngestLocalOperator
-
-**Purpose:** Discover files in a local file or directory and collect metadata for downstream extraction.
-
-**Category:** Ingest
-
-**Class:** `core.operators.ingest.ingest_local.IngestLocalOperator`
-
-| Parameter             | Type        | Required | Default              | Description                                                                             |
-| --------------------- | ----------- | -------: | -------------------- | --------------------------------------------------------------------------------------- |
-| `paths`               | string/list |      Yes | `../test-data/input` | Path(s) to file(s) or folder(s) to ingest. Can be a single path string or list of paths |
-| `include_filter`      | string      |       No | -                    | Comma-separated extensions to include                                                   |
-| `exclude_filter`      | string      |       No | -                    | Comma-separated extensions to exclude                                                   |
-| `max_files`           | int         |       No | `100`                | Maximum number of files to ingest                                                       |
-| `max_file_size`       | int         |       No | `100`                | Maximum file size in MB                                                                 |
-| `force_ingest`        | bool        |       No | `false`              | Reprocess already-seen documents                                                        |
-| `retain_deleted_docs` | bool        |       No | project constant     | Retain source-deleted docs in incremental scenarios                                     |
-
-**Input Schema**
-
-- No input table required
-
-**Output Schema**
-
-- `id`
-- `name`
-- `size`
-- `created_time`
-- `modified_time`
-
-**Exceptions**
-
-- `ValueError`
-- file system errors
-- incremental update utility failures
-
-**Example**
-
-```json
-{
-  "id": "ingest-node",
-  "name": "ingest",
-  "operator": "ingest_local",
-  "config": {
-    "paths": "./tests/fixtures/invoices",
-    "include_filter": ".pdf"
-  }
-}
-```
-
----
 
 #### IngestSourceOperator
 
@@ -340,9 +242,11 @@ See [`OperatorFactory`](../../src/docpipe/core/orchestration/operator_factory.py
 
 **Class:** `core.operators.extract.extract_operator.ExtractOperator`
 
+> **Streaming execution:** When `entity_extraction` is enabled, text and entity extraction run concurrently. Each document is submitted for entity extraction as soon as its text extraction finishes, without waiting for the full batch. When entity extraction is disabled the operator behaves as before.
+
 | Parameter                                                     | Type   |    Required | Default                 | Supported Providers             | Description                                                                                        |
 |---------------------------------------------------------------|--------|------------:|-------------------------|---------------------------------|----------------------------------------------------------------------------------------------------|
-| `text_extraction`                                             | object |          No | `{}`                    | All                             | Text extraction configuration (see below)                                                          |
+| `text_extraction`                                             | object |          No | `{"provider": "docling_library", "doc_column": "content"}` | All | Text extraction configuration (see below)                                                          |
 | `text_extraction.provider`                                    | string |          No | `docling_library`       | All                             | Text extraction provider: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
 | `text_extraction.doc_column`                                  | string |          No | `content`               | All                             | Column name for storing extracted text content                                                     |
 | `text_extraction.provider_config.additional_formats`          | array  |          No | `[]`                    | All                             | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`, `doclang`            |
@@ -352,14 +256,21 @@ See [`OperatorFactory`](../../src/docpipe/core/orchestration/operator_factory.py
 | `text_extraction.provider_config.vlm_pipeline.engine_options` | object |          No | `{}`                    | `docling_library`               | Engine-specific options (api_base, model_id, etc.)                                                 |
 | `text_extraction.provider_config.asr_pipeline`                | object |          No | `null`                  | `docling_library`               | ASR (Automatic Speech Recognition) pipeline configuration. When present, ASR processing is enabled. |
 | `text_extraction.provider_config.asr_pipeline.model_id`       | string |          No | `whisper_turbo`         | `docling_library`               | ASR model name. Valid values: `whisper_tiny`, `whisper_small`, `whisper_medium`, `whisper_base`, `whisper_large`, `whisper_turbo`, and their `_mlx`/`_native` variants (e.g., `whisper_tiny_mlx`, `whisper_tiny_native`) |
+| `text_extraction.provider_config.standard_pipeline`           | object |          No | `null`                  | `docling_library`               | Standard pipeline acceleration configuration. Omit entirely for default behaviour. |
+| `text_extraction.provider_config.standard_pipeline.accelerator` | object |         No | `null`                  | `docling_library`               | GPU accelerator options for PDF and image processing. When present, the adapter builds one `DocumentConverter` and reuses it across all documents. **Requires `max_workers: 1` and `use_processes: false`.** Cannot be combined with `vlm_pipeline`. |
+| `text_extraction.provider_config.standard_pipeline.accelerator.device` | string | No | auto-detected | `docling_library` | GPU device to use. Accepted values: `mps` (Apple Silicon), `cuda` (NVIDIA, any device), `cuda:<index>` (e.g. `cuda:0`), `xpu` (Intel). When omitted, the best available device is auto-detected via torch (CUDA → MPS → XPU). Device availability is checked at runtime via torch backends. |
+| `text_extraction.provider_config.standard_pipeline.accelerator.num_threads` | int | No | `4` | `docling_library` | Number of CPU-side threads for the Docling pipeline. Must be a positive integer. Booleans are rejected. |
 | `text_extraction.provider_config`                             | object |          No | `{}`                    | All                             | Provider-specific configuration                                               |
 | `text_extraction.provider_config.base_url`                    | string |         Yes | None                     | Docling Serve API endpoint (docling_serve mode). Required when using docling_serve provider.                                                                                                                                                                                                         |
 | `text_extraction.provider_config.api_key`                     | string |          No | `null`                  | `docling_serve`                 | Optional API key for authentication                                           |
 | `text_extraction.provider_config.timeout`                     | int    |          No | `300`                   | `docling_serve`                 | Request timeout in seconds                                                    |
-| `text_extraction.provider_config.do_ocr`                      | bool   |          No | `true`                  | `docling_serve`                 | Enable OCR processing                                                         |
-| `text_extraction.provider_config.ocr_engine`                  | string |          No | `easyocr`               | `docling_serve`                 | OCR engine: `easyocr` or `tesseract`                                          |
+| `text_extraction.provider_config.ocr`                         | object |          No | `null`                  | Both                            | OCR configuration block. Omit to use the default OCR configuration (OCR on, RapidOCR engine, default mode). |
+| `text_extraction.provider_config.ocr.enabled`                 | bool   |          No | `true`                  | Both                            | Enable OCR processing.                                                        |
+| `text_extraction.provider_config.ocr.engine`                  | string |          No | `"rapidocr"`            | Both                            | OCR engine: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`. `rapidocr` is the default. |
+| `text_extraction.provider_config.ocr.mode`                    | string |          No | `"default"`             | Both                            | OCR scanning mode: `default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions` |
+| `text_extraction.provider_config.ocr.engine_options`          | object |          No | `null`                  | Both                            | Engine-specific parameters (see engine options reference in extract_operator_readme.md) |
 | `text_extraction.provider_config.pdf_backend`                 | string |          No | `dlparse_v2`            | `docling_serve`                 | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                          |
-| `entity_extraction`                                           | object |          No | `{}`                    | All                             | Entity extraction configuration (see below)                                                        |
+| `entity_extraction`                                           | object |          No | `{"provider": "none"}`  | All                             | Entity extraction configuration (see below)                                                        |
 | `entity_extraction.provider`                                  | string |          No | `none`                  | All                             | Entity extraction provider: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction provider (not `none`), either `custom_schema` must be provided OR a `document_type` column must be present from an upstream classification operator. |
 | `entity_extraction.output_column`                             | string |          No | `entities`              | All                             | Column name for storing extracted entities                                                         |
 | `entity_extraction.max_doc_chars`                             | int    |          No | `8000`                  | All                             | Maximum document characters to process for entity extraction                                       |
@@ -460,6 +371,35 @@ The operator provides the following metadata after execution:
 }
 ```
 
+**Example: GPU-Accelerated Text Extraction**
+
+```json
+{
+  "id": "extract-node",
+  "name": "extract",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "standard_pipeline": {
+          "accelerator": {
+            "device": "mps",
+            "num_threads": 6
+          }
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
+    "max_workers": 1,
+    "use_processes": false
+  }
+}
+```
+
 **Example: Docling Serve with OCR**
 
 ```json
@@ -472,8 +412,10 @@ The operator provides the following metadata after execution:
       "provider": "docling_serve",
       "provider_config": {
         "base_url": "http://localhost:5001",
-        "do_ocr": true,
-        "ocr_engine": "easyocr",
+        "ocr": {
+          "enabled": true,
+          "engine": "easyocr"
+        },
         "pdf_backend": "dlparse_v4"
       }
     },
@@ -1033,8 +975,10 @@ The operator provides the following metadata after execution:
       "provider": "docling_serve",
       "provider_config": {
         "base_url": "http://localhost:5001",
-        "do_ocr": true,
-        "ocr_engine": "easyocr",
+        "ocr": {
+          "enabled": true,
+          "engine": "easyocr"
+        },
         "pdf_backend": "dlparse_v4"
       }
     },
@@ -1437,6 +1381,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `chunk_type`                             | string |      Yes | `simple`                                 | `simple`, `semantic`, or `hybrid`                                                                                        |
 | `chunk_size`                             | int    |       No | project default                          | Character or token size depending on chunker                                                                             |
 | `chunk_overlap`                          | int    |       No | `200`                                    | Overlap between chunks                                                                                                   |
+| `chunk_overlap_percentage`               | int    |       No | `20`                                     | Overlap as a percentage of `chunk_size` (0–40). Validated for `simple` and `hybrid` only. Values above 20 produce a warning. |
 | `semantic_embeddings_model`              | string |       No | None                                     | Ollama model for semantic chunking (required if chunk_type is semantic)                                                  |
 | `breakpoint_threshold_type`              | string |       No | `percentile`                             | Semantic split threshold method                                                                                          |
 | `breakpoint_threshold_amount`            | float  |       No | `null`                                   | Threshold amount                                                                                                         |
@@ -1981,15 +1926,14 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Class:** `core.operators.vectordb.vectordb_operator.VectorDBOperator`
 
-| Parameter            | Type   | Required | Default       | Description                                          |
-| -------------------- | ------ | -------: | ------------- | ---------------------------------------------------- |
-| `provider`           | string |      Yes | -             | VectorDB backend (`opensearch` or `milvus`)          |
-| `index_name`         | string |      Yes | -             | Target index/collection name                         |
-| `doc_id_column`      | string |       No | `doc_id_hash` | Primary document id column                           |
-| `create_index`       | bool   |       No | `true`        | Auto-create index                                    |
-| `provider_config`    | object |      Yes | -             | Provider-specific configuration (see examples below) |
-| `available_features` | object |       No | -             | Feature definitions for vector DB schema             |
-| `feature_mappings`   | object |       No | -             | Mapping of PyArrow columns to vector DB fields       |
+| Parameter            | Type   | Required | Default       | Description                                                                 |
+| -------------------- | ------ | -------: | ------------- | --------------------------------------------------------------------------- |
+| `provider`           | string |      Yes | -             | VectorDB backend (`opensearch` or `milvus`)                                 |
+| `doc_id_column`      | string |       No | `doc_id_hash` | Primary document id column                                                  |
+| `create_index`       | bool   |       No | `true`        | Auto-create index/collection if it does not exist                           |
+| `provider_config`    | object |      Yes | -             | Connection parameters and resource name for the backend (see examples below)|
+| `available_features` | object |       No | -             | Feature definitions for vector DB schema                                    |
+| `feature_mappings`   | object |       No | -             | Mapping of PyArrow columns to vector DB fields                              |
 
 **Multi-Model Embeddings Support:**
 
@@ -2001,7 +1945,7 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   - Creates index fields for all vector columns with their respective dimensions
   - Example: Store both 384-dim and 768-dim embeddings in same document (e.g., `embeddings` and `embeddings_alt`)
   - Use with BranchingOperator + multiple EmbeddingsOperators + MergeOperator for multi-model pipelines
-  - See `sample_flows/advanced/branching_dual_embeddings.json` for complete example
+  - See `sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json` for complete example
 - **Milvus**: Single-model support (uses `embeddings` column only)
   - Dimension auto-detected from `embeddings` column data
   - Additional vector columns in the table are stored as metadata but not indexed as vectors
@@ -2042,9 +1986,9 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "opensearch",
-    "index_name": "my_documents",
     "create_index": true,
     "provider_config": {
+      "index_name": "my_documents",
       "host": "localhost",
       "port": 9200,
       "engine": "nmslib",
@@ -2063,10 +2007,10 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "my_collection",
     "create_index": true,
     "add_sparse_vector": false,
     "provider_config": {
+      "collection_name": "my_collection",
       "auth_type": "standalone",
       "host": "localhost",
       "port": 19530,
@@ -2115,10 +2059,10 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "wxdata_collection",
     "add_sparse_vector": false,
     "create_index": true,
     "provider_config": {
+      "collection_name": "wxdata_collection",
       "auth_type": "grpc",
       "host": "YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud",
       "port": 32671,
@@ -2148,10 +2092,10 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
   "operator": "vectordb",
   "config": {
     "provider": "milvus",
-    "index_name": "wxdata_token_collection",
     "create_index": true,
     "add_sparse_vector": false,
     "provider_config": {
+      "collection_name": "wxdata_token_collection",
       "auth_type": "token",
       "host": "YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud",
       "port": 32671,
@@ -2183,7 +2127,7 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
 - `engine`: KNN engine (nmslib, faiss, lucene)
 - `space_type`: Distance metric (cosinesimil, l2, innerproduct)
 - `username`: Optional authentication username
-- **password** — Optional authentication credential
+- **password**: Optional authentication password
 
 **Milvus:**
 
@@ -2193,7 +2137,7 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
 - `uri`: Full connection URI (required for `uri` auth_type)
 - `token`: IAM token (required for `token` auth_type)
 - `username`: Authentication username (optional for `standalone`, required for `grpc` and `token`)
-- **password** — Authentication credential/API key (optional for `standalone`, required for `grpc` - should be API key)
+- **password**: Authentication password/API key (optional for `standalone`, required for `grpc` - should be API key)
 - `database`: Database name (default: "default")
 - `secure` : Required for IBM watsonx.data MilvusDB for https connection and is set to true in this case.
 - `index_type`: Index algorithm (HNSW, IVF_FLAT, IVF_SQ8, IVF_PQ, FLAT, DISKANN, AUTOINDEX for dense; SPARSE_INVERTED_INDEX, SPARSE_WAND for sparse)
@@ -2301,8 +2245,8 @@ Basic usage with default schema:
   "operator_type": "docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator",
   "operator_params": {
     "provider": "opensearch",
-    "index_name": "my_documents",
     "provider_config": {
+      "index_name": "my_documents",
       "host": "localhost",
       "port": 9200,
       "engine": "faiss",
@@ -2320,8 +2264,8 @@ Using a schema template:
   "operator_type": "docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator",
   "operator_params": {
     "provider": "opensearch",
-    "index_name": "document_chunks",
     "provider_config": {
+      "index_name": "document_chunks",
       "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,
@@ -2345,32 +2289,28 @@ Using a schema template:
 
 **Class:** `core.operators.document_sets.document_set_operator.DocumentSetOperator`
 
-| Parameter             | Type   | Required | Default                            | Description                                              |
-| --------------------- | ------ | -------: | ---------------------------------- | -------------------------------------------------------- |
-| `document_set_name`   | string |      Yes | -                                  | Unique name for the document set                         |
-| `description`         | string |       No | `null`                             | Description of the document set                          |
-| `metadata`            | object |       No | `null`                             | Additional metadata payload stored with the document set |
-| `retain_deleted_docs` | bool   |       No | `false`                            | Whether to retain soft-deleted documents                 |
-| `document_set_id`     | string |       No | `null`                             | Existing document set UUID for update flows              |
-| `database_path`       | string |       No | `data/duckdb/document_sets.duckdb` | Database file path used by DuckDB-backed adapters        |
-| `metadata_backend`    | string |       No | `duckdb`                           | Metadata repository backend                              |
-| `data_backend`        | string |       No | `duckdb`                           | Data store backend                                       |
-| `metadata_config`     | object |       No | `{}`                               | Backend-specific metadata repository configuration       |
-| `data_config`         | object |       No | `{}`                               | Backend-specific data store configuration                |
+| Parameter           | Type   | Required | Default                            | Description                                              |
+| ------------------- | ------ | -------: | ---------------------------------- | -------------------------------------------------------- |
+| `document_set_name` | string |      Yes | -                                  | Unique name for the document set                         |
+| `description`       | string |       No | `null`                             | Description of the document set                          |
+| `metadata`          | object |       No | `null`                             | Additional metadata payload stored with the document set |
+| `document_set_id`   | string |       No | `null`                             | Existing document set UUID for update flows              |
+| `data_backend`      | string |       No | `duckdb`                           | Data store backend for PyArrow table data                |
+| `database_path`     | string |       No | `data/duckdb/document_sets.duckdb` | Database file path used by DuckDB-backed adapters        |
 
 **Description**
 
 The Document Set operator persists table rows and document-set metadata through separate port interfaces:
 
 - `DocumentSetMetadataRepository`
-- `DocumentSetDataStore`
+- `DocumentSetStorage`
 
 The operator creates concrete adapters through:
 
 - `MetadataRepositoryFactory`
 - `DataStoreFactory`
 
-Current production support is DuckDB for both metadata and data storage. The operator returns the input table unchanged, so it can be placed mid-pipeline without breaking downstream processing.
+The metadata backend is controlled by `global_config.metadata_storage_type` (default: `duckdb`). The data backend is controlled per-operator via `data_backend`. Current production support is DuckDB for both. The operator returns the input table unchanged, so it can be placed mid-pipeline without breaking downstream processing.
 
 **Architecture**
 
@@ -2400,7 +2340,12 @@ Common upstream fields from the sample flow:
 - `document_set_name`: Name of the document set
 - `database_path`: Database path used for storage
 - `stored_documents`: Number of rows written in the operation
-- error metadata when persistence fails
+- `total_size_bytes`: Total size in bytes of all stored rows
+- `total_pages`: Total pages across all stored documents
+- `table_name`: Backend-specific data location identifier populated by the storage adapter
+- `metadata_storage_type`: Metadata adapter used (from `global_config.metadata_storage_type`)
+- `data_storage_type`: Data adapter used (from `data_backend`)
+- `error`: Error message when persistence fails
 
 **Features**
 
@@ -2421,90 +2366,74 @@ Common upstream fields from the sample flow:
 
 ```json
 {
-  "global_config": {
-    "storage_type": "duckdb",
-    "database_path": "data/assets.db"
-  },
-  "nodes": [
-    {
-      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
-      "name": "store_in_document_set",
-      "operator_type": "docpipe.core.operators.storage.document_set.DocumentSetOperator",
-      "operator_params": {
-        "document_set_name": "integration_test_documents",
-        "description": "Integration test for hexagonal architecture",
-        "data_backend": "duckdb"
-      }
+  "type": "document_set",
+  "name": "documents",
+  "config": {
+    "document_set_name": "documents_collection",
+    "description": "Persistent storage of extracted document content with metadata tracking",
+    "database_path": "./data/document_sets/extracted_docs.duckdb",
+    "data_backend": "duckdb",
+    "metadata": {
+      "pipeline_version": "1.0",
+      "extraction_method": "docling",
+      "created_by": "docpipe_pipeline",
+      "purpose": "demonstration_flow"
     }
-  ]
+  },
+  "depends_on": ["extract_content"]
 }
 ```
 
 **Configuration Notes:**
 
-- `storage_type` in `global_config` controls metadata storage backend (default: "duckdb")
-- `database_path` in `global_config` specifies the database file location
-- `data_backend` in operator parameters controls PyArrow table data storage
-- Metadata and data can use different backends independently
+- `global_config.metadata_storage_type` controls the metadata storage backend (default: `duckdb`)
+- `database_path` in the operator config specifies the DuckDB file path for both metadata and data
+- `data_backend` in the operator config controls the PyArrow table data adapter (default: `duckdb`)
 
 **Flow Pattern**
 
 ```text
-IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
+IngestSourceOperator -> ExtractOperator -> DocumentSetOperator
 ```
 
 **End-to-End Flow Example**
 
 ```json
 {
-  "name": "ingest-extract-documentset",
-  "flow_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
-  "description": "Integration test flow for document set hexagonal architecture: Ingest -> Extract -> DocumentSet",
-  "global_config": {
-    "storage_type": "duckdb",
-    "database_path": "data/integration_test.db"
-  },
-  "storage": "in-memory",
-  "execute_type": "local",
+  "flow_name": "ingest-extract-documentset",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": true,
-    "force_ingest": true
+    "storage": "in-memory",
+    "execute_type": "local"
   },
-  "dag": [
+  "flow": [
     {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "name": "ingest_local_folder",
-      "operator": "ingest_local",
+      "type": "ingest_source",
+      "name": "ingest_documents",
       "config": {
-        "paths": "tests/fixtures/invoices",
-        "include_filter": "pdf,txt,md",
-        "store_binary_content": true
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]},
+        "include_filter": "pdf,txt"
       }
     },
     {
-      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
-      "name": "extract_documents",
-      "operator": "extract_operator",
+      "type": "extract_operator",
+      "name": "extract_content",
       "config": {
-        "text_extraction": {
-          "provider": "docling_library",
-          "doc_column": "content"
-        },
-        "entity_extraction": { "provider": "none" }
-      }
+        "text_extraction": { "provider": "docling_library" }
+      },
+      "depends_on": ["ingest_documents"]
     },
     {
-      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
-      "name": "store_in_document_set",
-      "operator": "document_set",
+      "type": "document_set",
+      "name": "store_documents",
       "config": {
         "document_set_name": "integration_test_documents",
         "description": "Integration test for hexagonal architecture",
         "database_path": "data/integration_test.db",
-        "metadata_backend": "duckdb",
         "data_backend": "duckdb"
-      }
+      },
+      "depends_on": ["extract_content"]
     }
   ]
 }
@@ -2533,14 +2462,98 @@ Document sets are also exposed through `/api/v1/document-sets`:
 **Testing**
 
 ```bash
-source src/docpipe_app/backend/.venv/bin/activate
+source .venv/bin/activate
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv run pytest tests/integration/api/test_document_sets_api.py -v
 ```
 
 **Extension**
 
-For new backends, implement the document set ports, register adapters with the factories, and configure `metadata_backend` and `data_backend`. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+For new backends, implement the `DocumentSetStorage` and `DocumentSetMetadataRepository` ports, register the adapters with `DataStoreFactory` and `MetadataRepositoryFactory` respectively. Configure `data_backend` in the operator config to select the data adapter, and `global_config.metadata_storage_type` to select the metadata adapter. See [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+
+---
+
+#### StorageOutputOperator
+
+**Purpose:** Write pipeline documents to a pluggable storage destination, supporting three modes: `processed_content`, `refetch_original`, and `comprehensive_export`.
+
+**Category:** Storage
+
+**Class:** `core.operators.storage.storage_output_operator.StorageOutputOperator`
+
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `mode` | string | Yes | — | `processed_content`, `refetch_original`, or `comprehensive_export` |
+| `destination_config` | object | Yes | — | Destination connection configuration |
+| `output_format` | object | No | `{}` | Controls content format and metadata sidecar output |
+| `output_structure` | object | No | `{}` | Controls output directory structure and file naming |
+
+**`destination_config` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `provider` | string | Adapter name: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, or `google_drive` |
+| `provider_config` | object | Provider-specific connection parameters (see operator README) |
+| `credentials` | object | Provider-specific credentials |
+
+**`output_format` fields**
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `content_format` | string | `md` | Content file extension: `md`, `txt`, or `json` |
+| `include_metadata_sidecar` | bool | `false` | Write a `.meta.json` sidecar per document (`comprehensive_export` only) |
+
+**`output_structure` fields**
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `type` | string | `flat` | `flat` or `hierarchical` (mirrors source directory tree) |
+| `path_template` | string | `{name}.{ext}` | Template string for the output file path relative to `root_path` |
+| `overwrite_existing` | bool | `true` | When `false`, existing files are skipped with `write_status = skipped` |
+
+**Path template variables:** `{doc_id}`, `{name}`, `{ext}`, `{year}`, `{month}`, `{day}`, `{relative_dir}`
+
+**Output Schema**
+
+All input columns are passed through unchanged. The following columns are appended:
+
+| Column | Type | Values |
+| --- | --- | --- |
+| `write_status` | string | `success`, `failed`, `skipped` |
+| `destination_path` | string | Full path written; `null` on failure |
+| `bytes_written` | int64 | Bytes written; `0` on failure |
+| `write_error` | string | Error message; `null` on success |
+
+**Sample Flow Configuration**
+
+```json
+{
+  "type": "storage_output",
+  "name": "write_output",
+  "config": {
+    "mode": "processed_content",
+    "destination_config": {
+      "provider": "filesystem",
+      "provider_config": {
+        "root_path": "/output/docs",
+        "create_dirs": true
+      },
+      "credentials": {}
+    },
+    "output_format": { "content_format": "md" },
+    "output_structure": { "path_template": "{year}/{month}/{doc_id}.{ext}" }
+  },
+  "depends_on": ["extract"]
+}
+```
+
+**Flow Pattern**
+
+```text
+IngestSourceOperator -> ExtractOperator -> StorageOutputOperator
+```
+
+For full provider reference, operating mode details, and per-provider examples see [`docs/operators/storage/storage_output_readme.md`](../operators/storage/storage_output_readme.md).
 
 ---
 

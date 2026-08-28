@@ -202,10 +202,7 @@ Flow JSON files accept the flow definition at the root level (no nested "flow" k
 The framework includes 17+ operators organized into categories:
 
 **Ingest Operators:**
-- `ingest_local` - Read files from local filesystem
-- `ingest_local_s3` - Ingest from S3-compatible storage
-- `ingest_csv` - Process CSV files
-- `ingest_source` - Multi-provider ingest
+- `ingest_source` - Multi-provider ingest (filesystem, S3, IBM COS, SharePoint, OneDrive, and more)
 
 **Extract Operators:**
 - `extract_operator` - Extract structured content from documents

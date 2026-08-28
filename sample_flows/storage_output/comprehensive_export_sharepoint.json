@@ -1,0 +1,72 @@
+{
+  "flow_name": "comprehensive-export-sharepoint",
+  "description": "Ingest documents from a local filesystem, extract text, then write a complete archive per document to a SharePoint site: original binary + extracted markdown + metadata JSON sidecar. Useful for compliance, QA, and data handoff.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "provider_config": {
+          "paths": [
+            "/path/to/source_files_01",
+            "/path/to/source_files_02"
+          ],
+          "recursive": false
+        },
+        "include_filter": [
+          "pdf"
+        ],
+        "credentials": {}
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "comprehensive_export",
+        "destination_config": {
+          "provider": "sharepoint",
+          "provider_config": {
+            "drive_id": "${SHAREPOINT_DRIVE_ID}",
+            "folder_path": "dest_files",
+            "create_dirs": true
+          },
+          "credentials": {
+            "tenant_id": "${SHAREPOINT_TENANT_ID}",
+            "client_id": "${SHAREPOINT_CLIENT_ID}",
+            "client_secret": "${SHAREPOINT_CLIENT_SECRET}"
+          }
+        },
+        "output_format": {
+          "content_format": "txt",
+          "include_metadata_sidecar": true
+        },
+        "output_structure": {
+          "type": "hierarchical"
+        }
+      },
+      "depends_on": [
+        "extract"
+      ]
+    }
+  ]
+}

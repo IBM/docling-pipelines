@@ -1,4 +1,3 @@
-import ast
 import re
 from enum import Enum
 from typing import Any
@@ -34,11 +33,12 @@ VALID_FILTER_LOGICAL_OPERATORS: list[str] = [
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
 ]
+
 # defaults
-FILTER_CRITERIA_DEFAULT: list[Any] = ast.literal_eval("[]")
+FILTER_CRITERIA_DEFAULT: list[Any] = []
 """ The default list of filter criteria (in SQL WHERE clause format)"""
 FILTER_LOGICAL_OPERATOR_DEFAULT: str = FILTER_LOGICAL_OPERATOR_AND
-FILTER_FEATURES_TO_DROP_DEFAULT: list[Any] = ast.literal_eval("[]")
+FILTER_FEATURES_TO_DROP_DEFAULT: list[Any] = []
 """ The default list of features to drop"""
 
 IS_NULL: str = "IS NULL"
@@ -46,6 +46,8 @@ IS_NOT_NULL: str = "IS NOT NULL"
 
 
 class Mode(Enum):
+    """Mode."""
+
     COLUMNS_TO_DROP = "features to drop"
     FILTER_CRITERIA_JSON = "filter criteria (JSON)"
     FILTER_CRITERIA_LIST = "filter criteria (list)"
@@ -70,8 +72,8 @@ class SQLFilterOperator(AbstractOperator):
         """
 
         super().__init__(config)
-        self.filter_criteria: list[str] = config.get(
-            OperatorConstants.Filtering.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT
+        self.filter_criteria: list[str] = (
+            config.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT) or []
         )
         self.logical_operator: str = config.get(
             OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY,
@@ -84,7 +86,7 @@ class SQLFilterOperator(AbstractOperator):
         self.columns_to_drop: list[str] = self.features_to_drop
         self.filter_criteria_json: dict[str, Any] | None = config.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
 
-    def validate(  # NOSONAR python:S3776
+    def validate(
         self,
         errors: list[str | ValidationMessage],
         warnings: list[str],
@@ -157,7 +159,7 @@ class SQLFilterOperator(AbstractOperator):
             )
             if drop_column_validation and isinstance(drop_column_validation, (set, list)):
                 errors.append(
-                    f"Invalid feature name in the feature drop list: {', '.join(drop_column_validation)}. Please select features from {', '.join(available_features)}"
+                    f"Invalid feature name in the feature drop list: {', '.join(drop_column_validation)}. Please select features from {', '.join(available_features)}"  # nosec B608 — error message, not executed SQL
                 )
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -222,7 +224,7 @@ class SQLFilterOperator(AbstractOperator):
                 )
             return [table], metadata
 
-    def _dpk_transform(self, table: pa.Table, metadata: dict[str, Any]) -> list[pa.Table]:  # NOSONAR python:S3776
+    def _dpk_transform(self, table: pa.Table, metadata: dict[str, Any]) -> list[pa.Table]:
         """
         This implementation filters the input table using a SQL statement and
         returns the filtered table and execution stats
@@ -244,7 +246,8 @@ class SQLFilterOperator(AbstractOperator):
 
         # initialize the SQL statement used for filtering
         sql_statement: str = "SELECT * FROM input_table"
-        con: duckdb.DuckDBPyConnection | None = None
+        stats_sql: str = ""
+        needs_filter: bool = False
 
         if self.filter_criteria_json:
             if self.has_invalid_columns(
@@ -253,9 +256,11 @@ class SQLFilterOperator(AbstractOperator):
                 mode=Mode.FILTER_CRITERIA_JSON,
             ):
                 return [table]
+
             sql_where: str = json_to_sql_where(self.filter_criteria_json)
             sql_statement = sql_statement + " " + sql_where
-            con = duckdb.connect()
+            needs_filter = True
+
         elif len(self.filter_criteria) > 0:
             if self.has_invalid_columns(
                 input_table_columns_set=input_table_columns_set,
@@ -264,22 +269,19 @@ class SQLFilterOperator(AbstractOperator):
             ):
                 return [table]
 
-            # populate metadata with filtering stats for each filter criterion
-            con = duckdb.connect()
-            for filter_criterion in self.filter_criteria:
-                criterion_sql: str = f"{sql_statement} WHERE {filter_criterion}"
-                filter_table: pa.Table = con.execute(criterion_sql).arrow()
-                docs_filtered: int = total_docs - filter_table.num_rows
-                bytes_filtered: int = total_bytes - filter_table.nbytes
-                metadata[f"docs_filtered_out_by '{filter_criterion}'"] = docs_filtered
-                metadata[f"bytes_filtered_out_by '{filter_criterion}'"] = bytes_filtered
+            # populate per-criterion stats in a single query using conditional aggregation
+            case_exprs: list[str] = [
+                f"COUNT(CASE WHEN ({c}) THEN 1 END) AS _keep_{i}" for i, c in enumerate(self.filter_criteria)
+            ]
+            stats_sql = f"SELECT {', '.join(case_exprs)} FROM input_table"  # nosec B608 — criteria validated before use
 
             # use filtering criteria to build the SQL query for filtering
             filter_clauses: list[str] = [f"({x})" for x in self.filter_criteria]
             where_clause: str = f" {self.logical_operator} ".join(filter_clauses)
             sql_statement = f"{sql_statement} WHERE {where_clause}"
+            needs_filter = True
 
-        if "WHERE" in sql_statement and con is not None:
+        if needs_filter:
             # filter using SQL statement
             duckdb_binding_errors = (
                 duckdb.BinderException,
@@ -287,22 +289,31 @@ class SQLFilterOperator(AbstractOperator):
                 duckdb.CatalogException,
             )
 
-            try:
-                filtered_table: pa.Table = con.execute(sql_statement).arrow()
-            except duckdb_binding_errors as ex:  # type: ignore[misc]
-                binding_err_msg: str = f"Filter condition is invalid due to mismatched data types. (e.g. comparing text to numbers). Please review the filter expression and table schema. {ex}"
-                raise DocpipeException(
-                    message=binding_err_msg,
-                    status_code=400,
-                    error_code=ErrorCode.SQL_FILTER_ERROR,
-                ) from ex
-            except Exception as ex:
-                unexpected_err_msg: str = f"An unexpected error occurred. Please review your filter logic. {ex}"
-                raise DocpipeException(
-                    message=unexpected_err_msg,
-                    status_code=400,
-                    error_code=ErrorCode.SQL_FILTER_ERROR,
-                ) from ex
+            with duckdb.connect() as con:
+                try:
+                    # collect per-criterion stats before the main filter (filter_criteria_list path only)
+                    if len(self.filter_criteria) > 0 and not self.filter_criteria_json:
+                        stats_row = con.execute(stats_sql).fetchone()
+                        for i, criterion in enumerate(self.filter_criteria):
+                            keep_count: int = stats_row[i] if stats_row else 0  # type: ignore[index]
+                            docs_filtered: int = total_docs - keep_count
+                            metadata[f"docs_filtered_out_by '{criterion}'"] = docs_filtered
+
+                    filtered_table: pa.Table = con.execute(sql_statement).arrow()
+                except duckdb_binding_errors as ex:  # type: ignore[misc]
+                    binding_err_msg: str = f"Filter condition is invalid due to mismatched data types. (e.g. comparing text to numbers). Please review the filter expression and table schema. {ex}"
+                    raise DocpipeException(
+                        message=binding_err_msg,
+                        status_code=400,
+                        error_code=ErrorCode.SQL_FILTER_ERROR,
+                    ) from ex
+                except Exception as ex:
+                    unexpected_err_msg: str = f"An unexpected error occurred. Please review your filter logic. {ex}"
+                    raise DocpipeException(
+                        message=unexpected_err_msg,
+                        status_code=400,
+                        error_code=ErrorCode.SQL_FILTER_ERROR,
+                    ) from ex
         else:
             filtered_table = table
 
@@ -378,6 +389,7 @@ class SQLFilterOperator(AbstractOperator):
         mode: Mode,
         metadata: dict[str, Any] | None = None,
     ) -> bool | list[str]:
+        """Has invalid columns."""
         filter_column_set: set[str]
         if mode == Mode.COLUMNS_TO_DROP:
             filter_column_set = set(self.columns_to_drop)
@@ -396,13 +408,14 @@ class SQLFilterOperator(AbstractOperator):
                 metadata[Metrics.External.PROCESSED_DOCS] = 0
                 metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
                 return True
-            else:
-                return list(invalid_columns)
+            return list(invalid_columns)
         return False
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
+            OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: SQLFilterOperator.is_available(),
             OperatorConstants.Misc.CATEGORY: SQLFilterOperator.category.value,
             OperatorConstants.Misc.LABEL: "Annotation Filter",
@@ -482,11 +495,11 @@ def format_value(value: Any) -> str:
     """Format value for SQL based on its type."""
     if value is None:
         return "NULL"
-    elif isinstance(value, (int, float)):
+    if isinstance(value, (int, float)):
         return str(value)
-    elif isinstance(value, list):
+    if isinstance(value, list):
         return f"({', '.join(format_value(v) for v in value)})"
-    elif isinstance(value, str):
+    if isinstance(value, str):
         try:
             # Try to parse as number
             return str(float(value)) if "." in value else str(int(value))
@@ -498,7 +511,7 @@ def format_value(value: Any) -> str:
         return f"'{escaped_other}'"
 
 
-def process_condition(condition: dict[str, Any]) -> str:  # NOSONAR python:S3776
+def process_condition(condition: dict[str, Any]) -> str:
     """Process a single condition."""
 
     required_keys: list[str] = ["variable", "operator"]
@@ -560,7 +573,7 @@ def process_condition(condition: dict[str, Any]) -> str:  # NOSONAR python:S3776
     return f"{variable} {operator} {default_formatted_value}"
 
 
-def process_criteria_group(group: dict[str, Any]) -> str:  # NOSONAR python:S3776
+def process_criteria_group(group: dict[str, Any]) -> str:
     """Process a group of criteria connected by a logical operator."""
     if not isinstance(group, dict):
         raise DocpipeException(
@@ -643,13 +656,12 @@ def extract_columns(filter_input: dict[str, Any] | list[str]) -> set[str]:
     """
     if isinstance(filter_input, dict):
         return extract_columns_json(filter_input)
-    elif isinstance(filter_input, list) and all(isinstance(x, str) for x in filter_input):
+    if isinstance(filter_input, list) and all(isinstance(x, str) for x in filter_input):
         return extract_columns_list(filter_input)
-    else:
-        raise DocpipeException(
-            message=f"Unsupported filter_input type: {type(filter_input).__name__}",
-            status_code=400,
-        )
+    raise DocpipeException(
+        message=f"Unsupported filter_input type: {type(filter_input).__name__}",
+        status_code=400,
+    )
 
 
 def extract_columns_json(condition_or_group: dict[str, Any]) -> set[str]:

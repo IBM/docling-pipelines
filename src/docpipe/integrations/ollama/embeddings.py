@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Ollama Embeddings Adapter for LangChain Integration.
 

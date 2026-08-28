@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*_output.txt
 .Python
 
 # Virtual environments
@@ -10,6 +11,7 @@ venv/
 .venv/
 env/
 ENV/
+.venv
 
 # uv
 .uv/
@@ -48,14 +50,19 @@ build/
 *.parquet.lock
 *.pkl
 docs/arch
-src/docpipe_app/backend/data/
+src/docpipe/backend/data/
 
 # Downloaded models
-src/docpipe_app/backend/models/
-src/docpipe_app/models/
+src/docpipe/backend/models/
+src/docpipe/models/
 src/models/
 
-# Bob AI Assistant
+# Bob AI Assistant — track rules/skills; ignore local-only files
+.bob/.ai_architecture.yaml
+.bob/mcp.json
+.bob/*.bak
+.bob/
+
 
 # OS
 .DS_Store
@@ -69,9 +76,11 @@ examples/connectors/.env
 examples/connectors/*-service-account.json
 examples/connectors/google-service-account.json
 
+# LDAP credentials
+examples/LDAP/.env
+
 # Local test artifacts with credentials
 test_flows/
 
-graphify-out
-.bob/
-Jenkinsfile
+## UV lock file
+uv.lock

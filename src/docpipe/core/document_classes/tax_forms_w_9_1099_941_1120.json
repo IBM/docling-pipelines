@@ -31,7 +31,7 @@
         {
           "name": "taxpayer_identification_number",
           "examples": [
-            "XX-XXXXXXX or SSN: XXX-XX-XXXX"
+            "12-3456789 or SSN: XXX-XX-XXXX"
           ],
           "description": "Employer Identification Number (EIN) or Social Security Number (SSN).",
           "extraction_instructions": ""

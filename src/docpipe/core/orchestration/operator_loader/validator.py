@@ -22,7 +22,7 @@ class OperatorValidator:
     """
 
     @staticmethod
-    def validate_operator_class(*, cls: type, operator_info: OperatorInfo) -> ValidationResult:  # NOSONAR python:S3776
+    def validate_operator_class(*, cls: type, operator_info: OperatorInfo) -> ValidationResult:
         """Validate operator class structure and interface.
 
         Args:

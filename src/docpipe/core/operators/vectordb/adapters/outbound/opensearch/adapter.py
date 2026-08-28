@@ -6,12 +6,14 @@ This adapter implements the VectorStorePort interface.
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.operator_utils import resolve_env_var
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import OpenSearchBatchProcessor
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.client import OpenSearchClient
+from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import OpenSearchConfig
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.utils.infrastructure.logging import get_logger
@@ -45,19 +47,19 @@ class OpenSearchAdapter(VectorStorePort):
     def __init__(self, **adapter_config: Any) -> None:
         """Initialize OpenSearch adapter.
 
-        All parameters are extracted from adapter_config, which contains the merged
-        provider_config and operator-level parameters.
+        All parameters are extracted from adapter_config, which is the provider_config
+        dict passed directly from VectorDBOperator.
 
         Args:
-            **adapter_config: Configuration dictionary containing:
-                Operator-level parameters (added by VectorDBOperator):
-                - index_name: Name of the index
+            **adapter_config: Configuration dictionary (from provider_config) containing:
+                Resource configuration:
+                - index_name: Name of the index (required)
                 - vector_dimension: Dimension of vector embeddings
                 - embeddings_column: Name of embeddings column
                 - available_features: Feature configuration
                 - feature_mappings: Column to field mappings
 
-                Provider-specific parameters (from provider_config):
+                Connection and provider-specific parameters:
                 - host: OpenSearch server host (default: localhost)
                 - port: OpenSearch server port (default: 9200)
                 - username: Username for basic authentication (optional)
@@ -76,8 +78,10 @@ class OpenSearchAdapter(VectorStorePort):
         """
         # Extract operator-level parameters (added by VectorDBOperator)
         self.index_name = adapter_config.get(OperatorConstants.VectorDB.INDEX_NAME)
+        if not self.index_name:
+            raise ValueError("provider_config.index_name is required for the OpenSearch adapter")
         available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
-        feature_mappings = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+        feature_mappings: list[dict[str, str]] = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
 
         # Extract connection parameters from adapter_config (from provider_config)
         host = adapter_config.get(OperatorConstants.VectorDB.HOST, "localhost")
@@ -143,6 +147,11 @@ class OpenSearchAdapter(VectorStorePort):
             f"(host: {host}:{port}, engine: {engine}, algorithm: {algorithm})"
         )
 
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        return OpenSearchConfig
+
     def index_documents(self, documents: list[tuple[str, dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:
         """Index documents in OpenSearch.
 
@@ -206,6 +215,10 @@ class OpenSearchAdapter(VectorStorePort):
         """Refresh the index to make recent changes visible."""
         self.index_manager.refresh_index()
 
+    def validate_existing_schema(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate existing OpenSearch index schema against runtime vector dimensions."""
+        self.index_manager.validate_existing_index(dimension_mapping=dimension_mapping)
+
     def index_exists(self) -> bool:
         """Check if the OpenSearch index exists.
 
@@ -239,3 +252,14 @@ class OpenSearchAdapter(VectorStorePort):
             Dictionary mapping column names to their detected dimensions
         """
         return detect_all_vector_dimensions(table=table, vector_columns=vector_columns)
+
+    def get_chunk_ids_for_documents(self, doc_ids: list[str]) -> dict[str, set[str]]:
+        """Return all existing chunk PKs grouped by doc ID.
+
+        Args:
+            doc_ids: List of doc_id_hash values to look up.
+
+        Returns:
+            Mapping of doc_id -> set of chunk PKs.
+        """
+        return self.batch_processor.get_chunk_ids_for_documents(doc_ids=doc_ids)

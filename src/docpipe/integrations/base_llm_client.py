@@ -1,5 +1,5 @@
 # Copyright IBM Corp. 2025
-# -License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 
 """
 Base LLM Client with common functionality.
@@ -151,7 +151,7 @@ class BaseLLMClient(ABC):
         Raises:
             NotImplementedError: Must be implemented by subclass
         """
-        pass
+        ...
 
     @abstractmethod
     def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
@@ -179,7 +179,7 @@ class BaseLLMClient(ABC):
             ConfigurationError: If inputs are invalid
             ExternalServiceError: If embedding generation fails
         """
-        pass
+        ...
 
     def generate(self, prompt: str, **kwargs) -> str:
         """
@@ -225,7 +225,7 @@ class BaseLLMClient(ABC):
         Returns:
             Maximum token limit for the model
         """
-        pass
+        ...
 
     @staticmethod
     @abstractmethod
@@ -239,7 +239,7 @@ class BaseLLMClient(ABC):
         Returns:
             Embedding dimension for the model
         """
-        pass
+        ...
 
     def validate_configuration(self) -> None:
         """

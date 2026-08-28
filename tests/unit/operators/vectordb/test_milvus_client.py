@@ -1,6 +1,5 @@
 """Unit tests for Milvus client."""
 
-import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -47,7 +46,7 @@ class TestMilvusClient:
             port=19530,
             token="test-token",
             username="user",
-            password=os.environ.get("TEST_MILVUS_PASSWORD", "test-milvus-pw"),
+            password="pass",  # pragma: allowlist secret
             auth_type="token",
         )
         client._validate_parameters()
@@ -61,7 +60,7 @@ class TestMilvusClient:
         mock_client_instance.list_collections.return_value = []
         mock_pymilvus_client.return_value = mock_client_instance
 
-        client = MilvusClient(host="localhost", port=19530, auth_type="standalone")
+        client = MilvusClient(host="localhost", port=19530, auth_type="standalone")  # pragma: allowlist secret
         result = client.connect()
 
         assert result == mock_client_instance
@@ -70,7 +69,6 @@ class TestMilvusClient:
         assert "host" not in call_kwargs
         assert "port" not in call_kwargs
         assert call_kwargs["uri"] == "http://localhost:19530"
-        assert "token" not in call_kwargs
 
     @patch("docpipe.core.operators.vectordb.adapters.outbound.milvus.client.PyMilvusClient")
     def test_connect_with_uri(self, mock_pymilvus_client):

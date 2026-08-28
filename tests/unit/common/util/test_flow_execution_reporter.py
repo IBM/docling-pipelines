@@ -23,7 +23,7 @@ def reporter():
 def sample_node_stats():
     """Create sample NodeStats for testing."""
     return NodeStats(
-        node_id="test-node-123",
+        id="test-node-123",
         name="test_operator",
         node_status=ExecutionStatus.COMPLETED.value,
         time_taken=5,
@@ -297,7 +297,7 @@ class TestMetadataCategorization:
     def test_categorize_metadata_filters_standard_fields(self, reporter):
         """Test standard fields are filtered from metadata."""
         metadata = {
-            "total_docs_count": 100,
+            "documents_in_scope": 100,
             "processed_docs": 50,
             "custom_field": 42,
         }
@@ -305,7 +305,7 @@ class TestMetadataCategorization:
         categorized = reporter._categorize_metadata(metadata)
 
         assert "custom_field" in categorized["numeric"]
-        assert "total_docs_count" not in categorized["numeric"]
+        assert "documents_in_scope" not in categorized["numeric"]
         assert "processed_docs" not in categorized["numeric"]
 
     def test_categorize_metadata_handles_old_format(self, reporter):
@@ -379,7 +379,7 @@ class TestFlowSummary:
         """Test operator summary table respects DAG execution order."""
         node_stats = {
             "node2": NodeStats(
-                node_id="node2",
+                id="node2",
                 name="second",
                 node_status=ExecutionStatus.COMPLETED.value,
                 time_taken=2,
@@ -388,7 +388,7 @@ class TestFlowSummary:
                 skipped_docs=[],
             ),
             "node1": NodeStats(
-                node_id="node1",
+                id="node1",
                 name="first",
                 node_status=ExecutionStatus.COMPLETED.value,
                 time_taken=1,
@@ -420,13 +420,13 @@ class TestIntegration:
         assert reporter._flow_start_time is not None
 
         # First operator
-        reporter.print_operator_start(step_name="ingest", operator_type="ingest_local")
+        reporter.print_operator_start(step_name="ingest", operator_type="ingest_source")
         reporter.print_operator_summary(step_name="ingest", node_stats=sample_node_stats, tables=[sample_pyarrow_table])
         assert reporter._current_tables == [sample_pyarrow_table]
 
         # Second operator with new columns
         node_stats_2 = NodeStats(
-            node_id="node2",
+            id="node2",
             name="extract",
             node_status=ExecutionStatus.COMPLETED.value,
             time_taken=10,
@@ -465,3 +465,37 @@ class TestIntegration:
         # Verify final state
         assert reporter._current_tables == [table_2]
         assert reporter._previous_tables == [table_2]
+
+
+class TestColumnTrackingExceptionPaths:
+    """Cover the except-Exception-pass paths in _get_new_columns and _get_removed_columns."""
+
+    def test_get_new_columns_handles_exception_in_extract(self, reporter):
+        """When _extract_column_names raises, _get_new_columns returns col_names unchanged."""
+        from unittest.mock import patch
+
+        import pyarrow as pa
+
+        reporter._previous_tables = [pa.table({"id": ["x"]})]
+        reporter._current_tables = [pa.table({"id": ["x"]})]
+
+        col_names = ["id", "content"]
+        with patch.object(reporter, "_extract_column_names", side_effect=RuntimeError("boom")):
+            result = reporter._get_new_columns(col_names=col_names)
+
+        # Falls back to returning all columns as new
+        assert result == col_names
+
+    def test_get_removed_columns_handles_exception_in_extract(self, reporter):
+        """When _extract_column_names raises, _get_removed_columns returns empty list."""
+        from unittest.mock import patch
+
+        import pyarrow as pa
+
+        reporter._previous_tables = [pa.table({"id": ["x"]})]
+        reporter._current_tables = [pa.table({"id": ["x"]})]
+
+        with patch.object(reporter, "_extract_column_names", side_effect=RuntimeError("boom")):
+            result = reporter._get_removed_columns(col_names=["id", "content"])
+
+        assert result == []

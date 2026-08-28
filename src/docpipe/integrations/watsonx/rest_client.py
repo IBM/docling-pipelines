@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 WatsonX REST API Embedding Client.
 
@@ -368,18 +371,18 @@ class WatsonxRestEmbeddingClient(BaseLLMClient):
                 with rate_limit_context(limit_name=self.rate_limit_name, rate=WATSONX_RATE_LIMIT):
                     response = self.rest_client.call_rest_json(
                         method=RestMethod.POST,
-                        endpoint=endpoint,
+                        url=endpoint,
                         json_data=payload,
-                        params=params,
+                        query_params=params,
                         headers=headers,
                         expected_status_codes=[200],
                     )
             else:
                 response = self.rest_client.call_rest_json(
                     method=RestMethod.POST,
-                    endpoint=endpoint,
+                    url=endpoint,
                     json_data=payload,
-                    params=params,
+                    query_params=params,
                     headers=headers,
                     expected_status_codes=[200],
                 )
@@ -465,18 +468,18 @@ class WatsonxRestEmbeddingClient(BaseLLMClient):
                     with rate_limit_context(limit_name=self.rate_limit_name, rate=WATSONX_RATE_LIMIT):
                         response = self.rest_client.call_rest_json(
                             method=RestMethod.POST,
-                            endpoint=endpoint,
+                            url=endpoint,
                             json_data=payload,
-                            params=params,
+                            query_params=params,
                             headers=headers,
                             expected_status_codes=[200],
                         )
                 else:
                     response = self.rest_client.call_rest_json(
                         method=RestMethod.POST,
-                        endpoint=endpoint,
+                        url=endpoint,
                         json_data=payload,
-                        params=params,
+                        query_params=params,
                         headers=headers,
                         expected_status_codes=[200],
                     )

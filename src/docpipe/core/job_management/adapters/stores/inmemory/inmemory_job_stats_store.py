@@ -155,7 +155,7 @@ class InMemoryJobStatsStore(JobStatsStore):
 
         with lock:
             try:
-                node_id = node_stats.node_id
+                node_id = node_stats.id
                 batch_id = getattr(node_stats, "batch_id", None)
 
                 # Store in nested structure (None is valid key for non-batch records)
@@ -250,7 +250,7 @@ class InMemoryJobStatsStore(JobStatsStore):
         with lock:
             try:
                 for node_stats in node_stats_list:
-                    node_id = node_stats.node_id
+                    node_id = node_stats.id
                     batch_id = getattr(node_stats, "batch_id", None)
 
                     # Store in nested structure
@@ -419,6 +419,7 @@ class InMemoryJobStatsStore(JobStatsStore):
     def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -428,19 +429,24 @@ class InMemoryJobStatsStore(JobStatsStore):
         Uses global lock since it needs to iterate all jobs.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (evaluated as set membership)
             status: Optional filter by status
             limit: Maximum number of results
 
         Returns:
             List of JobStats matching filters (sorted by start_time desc)
         """
+        job_ids_set = set(job_ids) if job_ids else None
+
         with self._global_lock:
             result = []
 
             for job_stats in self._job_stats.values():
                 # Apply filters
                 if job_id and job_stats.job_id != job_id:
+                    continue
+                if job_ids_set and job_stats.job_id not in job_ids_set:
                     continue
                 if status and job_stats.status != status:
                     continue

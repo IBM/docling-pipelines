@@ -11,9 +11,14 @@
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./test_data",
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./test_data"
+          ]
+        },
         "include_filter": "txt,md"
       }
     },

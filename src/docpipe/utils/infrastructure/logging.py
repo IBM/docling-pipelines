@@ -14,7 +14,8 @@
 
 This module provides:
 - ConditionalFormatter: JSON formatter with transaction ID injection
-- get_logger: Factory function for creating configured loggers
+- setup_logging: Configures handlers and formatters for process-owning entry points
+- get_logger: Library-safe factory that attaches only a NullHandler
 - get_log_level: Utility for resolving log levels from environment
 """
 
@@ -48,7 +49,15 @@ HEALTH_API_SUFFIX = "/health"
 
 
 class ColoredFormatter(logging.Formatter):
-    """Formatter that adds color coding to log messages."""
+    """Formatter that adds color coding to log messages when output is a TTY.
+    This formatter automatically detects whether output is going to a terminal (TTY)
+    or being redirected to a file/pipe. Colors are only applied when:
+    1. Output stream is a TTY (terminal)
+    2. NO_COLOR environment variable is not set
+    3. FORCE_COLOR environment variable is not explicitly disabled
+    When output is redirected to a file or NO_COLOR is set, plain text formatting
+    is used without ANSI escape sequences.
+    """
 
     LEVEL_COLORS: ClassVar[dict[int, str]] = {
         logging.DEBUG: Colors.DEBUG,
@@ -58,10 +67,34 @@ class ColoredFormatter(logging.Formatter):
         logging.CRITICAL: Colors.CRITICAL,
     }
 
-    def format(self, record):
-        # Get the color for this log level
-        level_color = self.LEVEL_COLORS.get(record.levelno, Colors.RESET)
+    def __init__(self, *args, **kwargs):
+        """Initialize formatter and determine if colors should be enabled.
+        Colors are enabled when:
+        - FORCE_COLOR=1/true/yes is set, OR
+        - Output is a TTY AND NO_COLOR is not set
+        """
+        super().__init__(*args, **kwargs)
+        self._colors_enabled = self._should_use_colors()
 
+    def _should_use_colors(self) -> bool:
+        """Determine if ANSI colors should be used based on environment and TTY status.
+        Returns:
+            True if colors should be used, False otherwise
+        """
+        # Check FORCE_COLOR environment variable
+        force_color = os.getenv("FORCE_COLOR", "").lower()
+        if force_color in ("1", "true", "yes"):
+            return True
+
+        # Check NO_COLOR environment variable (standard: https://no-color.org/)
+        if os.getenv("NO_COLOR", ""):
+            return False
+
+        # Check if stdout is a TTY (terminal)
+        # When output is redirected to file/pipe, isatty() returns False
+        return sys.stdout.isatty()
+
+    def format(self, record):
         # Format the message using parent formatter to populate record.asctime
         super().format(record)
 
@@ -72,15 +105,20 @@ class ColoredFormatter(logging.Formatter):
         level_str = record.levelname
         msg_str = record.getMessage()
 
-        # Construct colored message using LogRecord attributes
-        colored_message = (
-            f"{Colors.TIME}{time_str}{Colors.RESET} - "
-            f"{Colors.NAME}{name_str}{Colors.RESET} - "
-            f"{level_color}{Colors.BOLD}{level_str}{Colors.RESET} - "
-            f"{msg_str}"
-        )
+        # Use colors only if enabled (TTY output and not disabled by env vars)
+        if self._colors_enabled:
+            # Get the color for this log level
+            level_color = self.LEVEL_COLORS.get(record.levelno, Colors.RESET)
 
-        return colored_message
+            # Construct colored message using LogRecord attributes
+            return (
+                f"{Colors.TIME}{time_str}{Colors.RESET} - "
+                f"{Colors.NAME}{name_str}{Colors.RESET} - "
+                f"{level_color}{Colors.BOLD}{level_str}{Colors.RESET} - "
+                f"{msg_str}"
+            )
+        # Plain text format without ANSI codes for file output
+        return f"{time_str} - {name_str} - {level_str} - {msg_str}"
 
 
 class ConditionalFormatter(logging.Formatter):
@@ -128,14 +166,28 @@ class ConditionalFormatter(logging.Formatter):
             session_info = get_session_info()
             if session_info and session_info.transaction_id:
                 return session_info.transaction_id
-        except Exception:
+        except Exception:  # nosec B110 — intentional: session info lookup is best-effort in non-API contexts; fallback to default transaction ID below
             pass
 
         # Fallback to default for non-API contexts (CLI, background jobs, etc.)
         return DocpipeConstants.DEFAULT_TRANSACTION_ID
 
+    def _get_trace_context(self) -> dict[str, str]:
+        """Get trace_id and span_id from the active OTEL span, if any.
+
+        Returns:
+            Dict with 'trace_id' and 'span_id' strings, or empty strings when
+            telemetry is disabled or there is no active span.
+        """
+        try:
+            from docpipe.utils.infrastructure.telemetry_service import get_telemetry_service
+
+            return get_telemetry_service().get_trace_context()
+        except Exception:  # nosec B110 — intentional: telemetry is optional; any failure returns empty trace context so logging always succeeds
+            return {"trace_id": "", "span_id": ""}
+
     def format(self, record):
-        """Format log record as JSON with transaction ID and conditional fields.
+        """Format log record as JSON with transaction ID, trace context, and conditional fields.
 
         Args:
             record: LogRecord instance to format
@@ -146,6 +198,9 @@ class ConditionalFormatter(logging.Formatter):
         # Get transaction ID with fallback support
         transaction_id = self._get_transaction_id()
 
+        # Get trace context for log-trace correlation
+        trace_context = self._get_trace_context()
+
         # Add transaction_id to the record for potential use by other handlers
         record.transaction_id = transaction_id
 
@@ -154,6 +209,8 @@ class ConditionalFormatter(logging.Formatter):
             "logger": record.name,
             "logLevel": record.levelname,
             "transaction_ID": transaction_id,
+            "trace_id": trace_context["trace_id"],
+            "span_id": trace_context["span_id"],
             "message": record.getMessage() if record.getMessage() else record.msg,
             "saveServiceCopy": "false",
             "appname": "docling-pipelines-api",
@@ -266,68 +323,111 @@ def set_dpk_log_level_from_ds_log_level() -> None:
     os.environ[EnvironmentVariables.DPK_LOG_LEVEL] = log_level_name
 
 
+def setup_logging(
+    level: int | str | None = None,
+    file: str | None = None,
+) -> None:
+    """Configure handlers and formatters on the root docpipe logger.
+
+    Must be called only from process-owning entry points (e.g. the CLI or
+    standalone programmatic usage). Embedders that control their own logging
+    infrastructure should not call this.
+
+    Args:
+        level: Log level string or int. Defaults to DS_LOG_LEVEL env var or INFO.
+        file: Optional file path to also write logs to.
+    """
+    root = logging.getLogger(DocpipeConstants.LOGGER_NAME)
+
+    # Resolve level
+    if isinstance(level, int):
+        resolved_level = level
+    else:
+        level_name = level.upper() if isinstance(level, str) else get_log_level()
+        resolved_level = logging.getLevelName(level_name)
+
+    root.setLevel(resolved_level)
+
+    use_json_format: bool = os.environ.get("DS_LOG_JSON", "False") == "True"
+    timefmt = "%H:%M:%S"
+
+    # Console handler — add only once
+    if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) for h in root.handlers):
+        console_handler = logging.StreamHandler(sys.stdout)
+        if use_json_format:
+            console_handler.setFormatter(ConditionalFormatter(datefmt=timefmt))
+        else:
+            console_handler.setFormatter(
+                ColoredFormatter(
+                    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                    datefmt=timefmt,
+                )
+            )
+        root.addHandler(console_handler)
+
+    # Optional file handler — add only once per path
+    if file:
+        existing_paths = {h.baseFilename for h in root.handlers if isinstance(h, logging.FileHandler)}
+        if file not in existing_paths:
+            file_handler = logging.FileHandler(file)
+            if use_json_format:
+                file_handler.setFormatter(ConditionalFormatter(datefmt=timefmt))
+            else:
+                file_handler.setFormatter(
+                    logging.Formatter(
+                        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                        datefmt=timefmt,
+                    )
+                )
+            root.addHandler(file_handler)
+
+    # Stop propagation to root — the entry point owns its output
+    root.propagate = False
+
+
 def get_logger(
     name: str = DocpipeConstants.LOGGER_NAME,
     level: int | str | None = None,
     file: str | None = None,
 ) -> logging.Logger:
-    """
-    Returns a logger configured with stdout and optional file output.
+    """Return a library-safe logger for the given name.
+
+    Attaches a NullHandler if no handlers are present and enables propagation
+    so that host applications can control all output via their own logging
+    configuration. When setup_logging() has already been called (e.g. from
+    the CLI), the existing handler configuration on the root docpipe logger
+    is preserved and the NullHandler is not duplicated.
 
     Args:
-        name: Logger name.
+        name: Logger name. Defaults to DocpipeConstants.LOGGER_NAME ("docpipe").
         level: Log level string or int (e.g., "INFO" or logging.INFO).
-        file: Optional file path for logs.
+               When omitted, defaults to DS_LOG_LEVEL env var or INFO.
+        file: Kept for backward compatibility. Ignored — attach file handlers
+              at the entry-point level via setup_logging().
 
     Returns:
         logging.Logger
     """
     logger = logging.getLogger(name)
 
-    # Set log level
-    if isinstance(level, int):
-        logger.setLevel(level)
-    else:
-        level = level.upper() if isinstance(level, str) else get_log_level()
-        logger.setLevel(logging.getLevelName(level))
-
-    # Use JSON format only if explicitly enabled via environment variable
-    use_json_format: bool = os.environ.get("DS_LOG_JSON", "False") == "True"
-
-    # --- Console & file handlers (only add once) ---
-    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
-        # Console handler
-        console_handler = logging.StreamHandler(sys.stdout)
-        timefmt = "%H:%M:%S"
-
-        if use_json_format:
-            # Use JSON format when explicitly enabled
-            console_format: logging.Formatter = ConditionalFormatter(datefmt=timefmt)
+    # Set level when explicitly requested; otherwise apply default only if unset
+    if level is not None:
+        if isinstance(level, int):
+            logger.setLevel(level)
         else:
-            # Use colored logging format by default for console
-            console_format = ColoredFormatter(
-                fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                datefmt=timefmt,
-            )
+            logger.setLevel(logging.getLevelName(level.upper()))
+    elif not logger.level:
+        logger.setLevel(logging.getLevelName(get_log_level()))
 
-        console_handler.setFormatter(console_format)
-        logger.addHandler(console_handler)
+    # Attach NullHandler once to suppress "No handlers found" warnings when
+    # no entry-point has called setup_logging() yet.
+    if not logger.handlers:
+        logger.addHandler(logging.NullHandler())
 
-        # Optional file handler
-        if file:
-            file_handler = logging.FileHandler(file)
+    # Only enable propagation when setup_logging() has not yet installed real
+    # handlers — avoids double-emission when the entry point owns the output.
+    has_real_handler = any(not isinstance(h, logging.NullHandler) for h in logger.handlers)
+    if not has_real_handler:
+        logger.propagate = True
 
-            if use_json_format:
-                file_log_format: logging.Formatter = ConditionalFormatter(datefmt=timefmt)
-            else:
-                # Use plain format for file (no colors)
-                file_log_format = logging.Formatter(
-                    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                    datefmt=timefmt,
-                )
-
-            file_handler.setFormatter(file_log_format)
-            logger.addHandler(file_handler)
-
-    logger.propagate = False
     return logger

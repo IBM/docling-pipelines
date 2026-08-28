@@ -58,6 +58,17 @@ class S3SourceConfig(BaseModel):
 
     skip_empty_files: bool = Field(True, description="Whether to skip files with zero size")
 
+    # Security configuration
+    verify_expected_bucket_owner: bool = Field(
+        False,
+        description=(
+            "Whether to verify the S3 bucket owner matches the caller's AWS account. "
+            "When True, an error is raised if the bucket owner does not match (AWS S3 only). "
+            "When False (default), owner verification is skipped silently. "
+            "Has no effect for S3-compatible storage (endpoint_url set)."
+        ),
+    )
+
     # Performance configuration
     max_concurrent_downloads: int = Field(100, description="Maximum number of concurrent S3 downloads", ge=1, le=100)
 
@@ -97,8 +108,7 @@ class S3SourceConfig(BaseModel):
         if not v:
             return ""
         # Remove leading slash
-        v = v.lstrip("/")
-        return v
+        return v.lstrip("/")
 
     @field_validator("endpoint_url")
     @classmethod
@@ -127,8 +137,8 @@ class S3SourceConfig(BaseModel):
 
         json_schema_extra: ClassVar[dict] = {
             "example": {
-                "access_key": "${S3_ACCESS_KEY}",
-                "secret_key": "${S3_SECRET_ACCESS_KEY}",
+                "access_key": "A........",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
+                "secret_key": "wJa.......",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
                 "bucket": "my-documents-bucket",
                 "prefix": "documents/reports/",  # Directory prefix with trailing slash, or "documents/report.pdf" for exact file
                 "endpoint_url": None,

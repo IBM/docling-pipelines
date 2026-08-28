@@ -47,9 +47,6 @@ class DocIdHashOperator(AbstractOperator):
             OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.hash_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
@@ -59,7 +56,7 @@ class DocIdHashOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
-
+        """Get metadata."""
         return {
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False,
             OperatorConstants.Misc.CATEGORY: DocIdHashOperator.category.value,
@@ -110,6 +107,10 @@ class DocIdHashOperator(AbstractOperator):
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
 
         if self._doc_id_transform is not None:
+            # Drop existing hash column before calling DocIDTransform to prevent it
+            # from renaming it to "<hash_column>.original"
+            if self.hash_column in table.column_names:
+                table = table.drop_columns([self.hash_column])
             # Use DocIDTransform from dpk_doc_id
             result: tuple[list[pa.Table], dict[str, Any]] = self._doc_id_transform.transform(table)
             table = result[0][0]

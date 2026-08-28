@@ -175,7 +175,7 @@ class LocalFlowRepository(FlowRepository):
             if config_path.exists():
                 import yaml
 
-                with open(config_path) as f:
+                with config_path.open() as f:
                     yaml_config = yaml.safe_load(f)
                     if yaml_config:
                         assets_config = yaml_config.get("assets_management", {}) or {}
@@ -289,12 +289,11 @@ class LocalFlowRepository(FlowRepository):
         if isinstance(error, PermissionError):
             logger.error(f"Permission denied during {operation} for flow '{flow_id}': {error}")
             raise PermissionError(f"Insufficient permissions for {operation}: {error}")
-        elif isinstance(error, OSError):
+        if isinstance(error, OSError):
             logger.error(f"File system error during {operation} for flow '{flow_id}': {error}")
             raise
-        else:
-            logger.error(f"Unexpected error during {operation} for flow '{flow_id}': {error}")
-            raise
+        logger.error(f"Unexpected error during {operation} for flow '{flow_id}': {error}")
+        raise
 
     def _get_file_path(self, flow: Flow) -> Path:
         """Get the file path for a flow using the format {flow_name}_{flow_id}.json.
@@ -370,7 +369,7 @@ class LocalFlowRepository(FlowRepository):
                 temp_path = flow_file_path.with_suffix(".tmp")
 
                 # Write to temporary file first
-                with open(temp_path, "w", encoding="utf-8") as f:
+                with temp_path.open("w", encoding="utf-8") as f:
                     json.dump(flow.to_dict(), f, indent=2, default=str)
 
                 # Atomic rename - OS guarantees this operation is atomic
@@ -435,7 +434,7 @@ class LocalFlowRepository(FlowRepository):
                 temp_path = new_path.with_suffix(".tmp")
 
                 # Write to temp file
-                with open(temp_path, "w", encoding="utf-8") as f:
+                with temp_path.open("w", encoding="utf-8") as f:
                     json.dump(flow.to_dict(), f, indent=2, default=str)
 
                 # Atomic rename
@@ -498,14 +497,14 @@ class LocalFlowRepository(FlowRepository):
             json.JSONDecodeError: If JSON is invalid
         """
         try:
-            with open(flow_file_path, encoding="utf-8") as f:
+            with flow_file_path.open(encoding="utf-8") as f:
                 flow_dict = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Corrupted flow file {flow_file_path.name}: invalid JSON - {e}") from e
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Flow file not found: {flow_file_path}") from e
 
-        flow = Flow.from_dict(flow_dict)
+        flow = Flow.from_dict(data=flow_dict)
 
         # Validate flow_id matches filename
         if flow.flow_id != expected_flow_id:
@@ -591,7 +590,7 @@ class LocalFlowRepository(FlowRepository):
             json.JSONDecodeError: If JSON is invalid
             OSError: If file cannot be read
         """
-        with open(flow_file, encoding="utf-8") as f:
+        with flow_file.open(encoding="utf-8") as f:
             return json.load(f)
 
     def find_all(self, filters: dict[str, Any] | None = None) -> list[Flow]:
@@ -642,7 +641,7 @@ class LocalFlowRepository(FlowRepository):
                     # Use per-file shared lock for reading
                     with self._file_lock(flow_id, exclusive=False, timeout=self.TIMEOUT_LIST):
                         flow_data = self._read_flow_file(flow_file)
-                        flow = Flow.from_dict(flow_data)
+                        flow = Flow.from_dict(data=flow_data)
                         flows.append(flow)
 
                 except KeyError as e:

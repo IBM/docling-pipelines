@@ -898,6 +898,7 @@ def test_get_operator_metadata_handles_non_static_get_metadata(mock_session_info
 
     # get_required_features is static
     op_class.get_required_features.return_value = ["input_feature"]
+    op_instance.get_required_features.return_value = ["input_feature"]
 
     factory.operators = {"legacy_op": op_class}
     factory.get_operator.return_value = op_instance

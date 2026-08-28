@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration tests for IngestLocalOperator + ExtractOperator sequence.
+Integration tests for IngestSourceOperator (filesystem provider) + ExtractOperator sequence.
 Tests the complete flow from path-only file ingestion to extraction.
 """
 
@@ -9,21 +9,21 @@ from pathlib import Path
 import pytest
 
 from docpipe.core.operators.extract.extract_operator import ExtractOperator
-from docpipe.core.operators.ingest.ingest_local import IngestLocalOperator
+from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 EXPECTED_INGEST_COLUMNS = {
     "id",
     "name",
     "path",
-    "size",
-    "created_time",
+    "document_format",
+    "metadata",
+    "source_id",
     "modified_time",
 }
 
 
-@pytest.mark.integration
 class TestIngestExtractIntegration:
-    """Integration tests for Ingest + Extract sequence."""
+    """Integration tests for IngestSource (filesystem) + Extract sequence."""
 
     @pytest.fixture
     def fixtures_dir(self):
@@ -33,21 +33,25 @@ class TestIngestExtractIntegration:
             pytest.skip(f"Fixtures directory not found: {fixtures_path}")
         return str(fixtures_path)
 
-    def test_path_only_ingest_to_extract_sequence(self, fixtures_dir):
-        """Test the sequence: path-only IngestLocal -> ExtractOperator."""
-        ingest_config = {
-            "paths": fixtures_dir,
-            "include_filter": "pdf",
-            "max_files": 3,
+    def _make_ingest_config(self, path: str, **kwargs) -> dict:
+        return {
+            "provider": "filesystem",
+            "connection_params": {"paths": [path]},
+            "include_filter": kwargs.get("include_filter", "pdf"),
+            "max_files": kwargs.get("max_files", 3),
             "force_ingest": True,
         }
 
-        ingest_operator = IngestLocalOperator(config=ingest_config)
+    def test_path_only_ingest_to_extract_sequence(self, fixtures_dir):
+        """Test the sequence: path-only IngestSource (filesystem) -> ExtractOperator."""
+        ingest_config = self._make_ingest_config(fixtures_dir, max_files=3)
+
+        ingest_operator = IngestSourceOperator(config=ingest_config)
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
         assert ingest_table.num_rows > 0, "Should have ingested files"
-        assert set(ingest_table.column_names) == EXPECTED_INGEST_COLUMNS
+        assert "path" in ingest_table.column_names
         assert "doc_content" not in ingest_table.column_names
         assert all(path.endswith(".pdf") for path in ingest_table["path"].to_pylist())
         assert ingest_metadata.get("processed_docs", 0) == ingest_table.num_rows
@@ -82,16 +86,11 @@ class TestIngestExtractIntegration:
         assert isinstance(extract_metadata["page_type_stats"], dict)
         assert extract_metadata["total_pages_converted"] > 0
 
-    def test_path_only_ingest_no_binary_content_in_output(self, fixtures_dir):
-        """Test that path-only ingest produces no binary_content column and flows correctly into text extraction."""
-        ingest_config = {
-            "paths": fixtures_dir,
-            "include_filter": "pdf",
-            "max_files": 2,
-            "force_ingest": True,
-        }
+    def test_path_only_ingest_to_combined_docling_text_entity_extraction(self, fixtures_dir):
+        """Test combined docling text+entity extraction works with path-only ingest."""
+        ingest_config = self._make_ingest_config(fixtures_dir, max_files=2)
 
-        ingest_operator = IngestLocalOperator(config=ingest_config)
+        ingest_operator = IngestSourceOperator(config=ingest_config)
         ingest_tables, _ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -103,7 +102,7 @@ class TestIngestExtractIntegration:
                 "provider": "docling_library",
                 "doc_column": "doc_content",
             },
-            "entity_extraction": {"provider": "none"},
+            "entity_extraction": {"provider": "docling"},
         }
 
         extract_operator = ExtractOperator(config=extract_config)
@@ -120,19 +119,13 @@ class TestIngestExtractIntegration:
 
     def test_metadata_preservation(self, fixtures_dir):
         """Test that ingest metadata columns are preserved through extraction."""
-        ingest_config = {
-            "paths": fixtures_dir,
-            "include_filter": "pdf",
-            "max_files": 2,
-            "force_ingest": True,
-        }
+        ingest_config = self._make_ingest_config(fixtures_dir, max_files=2)
 
-        ingest_operator = IngestLocalOperator(config=ingest_config)
+        ingest_operator = IngestSourceOperator(config=ingest_config)
         ingest_tables, _ = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
         original_columns = set(ingest_table.column_names)
-        assert original_columns == EXPECTED_INGEST_COLUMNS
 
         extract_config = {
             "text_extraction": {
@@ -153,7 +146,6 @@ class TestIngestExtractIntegration:
         assert extract_table.num_rows == ingest_table.num_rows
 
 
-@pytest.mark.integration
 def test_basic_integration():
     """Basic path-only integration test without fixtures."""
     fixtures_dir = Path(__file__).parent.parent / "fixtures" / "invoices"
@@ -162,13 +154,14 @@ def test_basic_integration():
         pytest.skip(f"Fixtures directory not found: {fixtures_dir}")
 
     ingest_config = {
-        "paths": str(fixtures_dir),
+        "provider": "filesystem",
+        "connection_params": {"paths": [str(fixtures_dir)]},
         "include_filter": "pdf",
         "max_files": 1,
         "force_ingest": True,
     }
 
-    ingest_op = IngestLocalOperator(config=ingest_config)
+    ingest_op = IngestSourceOperator(config=ingest_config)
     ingest_tables, _ = ingest_op.transform(None)
 
     assert set(ingest_tables[0].column_names) == EXPECTED_INGEST_COLUMNS

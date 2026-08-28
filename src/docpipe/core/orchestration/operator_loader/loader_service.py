@@ -84,7 +84,7 @@ class CustomOperatorLoader:
             paths = ["/local/path", "s3://bucket/path"]
             loader = CustomOperatorLoader.from_paths(paths)
         """
-        import os
+        from pathlib import Path
 
         sources = []
         for path in paths:
@@ -92,7 +92,7 @@ class CustomOperatorLoader:
                 # S3 URI
                 source = OperatorSourceFactory.create("s3", uri=path)
                 sources.append(source)
-            elif os.path.isabs(path) or os.path.exists(path) or "/" in path or "\\" in path:
+            elif Path(path).is_absolute() or Path(path).exists() or "/" in path or "\\" in path:
                 # Local filesystem path (absolute, exists, or contains path separators)
                 source = OperatorSourceFactory.create("filesystem", path=path)
                 sources.append(source)

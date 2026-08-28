@@ -46,7 +46,6 @@ class LangdetectAdapter(LanguageServicePort):
             **adapter_config: Additional configuration (currently unused for langdetect)
         """
         # langdetect doesn't require initialization
-        pass
 
     def detect_language(self, text: str) -> LanguageDetectionResult:
         """Detect language using langdetect library.

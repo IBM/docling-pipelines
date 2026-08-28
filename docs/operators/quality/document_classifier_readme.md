@@ -463,9 +463,10 @@ The operator provides detailed processing statistics in metadata:
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]}
       }
     },
     {
@@ -630,7 +631,7 @@ curl http://localhost:11434/api/tags
 ```python
 class ClassificationService:
     """Simplified classification service using LLM adapters directly."""
-    
+
     def __init__(
         self,
         *,
@@ -642,26 +643,26 @@ class ClassificationService:
     ) -> None:
         """Initialize classification service."""
         pass
-    
+
     def classify_document(self, *, request: ClassificationRequest) -> ClassificationResponse:
         """Classify a document using the LLM adapter.
-        
+
         Args:
             request: Classification request with content and document types
-            
+
         Returns:
             Classification response with type, confidence, and reasoning
         """
         pass
-    
+
     def get_model_info(self) -> dict[str, Any]:
         """Get model information.
-        
+
         Returns:
             Dictionary with model_id, provider, temperature, and max_tokens
         """
         pass
-    
+
     @staticmethod
     def validate_config(
         *,
@@ -672,14 +673,14 @@ class ClassificationService:
         confidence_threshold: float | None = None,
     ) -> tuple[list[str], list[str]]:
         """Validate classification configuration parameters.
-        
+
         Validates:
         - Provider is 'litellm' or 'watsonx' (rejects 'ollama')
         - provider_config is present for both litellm and watsonx providers
         - model_id is not empty
         - document_types is valid list or dict
         - confidence_threshold is between 1.0 and 10.0
-        
+
         Returns:
             Tuple of (errors, warnings) lists
         """
@@ -719,7 +720,7 @@ class ModelInfo:
 - [Extract Operator](../extract/extract_operator_readme.md) - Document content extraction
 - [Embeddings Operator](../functional/embeddings_readme.md) - Vector embeddings generation
 - [Architecture Guide](../../../ARCHITECTURE.md) - System architecture overview
-- [Operator Reference](../../../docs/reference/OPERATORS.md) - Complete operator API reference
+- [Operator Reference](../../reference/OPERATORS.md) - Complete operator API reference
 
 ---
 

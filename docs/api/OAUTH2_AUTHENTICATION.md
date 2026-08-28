@@ -138,7 +138,7 @@ Handles OAuth2 callback and exchanges code for token.
 **Response:**
 ```json
 {
-  "access_token": "eyJ...",
+  "access_token": "ey...",
   "token_type": "bearer"
 }
 ```

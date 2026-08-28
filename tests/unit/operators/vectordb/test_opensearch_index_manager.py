@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-"""
-Unit tests for OpenSearchIndexManager
-"""
+"""Unit tests for OpenSearchIndexManager."""
 
 from unittest.mock import MagicMock
 
@@ -9,6 +6,7 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
     OpenSearchIndexManager,
 )
@@ -49,11 +47,11 @@ def basic_features():
 @pytest.fixture
 def feature_mappings():
     """Feature mappings"""
-    return {
-        "doc_id": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings",
-    }
+    return [
+        {"feature_name": "doc_id", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+    ]
 
 
 class TestIndexManagerInitialization:
@@ -469,7 +467,7 @@ class TestIndexMapping:
             available_features=features,
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
@@ -494,7 +492,7 @@ class TestIndexMapping:
             available_features=features,
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
@@ -540,7 +538,7 @@ class TestIndexCreation:
             index_settings=custom_settings,
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         manager.create_index(dimension_mapping=dimension_mapping)
 
         call_args = mock_client.indices.create.call_args
@@ -557,7 +555,7 @@ class TestIndexCreation:
             index_name="test_index",
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         manager.create_index(dimension_mapping=dimension_mapping)
 
         call_args = mock_client.indices.create.call_args
@@ -574,7 +572,7 @@ class TestIndexCreation:
             index_name="test_index",
         )
 
-        dimension_mapping = {}
+        dimension_mapping: dict[str, int] = {}
         manager.create_index(dimension_mapping=dimension_mapping)
 
         mock_client.indices.create.assert_not_called()
@@ -592,7 +590,13 @@ class TestIndexValidation:
                     "_meta": {
                         "engine": "faiss",
                         "algorithm": "hnsw",
-                    }
+                    },
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 384,
+                        }
+                    },
                 }
             }
         }
@@ -604,8 +608,7 @@ class TestIndexValidation:
             algorithm="hnsw",
         )
 
-        # Should not raise any warnings
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
     def test_validate_existing_index_engine_mismatch(self, mock_client):
         """Test validation with engine mismatch"""
@@ -615,7 +618,13 @@ class TestIndexValidation:
                     "_meta": {
                         "engine": "lucene",
                         "algorithm": "hnsw",
-                    }
+                    },
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 384,
+                        }
+                    },
                 }
             }
         }
@@ -627,20 +636,58 @@ class TestIndexValidation:
             algorithm="hnsw",
         )
 
-        # Should log warning but not raise
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
+
+    def test_validate_existing_index_dimension_mismatch(self, mock_client):
+        """Test validation fails on dimension mismatch."""
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "_meta": {
+                        "engine": "faiss",
+                        "algorithm": "hnsw",
+                    },
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 768,
+                        }
+                    },
+                }
+            }
+        }
+
+        manager = OpenSearchIndexManager(
+            client=mock_client,
+            index_name="test_index",
+            engine="faiss",
+            algorithm="hnsw",
+        )
+
+        with pytest.raises(DocpipeException, match="existing dimension 768 but current run produced 384"):
+            manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
     def test_validate_existing_index_no_metadata(self, mock_client):
         """Test validation when index has no metadata"""
-        mock_client.indices.get_mapping.return_value = {"test_index": {"mappings": {}}}
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "properties": {
+                        "embeddings": {
+                            "type": "knn_vector",
+                            "dimension": 384,
+                        }
+                    }
+                }
+            }
+        }
 
         manager = OpenSearchIndexManager(
             client=mock_client,
             index_name="test_index",
         )
 
-        # Should handle gracefully
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
     def test_validate_existing_index_error(self, mock_client):
         """Test validation handles errors gracefully"""
@@ -651,8 +698,7 @@ class TestIndexValidation:
             index_name="test_index",
         )
 
-        # Should not raise exception
-        manager.validate_existing_index()
+        manager.validate_existing_index(dimension_mapping={"embeddings": 384})
 
 
 class TestIndexOperations:
@@ -755,6 +801,194 @@ class TestIndexOperations:
 
         # Should not raise exception
         manager.refresh_index()
+
+
+class TestUpdateFeatureMappingsInIndex:
+    """update_feature_mappings_in_index() writes _meta.feature_mappings via put_mapping."""
+
+    def _manager(self, *, mock_client: MagicMock, feature_mappings: list | None = None) -> OpenSearchIndexManager:
+        return OpenSearchIndexManager(
+            mock_client,
+            index_name="test_index",
+            feature_mappings=feature_mappings,
+        )
+
+    def test_calls_put_mapping_with_correct_body(self, mock_client):
+        mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        ]
+        manager = self._manager(mock_client=mock_client, feature_mappings=mappings)
+        manager.update_feature_mappings_in_index()
+
+        mock_client.indices.put_mapping.assert_called_once_with(
+            index="test_index",
+            body={OperatorConstants.VectorDB.SCHEMA_KEY_META: {"feature_mappings": mappings}},
+        )
+
+    def test_skips_put_mapping_when_feature_mappings_empty(self, mock_client):
+        manager = self._manager(mock_client=mock_client, feature_mappings=[])
+        manager.update_feature_mappings_in_index()
+        mock_client.indices.put_mapping.assert_not_called()
+
+    def test_skips_put_mapping_when_feature_mappings_is_none(self, mock_client):
+        manager = self._manager(mock_client=mock_client, feature_mappings=None)
+        manager.update_feature_mappings_in_index()
+        mock_client.indices.put_mapping.assert_not_called()
+
+    def test_does_not_raise_on_put_mapping_exception(self, mock_client):
+        """put_mapping failure must be swallowed (logged as warning) — never raise."""
+        mock_client.indices.put_mapping.side_effect = Exception("connection refused")
+        manager = self._manager(
+            mock_client=mock_client, feature_mappings=[{"feature_name": "feat", "mapped_column_name": "col"}]
+        )
+        manager.update_feature_mappings_in_index()  # must not raise
+
+    def test_create_index_calls_update_on_new_index(self, mock_client):
+        """create_index() calls update_feature_mappings_in_index() after creating a new index."""
+        mock_client.indices.exists.return_value = False
+        mock_client.indices.create.return_value = {}
+
+        manager = self._manager(
+            mock_client=mock_client,
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "pk"}],
+        )
+        manager.update_feature_mappings_in_index = MagicMock()
+        manager.create_index(dimension_mapping={})
+
+        manager.update_feature_mappings_in_index.assert_called()
+
+    def test_create_index_calls_update_on_existing_index(self, mock_client):
+        """create_index() calls update_feature_mappings_in_index() for an already-existing index."""
+        mock_client.indices.exists.return_value = True
+        mock_client.indices.get_mapping.return_value = {
+            "test_index": {
+                "mappings": {
+                    "_meta": {"engine": "faiss", "algorithm": "hnsw"},
+                    "properties": {"vector_embeddings": {"type": "knn_vector", "dimension": 384}},
+                }
+            }
+        }
+
+        manager = self._manager(
+            mock_client=mock_client,
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "pk"}],
+        )
+        manager.update_feature_mappings_in_index = MagicMock()
+        manager.create_index(dimension_mapping={"vector_embeddings": 384})
+
+        manager.update_feature_mappings_in_index.assert_called()
+
+
+class TestOpenSearchConfig:
+    """Tests for OpenSearchConfig — Literal constraints, defaults, JSON schema."""
+
+    def setup_method(self):
+        from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import OpenSearchConfig
+
+        self.Config = OpenSearchConfig
+
+    # --- defaults ---
+
+    def test_defaults(self):
+        cfg = self.Config(index_name="my-index")
+        assert cfg.host == "localhost"
+        assert cfg.port == 9200
+        assert cfg.engine == "faiss"
+        assert cfg.algorithm == "hnsw"
+        assert cfg.space_type == "l2"
+        assert cfg.batch_size == 100
+        assert cfg.use_ssl is True
+        assert cfg.verify_certs is True
+        assert cfg.aws_auth is False
+        assert cfg.engine_parameters is None
+        assert cfg.index_settings is None
+        assert cfg.schema_template_path is None
+
+    # --- index_name required ---
+
+    def test_missing_index_name_raises(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            self.Config()
+
+    # --- Literal: engine ---
+
+    @pytest.mark.parametrize("value", ["faiss", "lucene", "nmslib", "jvector"])
+    def test_engine_valid(self, value):
+        cfg = self.Config(index_name="idx", engine=value)
+        assert cfg.engine == value
+
+    def test_engine_invalid_raises(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            self.Config(index_name="idx", engine="annoy")
+
+    # --- Literal: algorithm ---
+
+    @pytest.mark.parametrize("value", ["hnsw", "ivf"])
+    def test_algorithm_valid(self, value):
+        cfg = self.Config(index_name="idx", algorithm=value)
+        assert cfg.algorithm == value
+
+    def test_algorithm_invalid_raises(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            self.Config(index_name="idx", algorithm="flat")
+
+    # --- Literal: space_type ---
+
+    @pytest.mark.parametrize("value", ["l2", "cosine", "inner_product"])
+    def test_space_type_valid(self, value):
+        cfg = self.Config(index_name="idx", space_type=value)
+        assert cfg.space_type == value
+
+    def test_space_type_innerproduct_typo_rejected(self):
+        """Regression: old description said 'innerproduct' — correct value is 'inner_product'."""
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            self.Config(index_name="idx", space_type="innerproduct")
+
+    def test_space_type_invalid_raises(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            self.Config(index_name="idx", space_type="dot_product")
+
+    # --- extra fields ignored ---
+
+    def test_extra_fields_ignored(self):
+        cfg = self.Config(index_name="idx", unknown_field="value")
+        assert not hasattr(cfg, "unknown_field")
+
+    # --- valid_values surfaces in JSON schema ---
+
+    def test_engine_enum_in_json_schema(self):
+        schema = self.Config.model_json_schema()
+        assert "enum" in schema["properties"]["engine"]
+
+    def test_algorithm_enum_in_json_schema(self):
+        schema = self.Config.model_json_schema()
+        assert "enum" in schema["properties"]["algorithm"]
+
+    def test_space_type_enum_in_json_schema(self):
+        schema = self.Config.model_json_schema()
+        assert "enum" in schema["properties"]["space_type"]
+
+    def test_enum_values_match_index_manager_constants(self):
+        """Config Literal values must match the runtime allowlists in index_manager.py."""
+        from docpipe.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
+            OpenSearchEngineTypes,
+            VectorSimilarityTypes,
+        )
+
+        schema = self.Config.model_json_schema()
+        assert set(schema["properties"]["engine"]["enum"]) == set(OpenSearchEngineTypes.ALL_ENGINES)
+        assert set(schema["properties"]["space_type"]["enum"]) == set(VectorSimilarityTypes.ALL_TYPES)
 
 
 if __name__ == "__main__":

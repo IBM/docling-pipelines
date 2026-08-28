@@ -6,9 +6,9 @@ notebooks, or embedded applications.
 """
 
 import json
-import os
 import tempfile
 import uuid
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -83,7 +83,7 @@ def temp_flow_file(simple_flow):
         json.dump(simple_flow, f)
         temp_path = f.name
     yield temp_path
-    os.unlink(temp_path)
+    Path(temp_path).unlink()
 
 
 @pytest.fixture
@@ -93,7 +93,7 @@ def temp_elyra_format_file(elyra_format_flow):
         json.dump(elyra_format_flow, f)
         temp_path = f.name
     yield temp_path
-    os.unlink(temp_path)
+    Path(temp_path).unlink()
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ def temp_invalid_json_file():
         f.write("{invalid json content")
         temp_path = f.name
     yield temp_path
-    os.unlink(temp_path)
+    Path(temp_path).unlink()
 
 
 @pytest.fixture
@@ -496,6 +496,57 @@ class TestExecuteMethod:
 
         assert result == mock_result
         mock_flow_executor.execute.assert_called_once()
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowExecutor")
+    def test_execution_defaults_micro_batching_when_missing(
+        self,
+        mock_executor_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """Test execute defaults micro-batching when flow global_config omits it."""
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+        mock_session = Mock(job_id="test-flow-123", job_run_id="run-123")
+        mock_create_session.return_value = mock_session
+
+        mock_flow_executor = Mock()
+        mock_executor_class.return_value = mock_flow_executor
+
+        executor = DocpipeFlowManager(flow_def=simple_flow)
+        executor.execute()
+
+        execute_kwargs = mock_flow_executor.execute.call_args.kwargs
+        assert execute_kwargs["params"][DocpipeConstants.ENABLE_MICRO_BATCHING] is True
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowExecutor")
+    def test_execution_respects_explicit_micro_batching_value(
+        self,
+        mock_executor_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """Test execute does not override explicit micro-batching config."""
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+        mock_session = Mock(job_id="test-flow-123", job_run_id="run-123")
+        mock_create_session.return_value = mock_session
+
+        mock_flow_executor = Mock()
+        mock_executor_class.return_value = mock_flow_executor
+
+        flow_def = simple_flow | {"global_config": {DocpipeConstants.ENABLE_MICRO_BATCHING: False}}
+        executor = DocpipeFlowManager(flow_def=flow_def)
+        executor.execute()
+
+        execute_kwargs = mock_flow_executor.execute.call_args.kwargs
+        assert DocpipeConstants.ENABLE_MICRO_BATCHING not in execute_kwargs["params"]
 
     @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
     @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
@@ -919,242 +970,6 @@ class TestIntegration:
 
         assert manager1.job_id != manager2.job_id
         assert manager1.job_run_id != manager2.job_run_id
-
-
-# ---------------------------------------------------------------------------
-# 9. Custom Operator Registration Tests (lines 190-197)
-# ---------------------------------------------------------------------------
-
-
-class TestRegisterCustomOperators:
-    """Test register_custom_operators method."""
-
-    def test_register_valid_package_names(self, simple_flow):
-        """Test registering valid package names."""
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        manager.register_custom_operators(package_names=["my.package", "other.package"])
-
-        assert "my.package" in manager.custom_operator_packages
-        assert "other.package" in manager.custom_operator_packages
-
-    def test_register_non_list_raises(self, simple_flow):
-        """Test that passing a non-list raises DocpipeException."""
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        with pytest.raises(DocpipeException, match="package_names must be a list"):
-            manager.register_custom_operators(package_names="my.package")  # type: ignore[arg-type]
-
-    def test_register_non_string_items_raises(self, simple_flow):
-        """Test that non-string items in list raise DocpipeException."""
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        with pytest.raises(DocpipeException, match="All package names must be strings"):
-            manager.register_custom_operators(package_names=["valid", 123])  # type: ignore[list-item]
-
-    def test_register_extends_existing(self, simple_flow):
-        """Test that registering appends to existing packages."""
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        manager.register_custom_operators(package_names=["pkg1"])
-        manager.register_custom_operators(package_names=["pkg2"])
-
-        assert "pkg1" in manager.custom_operator_packages
-        assert "pkg2" in manager.custom_operator_packages
-
-    def test_register_empty_list(self, simple_flow):
-        """Test registering empty list is valid."""
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        manager.register_custom_operators(package_names=[])
-        assert manager.custom_operator_packages == []
-
-
-# ---------------------------------------------------------------------------
-# 10. Validate Method Tests (lines 281-326)
-# ---------------------------------------------------------------------------
-
-
-class TestValidateMethod:
-    """Test validate() method."""
-
-    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
-    def test_validate_success_returns_valid(self, mock_validator_class, mock_factory, simple_flow):
-        """Test successful validation returns valid=True."""
-        mock_orchestrator = Mock()
-        mock_factory.return_value = mock_orchestrator
-        mock_validator = Mock()
-        mock_validator.validate.return_value = None  # No exception = success
-        mock_validator_class.return_value = mock_validator
-
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        result = manager.validate()
-
-        assert result["valid"] is True
-        assert result["errors"] == []
-        assert result["warnings"] == []
-
-    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
-    def test_validate_with_errors_returns_invalid(self, mock_validator_class, mock_factory, simple_flow):
-        """Test validation with errors returns valid=False."""
-        from docpipe.exceptions.docpipe_exceptions import FlowValidationException, ValidationAlert
-
-        mock_orchestrator = Mock()
-        mock_factory.return_value = mock_orchestrator
-
-        alert = ValidationAlert(message="missing field")
-        exc = FlowValidationException(message="invalid", errors=[alert], warnings=None)
-        mock_validator = Mock()
-        mock_validator.validate.side_effect = exc
-        mock_validator_class.return_value = mock_validator
-
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        result = manager.validate()
-
-        assert result["valid"] is False
-        assert len(result["errors"]) == 1
-        assert result["warnings"] == []
-
-    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
-    def test_validate_with_warnings_only_is_valid(self, mock_validator_class, mock_factory, simple_flow):
-        """Test validation with warnings only returns valid=True."""
-        from docpipe.exceptions.docpipe_exceptions import FlowValidationException, ValidationAlert
-
-        mock_orchestrator = Mock()
-        mock_factory.return_value = mock_orchestrator
-
-        warn = ValidationAlert(message="a warning")
-        exc = FlowValidationException(message="warned", errors=None, warnings=[warn])
-        mock_validator = Mock()
-        mock_validator.validate.side_effect = exc
-        mock_validator_class.return_value = mock_validator
-
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        result = manager.validate()
-
-        assert result["valid"] is True
-        assert result["errors"] == []
-        assert len(result["warnings"]) == 1
-
-    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
-    def test_validate_generic_exception_returns_invalid(self, mock_validator_class, mock_factory, simple_flow):
-        """Test validation with unexpected exception returns valid=False."""
-        mock_orchestrator = Mock()
-        mock_factory.return_value = mock_orchestrator
-
-        mock_validator = Mock()
-        mock_validator.validate.side_effect = RuntimeError("unexpected error")
-        mock_validator_class.return_value = mock_validator
-
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        result = manager.validate()
-
-        assert result["valid"] is False
-        assert "unexpected error" in result["errors"][0]
-
-    def test_validate_none_flow_def_raises(self):
-        """Test validate raises when flow_def is None."""
-        manager = DocpipeFlowManager.__new__(DocpipeFlowManager)
-        manager.flow_def = None
-        from docpipe.utils.infrastructure.logging import get_logger
-
-        manager.logger = get_logger()
-        manager.enable_custom_operators = True
-        manager.custom_operator_packages = []
-
-        with pytest.raises(DocpipeException, match="Flow definition must be initialized"):
-            manager.validate()
-
-    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
-    def test_validate_with_custom_packages(self, mock_validator_class, mock_factory, simple_flow):
-        """Test validate passes custom packages to orchestrator."""
-        mock_orchestrator = Mock()
-        mock_factory.return_value = mock_orchestrator
-        mock_validator = Mock()
-        mock_validator_class.return_value = mock_validator
-
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        manager.register_custom_operators(package_names=["my.pkg"])
-        manager.validate()
-
-        call_kwargs = mock_factory.call_args[1]
-        assert call_kwargs["custom_operator_packages"] == ["my.pkg"]
-
-
-# ---------------------------------------------------------------------------
-# 11. _compile_flow_dict KeyError path (line 222-226)
-# ---------------------------------------------------------------------------
-
-
-class TestCompileFlowDictErrors:
-    """Test _compile_flow_dict error paths."""
-
-    def test_key_error_in_authoring_flow_raises_docpipe_exception(self):
-        """Test KeyError during compilation is wrapped in DocpipeException."""
-        from unittest.mock import patch
-
-        from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
-
-        simple_flow = {
-            "flow_name": "Test",
-            "flow": [{"type": "noop", "name": "n1"}],
-            "global_config": {},
-        }
-
-        with patch("docpipe.lib.docpipe_flow_manager.AuthoringFlow.from_dict", side_effect=KeyError("missing_key")):
-            with pytest.raises(DocpipeException, match="Missing required field"):
-                DocpipeFlowManager(flow_def=simple_flow)
-
-
-# ---------------------------------------------------------------------------
-# 12. get_execution_logs error path (line 431-432)
-# ---------------------------------------------------------------------------
-
-
-class TestGetExecutionLogsErrorPath:
-    """Test get_execution_logs error path."""
-
-    def test_logs_error_in_get_formatted_stats_returns_empty(self, simple_flow):
-        """Test that exception in get_formatted_job_stats returns empty list."""
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        mock_orchestrator = Mock()
-        mock_job_stats_service = Mock()
-        mock_job_stats_service.get_formatted_job_stats.side_effect = RuntimeError("stats error")
-        mock_orchestrator.job_stats_service = mock_job_stats_service
-        manager.orchestrator = mock_orchestrator
-        manager.job_run_id = "run-1"
-
-        logs = manager.get_execution_logs()
-        assert logs == []
-
-
-class TestGetExecutionLogsNoJobStatsService:
-    """Line 412: get_execution_logs() returns [] when job_stats_service is falsy."""
-
-    def test_returns_empty_list_when_no_job_stats_service(self, simple_flow):
-        """Orchestrator exists but has no job_stats_service attribute set."""
-        manager = DocpipeFlowManager(flow_def=simple_flow)
-        mock_orchestrator = Mock(spec=[])  # spec=[] means NO attributes
-        manager.orchestrator = mock_orchestrator
-        manager.job_run_id = "run-1"
-
-        logs = manager.get_execution_logs()
-        assert logs == []
-
-
-class TestAuthoringFlowInvalidDataException:
-    """Lines 222-223: _load_authoring_flow_from_dict logs error and re-raises FlowInvalidDataException."""
-
-    def test_flow_invalid_data_exception_is_reraised(self, simple_flow):
-        """FlowInvalidDataException from AuthoringFlow.from_dict is logged and re-raised."""
-        from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
-
-        with patch(
-            "docpipe.lib.docpipe_flow_manager.AuthoringFlow.from_dict",
-            side_effect=FlowInvalidDataException("invalid schema"),
-        ):
-            with pytest.raises(FlowInvalidDataException):
-                DocpipeFlowManager(flow_def=simple_flow)
 
 
 if __name__ == "__main__":

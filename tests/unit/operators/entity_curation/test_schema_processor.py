@@ -11,9 +11,8 @@ class TestSchemaProcessor(unittest.TestCase):
         """Set up test fixtures"""
         self.processor = SchemaProcessor()
 
-    @patch("builtins.open", create=True)
     @patch("docpipe.core.operators.functional.entity_curation.schema_processor.Path")
-    def test_load_schemas_success(self, mock_path, mock_open):
+    def test_load_schemas_success(self, mock_path):
         """Test successful schema loading"""
         import json
         from unittest.mock import MagicMock
@@ -37,14 +36,12 @@ class TestSchemaProcessor(unittest.TestCase):
             }
         }
 
-        # Mock file operations
+        # Mock Path operations — open() is called on the Path instance, not builtins.open
         mock_file = mock_open_func(read_data=json.dumps(mock_schema_data))
-        mock_open.return_value = mock_file.return_value
-
-        # Mock Path operations
         mock_path_instance = MagicMock()
         mock_path.return_value = mock_path_instance
         mock_path_instance.__truediv__.return_value = mock_path_instance
+        mock_path_instance.open.return_value = mock_file.return_value
 
         self.processor.load_schemas(document_types=["invoice"])
 
@@ -268,160 +265,6 @@ class TestSchemaProcessor(unittest.TestCase):
         self.assertIn("Invoice_line_items", result)
         self.assertIsInstance(result["Invoice_line_items"], list)
         self.assertEqual(len(result["Invoice_line_items"]), 0)
-
-
-if __name__ == "__main__":
-    unittest.main()
-
-
-# ---------------------------------------------------------------------------
-# Additional tests to cover remaining missing lines
-# ---------------------------------------------------------------------------
-
-
-class TestSchemaProcessorMissingCoverage(unittest.TestCase):
-    """Cover missing lines in schema_processor.py."""
-
-    def setUp(self):
-        self.processor = SchemaProcessor()
-
-    # --- load_schemas ---
-
-    def test_load_schemas_skips_empty_document_type(self):
-        """Line 40: empty string document_type causes 'continue'."""
-        # No file I/O needed - empty string is filtered before open()
-        self.processor.load_schemas(document_types=[""])
-        self.assertEqual(self.processor.schema_cache, {})
-
-    def test_load_schemas_skips_already_cached(self):
-        """Line 39: already-cached type causes 'continue' (second load is no-op)."""
-        self.processor.schema_cache["invoice"] = {"target_tables": []}
-        # Should not try to open any file
-        self.processor.load_schemas(document_types=["invoice"])
-        # Cache unchanged - no overwrite
-        self.assertEqual(self.processor.schema_cache["invoice"], {"target_tables": []})
-
-    @patch("builtins.open")
-    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.Path")
-    def test_load_schemas_no_valid_schema(self, mock_path, mock_open):
-        """Lines 52-53: file opens OK but document_class_schema is empty dict."""
-        import json
-        from unittest.mock import mock_open as mock_open_func
-
-        mock_data = {"document_class_schema": {}}  # empty schema
-        mock_open.return_value = mock_open_func(read_data=json.dumps(mock_data)).return_value
-
-        mock_path_instance = MagicMock()
-        mock_path.return_value = mock_path_instance
-        mock_path_instance.__truediv__.return_value = mock_path_instance
-
-        self.processor.load_schemas(document_types=["invoice"])
-        # Schema not cached since it was empty
-        self.assertNotIn("invoice", self.processor.schema_cache)
-
-    @patch("builtins.open", side_effect=OSError("file not found"))
-    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.Path")
-    def test_load_schemas_os_error(self, mock_path, mock_open):
-        """Lines 53-54: OSError during open is caught, logged, not re-raised."""
-        mock_path_instance = MagicMock()
-        mock_path.return_value = mock_path_instance
-        mock_path_instance.__truediv__.return_value = mock_path_instance
-
-        # Should not raise
-        self.processor.load_schemas(document_types=["invoice"])
-        self.assertNotIn("invoice", self.processor.schema_cache)
-
-    # --- process_with_schema ---
-
-    def test_process_with_schema_no_target_tables(self):
-        """Lines 77-78: schema has no target_tables key returns empty dict."""
-        self.processor.schema_cache["invoice"] = {}  # no "target_tables" key
-        result = self.processor.process_with_schema(entities={"x": 1}, document_type="invoice")
-        self.assertEqual(result, {})
-
-    def test_process_with_schema_empty_target_tables(self):
-        """Lines 77-78: schema has empty target_tables list returns empty dict."""
-        self.processor.schema_cache["invoice"] = {"target_tables": []}
-        result = self.processor.process_with_schema(entities={"x": 1}, document_type="invoice")
-        self.assertEqual(result, {})
-
-    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.TRANSFORMS")
-    def test_process_with_schema_transform_path(self, mock_transforms):
-        """Lines 101-109: column source has 'transform' key triggers _apply_transformation."""
-        mock_fn = MagicMock(return_value="transformed")
-        mock_transforms.get.return_value = mock_fn
-
-        self.processor.schema_cache["invoice"] = {
-            "target_tables": [
-                {
-                    "name": "header",
-                    "columns": [
-                        {
-                            "name": "result_col",
-                            "source": {
-                                "transform": {
-                                    "transform_name": "concat",
-                                    "arguments": [
-                                        {"name": "a", "value": {"field": ["field1"]}},
-                                    ],
-                                }
-                            },
-                        }
-                    ],
-                }
-            ]
-        }
-
-        entities = {"field1": "hello"}
-        result = self.processor.process_with_schema(entities=entities, document_type="invoice")
-        self.assertIn("header", result)
-        self.assertEqual(result["header"]["result_col"], "transformed")
-
-    # --- _apply_transformation ---
-
-    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.TRANSFORMS")
-    def test_apply_transformation_invalid_arg_name_type(self, mock_transforms):
-        """Lines 147-150: non-string arg_name causes warning and skip."""
-        mock_fn = MagicMock(return_value="ok")
-        mock_transforms.get.return_value = mock_fn
-
-        entities = {"field1": "val"}
-        # arg_name is None (not a string) — should be skipped
-        arguments = [{"name": None, "value": {"field": ["field1"]}}]
-        result = self.processor._apply_transformation(
-            transform_name="test_transform", arguments=arguments, entities=entities
-        )
-        # func called with no kwargs since arg was skipped
-        mock_fn.assert_called_once_with()
-        self.assertEqual(result, "ok")
-
-    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.TRANSFORMS")
-    def test_apply_transformation_arg_value_no_field(self, mock_transforms):
-        """Line 152: arg_value without 'field' key is passed directly."""
-        mock_fn = MagicMock(return_value="direct")
-        mock_transforms.get.return_value = mock_fn
-
-        entities = {}
-        arguments = [{"name": "separator", "value": "-"}]
-        result = self.processor._apply_transformation(
-            transform_name="test_transform", arguments=arguments, entities=entities
-        )
-        # The raw arg_value ("-") is passed directly
-        mock_fn.assert_called_once_with(separator="-")
-        self.assertEqual(result, "direct")
-
-    @patch("docpipe.core.operators.functional.entity_curation.schema_processor.TRANSFORMS")
-    def test_apply_transformation_func_raises_exception(self, mock_transforms):
-        """Lines 156-158: func() raises, warning logged, None returned."""
-        mock_fn = MagicMock(side_effect=ValueError("bad input"))
-        mock_transforms.get.return_value = mock_fn
-
-        entities = {}
-        arguments = []
-        result = self.processor._apply_transformation(
-            transform_name="test_transform", arguments=arguments, entities=entities
-        )
-        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

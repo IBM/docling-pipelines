@@ -44,9 +44,12 @@ class ValidationService:
                 "flow_name": "My Pipeline",
                 "flow": [
                     {
-                        "type": "ingest_local",
+                        "type": "ingest_source",
                         "name": "Ingest",
-                        "config": {"folder_path": "/data"},
+                        "config": {
+                            "provider": "filesystem",
+                            "connection_params": {"paths": ["/data/documents"]}
+                        }
                         "depends_on": []
                     }
                 ]
@@ -72,7 +75,62 @@ class ValidationService:
         or dependencies are required as all validation state is created
         per-request.
         """
-        pass
+
+    def _convert_to_dag_flow(
+        self,
+        *,
+        flow_definition: dict[str, Any],
+        is_elyra: bool,
+    ) -> dict[str, Any]:
+        """Convert any supported input format to an unwrapped internal DAG flow dict.
+
+        Centralises the two-step setup that both ValidationService and
+        FlowEnrichmentService need:
+            1. Format conversion  — Elyra JSON or authoring dict → internal DAG
+            2. Wrapper extraction — unwrap {"flow": {...}} if present
+
+        Args:
+            flow_definition: Flow in Elyra format (when is_elyra=True) or
+                authoring format (when is_elyra=False).
+            is_elyra: Whether the input is Elyra JSON.
+
+        Returns:
+            Unwrapped internal DAG dict: {"dag": [...], "global_config": {...}, ...}
+
+        Raises:
+            FlowValidationException: If conversion or wrapper extraction fails.
+        """
+        from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
+        from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
+        from docpipe.core.constants.constants import DocpipeConstants
+        from docpipe.exceptions.docpipe_exceptions import ErrorCode, FlowValidationException, ValidationAlert
+        from docpipe.exceptions.error_messages import ValidationCodeMessages
+        from docpipe.utils.orchestration.elyra_converter import ElyraConverter
+
+        if is_elyra:
+            converter = ElyraConverter()
+            converted = converter.transform_elyra_to_internal(elyra_json=flow_definition, flow_id="validation-flow")
+        else:
+            authoring_flow = AuthoringFlow.from_dict(data=flow_definition)
+            compiler = AuthoringCompiler()
+            converted = compiler.compile(authoring_flow=authoring_flow)
+
+        # Unwrap {"flow": {...}} wrapper if present
+        if isinstance(converted, dict) and DocpipeConstants.FLOW in converted:
+            inner = converted.get(DocpipeConstants.FLOW)
+            if inner is None or not isinstance(inner, dict):
+                raise FlowValidationException(
+                    errors=[
+                        ValidationAlert(
+                            code=ErrorCode.FLOW_VALIDATION_FAILED.value,
+                            message=ValidationCodeMessages.INVALID_FLOW_WRAPPER.value,
+                            message_code=ValidationCodeMessages.INVALID_FLOW_WRAPPER.name,
+                        )
+                    ]
+                )
+            return inner
+
+        return converted
 
     def _normalize_validation_alert(self, *, alert: Any, default_code: str) -> dict[str, Any]:
         """Normalize ValidationAlert or ValidationMessage to standardized dict format.
@@ -144,9 +202,7 @@ class ValidationService:
         # Fallback for unexpected types
         return {"code": default_code, "message": str(alert)}
 
-    def validate_flow(
-        self, *, flow_definition: dict[str, Any] | None, is_elyra: bool = False
-    ) -> dict[str, Any]:  # NOSONAR python:S3776
+    def validate_flow(self, *, flow_definition: dict[str, Any] | None, is_elyra: bool = False) -> dict[str, Any]:
         """Validate a flow definition and return comprehensive validation results.
 
         This is the main entry point for flow validation. It orchestrates the entire
@@ -212,7 +268,7 @@ class ValidationService:
                     "nodes": [
                         {
                             "id": "ingest-1",
-                            "operator_type": "IngestLocalOperator",
+                            "operator_type": "IngestSourceOperator",
                             "operator_params": {"folder_path": "/data"}
                         }
                     ],
@@ -292,14 +348,10 @@ class ValidationService:
             escape this method and convert them to 500 errors, but this should never
             happen as all exceptions are caught internally.
         """
-        from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
-        from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
-        from docpipe.core.constants.constants import DocpipeConstants, OrchestratorType
+        from docpipe.core.constants.constants import OrchestratorType
         from docpipe.core.orchestration.flow_validator import FlowValidator
         from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
-        from docpipe.exceptions.docpipe_exceptions import ErrorCode, FlowValidationException, ValidationAlert
-        from docpipe.exceptions.error_messages import ValidationCodeMessages
-        from docpipe.utils.orchestration.elyra_converter import ElyraConverter
+        from docpipe.exceptions.docpipe_exceptions import FlowValidationException
 
         logger.debug("Validating flow definition (is_elyra=%s)", is_elyra)
 
@@ -314,48 +366,17 @@ class ValidationService:
             }
 
         try:
-            # Normalize input to internal runtime DAG format
-            if is_elyra:
-                logger.debug("Converting Elyra format to internal DAG")
-                converter = ElyraConverter()
-                flow_definition = converter.transform_elyra_to_internal(
-                    elyra_json=flow_definition, flow_id="validation-flow"
-                )
-                logger.debug("Elyra conversion completed")
-            else:
-                logger.debug("Compiling authoring format to internal runtime DAG")
-                authoring_flow = AuthoringFlow.from_dict(data=flow_definition)
-                compiler = AuthoringCompiler()
-                flow_definition = compiler.compile(authoring_flow=authoring_flow)
-                logger.debug("Authoring compilation completed")
+            logger.debug("Converting flow to internal DAG (is_elyra=%s)", is_elyra)
+            dag_flow = self._convert_to_dag_flow(flow_definition=flow_definition, is_elyra=is_elyra)
+            logger.debug("Conversion completed")
 
-            # Extract flow structure from wrapper if present
-            # Wrapped payload: {"flow": {"dag": [...], "global_config": {...}}}
-            # Validator expects: {"dag": [...], "global_config": {...}}
-            if isinstance(flow_definition, dict) and DocpipeConstants.FLOW in flow_definition:
-                logger.debug("Extracting flow structure from 'flow' wrapper")
-                inner_flow = flow_definition.get(DocpipeConstants.FLOW)
-                if inner_flow is None or not isinstance(inner_flow, dict):
-                    raise FlowValidationException(
-                        errors=[
-                            ValidationAlert(
-                                code=ErrorCode.FLOW_VALIDATION_FAILED.value,
-                                message=ValidationCodeMessages.INVALID_FLOW_WRAPPER.value,
-                                message_code=ValidationCodeMessages.INVALID_FLOW_WRAPPER.name,
-                            )
-                        ]
-                    )
-                flow_definition = inner_flow
-
-            # Create and initialize orchestrator for validation
             orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
-            # Initialize orchestrator to set up flow_engine (required for validation)
             orchestrator.initialize(job_id="validation-job", job_run_id="validation-run")
             validator = FlowValidator(orchestrator=orchestrator)
 
             # Run validation with feature propagation
             try:
-                propagation_result = validator.validate_dag_with_features(flow_def=flow_definition, global_config={})
+                propagation_result = validator.validate_dag_with_features(flow_def=dag_flow, global_config={})
 
                 # If validation succeeds, return success response
                 result: dict[str, Any] = {"status": "SUCCEEDED", "message": None, "errors": [], "warnings": []}
@@ -391,15 +412,13 @@ class ValidationService:
                     status = "FAILED"
                     message = "Flow validation failed."
 
-                result = {"status": status, "message": message, "errors": errors, "warnings": warnings}
-
-                return result
+                return {"status": status, "message": message, "errors": errors, "warnings": warnings}
 
         except Exception as e:
             # Catch any unexpected exceptions and return as validation error
             logger.error("Unexpected error during flow validation: %s", str(e), exc_info=True)
 
-            result = {
+            return {
                 "status": "FAILED",
                 "message": "Validation failed with unexpected error.",
                 "errors": [
@@ -407,5 +426,3 @@ class ValidationService:
                 ],
                 "warnings": [],
             }
-
-            return result

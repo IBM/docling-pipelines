@@ -339,6 +339,36 @@ def test_existing_doc_id_hash_column_new_hash_added():
     assert result.num_rows == 2
 
 
+def test_existing_doc_id_hash_column_no_original_column_created():
+    """
+    When doc_id_hash already exists, DocIDTransform would normally rename it to
+    doc_id_hash.original before computing a new hash. The operator must drop the
+    existing column first so no spurious .original column appears in the output.
+    """
+    table = pa.table(
+        {
+            "id": ["1", "2"],
+            "content": ["Content A", "Content B"],
+            "doc_id_hash": ["old_hash_1", "old_hash_2"],
+        }
+    )
+
+    operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
+    result_tables, _ = operator.transform(table)
+    result = result_tables[0]
+
+    assert "doc_id_hash.original" not in result.column_names, (
+        "Spurious 'doc_id_hash.original' column should not appear in output"
+    )
+    # Hash must be freshly computed, not the stale value
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
+    assert hashes[0] != "old_hash_1"
+    assert hashes[1] != "old_hash_2"
+    # And must match the expected SHA-256 of the content
+    assert hashes[0] == sha256_hex("Content A")
+    assert hashes[1] == sha256_hex("Content B")
+
+
 # ---------------------------------------------------------------------------
 # 10. Empty table
 # ---------------------------------------------------------------------------
@@ -385,7 +415,7 @@ def test_empty_table_metadata():
 
 
 def test_transform_metadata_contains_total_docs():
-    """transform() metadata contains total_docs_count."""
+    """transform() metadata contains documents_in_scope."""
     table = make_table()
     operator = make_operator()
     _, metadata = operator.transform(table)

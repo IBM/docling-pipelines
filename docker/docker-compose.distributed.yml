@@ -4,13 +4,13 @@ services:
   # ============================================================================
   # PREFECT INFRASTRUCTURE
   # ============================================================================
-  
+
   prefect-postgres:
     image: postgres:15-alpine
     container_name: prefect-postgres
     environment:
       POSTGRES_USER: prefect
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"  # pragma: allowlist secret
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: prefect
     volumes:
       - prefect-postgres-data:/var/lib/postgresql/data
@@ -28,7 +28,7 @@ services:
     container_name: prefect-server
     command: prefect server start --host 0.0.0.0
     environment:
-      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://prefect:prefect@prefect-postgres:5432/prefect  # pragma: allowlist secret
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://prefect:${POSTGRES_PASSWORD}@prefect-postgres:5432/prefect
       PREFECT_SERVER_ANALYTICS_ENABLED: "false"
       PREFECT_API_URL: http://prefect-server:4200/api
       PREFECT_UI_API_URL: http://localhost:4200/api
@@ -50,7 +50,7 @@ services:
   # ============================================================================
   # PREFECT WORKERS (Docpipe Image)
   # ============================================================================
-  
+
   prefect-worker:
     build:
       context: .
@@ -65,29 +65,29 @@ services:
       PREFECT_API_URL: http://prefect-server:4200/api
       PREFECT_MODE: server
       PYTHONPATH: /app/src/docpipe_app/backend
-      
+
       # Docker Configuration for Docker Work Pool
       DOCKER_HOST: unix:///var/run/docker.sock
-      
+
       # Image pull policy: never pull, use local images only
       PREFECT__DOCKER__IMAGE_PULL_POLICY: Never
-      
+
       # Job Stats Configuration (POC: using local pickle files)
       JOB_STATS_BACKEND: pickle
-      
+
       # MinIO/S3 Configuration for Batch Storage
       AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: changeme  # pragma: allowlist secret
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_ENDPOINT_URL: http://minio:9000
       AWS_REGION: us-east-1
-      
+
       # External Services
       OLLAMA_HOST: http://ollama:11434
       DOCLING_SERVE_URL: http://docling-serve:5001
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: 9200
       OPENSEARCH_USERNAME: admin
-      OPENSEARCH_PASSWORD: "${OPENSEARCH_PASSWORD}"  # pragma: allowlist secret
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
       OPENSEARCH_USE_SSL: "false"
       OPENSEARCH_VERIFY_CERTS: "false"
     depends_on:
@@ -114,7 +114,7 @@ services:
   # ============================================================================
   # MINIO - S3-Compatible Object Storage for Batch Data
   # ============================================================================
-  
+
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -144,7 +144,7 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set myminio http://minio:9000 changeme changeme;
+      mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
       mc mb myminio/docpipe-batches --ignore-existing;
       mc anonymous set download myminio/docpipe-batches;
       echo 'MinIO bucket created: docpipe-batches';
@@ -155,7 +155,7 @@ services:
   # ============================================================================
   # EXTERNAL SERVICES
   # ============================================================================
-  
+
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -246,7 +246,7 @@ services:
     networks:
       - docpipe-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f -u admin:your-strong-password-here http://localhost:5601/api/status || exit 1"]
+      test: ["CMD-SHELL", "curl -f -u admin:${OPENSEARCH_PASSWORD} http://localhost:5601/api/status || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

@@ -33,10 +33,11 @@ Global configuration is specified in the `global_config` section of your flow de
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest",
       "config": {
-        "paths": "./documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]}
       }
     },
     {
@@ -235,7 +236,7 @@ Configuration for tracking and processing only changed documents.
 
 ### Centralized Incremental Metadata Configuration
 
-Docpipe uses a centralized configuration system for incremental metadata storage. Instead of configuring incremental metadata in each flow JSON file, you configure it once in a repository-level `docling-pipelines-config.yaml` file.
+Docling Pipelines uses a centralized configuration system for incremental metadata storage. Instead of configuring incremental metadata in each flow JSON file, you configure it once in a repository-level `docling-pipelines-config.yaml` file.
 
 #### Configuration Structure :
 
@@ -279,7 +280,7 @@ incremental_metadata:
 
 #### Supported Storage types :
 
-Docpipe supports two storage types for incremental metadata:
+Docling Pipelines supports two storage types for incremental metadata:
 
 1. **Filesystem** (default)
    - Efficient columnar storage using Apache Parquet format
@@ -330,10 +331,11 @@ In your flow JSON files, you no longer need to specify incremental metadata conf
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest",
       "config": {
-        "paths": "./documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./documents"]}
       }
     }
   ]
@@ -733,10 +735,11 @@ Here's a comprehensive example showing the separation between flow JSON and docl
   },
   "flow": [
     {
-      "type": "ingest_local",
-      "name": "ingest_local_folder",
+      "type": "ingest_source",
+      "name": "ingest_source_filesystem",
       "config": {
-        "paths": "./sample_documents",
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]},
         "include_filter": "pdf,txt,docx"
       }
     },
@@ -746,7 +749,7 @@ Here's a comprehensive example showing the separation between flow JSON and docl
       "config": {
         "doc_column": "content"
       },
-      "depends_on": ["ingest_local_folder"]
+      "depends_on": ["ingest_source_filesystem"]
     }
   ]
 }

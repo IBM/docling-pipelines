@@ -13,9 +13,10 @@ from typing import Any, ClassVar
 from opensearchpy import OpenSearch
 
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import TROUBLESHOOTING_DOCS_URL, DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.operators.vectordb_utils import build_mapping_dict
 
 logger = get_logger()
 
@@ -132,7 +133,7 @@ class OpenSearchIndexManager:
         engine_parameters: dict[str, Any] | None = None,
         index_settings: dict[str, Any] | None = None,
         available_features: dict[str, Any] | None = None,
-        feature_mappings: dict[str, str] | None = None,
+        feature_mappings: list[dict[str, str]] | None = None,
         schema_template_path: str | None = None,
     ) -> None:
         """
@@ -147,7 +148,7 @@ class OpenSearchIndexManager:
             engine_parameters: Custom engine-specific parameters
             index_settings: Custom index settings
             available_features: Feature configuration
-            feature_mappings: Column to field mappings
+            feature_mappings: Canonical list-of-dicts column to field mappings
             schema_template_path: Optional path to JSON schema template file
         """
         self.client = client
@@ -158,7 +159,8 @@ class OpenSearchIndexManager:
         self.engine_parameters = engine_parameters or {}
         self.index_settings = index_settings
         self.available_features = available_features or {}
-        self.feature_mappings = feature_mappings or {}
+        self.feature_mappings: list[dict[str, str]] = feature_mappings or []
+        self._mapping_dict: dict[str, str] = build_mapping_dict(self.feature_mappings)
         self.schema_template_path = schema_template_path
 
         self._validate_engine_algorithm()
@@ -225,7 +227,7 @@ class OpenSearchIndexManager:
                     )
                     return None
 
-                with open(schema_path) as f:
+                with Path(schema_path).open() as f:
                     schema = json.load(f)
                 logger.info(f"Loaded schema template from filesystem: {schema_path}")
             else:
@@ -237,7 +239,7 @@ class OpenSearchIndexManager:
 
                     # Use as_file() for better compatibility with zipped wheels and containers
                     with as_file(resource) as resource_path:
-                        with open(resource_path) as f:
+                        with Path(resource_path).open() as f:
                             schema = json.load(f)
 
                     logger.info(f"Loaded schema template from package resources: schemas/{template_name}")
@@ -282,17 +284,17 @@ class OpenSearchIndexManager:
         """
         if isinstance(obj, dict):
             return {k: self._replace_placeholders(obj=v) for k, v in obj.items()}
-        elif isinstance(obj, list):
+        if isinstance(obj, list):
             return [self._replace_placeholders(obj=item) for item in obj]
-        elif isinstance(obj, str):
+        if isinstance(obj, str):
             # Check if entire string is a placeholder
             if obj == "__ENGINE__":
                 return self.engine
-            elif obj == "__ALGORITHM__":
+            if obj == "__ALGORITHM__":
                 return self.algorithm
-            elif obj == "__SPACE_TYPE__":
+            if obj == "__SPACE_TYPE__":
                 return self.space_type
-            elif obj == "__ENGINE_PARAMETERS__":
+            if obj == "__ENGINE_PARAMETERS__":
                 return self._get_engine_parameters()
 
             # Otherwise, replace placeholders within string
@@ -306,8 +308,7 @@ class OpenSearchIndexManager:
                 if placeholder in result:
                     result = result.replace(placeholder, value)
             return result
-        else:
-            return obj
+        return obj
 
     def _validate_schema(self, *, schema: dict[str, Any]) -> None:
         """
@@ -394,7 +395,7 @@ class OpenSearchIndexManager:
         # F. Analyzer validation (for both full and template schemas)
         self._validate_analyzers(schema=schema)
 
-    def _validate_vector_fields(self, *, schema: dict[str, Any]) -> None:  # NOSONAR python:S3776
+    def _validate_vector_fields(self, *, schema: dict[str, Any]) -> None:
         """
         Validate vector field configuration in schema.
         Only called for full schemas with mappings.
@@ -484,7 +485,7 @@ class OpenSearchIndexManager:
                         error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
                     )
 
-    def _validate_parameters(self, *, schema: dict[str, Any]) -> None:  # NOSONAR python:S3776
+    def _validate_parameters(self, *, schema: dict[str, Any]) -> None:
         """
         Validate parameter ranges for HNSW and IVF algorithms.
 
@@ -571,7 +572,7 @@ class OpenSearchIndexManager:
                             f"Vector field '{field_name}': IVF parameter 'nprobes' ({nprobes}) should be <= nlist ({nlist})"
                         )
 
-    def _validate_field_depth(self, *, schema: dict[str, Any]) -> None:  # NOSONAR python:S3776
+    def _validate_field_depth(self, *, schema: dict[str, Any]) -> None:
         """
         Validate nested field depth and total field count.
 
@@ -623,7 +624,7 @@ class OpenSearchIndexManager:
                 f"Schema has many fields (count: {total_fields}). Consider reducing field count for better performance."
             )
 
-    def _validate_analyzers(self, *, schema: dict[str, Any]) -> None:  # NOSONAR python:S3776
+    def _validate_analyzers(self, *, schema: dict[str, Any]) -> None:
         """
         Validate analyzer references in schema.
 
@@ -673,7 +674,7 @@ class OpenSearchIndexManager:
 
         check_analyzer_refs(obj={OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES: properties})
 
-    def build_index_body(self, *, dimension_mapping: dict[str, int]) -> dict[str, Any]:  # NOSONAR python:S3776
+    def build_index_body(self, *, dimension_mapping: dict[str, int]) -> dict[str, Any]:
         """
         Build index body for OpenSearch.
 
@@ -721,6 +722,7 @@ class OpenSearchIndexManager:
                             "algorithm": self.algorithm,
                             "space_type": self.space_type,
                             "created_by": "docling-pipelines",
+                            OperatorConstants.Config.FEATURE_MAPPINGS: self.feature_mappings,
                         }
                     )
 
@@ -766,7 +768,7 @@ class OpenSearchIndexManager:
 
         return index_body
 
-    def create_index_mapping(self, *, dimension_mapping: dict[str, int]) -> dict[str, Any]:  # NOSONAR python:S3776
+    def create_index_mapping(self, *, dimension_mapping: dict[str, int]) -> dict[str, Any]:
         """Create index mapping based on available features and feature mappings.
 
         Args:
@@ -779,7 +781,7 @@ class OpenSearchIndexManager:
             if not feature_config.get(OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, False):
                 continue
 
-            mapped_name: str = self.feature_mappings.get(feature_name, feature_name)
+            mapped_name = self._mapping_dict.get(feature_name, feature_name)
             feature_type: str = feature_config.get("type", "text")
 
             # Map feature types to OpenSearch types
@@ -842,11 +844,12 @@ class OpenSearchIndexManager:
                     "algorithm": self.algorithm,
                     "space_type": self.space_type,
                     "created_by": "docling-pipelines",
+                    OperatorConstants.Config.FEATURE_MAPPINGS: self.feature_mappings,
                 },
             }
         }
 
-    def _build_index_body_from_field_type_template(  # NOSONAR python:S3776
+    def _build_index_body_from_field_type_template(
         self, *, schema: dict[str, Any], dimension_mapping: dict[str, int]
     ) -> dict[str, Any]:
         """
@@ -859,7 +862,7 @@ class OpenSearchIndexManager:
         Supports schemas with or without settings or custom analysis blocks.
         Resolves configurations dynamically by matching features against indexing_rules.
         """
-        logger.debug(f"Building index body using template schema: {schema.get('schema_name', 'unknown')}")
+        logger.debug("Building index body using template schema: %s", schema.get("schema_name", "unknown"))
 
         # 1. Safely handle settings and drop empty/null analysis dictionaries
         schema_settings = deepcopy(schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS, {}))
@@ -888,10 +891,10 @@ class OpenSearchIndexManager:
         # 2. Map logical feature columns onto physical target structures
         for feature_name, feature_config in self.available_features.items():
             if not feature_config.get("available_for_vector_db", True):
-                logger.debug(f"Skipping feature {feature_name}: Not available for VectorDB.")
+                logger.debug("Skipping feature %s: Not available for VectorDB.", feature_name)
                 continue
 
-            mapped_name = self.feature_mappings.get(feature_name, feature_name)
+            mapped_name = self._mapping_dict.get(feature_name, feature_name)
 
             # Validate against reserved fields
             if mapped_name in RESERVED_FIELDS:
@@ -940,6 +943,31 @@ class OpenSearchIndexManager:
 
         return index_body
 
+    def update_feature_mappings_in_index(self) -> None:
+        """Write feature_mappings into the index _meta block.
+
+        Mirrors enterprise _update_new_feature_mappings_in_index(): called after
+        every index create or validate so that _meta.feature_mappings always reflects
+        the mappings active on the current run. This is the value Source 3 of
+        VectorDBMetadataFetcher._resolve_opensearch_feature_mappings() reads back.
+
+        Silently skips if index does not exist or if feature_mappings is empty.
+        """
+        if not self.feature_mappings:
+            return
+        try:
+            self.client.indices.put_mapping(
+                index=self.index_name,
+                body={
+                    OperatorConstants.VectorDB.SCHEMA_KEY_META: {
+                        OperatorConstants.Config.FEATURE_MAPPINGS: self.feature_mappings
+                    }
+                },
+            )
+            logger.debug("Updated _meta.feature_mappings for index %s", self.index_name)
+        except Exception as exc:
+            logger.warning("Failed to update _meta.feature_mappings for index %s: %s", self.index_name, exc)
+
     def create_index(self, *, dimension_mapping: dict[str, int]) -> None:
         """
         Create the OpenSearch index if it doesn't exist.
@@ -952,7 +980,8 @@ class OpenSearchIndexManager:
         """
         if self.client.indices.exists(index=self.index_name):
             logger.info(f"Index {self.index_name} already exists")
-            self.validate_existing_index()
+            self.validate_existing_index(dimension_mapping=dimension_mapping)
+            self.update_feature_mappings_in_index()
             return
 
         try:
@@ -964,6 +993,9 @@ class OpenSearchIndexManager:
             # Create index
             self.client.indices.create(index=self.index_name, body=index_body)
             logger.info(f"Created index {self.index_name} with engine {self.engine} and algorithm {self.algorithm}")
+            # feature_mappings already baked into _meta by build_index_body;
+            # call update to keep _meta in sync if mappings changed since last run
+            self.update_feature_mappings_in_index()
         except Exception as exc:
             # Handle race condition where another worker created the index between our check and create call
             error_msg = str(exc).lower()
@@ -981,7 +1013,8 @@ class OpenSearchIndexManager:
 
             if is_already_exists:
                 logger.info(f"Index '{self.index_name}' was created by another worker, validating and proceeding.")
-                self.validate_existing_index()
+                self.validate_existing_index(dimension_mapping=dimension_mapping)
+                self.update_feature_mappings_in_index()
                 return
 
             # 2. Diagnostic logging for genuine failures
@@ -996,19 +1029,21 @@ class OpenSearchIndexManager:
                 message=f"Failed to create OpenSearch index '{self.index_name}': {exc}",
                 status_code=500,
                 error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
+                more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-opensearch-index-creation-failed",
             ) from exc
 
-    def validate_existing_index(self) -> None:
-        """Validate that existing index configuration matches requested settings."""
+    def validate_existing_index(self, *, dimension_mapping: dict[str, int]) -> None:
+        """Validate that existing index configuration matches requested settings and vector dimensions."""
         try:
             mappings: dict[str, Any] = self.client.indices.get_mapping(index=self.index_name)
             index_mappings: dict[str, Any] = mappings.get(self.index_name, {}).get(
                 OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {}
             )
             meta: dict[str, Any] = index_mappings.get(OperatorConstants.VectorDB.SCHEMA_KEY_META, {})
+            properties: dict[str, Any] = index_mappings.get(OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {})
 
-            existing_engine: str | None = meta.get("engine")
-            existing_algorithm: str | None = meta.get("algorithm")
+            existing_engine: str | None = meta.get(OperatorConstants.VectorDB.ENGINE)
+            existing_algorithm: str | None = meta.get(OperatorConstants.VectorDB.ALGORITHM)
 
             if existing_engine and existing_engine != self.engine:
                 logger.warning(f"Engine mismatch: index has '{existing_engine}', config specifies '{self.engine}'")
@@ -1017,6 +1052,44 @@ class OpenSearchIndexManager:
                 logger.warning(
                     f"Algorithm mismatch: index has '{existing_algorithm}', config specifies '{self.algorithm}'"
                 )
+
+            mismatches: list[str] = []
+            for vector_column, runtime_dimension in dimension_mapping.items():
+                mapped_field_name = self._mapping_dict.get(vector_column, vector_column)
+                field_mapping = properties.get(mapped_field_name)
+
+                if not field_mapping:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') is missing from existing index mapping"
+                    )
+                    continue
+
+                if field_mapping.get("type") != OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') is not a "
+                        f"{OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR} field"
+                    )
+                    continue
+
+                existing_dimension = field_mapping.get("dimension")
+                if existing_dimension != runtime_dimension:
+                    mismatches.append(
+                        f"field '{mapped_field_name}' (source '{vector_column}') has existing dimension "
+                        f"{existing_dimension} but current run produced {runtime_dimension}"
+                    )
+
+            if mismatches:
+                raise DocpipeException(
+                    message=(
+                        f"Vector dimension mismatch for existing OpenSearch index '{self.index_name}': "
+                        + "; ".join(mismatches)
+                    ),
+                    status_code=400,
+                    error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
+                    more_info=f"{TROUBLESHOOTING_DOCS_URL}#issue-opensearch-index-creation-failed",
+                )
+        except DocpipeException:
+            raise
         except Exception as e:
             logger.warning(f"Could not validate existing index: {e}")
 
@@ -1040,9 +1113,8 @@ class OpenSearchIndexManager:
                 self.client.indices.delete(index=self.index_name)
                 logger.info(f"Deleted index {self.index_name}")
                 return True
-            else:
-                logger.warning(f"Index {self.index_name} does not exist")
-                return False
+            logger.warning(f"Index {self.index_name} does not exist")
+            return False
         except Exception as e:
             logger.error(f"Error deleting index: {e}")
             return False

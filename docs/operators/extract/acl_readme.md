@@ -193,31 +193,3 @@ IngestSourceOperator → ACLOperator → ExtractOperator → [Chunker → Embedd
 ### Missing Metadata Error (legacy section)
 
 See the [Troubleshooting table](#troubleshooting) above for quick fixes.
-
-**Solution**: Ensure IngestSourceOperator includes credentials in metadata.
-
-#### All Documents Failed
-
-```
-ACL extraction completed: 0 processed, 10 failed, 0 skipped
-```
-
-**Solution**:
-
-- Check SharePoint credentials are valid
-- Verify document library permissions
-- Review error logs for specific failure reasons
-- Try with `fail_on_error=false` to see which documents succeed
-
-### Debug Mode
-
-Enable debug logging to see detailed ACL extraction information:
-
-```bash
-docling-pipelines --flow-file flow.json --log-level debug
-```
-
-## References
-
-- [Operator Reference](../../reference/OPERATORS.md)
-- [User Guide: Pipeline Setup](../../../USER_GUIDE_PIPELINE_SETUP.md)

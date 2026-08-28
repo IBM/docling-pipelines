@@ -1,0 +1,45 @@
+{
+  "flow_name": "refetch-original-filesystem",
+  "description": "Ingest documents from source filesystem, copy original binaries to an archive destination. Skips files already present in the archive.",
+  "global_config": {
+    "execute_type": "local",
+    "force_ingest": true,
+    "storage": "in-memory"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "provider_config": {
+          "paths": ["/data/source/documents"],
+          "recursive": true
+        },
+        "credentials": {}
+      }
+    },
+    {
+      "type": "storage_output",
+      "name": "storage_output",
+      "config": {
+        "mode": "refetch_original",
+        "destination_config": {
+          "provider": "filesystem",
+          "provider_config": {
+            "root_path": "/data/archive/originals",
+            "create_dirs": true
+          },
+          "credentials": {}
+        },
+        "output_structure": {
+          "type": "hierarchical",
+          "overwrite_existing": true
+        }
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    }
+  ]
+}

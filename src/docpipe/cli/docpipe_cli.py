@@ -5,10 +5,11 @@ import os
 import re
 import sys
 import uuid
+from pathlib import Path
 from typing import Any
 
 from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
-from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
+from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level, setup_logging
 
 logger = get_logger()
 
@@ -34,9 +35,7 @@ def sanitize_flow_name_for_job_id(*, flow_name: str) -> str:
     # Convert to lowercase and replace non-word chars (preserves Unicode letters/digits) with hyphens
     sanitized = re.sub(r"[^\w]+", "-", flow_name.lower(), flags=re.UNICODE)
     # Remove leading/trailing hyphens
-    sanitized = sanitized.strip("-")
-
-    return sanitized
+    return sanitized.strip("-")
 
 
 def generate_job_id_from_flow_name(*, flow_name: str) -> str:
@@ -81,18 +80,26 @@ def generate_job_id_from_flow_name(*, flow_name: str) -> str:
     return job_id
 
 
-def run_command_line_executor(flow_def: dict) -> None:
+def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = None) -> None:
+    """Run command line executor."""
     from docpipe.core.constants.constants import DocpipeConstants
     from docpipe.core.orchestration.flow_executor import FlowExecutor
     from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+    from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
+    from docpipe.utils.infrastructure import get_telemetry_service
+
+    # Register secret providers (no-op when secrets.vault.enabled=false in config)
+    initialize_secret_providers()
+
+    # Initialise telemetry early so spans and metrics are captured during flow execution
+    telemetry = get_telemetry_service()
+    telemetry.initialize()
 
     # Create execution reporter for user-friendly console output
     execution_reporter = FlowExecutionReporter()
 
     logger.info(">>> Creating the orchestrator")
     orchestrator = OrchestratorFactory.create_orchestrator(execution_reporter=execution_reporter)
-    logger.info(">>> Creating the flow executor")
-    executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info(">>> Setting up execution parameters")
     # Generate job_id from flow name (required field in compiled flow)
     flow_name = flow_def.get("name")
@@ -105,6 +112,10 @@ def run_command_line_executor(flow_def: dict) -> None:
         DocpipeConstants.JOB_ID: job_id,
         DocpipeConstants.JOB_RUN_ID: job_run_id,
     }
+    flow_global_config = flow_def.get("global_config", {})
+    if DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_global_config:
+        params[DocpipeConstants.ENABLE_MICRO_BATCHING] = True
+
     os.environ["RUNTIME"] = "local"
     from docpipe.core.models.session_info import (
         SessionInfo,
@@ -113,28 +124,33 @@ def run_command_line_executor(flow_def: dict) -> None:
     )
 
     session_info: SessionInfo = create_session_info(
-        job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
+        cli_mode=True, job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
     )
     set_session_info(session_info)
+
+    logger.info(">>> Creating the flow executor")
+    executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator, original_flow_def=original_flow_json)
 
     orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
     logger.info(">>> Starting flow execution")
     executor.execute(orchestrator=orchestrator, params=params)
+    telemetry.shutdown()
     logger.info(">>> Completed flow execution")
 
 
-def load_flow_definition(file_path: str) -> dict[str, Any]:
+def load_flow_definition(*, file_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Load and compile an authoring format flow definition from a JSON file.
 
     The authoring format is automatically compiled to runtime DAG format for execution.
+    Returns both the original flow definition and the compiled DAG.
 
     Args:
         file_path: Path to the JSON file containing the flow definition
 
     Returns:
-        Dictionary containing the compiled runtime DAG format flow definition
+        Tuple of (original_flow_json, compiled_runtime_dag)
 
     Raises:
         FileNotFoundError: If the flow definition file is not found
@@ -146,20 +162,20 @@ def load_flow_definition(file_path: str) -> dict[str, Any]:
     from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
     from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
 
-    with open(file_path, encoding="utf-8") as file:
-        flow_data: dict[str, Any] = json.load(file)
+    with Path(file_path).open(encoding="utf-8") as file:
+        original_flow_json: dict[str, Any] = json.load(file)
 
     logger.info("Loading authoring format flow from %s", file_path)
 
     # Parse and validate authoring flow
-    authoring_flow = AuthoringFlow.from_dict(data=flow_data)
+    authoring_flow = AuthoringFlow.from_dict(data=original_flow_json)
 
     # Compile to runtime DAG format
     compiler = AuthoringCompiler()
     runtime_dag = compiler.compile(authoring_flow=authoring_flow)
 
     logger.info("Successfully compiled authoring format to runtime DAG")
-    return runtime_dag
+    return original_flow_json, runtime_dag
 
 
 def validate_flow_definition(flow_file: str) -> bool:
@@ -178,7 +194,7 @@ def validate_flow_definition(flow_file: str) -> bool:
     from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException, FlowValidationException
 
     try:
-        flow_def: dict[str, Any] = load_flow_definition(file_path=flow_file)
+        _original_flow_json, flow_def = load_flow_definition(file_path=flow_file)
         flow_name: str = flow_def.get("name", "Unnamed flow")
 
         logger.info(
@@ -206,8 +222,8 @@ def validate_flow_definition(flow_file: str) -> bool:
         return True
 
     except FileNotFoundError:
-        cwd = os.getcwd()
-        abs_path = os.path.abspath(flow_file)
+        cwd = Path.cwd()
+        abs_path = Path(flow_file).resolve()
         logger.error("Flow definition file not found")
         logger.error("  Searched for: %s", abs_path)
         logger.error("  Current directory: %s", cwd)
@@ -243,7 +259,8 @@ def validate_flow_definition(flow_file: str) -> bool:
         return False
 
 
-def main() -> None:  # pragma: no cover  # NOSONAR python:S3776
+def main() -> None:  # pragma: no cover
+    """Main."""
     os.environ["CMD_LINE"] = "True"
 
     parser = argparse.ArgumentParser(
@@ -340,7 +357,10 @@ Examples:
     # Configure DPK log level to match DS_LOG_LEVEL
     set_dpk_log_level_from_ds_log_level()
 
-    # Setup logger early
+    # Install handlers on the root docpipe logger for CLI output
+    setup_logging()
+
+    # Re-fetch logger now that setup_logging() has installed handlers
     global logger
     logger = get_logger()
 
@@ -409,10 +429,10 @@ Examples:
     logger.info("Loading flow definition from %s", args.flow_file)
 
     try:
-        flow_def = load_flow_definition(file_path=args.flow_file)
+        original_flow_json, flow_def = load_flow_definition(file_path=args.flow_file)
     except FileNotFoundError:
-        cwd = os.getcwd()
-        abs_path = os.path.abspath(args.flow_file)
+        cwd = Path.cwd()
+        abs_path = Path(args.flow_file).resolve()
         logger.error("Flow definition file not found")
         logger.error("  Searched for: %s", abs_path)
         logger.error("  Current directory: %s", cwd)
@@ -461,7 +481,7 @@ Examples:
     logger.info("Number of operators: %d", len(flow_def.get("dag", [])))
 
     try:
-        run_command_line_executor(flow_def=flow_def)
+        run_command_line_executor(flow_def=flow_def, original_flow_json=original_flow_json)
         logger.info("Execution completed")
     except Exception as e:
         from docpipe.exceptions.docpipe_exceptions import DocpipeException, FlowValidationException

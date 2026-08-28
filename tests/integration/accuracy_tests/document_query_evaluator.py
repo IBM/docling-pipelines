@@ -17,16 +17,16 @@ Usage:
 import argparse
 import csv
 import json
-import os
 import sys
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from opensearchpy import OpenSearch
 
 # Add the examples/retrieval directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval"))
+sys.path.insert(0, str(Path(__file__).parent / "../../../examples/retrieval"))
 
 try:
     from ollama_nl_to_sql_converter import OllamaNLToSQLConverter  # type: ignore
@@ -93,7 +93,7 @@ class DocumentQueryEvaluator:
         """
         queries = []
 
-        with open(csv_file, encoding="utf-8") as f:
+        with Path(csv_file).open(encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if doc_type_filter and row["doc_type"] != doc_type_filter:
@@ -132,7 +132,7 @@ class DocumentQueryEvaluator:
         }
 
         try:
-            start_time = datetime.now()
+            start_time = datetime.now(tz=UTC)
 
             # Get converter for this document type
             converter = self._get_converter(doc_type)
@@ -158,7 +158,7 @@ class DocumentQueryEvaluator:
                     result["actual_score"] = score
                     result["passed"] = score >= (max_score * 0.7)  # 70% threshold
 
-            end_time = datetime.now()
+            end_time = datetime.now(tz=UTC)
             result["execution_time_ms"] = int((end_time - start_time).total_seconds() * 1000)
 
         except Exception as e:
@@ -241,7 +241,7 @@ class DocumentQueryEvaluator:
         return {
             "summary": stats,
             "results": results,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
         }
 
     def _calculate_statistics(self, results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -396,7 +396,7 @@ class DocumentQueryTester:
 
         # Save results if requested
         if output_file:
-            with open(output_file, "w") as f:
+            with Path(output_file).open("w") as f:
                 json.dump(results, f, indent=2)
             print(f"Results saved to: {output_file}")
 

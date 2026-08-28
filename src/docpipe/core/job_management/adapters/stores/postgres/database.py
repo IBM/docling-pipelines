@@ -189,6 +189,10 @@ def run_migrations(*, connection_string: str, config: dict[str, Any] | None = No
         # Set script location to migrations directory
         alembic_cfg.set_main_option("script_location", str(MIGRATIONS_DIR))
 
+        # Pass a connection timeout so a bad host/credentials fails fast
+        # instead of hanging indefinitely.
+        alembic_cfg.attributes["connect_args"] = {"connect_timeout": 10}
+
         logger.info("Running Alembic migrations to upgrade database schema...")
 
         command.upgrade(alembic_cfg, "head")
@@ -198,11 +202,11 @@ def run_migrations(*, connection_string: str, config: dict[str, Any] | None = No
     except DatabaseMigrationException:
         raise
     except SystemExit as e:
-        logger.error(f"Alembic terminated startup with SystemExit: code={e.code}")
+        logger.error("Alembic terminated startup with SystemExit: code=%s", e.code)
         raise DatabaseMigrationException(
             message=f"Database migration exited unexpectedly with code {e.code}",
             operation="upgrade",
         ) from e
     except BaseException as e:
-        logger.error(f"Failed to run database migrations: {e}")
+        logger.error("Failed to run database migrations: %s", e)
         raise DatabaseMigrationException(message=f"Database migration failed: {e}", operation="upgrade") from e

@@ -75,9 +75,6 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
         ensure_nltk_data("punkt_tab")
 
         # Get configuration parameters with defaults
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.lang_column: str = config.get(
             OperatorConstants.Columns.LANG_COLUMN, OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
         )
@@ -90,19 +87,15 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
         # Update config with dpk_enrichment-specific keys
         config.update(
             {
-                OperatorConstants.Columns.CONTENT_COLUMN_NAME: self.doc_column,
+                OperatorConstants.Columns.CONTENT_COLUMN_NAME: config.get(
+                    OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+                ),
                 OperatorConstants.Columns.LANG_COLUMN_NAME: self.lang_column,
                 OperatorConstants.Columns.OUTPUT_COLUMN_PREFIX: self.output_column_prefix,
                 OperatorConstants.Columns.NEWLINE_NORMALIZED_COLUMN_NAME: self.newline_normalized_column_name,
                 OperatorConstants.Columns.ERROR_COLUMN_NAME: self.error_column_name,
             }
         )
-
-        # Add any custom column name mappings from config
-        for feature_key in DEFAULT_TEXT_ENRICHER_DICT.keys():
-            column_name_key = f"{feature_key}_column_name"
-            if column_name_key in config:
-                config[column_name_key] = config[column_name_key]
 
         # Call both parent constructors
         super().__init__(config=config)

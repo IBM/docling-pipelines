@@ -2,7 +2,7 @@
 
 ## Overview
 
-Docpipe implements a security-first logging architecture designed to provide comprehensive observability while protecting sensitive data. The logging system supports both human-readable colored output for development and structured JSON logging for production environments.
+Docling Pipelines implements a security-first logging architecture designed to provide comprehensive observability while protecting sensitive data. The logging system supports both human-readable colored output for development and structured JSON logging for production environments.
 
 **Key Features:**
 - Structured JSON logging with transaction ID tracking
@@ -33,7 +33,7 @@ docling-pipelines --flow-file your_flow.json
 
 ## Log Levels
 
-Docpipe uses standard Python logging levels. Choose the appropriate level based on your environment and needs:
+Docling Pipelines uses standard Python logging levels. Choose the appropriate level based on your environment and needs:
 
 | Level | When to Use | What Gets Logged |
 |-------|-------------|------------------|
@@ -145,7 +145,7 @@ When exceptions occur, JSON logs include formatted stack traces:
 
 ### Automatic Sanitization
 
-Docpipe automatically sanitizes sensitive data in HTTP requests and responses using the [`sanitize_sensitive_data()`](../../src/docpipe/integrations/rest_client.py) function.
+Docling Pipelines automatically sanitizes sensitive data in HTTP requests and responses using the [`sanitize_sensitive_data()`](../../src/docpipe/integrations/rest_client.py) function.
 
 **Protected patterns:**
 - API keys and tokens
@@ -159,13 +159,13 @@ Docpipe automatically sanitizes sensitive data in HTTP requests and responses us
 # Before sanitization
 headers = {
     "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "X-API-Key": "your-api-key"
+    "X-API-Key": "<your-api-key>"
 }
 
 # After sanitization (in logs)
 headers = {
-    "Authorization": "Bearer [REDACTED]",
-    "X-API-Key": "[REDACTED]"
+    "Authorization": "Bearer ***REDACTED***",
+    "X-API-Key": "***REDACTED***"
 }
 ```
 
@@ -227,7 +227,7 @@ cat application.log | jq 'select(.transaction_ID == "my-unique-id-123")'
 export DS_LOG_LEVEL=INFO  # Not DEBUG
 
 # Monitor third-party library logs
-# Docpipe automatically configures these to respect DS_LOG_LEVEL:
+# Docling Pipelines automatically configures these to respect DS_LOG_LEVEL:
 # - uvicorn, prefect, httpx, httpcore, urllib3
 ```
 
@@ -407,6 +407,10 @@ print(f"Logger level: {logging.getLevelName(logger.level)}")
 print(f"Handlers: {logger.handlers}")
 print(f"JSON enabled: {os.getenv('DS_LOG_JSON')}")
 ```
+
+**Note:** When docpipe is used as an embedded library (i.e. `configure_logging=False` was
+passed to `DocpipeFlowManager`), `logger.handlers` will show only a `NullHandler`. This is
+expected — the calling application controls all output through its own logging infrastructure.
 
 ## Reference
 

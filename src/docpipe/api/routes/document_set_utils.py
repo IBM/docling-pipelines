@@ -13,14 +13,20 @@ from docpipe.api.dto.document_set_dto import (
     DocumentSetPreviewResponse,
     DocumentSetResponse,
 )
+from docpipe.core.assets.common.domain.models.attachment_ref import AttachmentRef
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
 
 
-def document_set_to_response(*, document_set: DocumentSet) -> DocumentSetResponse:
+def document_set_to_response(
+    *, document_set: DocumentSet, attachment_ref: AttachmentRef | None = None
+) -> DocumentSetResponse:
     """Convert a domain document set into an API response DTO.
 
     Args:
-        document_set: Domain model document set
+        document_set: Domain model document set.
+        attachment_ref: Optional AttachmentRef carrying storage coordinates
+            (database_path, table_name). Pass None when data has not yet been
+            stored for this document set.
 
     Returns:
         DocumentSetResponse DTO
@@ -28,13 +34,15 @@ def document_set_to_response(*, document_set: DocumentSet) -> DocumentSetRespons
     created_at = document_set.created_at or datetime.now(UTC)
     updated_at = document_set.updated_at or created_at
 
+    details = attachment_ref.details if attachment_ref else {}
+
     return DocumentSetResponse(
-        id=document_set.id or "",
+        id=document_set.asset_id or "",
         name=document_set.name,
         description=document_set.description,
         storage_backend=document_set.storage_backend,
-        database_path=document_set.database_path,
-        table_name=document_set.table_name,
+        database_path=details.get("database_path"),
+        table_name=details.get("table_name"),
         total_documents=document_set.total_documents,
         total_size_bytes=document_set.total_size_bytes,
         total_pages=document_set.total_pages,

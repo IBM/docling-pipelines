@@ -6,8 +6,8 @@ Supports watsonx and litellm (which provides access to 100+ providers including 
 """
 
 import json
-import os
 import uuid
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -48,8 +48,11 @@ TOKEN_LIMIT_DEFAULT: int = 8192
 PROVIDER_KEY: str = "provider"
 PROVIDER_DEFAULT: str = "litellm"
 
+# Fallback zero-vector dimension when no successful embedding has been produced yet
+EMBEDDING_DIM_FALLBACK: int = 384
 
-class EmbeddingsOperator(AbstractOperator):
+
+class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
     """
     Operator for generating embeddings using LLM providers.
 
@@ -123,9 +126,6 @@ class EmbeddingsOperator(AbstractOperator):
             OperatorConstants.Columns.EMBEDDINGS_COLUMN,
             OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
         )
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.doc_id_hash_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
@@ -143,8 +143,21 @@ class EmbeddingsOperator(AbstractOperator):
         # Initialize embedding adapter using unified factory
         self.embedding_adapter: LLMEmbeddingPort = self._initialize_embedding_adapter()
 
+        # Cache DocIdHashOperator instance to avoid re-instantiation on every transform() call
+        self._doc_id_op: DocIdHashOperator = DocIdHashOperator(
+            config={
+                OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
+                OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
+            }
+        )
+
+        # Cached embedding dimension — determined on first successful embedding call
+        self._embedding_dim: int | None = None
+
         logger.info(
-            f"Initialized EmbeddingsOperator with provider: {self.provider}, model: {self.model_id}",
+            "Initialized EmbeddingsOperator with provider: %s, model: %s",
+            self.provider,
+            self.model_id,
             extra=self.common_log_arguments,
         )
 
@@ -204,9 +217,7 @@ class EmbeddingsOperator(AbstractOperator):
         """Return list of required input features."""
         return []
 
-    def validate(
-        self, errors: list[str], warnings: list[str], available_features: list[str]
-    ) -> None:  # NOSONAR python:S3776
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
         Validate operator configuration.
 
@@ -297,6 +308,32 @@ class EmbeddingsOperator(AbstractOperator):
             warnings.append(ValidationCodeMessages.CHUNKER_OPERATOR_MISSING)
 
     @staticmethod
+    def _get_embeddings_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the provider_config field.
+
+        Add a new entry here when registering a new embeddings provider.
+        """
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+
+        return {
+            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
+                schema=LLMProviderConfig.model_json_schema()
+            ),
+            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxProviderConfig.model_json_schema()
+            ),
+        }
+
+    @staticmethod
+    def _get_embedding_provider_names() -> list[str]:
+        """Return registered embedding provider names from the local adapter factory."""
+        from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
+            LLMAdapterFactory as LocalLLMAdapterFactory,
+        )
+
+        return LocalLLMAdapterFactory.list_adapters()
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
@@ -322,37 +359,18 @@ class EmbeddingsOperator(AbstractOperator):
             OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
                     OperatorConstants.Misc.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: "Embedding provider: watsonx (IBM watsonx.ai) or litellm (100+ providers including Ollama, HuggingFace, OpenAI, Azure, Cohere)",
+                    OperatorConstants.Config.DESCRIPTION: "Embedding provider: litellm (100+ providers including Ollama, OpenAI, Azure, Cohere), watsonx (IBM watsonx.ai), or huggingface (local inference).",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
+                    OperatorConstants.Config.VALID_VALUES: EmbeddingsOperator._get_embedding_provider_names(),
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration. Fields vary by provider — see the 'providers' schema for details.",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                    OperatorConstants.Config.PROPERTIES: {
-                        OperatorConstants.Config.MODEL_ID: {
-                            OperatorConstants.Misc.NAME: "Model ID",
-                            OperatorConstants.Config.DESCRIPTION: "Model identifier in <provider>/<model_id> format for litellm (e.g., 'openai/nomic-embed-text', 'huggingface/sentence-transformers/all-MiniLM-L6-v2'). For watsonx, use the model name directly.",
-                            OperatorConstants.Config.REQUIRED: True,
-                            OperatorConstants.Config.DEFAULT: "openai/nomic-embed-text",
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_BASE: {
-                            OperatorConstants.Misc.NAME: "API Base URL",
-                            OperatorConstants.Config.DESCRIPTION: "API endpoint URL (e.g., 'http://localhost:11434/v1' for Ollama)",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_KEY: {
-                            OperatorConstants.Misc.NAME: "API Key",
-                            OperatorConstants.Config.DESCRIPTION: "Authentication key",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                    },
+                    OperatorConstants.Config.PROVIDERS: EmbeddingsOperator._get_embeddings_provider_schemas(),
                 },
                 OperatorConstants.Columns.EMBEDDINGS_COLUMN: {
                     OperatorConstants.Misc.NAME: "Embeddings Column",
@@ -402,7 +420,7 @@ class EmbeddingsOperator(AbstractOperator):
         if summary:
             return f"abstract: {summary}\ncontent: {chunk_text}"
 
-        return chunk_text
+        return str(chunk_text)
 
     def _generate_document_hash(self, content: str) -> str:
         """
@@ -444,17 +462,14 @@ class EmbeddingsOperator(AbstractOperator):
                 f"Model: {model_name}) context length. Add Chunking operator and/or adjust the chunk_type/chunk_size"
                 " in Chunking operator and the Embeddings model ID in Embeddings operator to avoid this error."
             ) from error
-        else:
-            logger.error(
-                f"Failed to generate embeddings{' ' + context if context else ''}: {error!s}",
-                exc_info=True,
-                extra=self.common_log_arguments,
-            )
-            raise DocpipeException(f"Batch embedding generation failed: {error!s}") from error
+        logger.error(
+            f"Failed to generate embeddings{' ' + context if context else ''}: {error!s}",
+            exc_info=True,
+            extra=self.common_log_arguments,
+        )
+        raise DocpipeException(f"Batch embedding generation failed: {error!s}") from error
 
-    def _create_embeddings(
-        self, text: list[str], model_name: str, overlap_ratio: float
-    ) -> list[list[float]]:  # NOSONAR python:S3776
+    def _create_embeddings(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
         """
         Generate embeddings for text using the configured provider with batch processing.
 
@@ -550,16 +565,23 @@ class EmbeddingsOperator(AbstractOperator):
             except Exception as e:
                 self._handle_embedding_error(error=e, model_name=model_name, context=f"for chunked text at index {idx}")
 
+        # Cache embedding dimension from the first result available
+        if self._embedding_dim is None and embeddings_map:
+            self._embedding_dim = len(next(iter(embeddings_map.values())))
+
         # Build final embeddings list in original order
         embeddings: list[list[float]] = []
         for idx, text_item in enumerate(text):
             if not text_item or not text_item.strip():
-                # Empty text - return zero vector
+                # Empty text — use a zero vector matching the model's actual output dimension.
+                # Fall back to 384 only if no successful embedding has been produced yet.
+                dim = self._embedding_dim if self._embedding_dim is not None else EMBEDDING_DIM_FALLBACK
                 logger.warning(
-                    f"Empty text at index {idx} provided for embedding generation",
+                    "Empty text at index %d provided for embedding generation",
+                    idx,
                     extra=self.common_log_arguments,
                 )
-                embeddings.append([0.0] * 384)  # Default embedding size
+                embeddings.append([0.0] * dim)
             else:
                 embeddings.append(embeddings_map[idx])
 
@@ -588,7 +610,7 @@ class EmbeddingsOperator(AbstractOperator):
         )
         return str(doc_id), str(doc_name)
 
-    def _parse_chunked_content(self, table: pa.Table, idx: int, doc_name: str) -> list[str]:  # NOSONAR python:S3776
+    def _parse_chunked_content(self, table: pa.Table, idx: int, doc_name: str) -> list[str]:
         """
         Parse and extract text from chunked content.
 
@@ -807,9 +829,7 @@ class EmbeddingsOperator(AbstractOperator):
 
         return embeddings_result, doc_hash
 
-    def transform(
-        self, table: pa.Table, file_name: str | None = None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:  # NOSONAR python:S3776
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by adding embeddings using memory-efficient internal slicing.
 
@@ -838,16 +858,10 @@ class EmbeddingsOperator(AbstractOperator):
                 )
                 return self._handle_doc_hash_generation_failure(table, error, metadata)
 
-            # Generate doc_id_hash using DocIdHashOperator
+            # Generate doc_id_hash using the cached DocIdHashOperator instance
             try:
-                doc_id_op: DocIdHashOperator = DocIdHashOperator(
-                    config={
-                        OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
-                        OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
-                    }
-                )
                 result_tables: list[pa.Table]
-                result_tables, _ = doc_id_op.transform(table)
+                result_tables, _ = self._doc_id_op.transform(table)
                 table = result_tables[0]
             except Exception as e:
                 return self._handle_doc_hash_generation_failure(table, e, metadata)
@@ -869,7 +883,11 @@ class EmbeddingsOperator(AbstractOperator):
             slice_table = table.slice(start_idx, end_idx - start_idx)
 
             logger.info(
-                f"Processing slice {slice_num}/{total_slices} (rows {start_idx}-{end_idx - 1})",
+                "Processing slice %d/%d (rows %d-%d)",
+                slice_num,
+                total_slices,
+                start_idx,
+                end_idx - 1,
                 extra=self.common_log_arguments,
             )
 
@@ -953,7 +971,7 @@ class EmbeddingsOperator(AbstractOperator):
                         else:
                             # Fallback to UUID if doc_id not available
                             embeddings_filename = f"embeddings_{uuid.uuid4().hex}.bin"
-                        embeddings_filepath = os.path.join(embeddings_dir, embeddings_filename)
+                        embeddings_filepath = str(Path(embeddings_dir) / embeddings_filename)
 
                         # Write embeddings to memmap file
                         write_content_to_file(content_list=embeddings, filepath=embeddings_filepath)
@@ -988,16 +1006,13 @@ class EmbeddingsOperator(AbstractOperator):
 
                 # Log memory-efficient completion
                 logger.info(
-                    f"Slice {slice_num}/{total_slices} complete: "
-                    f"processed {len(slice_embeddings)} docs, "
-                    f"failed {len(slice_remove_idx)} docs",
+                    "Slice %d/%d complete: processed %d docs, failed %d docs",
+                    slice_num,
+                    total_slices,
+                    len(slice_embeddings),
+                    len(slice_remove_idx),
                     extra=self.common_log_arguments,
                 )
-
-            # CRITICAL: These lists are now eligible for GC before the next slice starts
-            del slice_embeddings
-            del slice_doc_id_hashes
-            del slice_remove_idx
 
         # Final assembly
         final_table = pa.concat_tables(processed_tables) if processed_tables else table.slice(0, 0)

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 
 from docpipe.core.assets.flows.domain.models.flow import Flow
-from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
+from docpipe.exceptions.docpipe_exceptions import AssetInvalidDataException
 
 
 class TestFlowCreation:
@@ -30,7 +30,7 @@ class TestFlowCreation:
         """Test creating a flow with all fields specified."""
         # Arrange & Act
         flow = Flow(
-            flow_id="custom-id",
+            asset_id="custom-id",
             name=sample_flow_data["name"],
             description=sample_flow_data["description"],
             definition=sample_flow_data["definition"],
@@ -46,7 +46,7 @@ class TestFlowCreation:
         )
 
         # Assert
-        assert flow.flow_id == "custom-id"
+        assert flow.flow_id == "custom-id"  # flow_id is alias for asset_id
         assert flow.name == sample_flow_data["name"]
         assert flow.description == sample_flow_data["description"]
         assert flow.tags == sample_flow_data["tags"]
@@ -100,7 +100,7 @@ class TestFlowNameValidation:
         flow = Flow(name="", definition={"nodes": []})
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
+        with pytest.raises(AssetInvalidDataException, match="flow name cannot be empty"):
             flow.validate()
 
     def test_validate_flow_with_whitespace_only_name_raises_error(self):
@@ -109,7 +109,7 @@ class TestFlowNameValidation:
         flow = Flow(name="   ", definition={"nodes": []})
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
+        with pytest.raises(AssetInvalidDataException, match="flow name cannot be empty"):
             flow.validate()
 
     def test_validate_flow_with_name_exceeding_255_chars_raises_error(self):
@@ -119,7 +119,7 @@ class TestFlowNameValidation:
         flow = Flow(name=long_name, definition={"nodes": []})
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow name cannot exceed 255 characters"):
+        with pytest.raises(AssetInvalidDataException, match="flow name cannot exceed 255 characters"):
             flow.validate()
 
     def test_validate_flow_with_name_exactly_255_chars_passes(self):
@@ -179,8 +179,8 @@ class TestFlowDescriptionValidation:
 
         # Act & Assert
         with pytest.raises(
-            FlowInvalidDataException,
-            match="Flow description cannot exceed 2000 characters",
+            AssetInvalidDataException,
+            match="flow description cannot exceed 2000 characters",
         ):
             flow.validate()
 
@@ -211,7 +211,9 @@ class TestFlowDefinitionValidation:
         flow = Flow(name="Test", definition={})
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow definition cannot be empty"):
+        from docpipe.exceptions.docpipe_exceptions import AssetInvalidDataException
+
+        with pytest.raises(AssetInvalidDataException, match="Flow definition cannot be empty"):
             flow.validate()
 
     def test_validate_flow_with_non_dict_definition_raises_error(self):
@@ -220,7 +222,9 @@ class TestFlowDefinitionValidation:
         flow = Flow(name="Test", definition="not a dict")  # type: ignore
 
         # Act & Assert
-        with pytest.raises(FlowInvalidDataException, match="Flow definition must be a dictionary"):
+        from docpipe.exceptions.docpipe_exceptions import AssetInvalidDataException
+
+        with pytest.raises(AssetInvalidDataException, match="Flow definition must be a dictionary"):
             flow.validate()
 
     def test_validate_flow_with_complex_definition_passes(self, sample_flow_data):
@@ -235,7 +239,7 @@ class TestFlowDefinitionValidation:
         """Test validation passes with docling-pipelines format definition."""
         # Arrange
         definition = {
-            "nodes": [{"id": "node1", "operator_type": "IngestLocalFolder"}],
+            "nodes": [{"id": "node1", "operator_type": "IngestSourceOperator"}],
         }
         flow = Flow(name="Test", definition=definition)
 
@@ -361,7 +365,7 @@ class TestFlowFromDictConversion:
         }
 
         # Act
-        flow = Flow.from_dict(data)
+        flow = Flow.from_dict(data=data)
 
         # Assert
         assert flow.flow_id == "test-id"
@@ -381,7 +385,7 @@ class TestFlowFromDictConversion:
         }
 
         # Act
-        flow = Flow.from_dict(data)
+        flow = Flow.from_dict(data=data)
 
         # Assert
         assert isinstance(flow.created_on, datetime)
@@ -396,7 +400,7 @@ class TestFlowFromDictConversion:
         data = {"name": "Test", "definition": {"nodes": []}}
 
         # Act
-        flow = Flow.from_dict(data)
+        flow = Flow.from_dict(data=data)
 
         # Assert
         assert flow.name == "Test"
@@ -414,7 +418,7 @@ class TestFlowFromDictConversion:
         }
 
         # Act
-        flow = Flow.from_dict(data)
+        flow = Flow.from_dict(data=data)
 
         # Assert
         assert flow.tags == ["tag1", "tag2", "tag3"]
@@ -425,7 +429,7 @@ class TestFlowFromDictConversion:
         data = {"name": "Test", "definition": {"nodes": []}}
 
         # Act
-        flow = Flow.from_dict(data)
+        flow = Flow.from_dict(data=data)
 
         # Assert
         assert flow.is_hidden is False
@@ -440,7 +444,7 @@ class TestFlowRoundTripConversion:
         """Test that converting to dict and back preserves all data."""
         # Act
         dict_data = sample_flow_with_id.to_dict()
-        restored_flow = Flow.from_dict(dict_data)
+        restored_flow = Flow.from_dict(data=dict_data)
 
         # Assert
         assert restored_flow.flow_id == sample_flow_with_id.flow_id
@@ -455,7 +459,7 @@ class TestFlowRoundTripConversion:
         """Test that round-trip conversion preserves timestamp precision."""
         # Act
         dict_data = sample_flow_with_id.to_dict()
-        restored_flow = Flow.from_dict(dict_data)
+        restored_flow = Flow.from_dict(data=dict_data)
 
         # Assert - Compare timestamps (allowing for microsecond precision loss in ISO format)
         assert restored_flow.created_on is not None and sample_flow_with_id.created_on is not None

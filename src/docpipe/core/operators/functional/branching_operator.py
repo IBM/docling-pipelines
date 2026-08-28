@@ -1,3 +1,5 @@
+"""Branching operator that splits a document table into multiple sub-flows."""
+
 import re
 from typing import Any
 
@@ -40,9 +42,64 @@ class BranchingOperator(AbstractOperator):
         self._config: dict[str, Any] = config
         self.branch_criteria: list[dict[str, Any]] = config.get("branches", [])
 
-    def validate(
-        self, errors: list[str], warnings: list[str], available_features: list[str]
-    ) -> None:  # NOSONAR python:S3776
+    def _validate_branch(
+        self,
+        *,
+        branch: dict[str, Any],
+        existing_link_names: set[str],
+        invalid_features: set[str],
+        available_features: list[str],
+        errors: list[str],
+        warnings: list[str],
+        is_unconditional: bool,
+    ) -> None:
+        """Validate a single branch entry and update errors/warnings/invalid_features in-place."""
+        logical_op: str | None = branch.get("logical_operator")
+        criteria_list: list[str] = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST, [])
+        criteria_json: dict[str, Any] | None = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
+        link_name: str | None = branch.get(OperatorConstants.Misc.LINK_NAME)
+
+        OperatorUtils.validate_link_name(
+            link_name=link_name,
+            existing_link_names=existing_link_names,
+            errors=errors,
+        )
+
+        if logical_op and logical_op not in ["AND", "OR"]:
+            errors.append(f"Invalid logical operator '{logical_op}' in branch. Use 'AND' or 'OR'.")
+
+        if is_unconditional:
+            return
+
+        should_validate_criteria: bool = self.should_validate_field(field_value=criteria_list)
+        should_validate_json: bool = self.should_validate_field(field_value=criteria_json)
+
+        if should_validate_criteria and should_validate_json:
+            criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
+                criteria_list=criteria_list, criteria_json=criteria_json
+            )
+            if not (criteria_valid or json_valid):
+                warnings.append(
+                    f"Filter criteria must have at least one condition for conditional branch '{link_name or 'unnamed'}'"
+                )
+
+        if criteria_json:
+            criteria_columns: set[str] = extract_columns(criteria_json)
+            invalid_features.update(criteria_columns - set(available_features))
+        elif criteria_list:
+            for criteria in criteria_list:
+                if criteria and criteria.strip():
+                    self.validate_expression(
+                        expr=criteria,
+                        available_features=available_features,
+                        errors=errors,
+                    )
+
+        if not branch.get(OperatorConstants.Misc.LINK_ID):
+            errors.append("Branch Id is missing in the branch parameters.")
+
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """Validate."""
         if not self.should_validate_field(field_value=self.branch_criteria):
             return
 
@@ -63,58 +120,15 @@ class BranchingOperator(AbstractOperator):
         invalid_features: set[str] = set()
         existing_link_names: set[str] = set()
         for branch in self.branch_criteria:
-            logical_op: str | None = branch.get("logical_operator")
-            criteria_list: list[str] = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST, [])
-            criteria_json: dict[str, Any] | None = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
-            link_name: str | None = branch.get(OperatorConstants.Misc.LINK_NAME)
-            OperatorUtils.validate_link_name(
-                link_name=link_name,
+            self._validate_branch(
+                branch=branch,
                 existing_link_names=existing_link_names,
+                invalid_features=invalid_features,
+                available_features=available_features,
                 errors=errors,
+                warnings=warnings,
+                is_unconditional=is_unconditional_branching,
             )
-
-            if logical_op and logical_op not in ["AND", "OR"]:
-                errors.append(f"Invalid logical operator '{logical_op}' in branch. Use 'AND' or 'OR'.")
-
-            # Skip criteria validation for unconditional branching
-            if is_unconditional_branching:
-                continue
-
-            # Validate that branch has at least one valid condition for conditional branching
-            should_validate_criteria: bool = self.should_validate_field(field_value=criteria_list)
-            should_validate_json: bool = self.should_validate_field(field_value=criteria_json)
-
-            # Only validate if both fields are not parameterized
-            if should_validate_criteria and should_validate_json:
-                criteria_valid: bool
-                json_valid: bool
-                criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
-                    criteria_list=criteria_list, criteria_json=criteria_json
-                )
-
-                # Warning if both are invalid/empty in conditional branching
-                if not (criteria_valid or json_valid):
-                    warnings.append(
-                        f"Filter criteria must have at least one condition for conditional branch '{link_name or 'unnamed'}'"
-                    )
-
-            # validate criteria JSON
-            if criteria_json:
-                criteria_columns: set[str] = extract_columns(criteria_json)
-                invalid_columns: set[str] = criteria_columns - set(available_features)
-                invalid_features.update(invalid_columns)
-            # validate criteria list
-            elif criteria_list:
-                for criteria in criteria_list:
-                    if criteria and criteria.strip():  # Only validate non-empty criteria
-                        self.validate_expression(
-                            expr=criteria,
-                            available_features=available_features,
-                            errors=errors,
-                        )
-
-            if not branch.get(OperatorConstants.Misc.LINK_ID):
-                errors.append("Branch Id is missing in the branch parameters.")
 
         if invalid_features:
             errors.append(
@@ -123,6 +137,7 @@ class BranchingOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
+        """Get metadata."""
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: BranchingOperator.category.value,
@@ -138,6 +153,43 @@ class BranchingOperator(AbstractOperator):
                     ),
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Config.ITEMS: {
+                        OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                        OperatorConstants.Config.PROPERTIES: {
+                            OperatorConstants.Misc.LINK_ID: {
+                                OperatorConstants.Misc.NAME: "Branch ID",
+                                OperatorConstants.Config.DESCRIPTION: "Unique identifier for this branch. Referenced by MergeOperator input_links.",
+                                OperatorConstants.Config.REQUIRED: True,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            },
+                            OperatorConstants.Misc.LINK_NAME: {
+                                OperatorConstants.Misc.NAME: "Branch Name",
+                                OperatorConstants.Config.DESCRIPTION: "Human-readable label for this branch.",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            },
+                            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: {
+                                OperatorConstants.Misc.NAME: "Criteria List",
+                                OperatorConstants.Config.DESCRIPTION: "SQL-like filter expressions (e.g. \"lang_name = 'en'\"). Omit for an unconditional branch.",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
+                            },
+                            OperatorConstants.Filtering.FILTER_CRITERIA_JSON: {
+                                OperatorConstants.Misc.NAME: "Criteria JSON",
+                                OperatorConstants.Config.DESCRIPTION: "Structured filter criteria object (alternative to criteria_list).",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                            },
+                            OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: {
+                                OperatorConstants.Misc.NAME: "Logical Operator",
+                                OperatorConstants.Config.DESCRIPTION: "How to combine multiple criteria: AND or OR.",
+                                OperatorConstants.Config.REQUIRED: False,
+                                OperatorConstants.Config.DEFAULT: "AND",
+                                OperatorConstants.Config.VALID_VALUES: ["AND", "OR"],
+                                OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            },
+                        },
+                    },
                 }
             },
         }
@@ -155,13 +207,15 @@ class BranchingOperator(AbstractOperator):
         metadata["branches"][branch_id] = {
             "result_index": idx,
             "processed_docs": filtered_table.num_rows,
-            "skipped_docs_count": len(skipped_docs),
+            "docs_filtered": total_docs - filtered_table.num_rows,
+            "skipped_docs_count": total_docs - filtered_table.num_rows,
             "failed_docs_count": len(failed_docs),
         }
         metadata[Metrics.External.SKIPPED_DOCS] = skipped_docs
         metadata[Metrics.External.FAILED_DOCS] = failed_docs
 
     def runner(self, table: pa.Table, spark_session: Any | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Runner."""
         log_memory_usage(
             operator_name=self.name,
             phase=MemoryLogPhases.TRANSFORM_COMPLETED,
@@ -255,6 +309,7 @@ class BranchingOperator(AbstractOperator):
         metadata_filter_transform: dict[str, Any],
         idx: int,
     ) -> list[dict[str, Any]]:
+        """Get skipped doc."""
         metadata_skipped: list[dict[str, Any]] = metadata_filter_transform.get(Metrics.External.SKIPPED_DOCS, [])
 
         if not skipped_docs:
@@ -272,6 +327,7 @@ class BranchingOperator(AbstractOperator):
         metadata_filter_transform: dict[str, Any],
         idx: int,
     ) -> list[dict[str, Any]]:
+        """Get failed doc."""
         metadata_failed: list[dict[str, Any]] = metadata_filter_transform.get(Metrics.External.FAILED_DOCS, [])
 
         if not failed_docs:
@@ -284,9 +340,11 @@ class BranchingOperator(AbstractOperator):
         return [doc for doc in failed_docs if doc["id"] in metadata_ids]
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Transform."""
         return self.runner(table=table)
 
     def validate_expression(self, *, expr: str, available_features: list[str], errors: list[str]) -> None:
+        """Validate expression."""
         try:
             is_valid: bool
             columns: list[str]
@@ -305,6 +363,7 @@ class BranchingOperator(AbstractOperator):
             errors.append(f"Unexpected error while validating branching criteria: {expr}, Error: {exc!s}")
 
     def analyze_where_clause(self, *, clause_str: str) -> tuple[bool, list[str]]:
+        """Analyze where clause."""
         clause_str = clause_str.strip()
         if not clause_str:
             return False, []
@@ -314,7 +373,7 @@ class BranchingOperator(AbstractOperator):
         if re.search(r"\w%\w", clause_str):
             return False, []
 
-        sql: str = f"SELECT * FROM dummy_table WHERE {clause_str}"
+        sql: str = f"SELECT * FROM dummy_table WHERE {clause_str}"  # nosec B608 - not executed, parsed by sqlglot for AST extraction only
         try:
             parsed: Any = sqlglot.parse_one(sql)
             where: Any | None = parsed.find(exp.Where)

@@ -1,7 +1,8 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -31,9 +32,10 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9500",
                     "name": "ingest",
-                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_SOURCE,
                     "config": {
-                        "paths": "tests/fixtures/customer_support_docs",
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["tests/fixtures/customer_support_docs"]},
                         "include_filter": "txt",
                     },
                     "input_edges": [],
@@ -58,11 +60,16 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         from docpipe.cli.docpipe_cli import load_flow_definition
 
-        # Path relative to project root (where pytest runs)
-        filepath = "sample_flows/quickstart/complete_pipeline_ollama.json"
+        # Use a path relative to the repo root so it works regardless of cwd
+        repo_root = Path(__file__).parent.parent
+        filepath = str(repo_root / "sample_flows" / "quickstart" / "complete_pipeline_ollama.json")
 
-        flow_def = load_flow_definition(file_path=filepath)
+        if not Path(filepath).exists():
+            pytest.skip(f"Sample flow file not found: {filepath}")
+
+        original_flow, flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None
+        assert original_flow is not None
 
     def test_invalid_flow_definition(self):
         """
@@ -81,43 +88,46 @@ class TestCommandLineOrchestrator(unittest.TestCase):
 
     def test_file_not_found_exception(self):
         """
-        Test that load_flow_definition raises FileNotFoundError for missing files
+        Test handling of FileNotFoundError in load_flow_definition
         """
+        file_path = "non_existent_file.json"
+
+        # load_flow_definition raises FileNotFoundError directly — verify it propagates
         with pytest.raises(FileNotFoundError):
-            load_flow_definition(file_path="non_existent_file.json")
+            load_flow_definition(file_path=file_path)
 
     def test_invalid_json_exception(self):
         """
-        Test that load_flow_definition raises JSONDecodeError for invalid JSON
+        Test handling of invalid JSON in load_flow_definition
         """
         import json
 
+        # Create a temporary file with invalid JSON content
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as temp_file:
             temp_file.write("{ This is not valid JSON }")
             temp_file_path = temp_file.name
 
         try:
+            # load_flow_definition raises JSONDecodeError directly — verify it propagates
             with pytest.raises(json.JSONDecodeError):
                 load_flow_definition(file_path=temp_file_path)
         finally:
-            os.unlink(temp_file_path)
+            Path(temp_file_path).unlink()
 
-    @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
-    def test_flow_execution_failure(self, mock_create_orchestrator):
+    def test_flow_execution_failure(self):
         """
-        Test that run_command_line_executor propagates exceptions from the orchestrator
+        Test handling of flow execution failure
         """
-        mock_orchestrator = MagicMock()
-        mock_orchestrator.initialize.side_effect = Exception("Flow execution failed")
-        mock_create_orchestrator.return_value = mock_orchestrator
+        from docpipe.core.orchestration.flow_executor import FlowExecutor
 
+        # Create a simple flow definition with an unknown operator to force a validation error
         flow_def = {
             "name": "test-flow-execution-failure",
             "dag": [
                 {
                     "id": "test-id",
                     "name": "test-operator",
-                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.NOOP,
+                    OperatorConstants.Misc.OPERATOR: "non_existent_operator_xyz",
                     "config": {},
                     "input_edges": [],
                     "output_edges": [],
@@ -125,8 +135,10 @@ class TestCommandLineOrchestrator(unittest.TestCase):
             ],
         }
 
-        with self.assertRaises(Exception):  # noqa: B017
-            run_command_line_executor(flow_def=flow_def)
+        # Patch FlowExecutor.execute to raise so the exception propagates out of run_command_line_executor
+        with patch.object(FlowExecutor, "execute", side_effect=Exception("Flow execution failed")):
+            with self.assertRaises(Exception):  # noqa: B017
+                run_command_line_executor(flow_def=flow_def)
 
     def test_merge_operator_flow(self):
         """
@@ -138,9 +150,10 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9510",
                     "name": "ingest",
-                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_SOURCE,
                     "config": {
-                        "paths": "tests/fixtures/customer_support_docs",
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["tests/fixtures/customer_support_docs"]},
                         "include_filter": "txt",
                     },
                     "input_edges": [],

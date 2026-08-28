@@ -84,7 +84,7 @@ def create_error_response(
     )
 
 
-async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Handle HTTP exceptions and convert to REST API standard format.
 
     Args:
@@ -105,6 +105,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         405: "method_not_allowed",
         409: "conflict",
         422: "validation_error",
+        425: "too_early",
         429: "too_many_requests",
         500: "internal_error",
         503: "service_unavailable",
@@ -126,7 +127,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
     )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handle validation errors and convert to REST API standard format.
 
     Args:
@@ -179,7 +180,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-async def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONResponse:
+def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONResponse:
     """Handle DocpipeException and convert to REST API standard format.
 
     Args:
@@ -189,11 +190,47 @@ async def docpipe_exception_handler(request: Request, exc: DocpipeException) -> 
     Returns:
         JSONResponse: REST API standard error response
     """
+    from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+
     trace_id = get_trace_id(request)
 
-    # Use domain error code directly as API error code (1:1 mapping)
+    # Map specific HTTP status codes to their standard API error codes.
+    # This takes precedence over the domain error code so the response body
+    # matches the REST API contract (e.g. 425 → "too_early").
+    status_code_error_map: dict[int, str] = {
+        425: "too_early",
+    }
     domain_error_code = str(exc.error_code.value) if exc.error_code else None
-    api_error_code = domain_error_code if domain_error_code else "internal_error"
+    api_error_code = status_code_error_map.get(exc.status_code) or domain_error_code or "internal_error"
+
+    # FlowValidationException carries a structured errors list — unpack each
+    # alert as a separate ErrorDetail so the caller gets actionable per-error detail.
+    if isinstance(exc, FlowValidationException) and exc.errors:
+        errors = []
+        for alert in exc.errors:
+            message = getattr(alert, "message", str(alert))
+            message_code = getattr(alert, "message_code", None)
+            errors.append(
+                ErrorDetail(
+                    code=api_error_code,  # type: ignore[arg-type]
+                    message=f"{message_code}: {message}" if message_code else message,
+                )
+            )
+        error_response = ErrorResponse(
+            errors=errors,
+            trace=trace_id,
+            status_code=exc.status_code,
+        )
+        logger.error(
+            "FlowValidationException: trace=%s, errors=%d",
+            trace_id,
+            len(errors),
+            exc_info=True,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response.model_dump(exclude_none=True),
+        )
 
     # Extract target information if available (for flow-specific exceptions)
     target = None
@@ -214,7 +251,7 @@ async def docpipe_exception_handler(request: Request, exc: DocpipeException) -> 
     )
 
 
-async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle generic exceptions and convert to REST API standard format.
 
     This handler is a last-resort fallback for exceptions not caught by

@@ -1,16 +1,16 @@
+"""Abstract base class for all docpipe flow orchestrators."""
+
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from queue import Queue
-from typing import ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.incremental_metadata import IncrementalUpdateService
-from docpipe.core.incremental_metadata.adapters.config import create_incremental_metadata_store
+from docpipe.core.incremental_metadata import get_incremental_update_service
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
 from docpipe.core.models.session_info import SessionInfo, get_session_info, set_session_info
 from docpipe.core.operators.abstract_operator import OperatorCategory
@@ -18,7 +18,7 @@ from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.orchestration.abstract_operator_executor import AbstractOperatorExecutor
 from docpipe.core.orchestration.batch_manager import BatchManager
 from docpipe.core.orchestration.flow_execution_event_handler import FlowExecutionEventHandler
-from docpipe.core.orchestration.prefect.prefect_engine import AbstractFlowEngine, ExecuteStepResults, PrefectEngine
+from docpipe.core.orchestration.ports.flow_engine import ExecuteStepResults, FlowEnginePort
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 from docpipe.utils.core.datetime import get_current_timestamp
 from docpipe.utils.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
@@ -35,12 +35,17 @@ logger = get_logger()
 
 R = TypeVar("R")  # The return type of the user's function
 P = ParamSpec("P")
-thread_pool_executor = ThreadPoolExecutor(max_workers=20)
 
 
 class AbstractOrchestrator(ABC):
+    """Base class defining the orchestration contract for executing flow DAGs.
+
+    Subclasses implement ``create_executor_impl`` and ``_create_flow_engine``
+    to provide engine-specific execution behaviour (Python, Prefect, etc.)."""
+
     def __init__(
         self,
+        *,
         job_stats_service: JobStatsService | None = None,
         job_run_manager: JobRunManager | None = None,
         enable_custom_operators: bool = True,
@@ -65,9 +70,10 @@ class AbstractOrchestrator(ABC):
         self.context_id: str | None = None
         self.jobs_client = None
         self.logger = get_logger()
-        self.message = ""
+        self.message: str | None = ""
         self.flow_id = None
         self.deleted_rows_list: Queue[pa.Table] = Queue()
+        self.non_recoverable_docs_tables: list[pa.Table] = []  # Track non-recoverable document tables
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
         self.flow_execution_event_handler = FlowExecutionEventHandler(
@@ -76,10 +82,10 @@ class AbstractOrchestrator(ABC):
             execution_reporter=execution_reporter,
         )
         self.batch_manager = BatchManager()
-        self.flow_engine: AbstractFlowEngine | None = None
-        self.common_log_arguments = None
+        self.flow_engine: FlowEnginePort | None = None
+        self.common_log_arguments: dict[Any, str] | None = None
 
-    def initialize(self, *, job_id, job_run_id):
+    def initialize(self, *, job_id: str, job_run_id: str):
         """
         Initialize orchestrator for a specific job run.
 
@@ -104,14 +110,31 @@ class AbstractOrchestrator(ABC):
             job_id=job_id, job_run_id=job_run_id, common_log_arguments=self.common_log_arguments
         )
 
-        # Create Prefect engine for this job run
-        self.flow_engine = PrefectEngine(
-            orchestrator=self,
-            batch_manager=self.batch_manager,
+        # Create flow engine via factory method (dependency injection)
+        self.flow_engine = self._create_flow_engine(
             job_id=job_id,
             job_run_id=job_run_id,
             job_log_path=self.flow_execution_event_handler.job_log_path,
         )
+
+    @abstractmethod
+    def _create_flow_engine(self, *, job_id: str, job_run_id: str, job_log_path: str) -> FlowEnginePort:
+        """
+        Factory method for creating the flow engine.
+
+        Subclasses must implement this to provide their specific flow engine implementation.
+        This enables dependency injection and allows different orchestrators to use
+        different execution engines (Prefect, Airflow, pure Python, etc.).
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+            job_log_path: Path for job logs
+
+        Returns:
+            FlowEnginePort: The flow engine implementation
+        """
+        ...
 
     def execute(self, *, flow_def: dict, params: dict):
         """
@@ -122,22 +145,7 @@ class AbstractOrchestrator(ABC):
         # Initialize the orchestrator with job_id and job_run_id
         self.initialize(job_id=job_id, job_run_id=job_run_id)
 
-        # Extract storage type from global_config
         flow_global_config = flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
-        storage_type = flow_global_config.get(DocpipeConstants.STORAGE_TYPE, DocpipeConstants.DEFAULT_STORAGE_TYPE)
-
-        # Validate storage type
-        if storage_type not in DocpipeConstants.SUPPORTED_STORAGE_TYPES:
-            raise FlowExecutionFailedException(
-                f"Unsupported storage type: '{storage_type}'. "
-                f"Supported types: {', '.join(DocpipeConstants.SUPPORTED_STORAGE_TYPES)}"
-            )
-
-        # Add storage type to params for operators
-        params[DocpipeConstants.STORAGE_TYPE] = storage_type
-
-        self.logger.info(f"Using storage type: {storage_type}", extra=self.common_log_arguments)
-
         global_config = flow_global_config | params | {DocpipeConstants.FLOW_DEFINITION: flow_def}
 
         if DocpipeConstants.DAG not in flow_def:
@@ -164,7 +172,26 @@ class AbstractOrchestrator(ABC):
         return None
 
     def _handle_node_failure(self, *, e, op_def, global_config):
-        self.job_status = ExecutionStatus.FAILING
+        # Check if continue_on_batch_failure is enabled
+        """Handle a node-level failure, updating job status and notifying the event handler.
+
+        Args:
+            e: The exception that caused the failure.
+            op_def: The operator definition dict.
+            global_config: Current global configuration."""
+        is_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+        continue_on_batch_failure = global_config.get(
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE,
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT,
+        )
+
+        # Only set job_status to FAILING if not in continue_on_batch_failure mode
+        # In continue_on_batch_failure mode, status will be determined by after_flow_execution_complete
+        if not (is_batching_enabled and continue_on_batch_failure):
+            self.job_status = ExecutionStatus.FAILING
+            # Capture error message for job-level message field
+            self.message = str(e)
+
         self.flow_execution_event_handler.after_node_failure(
             node_id=op_def[OperatorConstants.Columns.ID],
             node_name=op_def[OperatorConstants.Columns.NAME],
@@ -179,6 +206,15 @@ class AbstractOrchestrator(ABC):
         executor: AbstractOperatorExecutor,
         prev_data_access: dict[str, DataAccess | None] | DataAccess | None,
     ):
+        """Execute an active operator and collect its outputs and metadata.
+
+        Args:
+            op_def: Operator definition dict.
+            executor: The executor instance wrapping the operator.
+            prev_data_access: Data access(es) from the previous step.
+
+        Returns:
+            Tuple of (data_accesses, tables, metadata, internal_metadata)."""
         if executor.get_operator().short_name == OperatorConstants.Operators.DESIGN_FLOW_OUTPUT_OPERATOR:
             # save the deleted rows as this is needed for DESIGN_FLOW_OUTPUT_OPERATOR
             self._check_and_upload_deleted_rows()
@@ -190,6 +226,11 @@ class AbstractOrchestrator(ABC):
 
         # Removing the internal metrics from the operator metadata if any to another dict
         internal_metadata = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata)
+
+        # Collect non-recoverable docs table from this operator's internal metadata
+        self._collect_non_recoverable_docs(
+            internal_metadata=internal_metadata, op_def=op_def, common_log_arguments=self.common_log_arguments or {}
+        )
 
         operator = executor.get_operator()
         retain_deleted = operator.config.get(
@@ -219,6 +260,17 @@ class AbstractOrchestrator(ABC):
         global_config,
         start,
     ):
+        """Handle a skipped operator step, propagating previous results.
+
+        Args:
+            op_def: Operator definition dict.
+            executor: The executor wrapping the skipped operator.
+            prev_results: Results from the previous step.
+            global_config: Current global configuration.
+            start: Step start timestamp.
+
+        Returns:
+            Tuple of (data_accesses, tables)."""
         tables = (
             prev_results.tables
             if isinstance(prev_results, ExecuteStepResults)
@@ -245,7 +297,7 @@ class AbstractOrchestrator(ABC):
 
         return data_accesses, tables
 
-    def _execute_step(  # NOSONAR python:S3776
+    def _execute_step(
         self,
         *,
         op_def,
@@ -253,7 +305,29 @@ class AbstractOrchestrator(ABC):
         prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
         deleted_docs_count,
     ):
+        """Execute or skip a single DAG step and return its results.
+
+        Args:
+            op_def: Operator definition dict.
+            global_config: Current global configuration.
+            prev_results: Results from the previous step.
+            deleted_docs_count: Number of deleted documents from the ingest step.
+
+        Returns:
+            ExecuteStepResults for the current step."""
         start = get_current_timestamp()
+
+        # CRITICAL FIX: Check job_status BEFORE creating executor to prevent downstream
+        # operators from executing when an upstream operator fails in fail-fast mode.
+        # This prevents resource waste and potential side effects.
+        if self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
+            self.logger.info(
+                f"Skipping operator {op_def[OperatorConstants.Columns.NAME]} - job is in {self.job_status.value} state",
+                extra=self.common_log_arguments,
+            )
+            # Return empty result to signal skip to downstream operators
+            return ExecuteStepResults([], [], {})
+
         executor = self.create_executor(op_def=op_def, global_config=global_config)
 
         if isinstance(prev_results, ExecuteStepResults):
@@ -305,6 +379,17 @@ class AbstractOrchestrator(ABC):
         return ExecuteStepResults(data_accesses, tables, internal_metadata)
 
     def __get_tables_from_data_accesses(self, *, executor, data_accesses):
+        """Read tables from the data accesses produced by an operator.
+
+        Args:
+            executor: The operator executor.
+            data_accesses: List of DataAccess objects.
+
+        Returns:
+            List of PyArrow tables.
+
+        Raises:
+            FlowExecutionFailedException: If a table cannot be read."""
         tables = []
         for data_access in data_accesses:
             output_file_path = executor.get_output_file_path(data_access=data_access)
@@ -321,6 +406,16 @@ class AbstractOrchestrator(ABC):
         tables: pa.Table | list[pa.Table] | None,
         deleted_docs_count,
     ):
+        """Determine whether a step should be skipped based on operator category and table state.
+
+        Args:
+            executor: The operator executor.
+            tables: Current input table(s).
+            deleted_docs_count: Number of deleted documents.
+
+        Returns:
+            True if the step should be skipped."""
+
         def all_tables_are_empty():
             if tables is None:
                 return True
@@ -338,19 +433,62 @@ class AbstractOrchestrator(ABC):
         return False
 
     def _check_and_upload_deleted_rows(self):
+        """Persist accumulated deleted-row tables to the parquet store."""
         if not self.deleted_rows_list.empty():
+            if not self.job_id or not self.job_run_id:
+                self.logger.warning("job id or job run id must be needed to save unprocessed docs")
+                return
             try:
                 cumulative_deleted_rows = combine_cumulative_deleted_rows(self.deleted_rows_list)
-                deleted_rows_table_path = construct_deleted_rows_table_path(
+                deleted_rows_table_path = self.get_deleted_rows_table_path_impl(
                     job_id=self.job_id, job_run_id=self.job_run_id
                 )
-                parquet_table_handler: BaseParquetTableHandler = get_parquet_table_handler()
+                # TODO: replace with TableStoragePort storage abstraction
+                parquet_table_handler: BaseParquetTableHandler = self.get_parquet_table_handler_impl()
                 # delete table if exists already
                 parquet_table_handler.delete_file(path=deleted_rows_table_path)
                 parquet_table_handler.save_table(path=deleted_rows_table_path, table=cumulative_deleted_rows)
                 self.logger.info(f"Successfully captured {cumulative_deleted_rows.num_rows} deleted documents.")
             except Exception as e:
                 self.logger.warning(f"Failed to save unprocessed docs table — skipping it. Error: {e}")
+
+    def get_parquet_table_handler_impl(self) -> BaseParquetTableHandler:
+        """Return the parquet table handler implementation.
+
+        Returns:
+            A BaseParquetTableHandler instance."""
+        return get_parquet_table_handler()
+
+    def get_deleted_rows_table_path_impl(self, *, job_id: str, job_run_id: str) -> str:
+        """Return the file path for the deleted-rows parquet table.
+
+        Args:
+            job_id: Job identifier.
+            job_run_id: Job run identifier.
+
+        Returns:
+            Filesystem path string."""
+        return construct_deleted_rows_table_path(job_id=job_id, job_run_id=job_run_id)
+
+    def _mark_pending_batches_as_skipped(self) -> None:
+        """
+        Mark all PENDING/QUEUED batch node stats as SKIPPED when flow fails in fail-fast mode.
+
+        This ensures proper status aggregation - without this, pending batches cause
+        operators to show as "Running" instead of their actual terminal status.
+        """
+        if not self.job_stats_service or not self.job_run_id:
+            return
+
+        try:
+            self.job_stats_service.mark_pending_batches_as_skipped(
+                job_run_id=self.job_run_id, reason="Skipped - flow failed in fail-fast mode before batch execution"
+            )
+            self.logger.info(
+                "Marked pending batches as skipped due to fail-fast mode failure", extra=self.common_log_arguments
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to mark pending batches as skipped: {e}", extra=self.common_log_arguments)
 
     def _cleanup_memmap_files(self):
         """Clean up temporary memmap files after flow execution if memmap storage was used."""
@@ -366,6 +504,79 @@ class AbstractOrchestrator(ABC):
         except Exception as e:
             self.logger.warning(f"Failed to cleanup memmap files: {e}")
 
+    def _collect_non_recoverable_docs(self, internal_metadata: dict, op_def: dict, common_log_arguments: dict) -> None:
+        """
+        Collect non-recoverable docs table from operator internal metadata.
+
+        Args:
+            internal_metadata: Internal metadata dict (not shown in UI)
+            op_def: Operator definition
+            common_log_arguments: Common logging arguments
+        """
+        if internal_metadata and Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE in internal_metadata:
+            non_rec_table = internal_metadata[Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE]
+            if non_rec_table and isinstance(non_rec_table, pa.Table) and non_rec_table.num_rows > 0:
+                self.non_recoverable_docs_tables.append(non_rec_table)
+                self.logger.info(
+                    f"Collected {non_rec_table.num_rows} non-recoverable docs from operator '{op_def.get('name', 'unknown')}'. Total tables: {len(self.non_recoverable_docs_tables)}",
+                    extra=common_log_arguments,
+                )
+
+    def _merge_non_recoverable_docs(self, global_config: dict, common_log_arguments: dict) -> pa.Table | None:
+        """
+        Merge accumulated non-recoverable docs tables into a single table.
+
+        Args:
+            global_config: Global configuration
+            common_log_arguments: Common logging arguments
+
+        Returns:
+            Merged PyArrow table or None if no tables to merge
+        """
+        if not self.non_recoverable_docs_tables:
+            return None
+
+        try:
+            merged_table = pa.concat_tables(self.non_recoverable_docs_tables)
+
+            batch_num = global_config.get(DocpipeConstants.BATCH_NUM)
+            if batch_num is not None:
+                self.logger.info(
+                    f"Batch {batch_num}: Merged {len(self.non_recoverable_docs_tables)} tables "
+                    f"with {merged_table.num_rows} total non-recoverable docs",
+                    extra=common_log_arguments,
+                )
+            else:
+                self.logger.info(
+                    f"Merged {len(self.non_recoverable_docs_tables)} tables "
+                    f"with {merged_table.num_rows} total non-recoverable docs",
+                    extra=common_log_arguments,
+                )
+            return merged_table
+        except Exception as e:
+            self.logger.error(
+                f"Failed to merge non-recoverable docs tables: {e}. Proceeding without non-recoverable docs tracking.",
+                extra=common_log_arguments,
+            )
+            return None
+
+    def _reset_non_recoverable_docs_for_batch(self, global_config: dict, common_log_arguments: dict) -> None:
+        """
+        Reset non-recoverable docs tables list for micro-batching.
+        Each batch should start fresh and not accumulate tables from previous batches.
+
+        Args:
+            global_config: Global configuration
+            common_log_arguments: Common logging arguments
+        """
+        batch_num = global_config.get(DocpipeConstants.BATCH_NUM)
+        if batch_num is not None:
+            self.logger.debug(
+                f"Batch {batch_num}: Resetting non_recoverable_docs_tables list after metadata save",
+                extra=common_log_arguments,
+            )
+            self.non_recoverable_docs_tables.clear()
+
     def cancel(self):
         """
         Request for cancelling a running job
@@ -376,23 +587,28 @@ class AbstractOrchestrator(ABC):
         """
         Request for pausing a running job
         """
-        pass
 
     def resume(self):
         """
         Request for resuming a paused job
         """
-        pass
 
     def get_type(self):
         """
         Returns the type of the orchestrator, Python or Spark
         """
-        pass
 
     def create_executor(self, *, op_def: dict, global_config: dict) -> AbstractOperatorExecutor:
         # note: In the union of 2 dictionaries below, if an element exists in both global config and local config (
         # op_def['config']), the value from global_config will be overwritten by the local config
+        """Build an operator executor from an operator definition and global config.
+
+        Args:
+            op_def: Operator definition dict from the flow DAG.
+            global_config: Merged global and local config.
+
+        Returns:
+            An AbstractOperatorExecutor instance."""
         global_config = {} if global_config is None else global_config
         operator_name = op_def.get(OperatorConstants.Columns.NAME, "unknown")
         self.logger.debug(
@@ -407,6 +623,7 @@ class AbstractOrchestrator(ABC):
                 global_config.get(op_def[OperatorConstants.Misc.OPERATOR], {}),
             ),
         )
+
         operator_name = op_def[OperatorConstants.Columns.NAME]
         operator_id = op_def[OperatorConstants.Columns.ID]
         # 1. Configuration defined for the operator takes precedence over the global configuration in the flow.
@@ -422,7 +639,6 @@ class AbstractOrchestrator(ABC):
             | operator_config_params
         )
 
-        # Pass job stats service explicitly via constructor (not params)
         return self.create_executor_impl(
             name=operator_name,
             operator=op_def[OperatorConstants.Misc.OPERATOR],
@@ -440,13 +656,9 @@ class AbstractOrchestrator(ABC):
         job_stats_service: JobStatsService | None = None,
     ) -> AbstractOperatorExecutor:
         """The concrete subclasses needs to implement this method"""
-        pass
+        ...
 
-    def visualize(self):
-        # The concrete subclasses needs to implement this method
-        pass
-
-    def _inner_task(  # NOSONAR python:S3776
+    def _inner_task(
         self,
         op_def,
         global_config,
@@ -455,7 +667,18 @@ class AbstractOrchestrator(ABC):
         deleted_docs_count,
         link_id=None,
     ) -> ExecuteStepResults | None:
+        """Execute or skip a single DAG node within a thread or task context.
 
+        Args:
+            op_def: Operator definition dict.
+            global_config: Current global configuration.
+            prev_results: Results from the previous step.
+            session_info: Thread-local session information.
+            deleted_docs_count: Deleted-document count from ingest.
+            link_id: Optional branch link identifier.
+
+        Returns:
+            ExecuteStepResults or None if the step was skipped or failed."""
         self.flow_execution_event_handler.before_step_execution_start(
             node_id=op_def[OperatorConstants.Columns.ID],
             node_name=op_def[OperatorConstants.Columns.NAME],
@@ -515,22 +738,26 @@ class AbstractOrchestrator(ABC):
 
                     prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
 
-            result = self._execute_step(
+            return self._execute_step(
                 op_def=op_def,
                 global_config=global_config,
                 prev_results=prev_results,
                 deleted_docs_count=deleted_docs_count,
             )
 
-            return result
         except Exception as e:
             self._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
             # steps in output edges will exit early
             return None
 
-    def _finalize_dag_flow(self, *, op_flow):
+    def _finalize_dag_flow(self, *, op_flow, global_config=None):
+        """Notify the event handler that the full DAG has completed.
+
+        Args:
+            op_flow: The DAG operator list.
+            global_config: Current global configuration."""
         self.flow_execution_event_handler.after_flow_execution_complete(
-            op_flow=op_flow, present_job_status=self.job_status, message=self.message
+            op_flow=op_flow, present_job_status=self.job_status, message=self.message, global_config=global_config
         )
 
     def _populate_ingest_source_config(self, *, ingest_operator, global_config):
@@ -598,9 +825,13 @@ class AbstractOrchestrator(ABC):
         ingest_operator = op_flow[0]
 
         initial_result = self._create_empty_result()
-        ingest_results = self._execute_step(
-            op_def=ingest_operator, global_config=global_config, prev_results=initial_result, deleted_docs_count=0
-        )
+        try:
+            ingest_results = self._execute_step(
+                op_def=ingest_operator, global_config=global_config, prev_results=initial_result, deleted_docs_count=0
+            )
+        except Exception as e:
+            self._handle_node_failure(e=e, op_def=ingest_operator, global_config=global_config)
+            raise
 
         # Populate global_config with ingest_source params for lazy binary loading
         self._populate_ingest_source_config(ingest_operator=ingest_operator, global_config=global_config)
@@ -610,9 +841,7 @@ class AbstractOrchestrator(ABC):
             output_table=ingest_results.tables[0], deleted_docs_count=deleted_docs_count, operator=ingest_operator
         )
 
-        # Create incremental update service (config loaded from docling-pipelines-config.yaml)
-        store = create_incremental_metadata_store(job_id=self.job_id)
-        incremental_service = IncrementalUpdateService(store=store)
+        incremental_service = get_incremental_update_service()
         doc_ids = ingest_results.internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
         incremental_service.process_ingested_docs(config=global_config, job_id=self.job_id, doc_ids=doc_ids)
 
@@ -621,9 +850,32 @@ class AbstractOrchestrator(ABC):
 
         # Check if table is empty
         if ingested_table.num_rows == 0:
-            self.logger.info(">>> No data to process - skipping flow execution", extra=self.common_log_arguments)
+            self.logger.info(
+                ">>> No documents ingested — marking downstream nodes as skipped and exiting early",
+                extra=self.common_log_arguments,
+            )
+            downstream_nodes = op_flow[1:] if len(op_flow) > 1 else []
+            for downstream_node in downstream_nodes:
+                try:
+                    self.flow_execution_event_handler.after_node_skipped(
+                        node_id=downstream_node.get(OperatorConstants.Columns.ID),
+                        node_name=downstream_node.get(OperatorConstants.Columns.NAME),
+                        operator_type=downstream_node.get(OperatorConstants.Misc.OPERATOR),
+                        global_config=global_config,
+                        start_time=get_current_timestamp(),
+                        end_time=get_current_timestamp(),
+                        column_names=[],
+                        reason="Skipped - no documents ingested in previous step",
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to record skipped status for node %s: %s",
+                        downstream_node.get(OperatorConstants.Columns.NAME, "unknown"),
+                        e,
+                        extra=self.common_log_arguments,
+                    )
             clean_up_prefect_home()
-            self._finalize_dag_flow(op_flow=op_flow)
+            self._finalize_dag_flow(op_flow=op_flow, global_config=global_config)
             return
 
         # Prepare batches using batch manager
@@ -649,12 +901,40 @@ class AbstractOrchestrator(ABC):
         )
 
         # Build and execute batch flow (works for both single and multiple batches)
-        self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
+        # Batch failures are handled in _wait_for_sub_flows() in prefect_engine.py
+        batch_execution_failed = False
+        try:
+            if self.flow_engine:
+                self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
+        except Exception:
+            # Mark that batch execution failed so we can clean up pending batches
+            batch_execution_failed = True
+            raise
+        finally:
+            # Mark any remaining PENDING/QUEUED batch node stats as SKIPPED when batch execution fails
+            # This ensures proper status aggregation in fail-fast mode
+            # Check both job_status and batch_execution_failed because in fail-fast mode,
+            # the exception may be raised before job_status is updated to FAILING
+            is_fail_fast = not global_config.get(
+                DocpipeConstants.CONTINUE_ON_BATCH_FAILURE, DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT
+            )
+            if (
+                (batch_execution_failed or self.job_status == ExecutionStatus.FAILING)
+                and global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+                and is_fail_fast
+            ):
+                self._mark_pending_batches_as_skipped()
 
-        clean_up_prefect_home()
-        self._finalize_dag_flow(op_flow=op_flow)
+            # Always finalize flow execution to ensure proper status reporting and cleanup
+            # This ensures operator summary is printed even when batches fail in fail-fast mode
+            clean_up_prefect_home()
+            self._finalize_dag_flow(op_flow=op_flow, global_config=global_config)
 
     def _create_empty_result(self):
+        """Create an empty ExecuteStepResults for use as the initial ingest input.
+
+        Returns:
+            ExecuteStepResults wrapping an empty in-memory table."""
         data_access_factory = DataAccessFactory()
         config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
         data_access_factory.apply_input_params(config)

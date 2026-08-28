@@ -43,7 +43,7 @@ Before using the programmatic API, ensure your environment is properly configure
 
 ### 1. Set PYTHONPATH
 
-The `PYTHONPATH` must include the `src` directory as the source root:
+The `PYTHONPATH` must include the docpipe directory as the source root:
 
 ```bash
 # From repository root
@@ -140,17 +140,18 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
         },
         "flow": [
             {
-                "name": "ingest_local_folder",
-                "type": "ingest_local",
+                "name": "ingest_source_filesystem",
+                "type": "ingest_source",
                 "config": {
-                    "paths": input_folder,
+                    "provider": "filesystem",
+                    "connection_params": {"paths": [input_folder]},
                     "include_filter": "pdf,txt,docx"
                 }
             },
             {
                 "name": "extract_operator",
                 "type": "extract_operator",
-                "depends_on": ["ingest_local_folder"],
+                "depends_on": ["ingest_source_filesystem"],
                 "config": {
                     "text_extraction": {
                         "provider": "docling_library"
@@ -189,12 +190,12 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "depends_on": ["generate_embeddings"],
                 "config": {
                     "provider": "opensearch",
-                    "index_name": index_name,
                     "doc_id_column": "doc_id_hash",
                     "embeddings_column": "embeddings",
                     "vector_dimension": 768,
                     "create_index": True,
                     "provider_config": {
+                        "index_name": index_name,
                         "host": "localhost",
                         "port": 9200,
                         "username": "admin",
@@ -266,17 +267,17 @@ This command will:
 
 **Example output:**
 ```
-Building docpipe
+Building docling-pipelines
   - Building sdist
-  - Built docpipe-0.1.0.tar.gz
+  - Built docling-pipelines-1.0.0.tar.gz
   - Building wheel
-  - Built docpipe-0.1.0-py3-none-any.whl
+  - Built docling_pipelines-1.0.0-py3-none-any.whl
 ```
 
 **Step 2: Install the WHL Package in Your Notebook Environment**
 
 ```bash
-uv pip install dist/docpipe-<version>-py3-none-any.whl
+uv pip install dist/docling_pipelines-<version>-py3-none-any.whl
 ```
 
 **Step 3: Install Jupyter (if not already installed)**
@@ -288,7 +289,7 @@ uv pip install jupyter
 
 **Step 2: Start Jupyter Notebook Server**
 
-Note: Provide the full path instead of relative path here - https://github.com/IBM/docling-pipelines/blob/main/sample_flows/quickstart/complete_pipeline_ollama.json#L16
+Note: Provide the full path instead of relative path here - https://github.com/IBM/docling-pipelines/blob/main/sample_flows/quickstart/complete_pipeline_ollama.json
 
 From the project root directory:
 
@@ -526,6 +527,38 @@ manager = DocpipeFlowManager(flow_file="flow.json")
 ```
 
 **Note:** The `log_level` parameter has been removed from `DocpipeFlowManager`. Use the `DS_LOG_LEVEL` environment variable instead for consistent logging across all components.
+
+### Embedded Usage: Disabling Docling Pipelines Log Configuration
+
+When Docling Pipelines is used as a library inside an application that manages its own logging
+infrastructure, pass `configure_logging=False` to prevent Docling Pipelines from installing its
+own handlers. All Docling Pipelines log records will then propagate to the calling application's
+root logger.
+
+```python
+# Application manages its own logging — Docling Pipelines defers entirely
+manager = DocpipeFlowManager(
+    flow_file="flow.json",
+    configure_logging=False,
+)
+```
+
+To rename the logger prefix in the output, attach a `Filter` to the handler that
+receives Docling Pipelines records:
+
+```python
+import logging
+
+class RenamingFilter(logging.Filter):
+    def filter(self, record):
+        record.name = record.name.replace("docpipe", "my_app")
+        return True
+
+# Attach filter to the handler on the "docpipe" root logger
+docpipe_logger = logging.getLogger("docpipe")
+for handler in docpipe_logger.handlers:
+    handler.addFilter(RenamingFilter())
+```
 
 ### Debugging Failed Executions
 

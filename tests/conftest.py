@@ -237,45 +237,44 @@ def temp_duckdb_path(tmp_path):
 @pytest.fixture(scope="function")
 def cleanup_test_document_sets():
     """
-    Clean up test document sets after each test.
+    Clean up test document sets before and after each test.
     Only removes document sets with test-related names to avoid deleting user data.
     """
     from pathlib import Path
 
     import duckdb
 
-    yield  # Run test first
+    from docpipe.core.constants.constants import DocpipeConstants
 
-    # Clean up after test
-    backend_dir = Path(__file__).parent.parent / "src" / "docpipe_app" / "backend"
-    db_path = backend_dir / "document_sets.duckdb"
+    db_path = Path(DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH)
 
-    if db_path.exists():
-        try:
-            conn = duckdb.connect(str(db_path))
+    def _delete_test_document_sets():
+        if db_path.exists():
+            try:
+                conn = duckdb.connect(str(db_path))
+                result = conn.execute("""
+                    SELECT id, table_name FROM document_sets
+                    WHERE name LIKE '%Test%'
+                       OR name LIKE '%Minimal%'
+                       OR name LIKE '%Extended%'
+                       OR name LIKE '%Update%'
+                """).fetchall()
+                for doc_set_id, table_name in result:
+                    try:
+                        conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+                    except Exception:
+                        pass
+                    try:
+                        conn.execute("DELETE FROM document_sets WHERE id = ?", [doc_set_id])
+                    except Exception:
+                        pass
+                conn.close()
+            except Exception:
+                pass  # Ignore errors if database doesn't exist or is locked
 
-            # Get all test document sets (those with "Test" in the name)
-            result = conn.execute("""
-                SELECT id, table_name FROM document_sets
-                WHERE name LIKE '%Test%'
-            """).fetchall()
-
-            for doc_set_id, table_name in result:
-                # Drop the data table
-                try:
-                    conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-                except Exception:
-                    pass
-
-                # Delete from metadata table
-                try:
-                    conn.execute("DELETE FROM document_sets WHERE id = ?", [doc_set_id])
-                except Exception:
-                    pass
-
-            conn.close()
-        except Exception:
-            pass  # Ignore errors if database doesn't exist or is locked
+    _delete_test_document_sets()  # Clean up before the test (stale state from prior runs)
+    yield
+    _delete_test_document_sets()  # Clean up after the test
 
 
 # ============================================================================
@@ -286,12 +285,14 @@ def cleanup_test_document_sets():
 @pytest.fixture(autouse=True)
 def clear_singleton_caches():
     """
-    Clear singleton caches before each test to prevent memory leaks.
+    Clear singleton caches before each test to prevent memory leaks and
+    cross-test contamination.
 
-    The LRUCache class uses Singleton pattern, which means all instances
-    share the same cache. This can cause memory accumulation across tests,
-    leading to OOM kills in CI environments. This fixture ensures caches
-    are cleared between tests.
+    Resets:
+    - LRUCache singleton (prevents OOM in CI from accumulated cache entries)
+    - IncrementalMetadataFactory singleton (prevents a factory created in one
+      test from leaking its store/service into the next test, and avoids any
+      test accidentally triggering a real filesystem or database connection)
     """
     yield  # Run test first
 
@@ -300,14 +301,20 @@ def clear_singleton_caches():
         from docpipe.utils.core.patterns import Singleton
         from docpipe.utils.infrastructure.caching import LRUCache
 
-        # Access the singleton instance if it exists
         if LRUCache in Singleton._instances:
             cache_instance = Singleton._instances[LRUCache]
-            # Type guard: verify it's actually an LRUCache instance
             if isinstance(cache_instance, LRUCache) and hasattr(cache_instance, "clear"):
                 cache_instance.clear()
     except (ImportError, AttributeError, KeyError):
-        # If cache doesn't exist or can't be cleared, that's fine
+        pass
+
+    # Reset the incremental metadata factory singleton after each test so no
+    # test leaks a real store/service into the next one.
+    try:
+        import docpipe.core.incremental_metadata.adapters.config.incremental_metadata_factory as _inc_factory_mod
+
+        _inc_factory_mod._default_factory = None
+    except (ImportError, AttributeError):
         pass
 
 

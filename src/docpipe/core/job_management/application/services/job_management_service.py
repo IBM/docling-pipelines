@@ -10,9 +10,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from docpipe.core.assets.flows.adapters.config.repository_factory import (
-    RepositoryFactory,
-)
+from docpipe.core.assets.flows.application.services import FlowService
 from docpipe.core.constants.constants import (
     DocpipeConstants,
     ExecutionStatus,
@@ -20,7 +18,7 @@ from docpipe.core.constants.constants import (
 )
 from docpipe.core.job_management.domain.models import JobStats
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
-from docpipe.core.models.session_info import create_session_info, set_session_info
+from docpipe.core.models.session_info import SessionInfo, get_session_info, set_session_info
 from docpipe.exceptions.docpipe_exceptions import (
     FlowInvalidDataException,
     FlowNotFoundException,
@@ -52,6 +50,7 @@ class JobManagementService:
         *,
         job_stats_service: JobStatsService,
         job_run_manager: JobRunManager,
+        flow_service: FlowService,
         executor: ThreadPoolExecutor | None = None,
     ):
         """
@@ -60,14 +59,15 @@ class JobManagementService:
         Args:
             job_stats_service: Service for job statistics tracking
             job_run_manager: Framework adapter for job execution
+            flow_service: Service for flow retrieval
             executor: Optional thread pool for async operations
         """
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
+        self.flow_service = flow_service
         self.executor = executor or ThreadPoolExecutor(max_workers=10)
-        self.flow_repository = RepositoryFactory.create_default_flow_repository()
 
-    def create_job_run_from_request(self, *, request_body: Any) -> str:
+    def create_job_run_from_request(self, *, request_body: Any) -> dict[str, Any]:
         """
         Create and start a new job run from API request body.
 
@@ -78,7 +78,8 @@ class JobManagementService:
             request_body: JobsAPIExecuteModel containing job and job_run configuration
 
         Returns:
-            job_run_id: Unique identifier for the created job run
+            dict containing at minimum ``job_id`` and ``job_run_id``.
+            Adapters may include additional keys (e.g. ``job_run_response``).
 
         Raises:
             JobRunOperationFailedException: If required fields are missing or invalid
@@ -121,7 +122,7 @@ class JobManagementService:
         flow_config: dict[str, Any],
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """
         Create and start a new job run.
 
@@ -133,11 +134,12 @@ class JobManagementService:
             metadata: Optional metadata dictionary
 
         Returns:
-            job_run_id: Unique identifier for this job run
+            dict containing at minimum ``job_id`` and ``job_run_id``.
+            Adapters may include additional keys (e.g. ``job_run_response``).
         """
         from docpipe.utils.orchestration.elyra_converter import ElyraConverter
 
-        flow = self.flow_repository.find_by_id(flow_id)
+        flow = self.flow_service.get_flow(flow_id)
         if flow is None:
             raise FlowNotFoundException(f"Flow not found for flow_id: {flow_id}")
 
@@ -145,7 +147,7 @@ class JobManagementService:
             flow_config[DocpipeConstants.JOB_ID] = flow.job_id
 
         result = self.job_run_manager.create_job_run(
-            job_id=flow_id,
+            job_id=flow.job_id if hasattr(flow, DocpipeConstants.JOB_ID) and flow.job_id else flow_id,
             job_config=flow_config,
         )
 
@@ -187,14 +189,16 @@ class JobManagementService:
 
         self.executor.submit(
             self._execute_flow_async,
+            get_session_info(),
             job_id,
             job_run_id,
             flow_dag_definition,
             flow_config,
+            flow.definition,  # Pass original flow definition
         )
 
-        logger.info(f"Created job run: flow_id={flow_id}, job_id={job_id}, job_run_id={job_run_id}")
-        return job_run_id
+        logger.info("Created job run: flow_id=%s, job_id=%s, job_run_id=%s", flow_id, job_id, job_run_id)
+        return result
 
     def get_job_run_status(self, *, job_run_id: str) -> JobStats | None:
         """
@@ -288,10 +292,12 @@ class JobManagementService:
 
     def _execute_flow_async(
         self,
+        session_info: SessionInfo,
         job_id: str,
         job_run_id: str,
         flow_definition: dict[str, Any],
         flow_config: dict[str, Any],
+        original_flow_definition: dict[str, Any] | None = None,
     ) -> None:
         """Execute the resolved flow definition in a background thread."""
         try:
@@ -303,22 +309,25 @@ class JobManagementService:
                 job_stats_service=self.job_stats_service,
                 job_run_manager=self.job_run_manager,
             )
-
-            session = create_session_info(
-                orchestrator=orchestrator,
-                job_id=job_id,
-                job_run_id=job_run_id,
-                flow_id=flow_config.get(DocpipeConstants.FLOW_ID, job_id),
-            )
-            set_session_info(session)
+            session_info.orchestrator = orchestrator
+            set_session_info(session_info=session_info)
 
             executable_flow = flow_definition.get(DocpipeConstants.FLOW, flow_definition)
-            flow_executor = FlowExecutor(flow_def=executable_flow, orchestrator=orchestrator)
+            flow_executor = FlowExecutor(
+                flow_def=executable_flow, orchestrator=orchestrator, original_flow_def=original_flow_definition
+            )
+            flow_global_config = flow_definition.get("global_config", {})
             params = {
                 DocpipeConstants.JOB_ID: job_id,
                 DocpipeConstants.JOB_RUN_ID: job_run_id,
                 **flow_config,
             }
+            if (
+                DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_global_config
+                and DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_config
+            ):
+                params[DocpipeConstants.ENABLE_MICRO_BATCHING] = True
+
             flow_executor.execute(orchestrator=orchestrator, params=params)
             logger.info(f"Completed async flow execution for job_run_id={job_run_id}")
         except FlowValidationException as validation_exc:

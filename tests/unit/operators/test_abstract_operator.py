@@ -4,6 +4,8 @@ Unit tests for AbstractOperator base class.
 Tests initialization, validation, metadata handling, and utility methods.
 """
 
+from unittest.mock import MagicMock
+
 import pyarrow as pa
 import pytest
 
@@ -13,6 +15,7 @@ from docpipe.core.constants.constants import (
     Metrics,
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.models.session_info import create_session_info
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # ---------------------------------------------------------------------------
@@ -108,7 +111,8 @@ def test_init_with_all_config_parameters():
 
 def test_init_with_minimal_config():
     """Constructor works with minimal config (only required fields)."""
-    config = {}
+    create_session_info()
+    config: dict[str, object] = {}
     operator = make_operator(config)
 
     assert operator.name is None
@@ -201,8 +205,8 @@ def test_is_available_on_concrete_class():
 def test_validate_with_empty_errors_and_warnings():
     """validate() works with empty errors and warnings lists."""
     operator = make_operator()
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["feature1", "feature2"]
 
     operator.validate(errors, warnings, available_features)
@@ -215,8 +219,8 @@ def test_validate_with_no_required_features():
     """validate() passes when operator has no required features."""
     config = make_config(required_features=[])
     operator = make_operator(config)
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["feature1"]
 
     operator.validate(errors, warnings, available_features)
@@ -228,8 +232,8 @@ def test_validate_with_all_required_features_present():
     """validate() passes when all required features are available."""
     config = make_config(required_features=["feature1", "feature2"])
     operator = make_operator(config)
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["feature1", "feature2", "feature3"]
 
     operator.validate(errors, warnings, available_features)
@@ -241,8 +245,8 @@ def test_validate_calls_operator_utils():
     """validate() delegates to OperatorUtils.validate_columns()."""
     config = make_config(required_features=["feature1"])
     operator = make_operator(config)
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["feature1"]
 
     # Should not raise when all required features are present
@@ -681,8 +685,8 @@ def test_validate_with_none_in_available_features():
     """validate() handles None values in available_features list."""
     config = make_config(required_features=["feature1"])
     operator = make_operator(config)
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     available_features = ["feature1", None, "feature2"]
 
     operator.validate(errors, warnings, available_features)
@@ -728,3 +732,127 @@ def test_record_skipped_document_with_unicode_characters():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# Telemetry integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestAbstractOperatorTelemetry:
+    """Test telemetry span and metrics wiring on AbstractOperator."""
+
+    def setup_method(self):
+        create_session_info(job_id="job_t", job_run_id="run_t")
+
+    def _make_op(self) -> TestOperator:
+        return make_operator(make_config())
+
+    def test_telemetry_service_initialised_on_construction(self):
+        """_telemetry attribute must be set after __init__."""
+        op = self._make_op()
+        assert hasattr(op, "_telemetry")
+
+    def test_create_operator_span_returns_none_when_telemetry_disabled(self):
+        """_create_operator_span returns None when telemetry is disabled."""
+        op = self._make_op()
+        op._telemetry._enabled = False
+        op._telemetry._tracer = None
+        span = op._create_operator_span()
+        assert span is None
+
+    def test_create_operator_span_sets_standard_attributes(self):
+        """_create_operator_span calls start_span with operator metadata attributes."""
+        op = self._make_op()
+        mock_telemetry = MagicMock()
+        mock_telemetry.start_span.return_value = MagicMock()
+        op._telemetry = mock_telemetry
+
+        op._create_operator_span()
+
+        mock_telemetry.start_span.assert_called_once()
+        # start_span is called with name= as keyword arg
+        call_kwargs = mock_telemetry.start_span.call_args.kwargs
+        assert call_kwargs["name"] == f"operator.{op.short_name}"
+        attrs = call_kwargs["attributes"]
+        assert attrs["operator.short_name"] == op.short_name
+        assert attrs["operator.category"] == str(op.category)
+        assert attrs["job.id"] == op.job_id
+
+    def test_create_operator_span_uses_custom_operation_name(self):
+        """_create_operator_span uses operation_name when provided."""
+        op = self._make_op()
+        mock_telemetry = MagicMock()
+        op._telemetry = mock_telemetry
+
+        op._create_operator_span(operation_name="custom.op")
+
+        name_used = mock_telemetry.start_span.call_args.kwargs["name"]
+        assert name_used == "operator.custom.op"
+
+    def test_record_operator_metrics_calls_record_operator_execution_on_success(self):
+        """_record_operator_metrics calls record_operator_execution with success=True."""
+        op = self._make_op()
+        mock_telemetry = MagicMock()
+        op._telemetry = mock_telemetry
+
+        op._record_operator_metrics(span=None, duration_ms=123.0, success=True)
+
+        mock_telemetry.record_operator_execution.assert_called_once_with(
+            operator_name=op.short_name,
+            category=str(op.category),
+            duration_ms=123.0,
+            success=True,
+        )
+
+    def test_record_operator_metrics_calls_record_operator_execution_on_failure(self):
+        """_record_operator_metrics calls record_operator_execution with success=False."""
+        op = self._make_op()
+        mock_telemetry = MagicMock()
+        op._telemetry = mock_telemetry
+
+        op._record_operator_metrics(span=None, duration_ms=50.0, success=False)
+
+        mock_telemetry.record_operator_execution.assert_called_once_with(
+            operator_name=op.short_name,
+            category=str(op.category),
+            duration_ms=50.0,
+            success=False,
+        )
+
+    def test_record_operator_metrics_skipped_when_no_duration(self):
+        """_record_operator_metrics must NOT call record_operator_execution when duration_ms is None."""
+        op = self._make_op()
+        mock_telemetry = MagicMock()
+        op._telemetry = mock_telemetry
+
+        op._record_operator_metrics(span=None, duration_ms=None)
+
+        mock_telemetry.record_operator_execution.assert_not_called()
+
+    def test_record_operator_metrics_sets_span_attributes_from_metadata(self):
+        """_record_operator_metrics sets span attributes for document counts."""
+        op = self._make_op()
+        mock_telemetry = MagicMock()
+        mock_span = MagicMock()
+        op._telemetry = mock_telemetry
+
+        metadata = {
+            Metrics.External.PROCESSED_DOCS: 5,
+            Metrics.External.FAILED_DOCS_COUNT: 1,
+            Metrics.External.TOTAL_DOCS: 6,
+        }
+        op._record_operator_metrics(span=mock_span, metadata=metadata, duration_ms=100.0)
+
+        # set_span_attribute is called with two positional args (key, value) + span= keyword
+        calls = {c.args[0]: c.args[1] for c in mock_telemetry.set_span_attribute.call_args_list}
+        assert calls.get("operator.processed_docs") == 5
+        assert calls.get("operator.failed_docs") == 1
+        assert calls.get("operator.total_docs") == 6
+
+    def test_record_operator_metrics_no_op_without_telemetry_attr(self):
+        """_record_operator_metrics must not raise if _telemetry is missing."""
+        op = self._make_op()
+        del op._telemetry
+        # Should not raise
+        op._record_operator_metrics(span=None, duration_ms=100.0)

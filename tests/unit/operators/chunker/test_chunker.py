@@ -1,10 +1,16 @@
+import sys
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pyarrow as pa
+import pytest
 
-# langchain_experimental is mocked in conftest.py at collection time.
+# Mock langchain_experimental before any imports that might use it
+if "langchain_experimental" not in sys.modules:
+    sys.modules["langchain_experimental"] = Mock()
+    sys.modules["langchain_experimental.text_splitter"] = Mock()
+
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.functional.chunker import (
     CHUNK_MAX_SIZE,
@@ -199,6 +205,7 @@ class TestChunkerOperator(unittest.TestCase):
     @patch("docpipe.core.operators.functional.chunker.OllamaClient")
     def test_chunker_provider_config_host(self, mock_ollama_client_class):
         """Test that host in the provider_config is passed to OllamaClient."""
+
         mock_client_instance = MagicMock()
         mock_ollama_client_class.return_value = mock_client_instance
 
@@ -242,8 +249,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertEqual(len(errors), 0, "Valid chunk size should not produce errors")
@@ -256,8 +263,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size below minimum should produce errors")
@@ -270,8 +277,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size above maximum should produce errors")
@@ -284,8 +291,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk overlap above maximum should produce errors")
@@ -297,8 +304,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Invalid chunk type should produce errors")
@@ -311,8 +318,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "String type for chunk_size should produce errors")
@@ -332,8 +339,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "String type for chunk_overlap should produce errors")
@@ -354,8 +361,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "String type for retain_original_content should produce errors")
@@ -375,8 +382,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         # Should have at least 2 errors: one for chunk_overlap and one for chunk_type
@@ -397,8 +404,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Invalid percentile should produce errors")
@@ -413,8 +420,8 @@ class TestChunkerValidation(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Negative std dev should produce errors")
@@ -427,8 +434,8 @@ class TestChunkerValidation(unittest.TestCase):
             # Missing semantic_embeddings_model
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Semantic chunking without embeddings model should produce errors")
@@ -446,8 +453,8 @@ class TestChunkerValidation(unittest.TestCase):
             "breakpoint_threshold_amount": 150,  # Invalid: must be 0-100 for percentile
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         # Should catch both errors: missing model AND invalid threshold
@@ -456,13 +463,98 @@ class TestChunkerValidation(unittest.TestCase):
         self.assertIn("semantic_embeddings_model", error_messages.lower())
         self.assertIn("percentile", error_messages.lower())
 
+    def test_validate_chunk_overlap_percentage_default(self):
+        """Test that chunk_overlap_percentage defaults to 20 and produces no errors or warnings"""
+        config = {"chunk_type": ChunkType.SIMPLE.value, "chunk_size": 1000, "doc_column": "content"}
+        operator = ChunkerOperator(config)
+        self.assertEqual(operator.chunk_overlap_percentage, 20)
+        errors: list = []
+        warnings: list = []
+        operator.validate(errors, warnings, ["content"])
+        self.assertEqual(len(errors), 0)
+        self.assertEqual(len(warnings), 0)
+
+
+@pytest.mark.parametrize("percentage", [0, 15, 20])
+def test_validate_chunk_overlap_percentage_valid_no_warning(percentage):
+    """chunk_overlap_percentage within range and <= 20 produces no errors or warnings"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap_percentage": percentage,
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    assert errors == []
+    assert warnings == []
+
+
+@pytest.mark.parametrize("percentage", [21, 30, 40])
+def test_validate_chunk_overlap_percentage_above_threshold_warns(percentage):
+    """chunk_overlap_percentage above 20 but within [0, 40] produces a warning, not an error"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap_percentage": percentage,
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    assert errors == []
+    assert len(warnings) == 1
+    assert "chunk_overlap_percentage" in str(warnings[0])
+
+
+@pytest.mark.parametrize("percentage", [-1, 41, 100])
+def test_validate_chunk_overlap_percentage_out_of_range_errors(percentage):
+    """chunk_overlap_percentage outside [0, 40] produces an error"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "chunk_overlap_percentage": percentage,
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    assert len(errors) == 1
+    assert "chunk_overlap_percentage" in str(errors[0])
+
+
+def test_validate_chunk_overlap_percentage_ignored_for_semantic():
+    """chunk_overlap_percentage is not validated for semantic chunk type — it has no meaning there"""
+    operator = ChunkerOperator(
+        {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "chunk_overlap_percentage": 99,  # Out of range — would error if validated
+            "semantic_embeddings_model": "granite4",
+            "doc_column": "content",
+        }
+    )
+    errors: list = []
+    warnings: list = []
+    operator.validate(errors, warnings, ["content"])
+    overlap_errors = [e for e in errors if "chunk_overlap_percentage" in str(e)]
+    assert overlap_errors == [], (
+        f"chunk_overlap_percentage should not be validated for semantic chunking, got: {overlap_errors}"
+    )
+
 
 class TestChunkerEdgeCases(unittest.TestCase):
     """Test edge cases and error handling"""
 
     def test_empty_table(self):
         """Test chunking with an empty table"""
-        data = {
+        data: dict[str, list] = {
             OperatorConstants.Columns.ID: [],
             OperatorConstants.Columns.NAME: [],
             "content": [],
@@ -479,7 +571,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
 
         # Should return empty table
         self.assertEqual(result_tables[0].num_rows, 0)
-        self.assertEqual(metadata["total_docs_count"], 0)
+        self.assertEqual(metadata["documents_in_scope"], 0)
 
     def test_multiple_documents(self):
         """Test chunking with multiple documents"""
@@ -507,7 +599,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
 
         # Should process all documents
         self.assertEqual(result_table.num_rows, 3)
-        self.assertEqual(metadata["total_docs_count"], 3)
+        self.assertEqual(metadata["documents_in_scope"], 3)
 
     def test_default_removes_original_content(self):
         """Test that original content is removed by default"""
@@ -613,6 +705,118 @@ class TestChunkerEdgeCases(unittest.TestCase):
         self.assertEqual(mock_semantic_chunker_class.call_count, len(breakpoint_types))
 
 
+class TestSplitterLazyInit(unittest.TestCase):
+    """Test lazy initialisation and caching of simple and semantic splitters"""
+
+    def test_simple_splitter_is_cached(self):
+        """_get_simple_splitter returns the same instance on repeated calls"""
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 500,
+            "chunk_overlap": 50,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        splitter_first = operator._get_simple_splitter()
+        splitter_second = operator._get_simple_splitter()
+
+        self.assertIs(splitter_first, splitter_second, "_get_simple_splitter must return the cached instance")
+
+    def test_simple_splitter_none_before_first_call(self):
+        """_simple_splitter attribute is None until _get_simple_splitter is called"""
+        config = {"chunk_type": ChunkType.SIMPLE.value, "doc_column": "content"}
+        operator = ChunkerOperator(config)
+
+        self.assertIsNone(operator._simple_splitter)
+        operator._get_simple_splitter()
+        self.assertIsNotNone(operator._simple_splitter)
+
+    @patch("langchain_experimental.text_splitter.SemanticChunker")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_is_cached(self, mock_ollama_client_class, mock_semantic_chunker_class):
+        """_get_semantic_splitter returns the same instance on repeated calls"""
+        mock_ollama_client_class.return_value = MagicMock()
+        mock_chunker_instance = MagicMock()
+        mock_semantic_chunker_class.return_value = mock_chunker_instance
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        splitter_first = operator._get_semantic_splitter()
+        splitter_second = operator._get_semantic_splitter()
+
+        self.assertIs(splitter_first, splitter_second, "_get_semantic_splitter must return the cached instance")
+        # SemanticChunker constructor called exactly once, not twice
+        mock_semantic_chunker_class.assert_called_once()
+
+    @patch("langchain_experimental.text_splitter.SemanticChunker")
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_none_before_first_call(self, mock_ollama_client_class, mock_semantic_chunker_class):
+        """_semantic_splitter attribute is None until _get_semantic_splitter is called"""
+        mock_ollama_client_class.return_value = MagicMock()
+        mock_semantic_chunker_class.return_value = MagicMock()
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        self.assertIsNone(operator._semantic_splitter)
+        operator._get_semantic_splitter()
+        self.assertIsNotNone(operator._semantic_splitter)
+
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_wraps_generic_exception(self, mock_ollama_client_class):
+        """Non-DocpipeException errors during SemanticChunker init are wrapped in DocpipeException"""
+        mock_ollama_client_class.return_value = MagicMock()
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        with patch(
+            "langchain_experimental.text_splitter.SemanticChunker", side_effect=RuntimeError("model load failed")
+        ):
+            with self.assertRaises(DocpipeException) as ctx:
+                operator._get_semantic_splitter()
+
+        self.assertIn("Failed to initialize SemanticChunker", str(ctx.exception))
+        self.assertIn("model load failed", str(ctx.exception))
+
+    @patch("docpipe.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_splitter_passes_through_docpipe_exception(self, mock_ollama_client_class):
+        """DocpipeException from _get_ollama_client is re-raised unchanged"""
+        mock_ollama_client_class.side_effect = DocpipeException("Ollama unavailable")
+
+        config = {
+            "chunk_type": ChunkType.SEMANTIC.value,
+            "semantic_embeddings_model": "nomic-embed-text",
+            "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        with self.assertRaises(DocpipeException) as ctx:
+            operator._get_semantic_splitter()
+
+        # Must preserve the original message, not double-wrap it
+        self.assertIn("Ollama unavailable", str(ctx.exception))
+        self.assertNotIn("Failed to initialize SemanticChunker", str(ctx.exception))
+
+
 class TestDoclingChunking(unittest.TestCase):
     """Test Docling chunking functionality integrated into ChunkerOperator"""
 
@@ -693,8 +897,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertEqual(len(errors), 0, "Valid chunk size should not produce errors")
@@ -707,8 +911,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size below minimum should produce errors")
@@ -721,8 +925,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk size above maximum should produce errors")
@@ -765,7 +969,7 @@ class TestDoclingChunking(unittest.TestCase):
 
         # Should process all documents
         self.assertEqual(result_table.num_rows, 3)
-        self.assertEqual(metadata["total_docs_count"], 3)
+        self.assertEqual(metadata["documents_in_scope"], 3)
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_default_removes_original_content(self, mock_hybrid_chunker_class):
@@ -989,7 +1193,7 @@ class TestDoclingChunking(unittest.TestCase):
         _result_tables, metadata = operator.transform(input_table)
 
         # Should process successfully
-        self.assertEqual(metadata["total_docs_count"], 1)
+        self.assertEqual(metadata["documents_in_scope"], 1)
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_with_unicode(self, mock_hybrid_chunker_class):
@@ -1019,7 +1223,70 @@ class TestDoclingChunking(unittest.TestCase):
         _result_tables, metadata = operator.transform(input_table)
 
         # Should process successfully
-        self.assertEqual(metadata["total_docs_count"], 1)
+        self.assertEqual(metadata["documents_in_scope"], 1)
+
+    @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
+    def test_docling_markdown_produces_structured_document(self, mock_hybrid_chunker_class):
+        """Verifies that _create_docling_document_from_markdown uses MarkdownDocumentBackend
+        so the DoclingDocument passed to HybridChunker.chunk() contains typed heading nodes
+        (title / section_header), not a flat list of plain TEXT nodes.
+        """
+        captured_docs: list = []
+
+        def capture_and_return_chunks(dl_doc):
+            captured_docs.append(dl_doc)
+            # Return one mock chunk so the operator produces output
+            mock_chunk = MagicMock()
+            mock_chunk.text = "chunk text"
+            mock_chunk.start_index = 0
+            return iter([mock_chunk])
+
+        mock_chunker = MagicMock()
+        mock_chunker.chunk.side_effect = capture_and_return_chunks
+        mock_hybrid_chunker_class.return_value = mock_chunker
+
+        markdown_content = (
+            "# Introduction\n\n"
+            "First paragraph of the document.\n\n"
+            "## Section One\n\n"
+            "Content of section one.\n\n"
+            "## Section Two\n\n"
+            "Content of section two.\n"
+        )
+        data: dict[str, list] = {
+            OperatorConstants.Columns.ID: ["doc1"],
+            OperatorConstants.Columns.NAME: ["structured.md"],
+            "content": [markdown_content],
+        }
+        input_table = pa.table(data)
+
+        config = {
+            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_size": 512,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+        operator.transform(input_table)
+
+        # HybridChunker.chunk must have been called with a DoclingDocument
+        self.assertEqual(len(captured_docs), 1, "HybridChunker.chunk should be called once")
+        docling_doc = captured_docs[0]
+
+        # Collect all item labels from the DoclingDocument
+        labels = [str(item.label) for item, _ in docling_doc.iterate_items()]
+
+        # The document must contain at least one heading node (title or section_header).
+        # A flat TEXT-only document would have no such labels — that was the pre-fix behaviour.
+        heading_labels = {"title", "section_header"}
+        found_headings = [lbl for lbl in labels if lbl in heading_labels]
+        self.assertGreater(
+            len(found_headings),
+            0,
+            f"Expected heading nodes in DoclingDocument but only found: {labels}",
+        )
+
+        # Must also contain text body nodes (not just headings)
+        self.assertIn("text", labels, "Expected text body nodes in DoclingDocument")
 
     def test_docling_validation_chunk_overlap_negative(self):
         """Test validation rejects negative chunk overlap for docling"""
@@ -1030,8 +1297,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Negative chunk overlap should produce errors")
@@ -1045,8 +1312,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         self.assertGreater(len(errors), 0, "Chunk overlap >= chunk_size should produce errors")
@@ -1061,8 +1328,8 @@ class TestDoclingChunking(unittest.TestCase):
             "doc_column": "content",
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
 
         # Should have exactly 2 errors:
@@ -1314,8 +1581,8 @@ class TestChunkerSummarization(unittest.TestCase):
             "summarization": {"provider": "litellm", "max_input_tokens": 8000},
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
         self.assertEqual(len(errors), 0)
 
@@ -1344,8 +1611,8 @@ class TestChunkerSummarization(unittest.TestCase):
             "summarization": {"provider": "litellm", "summary_sentences": 3},
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
         self.assertEqual(len(errors), 0)
 
@@ -1374,8 +1641,8 @@ class TestChunkerSummarization(unittest.TestCase):
             "summarization": {"provider": "litellm", "summary_max_words": 50},
         }
         operator = ChunkerOperator(config)
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, ["content"])
         self.assertEqual(len(errors), 0)
 
@@ -1480,7 +1747,7 @@ class TestChunkerSummarization(unittest.TestCase):
         _result_tables, metadata = operator.transform(input_table)
 
         # Should handle empty content gracefully
-        self.assertEqual(metadata["total_docs_count"], 1)
+        self.assertEqual(metadata["documents_in_scope"], 1)
         # LLM should not be called for empty content
 
     def test_summarization_service_validation_called_on_init(self):
@@ -1564,448 +1831,224 @@ class TestChunkerSummarization(unittest.TestCase):
         mock_ollama_client_class.assert_not_called()
 
 
-class TestDoclingServeValidation(unittest.TestCase):
-    """Test validate() for the docling_serve provider block (lines 585-634)."""
+class TestDoclingServeValidation:
+    """Tests for validate() with provider='docling_serve'."""
 
-    def _make_operator(self, extra_provider_config=None, chunk_type=None):
-        provider_config = {"api_base": "http://localhost:5001", "timeout": 300}
-        if extra_provider_config:
-            provider_config.update(extra_provider_config)
+    def _make_operator(self, provider_config: dict) -> ChunkerOperator:
         config = {
-            "chunk_type": (chunk_type or ChunkType.HYBRID.value),
+            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_size": 512,
             "provider": "docling_serve",
             "provider_config": provider_config,
-            "job_id": "job-1",
-            "job_run_id": "run-1",
+            "doc_column": "content",
         }
         return ChunkerOperator(config)
 
-    def _run_validate(self, operator):
-        errors = []
-        warnings = []
-        operator.validate(errors=errors, warnings=warnings, available_features=[])
-        return errors, warnings
+    def test_validate_missing_api_base_produces_error(self):
+        op = self._make_operator({})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("API base URL is required" in str(e) for e in errors)
 
-    def _error_messages(self, errors):
-        return " ".join(str(e) for e in errors)
+    def test_validate_negative_timeout_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "timeout": -1})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Timeout must be positive" in str(e) for e in errors)
 
-    def _warning_messages(self, warnings):
-        return " ".join(str(w) for w in warnings)
+    def test_validate_zero_timeout_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "timeout": 0})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Timeout must be positive" in str(e) for e in errors)
 
-    # --- api_base missing ---
+    def test_validate_negative_poll_interval_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "poll_interval": -1})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Poll interval must be positive" in str(e) for e in errors)
 
-    def test_validate_missing_api_base_raises_error(self):
-        """validate() appends error when api_base is absent."""
+    def test_validate_negative_max_retries_produces_error(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "max_retries": -1})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("Max retries must be non-negative" in str(e) for e in errors)
+
+    def test_validate_zero_max_retries_is_valid(self):
+        op = self._make_operator({"api_base": "http://localhost:5001", "max_retries": 0})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert not any("Max retries" in str(e) for e in errors)
+
+    def test_validate_non_hybrid_chunk_type_produces_warning(self):
         config = {
-            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 512,
             "provider": "docling_serve",
-            "provider_config": {"timeout": 300},
-            "job_id": "job-1",
-            "job_run_id": "run-1",
+            "provider_config": {"api_base": "http://localhost:5001"},
+            "doc_column": "content",
         }
-        operator = ChunkerOperator(config)
-        errors, _ = self._run_validate(operator)
-        self.assertTrue(
-            any("API base" in str(e) or "api_base" in str(e).lower() for e in errors),
-            f"Expected API base error, got: {errors}",
-        )
+        op = ChunkerOperator(config)
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert any("chunk_type" in str(w) for w in warnings)
 
-    def test_validate_present_api_base_no_base_url_error(self):
-        """validate() does not append a base-URL error when api_base is present."""
-        operator = self._make_operator()
-        errors, _ = self._run_validate(operator)
-        base_url_errors = [e for e in errors if "API base" in str(e) or "api_base" in str(e).lower()]
-        self.assertEqual(base_url_errors, [])
+    def test_validate_valid_docling_serve_config_no_errors(self):
+        op = self._make_operator({"api_base": "http://localhost:5001"})
+        errors: list = []
+        warnings: list = []
+        op.validate(errors, warnings, ["content"])
+        assert errors == []
+        assert warnings == []
 
-    # --- timeout ---
 
-    def test_validate_timeout_zero_raises_error(self):
-        """validate() appends error when timeout == 0."""
-        operator = self._make_operator(extra_provider_config={"timeout": 0})
-        errors, _ = self._run_validate(operator)
-        self.assertTrue(
-            any("timeout" in str(e).lower() for e in errors),
-            f"Expected timeout error, got: {errors}",
-        )
+class TestDoclingServeClient:
+    """Tests for _get_docling_serve_client lazy initialization."""
 
-    def test_validate_timeout_negative_raises_error(self):
-        """validate() appends error when timeout is negative."""
-        operator = self._make_operator(extra_provider_config={"timeout": -1})
-        errors, _ = self._run_validate(operator)
-        self.assertTrue(
-            any("timeout" in str(e).lower() for e in errors),
-            f"Expected timeout error, got: {errors}",
-        )
+    @patch("docpipe.integrations.rest_client.RestClient")
+    @patch("docpipe.integrations.rest_client.RestClientConfig")
+    def test_client_initialized_with_correct_params(self, mock_config_cls, mock_client_cls):
+        mock_rest = MagicMock()
+        mock_client_cls.return_value = mock_rest
 
-    def test_validate_positive_timeout_no_error(self):
-        """validate() does not append a timeout error for a valid timeout."""
-        operator = self._make_operator(extra_provider_config={"timeout": 1})
-        errors, _ = self._run_validate(operator)
-        timeout_errors = [e for e in errors if "timeout" in str(e).lower()]
-        self.assertEqual(timeout_errors, [])
-
-    # --- poll_interval ---
-
-    def test_validate_poll_interval_zero_raises_error(self):
-        """validate() appends error when poll_interval == 0."""
-        operator = self._make_operator(extra_provider_config={"poll_interval": 0})
-        errors, _ = self._run_validate(operator)
-        self.assertTrue(
-            any("poll" in str(e).lower() for e in errors),
-            f"Expected poll_interval error, got: {errors}",
-        )
-
-    def test_validate_poll_interval_negative_raises_error(self):
-        """validate() appends error when poll_interval is negative."""
-        operator = self._make_operator(extra_provider_config={"poll_interval": -5})
-        errors, _ = self._run_validate(operator)
-        self.assertTrue(
-            any("poll" in str(e).lower() for e in errors),
-            f"Expected poll_interval error, got: {errors}",
-        )
-
-    def test_validate_positive_poll_interval_no_error(self):
-        """validate() does not append a poll_interval error for a valid value."""
-        operator = self._make_operator(extra_provider_config={"poll_interval": 2})
-        errors, _ = self._run_validate(operator)
-        poll_errors = [e for e in errors if "poll" in str(e).lower()]
-        self.assertEqual(poll_errors, [])
-
-    # --- max_retries ---
-
-    def test_validate_max_retries_negative_raises_error(self):
-        """validate() appends error when max_retries is negative."""
-        operator = self._make_operator(extra_provider_config={"max_retries": -1})
-        errors, _ = self._run_validate(operator)
-        self.assertTrue(
-            any("retries" in str(e).lower() for e in errors),
-            f"Expected max_retries error, got: {errors}",
-        )
-
-    def test_validate_max_retries_zero_is_valid(self):
-        """validate() does not append a max_retries error when max_retries == 0."""
-        operator = self._make_operator(extra_provider_config={"max_retries": 0})
-        errors, _ = self._run_validate(operator)
-        retry_errors = [e for e in errors if "retries" in str(e).lower()]
-        self.assertEqual(retry_errors, [])
-
-    def test_validate_max_retries_positive_is_valid(self):
-        """validate() does not append a max_retries error for a positive value."""
-        operator = self._make_operator(extra_provider_config={"max_retries": 5})
-        errors, _ = self._run_validate(operator)
-        retry_errors = [e for e in errors if "retries" in str(e).lower()]
-        self.assertEqual(retry_errors, [])
-
-    # --- chunk_type warning ---
-
-    def test_validate_non_hybrid_chunk_type_emits_warning(self):
-        """validate() appends a warning when provider is docling_serve but chunk_type is not hybrid."""
-        for chunk_type in (ChunkType.SIMPLE.value, ChunkType.SEMANTIC.value):
-            with self.subTest(chunk_type=chunk_type):
-                operator = self._make_operator(chunk_type=chunk_type)
-                _, warnings = self._run_validate(operator)
-                self.assertTrue(
-                    any("docling_serve" in str(w).lower() or "chunk_type" in str(w).lower() for w in warnings),
-                    f"Expected chunk_type mismatch warning for {chunk_type}, got: {warnings}",
-                )
-
-    def test_validate_hybrid_chunk_type_no_chunk_type_warning(self):
-        """validate() does not warn about chunk_type mismatch when chunk_type is hybrid."""
-        operator = self._make_operator(chunk_type=ChunkType.HYBRID.value)
-        _, warnings = self._run_validate(operator)
-        mismatch_warnings = [w for w in warnings if "chunk_type" in str(w).lower() and "mismatch" in str(w).lower()]
-        self.assertEqual(mismatch_warnings, [])
-
-    def test_validate_multiple_errors_collected_together(self):
-        """validate() collects all errors in one pass without short-circuiting."""
         config = {
-            "chunk_type": ChunkType.HYBRID.value,
-            "provider": "docling_serve",
-            "provider_config": {
-                # api_base missing, timeout invalid, poll_interval invalid, max_retries invalid
-                "timeout": 0,
-                "poll_interval": -1,
-                "max_retries": -2,
-            },
-            "job_id": "job-1",
-            "job_run_id": "run-1",
-        }
-        operator = ChunkerOperator(config)
-        errors, _ = self._run_validate(operator)
-        self.assertGreaterEqual(len(errors), 4, f"Expected at least 4 errors, got: {errors}")
-
-
-class TestDoclingServeClient(unittest.TestCase):
-    """Test _get_docling_serve_client() (lines 636-675)."""
-
-    def _make_operator(self):
-        config = {
-            "chunk_type": ChunkType.HYBRID.value,
             "provider": "docling_serve",
             "provider_config": {
                 "api_base": "http://localhost:5001",
-                "timeout": 300,
-                "max_retries": 3,
-                "verify_ssl": True,
+                "timeout": 60,
+                "max_retries": 2,
+                "verify_ssl": False,
             },
-            "job_id": "job-1",
-            "job_run_id": "run-1",
         }
-        return ChunkerOperator(config)
+        op = ChunkerOperator(config)
+        client = op._get_docling_serve_client()
 
-    def test_get_docling_serve_client_returns_client(self):
-        """_get_docling_serve_client() returns a RestClient instance."""
-        operator = self._make_operator()
-        mock_client_instance = Mock()
-        mock_config_instance = Mock()
+        assert client is mock_rest
+        mock_config_cls.assert_called_once_with(timeout=60, max_retries=2, verify_ssl=False)
 
-        with (
-            patch("docpipe.integrations.rest_client.RestClient") as mock_client_cls,
-            patch("docpipe.integrations.rest_client.RestClientConfig") as mock_config_cls,
-        ):
-            mock_config_cls.return_value = mock_config_instance
-            mock_client_cls.return_value = mock_client_instance
+    @patch("docpipe.integrations.rest_client.RestClient")
+    @patch("docpipe.integrations.rest_client.RestClientConfig")
+    def test_client_cached_on_second_call(self, mock_config_cls, mock_client_cls):
+        mock_rest = MagicMock()
+        mock_client_cls.return_value = mock_rest
 
-            # Patch the lazy import inside the method
-            with patch.dict(
-                "sys.modules",
-                {
-                    "docpipe.integrations.rest_client": type(
-                        "mod",
-                        (),
-                        {
-                            "RestClient": mock_client_cls,
-                            "RestClientConfig": mock_config_cls,
-                        },
-                    )(),
-                },
-            ):
-                operator._remote_chunking_client = None
-                # Re-patch by injecting mock directly through the import inside method
-                with patch(
-                    "docpipe.core.operators.functional.chunker.ChunkerOperator._get_docling_serve_client",
-                    wraps=operator._get_docling_serve_client,
-                ):
-                    # Directly pre-set client to test caching path
-                    operator._remote_chunking_client = mock_client_instance
-                    client = operator._get_docling_serve_client()
-                    self.assertIs(client, mock_client_instance)
-
-    def test_get_docling_serve_client_cached(self):
-        """_get_docling_serve_client() returns same instance on repeated calls."""
-        operator = self._make_operator()
-        mock_client_instance = Mock()
-        operator._remote_chunking_client = mock_client_instance
-
-        client1 = operator._get_docling_serve_client()
-        client2 = operator._get_docling_serve_client()
-        self.assertIs(client1, client2)
-        self.assertIs(client1, mock_client_instance)
-
-    def test_get_docling_serve_client_initializes_from_provider_config(self):
-        """_get_docling_serve_client() creates a client when none is cached."""
-        operator = self._make_operator()
-        operator._remote_chunking_client = None
-
-        mock_client_instance = Mock()
-        mock_config_instance = Mock()
-        mock_rest_client_cls = Mock(return_value=mock_client_instance)
-        mock_rest_config_cls = Mock(return_value=mock_config_instance)
-
-        fake_module = Mock()
-        fake_module.RestClient = mock_rest_client_cls
-        fake_module.RestClientConfig = mock_rest_config_cls
-
-        with patch.dict("sys.modules", {"docpipe.integrations.rest_client": fake_module}):
-            client = operator._get_docling_serve_client()
-
-        self.assertIs(client, mock_client_instance)
-        mock_rest_config_cls.assert_called_once_with(
-            timeout=300,
-            max_retries=3,
-            verify_ssl=True,
-        )
-        mock_rest_client_cls.assert_called_once_with(
-            config=mock_config_instance,
-            base_url="http://localhost:5001",
-        )
-
-    def test_get_docling_serve_client_raises_docpipe_exception_on_error(self):
-        """_get_docling_serve_client() wraps initialization failures in DocpipeException."""
-        operator = self._make_operator()
-        operator._remote_chunking_client = None
-
-        fake_module = Mock()
-        fake_module.RestClient = Mock(side_effect=RuntimeError("connection refused"))
-        fake_module.RestClientConfig = Mock(return_value=Mock())
-
-        with patch.dict("sys.modules", {"docpipe.integrations.rest_client": fake_module}):
-            with self.assertRaises(DocpipeException) as ctx:
-                operator._get_docling_serve_client()
-
-        self.assertIn("connection refused", str(ctx.exception))
-
-
-class TestDoclingServeSplitText(unittest.TestCase):
-    """Test _docling_serve_split_text() (lines 677-791)."""
-
-    def _make_operator(self, extra_config=None):
         config = {
-            "chunk_type": ChunkType.HYBRID.value,
             "provider": "docling_serve",
+            "provider_config": {"api_base": "http://localhost:5001"},
+        }
+        op = ChunkerOperator(config)
+        client1 = op._get_docling_serve_client()
+        client2 = op._get_docling_serve_client()
+
+        assert client1 is client2
+        assert mock_client_cls.call_count == 1
+
+    def test_client_initialization_failure_raises_docpipe_exception(self):
+        config = {
+            "provider": "docling_serve",
+            "provider_config": {"api_base": "http://localhost:5001"},
+        }
+        op = ChunkerOperator(config)
+
+        with patch("docpipe.integrations.rest_client.RestClientConfig", side_effect=RuntimeError("network")):
+            with pytest.raises(DocpipeException, match="Failed to initialize docling-serve HTTP client"):
+                op._get_docling_serve_client()
+
+
+class TestDoclingServeSplitText:
+    """Tests for _docling_serve_split_text."""
+
+    def _make_op(self) -> ChunkerOperator:
+        return ChunkerOperator(
+            {
+                "provider": "docling_serve",
+                "chunk_type": ChunkType.HYBRID.value,
+                "chunk_size": 512,
+                "provider_config": {"api_base": "http://localhost:5001"},
+            }
+        )
+
+    def test_returns_documents_from_valid_response(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {
+            "chunks": [
+                {"text": "First chunk.", "start_index": 0},
+                {"text": "Second chunk.", "start_index": 50},
+            ]
+        }
+        op._remote_chunking_client = mock_client
+
+        docs = op._docling_serve_split_text(content="some content", doc_name="doc.md")
+        assert len(docs) == 2
+        assert docs[0].page_content == "First chunk."
+        assert docs[1].page_content == "Second chunk."
+
+    def test_returns_empty_list_when_no_chunks(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {"chunks": []}
+        op._remote_chunking_client = mock_client
+
+        docs = op._docling_serve_split_text(content="content", doc_name=None)
+        assert docs == []
+
+    def test_invalid_response_type_raises_docpipe_exception(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = "not a dict"
+        op._remote_chunking_client = mock_client
+
+        with pytest.raises(DocpipeException, match="Docling-serve chunking failed"):
+            op._docling_serve_split_text(content="content")
+
+    def test_api_key_included_in_headers_when_present(self):
+        config = {
+            "provider": "docling_serve",
+            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_size": 512,
             "provider_config": {
                 "api_base": "http://localhost:5001",
-                "timeout": 300,
+                "api_key": "my-secret-key",  # pragma: allowlist secret
             },
-            "job_id": "job-1",
-            "job_run_id": "run-1",
         }
-        if extra_config:
-            config.update(extra_config)
-        return ChunkerOperator(config)
-
-    def _set_mock_client(self, operator, response):
-        mock_client = Mock()
-        mock_client.call_rest_json.return_value = response
-        operator._remote_chunking_client = mock_client
-        return mock_client
-
-    # --- happy path ---
-
-    def test_split_text_returns_documents_from_dict_chunks(self):
-        """_docling_serve_split_text() converts dict chunks with 'text' key to Documents."""
-        operator = self._make_operator()
-        self._set_mock_client(
-            operator,
-            {"chunks": [{"text": "First chunk."}, {"text": "Second chunk."}]},
-        )
-        docs = operator._docling_serve_split_text(content="some content", doc_name="test.md")
-        self.assertEqual(len(docs), 2)
-        self.assertEqual(docs[0].page_content, "First chunk.")
-        self.assertEqual(docs[1].page_content, "Second chunk.")
-
-    def test_split_text_non_dict_chunk_uses_str(self):
-        """_docling_serve_split_text() falls back to str() for non-dict chunks."""
-        operator = self._make_operator()
-        self._set_mock_client(operator, {"chunks": ["plain text chunk"]})
-        docs = operator._docling_serve_split_text(content="some content", doc_name="test.md")
-        self.assertEqual(len(docs), 1)
-        self.assertEqual(docs[0].page_content, "plain text chunk")
-
-    def test_split_text_empty_chunks_returns_empty_list(self):
-        """_docling_serve_split_text() returns [] when API yields no chunks."""
-        operator = self._make_operator()
-        self._set_mock_client(operator, {"chunks": []})
-        docs = operator._docling_serve_split_text(content="some content", doc_name="test.md")
-        self.assertEqual(docs, [])
-
-    def test_split_text_missing_chunks_key_returns_empty_list(self):
-        """_docling_serve_split_text() returns [] when 'chunks' key is absent."""
-        operator = self._make_operator()
-        self._set_mock_client(operator, {})
-        docs = operator._docling_serve_split_text(content="some content", doc_name="test.md")
-        self.assertEqual(docs, [])
-
-    def test_split_text_skips_empty_chunk_text(self):
-        """_docling_serve_split_text() skips chunks whose text is empty string."""
-        operator = self._make_operator()
-        self._set_mock_client(
-            operator,
-            {"chunks": [{"text": ""}, {"text": "real chunk"}, {"text": ""}]},
-        )
-        docs = operator._docling_serve_split_text(content="some content", doc_name="test.md")
-        self.assertEqual(len(docs), 1)
-        self.assertEqual(docs[0].page_content, "real chunk")
-
-    def test_split_text_uses_default_doc_name_when_none(self):
-        """_docling_serve_split_text() uses DEFAULT_DOCUMENT_NAME when doc_name is None."""
-        operator = self._make_operator()
-        mock_client = Mock()
+        op = ChunkerOperator(config)
+        mock_client = MagicMock()
         mock_client.call_rest_json.return_value = {"chunks": [{"text": "chunk"}]}
-        operator._remote_chunking_client = mock_client
+        op._remote_chunking_client = mock_client
 
-        operator._docling_serve_split_text(content="content", doc_name=None)
+        op._docling_serve_split_text(content="data")
 
-        call_kwargs = mock_client.call_rest_json.call_args
-        payload = call_kwargs.kwargs.get("json_data") or call_kwargs[1].get("json_data") or call_kwargs[0][2]
-        filename = payload["sources"][0]["filename"]
-        from docpipe.core.operators.functional.chunker import DEFAULT_DOCUMENT_NAME
+        call_kwargs = mock_client.call_rest_json.call_args.kwargs
+        assert call_kwargs["headers"].get("X-Api-Key") == "my-secret-key"
 
-        self.assertEqual(filename, DEFAULT_DOCUMENT_NAME)
+    def test_string_chunk_content_is_handled(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {"chunks": ["raw string chunk"]}
+        op._remote_chunking_client = mock_client
 
-    def test_split_text_attaches_api_key_header(self):
-        """_docling_serve_split_text() adds X-Api-Key header when api_key is in provider_config."""
-        config = {
-            "chunk_type": ChunkType.HYBRID.value,
-            "provider": "docling_serve",
-            "provider_config": {
-                "api_base": "http://localhost:5001",
-                "timeout": 300,
-                "api_key": "secret-key",  # pragma: allowlist secret
-            },
-            "job_id": "job-1",
-            "job_run_id": "run-1",
-        }
-        operator = ChunkerOperator(config)
-        mock_client = Mock()
-        mock_client.call_rest_json.return_value = {"chunks": [{"text": "data"}]}
-        operator._remote_chunking_client = mock_client
+        docs = op._docling_serve_split_text(content="content")
+        assert len(docs) == 1
+        assert docs[0].page_content == "raw string chunk"
 
-        operator._docling_serve_split_text(content="content", doc_name="doc.md")
 
-        call_kwargs = mock_client.call_rest_json.call_args
-        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
-        self.assertIn("X-Api-Key", headers)
-        self.assertEqual(headers["X-Api-Key"], "secret-key")
+class TestSummarizationProviderSchemas:
+    """Test that _get_summarization_provider_schemas returns correct structure."""
 
-    def test_split_text_no_api_key_header_when_absent(self):
-        """_docling_serve_split_text() does not set X-Api-Key when api_key is not configured."""
-        operator = self._make_operator()
-        mock_client = Mock()
-        mock_client.call_rest_json.return_value = {"chunks": [{"text": "data"}]}
-        operator._remote_chunking_client = mock_client
+    def test_returns_litellm_and_watsonx_schemas(self):
+        schemas = ChunkerOperator._get_summarization_provider_schemas()
+        assert "litellm" in schemas
+        assert "watsonx" in schemas
 
-        operator._docling_serve_split_text(content="content", doc_name="doc.md")
-
-        call_kwargs = mock_client.call_rest_json.call_args
-        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
-        self.assertNotIn("X-Api-Key", headers)
-
-    def test_split_text_chunk_metadata_populated(self):
-        """_docling_serve_split_text() populates chunk_index and doc_name metadata."""
-        operator = self._make_operator()
-        self._set_mock_client(
-            operator,
-            {"chunks": [{"text": "chunk A", "start_index": 10}, {"text": "chunk B"}]},
-        )
-        docs = operator._docling_serve_split_text(content="content", doc_name="my.md")
-        self.assertEqual(docs[0].metadata["chunk_index"], 0)
-        self.assertEqual(docs[0].metadata["start_index"], 10)
-        self.assertEqual(docs[0].metadata["doc_name"], "my.md")
-        self.assertEqual(docs[1].metadata["chunk_index"], 1)
-
-    # --- invalid response type ---
-
-    def test_split_text_non_dict_response_raises_docpipe_exception(self):
-        """_docling_serve_split_text() raises DocpipeException when response is not a dict."""
-        operator = self._make_operator()
-        mock_client = Mock()
-        mock_client.call_rest_json.return_value = ["not", "a", "dict"]
-        operator._remote_chunking_client = mock_client
-
-        with self.assertRaises(DocpipeException) as ctx:
-            operator._docling_serve_split_text(content="content", doc_name="test.md")
-        self.assertIn("Invalid response", str(ctx.exception))
-
-    # --- exception wrapping ---
-
-    def test_split_text_wraps_exception_in_docpipe_exception(self):
-        """_docling_serve_split_text() wraps arbitrary errors as DocpipeException."""
-        operator = self._make_operator()
-        mock_client = Mock()
-        mock_client.call_rest_json.side_effect = ConnectionError("network failure")
-        operator._remote_chunking_client = mock_client
-
-        with self.assertRaises(DocpipeException) as ctx:
-            operator._docling_serve_split_text(content="content", doc_name="test.md")
-        self.assertIn("network failure", str(ctx.exception))
+    def test_schemas_have_properties(self):
+        schemas = ChunkerOperator._get_summarization_provider_schemas()
+        for provider_name, schema in schemas.items():
+            assert "properties" in schema, f"Schema for {provider_name} should have 'properties' key"

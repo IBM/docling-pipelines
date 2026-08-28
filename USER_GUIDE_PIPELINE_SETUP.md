@@ -1,4 +1,4 @@
-# Docling Pipelines User Guide: Complete Setup and Execution
+# Docling Pipelines Pipeline User Guide: Complete Setup and Execution
 
 This comprehensive guide walks you through setting up and executing a complete Docling Pipelines pipeline from document ingestion to vector storage in OpenSearch.
 
@@ -133,7 +133,7 @@ The script creates two files:
 
 4. Run your first flow:
    ```bash
-   docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+   docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
    ```
 
 #### Troubleshooting the Setup Script
@@ -337,12 +337,14 @@ This command:
 ```bash
 # From project root
 source .venv/bin/activate
+pre-commit install
 ```
 
 **Windows:**
 
 ```bash
 .venv\Scripts\activate
+pre-commit install
 ```
 
 **4. Configure environment variables:**
@@ -354,6 +356,8 @@ cp .env.example .env
 # The default values work for local development
 # Edit .env if you need to customize settings
 ```
+
+> **HashiCorp Vault (optional):** If your organisation uses Vault for secret management, set `secrets.vault.enabled: true` in `docling-pipelines-config.yaml` and supply `VAULT_ROLE_ID` and `VAULT_SECRET_ID` as environment variables. See the [Architecture Guide — HashiCorp Vault Integration](ARCHITECTURE.md) for full details.
 
 ### Verify Installation
 
@@ -607,7 +611,7 @@ podman-compose -f docker/docker-compose.opensearch.yml logs
 
 **Before creating your own flow**, test your setup using the provided sample flow.
 
-The repository includes a complete, ready-to-run pipeline in `sample_flows/complete_pipeline_flow.json` that demonstrates the full document processing workflow:
+The repository includes a complete, ready-to-run pipeline in `sample_flows/quickstart/complete_pipeline_ollama.json` that demonstrates the full document processing workflow:
 
 - **Ingest** → Reads documents from `./sample_documents`
 - **Extract** → Extracts content using Docling
@@ -623,7 +627,7 @@ The repository includes a complete, ready-to-run pipeline in `sample_flows/compl
 2. Run the sample flow:
    ```bash
    # From project root
-   docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+   docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
    ```
 
 ### Understanding Pipeline Output
@@ -639,7 +643,7 @@ Docling Pipelines provides clean, formatted console output showing pipeline prog
  Started: 2024-01-15 10:30:00
 ================================================================================
 
-[ingest] Starting ingest_local...
+[ingest] Starting ingest_source...
 
 ================================================================================
  ingest (COMPLETED)
@@ -686,19 +690,19 @@ Control log output using the `DS_LOG_LEVEL` environment variable:
 ```bash
 # Debug: Detailed information
 export DS_LOG_LEVEL=DEBUG
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 
 # Info: Standard output (default)
 export DS_LOG_LEVEL=INFO
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 
 # Warning: Only warnings and errors
 export DS_LOG_LEVEL=WARNING
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 
 # Error: Only errors
 export DS_LOG_LEVEL=ERROR
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 ```
 
 ### Creating a Custom Flow
@@ -740,7 +744,7 @@ source .venv/bin/activate
 
 ```bash
 # From project root
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 ```
 
 **Common CLI options:**
@@ -882,7 +886,7 @@ Enable debug logging for detailed troubleshooting:
 
 ```bash
 export DS_LOG_LEVEL=DEBUG
-docling-pipelines --flow-file sample_flows/complete_pipeline_flow.json
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
 ```
 
 For comprehensive troubleshooting, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
@@ -902,7 +906,7 @@ docling-pipelines --list-operators --verbose
 ```
 
 **Available operator categories:**
-- **Ingest**: IngestLocalOperator, IngestSourceOperator
+- **Ingest**: IngestSourceOperator (filesystem, S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, CSV, web)
 - **Extract**: ExtractOperator (with multiple extraction providers)
 - **Quality**: DocumentClassifier, LanguageDetect, Redaction, Dedup
 - **Functional**: Chunker, Embeddings, Branching, Merge, NOOP
@@ -913,7 +917,7 @@ See **[Operator Reference](docs/reference/OPERATORS.md)** for complete specifica
 
 ### Customize Your Pipeline
 
-1. **Copy the sample flow**: `cp sample_flows/complete_pipeline_flow.json my_flow.json`
+1. **Copy the sample flow**: `cp sample_flows/quickstart/complete_pipeline_ollama.json my_flow.json`
 2. **Edit the configuration**: Change paths, chunk sizes, models, etc.
 3. **Run your custom flow**: `docling-pipelines --flow-file my_flow.json`
 

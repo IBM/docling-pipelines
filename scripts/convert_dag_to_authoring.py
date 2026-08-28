@@ -102,14 +102,12 @@ class DagToAuthoringConverter:
             authoring_operators.append(operator)
 
         # Construct authoring flow
-        authoring_flow = {
+        return {
             "flow_name": flow_name,
             "description": description,
             "flow": authoring_operators,
             "global_config": global_config,
         }
-
-        return authoring_flow
 
     def _validate_dag_format(self, *, dag_flow: dict[str, Any]) -> None:
         """Validate that input is in DAG format.
@@ -177,14 +175,12 @@ class DagToAuthoringConverter:
                     depends_on.append(source_name)
 
         # Construct operator
-        operator = {
+        return {
             "name": name,
             "type": operator_type,
             "depends_on": depends_on,
             "config": config,
         }
-
-        return operator
 
 
 def load_json_file(*, file_path: str) -> dict[str, Any]:

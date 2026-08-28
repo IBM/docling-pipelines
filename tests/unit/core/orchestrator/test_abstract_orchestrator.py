@@ -12,7 +12,7 @@ from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrato
 from docpipe.core.orchestration.prefect.prefect_engine import ExecuteStepResults
 
 
-def make_op_def(op_id="node-1", name="myop", operator="IngestLocalOperator"):
+def make_op_def(op_id="node-1", name="myop", operator="IngestSourceOperator"):
     return {
         OperatorConstants.Columns.ID: op_id,
         OperatorConstants.Columns.NAME: name,
@@ -30,6 +30,9 @@ class ConcreteOrchestrator(AbstractOrchestrator):
 
     def execute_flow(self, *, op_flow, global_config):
         pass
+
+    def _create_flow_engine(self, *, job_id: str, job_run_id: str, job_log_path: str):
+        return None
 
 
 @pytest.fixture
@@ -259,27 +262,27 @@ class TestHandleNodeFailure:
 class TestGetIngestSummaryMessage:
     def test_non_empty_table_returns_none(self, orchestrator):
         table = pa.table({"id": ["doc1"]})
-        op = {OperatorConstants.Misc.OPERATOR: "IngestLocalOperator"}
+        op = {OperatorConstants.Misc.OPERATOR: "IngestSourceOperator"}
         result = orchestrator._get_ingest_summary_message(output_table=table, deleted_docs_count=0, operator=op)
         assert result is None
 
     def test_empty_table_returns_message(self, orchestrator):
         table = pa.table({"id": []})
-        op = {OperatorConstants.Misc.OPERATOR: "IngestLocalOperator"}
+        op = {OperatorConstants.Misc.OPERATOR: "IngestSourceOperator"}
         result = orchestrator._get_ingest_summary_message(output_table=table, deleted_docs_count=0, operator=op)
         assert result is not None
         assert "No documents" in result
 
     def test_empty_table_with_deleted_includes_count(self, orchestrator):
         table = pa.table({"id": []})
-        op = {OperatorConstants.Misc.OPERATOR: "IngestLocalOperator"}
+        op = {OperatorConstants.Misc.OPERATOR: "IngestSourceOperator"}
         result = orchestrator._get_ingest_summary_message(output_table=table, deleted_docs_count=3, operator=op)
         assert "3" in result
         assert "were" in result  # plural
 
     def test_empty_table_with_single_deleted(self, orchestrator):
         table = pa.table({"id": []})
-        op = {OperatorConstants.Misc.OPERATOR: "IngestLocalOperator"}
+        op = {OperatorConstants.Misc.OPERATOR: "IngestSourceOperator"}
         result = orchestrator._get_ingest_summary_message(output_table=table, deleted_docs_count=1, operator=op)
         assert "was" in result  # singular
 
@@ -293,7 +296,7 @@ class TestGetIngestSummaryMessage:
 @pytest.mark.unit
 class TestPopulateIngestSourceConfig:
     def test_ingest_source_operator_populates_config(self, orchestrator):
-        global_config = {}
+        global_config: dict = {}
         ingest_operator = {
             OperatorConstants.Misc.OPERATOR: "IngestSourceOperator",
             OperatorConstants.Config.CONFIG: {
@@ -307,16 +310,16 @@ class TestPopulateIngestSourceConfig:
         assert global_config[OperatorConstants.Config.INGEST_SOURCE][OperatorConstants.Config.PROVIDER] == "s3"
 
     def test_non_ingest_source_operator_skips(self, orchestrator):
-        global_config = {}
+        global_config: dict = {}
         ingest_operator = {
-            OperatorConstants.Misc.OPERATOR: "IngestLocalOperator",
+            OperatorConstants.Misc.OPERATOR: "SomeOtherOperator",
             OperatorConstants.Config.CONFIG: {},
         }
         orchestrator._populate_ingest_source_config(ingest_operator=ingest_operator, global_config=global_config)
         assert OperatorConstants.Config.INGEST_SOURCE not in global_config
 
     def test_merged_connection_params_include_credentials(self, orchestrator):
-        global_config = {}
+        global_config: dict = {}
         ingest_operator = {
             OperatorConstants.Misc.OPERATOR: "ingest_source",
             OperatorConstants.Config.CONFIG: {
@@ -387,7 +390,7 @@ class TestInitialize:
     def test_sets_job_ids(self, orchestrator):
         with (
             patch("docpipe.core.orchestration.abstract_orchestrator.get_session_info") as mock_si,
-            patch("docpipe.core.orchestration.abstract_orchestrator.PrefectEngine"),
+            patch.object(orchestrator, "_create_flow_engine", return_value=None),
         ):
             mock_si.return_value = Mock(flow_id="flow-1")
             orchestrator.flow_engine = None

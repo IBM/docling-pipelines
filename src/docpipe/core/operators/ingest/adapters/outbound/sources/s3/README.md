@@ -51,7 +51,7 @@ aws_secret_access_key = your-secret-key  # pragma: allowlist secret
 region = us-east-1
 ```
 
-**Option C: Flow Configuration** (Recommended for Docling Pipelines flows)
+**Option C: Flow Configuration** (Recommended for docpipe pipelines)
 ```json
 {
   "credentials": {
@@ -146,14 +146,14 @@ async def main():
         prefix="documents/",
         file_extensions=[".pdf", ".txt"],
     )
-    
+
     # Create adapter
     adapter = S3SourceAdapter()
-    
+
     # Test connection
     success, message = await adapter.test_connection(config)
     print(f"Connection test: {message}")
-    
+
     # Fetch documents
     async for document in adapter.fetch_documents(config):
         print(f"Document: {document.name} ({len(document.content)} bytes)")
@@ -477,7 +477,7 @@ When adding new features to the S3 adapter:
 
 ## License
 
-This adapter is part of the Docling Pipelines project.
+This adapter is part of the docling-pipelines project.
 
 ## Support
 

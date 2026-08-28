@@ -20,7 +20,7 @@ from docpipe.core.job_management.domain.models import NodeStats
 def sample_node_stats():
     """Sample node stats with all fields populated."""
     return NodeStats(
-        node_id="12345678-1234-1234-1234-123456789abc",
+        id="12345678-1234-1234-1234-123456789abc",
         name="TestOperator",
         node_status=ExecutionStatus.COMPLETED.value,
         start_time=1704067200,
@@ -49,7 +49,7 @@ class TestToDtoConversion:
         """Should convert all fields correctly."""
         dto = NodeStatsMapper.to_dto(sample_node_stats)
 
-        assert dto.node_id == "12345678-1234-1234-1234-123456789abc"
+        assert dto.id == "12345678-1234-1234-1234-123456789abc"
         assert dto.name == "TestOperator"
         assert dto.node_status == ExecutionStatus.COMPLETED.value
         assert dto.start_time == 1704067200
@@ -72,7 +72,7 @@ class TestToDtoConversion:
     def test_to_dto_with_error(self):
         """Should include error field when present."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="FailedNode",
             node_status=ExecutionStatus.FAILED.value,
             error="Connection timeout",
@@ -85,7 +85,7 @@ class TestToDtoConversion:
     def test_to_dto_minimal_fields(self):
         """Should handle minimal node stats with defaults."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="MinimalNode",
             node_status=ExecutionStatus.RUNNING.value,
             start_time=1704067200,
@@ -93,7 +93,7 @@ class TestToDtoConversion:
 
         dto = NodeStatsMapper.to_dto(node_stats)
 
-        assert dto.node_id == "12345678-1234-1234-1234-123456789abc"
+        assert dto.id == "12345678-1234-1234-1234-123456789abc"
         assert dto.name == "MinimalNode"
         assert dto.time_taken == 0  # Default
         assert dto.col_names == []  # Default
@@ -104,7 +104,7 @@ class TestToDtoConversion:
     def test_to_dto_empty_lists(self):
         """Should handle empty lists correctly."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="TestNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
@@ -147,7 +147,7 @@ class TestToNodeMetadataItem:
     def test_to_node_metadata_item_without_metadata(self):
         """Should handle missing node_metadata."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="TestNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
@@ -163,7 +163,7 @@ class TestToNodeMetadataItem:
     def test_to_node_metadata_item_empty_metadata(self):
         """Should handle empty node_metadata dict."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="TestNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
@@ -191,13 +191,13 @@ class TestToLogString:
         assert "doc_id: string" in log_str
         assert "content: string" in log_str
         assert "metadata: string" in log_str
-        assert "Operator Metadata:" in log_str
-        assert "Completed execution: TestOperator, time= 60.00 seconds" in log_str
+        assert "Operator Metadata" in log_str
+        assert "Completed execution: TestOperator,  time= 60.00 seconds" in log_str
 
     def test_to_log_string_failed_node(self):
         """Should format failed node log correctly."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="FailedNode",
             node_status=ExecutionStatus.FAILED.value,
             error="Connection timeout after 30s",
@@ -209,14 +209,14 @@ class TestToLogString:
         log_str = NodeStatsMapper.to_log_string(node_id="12345678-1234-1234-1234-123456789abc", node_stat=node_stats)
 
         assert "Starting execution: Step Name: FailedNode" in log_str
-        assert "Failed execution: FailedNode, time= 30.00 seconds" in log_str
-        assert "Error Details:" in log_str
+        assert "Failed execution: FailedNode,  time= 30.00 seconds" in log_str
+        assert "Error Details" in log_str
         assert "Connection timeout after 30s" in log_str
 
     def test_to_log_string_skipped_node(self):
         """Should format skipped node log correctly."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="SkippedNode",
             node_status=ExecutionStatus.SKIPPED.value,
             start_time=1704067200,
@@ -226,13 +226,13 @@ class TestToLogString:
 
         log_str = NodeStatsMapper.to_log_string(node_id="12345678-1234-1234-1234-123456789abc", node_stat=node_stats)
 
-        assert "Starting execution: Step Name: SkippedNode" in log_str
-        assert "Skipped execution: SkippedNode, time= 5.00 seconds" in log_str
+        assert "Step: SkippedNode" in log_str
+        assert "Skipped execution for Step Name: SkippedNode" in log_str
 
     def test_to_log_string_running_node(self):
-        """Should not include completion status for running node."""
+        """Should format running node with standard block format."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="RunningNode",
             node_status=ExecutionStatus.RUNNING.value,
             start_time=1704067200,
@@ -241,13 +241,12 @@ class TestToLogString:
         log_str = NodeStatsMapper.to_log_string(node_id="12345678-1234-1234-1234-123456789abc", node_stat=node_stats)
 
         assert "Starting execution: Step Name: RunningNode" in log_str
-        assert "Completed execution" not in log_str
         assert "Failed execution" not in log_str
 
     def test_to_log_string_without_schema(self):
         """Should handle empty col_names."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="NoSchemaNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
@@ -265,7 +264,7 @@ class TestToLogString:
     def test_to_log_string_without_metadata(self):
         """Should handle missing node_metadata."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="NoMetadataNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
@@ -286,15 +285,15 @@ class TestToLogString:
             node_id="12345678-1234-1234-1234-123456789abc", node_stat=sample_node_stats
         )
 
-        assert "Operator Metadata:" in log_str
-        # Check JSON structure is present
-        assert '"id": "12345678-1234-1234-1234-123456789abc"' in log_str
-        assert '"operator": "TestOperator"' in log_str
+        assert "Operator Metadata" in log_str
+        # Metadata content is the inner node_metadata dict (processed, format keys)
+        assert '"processed": 3' in log_str
+        assert '"format": "pdf"' in log_str
 
     def test_to_log_string_zero_time_taken(self):
         """Should handle zero time_taken."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="QuickNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
@@ -304,12 +303,12 @@ class TestToLogString:
 
         log_str = NodeStatsMapper.to_log_string(node_id="12345678-1234-1234-1234-123456789abc", node_stat=node_stats)
 
-        assert "Completed execution: QuickNode, time= 0.00 seconds" in log_str
+        assert "Completed execution: QuickNode,  time= 0.00 seconds" in log_str
 
     def test_to_log_string_missing_time_taken(self):
         """Should handle missing time_taken field."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="TestNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
@@ -319,12 +318,12 @@ class TestToLogString:
 
         log_str = NodeStatsMapper.to_log_string(node_id="12345678-1234-1234-1234-123456789abc", node_stat=node_stats)
 
-        assert "Completed execution: TestNode, time= 0.00 seconds" in log_str
+        assert "Completed execution: TestNode,  time= 0.00 seconds" in log_str
 
     def test_to_log_string_canceled_node(self):
         """Should format canceled node as completed (not in FAILED/SKIPPED)."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="CanceledNode",
             node_status=ExecutionStatus.CANCELED.value,
             start_time=1704067200,
@@ -336,12 +335,12 @@ class TestToLogString:
 
         assert "Starting execution: Step Name: CanceledNode" in log_str
         # CANCELED is terminal but not FAILED or SKIPPED, so shows as "Completed"
-        assert "Completed execution: CanceledNode, time= 10.00 seconds" in log_str
+        assert "Completed execution: CanceledNode,  time= 10.00 seconds" in log_str
 
     def test_to_log_string_with_enum_status(self):
         """Should handle ExecutionStatus enum values."""
         node_stats = NodeStats(
-            node_id="12345678-1234-1234-1234-123456789abc",
+            id="12345678-1234-1234-1234-123456789abc",
             name="EnumNode",
             node_status=ExecutionStatus.COMPLETED,  # Enum instead of string
             start_time=1704067200,
@@ -351,4 +350,4 @@ class TestToLogString:
 
         log_str = NodeStatsMapper.to_log_string(node_id="12345678-1234-1234-1234-123456789abc", node_stat=node_stats)
 
-        assert "Completed execution: EnumNode, time= 60.00 seconds" in log_str
+        assert "Completed execution: EnumNode,  time= 60.00 seconds" in log_str

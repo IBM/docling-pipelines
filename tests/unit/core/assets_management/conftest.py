@@ -6,9 +6,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from docpipe.core.assets.common.domain.ports.asset_repository import AssetRepository
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.core.assets.flows.domain.models.flow import Flow
-from docpipe.core.assets.flows.domain.ports.flow_repository import FlowRepository
 
 
 @pytest.fixture
@@ -67,8 +67,8 @@ def sample_flow_domain(sample_flow_data) -> Flow:
 @pytest.fixture
 def sample_flow_with_id(sample_flow_data) -> Flow:
     """Sample Flow domain object with a specific flow_id for testing."""
-    flow = Flow(
-        flow_id="test-flow-id-123",
+    return Flow(
+        asset_id="test-flow-id-123",
         name=sample_flow_data["name"],
         description=sample_flow_data["description"],
         definition=sample_flow_data["definition"],
@@ -82,13 +82,12 @@ def sample_flow_with_id(sample_flow_data) -> Flow:
         created_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         modified_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
-    return flow
 
 
 @pytest.fixture
 def mock_flow_repository() -> Mock:
-    """Mock FlowRepository for testing."""
-    mock_repo = Mock(spec=FlowRepository)
+    """Mock AssetRepository[Flow] for testing."""
+    mock_repo = Mock(spec=AssetRepository[Flow])
 
     # Configure default return values
     mock_repo.save.return_value = None  # Will be set by individual tests
@@ -96,6 +95,7 @@ def mock_flow_repository() -> Mock:
     mock_repo.find_all.return_value = []
     mock_repo.delete.return_value = True
     mock_repo.exists.return_value = False
+    mock_repo.exists_by_name.return_value = False  # Default: no duplicate names
 
     return mock_repo
 
@@ -112,7 +112,7 @@ def multiple_sample_flows() -> list[Flow]:
     flows = []
     for i in range(5):
         flow = Flow(
-            flow_id=f"flow-id-{i}",
+            asset_id=f"flow-id-{i}",
             name=f"Test Flow {i}",
             description=f"Description for flow {i}",
             definition={"doc_type": "pipeline", "pipelines": []},

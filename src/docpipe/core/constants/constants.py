@@ -1,7 +1,9 @@
+"""Project-wide string constants, enums, and configuration keys for docpipe."""
+
 import os
 from enum import Enum, StrEnum
 from pathlib import Path
-from typing import ClassVar, TypedDict
+from typing import ClassVar, Final, TypedDict
 
 # Import OperatorConstants for re-export
 
@@ -35,10 +37,14 @@ def _find_project_root() -> Path:
 
 class DocpipeConstants:
     # Defines constants that are used across Docpipe service
+    """Docpipeconstants."""
+
+    DOCPIPE_DATA_PATH = "DOCPIPE_DATA_PATH"
     INPUT_EDGES = "input_edges"
+    NODE_ID_REF = "node_id_ref"
     OUTPUT_EDGES = "output_edges"
     INPUT = "input"
-    LOGGER_NAME = "DOCPIPE"
+    LOGGER_NAME = "docpipe"
     SESSION_INFO = "session_info"
     CONTEXT_ID = "context_id"
     FORCE_INGEST = "force_ingest"
@@ -112,27 +118,26 @@ class DocpipeConstants:
     TEMP_CONTENT_COLUMN = "_temp_content_for_extract"
     TEMP_PAGES_PROCESSED_COLUMN = "_temp_pages_processed"
 
-    # Storage configuration
-    STORAGE_TYPE = "storage_type"
-    DEFAULT_STORAGE_TYPE = "duckdb"
-    SUPPORTED_STORAGE_TYPES: ClassVar[list[str]] = ["duckdb", "filesystem"]
-
     # Custom Operator Control
     ENABLE_CUSTOM_OPERATORS = "enable_custom_operators"
     ENABLE_CUSTOM_OPERATORS_DEFAULT = True
 
     # Operator Ownership Tiers
-    OWNER_ENTERPRISE = "docpipe_enterprise"
     OWNER_DOCPIPE = "docpipe"
     OWNER_CUSTOM = "custom"
     OWNER_ATTRIBUTE = "owner"
 
     # Operator Priority Map: lower number = higher priority
-    # Used for resolving conflicts when multiple operators have the same short_name
+    # Used for resolving conflicts when multiple operators have the same short_name.
+    # Additional owner tiers can be registered at runtime via OperatorFactory.register_owner_priority().
+    # Built-in tiers are spaced at intervals of 100 to leave room for consumer tiers:
+    #   0-99   : available for consumer tiers above OWNER_CUSTOM
+    #   100    : OWNER_CUSTOM
+    #   101-199: available for consumer tiers between OWNER_CUSTOM and OWNER_DOCPIPE
+    #   200    : OWNER_DOCPIPE
     OPERATOR_PRIORITY_MAP: ClassVar[dict[str, int]] = {
-        OWNER_ENTERPRISE: 0,  # Enterprise operators have highest precedence
-        OWNER_CUSTOM: 1,  # Custom operators have medium priority
-        OWNER_DOCPIPE: 2,  # OSS docpipe operators have lowest priority
+        OWNER_CUSTOM: 100,
+        OWNER_DOCPIPE: 200,
     }
 
     # Feature Flag States
@@ -145,6 +150,8 @@ class DocpipeConstants:
     BATCH_NUM = "batch_num"
     BATCH_ID = "batch_id"
     BATCH_COUNT = "batch_count"
+    CONTINUE_ON_BATCH_FAILURE = "continue_on_batch_failure"
+    CONTINUE_ON_BATCH_FAILURE_DEFAULT = False
     INGEST_NODE_ID = "ingest_node_id"
     # Batch-level concurrency control
     MAX_CONCURRENT_BATCHES = "max_concurrent_batches"
@@ -164,6 +171,7 @@ class DocpipeConstants:
     FLOW_EXECUTION_EVENT_HANDLER = "flow_execution_event_handler"
     JOB_LOG_PATH = "job_log_path"
     FLOW_EXECUTE_LOG = "flow_execute.log"
+    FLOW_DEFINITION_FILE = "flow_definition.json"
     START_TIME = "start_time"
     END_TIME = "end_time"
     DURATION = "duration"
@@ -268,15 +276,21 @@ class DocpipeConfigKeys:
     PORT = "port"
     DATABASE = "database"
     USER = "user"
-    PASSWORD = "password"  # pragma: allowlist secret
+    PASSWORD = "password"  # pragma: allowlist secret  # nosec B105
     POOL_SIZE = "pool_size"
     MAX_OVERFLOW = "max_overflow"
     POOL_TIMEOUT = "pool_timeout"
 
     # Incremental metadata configuration keys
     INCREMENTAL_METADATA = "incremental_metadata"
-    INCREMENTAL_STORAGE = "storage"
+    STORAGE = "storage"
     # Note: Use TYPE and CONFIG from above for storage_type and storage_config
+
+    # Job run report configuration keys
+    JOB_RUN_REPORT = "job_run_report"
+
+    # Flow definition snapshot configuration keys
+    FLOW_DEFINITION_SNAPSHOT = "flow_definition_snapshot"
 
     # Global storage configuration keys (shared defaults for all services)
     GLOBAL_STORAGE = "global_storage"
@@ -300,6 +314,12 @@ class EnvironmentVariables:
     DOCPIPE_ENABLE_CUSTOM_OPERATORS = "DOCPIPE_ENABLE_CUSTOM_OPERATORS"
     DOCPIPE_CUSTOM_OPERATORS = "DOCPIPE_CUSTOM_OPERATORS"
     DOCPIPE_CONFIG_PATH = "DOCPIPE_CONFIG_PATH"
+
+    # Secret Provider Control
+    DOCPIPE_VAULT_ENABLED = "DOCPIPE_VAULT_ENABLED"  # "true" enables, "false" disables — overrides YAML config
+    DOCPIPE_VAULT_PROVIDER_NAME = (
+        "DOCPIPE_VAULT_PROVIDER_NAME"  # provider name used in vault:// URIs (default: hashicorp)
+    )
     DOCPIPE_STORAGE_BACKEND = "DOCPIPE_STORAGE_BACKEND"
     DOCPIPE_FRAMEWORK_TYPE = "DOCPIPE_FRAMEWORK_TYPE"
     DOCPIPE_JOB_STATS_BASE_DIR = "DOCPIPE_JOB_STATS_BASE_DIR"
@@ -307,7 +327,7 @@ class EnvironmentVariables:
     DOCPIPE_POSTGRES_PORT = "DOCPIPE_POSTGRES_PORT"
     DOCPIPE_POSTGRES_DB = "DOCPIPE_POSTGRES_DB"
     DOCPIPE_POSTGRES_USER = "DOCPIPE_POSTGRES_USER"
-    DOCPIPE_POSTGRES_PASSWORD = "DOCPIPE_POSTGRES_PASSWORD"  # pragma: allowlist secret
+    DOCPIPE_POSTGRES_PASSWORD = "DOCPIPE_POSTGRES_PASSWORD"  # pragma: allowlist secret  # nosec B105
 
 
 class ServiceConstants:
@@ -319,6 +339,21 @@ class ServiceConstants:
 
     # Embeddings batch processing
     DEFAULT_EMBEDDINGS_BATCH_SIZE = 32  # Default batch size for embeddings generation
+
+
+class ProviderConstants:
+    """Canonical provider name strings used across all provider-facing APIs.
+
+    These values identify LLM/embedding providers in contexts that cut across
+    operator categories (embeddings, chunking, classification, entity extraction,
+    etc.) — for example, the GET /providers/{provider}/models endpoint.
+
+    Use these constants anywhere a provider is identified by name at the service
+    or API layer rather than within a single operator's configuration.
+    """
+
+    OLLAMA: Final[str] = "ollama"
+    WATSONX: Final[str] = "watsonx"
 
 
 class DoclingClientConstants:
@@ -367,9 +402,13 @@ class DoclingClientConfigConstants:
 
 
 class Metrics:
+    """Metrics."""
+
     class External:
+        """External."""
+
         JOB_RUN_STATUS = "job_run_status"
-        TOTAL_DOCS = "total_docs_count"
+        TOTAL_DOCS = "documents_in_scope"
         COMPLETED_DOCS_COUNT = "completed_docs_count"
         TOTAL_DOCS_COUNT_FROM_LOGS = "total_docs"
         PROCESSED_DOCS = "processed_docs"
@@ -403,10 +442,20 @@ class Metrics:
         COLUMNS_BEFORE_FILTER = "columns_before_filter"
         COLUMNS_AFTER_FILTER = "columns_after_filter"
 
+        # VectorDB / indexing metrics
+        RECORDS_INSERTED = "records_inserted"
+        RECORDS_FAILED = "records_failed"
+
+        # Page type breakdown
+        PAGE_TYPE_STATS = "page_type_stats"
+
     class Internal:
+        """Internal."""
+
         DELETED_FROM_LAST_RUN = "deleted_from_last_run"
         ALL_DOC_IDS = "all_doc_ids"
         BRANCHES = "branches"
+        NON_RECOVERABLE_DOCS_TABLE = "non_recoverable_docs_table"
 
     # Metrics that require atomic aggregation to prevent race conditions
     AGGREGATION_METRICS = frozenset({External.TOTAL_PAGES_CONVERTED, External.DELETED_DOC_COUNT})
@@ -417,9 +466,13 @@ internal_metrics = {value for name, value in vars(Metrics.Internal).items() if n
 
 
 class TaskType(Enum):
+    """Tasktype."""
+
     EXECUTE_FLOW = "execute_flow"
     VALIDATE_FLOW = "validate_flow"
     NON_EXECUTE_FLOW = "non_execute_flow"
+    SET_NODE_FEATURES = "set_node_features"
+    ADD_OPERATOR_CARD_DETAILS = "add_operator_card_details"
 
 
 class DocumentConstants:
@@ -465,11 +518,15 @@ class DocumentConstants:
 
 
 class OrchestratorType:
+    """Orchestratortype."""
+
     PYTHON = "python"
     SPARK = "spark"
 
 
 class DataSourceType:
+    """Datasourcetype."""
+
     AMAZON_S3 = "Amazon S3"
     BOX = "Box"
     FILENET = "AppConnectAdapter - FileNet"
@@ -482,6 +539,8 @@ class DataSourceType:
 
 
 class ExecutionStatus(StrEnum):
+    """Executionstatus."""
+
     QUEUED = "Queued"
     PENDING = "Pending"
     STARTING = "Starting"
@@ -513,6 +572,20 @@ TERMINAL_JOB_STATUSES = frozenset(
 
 TERMINAL_NODE_STATES = frozenset(TERMINAL_JOB_STATUSES | {ExecutionStatus.SKIPPED})
 
+# Visual status indicators for batch execution summary (mirrors Enterprise NodeExecutionLogConstants)
+STATUS_INDICATOR_MAP: dict[str, str] = {
+    ExecutionStatus.COMPLETED.value: "✓",
+    ExecutionStatus.FAILED.value: "✗",
+    ExecutionStatus.COMPLETED_WITH_ERRORS.value: "✗",
+    ExecutionStatus.COMPLETED_WITH_WARNINGS.value: "✓",
+    ExecutionStatus.SKIPPED.value: "⊘",
+    ExecutionStatus.RUNNING.value: "•",
+    ExecutionStatus.PENDING.value: "○",
+    ExecutionStatus.QUEUED.value: "○",
+    ExecutionStatus.CANCELED.value: "⊗",
+    ExecutionStatus.CANCELING.value: "•",
+}
+
 active_states = [
     ExecutionStatus.STARTING,
     ExecutionStatus.RUNNING,
@@ -522,6 +595,8 @@ active_states = [
 
 
 class ValidationStatus(StrEnum):
+    """Validationstatus."""
+
     FAILED = "FAILED"
     SUCCEEDED = "SUCCEEDED"
     SUCCEEDED_WITH_WARNINGS = "SUCCEEDED_WITH_WARNINGS"

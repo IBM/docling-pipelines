@@ -1,6 +1,6 @@
 """Validation utility functions."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -52,7 +52,7 @@ def is_date_time_as_per_format(date_time_str: str, date_time_format: str):
         False - If the input date is not a valid date or is not as per the date_time_format
     """
     try:
-        datetime.strptime(date_time_str, date_time_format)
+        datetime.strptime(date_time_str, date_time_format).replace(tzinfo=UTC)
         return True
     except ValueError:
         return False
@@ -148,11 +148,11 @@ def _validate_operator_type_format(operator_type: str) -> None:
         if not part or not (part[0].isalpha() or part[0] == "_"):
             raise ValueError(
                 f"operator_type '{operator_type}' contains invalid identifier '{part}'. "
-                "Must be valid Python class path (e.g., 'ingest_local' or 'core.operators.IngestLocal')"
+                "Must be valid Python class path (e.g., 'ingest_source' or 'core.operators.IngestSource')"
             )
 
 
-def _validate_dag_nodes(nodes: list[dict[str, Any]]) -> None:  # NOSONAR python:S3776
+def _validate_dag_nodes(nodes: list[dict[str, Any]]) -> None:
     """Validate DAG nodes structure.
 
     Args:

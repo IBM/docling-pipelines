@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Local PII and HAP Detection using Ollama.
 
@@ -6,18 +9,20 @@ Ollama models, following the enterprise pattern but adapted for opensource.
 """
 
 import json
-import os
+from pathlib import Path
 from typing import Any
 
 from docpipe.core.constants import OperatorConstants
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.integrations.ollama.client import InteractionMode, OllamaClient
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.llm import PromptManager, parse_llm_json_response
 
 logger = get_logger(__name__)
 
-_prompt_cache: dict[str, Any] = {"static_prompt": None}
-PROMPT_EXAMPLES_PATH = os.path.join(os.path.dirname(__file__), "pii_prompt_examples.json")
+# Initialize PromptManager for prompt loading and caching
+PROMPT_EXAMPLES_PATH = Path(__file__).parent / "pii_prompt_examples.json"
+_prompt_manager = PromptManager(PROMPT_EXAMPLES_PATH)
 
 
 def _load_static_prompt() -> str:
@@ -27,23 +32,7 @@ def _load_static_prompt() -> str:
     Returns:
         Formatted prompt string with description and examples
     """
-    if _prompt_cache["static_prompt"] is not None:
-        return _prompt_cache["static_prompt"]
-
-    with open(PROMPT_EXAMPLES_PATH, encoding="utf-8") as f:
-        data = json.load(f)
-
-    description = data.get("description", "")
-    examples = data.get("examples", [])
-
-    prompt = description + "\n\n"
-    for ex in examples:
-        input_text = ex["input"]
-        output_json = json.dumps(ex["output"], indent=2)
-        prompt += f'Input:\n"""{input_text}"""\n\nOutput:\n{output_json}\n\n'
-
-    _prompt_cache["static_prompt"] = prompt
-    return prompt
+    return _prompt_manager.load_prompt()
 
 
 def detect_pii_hap_ollama(request_data: dict[str, Any], model_name: str = "granite4") -> dict[str, Any]:
@@ -90,8 +79,7 @@ def detect_pii_hap_ollama(request_data: dict[str, Any], model_name: str = "grani
 
     try:
         ollama_wrapper = OllamaClient(model_name=model_name, mode=InteractionMode.GENERATE)
-        result = ollama_wrapper.run_json(prompt=full_prompt)
-        return result
+        return ollama_wrapper.run_json(prompt=full_prompt)
     except json.JSONDecodeError as exc:
         raise DocpipeException(message=f"Failed to parse JSON from model: {exc!s}", status_code=500) from exc
 
@@ -145,19 +133,11 @@ def detect_pii_hap_litellm(
         if not raw_content:
             raise DocpipeException(message="Model returned empty response", status_code=500)
 
-        # Try to parse JSON from response
-        try:
-            return json.loads(raw_content)
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown or mixed content
-            import re
+        # Parse JSON from response using utility
+        return parse_llm_json_response(raw_content, log_on_error=True)
 
-            match = re.search(r"\{.*\}", raw_content, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            raise
-
-    except json.JSONDecodeError as exc:
-        raise DocpipeException(message=f"Failed to parse JSON from model: {exc!s}", status_code=500) from exc
+    except DocpipeException:
+        # Re-raise DocpipeException as-is (includes JSON parsing errors)
+        raise
     except Exception as exc:
         raise DocpipeException(message=f"Error calling LiteLLM API: {exc!s}", status_code=500) from exc

@@ -20,7 +20,7 @@ from docpipe.core.job_management.domain.models import JobStats, NodeStats
 def sample_node_stats():
     """Sample node stats for testing."""
     return NodeStats(
-        node_id="12345678-1234-1234-1234-123456789abc",
+        id="12345678-1234-1234-1234-123456789abc",
         name="TestNode",
         node_status=ExecutionStatus.COMPLETED.value,
         start_time=1704067200,
@@ -123,7 +123,7 @@ class TestToDtoConversion:
 
         assert "12345678-1234-1234-1234-123456789abc" in dto.node_stats
         node_dto = dto.node_stats["12345678-1234-1234-1234-123456789abc"]
-        assert node_dto.node_id == "12345678-1234-1234-1234-123456789abc"
+        assert node_dto.id == "12345678-1234-1234-1234-123456789abc"
         assert node_dto.name == "TestNode"
         assert node_dto.node_status == ExecutionStatus.COMPLETED.value
 
@@ -145,7 +145,7 @@ class TestToDtoConversion:
     def test_to_dto_batch_node_stats_mapping(self, sample_node_stats):
         """Should map nested batch_node_stats correctly."""
         batch_node = NodeStats(
-            node_id="22345678-1234-1234-1234-123456789abc",
+            id="22345678-1234-1234-1234-123456789abc",
             name="BatchNode",
             node_status=ExecutionStatus.COMPLETED.value,
             batch_id="b2345678-1234-1234-1234-123456789abc",
@@ -170,7 +170,7 @@ class TestToDtoConversion:
         assert "22345678-1234-1234-1234-123456789abc" in dto.batch_node_stats
         assert "b2345678-1234-1234-1234-123456789abc" in dto.batch_node_stats["22345678-1234-1234-1234-123456789abc"]
         batch_dto = dto.batch_node_stats["22345678-1234-1234-1234-123456789abc"]["b2345678-1234-1234-1234-123456789abc"]
-        assert batch_dto.node_id == "22345678-1234-1234-1234-123456789abc"
+        assert batch_dto.id == "22345678-1234-1234-1234-123456789abc"
         assert batch_dto.batch_id == "b2345678-1234-1234-1234-123456789abc"
 
 
@@ -189,21 +189,21 @@ class TestToStatusResponse:
     def test_to_status_response_node_sequence_ordering(self):
         """Should order node_sequence by start_time."""
         node1 = NodeStats(
-            node_id="11111111-1111-1111-1111-111111111111",
+            id="11111111-1111-1111-1111-111111111111",
             name="FirstNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
             end_time=1704067260,
         )
         node2 = NodeStats(
-            node_id="22222222-2222-2222-2222-222222222222",
+            id="22222222-2222-2222-2222-222222222222",
             name="SecondNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067100,  # Earlier start time
             end_time=1704067150,
         )
         node3 = NodeStats(
-            node_id="33333333-3333-3333-3333-333333333333",
+            id="33333333-3333-3333-3333-333333333333",
             name="ThirdNode",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067300,  # Latest start time
@@ -277,14 +277,14 @@ class TestToStatusResponse:
     def test_to_status_response_multiple_nodes_with_logs(self):
         """Should include logs for all nodes when requested."""
         node1 = NodeStats(
-            node_id="11111111-1111-1111-1111-111111111111",
+            id="11111111-1111-1111-1111-111111111111",
             name="Node1",
             node_status=ExecutionStatus.COMPLETED.value,
             start_time=1704067200,
             end_time=1704067260,
         )
         node2 = NodeStats(
-            node_id="22222222-2222-2222-2222-222222222222",
+            id="22222222-2222-2222-2222-222222222222",
             name="Node2",
             node_status=ExecutionStatus.FAILED.value,
             start_time=1704067300,

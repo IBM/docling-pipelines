@@ -50,12 +50,12 @@ def basic_features():
 @pytest.fixture
 def feature_mappings():
     """Feature mappings"""
-    return {
-        "doc_id": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings",
-        "metadata": "meta",
-    }
+    return [
+        {"feature_name": "doc_id", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        {"feature_name": "metadata", "mapped_column_name": "meta"},
+    ]
 
 
 class TestBatchProcessorInitialization:
@@ -412,3 +412,281 @@ class TestBulkOperations:
         assert success_count == 3
         assert failed_count == 0
         mock_client.delete.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Additional tests to reach 80% coverage
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentPreparationEdgeCases:
+    """Additional prepare_document branches not covered above."""
+
+    def test_prepare_document_skips_sparse_embeddings_in_sparse_mode(self, mock_client):
+        """sparse_embeddings feature is skipped when add_sparse_vector=True (BM25 auto-generates it)."""
+        features = {
+            "sparse_embeddings": {"available_for_vector_db": True, "type": "vector_sparse"},
+            "content": {"available_for_vector_db": True, "type": "string"},
+        }
+        mappings = [
+            {"feature_name": "sparse_embeddings", "mapped_column_name": "sparse_vector"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+        ]
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            available_features=features,
+            feature_mappings=mappings,
+            add_sparse_vector=True,
+        )
+        row_data = {
+            OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT: [0.1, 0.2],
+            "content": "hello world",
+        }
+        doc = processor.prepare_document(row_data=row_data)
+        assert "sparse_vector" not in doc
+        assert doc["text"] == "hello world"
+
+    def test_prepare_document_skips_unavailable_for_vector_db(self, mock_client):
+        """Fields with available_for_vector_db=False are excluded from the document."""
+        features = {
+            "secret": {"available_for_vector_db": False, "type": "string"},
+            "content": {"available_for_vector_db": True, "type": "string"},
+        }
+        mappings = [
+            {"feature_name": "secret", "mapped_column_name": "secret_field"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+        ]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            available_features=features,
+            feature_mappings=mappings,
+        )
+        doc = processor.prepare_document(row_data={"secret": "hidden", "content": "visible"})
+        assert "secret_field" not in doc
+        assert doc["text"] == "visible"
+
+    def test_prepare_document_bytearray_is_skipped(self, mock_client, basic_features, feature_mappings):
+        """bytearray values (not just bytes) are also skipped."""
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            available_features=basic_features,
+            feature_mappings=feature_mappings,
+        )
+        doc = processor.prepare_document(row_data={"doc_id": "d1", "content": bytearray(b"raw"), "embeddings": [0.1]})
+        assert "text" not in doc
+
+
+class TestProcessBatchesEdgeCases:
+    """Branches in process_batches not previously exercised."""
+
+    def test_process_batches_non_dict_result_counts_batch_length(self, mock_client):
+        """When insert() returns a non-dict (e.g. None), success_count = len(batch)."""
+        mock_client.insert.return_value = None
+
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        batch = [{"pk": "a"}, {"pk": "b"}]
+        success, failed = processor.process_batches(batches=[batch])
+
+        assert success == 2
+        assert failed == []
+
+    def test_process_batches_insert_raises_records_all_as_failed(self, mock_client):
+        """An exception during insert marks every doc in the batch as failed."""
+        mock_client.insert.side_effect = RuntimeError("connection lost")
+
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        batch = [{"pk": "a"}, {"pk": "b"}, {"pk": "c"}]
+        success, failed = processor.process_batches(batches=[batch])
+
+        assert success == 0
+        assert len(failed) == 3
+        assert all("error" in item for item in failed)
+
+    def test_process_batches_empty_batches_returns_zero(self, mock_client):
+        """No batches → success=0, failed=[]."""
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        success, failed = processor.process_batches(batches=[])
+        assert success == 0
+        assert failed == []
+
+    def test_process_batches_multiple_batches_accumulates(self, mock_client):
+        """Success counts from multiple batches are accumulated correctly."""
+        mock_client.insert.side_effect = [
+            {"insert_count": 2},
+            {"insert_count": 3},
+        ]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        success, failed = processor.process_batches(
+            batches=[[{"pk": "a"}, {"pk": "b"}], [{"pk": "c"}, {"pk": "d"}, {"pk": "e"}]]
+        )
+        assert success == 5
+        assert failed == []
+
+
+class TestQueryAndDeleteEdgeCases:
+    """Branches in query/delete not previously exercised."""
+
+    def test_query_by_doc_names_returns_empty_on_exception(self, mock_client):
+        """query_by_doc_names returns [] when client.query raises."""
+        mock_client.query.side_effect = Exception("query error")
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        result = processor.query_by_doc_names(doc_names=["doc1"])
+        assert result == []
+
+    def test_delete_documents_empty_list_returns_zeros(self, mock_client):
+        """Deleting an empty id list immediately returns (0, 0) without calling client."""
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        success, failed = processor.delete_documents_by_ids(doc_ids=[])
+        assert (success, failed) == (0, 0)
+        mock_client.delete.assert_not_called()
+
+    def test_delete_documents_non_dict_result_counts_batch(self, mock_client):
+        """When delete() returns non-dict, deleted count = len(batch)."""
+        mock_client.delete.return_value = None
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        success, failed = processor.delete_documents_by_ids(doc_ids=["a", "b"])
+        assert success == 2
+        assert failed == 0
+
+    def test_delete_documents_batch_exception_increments_failed(self, mock_client):
+        """Exception in one delete batch increments failed_count."""
+        mock_client.delete.side_effect = Exception("delete failed")
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        success, failed = processor.delete_documents_by_ids(doc_ids=["a", "b"])
+        assert success == 0
+        assert failed == 2
+
+    def test_get_document_count_returns_row_count(self, mock_client):
+        """get_document_count returns stats row_count."""
+        mock_client.get_collection_stats.return_value = {"row_count": 42}
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        assert processor.get_document_count() == 42
+
+    def test_get_document_count_returns_zero_on_exception(self, mock_client):
+        """get_document_count returns 0 when client raises."""
+        mock_client.get_collection_stats.side_effect = Exception("stats error")
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+        )
+        assert processor.get_document_count() == 0
+
+    def test_create_batches_size_split_on_mb_limit(self, mock_client):
+        """Batch is flushed when accumulated size exceeds MAX_BATCH_SIZE_MB."""
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.batch_processor import MAX_BATCH_SIZE_MB
+
+        # Build a document large enough that 2 of them exceed the byte limit
+        big_text = "x" * (MAX_BATCH_SIZE_MB * 1024 * 1024 // 2 + 1)
+        features = {"content": {"available_for_vector_db": True, "type": "string"}}
+        mappings = [{"feature_name": "content", "mapped_column_name": "text"}]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            batch_size=1000,
+            available_features=features,
+            feature_mappings=mappings,
+        )
+        documents = [
+            ("d1", {"content": big_text}),
+            ("d2", {"content": big_text}),
+            ("d3", {"content": big_text}),
+        ]
+        batches = processor.create_batches(documents=documents)
+        # Each oversized doc should be in its own batch
+        assert len(batches) >= 2
+
+
+class TestQueryPksByDocIds:
+    """Tests for MilvusBatchProcessor.get_chunk_ids_for_documents()."""
+
+    def test_returns_empty_dict_for_empty_input(self, mock_client) -> None:
+        """Empty doc_ids list must return {} without calling the client."""
+        processor = MilvusBatchProcessor(client=mock_client, collection_name="test_collection")
+        result = processor.get_chunk_ids_for_documents(doc_ids=[])
+        assert result == {}
+        mock_client.query.assert_not_called()
+
+    def test_returns_pks_grouped_by_doc_id(self, mock_client) -> None:
+        """Rows must be grouped by their doc_id_hash field value."""
+        mock_client.query.return_value = [
+            {"pk": "pk_a1", "doc_id_hash": "doc_a"},
+            {"pk": "pk_a2", "doc_id_hash": "doc_a"},
+            {"pk": "pk_b1", "doc_id_hash": "doc_b"},
+        ]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a", "doc_b"])
+        assert result == {"doc_a": {"pk_a1", "pk_a2"}, "doc_b": {"pk_b1"}}
+
+    def test_uses_feature_mapping_for_field_name(self, mock_client) -> None:
+        """An overridden feature mapping must appear in the filter expression."""
+        mock_client.query.return_value = [{"pk": "pk1", "document_id": "doc_a"}]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "document_id"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {"doc_a": {"pk1"}}
+        call_kwargs = mock_client.query.call_args[1]
+        assert "document_id" in call_kwargs["filter"]
+
+    def test_skips_rows_with_empty_pk(self, mock_client) -> None:
+        """Rows with an empty PK value must be excluded from the result."""
+        mock_client.query.return_value = [
+            {"pk": "", "doc_id_hash": "doc_a"},
+            {"pk": "pk_valid", "doc_id_hash": "doc_a"},
+        ]
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {"doc_a": {"pk_valid"}}
+
+    def test_returns_empty_dict_on_exception(self, mock_client) -> None:
+        """A client exception must be swallowed and return {}."""
+        mock_client.query.side_effect = Exception("timeout")
+        processor = MilvusBatchProcessor(
+            client=mock_client,
+            collection_name="test_collection",
+            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        assert result == {}

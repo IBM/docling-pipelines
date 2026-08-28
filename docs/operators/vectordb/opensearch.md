@@ -275,12 +275,12 @@ print(f"Deleted {success} documents, {failed} failed")
   },
   "flow": [
     {
-      "type": "ingest_local",
-      "name": "ingest_local_folder",
+      "type": "ingest_source",
+      "name": "ingest_source_filesystem",
       "config": {
-        "paths": "./sample_documents",
-        "include_filter": "pdf,txt,docx",
-        "max_workers": 4
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./sample_documents"]},
+        "include_filter": "pdf,txt,docx"
       }
     },
     {
@@ -296,7 +296,7 @@ print(f"Deleted {success} documents, {failed} failed")
         }
       },
       "depends_on": [
-        "ingest_local_folder"
+        "ingest_source_filesystem"
       ]
     },
     {
@@ -512,7 +512,7 @@ See [`docs/integrations/opensearch/`](../../integrations/opensearch/) for troubl
 
 ## Related Operators
 
-- **IngestLocalOperator**: Ingest documents from local filesystem
+- **IngestSourceOperator**: Ingest documents from local filesystem or remote sources
 - **ExtractOperator**: Extract content from documents
 - **DoclingChunkerOperator**: Chunk documents for vector storage
 - **EmbeddingsOperator**: Generate embeddings from text

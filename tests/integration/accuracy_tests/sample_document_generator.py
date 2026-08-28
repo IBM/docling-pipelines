@@ -13,9 +13,9 @@ Extended Features:
 import argparse
 import json
 import random
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from faker import Faker
 from opensearchpy import OpenSearch, helpers
@@ -41,14 +41,14 @@ class DocumentGenerator:
         order_date = self.fake.date_time_between(start_date="-1y", end_date="now")
         delivery_date = order_date + timedelta(days=random.randint(7, 30))
 
-        num_items = random.randint(1, 5)
-        items = []
-        total: float = 0.0
+        num_items: int = random.randint(1, 5)
+        items: list[Any] = []
+        total: float = 0
 
         for _ in range(num_items):
-            quantity = random.randint(1, 100)
-            unit_price = round(random.uniform(10, 1000), 2)
-            item_total = round(quantity * unit_price, 2)
+            quantity: int = random.randint(1, 100)
+            unit_price: float = round(random.uniform(10, 1000), 2)
+            item_total: float = round(quantity * unit_price, 2)
             total += item_total
 
             items.append(
@@ -94,19 +94,19 @@ class DocumentGenerator:
 
         num_items = random.randint(1, 8)
         line_items = []
-        subtotal: float = 0.0
+        subtotal: float = 0
 
         for _ in range(num_items):
-            quantity = round(random.uniform(1, 100), 2)
-            unit_price = round(random.uniform(10, 500), 2)
-            discount = round(random.uniform(0, 10), 2)
-            tax_rate = round(random.uniform(5, 15), 2)
+            quantity: float = round(random.uniform(1, 100), 2)
+            unit_price: float = round(random.uniform(10, 500), 2)
+            discount: float = round(random.uniform(0, 10), 2)
+            tax_rate: float = round(random.uniform(5, 15), 2)
 
-            item_subtotal = quantity * unit_price
-            discount_amount = item_subtotal * (discount / 100)
-            taxable_amount = item_subtotal - discount_amount
-            tax_amount = taxable_amount * (tax_rate / 100)
-            item_total = taxable_amount + tax_amount
+            item_subtotal: float = quantity * unit_price
+            discount_amount: float = item_subtotal * (discount / 100)
+            taxable_amount: float = item_subtotal - discount_amount
+            tax_amount: float = taxable_amount * (tax_rate / 100)
+            item_total: float = taxable_amount + tax_amount
 
             subtotal += item_subtotal
 
@@ -123,15 +123,15 @@ class DocumentGenerator:
                 }
             )
 
-        discount_total = sum(
-            cast(float, item["quantity"]) * cast(float, item["unit_price"]) * (cast(float, item["discount"]) / 100)
+        discount_total: float = sum(
+            float(item["quantity"]) * float(item["unit_price"]) * (float(item["discount"]) / 100)  # type: ignore[misc, arg-type]
             for item in line_items
         )
-        tax_total = sum(cast(float, item["tax_amount"]) for item in line_items)
-        total_amount = sum(cast(float, item["total"]) for item in line_items)
+        tax_total: float = sum(float(item["tax_amount"]) for item in line_items)  # type: ignore[misc, arg-type]
+        total_amount: float = sum(float(item["total"]) for item in line_items)  # type: ignore[misc, arg-type]
 
-        payment_status = random.choice(["unpaid", "partial", "paid", "overdue"])
-        payment_date = (
+        payment_status: str = random.choice(["unpaid", "partial", "paid", "overdue"])
+        payment_date: datetime | None = (
             invoice_date + timedelta(days=random.randint(1, 45)) if payment_status in ["paid", "partial"] else None
         )
 
@@ -230,11 +230,11 @@ class DocumentGenerator:
                 }
             )
 
-        closing_balance = current_balance
-        total_deposits = sum(cast(float, t["amount"]) for t in transactions if cast(str, t["type"]) == "credit")
-        total_withdrawals = sum(cast(float, t["amount"]) for t in transactions if cast(str, t["type"]) == "debit")
-        total_fees = sum(cast(float, t["amount"]) for t in transactions if cast(str, t["type"]) == "fee")
-        interest_earned = sum(cast(float, t["amount"]) for t in transactions if cast(str, t["type"]) == "interest")
+        closing_balance: float = current_balance
+        total_deposits: float = sum(float(t["amount"]) for t in transactions if t["type"] == "credit")  # type: ignore[misc, arg-type]
+        total_withdrawals: float = sum(float(t["amount"]) for t in transactions if t["type"] == "debit")  # type: ignore[misc, arg-type]
+        total_fees: float = sum(float(t["amount"]) for t in transactions if t["type"] == "fee")  # type: ignore[misc, arg-type]
+        interest_earned: float = sum(float(t["amount"]) for t in transactions if t["type"] == "interest")  # type: ignore[misc, arg-type]
 
         return {
             "statement_id": f"STMT-{self.fake.year()}-{self.fake.random_number(digits=6)}",
@@ -277,8 +277,8 @@ class DocumentGenerator:
             "total_fees": round(total_fees, 2),
             "interest_earned": round(interest_earned, 2),
             "average_balance": round((opening_balance + closing_balance) / 2, 2),
-            "minimum_balance": round(min(cast(float, t["balance"]) for t in transactions), 2),
-            "overdraft_count": sum(1 for t in transactions if cast(float, t["balance"]) < 0),
+            "minimum_balance": round(min(float(t["balance"]) for t in transactions), 2),  # type: ignore[arg-type]
+            "overdraft_count": sum(1 for t in transactions if float(t["balance"]) < 0),  # type: ignore[misc, arg-type]
             "notes": self.fake.text(max_nb_chars=100) if random.random() > 0.7 else None,
         }
 
@@ -299,6 +299,10 @@ class DocumentGenerator:
         for _ in range(num_transactions):
             trans_date = start_date + timedelta(days=random.randint(0, 30))
             trans_type = random.choice(["purchase"] * 85 + ["payment"] * 10 + ["refund"] * 3 + ["fee"] * 2)
+
+            amount: float
+            category: str
+            merchant_name: str
 
             if trans_type == "purchase":
                 amount = round(random.uniform(5, 500), 2)
@@ -354,7 +358,7 @@ class DocumentGenerator:
                 }
             )
 
-        payments_credits = sum(abs(cast(float, t["amount"])) for t in transactions if cast(float, t["amount"]) < 0)
+        payments_credits = sum(abs(float(t["amount"])) for t in transactions if float(t["amount"]) < 0)  # type: ignore[misc, arg-type]
         interest_charged = round(previous_balance * 0.015, 2) if previous_balance > 0 else 0
         new_balance = round(
             previous_balance + purchases_total + cash_advances_total + fees_total + interest_charged - payments_credits,
@@ -505,7 +509,7 @@ class DocumentGenerator:
             },
             "chip_data": None,  # Binary data not included
             "security_features": "Hologram, UV ink, microprinting",
-            "status": random.choice(["active", "expired"]) if expiry_date < datetime.now() else "active",
+            "status": random.choice(["active", "expired"]) if expiry_date < datetime.now(tz=UTC) else "active",
             "previous_passport_number": f"{self.fake.random_letter().upper()}{self.fake.random_number(digits=8)}"
             if random.random() > 0.7
             else None,
@@ -521,32 +525,30 @@ class DocumentFormatter:
         """Convert document to Markdown format"""
         if doc_type == "purchase_order":
             return DocumentFormatter._purchase_order_to_markdown(doc)
-        elif doc_type == "invoice":
+        if doc_type == "invoice":
             return DocumentFormatter._invoice_to_markdown(doc)
-        elif doc_type == "bank_statement":
+        if doc_type == "bank_statement":
             return DocumentFormatter._bank_statement_to_markdown(doc)
-        elif doc_type == "credit_card_statement":
+        if doc_type == "credit_card_statement":
             return DocumentFormatter._credit_card_to_markdown(doc)
-        elif doc_type == "passport":
+        if doc_type == "passport":
             return DocumentFormatter._passport_to_markdown(doc)
-        else:
-            return f"# {doc_type.upper()}\n\n```json\n{json.dumps(doc, indent=2)}\n```"
+        return f"# {doc_type.upper()}\n\n```json\n{json.dumps(doc, indent=2)}\n```"
 
     @staticmethod
     def to_html(doc: dict[str, Any], doc_type: str) -> str:
         """Convert document to HTML format"""
         if doc_type == "purchase_order":
             return DocumentFormatter._purchase_order_to_html(doc)
-        elif doc_type == "invoice":
+        if doc_type == "invoice":
             return DocumentFormatter._invoice_to_html(doc)
-        elif doc_type == "bank_statement":
+        if doc_type == "bank_statement":
             return DocumentFormatter._bank_statement_to_html(doc)
-        elif doc_type == "credit_card_statement":
+        if doc_type == "credit_card_statement":
             return DocumentFormatter._credit_card_to_html(doc)
-        elif doc_type == "passport":
+        if doc_type == "passport":
             return DocumentFormatter._passport_to_html(doc)
-        else:
-            return f"<html><body><h1>{doc_type.upper()}</h1><pre>{json.dumps(doc, indent=2)}</pre></body></html>"
+        return f"<html><body><h1>{doc_type.upper()}</h1><pre>{json.dumps(doc, indent=2)}</pre></body></html>"
 
     @staticmethod
     def to_pdf_content(doc: dict[str, Any], doc_type: str) -> str:
@@ -1017,7 +1019,7 @@ class OpenSearchDocumentInserter:
 
         self.generator = DocumentGenerator()
 
-    def create_index(self, index_name: str, force: bool = False):
+    def create_index(self, index_name: str, force: bool = False) -> None:
         """
         Create an index with appropriate mappings
 
@@ -1211,14 +1213,14 @@ class OpenSearchDocumentInserter:
             flattened_docs = [flatten_dict(doc) for doc in documents]
 
             # Get all unique keys across all documents
-            all_keys = set()
+            keys: set[Any] = set()
             for doc in flattened_docs:
-                all_keys.update(doc.keys())
-            sorted_keys: list[str] = sorted(all_keys)
+                keys.update(doc.keys())
+            all_keys: list[Any] = sorted(keys)
 
             # Write to CSV
-            with open(csv_filepath, "w", newline="", encoding="utf-8") as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=sorted_keys)
+            with Path(csv_filepath).open("w", newline="", encoding="utf-8") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=all_keys)
                 writer.writeheader()
 
                 for doc in flattened_docs:
@@ -1333,7 +1335,7 @@ class OpenSearchDocumentInserter:
                     content = json.dumps(doc, indent=2)
 
                 # Write to file
-                with open(filepath, "w", encoding="utf-8") as f:
+                with Path(filepath).open("w", encoding="utf-8") as f:
                     f.write(content)
 
                 success_count += 1
@@ -1362,7 +1364,7 @@ class OpenSearchDocumentInserter:
         return result
 
 
-def main():
+def main() -> None:
     """Main function with CLI interface"""
     parser = argparse.ArgumentParser(description="Generate and insert sample documents into OpenSearch")
     parser.add_argument(
@@ -1432,10 +1434,10 @@ def main():
                 "passport",
             ]
             for doc_type in doc_types:
-                inserter.export_csv(doc_type, args.count, args.format, args.output_dir)
+                inserter.export_csv(doc_type, count=args.count, output_dir=args.output_dir)
                 print()
         else:
-            inserter.export_csv(args.type, args.count, args.format, args.output_dir)
+            inserter.export_csv(doc_type=args.type, count=args.count, output_dir=args.output_dir)
     elif args.export:
         # Export documents to files
         if args.type == "all":

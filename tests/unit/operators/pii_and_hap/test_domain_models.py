@@ -1,13 +1,12 @@
-"""Unit tests for PII/HAP domain models."""
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
 
-import os
+"""Unit tests for PII/HAP domain models."""
 
 from docpipe.core.operators.quality.pii_and_hap.domain.models import (
     DetectionResult,
     PIIHAPDetectionResponse,
 )
-
-_TEST_SSN = os.environ.get("TEST_SSN", "000-00-0000")
 
 
 class TestDetectionResult:
@@ -34,11 +33,11 @@ class TestDetectionResult:
             score=0.88,
             start=50,
             end=61,
-            text=_TEST_SSN,
+            text="123-45-6789",
             evidences=evidences,
         )
 
-        assert result.text == _TEST_SSN
+        assert result.text == "123-45-6789"
         assert result.evidences == evidences
         assert len(result.evidences) == 1
 

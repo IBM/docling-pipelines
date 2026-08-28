@@ -10,9 +10,13 @@ from typing import Any
 
 import pyarrow as pa
 
+from docpipe.core.assets.common import adapters as common_adapters  # noqa: F401
+from docpipe.core.assets.common.factories.attachment_repository_factory import AttachmentRepositoryFactory
+from docpipe.core.assets.common.factories.repository_factory import RepositoryFactory
 from docpipe.core.assets.document_sets import adapters  # noqa: F401
 from docpipe.core.assets.document_sets.application.services.document_set_service import DocumentSetService
-from docpipe.core.assets.document_sets.factories import DataStoreFactory, MetadataRepositoryFactory
+from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
+from docpipe.core.assets.document_sets.factories import DataStoreFactory
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -21,7 +25,7 @@ from docpipe.exceptions.docpipe_exceptions import (
     FlowExecutionFailedException,
     FlowValidationException,
 )
-from docpipe.storage.duck_db.table_storage import DuckDBTableStorage
+from docpipe.storage.duck_db.duckdb_table_storage import DuckDBTableStorage
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -64,8 +68,8 @@ class DocumentSetOperator(AbstractOperator):
                 - database_path (optional): Database path (default: from constants)
 
         Note:
-            metadata_backend is NO LONGER supported - use global_config.storage_type
-            Storage type for metadata is passed via operator params from orchestrator
+            Metadata and attachment backend type is resolved from
+            docling-pipelines-config.yaml (assets_management.document_set_repository.type).
         """
         super().__init__(config)
 
@@ -89,16 +93,14 @@ class DocumentSetOperator(AbstractOperator):
             # Validate database path
             DuckDBTableStorage.validate_database_path(db_path=self.database_path)
 
-            # Storage type will be set in transform() from params
-            self.storage_type: str | None = None
-
             # Data backend from operator config (operator-specific)
             self.data_backend: str = config.get(
-                OperatorConstants.DocumentSet.DATA_BACKEND, DocpipeConstants.DEFAULT_STORAGE_TYPE
+                OperatorConstants.DocumentSet.DATA_BACKEND, OperatorConstants.DocumentSet.DEFAULT_DATA_BACKEND
             )
 
             logger.info(
-                f"Initialized DocumentSetOperator for: {self.document_set_name}",
+                "Initialized DocumentSetOperator for: %s",
+                self.document_set_name,
                 extra=self.common_log_arguments,
             )
         except FlowValidationException:
@@ -143,9 +145,7 @@ class DocumentSetOperator(AbstractOperator):
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "duckdb",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Data store backend (default: duckdb). Metadata backend uses global_config.storage_type"
-                    ),
+                    OperatorConstants.Config.DESCRIPTION: ("Data store backend (default: duckdb)"),
                 },
                 "database_path": {
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
@@ -183,38 +183,48 @@ class DocumentSetOperator(AbstractOperator):
                 - List containing the original table (pass-through)
                 - Metadata dictionary with storage info and metrics
         """
-        # Extract storage type from config (set by orchestrator)
-        self.storage_type = self.config.get(DocpipeConstants.STORAGE_TYPE, DocpipeConstants.DEFAULT_STORAGE_TYPE)
+        # Resolve backend type and config from docling-pipelines-config.yaml.
+        # database_path from operator config overrides the YAML value.
+        #
+        # Both the metadata repository and the attachment repository use the same backend
+        # and database_path — they must always be co-located.
+        #
+        # Factory calls are here rather than in __init__ because DuckDBKeyValueStorage and
+        # DuckDBTableStorage are per-path singletons — repeated calls with the same
+        # database_path return the cached instance at the cost of two dict lookups.
+        repo_type_str, repo_config = RepositoryFactory.get_repository_config(
+            asset_type_name=DocumentSet.get_config_key()
+        )
+        attachment_repo_config = {**repo_config, OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path}
 
         logger.info(
-            f"Using storage type: {self.storage_type} for metadata, {self.data_backend} for data",
+            "Using metadata storage type: %s, data storage type: %s",
+            repo_type_str,
+            self.data_backend,
             extra=self.common_log_arguments,
         )
 
-        # Create metadata repository using global storage type
-        metadata_repo_config: dict[str, Any] = {
-            OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path,
-        }
-
-        metadata_repository = MetadataRepositoryFactory.create(
-            adapter_name=self.storage_type,  # Use global storage type
-            config=metadata_repo_config,
+        metadata_repository = RepositoryFactory.create_repository(
+            asset_type=DocumentSet,
+            config_override={OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path},
         )
 
-        # Create data store using operator-specific backend
-        data_store_config: dict[str, Any] = {
-            OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path,
-        }
-
         data_store = DataStoreFactory.create(
-            adapter_name=self.data_backend,  # Use operator config
-            config=data_store_config,
+            adapter_name=self.data_backend,
+            config={OperatorConstants.DocumentSet.DATABASE_PATH: self.database_path},
+        )
+
+        # Create attachment repository using same config as metadata repo
+        attachment_repo = AttachmentRepositoryFactory.create(
+            adapter_name=repo_type_str,
+            config=attachment_repo_config,
         )
 
         # Create service with port interfaces
         service = DocumentSetService(
             metadata_repository=metadata_repository,
             data_store=data_store,
+            attachment_repository=attachment_repo,
         )
 
         # Initialize metadata
@@ -225,7 +235,6 @@ class DocumentSetOperator(AbstractOperator):
         # Add storage-specific metadata
         metadata[OperatorConstants.DocumentSet.META_DOCUMENT_SET_NAME] = self.document_set_name
         metadata[OperatorConstants.DocumentSet.META_DATABASE_PATH] = self.database_path
-        metadata["metadata_storage_type"] = self.storage_type
         metadata["data_storage_type"] = self.data_backend
 
         # Handle empty table
@@ -247,11 +256,11 @@ class DocumentSetOperator(AbstractOperator):
             metadata[OperatorConstants.DocumentSet.META_DOCUMENT_SET_ID] = doc_set_id
 
             logger.info(
-                f"Using document set: {self.document_set_name} (ID: {doc_set_id})", extra=self.common_log_arguments
+                "Using document set: %s (ID: %s)", self.document_set_name, doc_set_id, extra=self.common_log_arguments
             )
 
             # Store data
-            logger.info(f"Storing {table.num_rows} rows in document set", extra=self.common_log_arguments)
+            logger.info("Storing %d rows in document set", table.num_rows, extra=self.common_log_arguments)
 
             updated_doc_set = service.store_data(document_set_id=doc_set_id, data=table)
 
@@ -259,14 +268,17 @@ class DocumentSetOperator(AbstractOperator):
             metadata[OperatorConstants.DocumentSet.META_STORED_DOCUMENTS] = updated_doc_set.total_documents
             metadata[OperatorConstants.DocumentSet.META_TOTAL_SIZE_BYTES] = updated_doc_set.total_size_bytes
             metadata[OperatorConstants.DocumentSet.META_TOTAL_PAGES] = updated_doc_set.total_pages
-            metadata[OperatorConstants.DocumentSet.META_TABLE_NAME] = updated_doc_set.table_name
+
+            # Read the attachment ref to obtain the logical table name
+            ref = attachment_repo.get(asset_id=doc_set_id)
+            metadata[OperatorConstants.DocumentSet.META_TABLE_NAME] = ref.name if ref else None
             metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
 
             logger.info(
-                f"Successfully stored data. "
-                f"Total documents: {updated_doc_set.total_documents}, "
-                f"Size: {updated_doc_set.total_size_bytes} bytes, "
-                f"Pages: {updated_doc_set.total_pages}",
+                "Successfully stored data. Total documents: %d, Size: %d bytes, Pages: %d",
+                updated_doc_set.total_documents,
+                updated_doc_set.total_size_bytes,
+                updated_doc_set.total_pages,
                 extra=self.common_log_arguments,
             )
 
@@ -292,20 +304,19 @@ class DocumentSetOperator(AbstractOperator):
             Document set ID
         """
         if self.document_set_id:
-            logger.info(f"Updating existing document set: {self.document_set_id}", extra=self.common_log_arguments)
+            logger.info("Updating existing document set: %s", self.document_set_id, extra=self.common_log_arguments)
             doc_set = service.update_document_set(
                 document_set_id=self.document_set_id, description=self.description, metadata=self.metadata_config
             )
-            return doc_set.id or ""
+            return doc_set.asset_id or ""
 
-        logger.info(f"Getting or creating document set: {self.document_set_name}", extra=self.common_log_arguments)
+        logger.info("Getting or creating document set: %s", self.document_set_name, extra=self.common_log_arguments)
         doc_set = service.create_document_set(
             name=self.document_set_name,
             description=self.description,
-            database_path=self.database_path,
             metadata=self.metadata_config,
         )
-        return doc_set.id or ""
+        return doc_set.asset_id or ""
 
     def _validate_database_path(self, *, database_path: str) -> str:
         """Validate and normalize database path to prevent path traversal.
@@ -324,8 +335,8 @@ class DocumentSetOperator(AbstractOperator):
         try:
             return validate_database_path(database_path)
         except ValueError as exc:
-            logger.warning(f"Database path validation failed: {exc}", extra=self.common_log_arguments)
+            logger.warning("Database path validation failed: %s", exc, extra=self.common_log_arguments)
             raise FlowValidationException(f"Invalid database path: {exc}") from exc
         except Exception as exc:
-            logger.warning(f"Database path validation failed: {exc}", extra=self.common_log_arguments)
+            logger.warning("Database path validation failed: %s", exc, extra=self.common_log_arguments)
             raise FlowValidationException(f"Failed to validate database path: {exc}") from exc

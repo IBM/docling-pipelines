@@ -1,7 +1,7 @@
 """Flow execution utilities for node mapping, logging, and validation."""
 
 import json
-import os
+from pathlib import Path
 
 from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
@@ -37,15 +37,14 @@ def create_log_folders(job_id, job_run_id, type):
 
     log_app_location = DocpipeConstants.DOCPIPE_LOGS
 
-    log_job_location = os.path.join(log_location_path, job_id, str(job_run_id), log_app_location)
-    os.makedirs(log_job_location, exist_ok=True)
+    log_job_location = Path(log_location_path) / job_id / str(job_run_id) / log_app_location
+    log_job_location.mkdir(parents=True, exist_ok=True)
     if type == "job":
         log_job_run_file_name = "job_stats.json"
     elif type == "agg_logs":
         log_job_run_file_name = "flow_execute_aggregated.json"
 
-    log_final_path = os.path.join(log_job_location, log_job_run_file_name)
-    return log_final_path
+    return str(log_job_location / log_job_run_file_name)
 
 
 def write_job_logs(job_stats, job_log_path):
@@ -56,7 +55,7 @@ def write_job_logs(job_stats, job_log_path):
         job_stats: Job statistics object with __dict__ attribute
         job_log_path: Path to write the log file
     """
-    with open(job_log_path, "w") as file:
+    with Path(job_log_path).open("w") as file:
         json.dump(job_stats.__dict__, file, indent=4)
 
 
@@ -72,8 +71,8 @@ def construct_deleted_rows_table_path(*, job_id: str, job_run_id):
         Path to the deleted rows parquet file
     """
     parquet_file_name = "unprocessed_docs.parquet"
-    return os.path.join(
-        get_data_path(), job_id, str(job_run_id), DocpipeConstants.UNPROCESSED_DOCS_PATH, parquet_file_name
+    return str(
+        Path(get_data_path()) / job_id / str(job_run_id) / DocpipeConstants.UNPROCESSED_DOCS_PATH / parquet_file_name
     )
 
 

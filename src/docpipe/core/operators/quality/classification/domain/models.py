@@ -81,7 +81,7 @@ def build_classification_prompt(*, request: ClassificationRequest) -> str:
 
     sanitized_content = request.content[: request.max_content_length] if request.content else ""
 
-    prompt = f"""Classify the following document into one of these types:
+    return f"""Classify the following document into one of these types:
 
 {types_desc}
 
@@ -99,5 +99,3 @@ Example response:
   "{OperatorConstants.Classification.FIELD_CONFIDENCE}": 9,
   "{OperatorConstants.Classification.FIELD_REASONING}": "Contains line items, totals, and payment terms typical of invoices"
 }}"""
-
-    return prompt

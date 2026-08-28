@@ -47,7 +47,7 @@ def sample_job_stats():
 def sample_node_stats():
     """Sample node stats for testing."""
     return NodeStats(
-        node_id="abcdef12-3456-7890-abcd-ef1234567890",
+        id="abcdef12-3456-7890-abcd-ef1234567890",
         name="TestNode",
         node_status=ExecutionStatus.COMPLETED,
         batch_id="fedcba98-7654-3210-fedc-ba9876543210",
@@ -96,7 +96,7 @@ class TestBatchScopedWrites:
         for i in range(3):
             batch_id = str(uuid.uuid4())
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=i,
@@ -119,7 +119,7 @@ class TestBatchScopedWrites:
 
         # Store batch record
         batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id="fedcba98-7654-3210-fedc-ba9876543210",
             batch_num=0,
@@ -129,7 +129,7 @@ class TestBatchScopedWrites:
 
         # Store non-batch record (batch_id=None)
         non_batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
             node_status=ExecutionStatus.COMPLETED,
@@ -149,7 +149,7 @@ class TestBatchScopedWrites:
 
         # Store non-batch record
         non_batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
             node_status=ExecutionStatus.COMPLETED,
@@ -345,7 +345,7 @@ class TestBulkOperations:
         # Create 10 batch records
         node_stats_list = [
             NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=str(uuid.uuid4()),
                 batch_num=i,

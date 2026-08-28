@@ -10,9 +10,13 @@ class JobStatsMapper:
 
     @staticmethod
     def to_dto(job_stats: JobStats) -> JobStatsDto:
-        """Convert JobStats domain model to JobStatsDto."""
-        # Convert nested node_stats
-        node_stats_dto = {node_id: NodeStatsMapper.to_dto(stats) for node_id, stats in job_stats.node_stats.items()}
+        """Convert JobStats domain model to JobStatsDto with chronologically sorted node_stats."""
+        # Sort node_stats by start_time to match execution order
+        sorted_node_items = sorted(
+            job_stats.node_stats.items(),
+            key=lambda item: (item[1].start_time, item[1].end_time, item[1].name),
+        )
+        node_stats_dto = {node_id: NodeStatsMapper.to_dto(stats) for node_id, stats in sorted_node_items}
 
         # Convert nested batch_node_stats
         batch_node_stats_dto = {
@@ -45,6 +49,9 @@ class JobStatsMapper:
             user_id=job_stats.user_id,
             account_id=job_stats.account_id,
             user_entitlements=job_stats.user_entitlements,
+            report_status=job_stats.report_status,
+            report_generation_started_at=job_stats.report_generation_started_at,
+            report_generation_completed_at=job_stats.report_generation_completed_at,
             node_stats=node_stats_dto,
             batch_node_stats=batch_node_stats_dto,
         )
@@ -70,10 +77,8 @@ class JobStatsMapper:
         )
         node_sequence = [node_id for node_id, _ in sorted_nodes]
 
-        # Build node_metadata array
-        node_metadata = [
-            NodeStatsMapper.to_node_metadata_item(node_id, stats) for node_id, stats in job_stats.node_stats.items()
-        ]
+        # Build node_metadata array in the same order as node_sequence
+        node_metadata = [NodeStatsMapper.to_node_metadata_item(node_id, stats) for node_id, stats in sorted_nodes]
 
         # Convert to DTO
         job_stats_dto = JobStatsMapper.to_dto(job_stats)
@@ -87,7 +92,10 @@ class JobStatsMapper:
             for node_id in node_sequence:
                 if node_id in job_stats.node_stats:
                     node_stat = job_stats.node_stats[node_id]
-                    log_str = NodeStatsMapper.to_log_string(node_id=node_id, node_stat=node_stat)
+                    batch_stats = job_stats.batch_node_stats.get(node_id) if job_stats.batch_node_stats else None
+                    log_str = NodeStatsMapper.to_log_string(
+                        node_id=node_id, node_stat=node_stat, batch_stats=batch_stats
+                    )
                     # Set dynamic attribute on the Pydantic model
                     setattr(response, node_id, log_str)
 

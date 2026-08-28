@@ -242,12 +242,3 @@ Ingest → Extract → Chunker → EmbeddingsOperator → VectorDB
 ### Sample flow
 
 See [`sample_flows/use_cases/invoice_processing.json`](../../../sample_flows/use_cases/invoice_processing.json).
-
-## References
-
-- [Operator Reference](../../reference/OPERATORS.md#embeddingsoperator)
-- [Architecture Guide](../../../ARCHITECTURE.md)
-- [HuggingFace Sentence Transformers](https://www.sbert.net/)
-- [IBM watsonx.ai Documentation](https://www.ibm.com/watsonx/developer/)
-- [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
-- [LiteLLM Documentation](https://docs.litellm.ai/)

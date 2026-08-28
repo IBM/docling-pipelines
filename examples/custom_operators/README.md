@@ -107,9 +107,10 @@ Create a flow JSON file using your custom operator:
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./data/input"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["./data/input"]}
       }
     },
     {

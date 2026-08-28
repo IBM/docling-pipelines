@@ -2,7 +2,7 @@
 
 import mimetypes
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, AsyncGenerator, Generator
@@ -35,7 +35,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
     SOURCE_DESCRIPTION = "Ingest documents from local filesystem directories"
     SOURCE_VERSION = "1.0.0"
 
-    async def fetch_documents(self, config: FilesystemSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]  # NOSONAR python:S3776
+    async def fetch_documents(self, config: FilesystemSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
         Fetch documents from filesystem.
 
@@ -45,50 +45,87 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
         Yields:
             Document: Domain documents from filesystem
         """
-        root_path = Path(config.root_path)
+        for root_path in self._iter_root_paths(config):
+            # Single file mode - if root_path is a file
+            if root_path.is_file():
+                try:
+                    # Get file metadata to check size and populate Document fields
+                    stat = root_path.stat()
 
-        # Walk through directory tree
-        for file_path in self._walk_directory(root_path, config):
-            try:
-                # Check file size limit
-                if config.max_file_size_mb:
-                    file_size_mb = file_path.stat().st_size / (1024 * 1024)
-                    if file_size_mb > config.max_file_size_mb:
+                    # Check file size limit
+                    if config.max_file_size_mb:
+                        file_size_mb = stat.st_size / (1024 * 1024)
+                        if file_size_mb > config.max_file_size_mb:
+                            print(
+                                f"Skipping file {root_path}: size {file_size_mb:.2f}MB exceeds limit {config.max_file_size_mb}MB"
+                            )
+                            continue
+
+                    mimetype, _ = mimetypes.guess_type(str(root_path))
+
+                    # Create domain document with empty content (lazy loading)
+                    # Binary content is fetched on-demand via fetch_binary_content()
+                    document = Document(
+                        id=str(root_path.absolute()),
+                        name=root_path.name,
+                        content=b"",
+                        source_url=f"file://{root_path.absolute()}",
+                        modified_time=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                        created_time=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
+                        mimetype=mimetype,
+                        size=stat.st_size,
+                        extension=root_path.suffix.lower(),
+                        metadata={
+                            "absolute_path": str(root_path.absolute()),
+                            "parent_directory": str(root_path.parent),
+                        },
+                    )
+
+                    yield document
+
+                except Exception as e:
+                    print(f"Error processing file {root_path}: {e}")
+                    raise
+
+            else:
+                # Directory mode - walk through directory tree
+                for file_path in self._walk_directory(root_path, config):
+                    try:
+                        # Get file metadata to check size and populate Document fields
+                        stat = file_path.stat()
+
+                        # Check file size limit
+                        if config.max_file_size_mb:
+                            file_size_mb = stat.st_size / (1024 * 1024)
+                            if file_size_mb > config.max_file_size_mb:
+                                continue
+
+                        mimetype, _ = mimetypes.guess_type(str(file_path))
+
+                        # Create domain document with empty content (lazy loading)
+                        document = Document(
+                            id=str(file_path.absolute()),
+                            name=file_path.name,
+                            content=b"",
+                            source_url=f"file://{file_path.absolute()}",
+                            modified_time=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                            created_time=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
+                            mimetype=mimetype,
+                            size=stat.st_size,
+                            extension=file_path.suffix.lower(),
+                            metadata={
+                                "relative_path": str(file_path.relative_to(root_path)),
+                                "absolute_path": str(file_path.absolute()),
+                                "parent_directory": str(file_path.parent),
+                            },
+                        )
+
+                        yield document
+
+                    except Exception as e:
+                        # Log error but continue processing other files
+                        print(f"Error processing file {file_path}: {e}")
                         continue
-
-                # Read file content
-                with open(file_path, "rb") as f:
-                    content = f.read()
-
-                # Get file metadata
-                stat = file_path.stat()
-                mimetype, _ = mimetypes.guess_type(str(file_path))
-
-                # Create domain document
-                document = Document(
-                    id=str(file_path.absolute()),
-                    name=file_path.name,
-                    content=content,
-                    source_url=f"file://{file_path.absolute()}",
-                    modified_time=datetime.fromtimestamp(stat.st_mtime),
-                    created_time=datetime.fromtimestamp(stat.st_ctime),
-                    mimetype=mimetype,
-                    size=stat.st_size,
-                    extension=file_path.suffix.lower(),
-                    metadata={
-                        "relative_path": str(file_path.relative_to(root_path)),
-                        "absolute_path": str(file_path.absolute()),
-                        "parent_directory": str(file_path.parent),
-                    },
-                )
-
-                yield document
-
-            except Exception as e:
-                # Log error but continue processing other files
-                # In production, this should use proper logging
-                print(f"Error processing file {file_path}: {e}")
-                continue
 
     async def test_connection(self, config: FilesystemSourceConfig) -> tuple[bool, str]:
         """
@@ -101,27 +138,28 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             Tuple[bool, str]: (success, message)
         """
         try:
-            root_path = Path(config.root_path)
+            failed: list[str] = []
+            for root_path in self._iter_root_paths(config):
+                if not root_path.exists():
+                    failed.append(f"Path does not exist: {root_path}")
+                    continue
+                if not os.access(root_path, os.R_OK):
+                    failed.append(f"Path is not readable: {root_path}")
+                    continue
+                # For directories, verify we can list contents
+                if root_path.is_dir():
+                    try:
+                        list(root_path.iterdir())
+                    except PermissionError:
+                        failed.append(f"Permission denied: {root_path}")
+                # For files, verify it's a regular file
+                elif not root_path.is_file():
+                    failed.append(f"Path is not a file: {root_path}")
 
-            # Check if path exists
-            if not root_path.exists():
-                return False, f"Path does not exist: {config.root_path}"
-
-            # Check if it's a directory
-            if not root_path.is_dir():
-                return False, f"Path is not a directory: {config.root_path}"
-
-            # Check if readable
-            if not os.access(root_path, os.R_OK):
-                return False, f"Path is not readable: {config.root_path}"
-
-            # Try to list directory
-            try:
-                list(root_path.iterdir())
-            except PermissionError:
-                return False, f"Permission denied: {config.root_path}"
-
-            return True, f"Successfully connected to {config.root_path}"
+            if failed:
+                return False, "; ".join(failed)
+            paths_str = ", ".join(str(p) for p in self._iter_root_paths(config))
+            return True, f"Successfully connected to {paths_str}"
 
         except Exception as e:
             return False, f"Connection test failed: {e!s}"
@@ -158,7 +196,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             ValueError: If required parameters are missing or invalid
         """
         config_dict = {
-            "root_path": connection_params.get("root_path"),
+            "paths": connection_params.get("paths"),
             "recursive": connection_params.get("recursive", True),
             "file_extensions": included_extensions or [],
             "exclude_patterns": connection_params.get("exclude_patterns", []),
@@ -182,8 +220,8 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
         Fetch binary content for a specific file on-demand.
 
         Args:
-            source_id: File path (absolute or relative to root_path)
-            connection_params: Filesystem connection parameters (root_path)
+            source_id: File path (absolute or relative to paths)
+            connection_params: Filesystem connection parameters (paths)
             credentials: Credentials (unused for filesystem)
 
         Returns:
@@ -196,11 +234,11 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             else:
                 file_path = Path(source_id)
 
-                # If path is not absolute, try relative to root_path
+                # If path is not absolute, try relative to paths
                 if not file_path.is_absolute():
-                    root_path = connection_params.get("root_path")
-                    if root_path:
-                        file_path = Path(root_path) / file_path
+                    first_path = connection_params.get("paths", [None])[0] if connection_params.get("paths") else None
+                    if first_path:
+                        file_path = Path(first_path) / file_path
 
             # Check if file exists
             if not file_path.exists():
@@ -213,7 +251,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
                 return None
 
             # Read and return file content
-            with open(file_path, "rb") as f:
+            with Path(file_path).open("rb") as f:
                 content = f.read()
 
             print(f"Successfully read {len(content)} bytes from: {file_path}")
@@ -226,9 +264,20 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             print(f"Unexpected error reading file {source_id}: {e}")
             return None
 
-    def _walk_directory(
-        self, root_path: Path, config: FilesystemSourceConfig
-    ) -> Generator[Path, None, None]:  # NOSONAR python:S3776
+    def _iter_root_paths(self, config: FilesystemSourceConfig) -> Generator[Path, None, None]:
+        """
+        Yield each root path from config as a Path object.
+
+        Args:
+            config: Filesystem configuration
+
+        Yields:
+            Path: Each root path
+        """
+        for p in config.paths:
+            yield Path(p)
+
+    def _walk_directory(self, root_path: Path, config: FilesystemSourceConfig) -> Generator[Path, None, None]:
         """
         Walk through directory tree and yield file paths.
 
@@ -243,7 +292,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             # Recursive walk
             for dirpath, dirnames, filenames in os.walk(root_path, followlinks=config.follow_symlinks):
                 # Filter out excluded directories
-                dirnames[:] = [d for d in dirnames if not self._is_excluded(os.path.join(dirpath, d), config)]
+                dirnames[:] = [d for d in dirnames if not self._is_excluded(str(Path(dirpath) / d), config)]
 
                 for filename in filenames:
                     file_path = Path(dirpath) / filename

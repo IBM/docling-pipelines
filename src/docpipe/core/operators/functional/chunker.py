@@ -1,6 +1,8 @@
-import os
+"""Chunker operator that splits documents into smaller text segments."""
+
 import uuid
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Literal, cast
 
 import pyarrow as pa
@@ -56,6 +58,12 @@ CHUNK_MIN_SIZE: int = 500  # Minimum chunk size in characters
 CHUNK_MAX_SIZE: int = 5000  # Maximum chunk size in characters
 CHUNK_OVERLAP_MIN_SIZE: int = 0  # Minimum overlap size
 CHUNK_OVERLAP_MAX_SIZE: int = 512  # Maximum overlap size
+
+# Chunk Overlap Percentage Constants
+CHUNK_OVERLAP_PERCENTAGE_KEY: str = "chunk_overlap_percentage"
+CHUNK_OVERLAP_PERCENTAGE_DEFAULT: int = 20  # Warning threshold; values above this produce a validation warning
+CHUNK_OVERLAP_PERCENTAGE_MIN_SIZE: int = 0  # Minimum overlap percentage
+CHUNK_OVERLAP_PERCENTAGE_MAX_SIZE: int = 40  # Maximum overlap percentage
 
 # Semantic Chunking Constants
 SEMANTIC_EMBEDDINGS_MODEL_KEY: str = "semantic_embeddings_model"
@@ -209,14 +217,12 @@ class ChunkerOperator(AbstractOperator):
                 - retain_original_content (bool): Keep original content (default: False)
         """
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        )
         self.chunk_type: str = config.get(CHUNK_TYPE_KEY, CHUNK_TYPE_DEFAULT)
         self.chunk_size: int = config.get(
             OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT
         )
         self.chunk_overlap: int = config.get(CHUNK_OVERLAP_KEY, CHUNK_OVERLAP_DEFAULT)
+        self.chunk_overlap_percentage: int = config.get(CHUNK_OVERLAP_PERCENTAGE_KEY, CHUNK_OVERLAP_PERCENTAGE_DEFAULT)
         self.retain_original_content: bool = config.get(RETAIN_ORIGINAL_CONTENT_KEY, RETAIN_ORIGINAL_CONTENT_DEFAULT)
         self.semantic_embeddings_model: str | None = config.get(SEMANTIC_EMBEDDINGS_MODEL_KEY)
         self.breakpoint_threshold_type: str = config.get(
@@ -285,7 +291,11 @@ class ChunkerOperator(AbstractOperator):
         self._ollama_client: OllamaClient | None = None
 
         # Docling HybridChunker will be lazily initialized when needed
-        self._docling_chunker = None
+        self._docling_chunker: object | None = None
+
+        # Simple and semantic splitters will be lazily initialized when needed
+        self._simple_splitter: object | None = None
+        self._semantic_splitter: object | None = None
 
         # Summarization service (lazy initialization)
         self._summarization_service = None
@@ -298,8 +308,26 @@ class ChunkerOperator(AbstractOperator):
         self._remote_chunking_client = None
 
     @staticmethod
+    def _get_summarization_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the summarization provider_config field.
+
+        Add a new entry here when registering a new summarization provider.
+        """
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+
+        return {
+            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
+                schema=LLMProviderConfig.model_json_schema()
+            ),
+            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxProviderConfig.model_json_schema()
+            ),
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
-        operator_metadata = {
+        """Get metadata."""
+        return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: ChunkerOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ChunkerOperator.is_available(),
@@ -361,6 +389,17 @@ class ChunkerOperator(AbstractOperator):
                     OperatorConstants.Filtering.MAX_VALUE: CHUNK_OVERLAP_MAX_SIZE,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
+                CHUNK_OVERLAP_PERCENTAGE_KEY: {
+                    OperatorConstants.Misc.NAME: "Chunk Overlap Percentage",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Overlap expressed as a percentage of chunk_size (0-40). Values above 20 produce a warning."
+                    ),
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: CHUNK_OVERLAP_PERCENTAGE_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: CHUNK_OVERLAP_PERCENTAGE_MIN_SIZE,
+                    OperatorConstants.Filtering.MAX_VALUE: CHUNK_OVERLAP_PERCENTAGE_MAX_SIZE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
                 SEMANTIC_EMBEDDINGS_MODEL_KEY: {
                     OperatorConstants.Misc.NAME: "Semantic Embeddings Model",
                     OperatorConstants.Config.DESCRIPTION: "Ollama model name for generating embeddings in semantic chunking. Required if chunking type is semantic.",
@@ -415,33 +454,11 @@ class ChunkerOperator(AbstractOperator):
                         },
                         OperatorConstants.Config.PROVIDER_CONFIG: {
                             OperatorConstants.Misc.NAME: "Provider Configuration",
-                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration. Fields vary by provider — see the 'providers' schema for details.",
                             OperatorConstants.Config.REQUIRED: False,
                             OperatorConstants.Config.DEFAULT: {},
                             OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                            OperatorConstants.Config.PROPERTIES: {
-                                OperatorConstants.Config.MODEL_ID: {
-                                    OperatorConstants.Misc.NAME: "Model ID",
-                                    OperatorConstants.Config.DESCRIPTION: "Model identifier for summarization (auto-prefixed with 'openai/' for LiteLLM if needed)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: DocpipeConstants.SUMMARY_MODEL_ID_DEFAULT,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_BASE: {
-                                    OperatorConstants.Misc.NAME: "API Base URL",
-                                    OperatorConstants.Config.DESCRIPTION: "Base URL for the LLM API endpoint",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: "http://localhost:11434/v1",
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_KEY: {
-                                    OperatorConstants.Misc.NAME: "API Key",
-                                    OperatorConstants.Config.DESCRIPTION: "API key for authentication (if required by provider)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: "<ollama>",
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                            },
+                            OperatorConstants.Config.PROVIDERS: ChunkerOperator._get_summarization_provider_schemas(),
                         },
                         SUMMARY_SENTENCES_KEY: {
                             OperatorConstants.Misc.NAME: "Summary Sentences",
@@ -505,15 +522,13 @@ class ChunkerOperator(AbstractOperator):
             },
         }
 
-        return operator_metadata
-
     @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
-    def validate(
-        self, errors: list[Any], warnings: list[Any], available_features: list[str]
-    ) -> None:  # NOSONAR python:S3776
+    def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
+        """Validate."""
         super().validate(errors, warnings, available_features)
 
         # Get metadata and extract ATTRIBUTES for validation
@@ -549,6 +564,15 @@ class ChunkerOperator(AbstractOperator):
             should_validate_field_fn=self.should_validate_field,
             errors=errors,
         )
+
+        # Validate chunk_overlap_percentage (only meaningful for chunk types that use a fixed overlap window)
+        if self.chunk_type in (ChunkType.SIMPLE.value, ChunkType.HYBRID.value):
+            ChunkerValidator.validate_overlap_percentage(
+                chunk_overlap_percentage=self.chunk_overlap_percentage,
+                should_validate_field_fn=self.should_validate_field,
+                errors=errors,
+                warnings=warnings,
+            )
 
         # Validate semantic chunking parameters if using semantic chunking
         if self.chunk_type == ChunkType.SEMANTIC.value:
@@ -733,7 +757,7 @@ class ChunkerOperator(AbstractOperator):
             )
             response = client.call_rest_json(
                 method=RestMethod.POST,
-                endpoint="/v1/chunk/hybrid/source",
+                url="/v1/chunk/hybrid/source",
                 json_data=payload,
                 headers=headers,
             )
@@ -790,6 +814,27 @@ class ChunkerOperator(AbstractOperator):
         except Exception as e:
             raise DocpipeException(f"Docling-serve chunking failed: {e!s}") from e
 
+    def _get_simple_splitter(self):
+        """
+        Lazy initialization of RecursiveCharacterTextSplitter for simple chunking.
+
+        Creates and caches a splitter instance configured with the fixed chunk_size
+        and chunk_overlap. The splitter is reused across all documents for efficiency.
+
+        Returns:
+            RecursiveCharacterTextSplitter: Configured splitter for simple chunking
+        """
+        if self._simple_splitter is None:
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+            self._simple_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                separators=[".", "\n\n", "\n", " ", ""],
+                add_start_index=True,
+            )
+        return self._simple_splitter
+
     def _simple_split_text(self, content: str) -> list[Document]:
         """
         Perform simple fixed-size chunking with overlap using LangChain's CharacterTextSplitter.
@@ -808,16 +853,8 @@ class ChunkerOperator(AbstractOperator):
             Uses self.chunk_size and self.chunk_overlap configuration parameters.
             This method is called internally by _split_text() and should not be called directly.
         """
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-
         doc: Document = Document(page_content=content, metadata={"source": "parameter"})
-        text_splitter: RecursiveCharacterTextSplitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap,
-            separators=[".", "\n\n", "\n", " ", ""],  # plural, list
-            add_start_index=True,
-        )
-        return text_splitter.split_documents([doc])
+        return self._get_simple_splitter().split_documents([doc])
 
     def _get_ollama_client(self) -> OllamaClient:
         """
@@ -884,8 +921,6 @@ class ChunkerOperator(AbstractOperator):
             - self.breakpoint_threshold_amount: Threshold value for the method
             This method is called internally by _split_text() and should not be called directly.
         """
-        from langchain_experimental.text_splitter import SemanticChunker
-
         # Validate that semantic_embeddings_model is configured for semantic chunking
         if not self.semantic_embeddings_model:
             raise DocpipeException(
@@ -893,30 +928,7 @@ class ChunkerOperator(AbstractOperator):
                 "Please add 'semantic_embeddings_model' to your chunker configuration with a valid Ollama model name."
             )
 
-        # Get OllamaClient instance (reuses existing pattern from EmbeddingsOperator)
-        ollama_client = self._get_ollama_client()
-
-        # Use the OllamaClientEmbeddings adapter to make OllamaClient compatible with LangChain
-        embeddings = OllamaClientEmbeddings(ollama_client)
-
-        # Create semantic chunker with configured parameters
-        # Use explicit parameters instead of **kwargs to satisfy mypy type checking
-        # Cast breakpoint_threshold_type to the expected Literal type for mypy
-        threshold_type = cast(
-            Literal["percentile", "standard_deviation", "interquartile", "gradient"], self.breakpoint_threshold_type
-        )
-
-        if self.breakpoint_threshold_amount is not None:
-            text_splitter = SemanticChunker(
-                embeddings=embeddings,
-                breakpoint_threshold_type=threshold_type,
-                breakpoint_threshold_amount=self.breakpoint_threshold_amount,
-            )
-        else:
-            text_splitter = SemanticChunker(
-                embeddings=embeddings,
-                breakpoint_threshold_type=threshold_type,
-            )
+        text_splitter = self._get_semantic_splitter()
 
         # Split the text semantically
         docs = text_splitter.create_documents([content])
@@ -928,6 +940,53 @@ class ChunkerOperator(AbstractOperator):
         )
 
         return docs
+
+    def _get_semantic_splitter(self):
+        """
+        Lazy initialization of SemanticChunker for semantic chunking.
+
+        Creates and caches a SemanticChunker instance configured with the Ollama
+        embeddings model and breakpoint threshold settings. The splitter is reused
+        across all documents for efficiency.
+
+        Returns:
+            SemanticChunker: Configured chunker for semantic chunking
+
+        Raises:
+            DocpipeException: If OllamaClient initialization fails
+        """
+        if self._semantic_splitter is None:
+            try:
+                from langchain_experimental.text_splitter import SemanticChunker
+
+                # Get OllamaClient instance (reuses existing pattern from EmbeddingsOperator)
+                ollama_client = self._get_ollama_client()
+
+                # Use the OllamaClientEmbeddings adapter to make OllamaClient compatible with LangChain
+                embeddings = OllamaClientEmbeddings(ollama_client)
+
+                # Cast breakpoint_threshold_type to the expected Literal type for mypy
+                threshold_type = cast(
+                    Literal["percentile", "standard_deviation", "interquartile", "gradient"],
+                    self.breakpoint_threshold_type,
+                )
+
+                if self.breakpoint_threshold_amount is not None:
+                    self._semantic_splitter = SemanticChunker(
+                        embeddings=embeddings,
+                        breakpoint_threshold_type=threshold_type,
+                        breakpoint_threshold_amount=self.breakpoint_threshold_amount,
+                    )
+                else:
+                    self._semantic_splitter = SemanticChunker(
+                        embeddings=embeddings,
+                        breakpoint_threshold_type=threshold_type,
+                    )
+            except DocpipeException:
+                raise
+            except Exception as e:
+                raise DocpipeException(f"Failed to initialize SemanticChunker: {e!s}") from e
+        return self._semantic_splitter
 
     def _get_docling_chunker(self):
         """
@@ -949,10 +1008,15 @@ class ChunkerOperator(AbstractOperator):
         if self._docling_chunker is None:
             try:
                 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+                from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+                from transformers import AutoTokenizer
 
-                self._docling_chunker = HybridChunker(
-                    tokenizer=self.docling_tokenizer,
+                hf_tokenizer = HuggingFaceTokenizer(
+                    tokenizer=AutoTokenizer.from_pretrained(self.docling_tokenizer),  # nosec B615 — revision pinning is the user's responsibility via docling_tokenizer config
                     max_tokens=self.chunk_size,
+                )
+                self._docling_chunker = HybridChunker(
+                    tokenizer=hf_tokenizer,
                     merge_peers=True,  # Merge chunks at the same hierarchy level
                 )
                 logger.info(
@@ -965,30 +1029,36 @@ class ChunkerOperator(AbstractOperator):
 
     def _create_docling_document_from_markdown(self, markdown_content: str, doc_name: str | None = None):
         """
-        Create a DoclingDocument from markdown content.
+        Create a structure-preserving DoclingDocument from markdown content.
+
+        Uses MarkdownDocumentBackend to parse the markdown so that headings,
+        tables, and code blocks are represented as typed nodes in the resulting
+        DoclingDocument. This is required for HybridChunker to exploit document
+        structure; without it, hybrid chunking degrades to simple chunking.
 
         Args:
             markdown_content: Markdown text content
-            doc_name: Document name
+            doc_name: Document name used as the filename hint for the backend
 
         Returns:
-            DoclingDocument instance
+            DoclingDocument instance with full structural metadata
         """
-        from docling_core.types.doc.document import DoclingDocument
-        from docling_core.types.doc.labels import DocItemLabel
+        import io
 
-        # Create a basic DoclingDocument
-        doc: DoclingDocument = DoclingDocument(name=doc_name or "document")
+        from docling.backend.md_backend import MarkdownDocumentBackend
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.document import InputDocument
 
-        # Split markdown into paragraphs and add as text items
-        paragraphs: list[str] = [p.strip() for p in markdown_content.split("\n\n") if p.strip()]
-
-        for para in paragraphs:
-            if para:
-                # add_text expects text string and label
-                doc.add_text(text=para, label=DocItemLabel.TEXT)
-
-        return doc
+        filename = doc_name or "document.md"
+        stream = io.BytesIO(markdown_content.encode("utf-8"))
+        in_doc = InputDocument(
+            path_or_stream=stream,
+            format=InputFormat.MD,
+            backend=MarkdownDocumentBackend,
+            filename=filename,
+        )
+        backend = MarkdownDocumentBackend(in_doc=in_doc, path_or_stream=stream)
+        return backend.convert()
 
     def _docling_split_text(self, content: str, doc_name: str | None = None) -> list[Document]:
         """
@@ -1078,14 +1148,13 @@ class ChunkerOperator(AbstractOperator):
 
         if chunk_type == ChunkType.SIMPLE.value:
             return self._simple_split_text(content)
-        elif chunk_type == ChunkType.SEMANTIC.value:
+        if chunk_type == ChunkType.SEMANTIC.value:
             return self._semantic_split_text(content)
-        elif chunk_type == ChunkType.HYBRID.value:
+        if chunk_type == ChunkType.HYBRID.value:
             # For hybrid chunking, we need the doc_name from context
             # We'll extract it in the transform method
             return self._docling_split_text(content)
-        else:
-            raise DocpipeException(f"Invalid chunk type: {self.chunk_type}")
+        raise DocpipeException(f"Invalid chunk type: {self.chunk_type}")
 
     def _initialize_summarization(self, metadata: dict[str, Any]) -> bool:
         """
@@ -1149,7 +1218,7 @@ class ChunkerOperator(AbstractOperator):
             ).value
             return False
 
-    def _process_single_document(  # NOSONAR python:S3776
+    def _process_single_document(
         self, doc: dict[str, Any], idx: int, metadata: dict[str, Any]
     ) -> tuple[list[dict[str, Any]] | None, bool]:
         """
@@ -1239,7 +1308,7 @@ class ChunkerOperator(AbstractOperator):
 
         return chunked_content, False
 
-    def _finalize_table(  # NOSONAR python:S3776
+    def _finalize_table(
         self, table: pa.Table, chunked_content_column: list[list[dict[str, Any]]], total_chunks: int
     ) -> pa.Table:
         """
@@ -1264,7 +1333,7 @@ class ChunkerOperator(AbstractOperator):
             )
             table_size = get_pyarrow_table_size_mb(table)
 
-            if memmap_threshold > 0 and table_size > memmap_threshold:
+            if table_size > memmap_threshold > 0:
                 # Write chunks to binary files and create path references
                 chunks_column_data = []
 
@@ -1288,7 +1357,7 @@ class ChunkerOperator(AbstractOperator):
                     else:
                         # Fallback to UUID if doc_id not available
                         chunks_filename = f"chunks_{uuid.uuid4().hex}.bin"
-                    chunks_filepath = os.path.join(chunks_dir, chunks_filename)
+                    chunks_filepath = str(Path(chunks_dir) / chunks_filename)
 
                     # Write chunks to binary file
                     write_chunks_to_file(chunks_list=chunks_list, filepath=chunks_filepath)
@@ -1330,6 +1399,7 @@ class ChunkerOperator(AbstractOperator):
         return table
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Transform."""
         logger.info(
             f"Using {self.chunk_type} for generating chunks",
             extra=self.common_log_arguments,

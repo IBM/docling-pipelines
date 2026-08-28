@@ -28,6 +28,8 @@ Example Usage:
     embeddings = adapter.generate_embeddings("Hello world")
 """
 
+from pydantic import BaseModel
+
 from docpipe.core.constants.constants import ServiceConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
@@ -123,6 +125,13 @@ class LiteLLMLLMAdapter(LLMServicePort):
             batch_size=batch_size,
             **adapter_config,
         )
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig
+
+        return LLMProviderConfig
 
     def generate_embeddings(self, text: str) -> list[float]:
         """Generate embeddings using LiteLLM.

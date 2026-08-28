@@ -3,51 +3,89 @@
 This is a domain entity without framework dependencies (no Pydantic).
 Represents the core business concept of a Flow in the system.
 
+Now extends the unified Asset base class for consistency across all asset types.
+
 Exception Handling:
-The validate() method raises FlowInvalidDataException for validation failures,
+The validate() method raises AssetInvalidDataException for validation failures,
 ensuring consistent exception handling across the application layers.
 """
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
 
-from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
+from docpipe.core.assets.common.domain.models.asset import Asset
+from docpipe.core.constants.asset_constants import AssetType
+from docpipe.exceptions.docpipe_exceptions import AssetInvalidDataException
 
 
 @dataclass
-class Flow:
-    """Domain model for Flow entity.
+class Flow(Asset):
+    """Domain model for Flow entity extending unified Asset base class.
 
     Represents a flow definition that can be stored and executed.
     This is a pure Python class without external dependencies.
 
+    Inherits from Asset:
+        - asset_id: Unique identifier (aliased as flow_id for backward compatibility)
+        - name: Flow name
+        - description: Optional description
+
+    Flow-Specific Attributes:
+        - definition: Flow definition dictionary (Elyra pipeline format)
+        - tags: List of tags for categorization
+        - created_on/modified_on: Timestamps
+        - created_by/modified_by: User tracking
+        - href: API endpoint reference
+        - container_kind/container_id: Container information
+        - flow_version: Flow format version
+        - is_hidden: Visibility flag
+        - job_id: Associated job identifier
+
+    Backward Compatibility:
+        The flow_id property aliases asset_id to maintain compatibility with
+        existing code. Both flow_id and asset_id can be used interchangeably.
+
     Validation:
-    The validate() method raises FlowInvalidDataException for all validation
-    failures, ensuring consistent exception handling across application layers.
+        The validate() method raises FlowInvalidDataException for all validation
+        failures, ensuring consistent exception handling across application layers.
     """
 
-    name: str
-    definition: dict[str, Any]
-    container_kind: str | None = None
-    container_id: str | None = None
-    flow_id: str | None = None
-    description: str | None = None
+    # Flow-specific attributes
+    definition: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
-    is_hidden: bool | None = False
-    flow_version: str | None = "2.0"
     created_on: datetime | None = None
     modified_on: datetime | None = None
-    job_id: str | None = None
     created_by: str | None = None
     modified_by: str | None = None
     href: str | None = None
+    container_kind: str | None = None
+    container_id: str | None = None
+    flow_version: str | None = "2.0"
+    is_hidden: bool | None = False
+    job_id: str | None = None
+
+    @property
+    def flow_id(self) -> str | None:
+        """Backward compatibility: flow_id aliases asset_id.
+
+        Returns:
+            str | None: The asset_id value
+        """
+        return self.asset_id
+
+    @flow_id.setter
+    def flow_id(self, value: str | None) -> None:
+        """Backward compatibility: setting flow_id sets asset_id.
+
+        Args:
+            value: The flow ID value to set
+        """
+        self.asset_id = value
 
     def __post_init__(self):
         """Post-initialization to set default values."""
-        if self.flow_id is None:
-            self.flow_id = str(uuid4())
+        super().__post_init__()
         if self.created_on is None:
             self.created_on = datetime.now(UTC)
         if self.modified_on is None:
@@ -57,14 +95,33 @@ class Flow:
         if self.tags is None:
             self.tags = []
 
+    @staticmethod
+    def get_config_key() -> str:
+        """Return YAML config key for flow repository lookup."""
+        return "flow"
+
+    @staticmethod
+    def get_collection_name() -> str:
+        """Return DuckDB collection name — flows use local filesystem, not DuckDB."""
+        return "flows"
+
+    def get_asset_type(self) -> AssetType:
+        """Return the asset type identifier.
+
+        Returns:
+            AssetType: AssetType.FLOW
+        """
+        return AssetType.FLOW
+
     def validate(self) -> None:
         """Validate the flow entity.
 
-        Performs validation on flow name, description, and definition structure.
+        Calls parent Asset.validate() first for common validation,
+        then performs Flow-specific validation.
 
         Validation Rules:
-        - Name: Non-empty, ≤255 characters
-        - Description: ≤2000 characters (if provided)
+        - Name: Non-empty, ≤255 characters (validated by Asset base class)
+        - Description: ≤2000 characters if provided (validated by Asset base class)
         - Definition: Non-empty dictionary in Elyra pipeline format
 
         Expected definition format (Elyra pipeline):
@@ -88,40 +145,44 @@ class Flow:
         }
 
         Raises:
-            FlowInvalidDataException: If validation fails. Includes specific error
+            AssetInvalidDataException: If validation fails. Includes specific error
                 message and field_name for targeted error handling.
         """
-        # Validate name: must be non-empty and within length limit
-        if not self.name or len(self.name.strip()) == 0:
-            raise FlowInvalidDataException(message="Flow name cannot be empty", field_name="name")
-        if len(self.name) > 255:
-            raise FlowInvalidDataException(message="Flow name cannot exceed 255 characters", field_name="name")
+        # Call parent validation for common fields (name, description)
+        # AssetInvalidDataException will bubble up naturally
+        super().validate()
 
-        # Validate description: optional but must be within length limit if provided
-        if self.description and len(self.description) > 2000:
-            raise FlowInvalidDataException(
-                message="Flow description cannot exceed 2000 characters", field_name="description"
-            )
-
-        # Validate definition: must be a non-empty dictionary
+        # Flow-specific validation: definition must be a non-empty dictionary
         if not isinstance(self.definition, dict):
-            raise FlowInvalidDataException(message="Flow definition must be a dictionary", field_name="definition")
+            raise AssetInvalidDataException(message="Flow definition must be a dictionary", field_name="definition")
 
-        if len(self.definition) == 0:
-            raise FlowInvalidDataException(message="Flow definition cannot be empty", field_name="definition")
+        if not self.definition:
+            raise AssetInvalidDataException(message="Flow definition cannot be empty", field_name="definition")
 
     def update_timestamp(self) -> None:
         """Update the modified_on timestamp."""
         self.modified_on = datetime.now(UTC)
 
+    def get_created_at(self) -> datetime | None:
+        """Return the creation timestamp for sorting in the generic repository."""
+        return self.created_on
+
+    def get_updated_at(self) -> datetime | None:
+        """Return the last-modified timestamp for sorting in the generic repository."""
+        return self.modified_on
+
     def to_dict(self) -> dict[str, Any]:
         """Convert flow to dictionary representation.
+
+        Includes both flow_id and asset_id for backward compatibility.
 
         Returns:
             Dictionary representation of the flow
         """
         return {
-            "flow_id": self.flow_id,
+            "flow_id": self.flow_id,  # Backward compatibility
+            "asset_id": self.asset_id,  # Unified architecture
+            "asset_type": self.get_asset_type().value,  # Convert enum to string
             "container_kind": self.container_kind,
             "container_id": self.container_id,
             "name": self.name,
@@ -139,8 +200,10 @@ class Flow:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Flow":
+    def from_dict(cls, *, data: dict[str, Any]) -> "Flow":
         """Create Flow from dictionary representation.
+
+        Accepts both flow_id and asset_id for backward compatibility.
 
         Args:
             data: Dictionary containing flow data
@@ -157,13 +220,16 @@ class Flow:
         if isinstance(modified_on, str):
             modified_on = datetime.fromisoformat(modified_on.replace("Z", "+00:00"))
 
+        # Support both flow_id and asset_id for backward compatibility
+        asset_id = data.get("asset_id") or data.get("flow_id")
+
         return cls(
-            flow_id=data.get("flow_id"),
+            asset_id=asset_id,
             container_kind=data.get("container_kind"),
             container_id=data.get("container_id"),
             name=data["name"],
             description=data.get("description"),
-            definition=data["definition"],
+            definition=data.get("definition", {}),
             tags=data.get("tags", []),
             is_hidden=data.get("is_hidden", False),
             flow_version=data.get("flow_version", "2.0"),

@@ -41,7 +41,7 @@ class SchemaProcessor:
 
             file_name = doc_classes_dir / f"{DocumentClassUtils.normalize_filename(document_type)}.json"
             try:
-                with open(file_name, encoding="utf-8") as f:
+                with Path(file_name).open(encoding="utf-8") as f:
                     doc_cls = json.load(f)
                     # Get the full document_class_schema (includes both document and target_tables)
                     doc_cls_schema = doc_cls.get("document_class_schema", {})
@@ -111,7 +111,7 @@ class SchemaProcessor:
         Returns:
             The array field name if detected, None otherwise
         """
-        array_fields = set()
+        array_fields: set[str] = set()
 
         for column in columns:
             source = column.get(DocumentConstants.SOURCE, {})
@@ -119,11 +119,7 @@ class SchemaProcessor:
             # Check field reference
             if DocumentConstants.FIELD in source:
                 field_path = source[DocumentConstants.FIELD]
-                if field_path and len(field_path) > 0:
-                    first_field = field_path[0]
-                    # Check if this field is an array in entities
-                    if isinstance(entities.get(first_field), list):
-                        array_fields.add(first_field)
+                self._check_and_add_array_field(field_path=field_path, entities=entities, array_fields=array_fields)
 
             # Check transform arguments
             elif DocumentConstants.TRANSFORM in source:
@@ -134,10 +130,9 @@ class SchemaProcessor:
                     arg_value = arg.get(DocumentConstants.ARG_VALUE, {})
                     if DocumentConstants.FIELD in arg_value:
                         field_path = arg_value[DocumentConstants.FIELD]
-                        if field_path and len(field_path) > 0:
-                            first_field = field_path[0]
-                            if isinstance(entities.get(first_field), list):
-                                array_fields.add(first_field)
+                        self._check_and_add_array_field(
+                            field_path=field_path, entities=entities, array_fields=array_fields
+                        )
 
         # If all columns reference the same array field, return it
         if len(array_fields) == 1:
@@ -151,6 +146,22 @@ class SchemaProcessor:
             )
 
         return None
+
+    def _check_and_add_array_field(
+        self, *, field_path: list[str] | None, entities: dict[str, Any], array_fields: set[str]
+    ) -> None:
+        """
+        Check if a field path references an array and add it to the set.
+
+        Args:
+            field_path: Field path from schema (e.g., ["line_items", "amount"])
+            entities: Extracted entities dictionary
+            array_fields: Set to add array field names to (modified in place)
+        """
+        if field_path and len(field_path) > 0:
+            first_field = field_path[0]
+            if isinstance(entities.get(first_field), list):
+                array_fields.add(first_field)
 
     def _process_array_table(
         self, *, columns: list[dict], entities: dict[str, Any], array_field: str

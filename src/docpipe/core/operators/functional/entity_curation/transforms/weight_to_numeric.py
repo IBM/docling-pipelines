@@ -1,7 +1,7 @@
 import re
 
 
-def weight_to_numeric(*, weight: str | None, locale: str = "en_US") -> float | None:  # NOSONAR python:S3776
+def weight_to_numeric(*, weight: str | None, locale: str = "en_US") -> float | None:
     """
     Convert a numeric weight into kilograms with locale-aware multi-language unit support.
 
@@ -289,13 +289,10 @@ def weight_to_numeric(*, weight: str | None, locale: str = "en_US") -> float | N
             unit_lower = unit.lower()
             if unit_lower in weight_unit_map:
                 return value * weight_unit_map[unit_lower]
-            elif unit in weight_unit_map:
+            if unit in weight_unit_map:
                 # For non-Latin scripts (exact match)
                 return value * weight_unit_map[unit]
-            else:
-                return None
-        else:
-            # No unit specified, assume kilograms
-            return value
-    else:
-        return None
+            return None
+        # No unit specified, assume kilograms
+        return value
+    return None

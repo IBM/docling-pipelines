@@ -10,25 +10,16 @@ from docpipe.core.operators.acl.domain.models import ACLRequest, ACLResponse, Ra
 
 @pytest.fixture
 def sample_acl_config():
+    """Basic configuration for ACL operator (minimal - credentials come from table)."""
     return {
         "provider_config": {"resolve_inheritance": True, "expand_groups": True, "normalize_identities": True},
         "fail_on_error": True,
-        "ingest_source": {
-            "provider": "sharepoint",
-            "credentials": {
-                "client_id": "test-client-id",
-                "client_secret": "test-client-secret",  # pragma: allowlist secret
-                "tenant_id": "test-tenant-id",
-            },
-            "connection_params": {
-                "drive_id": "test-drive-id",
-            },
-        },
     }
 
 
 @pytest.fixture
 def sample_document_metadata():
+    """Sample document metadata with credentials (from IngestSourceOperator)."""
     import json
 
     return json.dumps(
@@ -36,6 +27,9 @@ def sample_document_metadata():
             "document_library_id": "test-drive-id",
             "web_url": "https://contoso.sharepoint.com/sites/mysite/Shared Documents/doc1.pdf",
             "provider": "sharepoint",
+            "client_id": "test-client-id",
+            "client_secret": "test-client-secret",  # pragma: allowlist secret
+            "tenant_id": "test-tenant-id",
         }
     )
 
@@ -92,7 +86,7 @@ def sample_acl_table_missing_source_id(sample_document_metadata):
 @pytest.fixture
 def sample_acl_table_empty():
     """Empty PyArrow table."""
-    data = {"id": [], "name": [], "source_id": [], "content": [], "metadata": []}
+    data: dict[str, list] = {"id": [], "name": [], "source_id": [], "content": [], "metadata": []}
     return pa.table(data)
 
 

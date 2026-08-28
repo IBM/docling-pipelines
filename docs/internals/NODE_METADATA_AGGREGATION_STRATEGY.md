@@ -42,7 +42,7 @@ Each batch execution produces a `NodeMetadataItem` with the following structure:
         "skipped_docs_count": 0,
         "skipped_docs": [],
         "node_status": "COMPLETED",
-        
+
         # Operator-specific fields (varies by operator)
         "progress_percentage": "100.00%",
         "custom_field": "operator-specific value",
@@ -102,24 +102,24 @@ DEFAULT_STRATEGIES = {
     "total_docs": AggregationStrategy.SUM,
     "failed_docs_count": AggregationStrategy.SUM,
     "skipped_docs_count": AggregationStrategy.SUM,
-    
+
     # Document ID lists - union to avoid duplicates
     "docs_completed": AggregationStrategy.UNION,
     "failed_docs": AggregationStrategy.UNION,
     "skipped_docs": AggregationStrategy.UNION,
-    
+
     # Status fields - priority-based (RUNNING > FAILED > COMPLETED)
     "status": AggregationStrategy.PRIORITY_STATUS,
     "node_status": AggregationStrategy.PRIORITY_STATUS,
-    
+
     # Timing fields
     "start_time": AggregationStrategy.MIN,  # Earliest start
     "end_time": AggregationStrategy.MAX,    # Latest end
     "time_taken": AggregationStrategy.SUM,  # Total duration
-    
+
     # Progress tracking
     "progress_percentage": AggregationStrategy.WEIGHTED_AVERAGE,
-    
+
     # Error handling - keep last meaningful error
     "error": AggregationStrategy.LAST_COMPLETED,
     "error_message": AggregationStrategy.LAST_COMPLETED,
@@ -260,14 +260,14 @@ class MyNewOperator(AbstractOperator):
             total_docs_count=table.num_rows,
             node_status=ExecutionStatus.RUNNING.value
         )
-        
+
         # 2. Add operator-specific fields
         metadata["my_custom_metric"] = 0
         metadata["my_custom_list"] = []
-        
+
         # 3. Process and update metadata
         # ... processing logic ...
-        
+
         return [output_table], metadata
 ```
 
@@ -307,13 +307,13 @@ def test_my_operator_metadata_aggregation():
     # Create batch records
     batch1_metadata = {"my_custom_metric": 10, "my_custom_list": ["a", "b"]}
     batch2_metadata = {"my_custom_metric": 20, "my_custom_list": ["b", "c"]}
-    
+
     # Aggregate
     aggregator = MetadataAggregator()
     result = aggregator.aggregate_metadata(
         metadata_list=[batch1_metadata, batch2_metadata]
     )
-    
+
     # Verify
     assert result["my_custom_metric"] == 30  # SUM
     assert set(result["my_custom_list"]) == {"a", "b", "c"}  # UNION
@@ -401,14 +401,14 @@ def test_batch_aggregation_with_real_operator():
         operator=ExtractDocling(),
         batches=3
     )
-    
+
     # Aggregate
     aggregated = aggregate_batch_node_stats(
         node_id="extract_1",
         batch_records=batch_records,
         aggregator=MetadataAggregator()
     )
-    
+
     # Verify aggregation
     assert aggregated["node_status"] == "COMPLETED"
     assert len(aggregated["total_docs"]) == total_expected_docs

@@ -55,7 +55,7 @@ class TestCreateFlowIntegration:
         flow_data = {"name": ""}
 
         # Act
-        response = test_client.post("/api/v1/flows", json=flow_data)
+        response = test_client.post("/api/v1/flows?is_elyra=true", json=flow_data)
 
         # Assert
         assert response.status_code == 400
@@ -68,7 +68,7 @@ class TestCreateFlowIntegration:
         flow_data = {"name": "Test Flow", "container_kind": "invalid_kind"}
 
         # Act
-        response = test_client.post("/api/v1/flows", json=flow_data)
+        response = test_client.post("/api/v1/flows?is_elyra=true", json=flow_data)
 
         # Assert
         assert response.status_code == 400
@@ -79,7 +79,7 @@ class TestCreateFlowIntegration:
         flow_data = {"name": "Test Flow", "container_id": "not-a-uuid"}
 
         # Act
-        response = test_client.post("/api/v1/flows", json=flow_data)
+        response = test_client.post("/api/v1/flows?is_elyra=true", json=flow_data)
 
         # Assert
         assert response.status_code == 400
@@ -90,7 +90,7 @@ class TestCreateFlowIntegration:
         flow_data = {"name": "Test Flow", "job_id": "invalid-uuid"}
 
         # Act
-        response = test_client.post("/api/v1/flows", json=flow_data)
+        response = test_client.post("/api/v1/flows?is_elyra=true", json=flow_data)
 
         # Assert
         assert response.status_code == 400
@@ -361,7 +361,7 @@ class TestUpdateFlowIntegration:
         }
 
         # Act
-        response = test_client.put(f"/api/v1/flows/{flow_id}", json=update_data)
+        response = test_client.put(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
 
         # Assert
         assert response.status_code == 200
@@ -379,7 +379,7 @@ class TestUpdateFlowIntegration:
         update_data = {"name": "Updated Name"}
 
         # Act
-        response = test_client.put(f"/api/v1/flows/{nonexistent_id}", json=update_data)
+        response = test_client.put(f"/api/v1/flows/{nonexistent_id}?is_elyra=true", json=update_data)
 
         # Assert
         assert response.status_code == 404
@@ -392,7 +392,7 @@ class TestUpdateFlowIntegration:
         update_data = {"name": ""}
 
         # Act
-        response = test_client.put(f"/api/v1/flows/{flow_id}", json=update_data)
+        response = test_client.put(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
 
         # Assert
         assert response.status_code == 400
@@ -405,7 +405,7 @@ class TestUpdateFlowIntegration:
         update_data = {"name": "Persisted Update"}
 
         # Act
-        update_response = test_client.put(f"/api/v1/flows/{flow_id}", json=update_data)
+        update_response = test_client.put(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
         get_response = test_client.get(f"/api/v1/flows/{flow_id}")
 
         # Assert
@@ -426,7 +426,7 @@ class TestPartialUpdateFlowIntegration:
         update_data = {"description": "Partially updated description"}
 
         # Act
-        response = test_client.patch(f"/api/v1/flows/{flow_id}", json=update_data)
+        response = test_client.patch(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
 
         # Assert
         assert response.status_code == 200
@@ -447,7 +447,7 @@ class TestPartialUpdateFlowIntegration:
         }
 
         # Act
-        response = test_client.patch(f"/api/v1/flows/{flow_id}", json=update_data)
+        response = test_client.patch(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
 
         # Assert
         assert response.status_code == 200
@@ -464,7 +464,7 @@ class TestPartialUpdateFlowIntegration:
         update_data: dict[str, Any] = {}
 
         # Act
-        response = test_client.patch(f"/api/v1/flows/{flow_id}", json=update_data)
+        response = test_client.patch(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
 
         # Assert - Empty update is considered invalid
         assert response.status_code == 400
@@ -476,7 +476,7 @@ class TestPartialUpdateFlowIntegration:
         update_data = {"description": "New description"}
 
         # Act
-        response = test_client.patch(f"/api/v1/flows/{nonexistent_id}", json=update_data)
+        response = test_client.patch(f"/api/v1/flows/{nonexistent_id}?is_elyra=true", json=update_data)
 
         # Assert
         assert response.status_code == 404
@@ -489,7 +489,7 @@ class TestPartialUpdateFlowIntegration:
         update_data = {"container_kind": "invalid_kind"}
 
         # Act
-        response = test_client.patch(f"/api/v1/flows/{flow_id}", json=update_data)
+        response = test_client.patch(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
 
         # Assert
         assert response.status_code == 400
@@ -644,7 +644,7 @@ class TestFlowAPIWorkflows:
 
         # Update
         update_data = {"name": "Updated Workflow Flow"}
-        update_response = test_client.put(f"/api/v1/flows/{flow_id}", json=update_data)
+        update_response = test_client.put(f"/api/v1/flows/{flow_id}?is_elyra=true", json=update_data)
         assert update_response.status_code == 200
         assert update_response.json()["name"] == "Updated Workflow Flow"
 
@@ -731,7 +731,7 @@ class TestFlowAPIErrorHandling:
         flow_data = {"description": "Missing name field"}
 
         # Act
-        response = test_client.post("/api/v1/flows", json=flow_data)
+        response = test_client.post("/api/v1/flows?is_elyra=true", json=flow_data)
 
         # Assert
         assert response.status_code == 400
@@ -742,7 +742,7 @@ class TestFlowAPIErrorHandling:
         flow_data = {"name": "Test Flow", "tags": "not-a-list"}
 
         # Act
-        response = test_client.post("/api/v1/flows", json=flow_data)
+        response = test_client.post("/api/v1/flows?is_elyra=true", json=flow_data)
 
         # Assert
         assert response.status_code == 400
@@ -753,7 +753,7 @@ class TestFlowAPIErrorHandling:
         flow_data = {"name": ""}  # Invalid empty name
 
         # Act
-        response = test_client.post("/api/v1/flows", json=flow_data)
+        response = test_client.post("/api/v1/flows?is_elyra=true", json=flow_data)
 
         # Assert
         assert response.status_code == 400

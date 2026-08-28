@@ -1,6 +1,6 @@
 # FastAPI REST API Server
 
-Docpipe ships a FastAPI-based REST API server that exposes pipeline management over HTTP.
+Docling Pipelines ships a FastAPI-based REST API server that exposes pipeline management over HTTP.
 It is suitable for programmatic access, UI integrations, and multi-tenant deployments.
 
 > **Status:** Under active development. The interactive docs at `/api/v1/docs` are the
@@ -54,6 +54,20 @@ See [OAuth2 Authentication](OAUTH2_AUTHENTICATION.md) for full OAuth2/OIDC setup
 
 All data endpoints are prefixed with `/api/v1`.
 
+### Projects — `/api/v1/projects`
+
+Manage projects that group and organise flows. Deleting a project cascade-deletes all flows linked to it.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/projects` | Create a new project |
+| `GET` | `/api/v1/projects` | List projects (paginated, filterable by name/tags) |
+| `GET` | `/api/v1/projects/{project_id}` | Get a project by ID |
+| `PUT` | `/api/v1/projects/{project_id}` | Fully replace a project |
+| `PATCH` | `/api/v1/projects/{project_id}` | Partially update a project |
+| `DELETE` | `/api/v1/projects/{project_id}` | Delete a project (cascade-deletes linked flows) |
+| `GET` | `/api/v1/projects/{project_id}/flows` | List flows belonging to a project, each enriched with aggregated job run status |
+
 ### Flows — `/api/v1/flows`
 
 Manage flow definitions (pipeline configurations).
@@ -88,6 +102,23 @@ Discover available operators and their configuration schemas.
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/operators/metadata` | List all operators with metadata |
+
+### Providers — `/api/v1/providers`
+
+Query LLM/embedding provider capabilities.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/providers/{provider}/models` | List available models for a provider (`ollama`, `watsonx`) |
+
+### Document Classes — `/api/v1/document_classes`
+
+Enumerate all document class definitions bundled with the repository.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/document_classes` | List all available document classes |
+
 
 ### Validation — `/api/v1/validation`
 
@@ -140,7 +171,10 @@ See [ACL Document Retrieval](ACL_DOCUMENT_RETRIEVAL.md) for full details on ACL 
 |----------|---------|-------------|
 | `DS_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
+| `PROJECT_REPOSITORY_BASE_DIR` | — | Override project storage directory (takes precedence over `docling-pipelines-config.yaml`) |
 | `DOCPIPE_POSTGRES_*` | — | PostgreSQL backend for job stats (see [Environment Variables](../../USER_GUIDE_PIPELINE_SETUP.md)) |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama host used by `GET /providers/ollama/models` |
+| `WATSONX_API_BASE_URL` | — | WatsonX base URL used by `GET /providers/watsonx/models` (required — no default) |
 
 Authentication-specific variables are documented in [OAuth2 Authentication](OAUTH2_AUTHENTICATION.md).
 

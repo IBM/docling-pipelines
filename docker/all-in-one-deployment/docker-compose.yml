@@ -4,7 +4,7 @@ services:
   # ============================================================================
   # POSTGRESQL DATABASE
   # ============================================================================
-  
+
   postgres:
     image: postgres:17-alpine
     container_name: docpipe-postgres
@@ -28,7 +28,7 @@ services:
   # ============================================================================
   # OLLAMA - LLM SERVICE
   # ============================================================================
-  
+
   ollama:
     image: ollama/ollama:0.5.4
     container_name: docpipe-ollama
@@ -57,7 +57,7 @@ services:
   # ============================================================================
   # OPENSEARCH - VECTOR DATABASE
   # ============================================================================
-  
+
   opensearch:
     image: opensearchproject/opensearch:3.60.0
     container_name: docpipe-opensearch
@@ -95,7 +95,7 @@ services:
   # ============================================================================
   # DOCPIPE APPLICATION
   # ============================================================================
-  
+
   docpipe:
     build:
       context: ../..
@@ -106,10 +106,10 @@ services:
     environment:
       # Database Configuration
       DATABASE_URL: postgresql://${POSTGRES_USER:-docpipe}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-docpipe}
-      
+
       # Python Configuration
       PYTHONPATH: /opt/app-root/src
-      
+
       # External Services
       OLLAMA_HOST: http://ollama:11434
       OPENSEARCH_HOST: opensearch
@@ -118,7 +118,7 @@ services:
       OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
       OPENSEARCH_USE_SSL: "false"
       OPENSEARCH_VERIFY_CERTS: "false"
-      
+
       # Application Configuration
       DOCPIPE_DATA_PATH: /opt/app-root/src/data
     ports:

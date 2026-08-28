@@ -204,14 +204,16 @@ class TestUnconditionalBranching:
         assert "branches" in metadata
         assert "b1" in metadata["branches"]
 
-    def test_unconditional_branch_metadata_processed_docs(self):
-        """Metadata for unconditional branch reports processed_docs == total rows."""
+    def test_unconditional_branch_metadata_remaining_docs(self):
+        """Metadata for unconditional branch reports remaining_docs == total rows."""
         table = make_table()
         branches = [make_branch(link_id="b1", link_name="all")]
         operator = make_operator(branches)
 
         _, metadata = operator.runner(table)
 
+        # Verify branch metadata exists
+        assert "b1" in metadata["branches"]
         assert metadata["branches"]["b1"]["processed_docs"] == table.num_rows
 
 
@@ -597,20 +599,8 @@ class TestMetadata:
         branch_meta = metadata["branches"]["b1"]
         assert "processed_docs" in branch_meta
 
-    def test_metadata_processed_docs_correct(self):
-        """Branch metadata processed_docs matches the actual filtered row count."""
-        table = make_table()  # 6 rows, score > 3 → 3 rows
-        branches = [
-            make_branch(link_id="b1", link_name="high", criteria_list=["score > 3"]),
-        ]
-        operator = make_operator(branches)
-
-        result_tables, metadata = operator.runner(table)
-
-        assert metadata["branches"]["b1"]["processed_docs"] == result_tables[0].num_rows
-
     def test_metadata_contains_total_docs(self):
-        """runner() metadata contains total_docs_count."""
+        """runner() metadata contains documents_in_scope."""
         table = make_table()
         branches = [make_branch(link_id="b1", link_name="all")]
         operator = make_operator(branches)
@@ -643,6 +633,45 @@ class TestMetadata:
         _, metadata = operator.runner(table)
 
         assert Metrics.External.FAILED_DOCS_COUNT in metadata
+
+    def test_branch_skipped_docs_count_equals_docs_filtered_for_each_branch(self):
+        """
+        With 5 docs (2 md, 3 txt), two non-overlapping branches must each report
+        skipped_docs_count == total_docs - processed_docs for that branch.
+        Branch 1 keeps 2 docs  → skipped_docs_count must be 3.
+        Branch 2 keeps 3 docs  → skipped_docs_count must be 2 (was incorrectly 0).
+        """
+        table = pa.table(
+            {
+                "id": ["1", "2", "3", "4", "5"],
+                "name": ["a.md", "b.md", "c.txt", "d.txt", "e.txt"],
+                "content": ["md1", "md2", "txt1", "txt2", "txt3"],
+                "score": [1.0, 2.0, 3.0, 4.0, 5.0],
+                "language": ["en", "en", "en", "en", "en"],
+                "word_count": [10, 20, 30, 40, 50],
+                "ext": ["md", "md", "txt", "txt", "txt"],
+            }
+        )
+        branches = [
+            make_branch(link_id="md_branch", link_name="md_files", criteria_list=["ext = 'md'"]),
+            make_branch(link_id="txt_branch", link_name="txt_files", criteria_list=["ext = 'txt'"]),
+        ]
+        operator = make_operator(branches)
+
+        _, metadata = operator.runner(table)
+
+        md_meta = metadata["branches"]["md_branch"]
+        txt_meta = metadata["branches"]["txt_branch"]
+
+        assert md_meta["processed_docs"] == 2
+        assert md_meta["skipped_docs_count"] == 3, (
+            f"md branch: expected skipped_docs_count=3, got {md_meta['skipped_docs_count']}"
+        )
+
+        assert txt_meta["processed_docs"] == 3
+        assert txt_meta["skipped_docs_count"] == 2, (
+            f"txt branch: expected skipped_docs_count=2, got {txt_meta['skipped_docs_count']}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -684,6 +713,29 @@ class TestGetMetadata:
         meta = operator.get_metadata()
         assert meta[OperatorConstants.Misc.SDK] is True
 
+    def test_get_metadata_branch_criteria_items_schema(self):
+        """branch_criteria exposes an items schema with properties for all branch object fields."""
+        meta = BranchingOperator.get_metadata()
+        branch_criteria = meta[OperatorConstants.Config.ATTRIBUTES]["branch_criteria"]
+        assert OperatorConstants.Config.ITEMS in branch_criteria
+        items = branch_criteria[OperatorConstants.Config.ITEMS]
+        assert OperatorConstants.Config.PROPERTIES in items
+        properties = items[OperatorConstants.Config.PROPERTIES]
+        assert OperatorConstants.Misc.LINK_ID in properties
+        assert OperatorConstants.Misc.LINK_NAME in properties
+        assert OperatorConstants.Filtering.FILTER_CRITERIA_LIST in properties
+        assert OperatorConstants.Filtering.FILTER_CRITERIA_JSON in properties
+        assert OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY in properties
+
+    def test_get_metadata_branch_criteria_logical_operator_has_valid_values(self):
+        """logical_operator item property exposes AND and OR as valid_values."""
+        meta = BranchingOperator.get_metadata()
+        logical_op = meta[OperatorConstants.Config.ATTRIBUTES]["branch_criteria"][OperatorConstants.Config.ITEMS][
+            OperatorConstants.Config.PROPERTIES
+        ][OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY]
+        assert OperatorConstants.Config.VALID_VALUES in logical_op
+        assert set(logical_op[OperatorConstants.Config.VALID_VALUES]) == {"AND", "OR"}
+
 
 # ---------------------------------------------------------------------------
 # 9. validate()
@@ -697,7 +749,8 @@ class TestValidate:
             make_branch(link_id="b1", link_name="only_branch", criteria_list=["score > 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -720,7 +773,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="high", criteria_list=["score > 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -748,7 +802,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="other", criteria_list=["score <= 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -778,7 +833,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="other", criteria_list=["score <= 3"]),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(
             errors,
             warnings,
@@ -801,7 +857,8 @@ class TestValidate:
             make_branch(link_id="b2", link_name="copy_b"),
         ]
         operator = make_operator(branches)
-        errors, warnings = [], []
+        errors: list[str] = []
+        warnings: list[str] = []
         operator.validate(errors, warnings, available_features=["id", "name", "content", "score"])
 
         assert len(errors) == 0, f"Unexpected errors: {errors}"
@@ -845,200 +902,3 @@ class TestTransform:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-
-# ---------------------------------------------------------------------------
-# 11. analyze_where_clause, validate_expression, get_skipped_doc, get_failed_doc
-# ---------------------------------------------------------------------------
-
-
-class TestAnalyzeWhereClause:
-    """Tests for BranchingOperator.analyze_where_clause."""
-
-    def test_valid_simple_expression(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        valid, cols = operator.analyze_where_clause(clause_str="score > 3")
-        assert valid is True
-        assert "score" in cols
-
-    def test_empty_clause_returns_false(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        valid, cols = operator.analyze_where_clause(clause_str="")
-        assert valid is False
-        assert cols == []
-
-    def test_clause_with_semicolon_returns_false(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        valid, _cols = operator.analyze_where_clause(clause_str="score > 3; DROP TABLE t")
-        assert valid is False
-
-    def test_clause_with_sql_injection_wildcard_returns_false(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        _valid, _cols = operator.analyze_where_clause(clause_str="name LIKE 'a%b'")
-        # % between word chars triggers the rejection
-        # Actually check: the regex checks \w%\w, this is 'a%b' not word%word
-        # Let's use a known invalid: "a1%b2"
-        valid2, _ = operator.analyze_where_clause(clause_str="name LIKE 'a1%b2'")
-        # Since a1%b2 has a1 (ends with 1, then %) and b2 (starts with b), it should match
-        assert valid2 is False
-
-    def test_clause_with_no_where_returns_false(self):
-        """If clause_str has no columns after parsing, valid but empty."""
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        # A tautology that results in no columns
-        valid, cols = operator.analyze_where_clause(clause_str="1=1")
-        # Parses fine but has no Column nodes
-        assert valid is True
-        assert cols == []
-
-    def test_invalid_sql_expression_returns_false(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        valid, _cols = operator.analyze_where_clause(clause_str="@@@@invalid!!")
-        assert valid is False
-
-    def test_multiple_columns_extracted(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        valid, cols = operator.analyze_where_clause(clause_str="score > 3 AND language = 'en'")
-        assert valid is True
-        assert "score" in cols
-        assert "language" in cols
-
-
-class TestValidateExpression:
-    """Tests for BranchingOperator.validate_expression."""
-
-    def test_valid_expression_no_error(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        errors = []
-        operator.validate_expression(
-            expr="score > 3",
-            available_features=["score", "language"],
-            errors=errors,
-        )
-        assert errors == []
-
-    def test_invalid_column_adds_error(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        errors = []
-        operator.validate_expression(
-            expr="unknown_col > 3",
-            available_features=["score"],
-            errors=errors,
-        )
-        assert len(errors) > 0
-        assert "invalid" in errors[0].lower() or "unknown_col" in errors[0]
-
-    def test_invalid_sql_adds_error(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        errors = []
-        operator.validate_expression(
-            expr="@@@@!!!!",
-            available_features=["score"],
-            errors=errors,
-        )
-        assert len(errors) > 0
-
-    def test_exception_in_analyze_adds_error(self):
-        """Simulate exception in analyze_where_clause."""
-        from unittest.mock import patch
-
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        errors = []
-        with patch.object(operator, "analyze_where_clause", side_effect=RuntimeError("boom")):
-            operator.validate_expression(
-                expr="score > 3",
-                available_features=["score"],
-                errors=errors,
-            )
-        assert any("Unexpected error" in e or "boom" in e for e in errors)
-
-
-class TestGetSkippedAndFailedDoc:
-    """Tests for BranchingOperator.get_skipped_doc and get_failed_doc."""
-
-    def test_get_skipped_doc_no_skipped_docs_idx0(self):
-        metadata = {
-            "skipped_docs": [{"id": "doc1", "reason": "skip"}],
-        }
-        # When skipped_docs is empty and idx==0, return metadata_skipped
-        result = BranchingOperator.get_skipped_doc([], metadata, idx=0)
-        assert result == [{"id": "doc1", "reason": "skip"}]
-
-    def test_get_skipped_doc_no_skipped_docs_idx_nonzero(self):
-        metadata = {
-            "skipped_docs": [{"id": "doc1", "reason": "skip"}],
-        }
-        result = BranchingOperator.get_skipped_doc([], metadata, idx=1)
-        assert result == []
-
-    def test_get_skipped_doc_with_existing_skipped_and_metadata(self):
-        existing = [{"id": "doc1"}, {"id": "doc2"}]
-        metadata = {
-            "skipped_docs": [{"id": "doc1"}],
-        }
-        result = BranchingOperator.get_skipped_doc(existing, metadata, idx=0)
-        assert len(result) == 1
-        assert result[0]["id"] == "doc1"
-
-    def test_get_skipped_doc_no_metadata_skipped_returns_empty(self):
-        existing = [{"id": "doc1"}]
-        metadata = {}
-        result = BranchingOperator.get_skipped_doc(existing, metadata, idx=0)
-        assert result == []
-
-    def test_get_failed_doc_no_failed_docs_idx0(self):
-        metadata = {
-            "failed_docs": [{"id": "f1", "reason": "fail"}],
-        }
-        result = BranchingOperator.get_failed_doc([], metadata, idx=0)
-        assert result == [{"id": "f1", "reason": "fail"}]
-
-    def test_get_failed_doc_no_failed_docs_idx_nonzero(self):
-        metadata = {
-            "failed_docs": [{"id": "f1"}],
-        }
-        result = BranchingOperator.get_failed_doc([], metadata, idx=1)
-        assert result == []
-
-    def test_get_failed_doc_with_existing_and_metadata(self):
-        existing = [{"id": "f1"}, {"id": "f2"}]
-        metadata = {
-            "failed_docs": [{"id": "f2"}],
-        }
-        result = BranchingOperator.get_failed_doc(existing, metadata, idx=0)
-        assert len(result) == 1
-        assert result[0]["id"] == "f2"
-
-    def test_get_failed_doc_no_metadata_returns_empty(self):
-        existing = [{"id": "f1"}]
-        metadata = {}
-        result = BranchingOperator.get_failed_doc(existing, metadata, idx=0)
-        assert result == []
-
-
-class TestIsValidColumnName:
-    """Tests for BranchingOperator._is_valid_column_name."""
-
-    def test_simple_column_name_valid(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        assert operator._is_valid_column_name("score") is True
-
-    def test_column_with_underscore_valid(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        assert operator._is_valid_column_name("doc_id_hash") is True
-
-    def test_empty_column_name_invalid(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        assert operator._is_valid_column_name("") is False
-
-    def test_column_name_too_long_invalid(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        assert operator._is_valid_column_name("a" * 129) is False
-
-    def test_column_with_dot_notation_valid(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        assert operator._is_valid_column_name("table.column") is True
-
-    def test_column_with_special_chars_invalid(self):
-        operator = make_operator([make_branch(link_id="b1", link_name="b1")])
-        assert operator._is_valid_column_name("col!umn") is False

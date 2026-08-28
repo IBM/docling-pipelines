@@ -1,4 +1,4 @@
-"""Tests for unified LLM entity extraction adapter."""
+"""Tests for LLM entity extraction adapters (LLMEntityAdapter base and its subclasses)."""
 
 import json
 from unittest.mock import MagicMock, patch
@@ -6,8 +6,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_adapter import (
-    LLMEntityAdapter,
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.litellm_entity_adapter import (
+    LiteLLMEntityAdapter,
+)
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.watsonx_entity_adapter import (
+    WatsonxEntityAdapter,
 )
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
@@ -85,19 +88,19 @@ class TestLLMEntityAdapterInitialization:
 
     def test_initialization_with_litellm(self, mock_llm_adapter, litellm_config):
         """Test initialization with litellm provider."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         assert adapter.provider == "litellm"
         assert adapter.model_name == "openai/granite4:latest"
         assert adapter.temperature == 0.0
         assert adapter.max_tokens == 4096
         assert adapter.max_doc_chars == 8000
-        assert adapter.ADAPTER_NAME == "llm"
-        assert adapter.ADAPTER_DISPLAY_NAME == "LLM"
+        assert adapter.ADAPTER_NAME == "litellm"
+        assert adapter.ADAPTER_DISPLAY_NAME == "LiteLLM"
 
     def test_initialization_with_watsonx(self, mock_llm_adapter, watsonx_config):
         """Test initialization with watsonx provider."""
-        adapter = LLMEntityAdapter(config=watsonx_config)
+        adapter = WatsonxEntityAdapter(config=watsonx_config)
 
         assert adapter.provider == "watsonx"
         assert adapter.model_name == "ibm/granite-13b-chat-v2"
@@ -110,7 +113,7 @@ class TestLLMEntityAdapterInitialization:
         }
 
         with pytest.raises(ValueError, match="Direct 'ollama' provider is deprecated"):
-            LLMEntityAdapter(config=config)
+            LiteLLMEntityAdapter(config=config)
 
     def test_validation_requires_provider(self):
         """Test that provider is required."""
@@ -119,7 +122,7 @@ class TestLLMEntityAdapterInitialization:
         }
 
         with pytest.raises(ValueError, match="'provider' is required"):
-            LLMEntityAdapter(config=config)
+            LiteLLMEntityAdapter(config=config)
 
     def test_validation_requires_model_name(self, litellm_config):
         """Test that model_name is required."""
@@ -127,7 +130,7 @@ class TestLLMEntityAdapterInitialization:
         del config[OperatorConstants.Config.MODEL_NAME]
 
         with pytest.raises(ValueError, match="is required for LLM entity extraction"):
-            LLMEntityAdapter(config=config)
+            LiteLLMEntityAdapter(config=config)
 
 
 class TestLLMEntityAdapterSchemaBasedExtraction:
@@ -135,7 +138,7 @@ class TestLLMEntityAdapterSchemaBasedExtraction:
 
     def test_extract_entities_with_schema(self, mock_llm_adapter, litellm_config, sample_schema):
         """Test entity extraction with a predefined schema."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         # Mock LLM response
         mock_response = json.dumps(
@@ -175,7 +178,7 @@ class TestLLMEntityAdapterSchemaFreeExtraction:
 
     def test_extract_entities_without_schema(self, mock_llm_adapter, litellm_config):
         """Test entity extraction without a predefined schema."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         # Mock LLM response for schema-free extraction
         mock_response = json.dumps(
@@ -206,7 +209,7 @@ class TestLLMEntityAdapterContentHandling:
 
     def test_content_truncation(self, mock_llm_adapter, litellm_config):
         """Test that content is truncated when exceeding max_doc_chars."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         # Create content longer than max_doc_chars (8000)
         long_content = "A" * 10000
@@ -232,7 +235,7 @@ class TestLLMEntityAdapterContentHandling:
 
     def test_bytes_to_string_conversion(self, mock_llm_adapter, litellm_config):
         """Test that bytes content is converted to string."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         bytes_content = b"This is binary content"
 
@@ -260,7 +263,7 @@ class TestLLMEntityAdapterJSONParsing:
 
     def test_parse_clean_json_response(self, mock_llm_adapter, litellm_config):
         """Test parsing clean JSON response."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         mock_response = json.dumps({"name": "John", "age": 30})
         mock_llm_adapter.chat.return_value = mock_response
@@ -279,7 +282,7 @@ class TestLLMEntityAdapterJSONParsing:
 
     def test_parse_json_with_markdown_fences(self, mock_llm_adapter, litellm_config):
         """Test parsing JSON wrapped in markdown code fences."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         mock_response = "```json\n" + json.dumps({"key": "value"}) + "\n```"
         mock_llm_adapter.chat.return_value = mock_response
@@ -297,7 +300,7 @@ class TestLLMEntityAdapterJSONParsing:
 
     def test_parse_invalid_json_returns_empty_dict(self, mock_llm_adapter, litellm_config):
         """Test that invalid JSON returns empty dict instead of failing."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         mock_response = "This is not JSON at all!"
         mock_llm_adapter.chat.return_value = mock_response
@@ -319,7 +322,7 @@ class TestLLMEntityAdapterErrorHandling:
 
     def test_llm_api_error(self, mock_llm_adapter, litellm_config):
         """Test handling of LLM API errors."""
-        adapter = LLMEntityAdapter(config=litellm_config)
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
 
         # Simulate API error
         mock_llm_adapter.chat.side_effect = Exception("API rate limit exceeded")
@@ -345,7 +348,7 @@ class TestLLMEntityAdapterMultiProvider:
             "docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             mock_factory.return_value = mock_llm_adapter
-            _ = LLMEntityAdapter(config=watsonx_config)
+            _ = WatsonxEntityAdapter(config=watsonx_config)
 
             # Verify factory was called with correct parameters
             mock_factory.assert_called_once()
@@ -360,7 +363,7 @@ class TestLLMEntityAdapterMultiProvider:
             "docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
             mock_factory.return_value = mock_llm_adapter
-            _ = LLMEntityAdapter(config=litellm_config)
+            _ = LiteLLMEntityAdapter(config=litellm_config)
 
             # Verify factory was called with correct parameters
             mock_factory.assert_called_once()
@@ -388,7 +391,7 @@ class TestLLMEntityAdapterValidation:
             mock_factory.return_value = mock_adapter
 
             # Create adapter - should call validate during initialization
-            adapter = LLMEntityAdapter(config=litellm_config)
+            adapter = LiteLLMEntityAdapter(config=litellm_config)
 
             # Verify validate was called
             mock_adapter.validate.assert_called_once()
@@ -411,7 +414,7 @@ class TestLLMEntityAdapterValidation:
 
             # Attempt to create adapter should raise DocpipeException
             with pytest.raises(DocpipeException, match="API key is required"):
-                LLMEntityAdapter(config=litellm_config)
+                LiteLLMEntityAdapter(config=litellm_config)
 
     def test_adapter_validation_with_warnings(self, litellm_config):
         """Test that warnings don't block adapter initialization."""
@@ -428,10 +431,135 @@ class TestLLMEntityAdapterValidation:
             mock_factory.return_value = mock_adapter
 
             # Create adapter - should succeed despite warnings
-            adapter = LLMEntityAdapter(config=litellm_config)
+            adapter = LiteLLMEntityAdapter(config=litellm_config)
 
             # Verify validate was called and adapter was created successfully
             mock_adapter.validate.assert_called_once()
             assert adapter.provider == "litellm"
             assert adapter.model_name == "openai/granite4:latest"
             # Note: Warning logging happens in LLMEntityAdapter._validate_adapter()
+
+
+class TestLLMEntityAdapterGetConfigSchema:
+    """Tests for get_config_schema static method on the provider subclasses."""
+
+    def test_litellm_get_config_schema_returns_llm_entity_config_class(self):
+        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_config import LLMEntityConfig
+
+        schema_cls = LiteLLMEntityAdapter.get_config_schema()
+        assert schema_cls is LLMEntityConfig
+
+    def test_watsonx_get_config_schema_returns_watsonx_entity_config_class(self):
+        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_config import (
+            WatsonxEntityConfig,
+        )
+
+        schema_cls = WatsonxEntityAdapter.get_config_schema()
+        assert schema_cls is WatsonxEntityConfig
+
+    def test_litellm_config_schema_is_pydantic_model(self):
+        from pydantic import BaseModel
+
+        schema_cls = LiteLLMEntityAdapter.get_config_schema()
+        assert issubclass(schema_cls, BaseModel)
+
+    def test_litellm_config_schema_has_expected_fields(self):
+        schema_cls = LiteLLMEntityAdapter.get_config_schema()
+        fields = schema_cls.model_fields
+        assert "model_id" in fields
+        assert "api_base" in fields
+        assert "api_key" in fields
+        assert "temperature" in fields
+        assert "max_tokens" in fields
+
+
+class TestLLMEntityAdapterBuildJsonTemplate:
+    """Tests for _build_json_template and _template_from_columns methods."""
+
+    def test_build_template_from_fields_format(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        schema = {
+            "fields": [
+                {"name": "invoice_number", "type": "string"},
+                {"name": "total", "type": "number"},
+            ]
+        }
+        template = adapter._build_json_template(schema=schema)
+        assert isinstance(template, dict)
+
+    def test_build_template_from_columns_format(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        schema = {"columns": {"invoice_number": "string", "total": "number"}}
+        template = adapter._build_json_template(schema=schema)
+        assert "invoice_number" in template
+        assert "total" in template
+
+    def test_build_template_from_flat_format(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        schema = {"invoice_number": "string", "total": "number"}
+        template = adapter._build_json_template(schema=schema)
+        assert "invoice_number" in template
+        assert "total" in template
+
+    def test_build_template_empty_schema_returns_empty_dict(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        template = adapter._build_json_template(schema={})
+        assert template == {}
+
+    def test_template_from_columns_dot_notation_nesting(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._template_from_columns({"address.street": "string", "address.city": "string"})
+        assert "address" in result
+        assert "street" in result["address"]
+        assert "city" in result["address"]
+
+    def test_template_from_columns_simple_keys(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._template_from_columns({"name": "string", "age": "integer"})
+        assert result == {"name": None, "age": None}
+
+
+class TestLLMEntityAdapterNormaliseResponse:
+    """Tests for _normalise_response method."""
+
+    def test_strips_key_whitespace(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response({" name ": "John", "  age  ": 30})
+        assert "name" in result
+        assert "age" in result
+
+    def test_converts_int_to_string(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response({"count": 42})
+        assert result["count"] == "42"
+
+    def test_converts_float_to_string(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response({"amount": 15.5})
+        assert result["amount"] == "15.5"
+
+    def test_preserves_none(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response({"field": None})
+        assert result["field"] is None
+
+    def test_preserves_bool(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response({"flag": True})
+        assert result["flag"] is True
+
+    def test_handles_list(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response([{"val": 1}, {"val": 2}])
+        assert result == [{"val": "1"}, {"val": "2"}]
+
+    def test_handles_nested_dict(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response({"vendor": {"name": "Acme", "id": 99}})
+        assert result["vendor"]["name"] == "Acme"
+        assert result["vendor"]["id"] == "99"
+
+    def test_passes_through_string(self, mock_llm_adapter, litellm_config):
+        adapter = LiteLLMEntityAdapter(config=litellm_config)
+        result = adapter._normalise_response("plain string")
+        assert result == "plain string"

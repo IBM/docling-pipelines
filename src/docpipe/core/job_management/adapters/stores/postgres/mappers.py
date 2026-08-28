@@ -2,8 +2,6 @@ from docpipe.core.constants.constants import ExecutionStatus
 from docpipe.core.job_management.domain.models.job_stats import JobStats
 from docpipe.core.job_management.domain.models.node_stats import NodeStats
 
-from .models import JobStatsModel, NodeStatsModel
-
 
 class PostgresModelMapper:
     """
@@ -12,11 +10,14 @@ class PostgresModelMapper:
     """
 
     @staticmethod
-    def to_db_job_stats(*, domain_model: JobStats) -> JobStatsModel:
+    def to_db_job_stats(*, domain_model: JobStats, job_stats_cls=None):
         """
         Convert domain JobStats to Postgres JobRunStats.
         """
-        return JobStatsModel(
+        from .models import JobStatsModel
+
+        cls = job_stats_cls or JobStatsModel
+        return cls(
             job_id=domain_model.job_id,
             job_run_id=domain_model.job_run_id,
             status=str(domain_model.status.value)
@@ -43,16 +44,22 @@ class PostgresModelMapper:
             user_id=domain_model.user_id,
             account_id=domain_model.account_id,
             user_entitlements=domain_model.user_entitlements,
+            report_status=domain_model.report_status,
+            report_generation_started_at=domain_model.report_generation_started_at,
+            report_generation_completed_at=domain_model.report_generation_completed_at,
         )
 
     @staticmethod
-    def to_db_node_stats(*, domain_model: NodeStats, job_run_id: str) -> NodeStatsModel:
+    def to_db_node_stats(*, domain_model: NodeStats, job_run_id: str, node_stats_cls=None):
         """
         Convert domain NodeStats to Postgres NodeStats.
         """
-        return NodeStatsModel(
+        from .models import NodeStatsModel
+
+        cls = node_stats_cls or NodeStatsModel
+        return cls(
             job_run_id=job_run_id,
-            node_id=domain_model.node_id,
+            node_id=domain_model.id,
             name=domain_model.name,
             node_status=str(domain_model.node_status.value)
             if hasattr(domain_model.node_status, "value")
@@ -73,7 +80,7 @@ class PostgresModelMapper:
         )
 
     @staticmethod
-    def to_domain_job_stats(*, db_model: JobStatsModel) -> JobStats:
+    def to_domain_job_stats(*, db_model) -> JobStats:
         """
         Convert Postgres JobRunStats to domain JobStats.
         """
@@ -102,15 +109,18 @@ class PostgresModelMapper:
             user_id=db_model.user_id,
             account_id=db_model.account_id,
             user_entitlements=db_model.user_entitlements,
+            report_status=db_model.report_status,
+            report_generation_started_at=db_model.report_generation_started_at,
+            report_generation_completed_at=db_model.report_generation_completed_at,
         )
 
     @staticmethod
-    def to_domain_node_stats(*, db_model: NodeStatsModel) -> NodeStats:
+    def to_domain_node_stats(*, db_model) -> NodeStats:
         """
         Convert Postgres NodeStats to domain NodeStats.
         """
         return NodeStats(
-            node_id=db_model.node_id,
+            id=db_model.node_id,
             name=db_model.name,
             node_status=db_model.node_status,
             start_time=db_model.start_time,
@@ -121,7 +131,7 @@ class PostgresModelMapper:
             failed_docs=db_model.failed_docs,
             skipped_docs=db_model.skipped_docs,
             docs_completed=db_model.docs_completed,
-            docs_completed_count=db_model.docs_completed_count,
+            docs_completed_count=getattr(db_model, "docs_completed_count", 0),
             node_metadata=db_model.node_metadata,
             error=db_model.error,
             batch_id=db_model.batch_id,

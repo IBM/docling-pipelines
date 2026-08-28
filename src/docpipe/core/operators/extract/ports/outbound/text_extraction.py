@@ -12,6 +12,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, 
 from typing import Any
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
@@ -21,6 +22,7 @@ from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
 from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.operators.non_recoverable_utils import is_non_recoverable_error, process_non_recoverable_errors
 
 logger: logging.Logger = get_logger()
 
@@ -113,6 +115,12 @@ class TextExtractionPort(ABC):
         """
         # Default implementation does nothing - subclasses override as needed
 
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        ...
+
     def _update_extraction_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int
     ) -> None:
@@ -183,9 +191,7 @@ class TextExtractionPort(ABC):
             # Don't fail extraction if progress update fails
             logger.warning("Failed to update extraction progress: %s", e, extra=self.common_log_arguments)
 
-    def transform(  # NOSONAR python:S3776
-        self, *, table: pa.Table, metadata: dict[str, Any]
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
         """Orchestrate parallel extraction across documents.
 
         This method implements the parallel processing pattern:
@@ -232,6 +238,7 @@ class TextExtractionPort(ABC):
 
         doc_pages_processed: list[int] = [0] * table.num_rows
         remove_row_idx: list[int] = []
+        non_recoverable_doc_ids: list[int] = []  # Track non-recoverable failed document indices
 
         # Progress tracking variables
         completed_count = 0
@@ -285,6 +292,7 @@ class TextExtractionPort(ABC):
                         format_lists=format_lists,
                         doc_pages_processed=doc_pages_processed,
                         remove_row_idx=remove_row_idx,
+                        non_recoverable_doc_ids=non_recoverable_doc_ids,
                         metadata=metadata,
                     )
 
@@ -341,6 +349,10 @@ class TextExtractionPort(ABC):
                     progress_percentage,
                     extra=self.common_log_arguments,
                 )
+
+        # Save original table before removing rows (needed for non-recoverable error processing)
+        original_table = table
+
         if remove_row_idx:
             table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
             doc_contents = [content for idx, content in enumerate(doc_contents) if idx not in remove_row_idx]
@@ -383,6 +395,16 @@ class TextExtractionPort(ABC):
             )
             logger.error(error_msg, extra=self.common_log_arguments)
             raise ValueError(error_msg)
+
+        # Process non-recoverable errors before returning
+        # This populates metadata[NON_RECOVERABLE_DOCS_TABLE] for the orchestrator to save
+        # Use original_table (before row removal) since non_recoverable_doc_ids contains original indices
+        metadata = process_non_recoverable_errors(
+            table=original_table,
+            non_recoverable_doc_ids=non_recoverable_doc_ids,
+            metadata=metadata,
+            common_log_arguments=self.common_log_arguments,
+        )
 
         # Set final status
         metadata[Metrics.External.NODE_STATUS] = (
@@ -439,9 +461,9 @@ class TextExtractionPort(ABC):
                 "error": str                        # Error message if failed
             }
         """
-        pass
+        ...
 
-    def _process_extraction_result(  # NOSONAR python:S3776
+    def _process_extraction_result(
         self,
         *,
         result: dict[str, Any],
@@ -452,6 +474,7 @@ class TextExtractionPort(ABC):
         format_lists: dict[str, list[str | None]],
         doc_pages_processed: list[int],
         remove_row_idx: list[int],
+        non_recoverable_doc_ids: list[int],
         metadata: dict[str, Any],
     ) -> None:
         """Process extraction result and update data structures.
@@ -468,6 +491,7 @@ class TextExtractionPort(ABC):
             format_lists: Dictionary mapping format names to their content lists
             doc_pages_processed: List to store page counts
             remove_row_idx: List of row indices to remove
+            non_recoverable_doc_ids: List to track indices of documents with non-recoverable errors
             metadata: Metadata dictionary to update with processing stats
         """
         if result[OperatorConstants.Extraction.SUCCESS]:
@@ -501,15 +525,27 @@ class TextExtractionPort(ABC):
             return
 
         # Handle extraction failure
+        error_message = result.get(OperatorConstants.Extraction.ERROR, "Unknown error")
+
+        # Check if error is non-recoverable (password-protected, corrupted, etc.)
+        if is_non_recoverable_error(error_message):
+            non_recoverable_doc_ids.append(idx)
+            # Enhance error message to indicate document won't be reprocessed
+            error_message = f"{error_message}. This document will not be processed in future flow executions unless the document is modified."
+            logger.warning(
+                "Non-recoverable error detected for document %s: %s",
+                task["doc_name"],
+                error_message,
+                extra=self.common_log_arguments,
+            )
+
         AbstractOperator.record_failed_document(
             metadata=metadata,
             doc_id=str(task["doc_id"]),
             doc_name=task["doc_name"],
-            reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
+            reason=error_message,
         )
-        logger.error(
-            "Failed to extract content from %s: %s", task["doc_name"], result.get(OperatorConstants.Extraction.ERROR)
-        )
+        logger.error("Failed to extract content from %s: %s", task["doc_name"], error_message)
         remove_row_idx.append(idx)
 
     def _check_existing_features(self, *, table: pa.Table) -> bool:

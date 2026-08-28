@@ -36,7 +36,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger()
 
 
-class DuckDBJobStatsStore(JobStatsStore):
+class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
     """
     DuckDB-backed storage for job statistics.
 
@@ -242,7 +242,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                     return None
 
                 # Convert to dict
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
                 data = dict(zip(columns, result, strict=False))
 
                 # Parse JSON fields
@@ -292,7 +292,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                     WHERE job_run_id = ? AND node_id = ? AND
                           (batch_id = ? OR (batch_id IS NULL AND ? IS NULL))
                 """,
-                    [job_run_id, data["node_id"], data.get("batch_id"), data.get("batch_id")],
+                    [job_run_id, data["id"], data.get("batch_id"), data.get("batch_id")],
                 ).fetchone()
 
                 if existing:
@@ -338,7 +338,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                     """,
                         [
                             job_run_id,
-                            data["node_id"],
+                            data["id"],
                             data["name"],
                             data.get("batch_id"),
                             data.get("batch_num"),
@@ -358,7 +358,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                     )
 
                 logger.debug(
-                    f"Stored node stats: job_run_id={job_run_id}, node_id={data['node_id']}, batch_id={data.get('batch_id')}"
+                    f"Stored node stats: job_run_id={job_run_id}, node_id={data['id']}, batch_id={data.get('batch_id')}"
                 )
         except Exception as e:
             logger.error(f"Failed to store node stats: {e}")
@@ -386,7 +386,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                 ).fetchall()
 
                 node_stats_list = []
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
 
                 for result in results:
                     data = dict(zip(columns, result, strict=False))
@@ -403,9 +403,10 @@ class DuckDBJobStatsStore(JobStatsStore):
                         if data.get(field):
                             data[field] = json.loads(data[field])
 
-                    # Remove id and job_run_id (not part of domain model)
+                    # Remove auto-increment id and job_run_id; map node_id -> id
                     data.pop("id", None)
                     data.pop("job_run_id", None)
+                    data["id"] = data.pop("node_id")
 
                     node_stats_list.append(NodeStats(**data))
 
@@ -439,7 +440,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                 ).fetchall()
 
                 batch_stats: dict[str, dict[str, NodeStats]] = {}
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
 
                 for result in results:
                     data = dict(zip(columns, result, strict=False))
@@ -459,9 +460,10 @@ class DuckDBJobStatsStore(JobStatsStore):
                     node_id = data["node_id"]
                     batch_id = data["batch_id"]
 
-                    # Remove id and job_run_id
+                    # Remove auto-increment id and job_run_id; map node_id -> id
                     data.pop("id", None)
                     data.pop("job_run_id", None)
+                    data["id"] = data.pop("node_id")
 
                     if node_id not in batch_stats:
                         batch_stats[node_id] = {}
@@ -521,7 +523,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                         """,
                             [
                                 job_run_id,
-                                data["node_id"],
+                                data["id"],
                                 data["name"],
                                 data.get("batch_id"),
                                 data.get("batch_num"),
@@ -558,7 +560,7 @@ class DuckDBJobStatsStore(JobStatsStore):
         job_run_id: str,
         increments: dict[str, int],
         updates: dict[str, Any] | None = None,
-        jsonb_merges: dict[str, dict] | None = None,
+        jsonb_merges: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """
         Atomically increment numeric fields and update others.
@@ -599,7 +601,8 @@ class DuckDBJobStatsStore(JobStatsStore):
                         for field_name, merge_dict in jsonb_merges.items():
                             # Read current value
                             current = conn.execute(
-                                f"SELECT {field_name} FROM job_stats WHERE job_run_id = ?", [job_run_id]
+                                f"SELECT {field_name} FROM job_stats WHERE job_run_id = ?",  # nosec B608 — field_name is an internal dict key from known schema fields, not user input
+                                [job_run_id],
                             ).fetchone()
 
                             if current and current[0]:
@@ -614,7 +617,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                     # Execute update
                     if set_clauses:
                         params.append(job_run_id)
-                        sql = f"UPDATE job_stats SET {', '.join(set_clauses)} WHERE job_run_id = ?"
+                        sql = f"UPDATE job_stats SET {', '.join(set_clauses)} WHERE job_run_id = ?"  # nosec B608 — field_name values are internal schema keys, not user input
                         conn.execute(sql, params)
 
                     conn.execute("COMMIT")
@@ -669,7 +672,7 @@ class DuckDBJobStatsStore(JobStatsStore):
                 if result is None:
                     return None
 
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
                 data = dict(zip(columns, result, strict=False))
 
                 # Parse JSON fields
@@ -684,9 +687,10 @@ class DuckDBJobStatsStore(JobStatsStore):
                     if data.get(field):
                         data[field] = json.loads(data[field])
 
-                # Remove id and job_run_id
+                # Remove auto-increment id and job_run_id; map node_id -> id
                 data.pop("id", None)
                 data.pop("job_run_id", None)
+                data["id"] = data.pop("node_id")
 
                 return NodeStats(**data)
         except Exception as e:
@@ -732,6 +736,7 @@ class DuckDBJobStatsStore(JobStatsStore):
     def list_job_runs(
         self,
         job_id: str | None = None,
+        job_ids: list[str] | None = None,
         status: ExecutionStatus | str | None = None,
         limit: int = 100,
     ) -> list[JobStats]:
@@ -739,7 +744,8 @@ class DuckDBJobStatsStore(JobStatsStore):
         List job runs with optional filters.
 
         Args:
-            job_id: Optional filter by job_id
+            job_id: Optional filter by a single job_id
+            job_ids: Optional filter by a set of job_ids (adds WHERE job_id IN (...) clause)
             status: Optional filter by status
             limit: Maximum number of results
 
@@ -759,6 +765,11 @@ class DuckDBJobStatsStore(JobStatsStore):
                     where_clauses.append("job_id = ?")
                     params.append(job_id)
 
+                if job_ids:
+                    placeholders = ", ".join("?" * len(job_ids))
+                    where_clauses.append(f"job_id IN ({placeholders})")
+                    params.extend(job_ids)
+
                 if status:
                     status_value = status.value if isinstance(status, ExecutionStatus) else status
                     where_clauses.append("status = ?")
@@ -771,13 +782,13 @@ class DuckDBJobStatsStore(JobStatsStore):
                     {where_sql}
                     ORDER BY start_time DESC
                     LIMIT ?
-                """
+                """  # nosec B608 — where_sql is built from parameterised clauses with no user-controlled identifiers
                 params.append(limit)
 
                 results = conn.execute(sql, params).fetchall()
 
                 job_stats_list = []
-                columns = [desc[0] for desc in conn.description]  # type: ignore[union-attr]
+                columns = [desc[0] for desc in conn.description]
 
                 for result in results:
                     data = dict(zip(columns, result, strict=False))

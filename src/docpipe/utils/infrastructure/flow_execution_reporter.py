@@ -4,7 +4,7 @@ This module provides reporting for flow execution using the logging system
 at INFO level. Users can control visibility via DS_LOG_LEVEL environment variable.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from docpipe.core.constants.operator_constants import OperatorConstants
@@ -28,7 +28,7 @@ class FlowExecutionReporter:
 
     # Fields already shown in header or schema section
     _STANDARD_FIELDS: ClassVar[set[str]] = {
-        "total_docs_count",
+        "documents_in_scope",
         "processed_docs",
         "failed_docs_count",
         "skipped_docs_count",
@@ -53,7 +53,7 @@ class FlowExecutionReporter:
             flow_name: Name of the flow being executed
             operator_count: Number of operators in the flow
         """
-        self._flow_start_time = datetime.now()
+        self._flow_start_time = datetime.now(tz=UTC)
         logger.info("")
         logger.info("=" * 80)
         logger.info(f" FLOW: {flow_name}")
@@ -124,7 +124,7 @@ class FlowExecutionReporter:
             return "< 1s"
         return f"{float(time_taken):.2f}s"
 
-    def _print_schema_info(self, *, col_names: list[str], step_name: str) -> None:  # NOSONAR python:S3776
+    def _print_schema_info(self, *, col_names: list[str], step_name: str) -> None:
         """Print schema/column information in a user-friendly format.
 
         Args:
@@ -223,7 +223,7 @@ class FlowExecutionReporter:
                 # New columns are those in current but not in previous
                 if curr_cols:
                     return list(curr_cols - prev_cols)
-            except Exception:
+            except Exception:  # nosec B110 — intentional: schema diff is non-critical reporting; any comparison failure silently yields empty list
                 # If table comparison fails, return empty list
                 pass
 
@@ -250,7 +250,7 @@ class FlowExecutionReporter:
                 # Removed columns are those in previous but not in current
                 if prev_cols:
                     return list(prev_cols - curr_cols)
-            except Exception:
+            except Exception:  # nosec B110 — intentional: schema diff is non-critical reporting; any comparison failure silently yields empty list
                 # If table comparison fails, return empty list
                 pass
 
@@ -456,7 +456,7 @@ class FlowExecutionReporter:
             display_name = field.replace("_", " ").title()
             self._format_dict_field(display_name, value)
 
-    def _format_dict_field(self, display_name: str, value: dict) -> None:  # NOSONAR python:S3776
+    def _format_dict_field(self, display_name: str, value: dict) -> None:
         """Format and print a dictionary field."""
         has_nested_dicts = any(isinstance(v, dict) for v in value.values())
 
@@ -538,7 +538,7 @@ class FlowExecutionReporter:
         else:
             logger.info(f"   {display_name}: []")
 
-    def _lookup_doc_name_from_table(self, doc_id: str) -> str | None:  # NOSONAR python:S3776
+    def _lookup_doc_name_from_table(self, doc_id: str) -> str | None:
         """Look up document name from PyArrow table using document ID.
 
         Args:

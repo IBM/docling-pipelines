@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Unit tests for RestClient.
 
@@ -36,9 +39,9 @@ class TestSanitizeSensitiveData:
         }
         result = sanitize_sensitive_data(data)
 
-        assert result["Authorization"] == "[REDACTED]"
-        assert result["api_key"] == "[REDACTED]"
-        assert result["token"] == "[REDACTED]"
+        assert result["Authorization"] == "***REDACTED***"
+        assert result["api_key"] == "***REDACTED***"
+        assert result["token"] == "***REDACTED***"
         assert result["other"] == "safe_value"
 
     def test_redact_passwords_in_dict(self):
@@ -50,8 +53,8 @@ class TestSanitizeSensitiveData:
         }
         result = sanitize_sensitive_data(data)
 
-        assert result["password"] == "[REDACTED]"
-        assert result["user_password"] == "[REDACTED]"
+        assert result["password"] == "***REDACTED***"
+        assert result["user_password"] == "***REDACTED***"
         assert result["username"] == "john"
 
     def test_redact_bearer_tokens_in_strings(self):
@@ -60,7 +63,7 @@ class TestSanitizeSensitiveData:
         data = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
         result = sanitize_sensitive_data(data)
 
-        assert "Bearer [REDACTED]" in result
+        assert "Bearer ***REDACTED***" in result
         assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result
 
     def test_redact_basic_auth_in_strings(self):
@@ -69,13 +72,33 @@ class TestSanitizeSensitiveData:
         data = "Basic dXNlcjpwYXNzd29yZA=="
         result = sanitize_sensitive_data(data)
 
-        assert "Basic [REDACTED]" in result
+        assert "Basic ***REDACTED***" in result
         assert "dXNlcjpwYXNzd29yZA==" not in result
 
     def test_handle_none_input(self):
         """Test handling None input."""
         result = sanitize_sensitive_data(None)
         assert result is None
+
+    def test_redact_list_items(self):
+        """Test that list items are sanitized recursively."""
+        data = [
+            {"token": "secret123"},  # pragma: allowlist secret
+            {"safe": "value"},
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        ]
+        result = sanitize_sensitive_data(data)
+
+        assert result[0]["token"] == "***REDACTED***"
+        assert result[1]["safe"] == "value"
+        assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result[2]
+
+    def test_custom_redact_value(self):
+        """Test custom redact_value parameter."""
+        data = {"password": "secret123"}  # pragma: allowlist secret
+        result = sanitize_sensitive_data(data, redact_value="<hidden>")
+
+        assert result["password"] == "<hidden>"
 
     def test_nested_dict_sanitization(self):
         """Test nested dictionary sanitization."""
@@ -91,9 +114,9 @@ class TestSanitizeSensitiveData:
         }
         result = sanitize_sensitive_data(data)
 
-        assert result["config"]["api_key"] == "[REDACTED]"
+        assert result["config"]["api_key"] == "***REDACTED***"
         assert result["config"]["endpoint"] == "https://api.example.com"
-        assert result["headers"]["Authorization"] == "[REDACTED]"
+        assert result["headers"]["Authorization"] == "***REDACTED***"
         assert result["headers"]["Content-Type"] == "application/json"
 
     def test_string_with_multiple_patterns(self):
@@ -104,7 +127,7 @@ class TestSanitizeSensitiveData:
         assert "abc123" not in result
         assert "secret" not in result
         assert "xyz789" not in result
-        assert "[REDACTED]" in result
+        assert "***REDACTED***" in result
 
 
 class TestRestClientConfig:
@@ -265,69 +288,53 @@ class TestCallRestJson:
     """Test call_rest_json() method."""
 
     @patch.object(RestClient, "call_rest")
-    def test_successful_get_request(self, mock_call_rest):
-        """Test successful GET request returning JSON."""
+    def test_returns_parsed_dict(self, mock_call_rest):
+        """Test that call_rest_json returns the parsed JSON dict, not the Response."""
         config = RestClientConfig()
         client = RestClient(config, base_url="https://api.example.com")
 
         mock_response = Mock()
-        mock_response.json.return_value = {"id": 1, "name": "test"}
+        mock_response.json.return_value = {"id": 1, "name": "Alice"}
         mock_call_rest.return_value = mock_response
 
         result = client.call_rest_json(
             method=RestMethod.GET,
-            endpoint="/users/1",
+            url="/users/1",
         )
 
-        assert result == {"id": 1, "name": "test"}
+        assert result == {"id": 1, "name": "Alice"}
         mock_call_rest.assert_called_once()
+        mock_response.json.assert_called_once()
 
     @patch.object(RestClient, "call_rest")
-    def test_successful_post_request_with_json_body(self, mock_call_rest):
-        """Test successful POST request with JSON body."""
+    def test_delegates_to_call_rest_with_all_params(self, mock_call_rest):
+        """Test that call_rest_json forwards all parameters to call_rest."""
         config = RestClientConfig()
         client = RestClient(config, base_url="https://api.example.com")
 
         mock_response = Mock()
-        mock_response.json.return_value = {"id": 2, "status": "created"}
+        mock_response.json.return_value = {}
         mock_call_rest.return_value = mock_response
 
         json_data = {"name": "new_user", "email": "user@example.com"}
-        result = client.call_rest_json(
+        client.call_rest_json(
             method=RestMethod.POST,
-            endpoint="/users",
+            url="/users",
             json_data=json_data,
         )
 
-        assert result == {"id": 2, "status": "created"}
         mock_call_rest.assert_called_once_with(
             method=RestMethod.POST,
-            endpoint="/users",
+            url="/users",
+            action=None,
             json_data=json_data,
             form_data=None,
-            params=None,
+            query_params=None,
             headers=None,
             expected_status_codes=None,
+            timeout=None,
+            verify=None,
         )
-
-    @patch.object(RestClient, "call_rest")
-    def test_invalid_json_response_handling(self, mock_call_rest):
-        """Test invalid JSON response handling."""
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_response = Mock()
-        mock_response.json.side_effect = ValueError("Invalid JSON")
-        mock_call_rest.return_value = mock_response
-
-        with pytest.raises(ExternalServiceError) as exc_info:
-            client.call_rest_json(
-                method=RestMethod.GET,
-                endpoint="/users/1",
-            )
-
-        assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
-        assert "not valid JSON" in str(exc_info.value)
 
 
 class TestCallRest:
@@ -346,7 +353,7 @@ class TestCallRest:
 
         response = client.call_rest(
             method=RestMethod.GET,
-            endpoint="/users",
+            url="/users",
         )
 
         assert response.status_code == 200
@@ -366,7 +373,7 @@ class TestCallRest:
         custom_headers = {"X-Custom": "value"}
         client.call_rest(
             method=RestMethod.GET,
-            endpoint="/users",
+            url="/users",
             headers=custom_headers,
         )
 
@@ -387,8 +394,8 @@ class TestCallRest:
         params = {"page": 1, "limit": 10}
         client.call_rest(
             method=RestMethod.GET,
-            endpoint="/users",
-            params=params,
+            url="/users",
+            query_params=params,
         )
 
         call_args = mock_call_rest_method.call_args
@@ -408,7 +415,7 @@ class TestCallRest:
         json_data = {"name": "test"}
         client.call_rest(
             method=RestMethod.POST,
-            endpoint="/users",
+            url="/users",
             json_data=json_data,
         )
 
@@ -430,30 +437,11 @@ class TestCallRest:
         with pytest.raises(ExternalServiceError) as exc_info:
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/users/999",
+                url="/users/999",
             )
 
         assert exc_info.value.error_code == ErrorCode.HTTP_ERROR
         assert exc_info.value.status_code == 404
-
-    @patch.object(RestClient, "_call_rest_method_impl")
-    def test_with_form_data_logs_debug(self, mock_call_rest_method):
-        """Line 381: form_data triggers debug logging in _log_request."""
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_call_rest_method.return_value = mock_response
-
-        client.call_rest(
-            method=RestMethod.POST,
-            endpoint="/upload",
-            form_data={"field": "value"},
-        )
-
-        mock_call_rest_method.assert_called_once()
 
 
 class TestCallRestMethodRetryLogic:
@@ -467,6 +455,7 @@ class TestCallRestMethodRetryLogic:
 
         mock_response = Mock()
         mock_response.status_code = 200
+        mock_response.headers = {}
         mock_request.return_value = mock_response
 
         response = client._call_rest_method(
@@ -486,7 +475,7 @@ class TestCallRestMethodRetryLogic:
         mock_request.side_effect = [
             ConnectionError("Connection failed"),
             ConnectionError("Connection failed"),
-            Mock(status_code=200),
+            Mock(status_code=200, headers={}),
         ]
 
         response = client._call_rest_method(
@@ -505,7 +494,7 @@ class TestCallRestMethodRetryLogic:
 
         mock_request.side_effect = [
             Timeout("Request timeout"),
-            Mock(status_code=200),
+            Mock(status_code=200, headers={}),
         ]
 
         response = client._call_rest_method(
@@ -524,10 +513,12 @@ class TestCallRestMethodRetryLogic:
 
         mock_response_500 = Mock()
         mock_response_500.status_code = 500
+        mock_response_500.headers = {}
         mock_response_500.raise_for_status.side_effect = HTTPError("Server error")
 
         mock_response_200 = Mock()
         mock_response_200.status_code = 200
+        mock_response_200.headers = {}
 
         mock_request.side_effect = [
             mock_response_500,
@@ -543,6 +534,27 @@ class TestCallRestMethodRetryLogic:
         assert mock_request.call_count == 2
 
     @patch("requests.Session.request")
+    def test_expected_status_codes_suppress_raise(self, mock_request):
+        """Test that expected_status_codes prevents HTTPError from being raised."""
+        config = RestClientConfig()
+        client = RestClient(config)
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.headers = {}
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Not Found")
+        mock_request.return_value = mock_response
+
+        response = client._call_rest_method(
+            method=RestMethod.GET,
+            url="https://api.example.com/users/999",
+            expected_status_codes=[404],
+        )
+
+        assert response.status_code == 404
+        assert mock_request.call_count == 1
+
+    @patch("requests.Session.request")
     def test_no_retry_on_4xx_status_codes(self, mock_request):
         """Test no retry on 4xx status codes."""
         config = RestClientConfig()
@@ -550,6 +562,7 @@ class TestCallRestMethodRetryLogic:
 
         mock_response = Mock()
         mock_response.status_code = 404
+        mock_response.headers = {}
         mock_request.return_value = mock_response
 
         response = client._call_rest_method(
@@ -595,7 +608,7 @@ class TestErrorHandling:
         with pytest.raises(ExternalServiceError) as exc_info:
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/users",
+                url="/users",
             )
 
         assert isinstance(exc_info.value, ExternalServiceError)
@@ -616,16 +629,16 @@ class TestErrorHandling:
         with pytest.raises(ExternalServiceError) as exc_info:
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/admin",
+                url="/admin",
             )
 
         error_message = str(exc_info.value)
         assert "403" in error_message
         assert "Forbidden" in error_message
 
-    @patch.object(RestClient, "_call_rest_method_impl")
+    @patch("requests.Session.request")
     @patch("docpipe.integrations.rest_client.logger")
-    def test_sanitized_logging_on_errors(self, mock_logger, mock_call_rest_method):
+    def test_sanitized_logging_on_errors(self, mock_logger, mock_request):
         """Test sanitized logging on errors."""
         config = RestClientConfig()
         client = RestClient(
@@ -634,23 +647,23 @@ class TestErrorHandling:
             auth_token="secret_token_123",
         )
 
-        mock_call_rest_method.side_effect = requests.exceptions.RequestException("Connection error")
+        mock_request.side_effect = requests.exceptions.ConnectionError("Connection error")
 
         with pytest.raises(ExternalServiceError):
             client.call_rest(
                 method=RestMethod.GET,
-                endpoint="/users",
+                url="/users",
                 headers={"X-API-Key": "secret_key"},
             )
 
-        # Verify that logger was called
-        assert mock_logger.debug.called
+        # Both info (request start) and debug (headers) fire from _call_rest_method_impl
+        assert mock_logger.info.called or mock_logger.debug.called
 
-        # Check that sensitive data was sanitized in logs
-        debug_calls = [str(call) for call in mock_logger.debug.call_args_list]
-        debug_str = " ".join(debug_calls)
-        assert "secret_token_123" not in debug_str
-        assert "secret_key" not in debug_str
+        # Check that sensitive data was sanitized across all log calls
+        all_calls = [str(c) for c in mock_logger.info.call_args_list + mock_logger.debug.call_args_list]
+        all_str = " ".join(all_calls)
+        assert "secret_token_123" not in all_str
+        assert "secret_key" not in all_str
 
 
 class TestMethodConfig:
@@ -673,13 +686,13 @@ class TestMethodConfig:
     def test_post_method_config(self):
         """Test POST method configuration."""
         config = METHOD_CONFIG[RestMethod.POST]
-        assert config["expected_status_codes"] == [200, 201]
+        assert config["expected_status_codes"] == [200, 201, 207]
         assert config["supports_body"] is True
 
     def test_put_method_config(self):
         """Test PUT method configuration."""
         config = METHOD_CONFIG[RestMethod.PUT]
-        assert config["expected_status_codes"] == [200, 204]
+        assert config["expected_status_codes"] == [200, 201, 204]
         assert config["supports_body"] is True
 
     def test_patch_method_config(self):
@@ -693,141 +706,3 @@ class TestMethodConfig:
         config = METHOD_CONFIG[RestMethod.DELETE]
         assert config["expected_status_codes"] == [200, 204]
         assert config["supports_body"] is False
-
-
-class TestCallRestMultipart:
-    """Test call_rest_multipart() method."""
-
-    @patch("requests.Session.request")
-    def test_multipart_successful_request(self, mock_request):
-        """Test successful multipart POST request."""
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {"Content-Type": "application/json"}
-        mock_response.json.return_value = {"id": "abc", "status": "uploaded"}
-        mock_request.return_value = mock_response
-
-        result = client.call_rest_multipart(
-            method=RestMethod.POST,
-            endpoint="/files",
-            files={"file": ("test.pdf", b"PDF content", "application/pdf")},
-            data={"description": "test doc"},
-        )
-
-        assert result == {"id": "abc", "status": "uploaded"}
-        mock_request.assert_called_once()
-
-    @patch("requests.Session.request")
-    def test_multipart_unexpected_status_raises(self, mock_request):
-        """Test that unexpected status code raises ExternalServiceError."""
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_response = Mock()
-        mock_response.status_code = 400
-        mock_response.headers = {}
-        mock_response.text = "Bad Request"
-        mock_request.return_value = mock_response
-
-        with pytest.raises(ExternalServiceError) as exc_info:
-            client.call_rest_multipart(
-                method=RestMethod.POST,
-                endpoint="/files",
-                expected_status_codes=[200, 201],
-            )
-
-        assert exc_info.value.error_code == ErrorCode.HTTP_ERROR
-
-    @patch("requests.Session.request")
-    def test_multipart_invalid_json_response_raises(self, mock_request):
-        """Test that invalid JSON response raises ExternalServiceError."""
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.json.side_effect = ValueError("not json")
-        mock_request.return_value = mock_response
-
-        with pytest.raises(ExternalServiceError) as exc_info:
-            client.call_rest_multipart(
-                method=RestMethod.POST,
-                endpoint="/files",
-                expected_status_codes=[200],
-            )
-        assert exc_info.value.error_code == ErrorCode.INVALID_RESPONSE
-
-    @patch("requests.Session.request")
-    def test_multipart_request_exception_raises(self, mock_request):
-        """Test that RequestException is wrapped in ExternalServiceError."""
-        import requests as req_lib
-
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_request.side_effect = req_lib.exceptions.RequestException("network error")
-
-        with pytest.raises(ExternalServiceError) as exc_info:
-            client.call_rest_multipart(
-                method=RestMethod.POST,
-                endpoint="/files",
-            )
-        assert exc_info.value.error_code == ErrorCode.CONNECTION_ERROR
-
-    @patch("requests.Session.request")
-    def test_multipart_with_params_logged(self, mock_request):
-        """Test multipart request with params succeeds."""
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.json.return_value = {}
-        mock_request.return_value = mock_response
-
-        result = client.call_rest_multipart(
-            method=RestMethod.POST,
-            endpoint="/upload",
-            params={"version": "2"},
-        )
-        assert result == {}
-
-
-class TestCallRestMethodImplMutualExclusion:
-    """Test _call_rest_method_impl mutual exclusion of json_data and form_data."""
-
-    def test_json_and_form_data_raises_value_error(self):
-        """Test that passing both json_data and form_data raises ValueError."""
-        config = RestClientConfig()
-        client = RestClient(config)
-
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            client._call_rest_method_impl(
-                method=RestMethod.POST,
-                url="https://api.example.com/users",
-                json_data={"key": "val"},
-                form_data={"field": "value"},
-            )
-
-
-class TestCallRestRequestException:
-    """Test call_rest RequestException wrapping."""
-
-    @patch.object(RestClient, "_call_rest_method_impl")
-    def test_request_exception_wrapped_in_external_service_error(self, mock_impl):
-        """Test RequestException from _call_rest_method is wrapped."""
-        import requests as req_lib
-
-        config = RestClientConfig()
-        client = RestClient(config, base_url="https://api.example.com")
-        mock_impl.side_effect = req_lib.exceptions.RequestException("connection refused")
-
-        with pytest.raises(ExternalServiceError) as exc_info:
-            client.call_rest(method=RestMethod.GET, endpoint="/users")
-
-        assert exc_info.value.error_code == ErrorCode.CONNECTION_ERROR

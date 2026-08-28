@@ -1,6 +1,6 @@
 {
   "flow_name": "Quality Pipeline with Branching",
-  "description": "Comprehensive quality operators showcase: Ingest → Extract → Language Detection → Dedup (removes 2 duplicate documents) → Doc Quality → Readability → Branching (on flesch_reading_ease) → [High Quality: ML Enrichment → Embeddings → OpenSearch] | [Low Quality: SQLFilter → Embeddings → OpenSearch]. Demonstrates DocQuality, Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
+  "description": "Comprehensive quality operators showcase: Ingest \u2192 Extract \u2192 Language Detection \u2192 Dedup (removes 2 duplicate documents) \u2192 Doc Quality \u2192 Readability \u2192 Branching (on flesch_reading_ease) \u2192 [High Quality: ML Enrichment \u2192 Embeddings \u2192 OpenSearch] | [Low Quality: SQLFilter \u2192 Embeddings \u2192 OpenSearch]. Demonstrates DocQuality, Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -11,11 +11,15 @@
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "tests/fixtures/customer_support_docs/",
-        "include_filter": "txt,pdf",
-        "max_workers": 2
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "tests/fixtures/customer_support_docs/"
+          ]
+        },
+        "include_filter": "txt,pdf"
       }
     },
     {
@@ -154,12 +158,12 @@
       "type": "vectordb",
       "config": {
         "provider": "opensearch",
-        "index_name": "high_quality_docs",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 2560,
         "create_index": "true",
         "provider_config": {
+          "index_name": "high_quality_docs",
           "host": "localhost",
           "port": 9200,
           "username": "${OPENSEARCH_USERNAME}",
@@ -171,55 +175,36 @@
           "algorithm": "hnsw",
           "space_type": "l2"
         },
-        "available_features": {
-          "doc_id_hash": {
-            "name": "Document ID",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "string",
-            "is_primary": true
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
           },
-          "name": {
-            "name": "Document Name",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "name",
+            "mapped_column_name": "doc_name"
           },
-          "content": {
-            "name": "Content",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
           },
-          "embeddings": {
-            "name": "Embeddings",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
           },
-          "lang_name": {
-            "name": "Language",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "lang_name",
+            "mapped_column_name": "language"
           },
-          "flesch_reading_ease": {
-            "name": "Flesch Reading Ease",
-            "available_for_vector_db": true,
-            "type": "float"
+          {
+            "feature_name": "flesch_reading_ease",
+            "mapped_column_name": "readability_score"
           },
-          "ml_num_words": {
-            "name": "Word Count",
-            "available_for_vector_db": true,
-            "type": "integer"
+          {
+            "feature_name": "ml_num_words",
+            "mapped_column_name": "word_count"
           }
-        },
-        "feature_mappings": {
-          "doc_id_hash": "pk",
-          "name": "doc_name",
-          "content": "text",
-          "embeddings": "vector_embeddings",
-          "lang_name": "language",
-          "flesch_reading_ease": "readability_score",
-          "ml_num_words": "word_count"
-        }
+        ]
       },
       "depends_on": [
         "embeddings_high_quality"
@@ -267,12 +252,12 @@
       "type": "vectordb",
       "config": {
         "provider": "opensearch",
-        "index_name": "low_quality_docs",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 2560,
         "create_index": "true",
         "provider_config": {
+          "index_name": "low_quality_docs",
           "host": "localhost",
           "port": 9200,
           "username": "${OPENSEARCH_USERNAME}",
@@ -284,55 +269,36 @@
           "algorithm": "hnsw",
           "space_type": "l2"
         },
-        "available_features": {
-          "doc_id_hash": {
-            "name": "Document ID",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "string",
-            "is_primary": true
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
           },
-          "name": {
-            "name": "Document Name",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "name",
+            "mapped_column_name": "doc_name"
           },
-          "content": {
-            "name": "Content",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
           },
-          "embeddings": {
-            "name": "Embeddings",
-            "available_for_vector_db": true,
-            "mandatory_for_vector_db": true,
-            "type": "vector"
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
           },
-          "lang_name": {
-            "name": "Language",
-            "available_for_vector_db": true,
-            "type": "string"
+          {
+            "feature_name": "lang_name",
+            "mapped_column_name": "language"
           },
-          "flesch_reading_ease": {
-            "name": "Flesch Reading Ease",
-            "available_for_vector_db": true,
-            "type": "float"
+          {
+            "feature_name": "flesch_reading_ease",
+            "mapped_column_name": "readability_score"
           },
-          "difficult_words": {
-            "name": "Difficult Words Count",
-            "available_for_vector_db": true,
-            "type": "float"
+          {
+            "feature_name": "difficult_words",
+            "mapped_column_name": "difficult_words"
           }
-        },
-        "feature_mappings": {
-          "doc_id_hash": "pk",
-          "name": "doc_name",
-          "content": "text",
-          "embeddings": "vector_embeddings",
-          "lang_name": "language",
-          "flesch_reading_ease": "readability_score",
-          "difficult_words": "difficult_words"
-        }
+        ]
       },
       "depends_on": [
         "embeddings_low_quality"

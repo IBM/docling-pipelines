@@ -1,12 +1,12 @@
 """Box source adapter using Box SDK directly."""
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-from box_sdk_gen import BoxClient, BoxJWTAuth, JWTConfig
+from box_sdk_gen import BoxClient
 
+from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
 from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
 from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from docpipe.core.operators.ingest.domain.models import Document
@@ -24,35 +24,21 @@ class BoxSourceAdapter(DocumentSourcePort):
     SOURCE_DISPLAY_NAME = "Box Driver"
     CONFIG_CLASS = BoxSourceConfig
 
+    def __init__(self) -> None:
+        # Cache authenticated BoxClient keyed by credentials_path so a single JWT
+        # auth flow is performed for all documents in a batch.
+        self._client_cache: dict[str, BoxClient] = {}
+
     def _get_box_client(self, *, config: BoxSourceConfig) -> BoxClient:
-        """Get authenticated Box client from JWT config."""
-        credentials_path = Path(config.credentials_path)
+        """Return a cached authenticated Box client for the given credentials path.
 
-        try:
-            if not credentials_path.exists():
-                raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
-            if not credentials_path.is_file():
-                raise ValueError(f"Credentials path is not a file: {credentials_path}")
-
-            with open(credentials_path, encoding="utf-8") as config_file:
-                box_config = json.load(config_file)
-
-            jwt_config = JWTConfig.from_config_json_string(json.dumps(box_config))
-            auth = BoxJWTAuth(config=jwt_config)
-            client = BoxClient(auth=auth)
-            return client
-
-        except PermissionError as e:
-            raise PermissionError(
-                f"Permission denied accessing credentials file: {credentials_path}. "
-                f"Ensure the current user/process has read access to the file and that any OS security controls "
-                f"allow access to this location. Original error: {e}"
-            ) from e
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in credentials file {credentials_path}: {e}") from e
-        except Exception as e:
-            logger.error(f"Error creating Box client: {e}", exc_info=True)
-            raise ValueError(f"Failed to authenticate with Box: {e}") from e
+        The client is created once per unique credentials_path and reused for all
+        subsequent calls, avoiding a new JWT auth round-trip per document.
+        """
+        key = config.credentials_path
+        if key not in self._client_cache:
+            self._client_cache[key] = get_box_client(credentials_path=key)
+        return self._client_cache[key]
 
     def _should_include_file(self, file_name: str, file_size_bytes: int, config: BoxSourceConfig) -> bool:
         """Check whether a Box file passes extension and size filters."""
@@ -105,12 +91,42 @@ class BoxSourceAdapter(DocumentSourcePort):
             logger.error(f"Error iterating Box files: {e}", exc_info=True)
             raise
 
+    def _compute_relative_path(self, *, file_info, root_folder_id: str) -> str | None:
+        """Compute the path of a file relative to the configured root folder.
+
+        Uses the ``path_collection`` returned by the Box API to locate the
+        root folder in the ancestry chain and return only the sub-folder
+        segments below it, joined with the filename.
+
+        Example:
+            root_folder_id = "400527909052"  (source_files)
+            path_collection = [All Files, vt_workspace, source_files, sub01]
+            file name        = "TR-INV_001_3_2.1.pdf"
+            → relative_path  = "sub01/TR-INV_001_3_2.1.pdf"
+        """
+        doc_name = getattr(file_info, "name", "")
+        path_collection = getattr(file_info, "path_collection", None)
+        path_entries = getattr(path_collection, "entries", []) if path_collection else []
+
+        # Find the index of the root folder in the ancestry chain.
+        root_idx = None
+        for idx, entry in enumerate(path_entries):
+            if str(getattr(entry, "id", "")) == root_folder_id:
+                root_idx = idx
+                break
+
+        if root_idx is None:
+            return None
+
+        # Segments *below* the root folder.
+        sub_segments = [str(entry.name) for entry in path_entries[root_idx + 1 :] if getattr(entry, "name", None)]
+        return "/".join([*sub_segments, doc_name]) if doc_name else None
+
     def _download_file_content(self, *, client: BoxClient, file_id: str) -> bytes:
         """Download Box file content."""
         try:
             stream = client.downloads.download_file(file_id)
-            content = stream.read()
-            return content
+            return stream.read()
         except Exception as e:
             logger.error(f"Error downloading file {file_id}: {e}", exc_info=True)
             raise
@@ -131,11 +147,14 @@ class BoxSourceAdapter(DocumentSourcePort):
         except (ValueError, AttributeError, TypeError):
             return None
 
-    def _prepare_document(self, *, client: BoxClient, file_info) -> Document:
-        """Convert a Box file object to the domain document model."""
+    def _prepare_document(self, *, file_info, root_folder_id: str) -> Document:
+        """Convert a Box file object to the domain document model (lazy loading).
+
+        No binary content is downloaded here. Content is fetched on-demand by the
+        Extract operator via fetch_binary_content().
+        """
         doc_id = str(getattr(file_info, "id", ""))
         doc_name = getattr(file_info, "name", "unknown")
-        content = self._download_file_content(client=client, file_id=doc_id)
         modified_time = self._parse_modified_time(getattr(file_info, "modified_at", None))
 
         shared_link = getattr(file_info, "shared_link", None)
@@ -150,7 +169,7 @@ class BoxSourceAdapter(DocumentSourcePort):
         full_path = "/".join(str(entry.name) for entry in path_entries if getattr(entry, "name", None))
 
         extension = Path(doc_name).suffix.lstrip(".")
-        size = getattr(file_info, "size", 0) or len(content)
+        size = getattr(file_info, "size", 0) or 0
 
         # Convert datetime objects to ISO format strings for JSON serialization
         created_at = getattr(file_info, "created_at", None)
@@ -159,10 +178,12 @@ class BoxSourceAdapter(DocumentSourcePort):
         modified_at = getattr(file_info, "modified_at", None)
         modified_at_str = modified_at.isoformat() if isinstance(modified_at, datetime) else None
 
+        relative_path = self._compute_relative_path(file_info=file_info, root_folder_id=root_folder_id)
+
         return Document(
             id=doc_id,
             name=doc_name,
-            content=content,
+            content=b"",  # Empty - binary loaded on-demand by downstream operators
             source_url=source_url,
             size=size,
             mimetype="application/octet-stream",
@@ -170,6 +191,7 @@ class BoxSourceAdapter(DocumentSourcePort):
             modified_time=modified_time,
             metadata={
                 "source": source_url,  # Required for document_url in failed_docs
+                "source_id": doc_id,  # Required by binary_content_fetcher
                 "box_id": doc_id,
                 "box_name": doc_name,
                 "path": full_path,
@@ -177,6 +199,7 @@ class BoxSourceAdapter(DocumentSourcePort):
                 "created_at": created_at_str,
                 "modified_at": modified_at_str,
                 "owned_by": getattr(getattr(file_info, "owned_by", None), "login", None),
+                "relative_path": relative_path,
             },
         )
 
@@ -185,13 +208,25 @@ class BoxSourceAdapter(DocumentSourcePort):
         try:
             client = self._get_box_client(config=config)
 
+            # Single file mode
+            if config.file_id:
+                logger.info("Fetching single file from Box: file_id=%s", config.file_id)
+                file_info = client.files.get_file_by_id(config.file_id)
+                document = self._prepare_document(file_info=file_info, root_folder_id="")
+                yield document
+                return
+
+            # Folder mode
             doc_count = 0
             for file_info in self._iter_box_files(client=client, config=config, folder_id=config.folder_id):
                 # Check max_files limit
                 if config.max_files is not None and doc_count >= config.max_files:
                     break
 
-                document = self._prepare_document(client=client, file_info=file_info)
+                document = self._prepare_document(
+                    file_info=file_info,
+                    root_folder_id=config.folder_id,
+                )
                 yield document
                 doc_count += 1
 
@@ -234,6 +269,10 @@ class BoxSourceAdapter(DocumentSourcePort):
             "file_extensions": included_extensions or [],
             "exclude_patterns": connection_params.get("exclude_patterns", []),
         }
+
+        # Support single file ingestion via file_id
+        if "file_id" in connection_params:
+            config_dict["file_id"] = connection_params["file_id"]
 
         if "max_file_size_mb" in connection_params:
             config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
@@ -287,7 +326,7 @@ class BoxSourceAdapter(DocumentSourcePort):
                 exclude_patterns=[],
             )
 
-            # Get authenticated client
+            # Reuse cached client — avoids a new JWT auth round-trip per document
             client = self._get_box_client(config=config)
 
             # Download file content using existing method

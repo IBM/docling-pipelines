@@ -8,9 +8,14 @@
   "flow": [
     {
       "name": "ingest_1",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": ["./sample_documents/hello.txt"]
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./sample_documents/hello.txt"
+          ]
+        }
       }
     },
     {
@@ -19,7 +24,9 @@
       "config": {
         "mode": "text"
       },
-      "depends_on": ["ingest_1"]
+      "depends_on": [
+        "ingest_1"
+      ]
     },
     {
       "name": "uppercase_1",
@@ -27,7 +34,9 @@
       "config": {
         "text_column": "content"
       },
-      "depends_on": ["extract_1"]
+      "depends_on": [
+        "extract_1"
+      ]
     },
     {
       "name": "reverse_1",
@@ -35,13 +44,17 @@
       "config": {
         "text_column": "content"
       },
-      "depends_on": ["uppercase_1"]
+      "depends_on": [
+        "uppercase_1"
+      ]
     },
     {
       "name": "noop_1",
       "type": "noop",
       "config": {},
-      "depends_on": ["reverse_1"]
+      "depends_on": [
+        "reverse_1"
+      ]
     }
   ]
 }

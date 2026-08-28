@@ -8,15 +8,21 @@
     "force_ingest": true,
     "enable_micro_batching": true,
     "micro_batch_size": 10,
+    "continue_on_batch_failure": true,
     "storage": "in-memory",
     "execute_type": "local"
   },
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "./tests/fixtures/customer_support_docs",
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./tests/fixtures/customer_support_docs"
+          ]
+        },
         "include_filter": "txt"
       }
     },

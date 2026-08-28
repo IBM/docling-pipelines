@@ -10,7 +10,7 @@ class ChunkerValidator:
     """Validator for ChunkerOperator configuration parameters."""
 
     @staticmethod
-    def validate_common_chunk_parameters(  # NOSONAR python:S3776
+    def validate_common_chunk_parameters(
         chunk_size: int,
         chunk_overlap: int,
         chunk_type: str,
@@ -136,7 +136,7 @@ class ChunkerValidator:
                     errors.append(f"Invalid input: chunk_overlap must not exceed {CHUNK_OVERLAP_MAX_SIZE}.")
 
     @staticmethod
-    def validate_semantic_chunker(  # NOSONAR python:S3776
+    def validate_semantic_chunker(
         breakpoint_threshold_type: str,
         breakpoint_threshold_amount: float | None,
         semantic_embeddings_model: str | None,
@@ -247,7 +247,58 @@ class ChunkerValidator:
                 errors.append("docling_tokenizer cannot be empty for hybrid chunking")
 
     @staticmethod
-    def validate_summarization(  # NOSONAR python:S3776
+    def validate_overlap_percentage(
+        *,
+        chunk_overlap_percentage: int,
+        should_validate_field_fn,
+        errors: list[Any],
+        warnings: list[Any],
+    ) -> None:
+        """
+        Validate the chunk_overlap_percentage configuration parameter.
+
+        Checks that the value is within the allowed range [0, 40] and emits
+        a warning when the value exceeds the recommended threshold of 20.
+
+        Args:
+            chunk_overlap_percentage: Overlap expressed as a percentage of chunk_size
+            should_validate_field_fn: Function to check if field should be validated
+            errors: List to append validation errors to
+            warnings: List to append validation warnings to
+        """
+        from docpipe.core.operators.functional.chunker import (
+            CHUNK_OVERLAP_PERCENTAGE_DEFAULT,
+            CHUNK_OVERLAP_PERCENTAGE_MAX_SIZE,
+            CHUNK_OVERLAP_PERCENTAGE_MIN_SIZE,
+        )
+
+        if not should_validate_field_fn(field_value=chunk_overlap_percentage):
+            return
+
+        if chunk_overlap_percentage is None:
+            return
+
+        if not is_value_in_range(
+            value=chunk_overlap_percentage,
+            min_value=CHUNK_OVERLAP_PERCENTAGE_MIN_SIZE,
+            max_value=CHUNK_OVERLAP_PERCENTAGE_MAX_SIZE,
+        ):
+            errors.append(
+                f"Invalid input: chunk_overlap_percentage must be between "
+                f"{CHUNK_OVERLAP_PERCENTAGE_MIN_SIZE} and {CHUNK_OVERLAP_PERCENTAGE_MAX_SIZE}."
+            )
+        elif chunk_overlap_percentage > CHUNK_OVERLAP_PERCENTAGE_DEFAULT:
+            warnings.append(
+                ValidationMessage.create(
+                    message=ValidationCodeMessages.CHUNK_OVERLAP_EXCEEDS_THRESHOLD.value.format(
+                        threshold=CHUNK_OVERLAP_PERCENTAGE_DEFAULT
+                    ),
+                    message_code=ValidationCodeMessages.CHUNK_OVERLAP_EXCEEDS_THRESHOLD.name,
+                )
+            )
+
+    @staticmethod
+    def validate_summarization(
         enable_summarization: bool,
         summarization_model: str,
         should_validate_field_fn,

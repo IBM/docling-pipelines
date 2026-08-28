@@ -1,3 +1,5 @@
+"""Thread-safe future list for collecting parallel operator execution results."""
+
 from typing import Annotated, Any, Self
 
 from prefect.futures import PrefectFuture
@@ -14,6 +16,7 @@ class _CountedTaskFuture(BaseModel):
         self.set(future, count)
 
     def get_future(self):
+        """Get future."""
         if self._future is not None and self._count > 0:
             result = self._future
             self._count -= 1
@@ -23,6 +26,7 @@ class _CountedTaskFuture(BaseModel):
         return None
 
     def set(self, future, count):
+        """Set."""
         self._future = future
         self._count = count
 
@@ -31,6 +35,8 @@ class _CountedTaskFuture(BaseModel):
 
 
 class FuturedList:
+    """Futuredlist."""
+
     def __init__(self, items_with_counts):
         self.items = [_CountedTaskFuture(future, count) for future, count in items_with_counts]
 
@@ -42,12 +48,13 @@ class FuturedList:
         return cls(items_with_counts=[(None, 0) for _ in range(size)])
 
     def get_future(self, index):
+        """Get future."""
         if 0 <= index < len(self.items):
             return self.items[index].get_future()
-        else:
-            raise IndexError("Index out of range, given {index=} the list size is {len(self)}")
+        raise IndexError("Index out of range, given {index=} the list size is {len(self)}")
 
     def set_entry(self, index, future, count):
+        """Set entry."""
         if 0 <= index < len(self.items):
             self.items[index].set(future, count)
         else:

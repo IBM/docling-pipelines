@@ -1,17 +1,16 @@
 <!-- sonar.exclusions=**/*.md -->
-# Complete Adapter Restructuring Guide
+# Unified LLM Architecture
 
-## Unified LLM Architecture for All Operators
-
-This document outlines the complete adapter restructuring plan across all operators using a shared, provider-agnostic architecture.
+This document describes the current LLM adapter architecture used across all operators in docpipe.
 
 ---
 
 # Overview
 
-The goal of this restructuring is to:
+All LLM integrations in Docling Pipelines share a common set of provider adapters, ports, and a single factory.
+The goals are:
 
-* Standardize all LLM integrations
+* Standardize all LLM integrations across operators
 * Eliminate duplicated provider-specific logic
 * Reuse common interfaces and factories
 * Support multiple providers consistently
@@ -21,23 +20,48 @@ The goal of this restructuring is to:
 
 # Core Architecture
 
-## Unified Design Pattern (Simplified)
+## Two Patterns
 
-All operators follow the same structure:
+Most operators follow the **direct port** pattern. Entity extraction is the one exception and uses an
+**operator-specific adapter layer** on top of the shared infrastructure — see
+[Section 2: Entity Extraction](#2-entity-extraction-operator) for the rationale.
+
+### Pattern A — Direct Port (Classification, PII/HAP, Summarization, Embeddings)
 
 ```text
 Operator
    ↓
-Service Layer (business logic)
-   ↓ uses directly
-Common Port Interface
+Service Layer (business logic, optional for simple operators)
+   ↓ calls
+LLMAdapterFactory
+   ↓ returns
+Common Port Interface  (LLMInferencePort / LLMEmbeddingPort / TextDetectionPort)
    ↑ implemented by
-Consolidated Provider Adapters (one per provider)
-   ↑ created by
-Factory
+Consolidated Provider Adapters (WatsonXAdapter, LiteLLMAdapter)
 ```
 
-**Key Simplification**: No operator-specific adapters. Services use common ports directly.
+`provider_config` from the flow JSON is passed **directly and unchanged** to `LLMAdapterFactory`.
+It only ever contains connection-level fields (`api_key`, `api_base`, `url`, `container_kind`, etc.).
+
+### Pattern B — Operator-Specific Adapter Layer (Entity Extraction only)
+
+```text
+ExtractOperator
+   ↓
+EntityExtractionAdapterFactory  (operator-specific factory)
+   ↓ creates via registry
+LiteLLMEntityAdapter / WatsonxEntityAdapter  (thin registered subclasses)
+   ↓ extends
+LLMEntityAdapter  (shared base: parallelism, schema building, response normalisation)
+   ↓ calls
+LLMAdapterFactory.create_inference_adapter()
+   ↓ returns
+LLMInferencePort  (LiteLLMAdapter or WatsonXAdapter)
+```
+
+This extra layer exists because entity extraction's `transform()` contract operates on a full
+`pa.Table` with per-document parallelism — it cannot be expressed as a plain `chat()` call.
+See [Section 2](#2-entity-extraction-operator) for full details.
 
 ---
 
@@ -63,30 +87,29 @@ model_id: openai/<model_name>
 
 ## 2. Common Ports
 
-Three shared interfaces are introduced:
+Three shared interfaces cover all LLM capabilities:
 
-| Port                | Purpose                    |
-| ------------------- | -------------------------- |
-| `LLMInferencePort`  | Chat/generation APIs       |
-| `LLMEmbeddingPort`  | Embedding generation       |
-| `TextDetectionPort` | Specialized detection APIs |
+| Port                | Purpose                       | Used by |
+| ------------------- | ----------------------------- | ------- |
+| `LLMInferencePort`  | Chat/generation APIs          | Classification, Entity Extraction, Summarization, PII/HAP (LLM mode) |
+| `LLMEmbeddingPort`  | Embedding generation          | Embeddings Operator |
+| `TextDetectionPort` | Specialized detection APIs    | PII/HAP (WatsonX mode) |
 
 ---
 
-## 3. Unified Factories
+## 3. Unified Factory
 
-Factories create adapters dynamically:
+A single factory handles all adapter creation:
 
-| Factory                       | Responsibility         |
-| ----------------------------- | ---------------------- |
-| `LLMAdapterFactory`           | Inference + Embeddings |
-| `TextDetectionAdapterFactory` | Detection APIs         |
+| Factory             | Responsibility                                  |
+| ------------------- | ----------------------------------------------- |
+| `LLMAdapterFactory` | Inference, Embeddings, and Text Detection APIs  |
 
 ---
 
 # Common Infrastructure (Foundation Layer)
 
-## New Port Interfaces
+## Port Interfaces
 
 ### 1. LLM Inference Port
 
@@ -96,19 +119,9 @@ Factories create adapters dynamically:
 src/docpipe/core/ports/llm_inference_port.py
 ```
 
-### Purpose
+**Purpose**: Common interface for `chat()` and `generate()` calls.
 
-Common interface for:
-
-* chat()
-* generate()
-
-### Used By
-
-* Classification
-* Entity Extraction
-* Summarization
-* PII/HAP (LLM mode)
+**Used by**: Classification, Entity Extraction, Summarization, PII/HAP (LLM mode)
 
 ---
 
@@ -120,17 +133,9 @@ Common interface for:
 src/docpipe/core/ports/llm_embedding_port.py
 ```
 
-### Purpose
+**Purpose**: Common interface for `generate_embeddings()`, `generate_embeddings_batch()`, `get_embedding_dimension()`.
 
-Common interface for:
-
-* generate_embeddings()
-* generate_embeddings_batch()
-* get_embedding_dimension()
-
-### Used By
-
-* Embeddings Operator
+**Used by**: Embeddings Operator
 
 ---
 
@@ -142,29 +147,19 @@ Common interface for:
 src/docpipe/core/ports/text_detection_port.py
 ```
 
-### Purpose
+**Purpose**: Specialized interface for PII/HAP detection via WatsonX detection APIs.
 
-Generic interface for:
-
-* PII detection
-* HAP detection
-* Future detection APIs
-
-### Used By
-
-* WatsonX Detection APIs
+**Used by**: PII/HAP Operator (WatsonX path only)
 
 ---
 
 # Provider Adapters (Consolidated Architecture)
 
-## Overview
-
-Each provider now has a **single consolidated adapter** that implements multiple port interfaces. This eliminates duplication and simplifies maintenance.
+Each provider has a **single consolidated adapter** that implements one or more port interfaces.
 
 ---
 
-## WatsonX Adapter (Unified)
+## WatsonX Adapter
 
 **File**
 
@@ -185,19 +180,18 @@ TextDetectionPort     (detect, detect_entities, detect_entities_batch)
 * **Single adapter** for all WatsonX capabilities
 * **Model override**: All methods accept optional `model_name` parameter
 * **Flexible response format**: `response_format` passed as method parameter, not in `__init__`
-* **Specialized detection**: Uses WatsonX detection APIs for PII/HAP
+* **Specialized detection**: Uses WatsonX `/ml/v1/text/detection` API for PII/HAP
 
 ### Usage Example
 
 ```python
 from docpipe.core.adapters import WatsonXAdapter
 
-# Create adapter
 adapter = WatsonXAdapter(
-    api_key="<your-watsonx-api-key>",
+    api_key="<your-watsonx-api-key>",  # pragma: allowlist secret
     container_id="<your-project-id>",
     api_base="https://us-south.ml.cloud.ibm.com",
-    model_name="ibm/granite-13b-chat-v2"  # default model
+    model_name="ibm/granite-13b-chat-v2"
 )
 
 # Inference with JSON response
@@ -206,9 +200,9 @@ response = adapter.chat(
     response_format={"type": "json_object"}
 )
 
-# Embeddings
+# Embeddings (model override)
 embeddings = adapter.generate_embeddings(
-    model_name="ibm/slate-125m-english-rtrvr",  # override model
+    model_name="ibm/slate-125m-english-rtrvr",
     text="Sample text"
 )
 
@@ -218,7 +212,7 @@ result = adapter.detect(text="Check for PII")
 
 ---
 
-## LiteLLM Adapter (Unified)
+## LiteLLM Adapter
 
 **File**
 
@@ -235,10 +229,10 @@ LLMEmbeddingPort      (generate_embeddings, generate_embeddings_batch, get_embed
 
 ### Supports 100+ Providers
 
-* **OpenAI**: gpt-4, text-embedding-3-small
-* **Anthropic**: claude-3-opus-20240229
-* **Ollama**: openai/llama2, openai/nomic-embed-text (via OpenAI-compatible API)
-* **HuggingFace**: huggingface/sentence-transformers/all-MiniLM-L6-v2
+* **OpenAI**: `gpt-4`, `text-embedding-3-small`
+* **Anthropic**: `claude-3-opus-20240229`
+* **Ollama**: `openai/llama2`, `openai/nomic-embed-text` (via OpenAI-compatible API)
+* **HuggingFace**: `huggingface/sentence-transformers/all-MiniLM-L6-v2`
 * **And 90+ more providers**
 
 ### Key Features
@@ -253,20 +247,17 @@ LLMEmbeddingPort      (generate_embeddings, generate_embeddings_batch, get_embed
 ```python
 from docpipe.core.adapters import LiteLLMAdapter
 
-# Ollama inference
 adapter = LiteLLMAdapter(
     model_name="openai/llama2",
-    api_key="<not-required-for-ollama>",
+    api_key="ollama",  # pragma: allowlist secret
     api_base="http://localhost:11434/v1"
 )
 
-# Inference with explicit JSON format
 response = adapter.chat(
     messages=[{"role": "user", "content": "Classify this"}],
-    response_format={"type": "json_object"}  # Explicitly passed
+    response_format={"type": "json_object"}
 )
 
-# Embeddings with model override
 embeddings = adapter.generate_embeddings(
     model_name="openai/nomic-embed-text",
     text="Sample text"
@@ -275,11 +266,7 @@ embeddings = adapter.generate_embeddings(
 
 ---
 
-# Unified Factory
-
----
-
-## LLM Adapter Factory (Consolidated)
+# LLM Adapter Factory
 
 **File**
 
@@ -287,67 +274,73 @@ embeddings = adapter.generate_embeddings(
 src/docpipe/core/adapters/llm_adapter_factory.py
 ```
 
-### Overview
-
 Single unified factory for creating all types of LLM adapters across all providers.
 
 ### Methods
 
 ```python
-# Create inference adapter
+# Create inference adapter (LLMInferencePort)
 create_inference_adapter(provider, model_id, provider_config)
 
-# Create embedding adapter
+# Create embedding adapter (LLMEmbeddingPort)
 create_embedding_adapter(provider, model_id, provider_config)
 
-# Create text detection adapter
+# Create text detection adapter (TextDetectionPort)
 create_text_detection_adapter(provider, model_id, provider_config)
 
-# Query supported providers
+# Query supported providers for a capability
 get_supported_providers(capability="inference")
 ```
 
-### Supported Providers
+### Provider Support Matrix
 
-| Provider | Inference | Embeddings | Text Detection | Notes |
-| -------- | --------- | ---------- | -------------- | ----- |
-| WatsonX  | ✅         | ✅          | ✅              | IBM watsonx.ai models (single consolidated adapter) |
-| LiteLLM  | ✅         | ✅          | ❌              | 100+ providers including Ollama, HuggingFace, OpenAI (single consolidated adapter) |
+| Provider      | Inference | Embeddings | Text Detection | Notes |
+| ------------- | --------- | ---------- | -------------- | ----- |
+| `watsonx`     | ✅         | ✅          | ✅              | IBM watsonx.ai — single consolidated adapter |
+| `litellm`     | ✅         | ✅          | ❌              | 100+ providers (Ollama, OpenAI, Anthropic, etc.) |
+| `huggingface` | ❌         | ✅          | ❌              | Local or API-based HuggingFace models |
 
 ### Usage Examples
 
 ```python
 from docpipe.core.adapters import LLMAdapterFactory
 
-# Create WatsonX inference adapter
+# WatsonX inference
 adapter = LLMAdapterFactory.create_inference_adapter(
     provider="watsonx",
     model_id="ibm/granite-13b-chat-v2",
     provider_config={
-        "api_key": "<your-watsonx-api-key>",
-        "api_base": "https://us-south.ml.cloud.ibm.com",
+        "api_key": "<your-watsonx-api-key>",  # pragma: allowlist secret
+        "url": "https://us-south.ml.cloud.ibm.com",
         "container_id": "<your-project-id>",
         "container_kind": "project"
     }
 )
 
-# Create LiteLLM embedding adapter (Ollama)
+# LiteLLM embedding (Ollama)
 adapter = LLMAdapterFactory.create_embedding_adapter(
     provider="litellm",
     model_id="openai/nomic-embed-text",
     provider_config={
         "api_base": "http://localhost:11434/v1",
-        "api_key": "<not-required-for-ollama>"
+        "api_key": "ollama"  # pragma: allowlist secret
     }
 )
 
-# Create WatsonX text detection adapter
+# HuggingFace embedding (local)
+adapter = LLMAdapterFactory.create_embedding_adapter(
+    provider="huggingface",
+    model_id="sentence-transformers/all-MiniLM-L6-v2",
+    provider_config={"use_local": True, "device": "cpu"}
+)
+
+# WatsonX text detection
 adapter = LLMAdapterFactory.create_text_detection_adapter(
     provider="watsonx",
     model_id="ibm/granite-13b-chat-v2",
     provider_config={
-        "api_key": "<your-watsonx-api-key>",
-        "api_base": "https://us-south.ml.cloud.ibm.com",
+        "api_key": "<your-watsonx-api-key>",  # pragma: allowlist secret
+        "url": "https://us-south.ml.cloud.ibm.com",
         "container_id": "<your-project-id>",
         "container_kind": "project"
     }
@@ -358,304 +351,226 @@ adapter = LLMAdapterFactory.create_text_detection_adapter(
 
 LiteLLM provides unified access to multiple providers via model ID prefixes:
 
-- **Ollama**: Use `openai/model-name` with `api_base: http://localhost:11434/v1`
-- **HuggingFace**: Use `huggingface/model-name` with HuggingFace API key
-- **OpenAI**: Use `gpt-4`, `text-embedding-3-small`, etc.
-- **Anthropic**: Use `claude-3-opus-20240229`, etc.
+- **Ollama**: `openai/<model>` with `api_base: http://localhost:11434/v1`
+- **HuggingFace API**: `huggingface/<model>` with HuggingFace API key
+- **OpenAI**: `gpt-4`, `text-embedding-3-small`, etc.
+- **Anthropic**: `claude-3-opus-20240229`, etc.
 - **And 90+ more providers**
-
-### Key Changes from Previous Architecture
-
-1. **Single factory file** instead of two separate factories
-2. **Returns consolidated adapters** (one per provider, not one per capability)
-3. **Unified import**: `from docpipe.core.adapters import LLMAdapterFactory`
 
 ---
 
-# Operator Refactoring
+# `provider_config` Reference
+
+`provider_config` fields are **scoped by operator**, not global. Operators that pass `provider_config`
+directly to `LLMAdapterFactory` (classification, PII/HAP, summarization, embeddings) only need
+connection-level fields. Entity extraction is the exception — see the note below.
+
+## Shared config models (connection-level fields)
+
+Used by: **Classification**, **PII/HAP**, **Summarization**, **Embeddings**
+
+These operators pass `provider_config` unchanged to `LLMAdapterFactory`.
+The Pydantic models live in `src/docpipe/core/operators/shared/llm_provider_config.py`.
+
+| Provider | Model | Key fields |
+| -------- | ----- | ---------- |
+| `litellm` | `LLMProviderConfig` | `model_id`, `api_base`, `api_key` |
+| `watsonx` | `WatsonxProviderConfig` | `model_id`, `url`, `api_key`, `container_kind`, `container_id` |
+
+## Entity extraction config models
+
+Used by: **ExtractOperator** (`entity_extraction` block only)
+
+Entity extraction puts `temperature` and `max_tokens` **inside** `provider_config` rather than as
+separate operator-level fields. The Pydantic models live in
+`src/docpipe/core/operators/extract/adapters/outbound/entity_extraction/llm_entity_config.py`.
+
+| Provider | Model | Key fields |
+| -------- | ----- | ---------- |
+| `litellm` | `LLMEntityConfig` | `model_id`, `api_base`, `api_key`, `temperature`, `max_tokens` |
+| `watsonx` | `WatsonxEntityConfig` | above + `url`, `container_kind`, `project_id` |
+
+---
+
+# Operator Reference
 
 ---
 
 # 1. Classification Operator
 
-## Current State
-
-### Operator
+**File**
 
 ```text
-DocumentClassifierOperator
+src/docpipe/core/operators/quality/classification/document_classifier.py
 ```
 
-### Current Problem
-
-Each provider has its own dedicated adapter:
-
-* WatsonX adapter
-* Ollama adapter
-* LiteLLM adapter
-
-This creates:
-
-* duplicated logic
-* provider-specific maintenance
-* inconsistent behavior
-
----
-
-## New Architecture (Simplified)
+## Architecture
 
 ```text
 DocumentClassifierOperator
     ↓
-ClassificationService
-    ↓ uses directly
+ClassificationService  (src/docpipe/core/operators/quality/classification/classification_service.py)
+    ↓ calls LLMAdapterFactory.create_inference_adapter()
+    ↓ holds
 LLMInferencePort
     ↑ implemented by
-WatsonXAdapter (consolidated)
-LiteLLMAdapter (consolidated)
+WatsonXAdapter / LiteLLMAdapter
 ```
 
-**Key Change**: No operator-specific adapter layer. Service uses port directly.
-
----
-
-## New Components
-
-### ClassificationService
+## ClassificationService
 
 **File**
 
 ```text
-src/docpipe/core/operators/quality/classification/services/classification_service.py
+src/docpipe/core/operators/quality/classification/classification_service.py
 ```
 
-### Responsibilities
+**Responsibilities**: prompt building, LLM call, response parsing, validation.
 
-* Classification business logic (prompt building, response parsing)
-* Retry handling
-* Validation
-* Metrics
-* Post-processing
-
-### Dependencies
-
-* Receives `LLMInferencePort` instance (WatsonXAdapter or LiteLLMAdapter)
-* Calls `chat()` or `generate()` methods directly
-* No intermediate adapter needed
-
-### Example Implementation
+**Actual constructor signature**:
 
 ```python
-class ClassificationService:
-    def __init__(self, llm_adapter: LLMInferencePort):
-        self.llm = llm_adapter
-    
-    def classify(self, text: str, categories: list[str]) -> dict:
-        # Build classification prompt
-        messages = [
-            {"role": "system", "content": "You are a document classifier."},
-            {"role": "user", "content": f"Classify: {text}\nCategories: {categories}"}
-        ]
-        
-        # Call port method directly
-        response = self.llm.chat(
-            messages=messages,
-            response_format={"type": "json_object"}
-        )
-        
-        # Parse and return
-        return json.loads(response)
-```
-
----
-
-## Operator Changes
-
-### Setup in Operator
-
-```python
-# Create adapter via factory
-adapter = LLMAdapterFactory.create_inference_adapter(
-    provider=config["provider"],  # "watsonx" or "litellm"
-    model_id=config["model_id"],
-    provider_config=config["provider_config"]
+ClassificationService(
+    *,
+    model_id: str,
+    provider_name: str,
+    provider_config: dict[str, Any] | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = 500,
 )
-
-# Create service with adapter
-self.classification_service = ClassificationService(llm_adapter=adapter)
-
-# Use in operator
-result = self.classification_service.classify(text, categories)
 ```
 
----
+`provider_config` is passed directly to `LLMAdapterFactory`. `temperature` and `max_tokens`
+are separate parameters, not fields inside `provider_config`.
 
-## Consolidated Architecture
+## Flow JSON example
 
-Operator-specific adapters have been replaced by consolidated provider adapters that implement common ports:
-
-```text
-Previous operator-specific files:
-- watsonx_adapter.py
-- ollama_adapter.py
-- litellm_adapter.py
-
-Now replaced by unified provider adapters
+```json
+{
+  "type": "document_classifier",
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4:latest",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "${OLLAMA_API_KEY}"
+    },
+    "confidence_threshold": 7.0,
+    "doc_column": "content",
+    "output_column": "document_type"
+  }
+}
 ```
 
 ---
 
 # 2. Entity Extraction Operator
 
-## New Architecture (Simplified)
+**File**
+
+```text
+src/docpipe/core/operators/extract/extract_operator.py
+```
+
+## Why entity extraction has its own adapter layer
+
+Entity extraction cannot follow Pattern A (direct port) for two reasons:
+
+1. **Unit of work**: The `EntityExtractionPort.transform()` contract takes a full `pa.Table` and
+   returns `tuple[list[pa.Table], dict]`. This is the operator contract — it involves per-document
+   parallelism, `expand_extracted_data` flag handling, and `output_column` routing. None of that
+   can be expressed as a plain `LLMInferencePort.chat()` call.
+
+2. **Per-provider config schemas**: The `EntityExtractionAdapterFactory` advertises a different
+   Pydantic config schema per provider for UI/metadata generation (`get_metadata()`). Each
+   registered adapter class owns its `get_config_schema()` method. A single adapter class cannot
+   own two different schemas simultaneously.
+
+## Architecture
 
 ```text
 ExtractOperator
     ↓
-EntityExtractionService
-    ↓ uses directly
-LLMInferencePort
-    ↑ implemented by
-WatsonXAdapter (consolidated)
-LiteLLMAdapter (consolidated)
+EntityExtractionAdapterFactory
+    ↓ routes through registry (@register_entity_extraction_adapter)
+LiteLLMEntityAdapter / WatsonxEntityAdapter  (thin subclasses — own ADAPTER_NAME + get_config_schema())
+    ↓ extends
+LLMEntityAdapter  (shared base — parallelism, schema building, JSON normalisation, truncation)
+    ↓ calls
+LLMAdapterFactory.create_inference_adapter()
+    ↓ returns
+LLMInferencePort  (LiteLLMAdapter or WatsonXAdapter)
 ```
 
-**Key Change**: No operator-specific adapter or port. Service uses LLMInferencePort directly.
+For the `docling` mode, `DoclingEntityAdapter` is registered directly without going through
+`LLMAdapterFactory` — it uses Docling's own template extraction pipeline.
 
----
+## Adding a new LLM-based entity extraction provider
 
-## New Components
+1. Create a subclass of `LLMEntityAdapter` with `ADAPTER_NAME`, `get_config_schema()`, and the
+   `@register_entity_extraction_adapter` decorator.
+2. Create a Pydantic config model for the new provider's `provider_config` fields.
+3. Import the subclass in `entity_extraction/__init__.py` so the decorator fires on package import.
+4. Ensure the new provider string is also in `LLMAdapterFactory.INFERENCE_PROVIDERS` — the
+   two registries are independent and both must know about the provider.
 
-### EntityExtractionService
+## `provider_config` convention note
 
-**File**
+Entity extraction puts `temperature` and `max_tokens` **inside** `provider_config`. This differs
+from classification and summarization, where these are top-level operator config fields. This is
+a historical inconsistency, not an intentional design difference.
 
-```text
-src/docpipe/core/operators/extract/services/entity_extraction_service.py
+## Flow JSON example
+
+```json
+{
+  "type": "extract_operator",
+  "config": {
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/granite4:latest",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "${OLLAMA_API_KEY}",
+        "temperature": 0.0,
+        "max_tokens": 2000
+      },
+      "max_doc_chars": 8000,
+      "expand_extracted_data": false
+    }
+  }
+}
 ```
-
-### Responsibilities
-
-* Entity extraction business logic (prompt building with schema, response parsing)
-* Schema validation
-* Entity post-processing
-* Error handling
-
-### Dependencies
-
-* Receives `LLMInferencePort` instance (WatsonXAdapter or LiteLLMAdapter)
-* Calls `chat()` or `generate()` methods directly
-* No intermediate adapter or custom port needed
-
-### Example Implementation
-
-```python
-class EntityExtractionService:
-    def __init__(self, llm_adapter: LLMInferencePort):
-        self.llm = llm_adapter
-    
-    def extract_entities(self, text: str, schema: dict) -> dict:
-        # Build extraction prompt with schema
-        messages = [
-            {"role": "system", "content": "Extract entities according to schema."},
-            {"role": "user", "content": f"Text: {text}\nSchema: {json.dumps(schema)}"}
-        ]
-        
-        # Call port method directly
-        response = self.llm.chat(
-            messages=messages,
-            response_format={"type": "json_object"}
-        )
-        
-        # Parse and validate entities
-        entities = json.loads(response)
-        return self._validate_against_schema(entities, schema)
-```
-
----
-
-## Setup in Operator
-
-```python
-# Create adapter via factory
-adapter = LLMAdapterFactory.create_inference_adapter(
-    provider=config["provider"],
-    model_id=config["model_id"],
-    provider_config=config["provider_config"]
-)
-
-# Create service with adapter
-self.entity_service = EntityExtractionService(llm_adapter=adapter)
-
-# Use in operator
-entities = self.entity_service.extract_entities(text, schema)
-```
-
----
-
-## Benefits
-
-* Direct port usage (no intermediate layers)
-* Reusable extraction logic in service
-* Cleaner operator implementation
-* Works with any provider implementing LLMInferencePort
 
 ---
 
 # 3. PII/HAP Operator
 
-## Special Case: Dual Architecture (Simplified)
+**File**
 
-WatsonX uses a dedicated detection API, while other providers use prompt-based LLM detection.
+```text
+src/docpipe/core/operators/quality/pii_and_hap/pii_and_hap_annotator.py
+```
 
----
+## Architecture — Dual Path
 
-## Architecture
+WatsonX uses a specialized `/ml/v1/text/detection` API (not a standard chat API), so it requires
+`TextDetectionPort`. LiteLLM uses standard prompt-based inference via `LLMInferencePort`.
 
 ```text
 PIIAndHAPAnnotator
     ↓
 PIIHAPService
     ↓
-┌─────────────────────┬─────────────────────┐
-│ WatsonX Detection   │ LLM-Based Detection │
-└─────────────────────┴─────────────────────┘
-        ↓                          ↓
-TextDetectionPort             LLMInferencePort
-        ↑                          ↑
-WatsonXAdapter                LiteLLMAdapter
-(consolidated)                (consolidated)
+┌─────────────────────────┬──────────────────────────┐
+│ WatsonX path            │ LiteLLM path             │
+│ TextDetectionPort       │ LLMInferencePort         │
+│ WatsonXAdapter          │ LiteLLMAdapter           │
+│ (detection API)         │ (prompt-based detection) │
+└─────────────────────────┴──────────────────────────┘
 ```
 
-**Key Change**: Service uses ports directly. No intermediate operator-specific adapter.
-
----
-
-## Why Two Paths?
-
-### WatsonX Path
-
-Uses specialized detection API:
-
-```text
-/ml/v1/text/detection
-```
-
-This is NOT a standard chat API, so it requires `TextDetectionPort`.
-
-### LiteLLM Path
-
-Uses standard LLM inference:
-
-* Prompts with detection instructions
-* Chat completions
-* JSON structured outputs
-
----
-
-## New Component
-
-### PIIHAPService
+## PIIHAPService
 
 **File**
 
@@ -663,281 +578,175 @@ Uses standard LLM inference:
 src/docpipe/core/operators/quality/pii_and_hap/services/pii_hap_service.py
 ```
 
-### Responsibilities
-
-* Prompt generation for LLM-based detection
-* Detection orchestration (dual-path logic)
-* JSON parsing and validation
-* Result normalization across providers
-
-### Dependencies
-
-* Receives either `TextDetectionPort` (WatsonX) or `LLMInferencePort` (LiteLLM)
-* Calls port methods directly based on provider
-* No intermediate adapter needed
-
-### Example Implementation
+**Actual constructor signature**:
 
 ```python
-class PIIHAPService:
-    def __init__(self, adapter: TextDetectionPort | LLMInferencePort, provider: str):
-        self.adapter = adapter
-        self.provider = provider
-    
-    def detect_pii_hap(self, text: str) -> dict:
-        if self.provider == "watsonx":
-            # Use specialized detection API
-            return self.adapter.detect(
-                text=text,
-                prompt=self._get_detection_prompt()
-            )
-        else:
-            # Use LLM-based detection
-            messages = self._build_detection_messages(text)
-            response = self.adapter.chat(
-                messages=messages,
-                response_format={"type": "json_object"}
-            )
-            return self._parse_llm_response(response)
+PIIHAPService(
+    *,
+    provider: str,
+    model_id: str,
+    provider_config: dict[str, Any] | None = None,
+)
 ```
 
----
+The service creates the correct adapter internally based on `provider`:
+- `"watsonx"` → `LLMAdapterFactory.create_text_detection_adapter()`
+- `"litellm"` → `LLMAdapterFactory.create_inference_adapter()`
 
-## Setup in Operator
+`provider_config` is passed directly to the factory in both cases.
 
-```python
-# WatsonX path
-if provider == "watsonx":
-    adapter = LLMAdapterFactory.create_text_detection_adapter(
-        provider="watsonx",
-        model_id=config["model_id"],
-        provider_config=config["provider_config"]
-    )
-else:
-    # LiteLLM path
-    adapter = LLMAdapterFactory.create_inference_adapter(
-        provider="litellm",
-        model_id=config["model_id"],
-        provider_config=config["provider_config"]
-    )
+## Flow JSON example
 
-# Create service with adapter
-self.pii_hap_service = PIIHAPService(adapter=adapter, provider=provider)
-
-# Use in operator
-result = self.pii_hap_service.detect_pii_hap(text)
+```json
+{
+  "type": "pii_and_hap",
+  "config": {
+    "provider": "watsonx",
+    "provider_config": {
+      "model_id": "ibm/granite-13b-chat-v2",
+      "url": "https://us-south.ml.cloud.ibm.com",
+      "api_key": "${WATSONX_API_KEY}",
+      "container_kind": "project",
+      "container_id": "${WATSONX_CONTAINER_ID}"
+    }
+  }
+}
 ```
 
 ---
 
 # 4. Embeddings Operator
 
-## New Architecture (Simplified)
+**File**
+
+```text
+src/docpipe/core/operators/functional/embeddings/embeddings_operator.py
+```
+
+## Architecture
 
 ```text
 EmbeddingsOperator
-    ↓ uses directly
+    ↓ calls LLMAdapterFactory.create_embedding_adapter()
+    ↓ holds
 LLMEmbeddingPort
     ↑ implemented by
-WatsonXAdapter (consolidated)
-LiteLLMAdapter (consolidated - supports HuggingFace, Ollama, OpenAI, etc.)
+WatsonXAdapter / LiteLLMAdapter / HuggingFaceAdapter
 ```
 
-**Key Change**: Operator uses port directly. No service layer needed for simple embedding operations.
+No service layer — the operator calls the port directly. This is appropriate because embeddings
+generation has no business logic beyond calling `generate_embeddings_batch()`.
 
----
+## Flow JSON example
 
-## Setup in Operator
-
-```python
-# Create adapter via factory
-adapter = LLMAdapterFactory.create_embedding_adapter(
-    provider=config["provider"],
-    model_id=config["model_id"],
-    provider_config=config["provider_config"]
-)
-
-# Use directly in operator
-embeddings = adapter.generate_embeddings_batch(texts=texts)
-dimension = adapter.get_embedding_dimension()
+```json
+{
+  "type": "embeddings",
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/nomic-embed-text",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "${OLLAMA_API_KEY}"
+    }
+  }
+}
 ```
-
----
-
-## Benefits
-
-* Direct port usage (simplest case)
-* Shared embedding interface
-* Batch support
-* Consistent dimensions API
-* Easier provider swapping
 
 ---
 
 # 5. Chunker / Summarization
 
-## Current Problem
-
-Summarization is:
-
-* Ollama-only
-* Tightly coupled
-* Not reusable
-
----
-
-## New Architecture (Simplified)
-
-```text
-ChunkerOperator
-    ↓
-SummarizationService
-    ↓ uses directly
-LLMInferencePort
-    ↑ implemented by
-WatsonXAdapter (consolidated)
-LiteLLMAdapter (consolidated)
-```
-
-**Key Change**: Service uses LLMInferencePort directly. No custom port or intermediate adapter needed.
-
----
-
-## New Component
-
-### SummarizationService
-
 **File**
 
 ```text
-src/docpipe/core/operators/functional/chunker/services/summarization_service.py
+src/docpipe/core/operators/functional/chunker.py
+src/docpipe/core/operators/functional/summarization_service.py
 ```
 
-### Responsibilities
+## Architecture
 
-* Prompt generation for summarization
-* Chunk summarization logic
-* Sliding window handling
-* Summary parsing and validation
-
-### Dependencies
-
-* Receives `LLMInferencePort` instance (WatsonXAdapter or LiteLLMAdapter)
-* Calls `chat()` or `generate()` methods directly
-* No custom port or intermediate adapter needed
-
-### Example Implementation
-
-```python
-class SummarizationService:
-    def __init__(self, llm_adapter: LLMInferencePort):
-        self.llm = llm_adapter
-    
-    def generate_summary(self, text: str, max_length: int = 100) -> str:
-        # Build summarization prompt
-        messages = [
-            {"role": "system", "content": "You are a text summarizer."},
-            {"role": "user", "content": f"Summarize in {max_length} words: {text}"}
-        ]
-        
-        # Call port method directly
-        return self.llm.chat(messages=messages)
-    
-    def generate_summaries_batch(self, texts: list[str]) -> list[str]:
-        return [self.generate_summary(text) for text in texts]
+```text
+ChunkerOperator
+    ↓ (when summarization is enabled)
+SummarizationService  (src/docpipe/core/operators/functional/summarization_service.py)
+    ↓ calls LLMAdapterFactory.create_inference_adapter()
+    ↓ holds
+LLMInferencePort
+    ↑ implemented by
+WatsonXAdapter / LiteLLMAdapter
 ```
 
----
+Summarization is opt-in. When the `summarization` config block is absent, no LLM adapter is
+created and the operator runs as a pure text chunker.
 
-## Setup in Operator
+## SummarizationService
+
+**Actual constructor signature**:
 
 ```python
-# Create adapter via factory
-adapter = LLMAdapterFactory.create_inference_adapter(
-    provider=config["provider"],
-    model_id=config["model_id"],
-    provider_config=config["provider_config"]
+SummarizationService(
+    *,
+    llm_adapter: LLMInferencePort,
+    summary_sentences: int = 3,
+    summary_max_words: int = 100,
+    overlap_ratio: float = 0.1,
+    max_length: int = 8192,
 )
+```
 
-# Create service with adapter
-self.summarization_service = SummarizationService(llm_adapter=adapter)
+## Flow JSON example
 
-# Use in operator
-summary = self.summarization_service.generate_summary(text)
+Summarization config lives inside the `summarization` sub-key, not at the operator root:
+
+```json
+{
+  "type": "chunker",
+  "config": {
+    "chunk_size": 512,
+    "summarization": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/granite4:latest",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "${OLLAMA_API_KEY}"
+      }
+    }
+  }
+}
 ```
 
 ---
 
-## Provider Support
-
-| Provider           | Supported |
-| ------------------ | --------- |
-| WatsonX            | ✅         |
-| LiteLLM            | ✅         |
-| Ollama via LiteLLM | ✅         |
-
----
-
-# Provider Support Matrix
-
-| Provider | Inference | Embeddings | Text Detection | Notes |
-| -------- | --------- | ---------- | -------------- | ----- |
-| WatsonX  | ✅         | ✅          | ✅              | IBM watsonx.ai specialized APIs |
-| LiteLLM  | ✅         | ✅          | ❌              | 100+ providers (Ollama, HuggingFace, OpenAI, etc.) |
-
----
-
-# Benefits of the New Architecture
+# Benefits of the Architecture
 
 ## Reduced Duplication
 
-One adapter per domain instead of:
-
-* WatsonX adapter
-* Ollama adapter
-* LiteLLM adapter
-
-for every operator.
-
----
-
-## Easier Provider Expansion
-
-Adding a new provider now only requires:
-
-1. Implement common port
-2. Register in factory
-
-No operator changes needed.
-
----
+One consolidated adapter per provider instead of provider-specific adapters in every operator.
 
 ## Better Separation of Concerns
 
-| Layer    | Responsibility       |
-| -------- | -------------------- |
-| Operator | Workflow             |
-| Service  | Business logic       |
-| Adapter  | Provider translation |
-| Port     | Interface contract   |
-
----
+| Layer    | Responsibility                          |
+| -------- | --------------------------------------- |
+| Operator | Workflow orchestration                  |
+| Service  | Business logic (prompts, parsing, etc.) |
+| Adapter  | Provider protocol translation           |
+| Port     | Interface contract                      |
 
 ## Easier Testing
 
-* Mock common ports
-* Test services independently
-* Reuse test suites across providers
+* Mock common ports (`LLMInferencePort`, `LLMEmbeddingPort`) to test services in isolation
+* No need to mock HTTP calls in operator-level tests
 
----
+## Provider Expansion
 
+Adding a new provider for **classification, PII/HAP, summarization, or embeddings** requires:
 
-# Success Criteria
+1. Implement the relevant port interface (`LLMInferencePort` or `LLMEmbeddingPort`)
+2. Register the new adapter in `LLMAdapterFactory`
 
-* ✅ Unified provider architecture
-* ✅ Shared reusable interfaces
-* ✅ No provider-specific operator logic
-* ✅ Ollama migrated to LiteLLM
-* ✅ Backward compatibility preserved
-* ✅ Existing configs continue working
-* ✅ Easier future provider onboarding
+No operator changes needed for these operators.
+
+Adding a new LLM-based provider for **entity extraction** additionally requires a thin subclass
+in the entity extraction adapter package. See
+[Section 2 — Adding a new LLM-based entity extraction provider](#adding-a-new-llm-based-entity-extraction-provider).

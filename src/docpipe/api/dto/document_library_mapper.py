@@ -79,6 +79,7 @@ class DocumentLibraryMapper:
             tags=domain.tags,
             created_by=domain.created_by,
             href=domain.href,
+            document_set_ids=domain.document_set_ids or [],
         )
 
     @staticmethod

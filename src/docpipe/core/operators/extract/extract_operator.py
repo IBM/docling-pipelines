@@ -4,13 +4,13 @@ Extract Operator
 
 A unified extraction operator that uses hexagonal architecture to support multiple
 extraction strategies through a single interface. This operator delegates extraction
-logic to specialized adapters based on the configured extraction providers.
+logic to specialized adapters based on the configured extraction modes.
 
-Supported Text Extraction Providers:
+Supported Text Extraction Modes:
     - docling_library: Local Docling extraction with tables, images, and optional VLM support
     - docling_serve: Remote extraction via Docling Serve API
 
-Supported Entity Extraction Providers:
+Supported Entity Extraction Modes:
     - litellm: Multi-provider LLM extraction using LiteLLM (supports Ollama via OpenAI-compatible API)
     - watsonx: LLM-based entity extraction using IBM watsonx
     - docling: Template-based entity extraction using Docling templates
@@ -21,7 +21,7 @@ Architecture:
     - Operator (this file): Thin wrapper that handles configuration and delegation
     - Port (TextExtractionPort): Defines the extraction interface
     - Adapters: Implement specific extraction strategies
-    - Factory: Creates appropriate adapter based on provider
+    - Factory: Creates appropriate adapter based on mode
 
 Example Usage:
     # Standard text extraction only
@@ -99,15 +99,18 @@ Example Usage:
     }
 """
 
+import json
 import logging
-import os
+import time
+from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.compute as pc
 
 from docpipe.core.constants.constants import (
     AttributeDataTypes,
-    DoclingClientConfigConstants,
     DocpipeConstants,
     Metrics,
 )
@@ -127,13 +130,42 @@ from docpipe.core.operators.extract.ports.outbound.entity_extraction import Enti
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
+from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.operators.config_validation import validate_config_from_metadata
+from docpipe.utils.operators.non_recoverable_utils import is_non_recoverable_error, process_non_recoverable_errors
 
 logger: logging.Logger = get_logger()
 
 
-class ExtractOperator(AbstractOperator):
+def _build_stage_dict(*, completed: int, failed: int, total: int) -> dict[str, Any]:
+    """Build a single extraction stage progress dict.
+
+    Args:
+        completed: Documents successfully processed in this stage.
+        failed: Documents that failed in this stage.
+        total: Total documents submitted to this stage.
+
+    Returns:
+        Dict with status, counts, and progress_percentage.
+    """
+    done = completed + failed
+    pct = (done / total * 100) if total > 0 else 0.0
+    status = (
+        OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
+        if done >= total > 0
+        else OperatorConstants.Extraction.STAGE_STATUS_RUNNING
+    )
+    return {
+        OperatorConstants.Extraction.STAGE_STATUS: status,
+        OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: total,
+        OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: completed,
+        OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: failed,
+        OperatorConstants.Extraction.STAGE_PROGRESS_PERCENTAGE: round(pct, 2),
+    }
+
+
+class ExtractOperator(AbstractOperator):  # type: ignore[misc]
     """Unified extraction operator using hexagonal architecture.
 
     This operator provides a single interface for multiple extraction strategies,
@@ -158,10 +190,10 @@ class ExtractOperator(AbstractOperator):
     category = OperatorCategory.Extract
     owner = DocpipeConstants.OWNER_DOCPIPE
 
-    def __init__(self, *, config: dict[str, Any]):  # NOSONAR python:S3776
+    def __init__(self, *, config: dict[str, Any]):
         """Initialize the unified extract operator.
 
-        Parses the extraction provider, builds adapter-specific configuration,
+        Parses the extraction mode, builds adapter-specific configuration,
         and creates the appropriate adapter using the factory.
 
         Args:
@@ -169,9 +201,9 @@ class ExtractOperator(AbstractOperator):
                 - text_extraction: Nested object containing:
                     - provider: Text provider ("docling_library", "docling_serve")
                     - provider_config: Provider-specific configuration
-                        - additional_formats: List of additional output formats
-                          Options: 'html', 'json', 'text', 'doctags', 'doclang'
                     - doc_column: Column name for extracted content
+                    - additional_formats: List of additional output formats
+                      Options: 'html', 'json', 'text', 'doctags', 'doclang'
                 - entity_extraction: Optional nested object containing:
                     - provider: Entity provider ("litellm", "watsonx", "docling")
                     - provider_config: Provider-specific configuration (model_id, api_base, etc.)
@@ -187,14 +219,17 @@ class ExtractOperator(AbstractOperator):
         """
         super().__init__(config)
 
-        # Extract text_extraction nested config and store for later use
-        self.text_extraction_config = config.get(OperatorConstants.Config.TEXT_EXTRACTION, {})
+        # Extract text_extraction nested config and store for later use.
+        # Uses `or {}` so that an explicit null is treated the same
+        # as a missing key. Both result in an empty dict that triggers the
+        # "required" error below rather than crashing with AttributeError.
+        self.text_extraction_config = config.get(OperatorConstants.Config.TEXT_EXTRACTION) or {}
         if not self.text_extraction_config:
             raise FlowExecutionFailedException(
                 f"Missing required '{OperatorConstants.Config.TEXT_EXTRACTION}' configuration object"
             )
 
-        # Parse text extraction provider
+        # Parse text extraction mode
         text_mode_str = self.text_extraction_config.get(
             OperatorConstants.Config.PROVIDER,
             OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
@@ -207,7 +242,8 @@ class ExtractOperator(AbstractOperator):
                 f"Invalid text_extraction.provider '{text_mode_str}'. Supported providers: {supported_modes}"
             ) from e
 
-        # Extract entity_extraction nested config (optional)
+        # Extract entity_extraction nested config (optional).
+        # Treat an explicit null the same as absent.
         entity_extraction_config = config.get(OperatorConstants.Config.ENTITY_EXTRACTION)
 
         # Parse entity extraction mode
@@ -247,12 +283,18 @@ class ExtractOperator(AbstractOperator):
         # Auto-detect optimal workers based on CPU count
         default_text_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
         default_entity_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=True)
-        text_max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, default_text_workers)
-        entity_max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, default_entity_workers)
+        _raw_workers = config.get(OperatorConstants.Config.MAX_WORKERS)
+        _workers = _raw_workers if isinstance(_raw_workers, int) and _raw_workers > 0 else None
+        text_max_workers = _workers if _workers is not None else default_text_workers
+        entity_max_workers = _workers if _workers is not None else default_entity_workers
         use_processes = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
-        # Prepare global config for job tracking and other global settings
-        # Include ingest_source for on-demand binary fetching from cloud sources
+        # Prepare global config for job tracking and other global settings.
+        # Include ingest_source for on-demand binary fetching from cloud sources.
+        # Note: job-tracking values are read from config here rather than stored as
+        # instance attrs; use self.text_adapter.global_config to access them later
+        # so SessionInfo (set by the orchestrator per execution) remains the single
+        # source of truth and is not shadowed by stale construction-time snapshots.
         global_config = {
             OperatorConstants.Config.COMMON_LOG_ARGUMENTS: config.get(
                 OperatorConstants.Config.COMMON_LOG_ARGUMENTS, {}
@@ -300,7 +342,7 @@ class ExtractOperator(AbstractOperator):
                 )
                 if self.entity_adapter:
                     logger.info(
-                        "Created %s adapter for entity extraction provider: %s",
+                        "Created %s adapter for entity extraction mode: %s",
                         self.entity_adapter.ADAPTER_DISPLAY_NAME,
                         self.entity_extraction_mode.value,
                     )
@@ -330,25 +372,27 @@ class ExtractOperator(AbstractOperator):
 
         return doc_ids
 
-    def _find_document_by_id(self, *, doc_list: list[dict[str, Any]], doc_id: str) -> dict[str, Any] | None:
-        """Find a document by ID from the original list.
+    def _build_doc_id_map(self, *, doc_list: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        """Build a map of document IDs to document dictionaries for O(1) lookups.
 
         Args:
             doc_list: List of document dictionaries
-            doc_id: Normalized document ID to find
 
         Returns:
-            Matching document dictionary, if present
+            Dictionary mapping normalized document IDs to document dictionaries
         """
+        doc_map: dict[str, dict[str, Any]] = {}
         for doc in doc_list:
             if not isinstance(doc, dict):
                 continue
 
-            current_doc_id = doc.get(OperatorConstants.Columns.ID) or doc.get(OperatorConstants.Columns.DOC_ID_COLUMN)
-            if current_doc_id is not None and str(current_doc_id) == doc_id:
-                return doc
+            doc_id = doc.get(OperatorConstants.Columns.ID) or doc.get(OperatorConstants.Columns.DOC_ID_COLUMN)
+            if doc_id is not None:
+                # setdefault preserves the first occurrence, matching the old
+                # _find_document_by_id() behaviour which returned the first match.
+                doc_map.setdefault(str(doc_id), doc)
 
-        return None
+        return doc_map
 
     def _merge_document_maps(
         self,
@@ -373,12 +417,16 @@ class ExtractOperator(AbstractOperator):
         Returns:
             Merged document map with combined reasons where applicable
         """
+        # Build id-to-doc maps once for O(1) lookups instead of O(N) linear scans
+        text_doc_map = self._build_doc_id_map(doc_list=text_doc_list)
+        entity_doc_map = self._build_doc_id_map(doc_list=entity_doc_list)
+
         merged_map: dict[str, dict[str, Any]] = {}
         shared_doc_ids = text_doc_ids & entity_doc_ids
 
         for doc_id in shared_doc_ids:
-            text_doc = self._find_document_by_id(doc_list=text_doc_list, doc_id=doc_id)
-            entity_doc = self._find_document_by_id(doc_list=entity_doc_list, doc_id=doc_id)
+            text_doc = text_doc_map.get(doc_id)
+            entity_doc = entity_doc_map.get(doc_id)
             if text_doc is None or entity_doc is None:
                 continue
 
@@ -390,12 +438,12 @@ class ExtractOperator(AbstractOperator):
             }
 
         for doc_id in text_doc_ids - shared_doc_ids:
-            text_doc = self._find_document_by_id(doc_list=text_doc_list, doc_id=doc_id)
+            text_doc = text_doc_map.get(doc_id)
             if text_doc is not None:
                 merged_map[doc_id] = text_doc
 
         for doc_id in entity_doc_ids - shared_doc_ids:
-            entity_doc = self._find_document_by_id(doc_list=entity_doc_list, doc_id=doc_id)
+            entity_doc = entity_doc_map.get(doc_id)
             if entity_doc is not None:
                 merged_map[doc_id] = entity_doc
 
@@ -473,7 +521,10 @@ class ExtractOperator(AbstractOperator):
 
     @staticmethod
     def _add_page_statistics(*, metadata: dict[str, Any], table: pa.Table) -> dict[str, Any]:
-        """Add page statistics by format to metadata using PyArrow vectorized operations.
+        """Add page statistics by format to metadata using PyArrow C++ compute operations.
+
+        Extension extraction and grouping are performed entirely in PyArrow's C++ layer —
+        no Python loop over rows, no full table copy.
 
         Args:
             metadata: Existing metadata dictionary
@@ -482,8 +533,6 @@ class ExtractOperator(AbstractOperator):
         Returns:
             Updated metadata with page_type_stats and total_pages_converted statistics
         """
-        import pyarrow.compute as pc
-
         if OperatorConstants.Columns.PAGES_PROCESSED not in table.column_names:
             logger.warning("Pages processed column not found in table, skipping page statistics")
             return metadata
@@ -492,30 +541,36 @@ class ExtractOperator(AbstractOperator):
             logger.warning("Name column not found in table, skipping page statistics")
             return metadata
 
-        # Use PyArrow compute for total pages calculation
         pages_column = table.column(OperatorConstants.Columns.PAGES_PROCESSED)
         total_pages = pc.sum(pages_column).as_py()  # type: ignore[attr-defined]
 
-        # For page_type_stats, we still need to iterate since we need to group by file extension
-        # This is more efficient than converting entire table to pylist
-        name_column = table.column(OperatorConstants.Columns.NAME)
-        page_type_stats: dict[str, int] = {}
+        # Extract last extension entirely in C++ — no Python loop, no to_pylist()
+        name_column = pc.cast(table.column(OperatorConstants.Columns.NAME), pa.string())
+        extracted = pc.extract_regex(name_column, r"\.(?P<ext>[^.]+)$")  # type: ignore[attr-defined]
+        ext_col = pc.struct_field(extracted, "ext")  # type: ignore[attr-defined]
+        extensions = pc.if_else(  # type: ignore[attr-defined]
+            pc.invert(pc.is_null(ext_col)),  # type: ignore[attr-defined]
+            ext_col,
+            pa.scalar(OperatorConstants.Misc.UNKNOWN, pa.string()),
+        )
+        extensions = pc.utf8_lower(extensions)  # type: ignore[attr-defined]
 
-        for i in range(table.num_rows):
-            name = name_column[i].as_py()
-            pages = pages_column[i].as_py()
+        # Group on a 2-column mini-table — avoids copying the full input table
+        mini_table = pa.table(
+            {
+                "__ext": extensions,
+                OperatorConstants.Columns.PAGES_PROCESSED: pages_column,
+            }
+        )
+        grouped = mini_table.group_by(["__ext"]).aggregate([(OperatorConstants.Columns.PAGES_PROCESSED, "sum")])
+        page_type_stats: dict[str, int] = dict(
+            zip(
+                grouped.column("__ext").to_pylist(),
+                grouped.column(f"{OperatorConstants.Columns.PAGES_PROCESSED}_sum").to_pylist(),
+                strict=True,
+            )
+        )
 
-            # Extract file extension from name
-            if name and isinstance(name, str):
-                _, ext = os.path.splitext(name)
-                format_key = ext.lower()[1:] if ext else OperatorConstants.Misc.UNKNOWN
-            else:
-                format_key = OperatorConstants.Misc.UNKNOWN
-
-            # Accumulate page counts by format
-            page_type_stats[format_key] = page_type_stats.get(format_key, 0) + pages
-
-        # Add to metadata
         metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS] = page_type_stats
         metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = total_pages
         logger.info("Page statistics by format: %s, total pages: %d", page_type_stats, total_pages)
@@ -564,7 +619,623 @@ class ExtractOperator(AbstractOperator):
 
         return result_tables
 
-    def transform(  # NOSONAR python:S3776
+    def _get_supported_extensions(self) -> set[str]:
+        """Get supported file extensions based on extraction mode and available dependencies.
+
+        Returns:
+            Set of supported file extensions (e.g., {'.pdf', '.docx', '.txt'})
+        """
+        from docpipe.core.operators.operator_utils import is_asr_available
+
+        if self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY:
+            extensions = set(OperatorConstants.FileExtensions.DOCLING_LIBRARY_BASE_EXTENSIONS)
+            # Add audio/video if ASR is available
+            if is_asr_available():
+                extensions.update(OperatorConstants.FileExtensions.DOCLING_LIBRARY_AUDIO_VIDEO_EXTENSIONS)
+            return extensions
+
+        if self.text_extraction_mode == TextExtractionMode.DOCLING_SERVE:
+            return set(OperatorConstants.FileExtensions.DOCLING_SERVE_EXTENSIONS)
+
+        # Default: return base extensions
+        return set(OperatorConstants.FileExtensions.DOCLING_LIBRARY_BASE_EXTENSIONS)
+
+    def _validate_extensions(self, table: pa.Table, metadata: dict[str, Any]) -> set[int]:
+        """Validate file extensions for documents before extraction.
+
+        Similar to DocumentClassifierOperator::_validate_extensions_for_existing_content,
+        this validates extensions upfront to skip unsupported files early.
+
+        Args:
+            table: Input PyArrow table with document metadata
+            metadata: Metadata dictionary to record skipped documents
+
+        Returns:
+            Set of row indices that were skipped due to unsupported extensions
+        """
+        skipped_indices: set[int] = set()
+
+        if OperatorConstants.Columns.NAME not in table.column_names:
+            return skipped_indices
+
+        supported_extensions = self._get_supported_extensions()
+
+        for idx in range(table.num_rows):
+            doc_name = table[OperatorConstants.Columns.NAME][idx].as_py()
+
+            # Try to get extension from document_format column first (set by ingest operators for cloud files)
+            # Fall back to extracting from filename if not available
+            file_ext = ""
+            if "document_format" in table.column_names:
+                doc_fmt = table["document_format"][idx].as_py() or ""
+                if doc_fmt:
+                    file_ext = f".{doc_fmt.lstrip('.')}"
+
+            if not file_ext:
+                file_ext = Path(doc_name).suffix.lower()
+
+            if file_ext not in supported_extensions:
+                doc_id = (
+                    table[OperatorConstants.Columns.ID][idx].as_py()
+                    if OperatorConstants.Columns.ID in table.column_names
+                    else f"doc_{idx}"
+                )
+                error_msg = f"Unsupported file extension for {self.text_extraction_mode.value}: {file_ext}"
+                logger.info("Skipping document %s: %s", doc_name, error_msg)
+
+                self.record_skipped_document(
+                    metadata=metadata,
+                    doc_id=str(doc_id),
+                    doc_name=doc_name,
+                    reason=error_msg,
+                )
+                skipped_indices.add(idx)
+
+        return skipped_indices
+
+    # ------------------------------------------------------------------
+    # Streaming pipeline — runs text and entity extraction concurrently
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_extraction_stage_progress(
+        *,
+        text_completed: int,
+        text_failed: int,
+        text_total: int,
+        entity_completed: int,
+        entity_failed: int,
+        entity_total: int,
+    ) -> dict[str, Any]:
+        """Build the extraction_stage_progress payload for both stages.
+
+        Returns a dict suitable for embedding directly into the operator metadata
+        that transform() returns, so it survives the complete_node_execution path
+        without any intermediate store read-back.
+
+        Args:
+            text_completed: Successfully text-extracted documents.
+            text_failed: Failed text-extraction documents.
+            text_total: Total documents submitted for text extraction.
+            entity_completed: Successfully entity-extracted documents.
+            entity_failed: Failed entity-extraction documents.
+            entity_total: Documents submitted for entity extraction.
+
+        Returns:
+            Dict with key ``extraction_stage_progress`` containing per-stage dicts.
+        """
+        return {
+            OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: {
+                OperatorConstants.Extraction.STAGE_TEXT_EXTRACTION: _build_stage_dict(
+                    completed=text_completed,
+                    failed=text_failed,
+                    total=text_total,
+                ),
+                OperatorConstants.Extraction.STAGE_ENTITY_EXTRACTION: _build_stage_dict(
+                    completed=entity_completed,
+                    failed=entity_failed,
+                    total=entity_total,
+                ),
+            }
+        }
+
+    def _write_streaming_progress(
+        self,
+        *,
+        text_completed: int,
+        text_failed: int,
+        text_total: int,
+        entity_completed: int,
+        entity_failed: int,
+        entity_total: int,
+    ) -> None:
+        """Write live extraction stage progress to the DB while the batch is still running.
+
+        Mirrors the periodic update_node_stats() calls that TextExtractionPort makes in
+        the sequential path, so the batch aggregator can display "Text Extracted" /
+        "Entities Extracted" counters while the streaming pipeline is in flight.
+
+        No-ops silently when job tracking context is unavailable (no job_run_id/node_id)
+        or when the DB write fails — progress updates must never abort extraction.
+        """
+        try:
+            job_run_id = self.text_adapter.job_run_id
+            node_id = self.text_adapter.node_id
+            if not job_run_id or not node_id:
+                return
+
+            from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
+            from docpipe.core.job_management.adapters.stores.json.json_job_stats_store import JsonJobStatsStore
+            from docpipe.core.job_management.domain.models.node_stats import NodeMetadataItem, NodeStats
+
+            factory = get_default_factory()
+            job_stats_store = factory.create_job_stats_store()
+
+            def _stage(*, completed: int, failed: int, total: int) -> dict[str, Any]:
+                done = completed + failed
+                pct = round((done / total) * 100, 2) if total else 0.0
+                status = (
+                    OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
+                    if done >= total
+                    else OperatorConstants.Extraction.STAGE_STATUS_RUNNING
+                )
+                return {
+                    OperatorConstants.Extraction.STAGE_STATUS: status,
+                    OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: total,
+                    OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: completed,
+                    OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: failed,
+                    OperatorConstants.Extraction.STAGE_PROGRESS_PERCENTAGE: pct,
+                }
+
+            progress_metadata: dict[str, Any] = {
+                OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: {
+                    OperatorConstants.Extraction.STAGE_TEXT_EXTRACTION: _stage(
+                        completed=text_completed, failed=text_failed, total=text_total
+                    ),
+                    OperatorConstants.Extraction.STAGE_ENTITY_EXTRACTION: _stage(
+                        completed=entity_completed, failed=entity_failed, total=entity_total
+                    ),
+                }
+            }
+
+            metadata_item = NodeMetadataItem(
+                id=node_id,
+                operator=self.text_adapter.node_name or "ExtractOperator",
+                node_metadata=progress_metadata,
+            )
+
+            # Read existing stats to preserve fields set by the orchestrator
+            # (total_docs, start_time, etc.), then merge in the progress metadata.
+            batch_id = self.text_adapter.batch_id
+            existing = None
+            try:
+                existing = job_stats_store.get_node_stats_by_batch_and_node(
+                    job_run_id=job_run_id, node_id=node_id, batch_id=batch_id
+                )
+            except Exception:  # nosec B110
+                pass  # partial merge is acceptable for live progress
+
+            merged = (
+                existing.model_dump()
+                if existing
+                else {
+                    "id": node_id,
+                    "name": self.text_adapter.node_name or "ExtractOperator",
+                }
+            )
+            merged[OperatorConstants.Metadata.NODE_METADATA] = metadata_item.model_dump()
+            merged["node_status"] = merged.get("node_status", "Running")
+
+            node_stats_obj = NodeStats(**{k: v for k, v in merged.items() if k in NodeStats.model_fields})
+
+            if isinstance(job_stats_store, JsonJobStatsStore):
+                # Use a short lock timeout so a busy write (entity worker threads also
+                # hold node_stats.lock) skips rather than blocking for 30 seconds.
+                wrote = job_stats_store.try_store_node_stats(
+                    job_run_id=job_run_id, node_stats=node_stats_obj, lock_timeout=0.5
+                )
+                if not wrote:
+                    logger.debug("Skipping streaming progress update: node_stats.lock busy")
+                    return
+            else:
+                # Non-filesystem stores have no shared file lock — use the normal path.
+                job_stats_store.store_node_stats(job_run_id=job_run_id, node_stats=node_stats_obj)
+
+            logger.info(
+                "Streaming progress: text=%s/%s entity=%s/%s",
+                text_completed,
+                text_total,
+                entity_completed,
+                entity_total,
+            )
+        except Exception as exc:
+            logger.warning("Failed to write streaming progress update: %s", exc)
+
+    def _run_streaming_pipeline(
+        self,
+        *,
+        table: pa.Table,
+        metadata: dict[str, Any],
+    ) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Run text and entity extraction concurrently in a producer-consumer pipeline.
+
+        As soon as a document finishes text extraction it is immediately submitted for
+        entity extraction, without waiting for the remaining text-extraction workers to
+        finish. This eliminates the hard sequential barrier between the two stages.
+
+        Architecture
+        ------------
+        - Thread pool A  : text workers — calls text_adapter.extract_single_document()
+        - Thread pool B  : entity workers — calls entity_adapter.extract_entities_single()
+
+        All text futures are submitted up-front.  The main thread drains them via
+        ``concurrent.futures.as_completed`` and submits an entity task immediately
+        for each successfully extracted document.  Entity futures are drained in a
+        second ``as_completed`` loop after all text futures resolve.
+
+        Progress tracking
+        -----------------
+        Final stage counters are written directly into the returned ``metadata`` dict
+        as ``extraction_stage_progress``, so they survive ``complete_node_execution``
+        without any intermediate store read-back.
+
+        Args:
+            table: PyArrow table with document information.
+            metadata: Metadata dict to populate (already initialised by transform()).
+
+        Returns:
+            Tuple of ([result_table], consolidated_metadata).
+
+        Raises:
+            ValueError: If every document fails text extraction (same as TextExtractionPort).
+        """
+        if self.entity_adapter is None:
+            raise ValueError(
+                "_run_streaming_pipeline requires entity_adapter to be set. "
+                "Call transform() instead, which routes to the correct path."
+            )
+
+        from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
+        from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
+
+        doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
+            table=table, global_config=self.text_adapter.global_config
+        )
+        total_docs = len(doc_tasks)
+
+        # Per-row accumulators (positional, same length as table)
+        doc_contents: list[str] = [""] * table.num_rows
+        doc_pages_processed: list[int] = [0] * table.num_rows
+        entities_list: list[dict[str, Any]] = [{} for _ in range(table.num_rows)]
+
+        # Initialise format lists for any additional output formats requested
+        format_lists: dict[str, list[str | None]] = {}
+        for fmt in self.text_adapter.additional_formats:
+            if fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
+                format_lists[fmt] = [None] * table.num_rows
+
+        remove_row_idx: list[int] = []
+        non_recoverable_doc_ids: list[int] = []
+
+        # Counters — accessed only from the main thread (after future.result())
+        text_completed = 0
+        text_failed = 0
+        entity_completed = 0
+        entity_failed = 0
+
+        # Periodic progress tracking — same 5-second interval as TextExtractionPort
+        last_progress_update = 0.0
+        progress_update_interval = 5
+
+        # Prepare schemas once before any processing (read-only during execution)
+        service = EntityExtractionService(
+            adapter=self.entity_adapter,
+            config={
+                OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
+                OperatorConstants.Columns.OUTPUT_COLUMN: self.output_column,
+                OperatorConstants.Config.EXPAND_EXTRACTED_DATA: self.expand_extracted_data,
+                OperatorConstants.Columns.DOC_ID_HASH: self.entity_adapter.doc_id_hash_column,
+                OperatorConstants.Config.CUSTOM_SCHEMA: self.entity_adapter.custom_schema,
+                "common_log_arguments": self.entity_adapter.common_log_arguments,
+            },
+            max_workers=self.entity_adapter.max_workers,
+            job_run_id=self.entity_adapter.job_run_id,
+            node_id=self.entity_adapter.node_id,
+            node_name=self.entity_adapter.node_name,
+            batch_id=self.entity_adapter.batch_id,
+        )
+        _doc_types, schema_templates = service.prepare_schemas(table=table)
+
+        logger.info(
+            "Streaming pipeline: %s documents, text_workers=%s, entity_workers=%s",
+            total_docs,
+            self.text_adapter.max_workers,
+            self.entity_adapter.max_workers,
+        )
+
+        use_processes = self.text_adapter.use_processes
+        text_executor_cls = ProcessPoolExecutor if use_processes else ThreadPoolExecutor
+
+        # Entity extraction always uses threads regardless of use_processes.
+        # Every entity adapter (LiteLLM, WatsonX, Docling) makes outbound HTTP
+        # calls — they are IO-bound, never CPU-bound in-process.
+        with (
+            text_executor_cls(max_workers=self.text_adapter.max_workers) as text_executor,
+            ThreadPoolExecutor(max_workers=self.entity_adapter.max_workers) as entity_executor,
+        ):
+            # Map from text Future → task dict
+            text_future_to_task: dict[Future, dict[str, Any]] = {}
+
+            # Submit all text-extraction tasks up front
+            for task in doc_tasks:
+                if "error" in task:
+                    # Extension/fetch error recorded before executor runs
+                    AbstractOperator.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=task["error"],
+                    )
+                    text_failed += 1
+                    continue
+
+                future = text_executor.submit(
+                    self.text_adapter.extract_single_document,
+                    file_path=task["doc_name"],
+                    binary_content=task["binary_content"],
+                )
+                text_future_to_task[future] = task
+
+            # Map from entity Future → (idx, doc_id, doc_name)
+            entity_future_to_info: dict[Future, tuple[int, str, str]] = {}
+
+            # Collect text results as they complete; immediately submit entity tasks
+            for text_future in as_completed(text_future_to_task):
+                task = text_future_to_task[text_future]
+                idx = task["idx"]
+
+                try:
+                    result = text_future.result()
+                except Exception as exc:
+                    error_msg = str(exc)
+                    AbstractOperator.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=error_msg,
+                    )
+                    remove_row_idx.append(idx)
+                    text_failed += 1
+                    continue
+
+                if result.get(OperatorConstants.Extraction.SUCCESS):
+                    # ---- Text extraction succeeded ----
+                    extracted_content = result.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT) or ""
+                    doc_contents[idx] = extracted_content
+
+                    # Additional formats
+                    for fmt, content_list in format_lists.items():
+                        col_name = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING.get(fmt)
+                        if col_name and col_name in result:
+                            content_list[idx] = result[col_name]
+
+                    # Page count
+                    ext_meta = result.get(OperatorConstants.Metadata.METADATA, {})
+                    native_pages = ext_meta.get("page_count")
+                    if native_pages and isinstance(native_pages, (int, float)) and native_pages > 0:
+                        doc_pages_processed[idx] = int(native_pages)
+                    else:
+                        chars = len(extracted_content)
+                        cpp = OperatorConstants.Processing.CHARS_PER_PAGE
+                        doc_pages_processed[idx] = max(1, (chars + cpp - 1) // cpp)
+
+                    metadata[Metrics.External.PROCESSED_DOCS] += 1
+                    text_completed += 1
+
+                    # ---- Immediately queue entity extraction ----
+                    # Determine schema for this document
+                    schema_to_use = self.entity_adapter.custom_schema
+                    if schema_templates:
+                        doc_type = (
+                            table.column(OperatorConstants.Columns.DOCUMENT_TYPE)[idx].as_py()
+                            if OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names
+                            else None
+                        )
+                        if doc_type and doc_type in schema_templates:
+                            schema_to_use = schema_templates[doc_type]
+
+                    if not extracted_content:
+                        # Nothing to feed to the LLM — skip
+                        AbstractOperator.record_skipped_document(
+                            metadata=metadata,
+                            doc_id=str(task["doc_id"]),
+                            doc_name=task["doc_name"],
+                            reason=f"Column '{self.doc_column}' is empty after text extraction.",
+                        )
+                    else:
+                        entity_future = entity_executor.submit(
+                            self.entity_adapter.extract_entities_single,
+                            doc_id=str(task["doc_id"]),
+                            doc_name=task["doc_name"],
+                            content=extracted_content,
+                            schema=schema_to_use,
+                        )
+                        entity_future_to_info[entity_future] = (idx, str(task["doc_id"]), task["doc_name"])
+
+                else:
+                    # ---- Text extraction failed ----
+                    error_msg = result.get(OperatorConstants.Extraction.ERROR, "Unknown error")
+
+                    if is_non_recoverable_error(error_msg):
+                        non_recoverable_doc_ids.append(idx)
+                        error_msg = (
+                            f"{error_msg}. This document will not be processed in future "
+                            "flow executions unless the document is modified."
+                        )
+                        logger.warning(
+                            "Non-recoverable error for document %s: %s",
+                            task["doc_name"],
+                            error_msg,
+                        )
+
+                    AbstractOperator.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=error_msg,
+                    )
+                    remove_row_idx.append(idx)
+                    text_failed += 1
+
+                # Periodic live progress update — write both stage counters to DB so the
+                # batch aggregator can display "Text Extracted" / "Entities Extracted"
+                # while the batch is still running (same 5-second cadence as TextExtractionPort).
+                now = time.time()
+                if now - last_progress_update >= progress_update_interval:
+                    self._write_streaming_progress(
+                        text_completed=text_completed,
+                        text_failed=text_failed,
+                        text_total=total_docs,
+                        entity_completed=entity_completed,
+                        entity_failed=entity_failed,
+                        entity_total=len(entity_future_to_info),
+                    )
+                    last_progress_update = now
+
+            # Text stage is fully done — guard against all-failed case
+            if text_completed == 0:
+                raise ValueError(
+                    f"All {total_docs} document(s) failed text extraction. "
+                    "No content was extracted. Cannot continue pipeline with empty content."
+                )
+
+            # Drain entity futures
+            for entity_future in as_completed(entity_future_to_info):
+                idx, doc_id, doc_name = entity_future_to_info[entity_future]
+                try:
+                    result = entity_future.result()
+                    if result.get(OperatorConstants.Extraction.SUCCESS):
+                        # Entity futures are drained in the main thread via as_completed —
+                        # no concurrent writes to entities_list, no lock needed.
+                        entities_list[idx] = result.get(OperatorConstants.Misc.ENTITIES, {})
+                        entity_completed += 1
+                    else:
+                        error = result.get(OperatorConstants.Extraction.ERROR, "Unknown error")
+                        AbstractOperator.record_failed_document(
+                            metadata=metadata,
+                            doc_id=doc_id,
+                            doc_name=doc_name,
+                            reason=error,
+                        )
+                        logger.error("Entity extraction failed for %s: %s", doc_name, error)
+                        entity_failed += 1
+                except Exception as exc:
+                    AbstractOperator.record_failed_document(
+                        metadata=metadata,
+                        doc_id=doc_id,
+                        doc_name=doc_name,
+                        reason=str(exc),
+                    )
+                    logger.error("Entity extraction error for %s: %s", doc_name, exc)
+                    entity_failed += 1
+
+                # Periodic live progress update during entity drain loop.
+                now = time.time()
+                if now - last_progress_update >= progress_update_interval:
+                    self._write_streaming_progress(
+                        text_completed=text_completed,
+                        text_failed=text_failed,
+                        text_total=total_docs,
+                        entity_completed=entity_completed,
+                        entity_failed=entity_failed,
+                        entity_total=len(entity_future_to_info),
+                    )
+                    last_progress_update = now
+
+        # Write the final stage progress into metadata so it is carried through
+        # complete_node_execution without any intermediate store read-back.
+        metadata.update(
+            self._build_extraction_stage_progress(
+                text_completed=text_completed,
+                text_failed=text_failed,
+                text_total=total_docs,
+                entity_completed=entity_completed,
+                entity_failed=entity_failed,
+                entity_total=len(entity_future_to_info),
+            )
+        )
+
+        logger.info(
+            "Streaming pipeline complete: text=%s/%s ok, entity=%s/%s ok",
+            text_completed,
+            total_docs,
+            entity_completed,
+            len(entity_future_to_info),
+        )
+
+        # ----------------------------------------------------------------
+        # Assemble the final table
+        # ----------------------------------------------------------------
+        original_table = table
+
+        # Remove rows whose text extraction failed
+        if remove_row_idx:
+            table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
+            remove_set = set(remove_row_idx)
+            doc_contents = [c for i, c in enumerate(doc_contents) if i not in remove_set]
+            doc_pages_processed = [p for i, p in enumerate(doc_pages_processed) if i not in remove_set]
+            entities_list = [e for i, e in enumerate(entities_list) if i not in remove_set]
+            for fmt in format_lists:
+                format_lists[fmt] = [v for i, v in enumerate(format_lists[fmt]) if i not in remove_set]
+
+        # Add extracted text content column
+        table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
+
+        # Add additional format columns
+        for fmt, content_list in format_lists.items():
+            col_name = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
+            if any(v is not None for v in content_list):
+                table = TransformUtils.add_column(table=table, name=col_name, content=content_list)
+
+        # Add pages_processed column
+        table = TransformUtils.add_column(
+            table=table, name=OperatorConstants.Columns.PAGES_PROCESSED, content=doc_pages_processed
+        )
+
+        # Generate doc_id_hash
+        logger.info("Generating hash id and adding it to table")
+        hash_operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
+        table_list, _ = hash_operator.transform(table)
+        table = table_list[0]
+
+        # Add entities column
+        entities_json_list: list[str] = [json.dumps(e) if e else "{}" for e in entities_list]
+        table = TransformUtils.add_column(table=table, name=self.output_column, content=entities_json_list)
+
+        # Optionally expand entities into individual columns
+        if self.expand_extracted_data:
+            table = service.expand_entities_columns(table=table, entities_list=entities_list)
+
+        # Process non-recoverable errors
+        metadata = process_non_recoverable_errors(
+            table=original_table,
+            non_recoverable_doc_ids=non_recoverable_doc_ids,
+            metadata=metadata,
+            common_log_arguments=self.text_adapter.global_config.get(OperatorConstants.Config.COMMON_LOG_ARGUMENTS, {}),
+        )
+
+        # Determine final execution status
+        failed_count = metadata.get(Metrics.External.FAILED_DOCS_COUNT, 0)
+        skipped_count = metadata.get(Metrics.External.SKIPPED_DOCS_COUNT, 0)
+        metadata[Metrics.External.NODE_STATUS] = OperatorUtils.determine_execution_status(
+            processed_count=metadata.get(Metrics.External.PROCESSED_DOCS, 0),
+            failed_count=failed_count,
+            skipped_count=skipped_count,
+        )
+
+        return [table], metadata
+
+    def transform(
         self, table: pa.Table, file_name: str | None = None, metadata: dict[str, Any] | None = None
     ) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform documents using text and entity extraction adapters.
@@ -579,7 +1250,7 @@ class ExtractOperator(AbstractOperator):
 
         Content Reuse:
         If document_classifier pre-fetched content and stored it in '_temp_content_for_extract',
-        this operator will reuse it for docling_library text extraction provider, skipping re-extraction.
+        this operator will reuse it for docling_library text extraction mode, skipping re-extraction.
 
         Args:
             table: PyArrow table with document information containing columns:
@@ -614,11 +1285,25 @@ class ExtractOperator(AbstractOperator):
             metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = 0
             return [table], metadata
 
+        skipped_indices = self._validate_extensions(table, metadata)
+
+        if skipped_indices:
+            # Filter out skipped documents
+            valid_indices = [i for i in range(table.num_rows) if i not in skipped_indices]
+            if not valid_indices:
+                logger.warning("All documents skipped due to unsupported extensions")
+                metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS] = {}
+                metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = 0
+                return [table], metadata
+
+            table = table.take(valid_indices)
+            logger.info("Filtered table: %s valid documents, %s skipped", len(valid_indices), len(skipped_indices))
+
         # Check for pre-fetched content from document_classifier (hybrid approach)
         content_reused = False
 
         if DocpipeConstants.TEMP_CONTENT_COLUMN in table.column_names:
-            # Reuse prefetched content only when using docling_library provider with no provider_config
+            # Reuse prefetched content only when using docling_library mode with no provider_config
             provider_config = self.text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
             can_reuse_prefetched_content = (
                 self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY and not provider_config
@@ -626,8 +1311,9 @@ class ExtractOperator(AbstractOperator):
 
             if can_reuse_prefetched_content:
                 logger.info(
-                    f"Reusing pre-fetched content from '{DocpipeConstants.TEMP_CONTENT_COLUMN}' for "
-                    f"{self.text_extraction_mode.value} (no provider_config)"
+                    "Reusing pre-fetched content from '%s' for %s (no provider_config)",
+                    DocpipeConstants.TEMP_CONTENT_COLUMN,
+                    self.text_extraction_mode.value,
                 )
 
                 column_names = list(table.column_names)
@@ -657,7 +1343,7 @@ class ExtractOperator(AbstractOperator):
                 )
 
                 content_reused = True
-                logger.info(f"Content reuse successful: skipping text extraction for {table.num_rows} documents")
+                logger.info("Content reuse successful: skipping text extraction for %s documents", table.num_rows)
             else:
                 reason = []
                 if self.text_extraction_mode != TextExtractionMode.DOCLING_LIBRARY:
@@ -667,8 +1353,8 @@ class ExtractOperator(AbstractOperator):
                 reason_str = ", ".join(reason) if reason else "unknown reason"
 
                 logger.info(
-                    f"Pre-fetched content found but not reusable ({reason_str}). "
-                    f"Dropping temporary columns and performing fresh extraction."
+                    "Pre-fetched content found but not reusable (%s). Dropping temporary columns and performing fresh extraction.",
+                    reason_str,
                 )
                 # Drop both temp columns if present
                 columns_to_drop = []
@@ -685,6 +1371,33 @@ class ExtractOperator(AbstractOperator):
         entity_metadata: dict[str, Any] | None = None
 
         try:
+            # ------------------------------------------------------------------
+            # Streaming path: text + entity run concurrently (entity enabled,
+            # content not pre-fetched).  All other cases fall through to the
+            # original sequential steps below.
+            # ------------------------------------------------------------------
+            if self.entity_adapter is not None and not content_reused:
+                result_tables, consolidated_metadata = self._run_streaming_pipeline(table=table, metadata=metadata)
+                # Page statistics and binary-content drop still apply
+                consolidated_metadata = self._add_page_statistics(
+                    metadata=consolidated_metadata, table=result_tables[0]
+                )
+                result_tables = self._drop_binary_content_column(tables=result_tables)
+
+                logger.info(
+                    "Final extraction results: %s/%s documents processed, %s failed, %s skipped",
+                    consolidated_metadata.get(Metrics.External.PROCESSED_DOCS, 0),
+                    consolidated_metadata.get(Metrics.External.TOTAL_DOCS, table.num_rows),
+                    consolidated_metadata.get(Metrics.External.FAILED_DOCS_COUNT, 0),
+                    consolidated_metadata.get(Metrics.External.SKIPPED_DOCS_COUNT, 0),
+                )
+                return result_tables, consolidated_metadata
+
+            # ------------------------------------------------------------------
+            # Sequential path (entity disabled, or content reused from
+            # document_classifier pre-fetch).
+            # ------------------------------------------------------------------
+
             # Step 1: Text extraction (skip if content was reused)
             if content_reused:
                 # Content already present in doc_column, skip text extraction
@@ -714,9 +1427,9 @@ class ExtractOperator(AbstractOperator):
                     text_metadata.get(Metrics.External.TOTAL_DOCS, table.num_rows),
                 )
 
-            # Step 2: Entity extraction (if enabled)
+            # Step 2: Entity extraction (if enabled — only reached when content_reused=True)
             if self.entity_adapter is not None:
-                logger.info("Starting entity extraction on extracted text")
+                logger.info("Starting entity extraction on pre-fetched content")
                 # Reset metadata for entity extraction to track independently
                 # Note: result_tables[0] already has failed docs removed by text extraction
                 entity_base_metadata = self.create_base_metadata(total_docs_count=result_tables[0].num_rows)
@@ -777,6 +1490,55 @@ class ExtractOperator(AbstractOperator):
 
         # Validate configuration against metadata
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
+
+        # Warn about any additional_formats values that won't produce an output column
+        provider_config = self.text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        additional_formats = provider_config.get(OperatorConstants.Extraction.ADDITIONAL_FORMATS, [])
+        if additional_formats:
+            unknown = [
+                fmt for fmt in additional_formats if fmt not in OperatorConstants.Extraction.VALID_OUTPUT_FORMATS
+            ]
+            if unknown:
+                warnings.append(
+                    f"text_extraction.provider_config.additional_formats contains unknown values {unknown}. "
+                    f"These will be ignored. Valid options are: {OperatorConstants.Extraction.VALID_OUTPUT_FORMATS}"
+                )
+
+    @staticmethod
+    def _get_text_extraction_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the text_extraction provider_config field.
+
+        Schemas are derived automatically from every adapter registered via
+        ``@register_text_extraction_adapter``.
+        """
+        # Import the adapter modules so their @register_text_extraction_adapter decorators fire.
+        import docpipe.core.operators.extract.adapters.outbound.text_extraction  # noqa: F401
+        from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
+            TextExtractionAdapterFactory,
+        )
+
+        return {
+            name: OperatorUtils.model_schema_to_docpipe(schema=adapter_cls.get_config_schema().model_json_schema())
+            for name, adapter_cls in TextExtractionAdapterFactory._registry.items()
+        }
+
+    @staticmethod
+    def _get_entity_extraction_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the entity_extraction provider_config field.
+
+        Schemas are derived automatically from every adapter registered via
+        ``@register_entity_extraction_adapter``. Importing the package triggers all
+        decorator registrations before the registry is iterated.
+        """
+        import docpipe.core.operators.extract.adapters.outbound.entity_extraction  # noqa: F401
+        from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
+            EntityExtractionAdapterFactory,
+        )
+
+        return {
+            name: OperatorUtils.model_schema_to_docpipe(schema=adapter_cls.get_config_schema().model_json_schema())
+            for name, adapter_cls in EntityExtractionAdapterFactory.get_registry_items()
+        }
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -883,6 +1645,10 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Configuration for text extraction from documents",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.DEFAULT: {
+                        OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+                        OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                    },
                     OperatorConstants.Config.PROPERTIES: {
                         OperatorConstants.Config.PROVIDER: {
                             OperatorConstants.Misc.NAME: "Text Extraction Provider",
@@ -896,76 +1662,10 @@ class ExtractOperator(AbstractOperator):
                         },
                         OperatorConstants.Config.PROVIDER_CONFIG: {
                             OperatorConstants.Misc.NAME: "Provider Configuration",
-                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for text extraction (docling_serve: base_url, api_key, timeout, etc.)",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for text extraction. Fields vary by provider — see the 'providers' schema for details.",
                             OperatorConstants.Config.REQUIRED: False,
                             OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                            OperatorConstants.Config.PROPERTIES: {
-                                OperatorConstants.Config.VLM_PIPELINE: {
-                                    OperatorConstants.Misc.NAME: "VLM Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Vision-Language Model pipeline configuration for enhanced extraction (docling_library provider only). Provide empty dict {} to enable with defaults, or omit to disable.",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                    OperatorConstants.Config.PROPERTIES: {
-                                        OperatorConstants.Config.PRESET: {
-                                            OperatorConstants.Misc.NAME: "VLM Preset",
-                                            OperatorConstants.Config.DESCRIPTION: "VLM preset name (e.g., 'fast', 'granite_docling')",
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: "fast",
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                        },
-                                        OperatorConstants.Config.ENGINE: {
-                                            OperatorConstants.Misc.NAME: "VLM Engine",
-                                            OperatorConstants.Config.DESCRIPTION: "VLM engine: 'transformers' (local), 'mlx' (macOS), 'ollama', or other API providers",
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: "transformers",
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                        },
-                                        OperatorConstants.Config.ENGINE_OPTIONS: {
-                                            OperatorConstants.Misc.NAME: "Engine Options",
-                                            OperatorConstants.Config.DESCRIPTION: "Engine-specific configuration (api_base, model_id, api_key, etc.)",
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: None,
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                        },
-                                    },
-                                },
-                                OperatorConstants.Config.ASR_PIPELINE: {
-                                    OperatorConstants.Misc.NAME: "ASR Pipeline Configuration",
-                                    OperatorConstants.Config.DESCRIPTION: "Automatic Speech Recognition pipeline configuration for audio/video extraction (docling_library provider only). Provide empty dict {} to enable with defaults, or omit to disable.",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                    OperatorConstants.Config.PROPERTIES: {
-                                        OperatorConstants.Config.MODEL_ID: {
-                                            OperatorConstants.Misc.NAME: "ASR Model Name",
-                                            OperatorConstants.Config.DESCRIPTION: (
-                                                "ASR model name (e.g., whisper_turbo, whisper_small, whisper_medium). "
-                                                "Valid values: whisper_tiny, whisper_small, whisper_medium, whisper_base, "
-                                                "whisper_large, whisper_turbo, and their _mlx/_native variants"
-                                            ),
-                                            OperatorConstants.Config.REQUIRED: False,
-                                            OperatorConstants.Config.DEFAULT: OperatorConstants.Config.ASR_MODEL_DEFAULT,
-                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                        },
-                                    },
-                                },
-                                OperatorConstants.Extraction.ADDITIONAL_FORMATS: {
-                                    OperatorConstants.Misc.NAME: "Additional Output Formats",
-                                    OperatorConstants.Config.DESCRIPTION: (
-                                        "List of additional output formats to generate beyond the mandatory markdown format. "
-                                        "Markdown format is ALWAYS generated (creates doc_content column). "
-                                        "Additional options: "
-                                        "'html' (creates content_html column), "
-                                        "'json' (creates content_json column), "
-                                        "'text' (creates content_text column), "
-                                        "'doctags' (creates content_doctags column). "
-                                        "Example: ['html', 'json'] will generate markdown + HTML + JSON formats"
-                                    ),
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: [],
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                    OperatorConstants.Config.VALID_VALUES: OperatorConstants.Extraction.VALID_OUTPUT_FORMATS,
-                                },
-                            },
+                            OperatorConstants.Config.PROVIDERS: ExtractOperator._get_text_extraction_provider_schemas(),
                         },
                         OperatorConstants.Columns.DOC_COLUMN: {
                             OperatorConstants.Misc.NAME: "Document Column",
@@ -982,6 +1682,9 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Configuration for entity extraction from documents (optional)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.DEFAULT: {
+                        OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+                    },
                     OperatorConstants.Config.PROPERTIES: {
                         OperatorConstants.Config.PROVIDER: {
                             OperatorConstants.Misc.NAME: "Entity Extraction Provider",
@@ -997,54 +1700,10 @@ class ExtractOperator(AbstractOperator):
                         },
                         OperatorConstants.Config.PROVIDER_CONFIG: {
                             OperatorConstants.Misc.NAME: "Provider Configuration",
-                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction (model_id, api_base, api_key, temperature, max_tokens, etc.)",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction. Fields vary by provider — see the 'providers' schema for details.",
                             OperatorConstants.Config.REQUIRED: False,
                             OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                            OperatorConstants.Config.PROPERTIES: {
-                                OperatorConstants.Config.MODEL_ID: {
-                                    OperatorConstants.Misc.NAME: "Model ID",
-                                    OperatorConstants.Config.DESCRIPTION: "LLM model identifier for entity extraction (e.g., 'ollama/llama3.2', 'openai/gpt-4')",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: "llama3.2",
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_BASE: {
-                                    OperatorConstants.Misc.NAME: "API Base URL",
-                                    OperatorConstants.Config.DESCRIPTION: "Base URL for the LLM API endpoint",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.Config.API_KEY: {
-                                    OperatorConstants.Misc.NAME: "API Key",
-                                    OperatorConstants.Config.DESCRIPTION: "API key for authentication (if required by provider)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                                },
-                                OperatorConstants.LLM.TEMPERATURE: {
-                                    OperatorConstants.Misc.NAME: "Temperature",
-                                    OperatorConstants.Config.DESCRIPTION: "Sampling temperature for entity extraction LLM (0.0-1.0)",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: 0.0,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
-                                },
-                                OperatorConstants.LLM.MAX_TOKENS: {
-                                    OperatorConstants.Misc.NAME: "Max Tokens",
-                                    OperatorConstants.Config.DESCRIPTION: "Maximum tokens for entity extraction LLM response",
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Config.DEFAULT: 4096,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                                },
-                                DoclingClientConfigConstants.VLM_PIPELINE: {
-                                    OperatorConstants.Misc.NAME: "VLM Pipeline",
-                                    OperatorConstants.Config.DESCRIPTION: (
-                                        "Custom VLM model configuration for Docling entity extraction (docling provider only). "
-                                        "Requires model_type='inline' and inline_model with repo_id (HuggingFace model). "
-                                        "Note: Only inline models supported; API models not supported by DocumentExtractor."
-                                    ),
-                                    OperatorConstants.Config.REQUIRED: False,
-                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                                },
-                            },
+                            OperatorConstants.Config.PROVIDERS: ExtractOperator._get_entity_extraction_provider_schemas(),
                         },
                         OperatorConstants.Columns.OUTPUT_COLUMN: {
                             OperatorConstants.Misc.NAME: "Output Column",
@@ -1081,7 +1740,7 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Misc.NAME: "Max Workers",
                     OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers for extraction (auto-detects based on CPU count if not specified)",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "auto (CPU-based)",
+                    OperatorConstants.Config.DEFAULT: None,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 OperatorConstants.Config.USE_PROCESSES: {

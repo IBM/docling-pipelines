@@ -13,7 +13,7 @@ Prerequisites:
     2. Or use a remote docling-serve instance by setting DOCLING_SERVE_URL environment variable
 
     3. Verify docling-serve is running:
-       curl http://localhost:5001/health
+       curl http://0.0.0.0:5001/health
 
 These tests validate the complete docling-serve integration including:
 - Basic document extraction
@@ -47,7 +47,7 @@ from docpipe.core.constants.operator_constants import OperatorConstants  # noqa:
 from docpipe.core.operators.extract.extract_operator import ExtractOperator  # noqa: E402
 
 
-def is_docling_serve_available(*, base_url: str = "http://localhost:5001") -> bool:
+def is_docling_serve_available(*, base_url: str = "http://0.0.0.0:5001") -> bool:
     """
     Check if docling-serve is running and accessible.
 
@@ -72,7 +72,7 @@ def is_docling_serve_available(*, base_url: str = "http://localhost:5001") -> bo
 
 
 # Get docling-serve URL from environment or use default
-DOCLING_SERVE_URL = os.getenv("DOCLING_SERVE_URL", "http://localhost:5001")
+DOCLING_SERVE_URL = os.getenv("DOCLING_SERVE_URL", "http://0.0.0.0:5001")
 
 # Skip all tests if docling-serve is not available
 pytestmark = pytest.mark.skipif(
@@ -155,7 +155,7 @@ def create_input_table(*, file_paths: list[Path]) -> pa.Table:
     }
 
     for file_path in file_paths:
-        with open(file_path, "rb") as f:
+        with Path(file_path).open("rb") as f:
             binary_content = f.read()
 
         data[OperatorConstants.Columns.ID].append(str(file_path))
@@ -491,3 +491,204 @@ class TestDoclingServeConfiguration:
 
         assert result_tables[0].num_rows == 1
         assert metadata.get("processed_docs", 0) == 1
+
+
+@pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
+@pytest.mark.integration
+class TestDoclingServeAdditionalFormats:
+    """Test additional output format propagation with docling-serve."""
+
+    def test_docling_serve_html_format(self, sample_pdf_path: Path):
+        """
+        Test HTML format extraction and column propagation.
+
+        Validates:
+        - HTML format is requested in configuration
+        - content_html column is present in output table
+        - content_html contains valid HTML content
+        """
+        config = {
+            OperatorConstants.Config.TEXT_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
+                OperatorConstants.Columns.DOC_COLUMN: "content",
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Config.BASE_URL: DOCLING_SERVE_URL,
+                    OperatorConstants.Processing.TIMEOUT: 300,
+                    OperatorConstants.Extraction.ADDITIONAL_FORMATS: ["html"],
+                },
+            },
+            OperatorConstants.Config.ENTITY_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+            },
+        }
+
+        input_table = create_input_table(file_paths=[sample_pdf_path])
+        operator = ExtractOperator(config=config)
+        result_tables, metadata = operator.transform(input_table)
+        result_table = result_tables[0]
+
+        # Verify basic extraction
+        assert result_table.num_rows == 1
+        assert "content" in result_table.column_names
+        assert metadata.get("processed_docs", 0) == 1
+
+        # Verify HTML format column is present
+        assert OperatorConstants.Columns.CONTENT_HTML in result_table.column_names, (
+            "content_html column should be present when html format is requested"
+        )
+
+        # Verify HTML content
+        html_content = result_table[OperatorConstants.Columns.CONTENT_HTML][0].as_py()
+        assert html_content is not None, "HTML content should not be None"
+        assert len(html_content) > 0, "HTML content should not be empty"
+        assert isinstance(html_content, str), "HTML content should be a string"
+
+    def test_docling_serve_multiple_formats(self, sample_pdf_path: Path):
+        """
+        Test multiple format extraction (html, text, json).
+
+        Validates:
+        - Multiple formats are requested in configuration
+        - All requested format columns are present in output
+        - Each format contains valid content
+        """
+        config = {
+            OperatorConstants.Config.TEXT_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
+                OperatorConstants.Columns.DOC_COLUMN: "content",
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Config.BASE_URL: DOCLING_SERVE_URL,
+                    OperatorConstants.Processing.TIMEOUT: 300,
+                    OperatorConstants.Extraction.ADDITIONAL_FORMATS: ["html", "text", "json"],
+                },
+            },
+            OperatorConstants.Config.ENTITY_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+            },
+        }
+
+        input_table = create_input_table(file_paths=[sample_pdf_path])
+        operator = ExtractOperator(config=config)
+        result_tables, metadata = operator.transform(input_table)
+        result_table = result_tables[0]
+
+        # Verify basic extraction
+        assert result_table.num_rows == 1
+        assert "content" in result_table.column_names
+        assert metadata.get("processed_docs", 0) == 1
+
+        # Verify all format columns are present
+        assert OperatorConstants.Columns.CONTENT_HTML in result_table.column_names, (
+            "content_html column should be present"
+        )
+        assert OperatorConstants.Columns.CONTENT_TEXT in result_table.column_names, (
+            "content_text column should be present"
+        )
+        assert OperatorConstants.Columns.CONTENT_JSON in result_table.column_names, (
+            "content_json column should be present"
+        )
+
+        # Verify each format has content
+        html_content = result_table[OperatorConstants.Columns.CONTENT_HTML][0].as_py()
+        text_content = result_table[OperatorConstants.Columns.CONTENT_TEXT][0].as_py()
+        json_content = result_table[OperatorConstants.Columns.CONTENT_JSON][0].as_py()
+
+        assert html_content is not None and len(html_content) > 0, "HTML content should not be empty"
+        assert text_content is not None and len(text_content) > 0, "Text content should not be empty"
+        assert json_content is not None and len(json_content) > 0, "JSON content should not be empty"
+
+    def test_docling_serve_doclang_format(self, sample_pdf_path: Path):
+        """
+        Test doclang format extraction.
+
+        Validates:
+        - doclang format is requested in configuration
+        - content_doclang column is present in output
+        - content_doclang contains valid content
+        """
+        config = {
+            OperatorConstants.Config.TEXT_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
+                OperatorConstants.Columns.DOC_COLUMN: "content",
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Config.BASE_URL: DOCLING_SERVE_URL,
+                    OperatorConstants.Processing.TIMEOUT: 300,
+                    OperatorConstants.Extraction.ADDITIONAL_FORMATS: ["doclang"],
+                },
+            },
+            OperatorConstants.Config.ENTITY_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+            },
+        }
+
+        input_table = create_input_table(file_paths=[sample_pdf_path])
+        operator = ExtractOperator(config=config)
+        result_tables, metadata = operator.transform(input_table)
+        result_table = result_tables[0]
+
+        # Verify basic extraction
+        assert result_table.num_rows == 1
+        assert "content" in result_table.column_names
+        assert metadata.get("processed_docs", 0) == 1
+
+        # Verify doclang format column is present
+        assert OperatorConstants.Columns.CONTENT_DOCLANG in result_table.column_names, (
+            "content_doclang column should be present when doclang format is requested"
+        )
+
+        # Verify doclang content
+        doclang_content = result_table[OperatorConstants.Columns.CONTENT_DOCLANG][0].as_py()
+        assert doclang_content is not None, "Doclang content should not be None"
+        assert len(doclang_content) > 0, "Doclang content should not be empty"
+
+    def test_docling_serve_markdown_only_default(self, sample_pdf_path: Path):
+        """
+        Test default markdown-only extraction (no additional formats).
+
+        Validates:
+        - When no additional_formats specified, only markdown is extracted
+        - No additional format columns are present
+        - Standard content column contains markdown
+        """
+        config = {
+            OperatorConstants.Config.TEXT_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE,
+                OperatorConstants.Columns.DOC_COLUMN: "content",
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Config.BASE_URL: DOCLING_SERVE_URL,
+                    OperatorConstants.Processing.TIMEOUT: 300,
+                    # No additional_formats specified - should default to markdown only
+                },
+            },
+            OperatorConstants.Config.ENTITY_EXTRACTION: {
+                OperatorConstants.Config.PROVIDER: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+            },
+        }
+
+        input_table = create_input_table(file_paths=[sample_pdf_path])
+        operator = ExtractOperator(config=config)
+        result_tables, metadata = operator.transform(input_table)
+        result_table = result_tables[0]
+
+        # Verify basic extraction
+        assert result_table.num_rows == 1
+        assert "content" in result_table.column_names
+        assert metadata.get("processed_docs", 0) == 1
+
+        # Verify no additional format columns are present
+        assert OperatorConstants.Columns.CONTENT_HTML not in result_table.column_names, (
+            "content_html should not be present without html in additional_formats"
+        )
+        assert OperatorConstants.Columns.CONTENT_TEXT not in result_table.column_names, (
+            "content_text should not be present without text in additional_formats"
+        )
+        assert OperatorConstants.Columns.CONTENT_JSON not in result_table.column_names, (
+            "content_json should not be present without json in additional_formats"
+        )
+        assert OperatorConstants.Columns.CONTENT_DOCLANG not in result_table.column_names, (
+            "content_doclang should not be present without doclang in additional_formats"
+        )
+
+        # Verify markdown content is present
+        content = result_table["content"][0].as_py()
+        assert content is not None and len(content) > 0, "Markdown content should not be empty"

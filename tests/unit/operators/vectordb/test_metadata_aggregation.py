@@ -47,11 +47,11 @@ class TestMetadataAggregation:
     @pytest.fixture
     def feature_mappings(self):
         """Standard feature mappings."""
-        return {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        return [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
     @pytest.fixture
     def batch_processor(self, *, mock_client, available_features, feature_mappings):
@@ -160,12 +160,12 @@ class TestMetadataAggregation:
 
     def test_metadata_with_mapped_column(self, *, mock_client, available_features):
         """Test that metadata column can be both mapped and in metadata."""
-        feature_mappings = {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-            "name": "document_name",  # Explicitly mapped
-        }
+        feature_mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+            {"feature_name": "name", "mapped_column_name": "document_name"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -278,11 +278,11 @@ class TestIndexMappingWithMetadata:
     @pytest.fixture
     def feature_mappings(self):
         """Standard feature mappings."""
-        return {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        return [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
     @pytest.fixture
     def index_manager(self, *, mock_client, available_features, feature_mappings):
@@ -360,11 +360,11 @@ class TestMetadataAggregationIntegration:
             "embeddings": {"available_for_vector_db": True, "type": "vector"},
         }
 
-        feature_mappings = {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        feature_mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -373,12 +373,12 @@ class TestMetadataAggregationIntegration:
             feature_mappings=feature_mappings,
         )
 
-        # Simulate row from IngestLocalOperator + ExtractOperator
+        # Simulate row from IngestSourceOperator + ExtractOperator
         row_data = {
             "doc_id_hash": "doc_123",
             "content": "This is a sample document content.",
             "embeddings": [0.1, 0.2, 0.3, 0.4],
-            # IngestLocalOperator columns
+            # IngestSourceOperator columns
             "name": "/data/documents/sample.pdf",
             "size": 2048000,
             "created_time": 1704067200,
@@ -417,11 +417,11 @@ class TestMetadataAggregationIntegration:
             "embeddings": {"available_for_vector_db": True, "type": "vector"},
         }
 
-        feature_mappings = {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        feature_mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -430,12 +430,12 @@ class TestMetadataAggregationIntegration:
             feature_mappings=feature_mappings,
         )
 
-        # Simulate row from IngestLocalOperator (uses 'path' not 'source')
+        # Simulate row from IngestSourceOperator filesystem provider (uses 'path' not 'source')
         row_data = {
             "doc_id_hash": "doc_789",
             "content": "Local document content",
             "embeddings": [0.8, 0.9, 1.0],
-            "path": "/local/path/to/document.pdf",  # IngestLocalOperator uses 'path'
+            "path": "/local/path/to/document.pdf",  # IngestSourceOperator filesystem uses 'path'
             "name": "document.pdf",
             "size": 1024000,
         }
@@ -455,11 +455,11 @@ class TestMetadataAggregationIntegration:
             "embeddings": {"available_for_vector_db": True, "type": "vector"},
         }
 
-        feature_mappings = {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        feature_mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -491,11 +491,11 @@ class TestMetadataAggregationIntegration:
             "embeddings": {"available_for_vector_db": True, "type": "vector"},
         }
 
-        feature_mappings = {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        feature_mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -527,11 +527,11 @@ class TestMetadataAggregationIntegration:
             "embeddings": {"available_for_vector_db": True, "type": "vector"},
         }
 
-        feature_mappings = {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        feature_mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -564,11 +564,11 @@ class TestMetadataAggregationIntegration:
             "embeddings": {"available_for_vector_db": True, "type": "vector"},
         }
 
-        feature_mappings = {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-        }
+        feature_mappings = [
+            {"feature_name": "doc_id_hash", "mapped_column_name": "id"},
+            {"feature_name": "content", "mapped_column_name": "text"},
+            {"feature_name": "embeddings", "mapped_column_name": "vector"},
+        ]
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,

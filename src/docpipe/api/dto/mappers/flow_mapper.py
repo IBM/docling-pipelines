@@ -92,7 +92,7 @@ class FlowMapper:
             }
 
         return Flow(
-            flow_id=None,  # Will be generated in Flow.__post_init__
+            asset_id=None,  # Will be generated in Flow.__post_init__
             container_kind=dto.container_kind,
             container_id=dto.container_id,
             name=dto.name,

@@ -7,9 +7,7 @@ operator ATTRIBUTES structures to validate configurations.
 from docpipe.core.constants import AttributeDataTypes, OperatorConstants
 
 
-def validate_config_from_metadata(
-    config: dict, attributes: dict, errors: list[str], path: str = ""
-) -> None:  # NOSONAR python:S3776
+def validate_config_from_metadata(config: dict, attributes: dict, errors: list[str], path: str = "") -> None:
     """
     Generic validation function that introspects metadata ATTRIBUTES structure.
 

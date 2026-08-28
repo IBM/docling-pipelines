@@ -2,6 +2,7 @@
 Generic Vector Database Operator
 """
 
+import hashlib
 from typing import Any
 
 import pyarrow as pa
@@ -49,7 +50,7 @@ DEFAULT_VECTOR_DIMENSION: int = 384
 NUMBER_OF_BATCHES_KEY: str = "number_of_batches"
 
 
-class VectorDBOperator(AbstractOperator):
+class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
     """
     Generic vector database operator using hexagonal architecture.
 
@@ -85,7 +86,6 @@ class VectorDBOperator(AbstractOperator):
         self.provider: str = config.get(OperatorConstants.Config.PROVIDER, PROVIDER_DEFAULT)
 
         # Extract common configuration
-        self.index_name: str | None = config.get(OperatorConstants.VectorDB.INDEX_NAME)
         self.doc_id_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_COLUMN, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
@@ -96,29 +96,42 @@ class VectorDBOperator(AbstractOperator):
 
         # Initialize adapter using factory
         try:
-            # Extract provider_config (adapter-specific config like host, port, engine, etc.)
+            # provider_config carries all provider-specific parameters including the
+            # resource name. Each adapter is responsible for validating its own required keys.
             adapter_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
             # Validate that provider_config is not empty
             if not adapter_config:
                 raise DocpipeException(
                     message=(
-                        f"'provider_config' is required but missing or empty. "
-                        f"Connection parameters (host, port, use_ssl, etc.) must be inside 'provider_config'. "
-                        f"Example: {{'provider': '{self.provider}', 'provider_config': {{'host': 'localhost', 'port': 9200, 'use_ssl': false}}}}"
+                        f"'provider_config' is required but missing or empty for provider '{self.provider}'. "
+                        f"Connection parameters and the resource name must be supplied inside 'provider_config'."
                     ),
                     status_code=400,
                     error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
                 )
 
-            # Add operator-level parameters that the adapter needs
-            adapter_config[OperatorConstants.VectorDB.INDEX_NAME] = self.index_name
-            adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = self.config.get(
-                OperatorConstants.Config.AVAILABLE_FEATURES, {}
-            )
-            adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = self.config.get(
-                OperatorConstants.Config.FEATURE_MAPPINGS, {}
-            )
+            available_features = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+            adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = available_features
+
+            # Use user-provided feature_mappings when present; otherwise compute defaults
+            # from available_features so _meta.feature_mappings is never stored as [].
+            user_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
+            if not user_mappings and available_features:
+                from docpipe.core.operators.vectordb.metadata_fetcher import compute_default_feature_mappings
+
+                user_mappings = compute_default_feature_mappings(
+                    available_features,
+                    add_sparse_vector=self.add_sparse_vector,
+                    content_column=self.doc_column,
+                )
+                logger.debug(
+                    "No feature_mappings provided — computed defaults from available_features for provider '%s'",
+                    self.provider,
+                )
+            # Store canonical list-of-dicts back into config so validation sees one shape
+            self.config[OperatorConstants.Config.FEATURE_MAPPINGS] = user_mappings
+            adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = user_mappings
             # Add sparse vector configuration if present (Milvus-specific)
             if OperatorConstants.VectorDB.ADD_SPARSE_VECTOR in self.config:
                 adapter_config[OperatorConstants.VectorDB.ADD_SPARSE_VECTOR] = self.config[
@@ -139,7 +152,8 @@ class VectorDBOperator(AbstractOperator):
             ) from e
 
         logger.info(
-            f"Initialized VectorDBOperator with adapter: {self.provider}, index: {self.index_name}",
+            "Initialized VectorDBOperator with adapter: %s",
+            self.provider,
             extra=self.common_log_arguments,
         )
 
@@ -153,14 +167,25 @@ class VectorDBOperator(AbstractOperator):
         """
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
 
-        # Validate index_name
-        if self.should_validate_field(field_value=self.index_name):
-            if not self.index_name:
-                errors.append("index_name is required for VectorDBOperator")
+        # Validate that every mandatory_for_vector_db feature has a feature mapping.
+        # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
+        # will fail at runtime if a mandatory feature has no mapped column.
+        feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
+        op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+        if feature_mappings and op_available_features:
+            mapped_feature_names: set[str] = {
+                entry["feature_name"] for entry in feature_mappings if "feature_name" in entry
+            }
+            mandatory_missing = [
+                name
+                for name, meta in op_available_features.items()
+                if meta.get(OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB, False)
+                and name not in mapped_feature_names
+            ]
+            if mandatory_missing:
+                errors.append("Mappings are missing for mandatory features: " + ", ".join(sorted(mandatory_missing)))
 
-    def transform(
-        self, table: pa.Table, file_name: str | None = None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:  # NOSONAR python:S3776
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by indexing documents in the vector database.
         Supports batch processing with size limits and detailed error tracking.
@@ -179,7 +204,7 @@ class VectorDBOperator(AbstractOperator):
 
         Important: If ANY chunk of a document fails to index, the entire document is marked as failed.
         """
-        # Count unique documents (not chunks) for accurate total_docs_count
+        # Count unique documents (not chunks) for accurate documents_in_scope
         # Also build mapping from doc_id_hash to original id for failure tracking
         unique_doc_ids: set[str] = set()
         doc_hash_to_id: dict[str, str] = {}
@@ -261,9 +286,10 @@ class VectorDBOperator(AbstractOperator):
             try:
                 if self.adapter.index_exists():
                     logger.info(
-                        f"Index '{self.index_name}' already exists, skipping creation",
+                        "Resource already exists, validating schema",
                         extra=self.common_log_arguments,
                     )
+                    self.adapter.validate_existing_schema(dimension_mapping=dimension_mapping)
                 else:
                     self.adapter.create_index(dimension_mapping=dimension_mapping)
             except Exception as e:
@@ -389,7 +415,7 @@ class VectorDBOperator(AbstractOperator):
                         vec_gens = [vector_column_generators[col] for col in vec_col_names]
 
                         # Zip all generators together with chunks
-                        for chunk_idx, chunk_and_embeddings in enumerate(zip(chunks_gen, *vec_gens, strict=True)):
+                        for _chunk_idx, chunk_and_embeddings in enumerate(zip(chunks_gen, *vec_gens, strict=True)):
                             chunk_row_data: dict[str, Any] = row_data.copy()
 
                             # First element is chunk_data, rest are embeddings
@@ -409,7 +435,10 @@ class VectorDBOperator(AbstractOperator):
                                 # Update the content column with chunk text instead of full document
                                 chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
-                            chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
+                            file_id: str = str(row_data.get(id_column, doc_id))
+                            chunk_doc_id: str = VectorDBOperator.generate_composite_pk(
+                                file_id=file_id, chunk_content=chunk_text
+                            )
                             documents.append((chunk_doc_id, chunk_row_data))
                             # Track mapping from chunk ID to original document ID
                             chunk_id_to_doc_id[chunk_doc_id] = doc_id
@@ -432,13 +461,17 @@ class VectorDBOperator(AbstractOperator):
                                     chunk_row_data[vec_col] = embeddings_list[chunk_idx]
 
                             # Replace content field with chunk-specific text
+                            chunk_text = ""
                             if chunk_idx < len(chunked_content_list):
                                 chunk_text = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
                                 if chunk_text:
                                     # Update the content column with chunk text instead of full document
                                     chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
-                            chunk_doc_id = f"{doc_id}_chunk_{chunk_idx}"
+                            file_id = str(row_data.get(id_column, doc_id))
+                            chunk_doc_id = VectorDBOperator.generate_composite_pk(
+                                file_id=file_id, chunk_content=chunk_text
+                            )
                             documents.append((chunk_doc_id, chunk_row_data))
                             # Track mapping from chunk ID to original document ID
                             chunk_id_to_doc_id[chunk_doc_id] = doc_id
@@ -456,6 +489,43 @@ class VectorDBOperator(AbstractOperator):
                     doc_id=f"row_{idx}",
                     doc_name=f"row_{idx}",
                     reason=str(e),
+                )
+
+        # Stale PK cleanup — delete chunks from previous runs that are no longer present
+        # in this run's document set. This covers both legacy-format PKs and genuinely
+        # stale chunks from updated documents. The set difference handles all cases uniformly.
+        if documents and unique_doc_ids:
+            try:
+                # Build the set of new PKs per doc from the prepared documents list
+                new_pks_by_doc: dict[str, set[str]] = {}
+                for chunk_pk, _ in documents:
+                    parent_doc = chunk_id_to_doc_id.get(chunk_pk, chunk_pk)
+                    new_pks_by_doc.setdefault(parent_doc, set()).add(chunk_pk)
+
+                # Query existing PKs from the store for all docs in this batch
+                existing_pks_by_doc: dict[str, set[str]] = self.adapter.get_chunk_ids_for_documents(
+                    list(unique_doc_ids)
+                )
+
+                # Compute stale PKs = existing - new (per document)
+                stale_pks: list[str] = []
+                for doc_id_key, existing_pks in existing_pks_by_doc.items():
+                    new_pks = new_pks_by_doc.get(doc_id_key, set())
+                    stale_pks.extend(existing_pks - new_pks)
+
+                if stale_pks:
+                    logger.info(
+                        "Deleting %s stale chunk(s) before insert",
+                        len(stale_pks),
+                        extra=self.common_log_arguments,
+                    )
+                    self.adapter.delete_documents_by_ids(stale_pks)
+
+            except Exception as e:
+                logger.warning(
+                    "Stale PK cleanup failed (insert will proceed): %s",
+                    e,
+                    extra=self.common_log_arguments,
                 )
 
         # Index documents using adapter
@@ -556,7 +626,7 @@ class VectorDBOperator(AbstractOperator):
         Returns:
             List of matching documents
         """
-        return self.adapter.query_by_doc_names(doc_names, fields)
+        return list(self.adapter.query_by_doc_names(doc_names, fields))
 
     def delete_documents_by_ids(self, doc_ids: list[str]) -> tuple[int, int]:
         """
@@ -568,11 +638,59 @@ class VectorDBOperator(AbstractOperator):
         Returns:
             Tuple of (success_count, failed_count)
         """
-        return self.adapter.delete_documents_by_ids(doc_ids)
+        result = self.adapter.delete_documents_by_ids(doc_ids)
+        return (int(result[0]), int(result[1]))
 
     def get_document_count(self) -> int:
         """Get total document count in the index."""
-        return self.adapter.get_document_count()
+        return int(self.adapter.get_document_count())
+
+    @staticmethod
+    def generate_composite_pk(*, file_id: str, chunk_content: str) -> str:
+        """Generate a composite primary key from file identity and chunk content.
+
+        The key is unique per file regardless of content, preventing collisions
+        between different files with identical content.
+
+        Args:
+            file_id: The file identifier (e.g. file path from the id column).
+                     Hashed to handle special characters and length constraints.
+            chunk_content: The text content of the chunk. Hashed to produce a
+                           stable, fixed-length content fingerprint.
+
+        Returns:
+            Composite PK string in the format ``{file_hash}_{content_hash}``
+            where each hash is the full 128-character SHA3-512 hex digest
+            -- unique per (file, chunk content) pair.
+        """
+        file_hash = hashlib.sha3_512(file_id.encode()).hexdigest()
+        content_hash = hashlib.sha3_512(chunk_content.encode()).hexdigest()
+        return f"{file_hash}_{content_hash}"
+
+    @staticmethod
+    def _get_vectordb_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the provider_config field.
+
+        Add a new entry here when registering a new VectorDB adapter.
+        """
+        from docpipe.core.operators.operator_utils import OperatorUtils
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import (
+            ADAPTER_NAME as MILVUS_ADAPTER_NAME,
+        )
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import (
+            MilvusConfig,
+        )
+        from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import (
+            ADAPTER_NAME as OPENSEARCH_ADAPTER_NAME,
+        )
+        from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import (
+            OpenSearchConfig,
+        )
+
+        return {
+            OPENSEARCH_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(schema=OpenSearchConfig.model_json_schema()),
+            MILVUS_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(schema=MilvusConfig.model_json_schema()),
+        }
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -627,12 +745,7 @@ class VectorDBOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Type of vector database provider. Supported values: opensearch, milvus.",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.VectorDB.INDEX_NAME: {
-                    OperatorConstants.Misc.NAME: "Index Name",
-                    OperatorConstants.Config.DESCRIPTION: "Name of the vector database index/collection",
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.VALID_VALUES: VectorStoreFactory.list_adapters(),
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Columns.DOC_ID_COLUMN: {
@@ -678,9 +791,15 @@ class VectorDBOperator(AbstractOperator):
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider-Specific Parameters",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration parameters (JSON object). For OpenSearch: engine, algorithm, space_type, engine_parameters, index_settings, aws_auth, aws_region, etc.",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Provider-specific configuration parameters (JSON object). "
+                        "Must include the resource name key required by the target backend "
+                        "(e.g. index_name, collection_name, table_name). "
+                        "Also accepts all connection and index parameters specific to the provider."
+                    ),
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROVIDERS: VectorDBOperator._get_vectordb_provider_schemas(),
                 },
             },
         }

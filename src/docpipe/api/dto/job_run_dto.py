@@ -112,12 +112,13 @@ class JobRunConfigurationModel(BaseModel):
     )
 
     model_config = ConfigDict(
+        extra="allow",
         json_schema_extra={
             "example": {
                 "user_id": "user123",
                 "metadata": {"source": "legacy"},
             }
-        }
+        },
     )
 
 

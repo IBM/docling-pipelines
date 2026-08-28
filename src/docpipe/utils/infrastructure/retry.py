@@ -18,9 +18,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger()
 
 
-def retry_with_exponential_backoff(
-    max_retries=5, initial_delay=2, max_delay=60, retry_logic=None
-):  # NOSONAR python:S3776
+def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60, retry_logic=None):
     """
     Decorator for retrying a function with exponential backoff.
 
@@ -36,7 +34,10 @@ def retry_with_exponential_backoff(
     """
 
     def decorator(func):
+        """Decorator."""
+
         def wrapper(*args, **kwargs):
+            """Wrapper."""
             retry_count = 0
             delay = initial_delay
 
@@ -68,11 +69,10 @@ def retry_with_exponential_backoff(
                         if exception:
                             logger.error(f"Failed after {max_retries} attempts: {exception!s}")
                             raise exception
-                        else:
-                            # This is a special case where, should_retry is True but no exception occurred, and retry_count reaches max_retries
-                            raise DocpipeException(
-                                f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}"
-                            )
+                        # This is a special case where, should_retry is True but no exception occurred, and retry_count reaches max_retries
+                        raise DocpipeException(
+                            f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}"
+                        )
 
                     logger.info(f"Operation failed on attempt {retry_count}. Retrying in {delay:.2f} seconds...")
                     time.sleep(delay)

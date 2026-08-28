@@ -191,7 +191,7 @@ class TestOllamaPipelineOptionsProvider:
     def test_validate_config_empty(self):
         """Test validation with empty config."""
         provider = OllamaPipelineOptionsProvider()
-        config = {}
+        config: dict[str, str] = {}
         # Should not raise - Ollama has minimal requirements
         provider.validate_config(config=config)
 
@@ -219,7 +219,7 @@ class TestLMStudioPipelineOptionsProvider:
     def test_validate_config_empty(self):
         """Test validation with empty config."""
         provider = LMStudioPipelineOptionsProvider()
-        config = {}
+        config: dict[str, str] = {}
         # Should not raise - LMStudio has minimal requirements
         provider.validate_config(config=config)
 
@@ -277,14 +277,14 @@ class TestTransformersPipelineOptionsProvider:
     def test_validate_config_empty(self):
         """Test validation with empty config."""
         provider = TransformersPipelineOptionsProvider()
-        config = {}
+        config: dict[str, str] = {}
         # Should not raise - Transformers has no required config
         provider.validate_config(config=config)
 
     def test_create_pipeline_options(self):
         """Test creating pipeline options."""
         provider = TransformersPipelineOptionsProvider()
-        config = {}
+        config: dict[str, str] = {}
 
         options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
@@ -298,14 +298,14 @@ class TestMlxPipelineOptionsProvider:
     def test_validate_config_empty(self):
         """Test validation with empty config."""
         provider = MlxPipelineOptionsProvider()
-        config = {}
+        config: dict[str, str] = {}
         # Should not raise - MLX has no required config
         provider.validate_config(config=config)
 
     def test_create_pipeline_options(self):
         """Test creating pipeline options."""
         provider = MlxPipelineOptionsProvider()
-        config = {}
+        config: dict[str, str] = {}
 
         options = provider.create_pipeline_options(preset="granite_docling", config=config)
 

@@ -5,7 +5,6 @@ This test suite automatically starts and stops OpenSearch using docker-compose.
 It requires Docker and docker-compose to be installed and running.
 """
 
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -59,8 +58,8 @@ def is_docker_compose_available():
 def start_opensearch_container():
     """Start OpenSearch using docker-compose"""
     # Get path to docker-compose file
-    project_root = Path(__file__).parent.parent.parent
-    compose_file = project_root / "docker-compose.opensearch.yml"
+    project_root = Path(__file__).parent.parent.parent.parent
+    compose_file = project_root / "docker" / "docker-compose.opensearch.yml"
 
     if not compose_file.exists():
         pytest.skip(f"docker-compose file not found: {compose_file}")
@@ -107,8 +106,8 @@ def start_opensearch_container():
 
 def stop_opensearch_container():
     """Stop OpenSearch using docker-compose"""
-    project_root = Path(__file__).parent.parent.parent
-    compose_file = project_root / "docker-compose.opensearch.yml"
+    project_root = Path(__file__).parent.parent.parent.parent
+    compose_file = project_root / "docker" / "docker-compose.opensearch.yml"
 
     try:
         subprocess.run(
@@ -149,7 +148,7 @@ def opensearch_container():
         "host": "localhost",
         "port": 9200,
         "username": "admin",
-        "password": os.environ.get("OPENSEARCH_PASSWORD", "MyStrongPass123!"),
+        "password": "MyStrongPass123!",  # pragma: allowlist secret
     }
 
     yield connection_info
@@ -261,7 +260,7 @@ class TestOpenSearchWithDockerCompose:
         # Verify results
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 3
-        assert metadata["total_docs_count"] == 3
+        assert metadata["documents_in_scope"] == 3
         assert metadata["processed_docs"] == 3
         assert metadata["failed_docs_count"] == 0
 

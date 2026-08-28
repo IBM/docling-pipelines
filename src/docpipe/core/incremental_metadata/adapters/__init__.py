@@ -6,9 +6,10 @@ Contains storage adapters and configuration factory.
 
 from .config import (
     IncrementalMetadataFactory,
-    IncrementalStorageBackend,
-    get_default_incremental_factory,
-    reset_default_incremental_factory,
+    get_default_factory,
+    get_incremental_update_service,
+    register_incremental_update_store,
+    set_default_factory,
 )
 from .stores import (
     FilesystemIncrementalMetadataStore,
@@ -18,8 +19,9 @@ from .stores import (
 __all__ = [
     "FilesystemIncrementalMetadataStore",
     "IncrementalMetadataFactory",
-    "IncrementalStorageBackend",
     "PostgresIncrementalMetadataStore",
-    "get_default_incremental_factory",
-    "reset_default_incremental_factory",
+    "get_default_factory",
+    "get_incremental_update_service",
+    "register_incremental_update_store",
+    "set_default_factory",
 ]

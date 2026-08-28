@@ -5,13 +5,49 @@ This module contains common functionality used across different VectorDB adapter
 """
 
 import json
-from typing import Any
+from typing import Any, Generator
 
 import pyarrow as pa
 
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def feature_mapping_lookup(
+    mappings: list[dict[str, str]],
+    feature_name: str,
+    default: str | None = None,
+) -> str | None:
+    """Return the mapped_column_name for a given feature_name, or default if not found."""
+    _fn = OperatorConstants.Misc.FEATURE_NAME
+    _mc = OperatorConstants.Misc.MAPPED_COLUMN_NAME
+    for entry in mappings:
+        if entry.get(_fn) == feature_name:
+            return entry.get(_mc, default)
+    return default
+
+
+def build_mapping_dict(mappings: list[dict[str, str]]) -> dict[str, str]:
+    """Build a plain {feature_name: mapped_column_name} dict for O(1) repeated lookups.
+
+    Use this at construction time when the same mapping list will be queried many times.
+    """
+    _fn = OperatorConstants.Misc.FEATURE_NAME
+    _mc = OperatorConstants.Misc.MAPPED_COLUMN_NAME
+    return {e[_fn]: e[_mc] for e in mappings if _fn in e and _mc in e}
+
+
+def feature_mapping_items(
+    mappings: list[dict[str, str]],
+) -> Generator[tuple[str, str], None, None]:
+    """Yield (feature_name, mapped_column_name) pairs from canonical list-of-dicts."""
+    _fn = OperatorConstants.Misc.FEATURE_NAME
+    _mc = OperatorConstants.Misc.MAPPED_COLUMN_NAME
+    for e in mappings:
+        if _fn in e and _mc in e:
+            yield e[_fn], e[_mc]
 
 
 def calculate_batch_size_bytes(*, documents: list[dict[str, Any]]) -> int:
@@ -33,7 +69,7 @@ def calculate_batch_size_bytes(*, documents: list[dict[str, Any]]) -> int:
         return 0
 
 
-def detect_vector_dimension(*, table: pa.Table, embeddings_column: str) -> int | None:  # NOSONAR python:S3776
+def detect_vector_dimension(*, table: pa.Table, embeddings_column: str) -> int | None:
     """
     Auto-detect vector dimension from the embeddings column in the PyArrow table.
 

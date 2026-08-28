@@ -11,6 +11,7 @@ sample_flows/
 ├── use_cases/           # Real-world use case examples
 ├── advanced/            # Complex workflows and patterns
 ├── vectordb/            # Vector database integrations
+├── vault/               # HashiCorp Vault secret reference examples
 └── custom_operators/    # Custom operator examples
 ```
 
@@ -32,7 +33,7 @@ sample_flows/
 
 3. **Explore advanced patterns:**
    ```bash
-   docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings.json
+   docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json
    ```
 
 ---
@@ -90,7 +91,7 @@ Complex workflows demonstrating advanced patterns and operator combinations.
 
 | Flow | Pattern | Description |
 |------|---------|-------------|
-| `branching_dual_embeddings.json` | Branching | Parallel processing with dual embedding models |
+| `branching_dual_embeddings_with_ingest_report.json` | Branching | Parallel processing with dual embedding models and ingest report |
 | `branching_quality_routing.json` | Quality Routing | Route documents based on quality metrics |
 | `quality_branching_merge_pipeline.json` | Branching + Merge | 3-way branching with dedup, quality checks, and row-based merging |
 | `multi_stage_enrichment.json` | Multi-Stage | Classification → Entity Extraction → PII Detection → Chunking |
@@ -111,6 +112,32 @@ Complete pipelines demonstrating vector database integrations.
 | `milvus_integration.json` | Milvus | Full pipeline with Milvus vector storage |
 
 **Start here if:** You're setting up vector search or RAG systems.
+
+---
+
+### Vault
+
+Flows demonstrating HashiCorp Vault secret references in operator configs.
+
+| Flow | Description |
+|------|-------------|
+| `opensearch_with_vault.json` | Full OpenSearch pipeline where credentials are resolved from Vault at runtime using `vault://` references |
+
+**Start here if:** You need to manage secrets centrally and keep credentials out of flow JSON files.
+
+**Prerequisites:**
+```bash
+# Enable Vault in docling-pipelines-config.yaml
+secrets:
+  vault:
+    enabled: true
+    provider: hashicorp
+
+# Set Vault credentials as environment variables
+export VAULT_ADDR=https://vault.your-org.com
+export VAULT_ROLE_ID=<your-approle-role-id>
+export VAULT_SECRET_ID=<your-approle-secret-id>
+```
 
 ---
 
@@ -184,7 +211,7 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 
 # Set credentials
 export OPENSEARCH_USERNAME=admin
-export OPENSEARCH_PASSWORD=
+export OPENSEARCH_PASSWORD=<your-opensearch-password>
 ```
 
 ### For Watsonx Flows
@@ -193,6 +220,19 @@ export OPENSEARCH_PASSWORD=
 export WATSONX_API_KEY=your_api_key
 export WATSONX_API_BASE=https://us-south.ml.cloud.ibm.com
 export WATSONX_CONTAINER_ID=your_project_id
+```
+
+### For Vault Flows
+```bash
+# Enable in docling-pipelines-config.yaml (secrets.vault.enabled: true)
+# Then set AppRole credentials
+export VAULT_ADDR=https://vault.your-org.com
+export VAULT_ROLE_ID=your-approle-role-id
+export VAULT_SECRET_ID=your-approle-secret-id
+
+# Optional: use file-backed secrets (Docker/Kubernetes pattern)
+export VAULT_ROLE_ID_FILE=/run/secrets/vault_role_id
+export VAULT_SECRET_ID_FILE=/run/secrets/vault_secret_id
 ```
 
 ---
@@ -211,7 +251,7 @@ DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file sample_flows/quickstart/complet
 
 ### Validate Before Running
 ```bash
-docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings.json --validate
+docling-pipelines --flow-file sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json --validate
 ```
 
 ### List Available Operators
@@ -264,9 +304,10 @@ All flows follow this JSON structure:
 ```json
 {
   "name": "ingest",
-  "type": "ingest_local",
+  "type": "ingest_source",
   "config": {
-    "paths": "./your/documents/path",
+    "provider": "filesystem",
+    "connection_params": {"paths": ["./your/documents/path"]},
     "include_filter": "pdf,txt,docx"
   }
 }
@@ -418,7 +459,7 @@ Log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 | Process invoices | `use_cases/invoice_processing.json` |
 | Ingest from S3 | `use_cases/s3_to_opensearch.json` |
 | Route by quality | `advanced/branching_quality_routing.json` |
-| Parallel processing | `advanced/branching_dual_embeddings.json` |
+| Parallel processing | `advanced/branching_dual_embeddings_with_ingest_report.json` |
 | Complex pipeline | `advanced/multi_stage_enrichment.json` |
 | Use OpenSearch | `vectordb/opensearch_integration.json` |
 | Use Milvus | `vectordb/milvus_integration.json` |

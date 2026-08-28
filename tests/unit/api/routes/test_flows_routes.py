@@ -6,6 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from docpipe.api.auth.dependencies import get_current_user
 from docpipe.api.routes.flows import flows_router, get_flow_service
 from docpipe.core.assets.flows.application.services.flow_service import FlowService
 from docpipe.exceptions.docpipe_exceptions import (
@@ -13,6 +14,7 @@ from docpipe.exceptions.docpipe_exceptions import (
     FlowNotFoundException,
     FlowStorageException,
 )
+from tests.unit.api.routes.conftest import mock_current_user
 
 
 @pytest.fixture
@@ -35,6 +37,7 @@ def app():
 
     app = FastAPI()
     app.include_router(flows_router)
+    app.dependency_overrides[get_current_user] = mock_current_user
 
     # Register exception handlers in same order as main.py
     app.add_exception_handler(DocpipeException, docpipe_exception_handler)
@@ -215,7 +218,7 @@ class TestCreateFlowEndpoint:
             "flow_name": "Test Flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest_node",
                     "config": {"paths": "./data"},
                 },
@@ -271,7 +274,7 @@ class TestCreateFlowEndpoint:
             "flow_name": "Test Flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "ingest_node",
                     "config": {"paths": "./data"},
                 },
@@ -303,7 +306,7 @@ class TestCreateFlowEndpoint:
             "flow_name": "complete-document-pipeline",
             "description": "Complete RAG pipeline",
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {"paths": "./docs"}},
+                {"type": "ingest_source", "name": "ingest", "config": {"paths": "./docs"}},
                 {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
                 {"type": "chunker", "name": "chunk", "depends_on": ["extract"], "config": {"chunk_size": 512}},
                 {"type": "embeddings", "name": "embed", "depends_on": ["chunk"]},
@@ -329,7 +332,7 @@ class TestCreateFlowEndpoint:
         request_data = {
             "flow_name": "branching-pipeline",
             "flow": [
-                {"type": "ingest_local", "name": "ingest"},
+                {"type": "ingest_source", "name": "ingest"},
                 {
                     "type": "branching",
                     "name": "classify",
@@ -358,7 +361,7 @@ class TestCreateFlowEndpoint:
         request_data = {
             "flow_name": "invalid-flow",
             "flow": [
-                {"type": "ingest_local", "config": {"paths": "./data"}},  # Missing 'name'
+                {"type": "ingest_source", "config": {"paths": "./data"}},  # Missing 'name'
             ],
         }
 
@@ -698,7 +701,7 @@ class TestUpdateFlowEndpoint:
         updated_flow.definition = {
             "flow_name": "updated-pipeline",
             "description": "Updated description",
-            "flow": [{"type": "ingest_local", "name": "ingest", "config": {}}],
+            "flow": [{"type": "ingest_source", "name": "ingest", "config": {}}],
             "global_config": {},
             "tags": ["updated"],
         }
@@ -708,7 +711,7 @@ class TestUpdateFlowEndpoint:
         request_data = {
             "flow_name": "updated-pipeline",
             "description": "Updated description",
-            "flow": [{"type": "ingest_local", "name": "ingest", "config": {}}],
+            "flow": [{"type": "ingest_source", "name": "ingest", "config": {}}],
             "global_config": {},
             "tags": ["updated"],
         }
@@ -788,7 +791,7 @@ class TestPartialUpdateFlowEndpoint:
         updated_flow.definition = {
             "flow_name": "new-flow-name",
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "ingest_source", "name": "ingest", "config": {}},
             ],
             "global_config": {"doc_column": "content"},
             "description": "Test flow",
@@ -815,7 +818,7 @@ class TestPartialUpdateFlowEndpoint:
         updated_flow.definition = {
             "flow_name": "test-flow",
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "ingest_source", "name": "ingest", "config": {}},
                 {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
             ],
             "global_config": {"doc_column": "content"},
@@ -825,7 +828,7 @@ class TestPartialUpdateFlowEndpoint:
         override_service.partial_update_flow.return_value = updated_flow
         request_data = {
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "ingest_source", "name": "ingest", "config": {}},
                 {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
             ],
             "global_config": {"doc_column": "content"},
@@ -958,7 +961,7 @@ class TestPartialUpdateFlowEndpoint:
         """Test partially updating a flow with empty body returns 200."""
         # Arrange
         override_service.partial_update_flow.return_value = sample_flow_with_id
-        request_data = {}
+        request_data: dict = {}
 
         # Act - Use is_elyra=true to match Elyra format fixtures
         response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)

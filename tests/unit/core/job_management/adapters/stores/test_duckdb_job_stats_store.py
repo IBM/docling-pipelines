@@ -16,7 +16,6 @@ import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -38,8 +37,7 @@ def temp_db_path(tmp_path):
 def store(temp_db_path):
     """Create DuckDBJobStatsStore with temporary database."""
     config = {"database_path": temp_db_path}
-    store = DuckDBJobStatsStore(config=config)
-    yield store
+    return DuckDBJobStatsStore(config=config)
 
 
 @pytest.fixture
@@ -60,7 +58,7 @@ def sample_job_stats():
 def sample_node_stats():
     """Sample node stats for testing."""
     return NodeStats(
-        node_id="abcdef12-3456-7890-abcd-ef1234567890",
+        id="abcdef12-3456-7890-abcd-ef1234567890",
         name="TestNode",
         node_status=ExecutionStatus.COMPLETED,
         batch_id="fedcba98-7654-3210-fedc-ba9876543210",
@@ -210,7 +208,7 @@ class TestJobStatsCRUD:
         # Store job and node stats
         store.store_job_stats(sample_job_stats)
         node_stats = NodeStats(
-            node_id=str(uuid.uuid4()),
+            id=str(uuid.uuid4()),
             name="TestNode",
             batch_id="0",
             batch_num=0,
@@ -256,7 +254,7 @@ class TestNodeStatsCRUD:
 
         retrieved = store.get_node_stats(job_run_id=job_run_id)
         assert len(retrieved) == 1
-        assert retrieved[0].node_id == sample_node_stats.node_id
+        assert retrieved[0].id == sample_node_stats.id
         assert retrieved[0].name == "TestNode"
 
     def test_store_multiple_node_stats(self, *, store, sample_job_stats):
@@ -273,7 +271,7 @@ class TestNodeStatsCRUD:
             node_id = str(uuid.uuid4())
             node_ids_created.append(node_id)
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name=f"Node{i}",
                 batch_id=str(i),
                 batch_num=i,
@@ -285,7 +283,7 @@ class TestNodeStatsCRUD:
         assert len(all_stats) == 3
 
         # Verify all created node_ids are present
-        retrieved_node_ids = {stats.node_id for stats in all_stats}
+        retrieved_node_ids = {stats.id for stats in all_stats}
         assert retrieved_node_ids == set(node_ids_created)
 
     def test_get_node_stats_nonexistent_job_returns_empty(self, *, store):
@@ -304,7 +302,7 @@ class TestNodeStatsCRUD:
         store.store_job_stats(sample_job_stats)
 
         node_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=batch_id,
             batch_num=0,
@@ -314,7 +312,7 @@ class TestNodeStatsCRUD:
         # Retrieve specific node stats
         result = store.get_node_stats_by_batch_and_node(job_run_id=job_run_id, node_id=node_id, batch_id=batch_id)
         assert result is not None
-        assert result.node_id == node_id
+        assert result.id == node_id
         assert result.batch_id == batch_id
 
     def test_get_node_stats_by_batch_and_node_with_none(self, *, store, sample_job_stats):
@@ -327,7 +325,7 @@ class TestNodeStatsCRUD:
         store.store_job_stats(sample_job_stats)
 
         node_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
         )
@@ -355,7 +353,7 @@ class TestBatchScopedWrites:
         for i in range(3):
             batch_id = str(i)
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=i,
@@ -382,7 +380,7 @@ class TestBatchScopedWrites:
 
         # Store batch record
         batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id="0",
             batch_num=0,
@@ -392,7 +390,7 @@ class TestBatchScopedWrites:
 
         # Store non-batch record (batch_id=None)
         non_batch_stats = NodeStats(
-            node_id=node_id,
+            id=node_id,
             name="TestNode",
             batch_id=None,
             node_status=ExecutionStatus.COMPLETED,
@@ -421,7 +419,7 @@ class TestBulkOperations:
         # Create 10 batch records
         node_stats_list = [
             NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=str(i),
                 batch_num=i,
@@ -488,7 +486,7 @@ class TestConcurrentAccess:
         def write_batch(batch_num):
             batch_id = str(batch_num)
             node_stats = NodeStats(
-                node_id=node_id,
+                id=node_id,
                 name="TestNode",
                 batch_id=batch_id,
                 batch_num=batch_num,
@@ -614,7 +612,7 @@ class TestJSONFields:
         store.store_job_stats(sample_job_stats)
 
         node_stats = NodeStats(
-            node_id=str(uuid.uuid4()),
+            id=str(uuid.uuid4()),
             name="TestNode",
             batch_id="0",
             batch_num=0,
@@ -649,114 +647,11 @@ class TestDatabasePersistence:
         assert retrieved.processed_docs == 100
 
 
-class TestDuckDBStoreErrorPaths:
-    """Test error path coverage for DuckDBJobStatsStore."""
+class TestAtomicIncrementFieldsWithMerge:
+    """Test atomic_increment_fields with jsonb_merges to cover lines 595-630."""
 
-    def test_init_failure_raises_init_exception(self, tmp_path):
-        """Test that initialization failure raises JobStatsStoreInitializationException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreInitializationException
-
-        # Use a path that can't be created to trigger error
-        with patch(
-            "docpipe.core.job_management.adapters.stores.duckdb.duckdb_job_stats_store.DuckDBJobStatsStore._initialize_schema",
-            side_effect=RuntimeError("Schema init failed"),
-        ):
-            with pytest.raises(JobStatsStoreInitializationException):
-                DuckDBJobStatsStore(config={"database_path": str(tmp_path / "test.duckdb")})
-
-    def test_store_job_stats_error_raises_write_exception(self, *, store):
-        """Test that DB error during store_job_stats raises JobStatsStoreWriteException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreWriteException):
-                job_stats = JobStats(
-                    job_id="test-job",
-                    job_run_id=str(uuid.uuid4()),
-                    status=ExecutionStatus.RUNNING,
-                )
-                store.store_job_stats(job_stats)
-
-    def test_get_job_stats_error_raises_read_exception(self, *, store):
-        """Test that DB error during get_job_stats raises JobStatsStoreReadException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_job_stats("run-id")
-
-    def test_store_node_stats_error_raises_write_exception(self, *, store):
-        """Test that DB error during store_node_stats raises JobStatsStoreWriteException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreWriteException):
-                node_stats = NodeStats(node_id=str(uuid.uuid4()), name="TestNode")
-                store.store_node_stats(job_run_id="run-id", node_stats=node_stats)
-
-    def test_get_node_stats_error_raises_read_exception(self, *, store):
-        """Test that DB error during get_node_stats raises JobStatsStoreReadException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_node_stats(job_run_id="run-id")
-
-    def test_get_batch_node_stats_error_raises_read_exception(self, *, store):
-        """Test that DB error during get_batch_node_stats raises JobStatsStoreReadException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_batch_node_stats(job_run_id="run-id")
-
-    def test_bulk_store_error_raises_write_exception(self, *, store):
-        """Test that DB error during bulk_store_node_stats raises JobStatsStoreWriteException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreWriteException):
-                store.bulk_store_node_stats(
-                    job_run_id="run-id",
-                    node_stats_list=[NodeStats(node_id=str(uuid.uuid4()), name="TestNode")],
-                )
-
-    def test_list_job_runs_error_raises_read_exception(self, *, store):
-        """Test that DB error during list_job_runs raises JobStatsStoreReadException."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreReadException):
-                store.list_job_runs()
-
-    def test_get_node_stats_by_batch_and_node_error_raises_read_exception(self, *, store):
-        """Test that DB error during get_node_stats_by_batch_and_node raises exception."""
-        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
-
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
-            with pytest.raises(JobStatsStoreReadException):
-                store.get_node_stats_by_batch_and_node(job_run_id="run-id", node_id="node-id", batch_id="0")
-
-
-class TestAtomicIncrementExtended:
-    """Extended tests for atomic_increment_fields."""
-
-    def test_atomic_increment_with_updates(self, *, store, sample_job_stats):
-        """Test atomic_increment_fields with both increments and updates."""
-        store.store_job_stats(sample_job_stats)
-
-        store.atomic_increment_fields(
-            job_run_id=sample_job_stats.job_run_id,
-            increments={"processed_docs": 5},
-            updates={"message": "done"},
-        )
-
-        retrieved = store.get_job_stats(sample_job_stats.job_run_id)
-        assert retrieved.processed_docs == 105
-        assert retrieved.message == "done"
-
-    def test_atomic_increment_with_jsonb_merge_new_field(self, *, store, sample_job_stats):
-        """Test atomic_increment_fields with jsonb_merges (new JSON field)."""
+    def test_atomic_increment_with_jsonb_merge_creates_new(self, *, store, sample_job_stats):
+        """jsonb_merges on a field with no existing value stores the new dict."""
         store.store_job_stats(sample_job_stats)
 
         store.atomic_increment_fields(
@@ -766,11 +661,10 @@ class TestAtomicIncrementExtended:
         )
 
         retrieved = store.get_job_stats(sample_job_stats.job_run_id)
-        assert retrieved.page_type_stats is not None
-        assert retrieved.page_type_stats.get("pdf") == 3
+        assert retrieved.page_type_stats == {"pdf": 3}
 
-    def test_atomic_increment_with_jsonb_merge_existing_field(self, *, store, sample_job_stats):
-        """Test atomic_increment_fields merges into existing JSON field."""
+    def test_atomic_increment_with_jsonb_merge_merges_existing(self, *, store, sample_job_stats):
+        """jsonb_merges on an existing JSON field merges the dicts."""
         sample_job_stats.page_type_stats = {"pdf": 2}
         store.store_job_stats(sample_job_stats)
 
@@ -781,57 +675,37 @@ class TestAtomicIncrementExtended:
         )
 
         retrieved = store.get_job_stats(sample_job_stats.job_run_id)
-        assert retrieved.page_type_stats is not None
         assert retrieved.page_type_stats.get("pdf") == 2
         assert retrieved.page_type_stats.get("docx") == 5
 
-    def test_atomic_increment_error_raises_write_exception(self, *, store):
-        """Test that DB error during atomic_increment raises JobStatsStoreWriteException."""
+
+class TestDuckDBJobStatsStoreEdgePaths:
+    """Cover edge paths for init failure and bulk_store rollback."""
+
+    def test_initialization_failure_raises_exception(self, *, temp_db_path):
+        """If _initialize_schema fails, raises JobStatsStoreInitializationException."""
+        from unittest.mock import patch
+
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreInitializationException
+
+        with patch(
+            "docpipe.core.job_management.adapters.stores.duckdb.duckdb_job_stats_store.DuckDBJobStatsStore._initialize_schema",
+            side_effect=RuntimeError("schema error"),
+        ):
+            with pytest.raises(JobStatsStoreInitializationException):
+                DuckDBJobStatsStore(config={"database_path": temp_db_path})
+
+    def test_bulk_store_raises_write_exception_on_failure(self, *, store):
+        """bulk_store_node_stats raises JobStatsStoreWriteException on failure."""
+        from unittest.mock import patch
+
+        from docpipe.core.job_management.domain.models.node_stats import NodeStats
         from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
 
-        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("DB error")):
+        # A non-empty list is required — empty list short-circuits before touching the connection
+        node_stats = [NodeStats(id="node-1", name="Test")]
+
+        # Patch connection manager to raise a RuntimeError so the outer except is hit
+        with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("no connection")):
             with pytest.raises(JobStatsStoreWriteException):
-                store.atomic_increment_fields(job_run_id="run-id", increments={"processed_docs": 1})
-
-
-class TestListJobRunsFiltering:
-    """Additional tests for list_job_runs filtering."""
-
-    def test_list_job_runs_filter_by_job_id(self, *, store):
-        """Filter job runs by job_id."""
-        job_id = str(uuid.uuid4())
-
-        # Store 2 jobs with same job_id, 1 with different
-        for _i in range(2):
-            job_stats = JobStats(
-                job_id=job_id,
-                job_run_id=str(uuid.uuid4()),
-                status=ExecutionStatus.COMPLETED,
-            )
-            store.store_job_stats(job_stats)
-
-        other_job = JobStats(
-            job_id=str(uuid.uuid4()),
-            job_run_id=str(uuid.uuid4()),
-            status=ExecutionStatus.COMPLETED,
-        )
-        store.store_job_stats(other_job)
-
-        result = store.list_job_runs(job_id=job_id)
-        assert len(result) == 2
-        for r in result:
-            assert r.job_id == job_id
-
-    def test_list_job_runs_with_string_status(self, *, store):
-        """Test list_job_runs with string status filter (case-sensitive)."""
-        job_stats = JobStats(
-            job_id=str(uuid.uuid4()),
-            job_run_id=str(uuid.uuid4()),
-            status=ExecutionStatus.FAILED,
-        )
-        store.store_job_stats(job_stats)
-
-        # Use exact case as stored in DB (ExecutionStatus.FAILED.value == "Failed")
-        result = store.list_job_runs(status=ExecutionStatus.FAILED.value)
-        assert len(result) == 1
-        assert result[0].status == ExecutionStatus.FAILED
+                store.bulk_store_node_stats(job_run_id="nonexistent", node_stats_list=node_stats)

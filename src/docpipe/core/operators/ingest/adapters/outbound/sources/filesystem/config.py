@@ -1,6 +1,6 @@
 """Configuration model for filesystem source adapter."""
 
-import os
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator
@@ -18,7 +18,10 @@ class FilesystemSourceConfig(BaseModel):
     """
 
     # Required fields
-    root_path: str = Field(..., description="Root directory path to ingest documents from")
+    paths: list[str] = Field(
+        ...,
+        description="List of root directory or file paths to ingest documents from.",
+    )
 
     # Optional fields with defaults
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
@@ -36,16 +39,19 @@ class FilesystemSourceConfig(BaseModel):
 
     follow_symlinks: bool = Field(False, description="Whether to follow symbolic links")
 
-    @field_validator("root_path")
+    @field_validator("paths")
     @classmethod
-    def validate_root_path(cls, v: str) -> str:
-        """Validate that root path exists and is a directory."""
-        expanded_path = os.path.expanduser(v)
-        if not os.path.exists(expanded_path):
-            raise ValueError(f"Root path does not exist: {v}")
-        if not os.path.isdir(expanded_path):
-            raise ValueError(f"Root path is not a directory: {v}")
-        return expanded_path
+    def validate_paths(cls, v: list[str]) -> list[str]:
+        """Validate that all root paths exist (can be file or directory)."""
+        if not v:
+            raise ValueError("paths must contain at least one path")
+        validated: list[str] = []
+        for path in v:
+            expanded = Path(path).expanduser()
+            if not expanded.exists():
+                raise ValueError(f"Root path does not exist: {path}")
+            validated.append(str(expanded))
+        return validated
 
     @field_validator("file_extensions")
     @classmethod
@@ -66,7 +72,7 @@ class FilesystemSourceConfig(BaseModel):
 
         json_schema_extra: ClassVar[dict] = {
             "example": {
-                "root_path": "/path/to/documents",
+                "paths": ["/path/to/documents", "/another/path"],
                 "recursive": True,
                 "file_extensions": [".pdf", ".docx", ".txt"],
                 "exclude_patterns": ["*.tmp", "__pycache__/*"],

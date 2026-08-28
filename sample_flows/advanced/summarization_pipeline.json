@@ -10,12 +10,16 @@
   },
   "flow": [
     {
-      "type": "ingest_local",
+      "type": "ingest_source",
       "name": "ingest_documents",
       "config": {
-        "paths": "./sample_documents",
-        "include_filter": "pdf,txt,docx",
-        "max_workers": 4
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": [
+            "./sample_documents"
+          ]
+        },
+        "include_filter": "pdf,txt,docx"
       }
     },
     {

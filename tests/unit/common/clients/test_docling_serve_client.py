@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Unit tests for DoclingServeClient.
 """
@@ -107,7 +110,7 @@ class TestDoclingServeClient:
         mock_rest_client_instance.call_rest_multipart.assert_called_once()
         call_args = mock_rest_client_instance.call_rest_multipart.call_args
         assert "files" in call_args.kwargs
-        assert "data" in call_args.kwargs
+        assert "form_data" in call_args.kwargs
 
     @patch("docpipe.integrations.docling.client.RestClient")
     def test_submit_document_with_binary_content(self, mock_rest_client_class):
@@ -339,13 +342,13 @@ class TestDoclingServeClient:
     @patch("docpipe.integrations.docling.client.time.sleep")
     def test_poll_status_pending_then_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with pending then success."""
+
         # Setup mock responses
-        responses = [
+        mock_call_rest_json.side_effect = [
             {"task_status": "PENDING"},
             {"task_status": "STARTED"},
             {"task_status": "SUCCESS"},
         ]
-        mock_call_rest_json.side_effect = responses
 
         # Execute
         client = DoclingServeClient(base_url="http://localhost:5001")
@@ -416,142 +419,3 @@ class TestDoclingServeClient:
         )
         mock_get_result.assert_called_once_with(task_id="test-task-123")
         assert result["document"] == "processed"
-
-
-class TestDoclingServeErrorHandler:
-    """Test suite for DoclingServeErrorHandler."""
-
-    def _make_exception(self, *, message: str = "error", status_code: int = 500) -> DocpipeException:
-        return DocpipeException(message=message, status_code=status_code, error_code=ErrorCode.EXTERNAL_SERVICE_ERROR)
-
-    def test_handle_returns_original_when_no_match(self):
-        """Unrecognised exceptions are returned unchanged."""
-        from docpipe.integrations.docling.client import DoclingServeErrorHandler
-
-        handler = DoclingServeErrorHandler(base_url="http://localhost:5001")
-        exc = self._make_exception(message="some random error", status_code=500)
-        result = handler.handle(exc)
-        assert result is exc
-
-    def test_handle_matches_422_status_code(self):
-        """HTTP 422 triggers the format compatibility handler."""
-        from docpipe.integrations.docling.client import DoclingServeErrorHandler
-
-        handler = DoclingServeErrorHandler(base_url="http://localhost:5001")
-        exc = self._make_exception(message="unprocessable entity", status_code=422)
-        result = handler.handle(exc, context={"requested_formats": ["html", "json"]})
-        assert result is not exc
-        assert "422" not in str(result) or "docling-serve" in str(result)
-        assert "additional_formats" in str(result)
-
-    def test_handle_matches_format_keyword_in_message(self):
-        """Exception messages containing format-related keywords trigger the handler."""
-        from docpipe.integrations.docling.client import DoclingServeErrorHandler
-
-        handler = DoclingServeErrorHandler(base_url="http://localhost:5001")
-        for keyword in ("format", "to_formats", "unsupported", "invalid format", "unknown format", "not supported"):
-            exc = self._make_exception(message=f"something about {keyword}", status_code=400)
-            result = handler.handle(exc)
-            assert result is not exc, f"Expected handler to match keyword: {keyword}"
-
-    def test_enhance_format_compatibility_error_message_content(self):
-        """Enhanced error message references the base_url and requested formats."""
-        from docpipe.integrations.docling.client import DoclingServeErrorHandler
-
-        handler = DoclingServeErrorHandler(base_url="http://myserver:5001")
-        exc = self._make_exception(message="bad format", status_code=422)
-        result = handler.handle(exc, context={"requested_formats": ["html", "doctags"]})
-        msg = str(result)
-        assert "http://myserver:5001" in msg
-        assert "html" in msg
-        assert "doctags" in msg
-        assert "additional_formats" in msg
-
-    def test_handle_no_match_with_empty_context(self):
-        """handle() with no context dict does not crash."""
-        from docpipe.integrations.docling.client import DoclingServeErrorHandler
-
-        handler = DoclingServeErrorHandler(base_url="http://localhost:5001")
-        exc = self._make_exception(message="generic error", status_code=503)
-        result = handler.handle(exc)
-        assert result is exc
-
-    def test_register_custom_handler(self):
-        """Custom (matcher, enhancer) pair is invoked when matcher returns True."""
-        from docpipe.integrations.docling.client import DoclingServeErrorHandler
-
-        handler = DoclingServeErrorHandler(base_url="http://localhost:5001")
-
-        def my_matcher(e: DocpipeException) -> bool:
-            return e.status_code == 503
-
-        def my_enhancer(e: DocpipeException, ctx: dict) -> DocpipeException:
-            return DocpipeException(
-                message="service unavailable — custom",
-                status_code=503,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            )
-
-        handler.register(my_matcher, my_enhancer)
-        exc = self._make_exception(message="service down", status_code=503)
-        result = handler.handle(exc)
-        assert "custom" in str(result)
-
-
-class TestBuildOptionsMutationFix:
-    """Tests that _build_options does not mutate the caller's options dict."""
-
-    def test_build_options_does_not_mutate_input_dict(self):
-        """Calling _build_options twice with the same dict must not lose additional_formats."""
-        from docpipe.integrations.docling.client import DoclingServeClient
-
-        client = DoclingServeClient(base_url="http://localhost:5001")
-        options = {"do_ocr": True, "pdf_backend": "dlparse_v2", "additional_formats": ["html", "json"]}
-        original_keys = set(options.keys())
-
-        # Call twice — second call must produce same result as first
-        result1 = client._build_options(options)
-        result2 = client._build_options(options)
-
-        assert set(options.keys()) == original_keys, "Input dict was mutated"
-        assert result1["to_formats"] == result2["to_formats"], "Results differ between calls"
-
-    def test_build_options_additional_formats_merged_into_to_formats(self):
-        """additional_formats values are appended to to_formats in the built options."""
-        from docpipe.integrations.docling.client import DoclingServeClient
-
-        client = DoclingServeClient(base_url="http://localhost:5001")
-        options = {"additional_formats": ["html", "text"]}
-        result = client._build_options(options)
-
-        assert "md" in result["to_formats"]
-        assert "html" in result["to_formats"]
-        assert "text" in result["to_formats"]
-        assert "additional_formats" not in result
-
-    def test_build_options_md_always_present(self):
-        """to_formats always contains 'md' even when not explicitly specified."""
-        from docpipe.integrations.docling.client import DoclingServeClient
-
-        client = DoclingServeClient(base_url="http://localhost:5001")
-        result = client._build_options()
-        assert "md" in result["to_formats"]
-
-    def test_build_options_strips_none_values(self):
-        """None values are stripped from the built options dict."""
-        from docpipe.integrations.docling.client import DoclingServeClient
-
-        client = DoclingServeClient(base_url="http://localhost:5001")
-        options = {"ocr_lang": None, "do_ocr": True}
-        result = client._build_options(options)
-        assert "ocr_lang" not in result
-
-    def test_build_options_no_duplicate_formats(self):
-        """The same format is not added twice to to_formats."""
-        from docpipe.integrations.docling.client import DoclingServeClient
-
-        client = DoclingServeClient(base_url="http://localhost:5001")
-        options = {"additional_formats": ["md", "html", "html"]}
-        result = client._build_options(options)
-        assert result["to_formats"].count("md") == 1
-        assert result["to_formats"].count("html") == 1

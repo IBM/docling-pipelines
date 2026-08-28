@@ -3,16 +3,17 @@ Unit tests for filesystem utilities.
 Tests for path management and directory operations.
 """
 
-import os
 import shutil
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from docpipe.utils.infrastructure.filesystem import (
-    DEFAULT_DATA_ROOT_FOLDER,
     delete_folders,
     get_data_path,
 )
+
+DEFAULT_DATA_ROOT_FOLDER = "./data"
 
 
 class TestGetDataPath:
@@ -22,7 +23,7 @@ class TestGetDataPath:
         """Test getting default data path."""
         result = get_data_path()
         assert result == DEFAULT_DATA_ROOT_FOLDER
-        assert os.path.exists(result)
+        assert Path(result).exists()
 
     def test_get_data_path_with_subdirectory(self):
         """Test getting data path with subdirectory."""
@@ -31,10 +32,10 @@ class TestGetDataPath:
 
         expected = DEFAULT_DATA_ROOT_FOLDER + sub_dir
         assert result == expected
-        assert os.path.exists(result)
+        assert Path(result).exists()
 
         # Cleanup
-        if os.path.exists(result):
+        if Path(result).exists():
             shutil.rmtree(result)
 
     def test_get_data_path_creates_directory(self):
@@ -43,16 +44,16 @@ class TestGetDataPath:
         full_path = DEFAULT_DATA_ROOT_FOLDER + sub_dir
 
         # Ensure directory doesn't exist
-        if os.path.exists(full_path):
+        if Path(full_path).exists():
             shutil.rmtree(full_path)
 
         result = get_data_path(sub_dir=sub_dir)
 
-        assert os.path.exists(result)
-        assert os.path.isdir(result)
+        assert Path(result).exists()
+        assert Path(result).is_dir()
 
         # Cleanup
-        if os.path.exists(result):
+        if Path(result).exists():
             shutil.rmtree(result)
 
     def test_get_data_path_with_nested_subdirectories(self):
@@ -62,11 +63,11 @@ class TestGetDataPath:
 
         expected = DEFAULT_DATA_ROOT_FOLDER + sub_dir
         assert result == expected
-        assert os.path.exists(result)
+        assert Path(result).exists()
 
         # Cleanup
         base_path = DEFAULT_DATA_ROOT_FOLDER + "/level1"
-        if os.path.exists(base_path):
+        if Path(base_path).exists():
             shutil.rmtree(base_path)
 
     def test_get_data_path_idempotent(self):
@@ -77,17 +78,17 @@ class TestGetDataPath:
         result2 = get_data_path(sub_dir=sub_dir)
 
         assert result1 == result2
-        assert os.path.exists(result1)
+        assert Path(result1).exists()
 
         # Cleanup
-        if os.path.exists(result1):
+        if Path(result1).exists():
             shutil.rmtree(result1)
 
     def test_get_data_path_with_empty_string(self):
         """Test getting data path with empty string subdirectory."""
         result = get_data_path(sub_dir="")
         assert result == DEFAULT_DATA_ROOT_FOLDER
-        assert os.path.exists(result)
+        assert Path(result).exists()
 
     def test_get_data_path_with_leading_slash(self):
         """Test that subdirectory with leading slash works correctly."""
@@ -97,7 +98,7 @@ class TestGetDataPath:
         assert result == DEFAULT_DATA_ROOT_FOLDER + sub_dir
 
         # Cleanup
-        if os.path.exists(result):
+        if Path(result).exists():
             shutil.rmtree(result)
 
     def test_get_data_path_with_trailing_slash(self):
@@ -110,7 +111,7 @@ class TestGetDataPath:
 
         # Cleanup
         base_path = DEFAULT_DATA_ROOT_FOLDER + "/test_trailing"
-        if os.path.exists(base_path):
+        if Path(base_path).exists():
             shutil.rmtree(base_path)
 
     def test_get_data_path_with_special_characters(self):
@@ -118,10 +119,10 @@ class TestGetDataPath:
         sub_dir = "/test-dir_123"
         result = get_data_path(sub_dir=sub_dir)
 
-        assert os.path.exists(result)
+        assert Path(result).exists()
 
         # Cleanup
-        if os.path.exists(result):
+        if Path(result).exists():
             shutil.rmtree(result)
 
 
@@ -134,15 +135,14 @@ class TestDeleteFolders:
         temp_dir = tempfile.mkdtemp()
 
         # Create some files in it
-        test_file = os.path.join(temp_dir, "test.txt")
-        with open(test_file, "w") as f:
-            f.write("test content")
+        test_file = Path(temp_dir) / "test.txt"
+        test_file.open("w").close()
 
-        assert os.path.exists(temp_dir)
+        assert Path(temp_dir).exists()
 
         delete_folders(paths_list=[temp_dir])
 
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
     def test_delete_multiple_folders(self):
         """Test deleting multiple folders."""
@@ -151,33 +151,31 @@ class TestDeleteFolders:
         temp_dir2 = tempfile.mkdtemp()
         temp_dir3 = tempfile.mkdtemp()
 
-        assert os.path.exists(temp_dir1)
-        assert os.path.exists(temp_dir2)
-        assert os.path.exists(temp_dir3)
+        assert Path(temp_dir1).exists()
+        assert Path(temp_dir2).exists()
+        assert Path(temp_dir3).exists()
 
         delete_folders(paths_list=[temp_dir1, temp_dir2, temp_dir3])
 
-        assert not os.path.exists(temp_dir1)
-        assert not os.path.exists(temp_dir2)
-        assert not os.path.exists(temp_dir3)
+        assert not Path(temp_dir1).exists()
+        assert not Path(temp_dir2).exists()
+        assert not Path(temp_dir3).exists()
 
     def test_delete_folder_with_nested_structure(self):
         """Test deleting folder with nested files and directories."""
         temp_dir = tempfile.mkdtemp()
 
         # Create nested structure
-        nested_dir = os.path.join(temp_dir, "nested", "deep")
-        os.makedirs(nested_dir)
+        nested_dir = Path(temp_dir) / "nested" / "deep"
+        nested_dir.mkdir(parents=True)
 
         # Create files at different levels
-        with open(os.path.join(temp_dir, "root.txt"), "w") as f:
-            f.write("root")
-        with open(os.path.join(nested_dir, "deep.txt"), "w") as f:
-            f.write("deep")
+        (Path(temp_dir) / "root.txt").open("w").close()
+        (nested_dir / "deep.txt").open("w").close()
 
         delete_folders(paths_list=[temp_dir])
 
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
     def test_delete_nonexistent_folder(self):
         """Test deleting a folder that doesn't exist."""
@@ -190,23 +188,21 @@ class TestDeleteFolders:
         """Test deleting an empty folder."""
         temp_dir = tempfile.mkdtemp()
 
-        assert os.path.exists(temp_dir)
+        assert Path(temp_dir).exists()
 
         delete_folders(paths_list=[temp_dir])
 
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
     def test_delete_folders_logs_contents(self):
         """Test that delete_folders logs folder contents before deletion."""
         temp_dir = tempfile.mkdtemp()
 
         # Create some files
-        test_file1 = os.path.join(temp_dir, "file1.txt")
-        test_file2 = os.path.join(temp_dir, "file2.txt")
-        with open(test_file1, "w") as f:
-            f.write("content1")
-        with open(test_file2, "w") as f:
-            f.write("content2")
+        test_file1 = Path(temp_dir) / "file1.txt"
+        test_file2 = Path(temp_dir) / "file2.txt"
+        test_file1.open("w").close()
+        test_file2.open("w").close()
 
         # Mock logger to verify logging
         with patch("docpipe.utils.infrastructure.filesystem.logger") as mock_logger:
@@ -227,19 +223,18 @@ class TestDeleteFolders:
 
         delete_folders(paths_list=[temp_dir, nonexistent])
 
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
     def test_delete_folder_with_readonly_files(self):
         """Test deleting folder with read-only files."""
         temp_dir = tempfile.mkdtemp()
 
         # Create a read-only file
-        readonly_file = os.path.join(temp_dir, "readonly.txt")
-        with open(readonly_file, "w") as f:
-            f.write("readonly content")
+        readonly_file = Path(temp_dir) / "readonly.txt"
+        readonly_file.open("w").close()
 
         # Make file read-only
-        os.chmod(readonly_file, 0o444)
+        readonly_file.chmod(0o444)
 
         try:
             delete_folders(paths_list=[temp_dir])
@@ -250,8 +245,8 @@ class TestDeleteFolders:
             pass
         finally:
             # Cleanup: restore permissions and delete if still exists
-            if os.path.exists(temp_dir):
-                os.chmod(readonly_file, 0o644)
+            if Path(temp_dir).exists():
+                readonly_file.chmod(0o644)
                 shutil.rmtree(temp_dir)
 
     def test_delete_folder_with_symlinks(self):
@@ -259,20 +254,19 @@ class TestDeleteFolders:
         temp_dir = tempfile.mkdtemp()
 
         # Create a file and a symlink to it
-        real_file = os.path.join(temp_dir, "real.txt")
-        with open(real_file, "w") as f:
-            f.write("real content")
+        real_file = Path(temp_dir) / "real.txt"
+        real_file.open("w").close()
 
-        symlink_path = os.path.join(temp_dir, "link.txt")
+        symlink_path = Path(temp_dir) / "link.txt"
         try:
-            os.symlink(real_file, symlink_path)
+            symlink_path.symlink_to(real_file)
         except OSError:
             # Symlinks might not be supported on all systems
             pass
 
         delete_folders(paths_list=[temp_dir])
 
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
     def test_delete_folder_with_large_number_of_files(self):
         """Test deleting folder with many files."""
@@ -280,42 +274,34 @@ class TestDeleteFolders:
 
         # Create 100 files
         for i in range(100):
-            file_path = os.path.join(temp_dir, f"file_{i}.txt")
-            with open(file_path, "w") as f:
-                f.write(f"content {i}")
+            (Path(temp_dir) / f"file_{i}.txt").open("w").close()
 
         delete_folders(paths_list=[temp_dir])
 
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
     def test_delete_folder_with_unicode_filenames(self):
         """Test deleting folder with Unicode filenames."""
         temp_dir = tempfile.mkdtemp()
 
         # Create files with Unicode names
-        unicode_file1 = os.path.join(temp_dir, "文件.txt")
-        unicode_file2 = os.path.join(temp_dir, "файл.txt")
+        unicode_file1 = Path(temp_dir) / "文件.txt"
+        unicode_file2 = Path(temp_dir) / "файл.txt"
 
         try:
-            with open(unicode_file1, "w", encoding="utf-8") as f:
-                f.write("Chinese filename")
-            with open(unicode_file2, "w", encoding="utf-8") as f:
-                f.write("Russian filename")
+            unicode_file1.open("w", encoding="utf-8").close()
+            unicode_file2.open("w", encoding="utf-8").close()
         except Exception:
             # Some systems might not support Unicode filenames
             pass
 
         delete_folders(paths_list=[temp_dir])
 
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
 
 class TestDefaultDataRootFolder:
     """Test DEFAULT_DATA_ROOT_FOLDER constant."""
-
-    def test_default_data_root_folder_value(self):
-        """Test that DEFAULT_DATA_ROOT_FOLDER has expected value."""
-        assert DEFAULT_DATA_ROOT_FOLDER == "./data"
 
     def test_default_data_root_folder_is_string(self):
         """Test that DEFAULT_DATA_ROOT_FOLDER is a string."""
@@ -334,7 +320,7 @@ class TestEdgeCases:
             _ = get_data_path(sub_dir=long_subdir)
             # If successful, cleanup
             base_path = DEFAULT_DATA_ROOT_FOLDER + "/dir0"
-            if os.path.exists(base_path):
+            if Path(base_path).exists():
                 shutil.rmtree(base_path)
         except Exception:
             # Some systems might have path length limits
@@ -349,7 +335,7 @@ class TestEdgeCases:
             delete_folders(paths_list=[temp_dir, None])
         except Exception:
             # If it raises, cleanup
-            if os.path.exists(temp_dir):
+            if Path(temp_dir).exists():
                 shutil.rmtree(temp_dir)
 
     def test_get_data_path_concurrent_calls(self):
@@ -363,5 +349,5 @@ class TestEdgeCases:
         assert all(r == results[0] for r in results)
 
         # Cleanup
-        if os.path.exists(results[0]):
+        if Path(results[0]).exists():
             shutil.rmtree(results[0])

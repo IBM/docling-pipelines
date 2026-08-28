@@ -191,8 +191,8 @@ The adapter automatically extracts text from:
 |-----------|------------|-------------------|
 | Text files | .txt, .md, .csv, .json, .xml, .html, .py, .js, etc. | UTF-8 decode |
 | PDF files | .pdf | pypdf or pdfminer.six |
-| Word documents | .docx, .doc | python-docx |
-| Excel spreadsheets | .xlsx, .xls | openpyxl |
+| Word documents | .docx | python-docx |
+| Excel spreadsheets | .xlsx | openpyxl |
 
 ## Troubleshooting
 

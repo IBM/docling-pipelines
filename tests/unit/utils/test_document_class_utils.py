@@ -343,8 +343,8 @@ class TestTemplateWithExamples:
     def test_extract_field_metadata(self, sample_document_class):
         """Test field metadata extraction."""
         fields = sample_document_class["document_class_schema"]["document"]["fields"]
-        examples = {}
-        descriptions = {}
+        examples: dict = {}
+        descriptions: dict = {}
 
         DocumentClassUtils._extract_field_metadata(fields, examples, descriptions)
 
@@ -498,8 +498,10 @@ class TestGetDocumentTypes:
     @patch("docpipe.utils.document_class_utils.Path")
     def test_get_document_types(self, mock_path):
         """Test getting document types."""
-        mock_dir = Mock()
-        mock_file = Mock()
+        from unittest.mock import MagicMock
+
+        mock_dir = MagicMock()
+        mock_file = MagicMock()
         mock_dir.glob.return_value = [mock_file]
         mock_dir.exists.return_value = True
         mock_path.return_value = mock_dir
@@ -510,13 +512,11 @@ class TestGetDocumentTypes:
             }
         }
 
-        with patch("builtins.open", create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = json.dumps(doc_class)
-            with patch("json.load", return_value=doc_class):
-                result = DocumentClassUtils.get_document_types()
+        with patch("json.load", return_value=doc_class):
+            result = DocumentClassUtils.get_document_types()
 
-                assert "invoice" in result
-                assert result["invoice"] == "Invoice document"
+            assert "invoice" in result
+            assert result["invoice"] == "Invoice document"
 
     @patch("docpipe.utils.document_class_utils.Path")
     def test_get_document_types_nonexistent_dir(self, mock_path):
@@ -559,10 +559,7 @@ class TestGetSchemaTemplates:
 
         with (
             patch.object(DocumentClassUtils, "normalize_filename", return_value="invoice"),
-            patch(
-                "docpipe.utils.document_class_utils.Path",
-                return_value=tmp_path,
-            ),
+            patch.object(DocumentClassUtils, "DOCUMENT_CLASSES_PATH", str(tmp_path)),
         ):
             result = DocumentClassUtils.get_schema_templates(["invoice"])
             assert "invoice" in result
@@ -574,8 +571,9 @@ class TestGetSchemaTemplates:
 
     def test_get_schema_templates_skips_already_loaded(self):
         """Test that duplicate types are only loaded once."""
-        # Pass duplicates - result should have only unique
-        with patch("builtins.open", side_effect=OSError("not found")):
+        # Pass duplicates - result should have only unique entries (deduplicated)
+        # Use a non-existent path so the file open fails for both, proving dedup
+        with patch.object(DocumentClassUtils, "DOCUMENT_CLASSES_PATH", "/nonexistent/path"):
             result = DocumentClassUtils.get_schema_templates(["invoice", "invoice"])
             assert result == {}
 
@@ -756,7 +754,7 @@ class TestGetDocumentTypesMissingLines:
         mock_file = Mock()
         mock_file.name = "test.json"
 
-        data_missing = {"document_class_schema": {"document": {}}}  # no doc_type
+        data_missing: dict = {"document_class_schema": {"document": {}}}  # no doc_type
         mock_dir.glob.return_value = [mock_file]
         mock_path_cls.return_value = mock_dir
 

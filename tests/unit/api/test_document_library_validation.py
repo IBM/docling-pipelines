@@ -17,7 +17,7 @@ Pattern: ^[a-zA-Z][a-zA-Z0-9_ ]*$
 import pytest
 from pydantic import ValidationError
 
-from docpipe.api.dto.document_library_dto import DocumentLibraryPatch, DocumentLibraryPrototype
+from docpipe.api.dto.document_library_dto import DocumentLibraryPrototype
 from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
@@ -95,16 +95,6 @@ class TestDocumentLibraryDTOValidation:
         long_tag = "a" * 200
         dto = DocumentLibraryPrototype(name="Test", tags=[long_tag])
         assert dto.tags[0] == long_tag
-
-    def test_patch_name_is_optional(self):
-        """PATCH DTO should allow omitted name."""
-        dto = DocumentLibraryPatch()
-        assert dto.name is None
-
-    def test_patch_name_accepts_valid_value(self):
-        """PATCH DTO should validate provided name."""
-        dto = DocumentLibraryPatch(name="Updated Library")
-        assert dto.name == "Updated Library"
 
 
 class TestDocumentLibraryDomainValidation:

@@ -16,11 +16,14 @@ All endpoints delegate to service layer which raises custom DocpipeException sub
 """
 
 import logging
-from functools import lru_cache
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 
+from docpipe.api.dependencies import (
+    get_document_library_service,
+    get_document_set_service,
+)
 from docpipe.api.dto.document_library_dto import (
     DocumentLibrary as DocumentLibraryResponse,
 )
@@ -41,25 +44,12 @@ from docpipe.api.dto.field_definitions import (
     UUID_LENGTH,
     UUID_PATTERN,
 )
-from docpipe.core.assets.document_libraries.adapters.duckdb import (
-    DuckDBDocumentLibraryMetadataRepository,  # Import to trigger registration
-)
 from docpipe.core.assets.document_libraries.application.services.document_library_service import (
     DocumentLibraryService,
-)
-from docpipe.core.assets.document_libraries.domain.ports.document_library_repository import (
-    DocumentLibraryRepository,
-)
-from docpipe.core.assets.document_libraries.factories.document_library_repository_factory import (
-    DocumentLibraryRepositoryFactory,
 )
 from docpipe.core.assets.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
-from docpipe.core.constants.constants import DocpipeConstants
-
-# Ensure adapter is registered (import triggers @register decorator)
-_ = DuckDBDocumentLibraryMetadataRepository
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -192,87 +182,6 @@ def get_filter_params(
     return {
         "name": name,
     }
-
-
-# Dependency providers
-@lru_cache(maxsize=1)
-def get_document_library_repository() -> DocumentLibraryRepository:
-    """Dependency provider for document library repository (singleton).
-
-    Creates a single repository instance that is reused across all requests
-    using LRU cache. Uses factory pattern to create DuckDB adapter.
-
-    Returns:
-        DocumentLibraryRepository: Configured repository instance (cached singleton)
-
-    Note:
-        Uses factory pattern with KeyValueStorage for metadata and direct SQL for junction tables.
-        Database path is configured via DocpipeConstants.
-    """
-    from docpipe.core.assets.document_libraries.domain.types import RepositoryConfig
-
-    config: RepositoryConfig = {"database_path": DocpipeConstants.DOCUMENT_LIBRARY_DEFAULT_DB_PATH}
-    return DocumentLibraryRepositoryFactory.create(adapter_name="duckdb", config=config)  # type: ignore[arg-type]
-
-
-def get_document_set_service():
-    """Create a document set service with factory-created components.
-
-    Reuses the same pattern as document_sets.py for consistency.
-    """
-    from docpipe.core.assets.document_sets.application.services.document_set_service import (
-        DocumentSetService,
-    )
-    from docpipe.core.assets.document_sets.domain.types import (
-        DataStoreConfig,
-        RepositoryConfig,
-    )
-    from docpipe.core.assets.document_sets.factories import (
-        DataStoreFactory,
-        MetadataRepositoryFactory,
-    )
-    from docpipe.core.constants.constants import DocpipeConstants
-
-    database_path = DocpipeConstants.DOCUMENT_SET_DEFAULT_DB_PATH
-
-    # Create metadata repository using factory
-    metadata_config: RepositoryConfig = {"database_path": database_path}
-    metadata_repository = MetadataRepositoryFactory.create(
-        adapter_name="duckdb",
-        config=metadata_config,  # type: ignore[arg-type]
-    )
-
-    # Create data store using factory
-    data_config: DataStoreConfig = {"database_path": database_path}
-    data_store = DataStoreFactory.create(
-        adapter_name="duckdb",
-        config=data_config,  # type: ignore[arg-type]
-    )
-
-    # Create service with port interfaces
-    return DocumentSetService(
-        metadata_repository=metadata_repository,  # type: ignore[arg-type]
-        data_store=data_store,  # type: ignore[arg-type]
-    )
-
-
-def get_document_library_service(
-    document_set_service: DocumentSetService = Depends(get_document_set_service),  # noqa: B008
-    repository: DocumentLibraryRepository = Depends(get_document_library_repository),  # noqa: B008
-) -> DocumentLibraryService:
-    """Dependency provider for document library service.
-
-    Args:
-        repository: Injected repository instance
-        document_set_service: Injected document set service for relationship validation
-
-    Returns:
-        DocumentLibraryService: Service instance with injected dependencies
-    """
-    return DocumentLibraryService(
-        repository=repository,
-        document_set_service=document_set_service,
-    )
 
 
 PaginationDep = Annotated[tuple[int, int], Depends(get_pagination_params)]

@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 
+from docpipe.core.assets.flows.application.services import FlowService
 from docpipe.core.constants import DocpipeConfigKeys, EnvironmentVariables
 from docpipe.core.constants.constants import _find_project_root
 from docpipe.core.job_management.adapters.frameworks import DefaultJobRunManager
@@ -146,7 +147,7 @@ class JobManagementFactory:
 
         self.config[DocpipeConfigKeys.STORAGE_INITIALIZED] = True
 
-    def resolve_worker_env(self) -> dict[str, str]:  # NOSONAR python:S3776
+    def resolve_worker_env(self) -> dict[str, str]:
         """
         Resolve environment variables that need to be propagated to workers.
 
@@ -260,7 +261,8 @@ class JobManagementFactory:
             case _:
                 raise ValueError(f"Unknown storage backend: {self.storage_backend}")
 
-        assert self._job_stats_store is not None, "Job stats store must be initialized"
+        if self._job_stats_store is None:  # defensive: all branches above either assign or raise
+            raise RuntimeError("Job stats store must be initialized")
         return self._job_stats_store
 
     def create_job_run_manager(self) -> JobRunManager:
@@ -322,7 +324,7 @@ class JobManagementFactory:
         logger.info("Created JobTrackerService")
         return self._job_stats_service
 
-    def create_job_management_service(self) -> JobManagementService:
+    def create_job_management_service(self, flow_service: FlowService) -> JobManagementService:
         """
         Create job management service with dependencies.
 
@@ -336,14 +338,14 @@ class JobManagementFactory:
         job_run_manager = self.create_job_run_manager()
 
         self._job_management_service = JobManagementService(
-            job_stats_service=job_stats_service, job_run_manager=job_run_manager
+            job_stats_service=job_stats_service, job_run_manager=job_run_manager, flow_service=flow_service
         )
 
         logger.info("Created JobManagementService")
         return self._job_management_service
 
     @classmethod
-    def from_config_file(cls, config_path: str) -> "JobManagementFactory":  # NOSONAR python:S3776
+    def from_config_file(cls, config_path: str) -> "JobManagementFactory":
         """
         Create factory from YAML configuration file.
 
@@ -363,7 +365,7 @@ class JobManagementFactory:
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
         try:
-            with open(config_file) as f:
+            with Path(config_file).open() as f:
                 yaml_config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML configuration: {e}") from e

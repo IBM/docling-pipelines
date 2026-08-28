@@ -71,9 +71,10 @@ With `langdetect` provider:
   "flow": [
     {
       "name": "ingest",
-      "type": "ingest_local",
+      "type": "ingest_source",
       "config": {
-        "paths": "data/documents"
+        "provider": "filesystem",
+        "connection_params": {"paths": ["data/documents"]}
       }
     },
     {
@@ -169,7 +170,7 @@ All input columns are preserved. The operator appends:
 {
   "flow_name": "Language Detection Pipeline",
   "flow": [
-    { "name": "ingest", "type": "ingest_local", "config": { "paths": "data/documents" } },
+    { "name": "ingest", "type": "ingest_source", "config": { "provider": "filesystem", "connection_params": {"paths": ["data/documents"]} } },
     { "name": "extract", "type": "extract_operator", "depends_on": ["ingest"],
       "config": { "text_extraction": { "provider": "docling_library" }, "entity_extraction": { "provider": "none" } } },
     { "name": "detect_language", "type": "lang_detect", "depends_on": ["extract"],
@@ -349,7 +350,7 @@ from core.operators.quality.language_detection.adapters.outbound.factories.langu
 class MyLanguageAdapter(LanguageServicePort):
     ADAPTER_NAME = "mylang"
     ADAPTER_DISPLAY_NAME = "My Language Detector"
-    
+
     def detect_language(self, text: str) -> LanguageDetectionResult:
         # Your implementation here
         language_code = "en"  # ISO 639-1 code

@@ -4,16 +4,23 @@ This adapter implements the unified docling_library provider for document extrac
 It handles both standard Docling extraction and VLM (Vision Language Model) extraction
 when use_vlm_pipeline is enabled. The adapter uses Docling's DocumentExtractor for
 extraction and supports template-based structured extraction.
+
+GPU acceleration is supported for the standard pipeline via the ``device`` configuration
+key (mps, cuda, xpu). When a GPU device is specified the adapter builds one
+DocumentConverter at init time and reuses it for every document in this adapter
+execution, avoiding repeated model loading on the GPU.
 """
 
 import logging
 from typing import Any
 
-from docling.datamodel.base_models import InputFormat
-from docling.document_converter import ImageFormatOption, PdfFormatOption
-from docling.pipeline.vlm_pipeline import VlmPipeline
+from pydantic import BaseModel
 
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
+    register_text_extraction_adapter,
+)
+from docpipe.core.operators.extract.adapters.outbound.text_extraction.ocr_config import OcrConfig
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils, is_asr_available
 from docpipe.integrations.docling.vlm_pipeline_options_provider import VlmPipelineOptionsProviderFactory
@@ -27,6 +34,7 @@ if not _ASR_AVAILABLE:
     logger.debug("ASR dependencies not available. Install with: uv pip install -e '.[asr]'")
 
 
+@register_text_extraction_adapter
 class DoclingAdapter(TextExtractionPort):
     """Adapter for unified Docling library document extraction.
 
@@ -74,6 +82,8 @@ class DoclingAdapter(TextExtractionPort):
                 - additional_formats: List of additional output formats beyond markdown (default: [])
                 - use_asr_pipeline: Enable ASR extraction for audio/video (default: False)
                 - asr_model_name: ASR model name (optional)
+                - device: GPU device for standard pipeline acceleration ("mps", "cuda", "xpu") (optional)
+                - num_threads: Thread count for GPU pipeline operations (optional)
         """
         self.use_vlm_pipeline = config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
         self.vlm_preset = config.get(OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT)
@@ -86,11 +96,43 @@ class DoclingAdapter(TextExtractionPort):
             OperatorConstants.Config.ASR_MODEL_NAME, OperatorConstants.Config.ASR_MODEL_DEFAULT
         )
 
+        # GPU acceleration config (standard pipeline only — incompatible with VLM)
+        self.gpu_device: str | None = config.get(OperatorConstants.Extraction.DEVICE)
+        self.gpu_num_threads: int | None = config.get(OperatorConstants.Extraction.NUM_THREADS)
+
+        # OCR configuration (standard pipeline only — OCR is not applicable when VLM is active)
+        ocr_block = config.get(OperatorConstants.Config.OCR_BLOCK)
+        self._ocr_enabled: bool = True
+        self._ocr_engine: str = "rapidocr"
+        self._ocr_mode: str = "default"
+        self._ocr_engine_options: dict[str, Any] | None = None
+
+        if ocr_block:
+            ocr_cfg = OcrConfig.model_validate(ocr_block)
+            self._ocr_enabled = ocr_cfg.enabled
+            self._ocr_engine = ocr_cfg.engine
+            self._ocr_mode = ocr_cfg.mode
+            self._ocr_engine_options = ocr_cfg.engine_options
+
+        # Pre-build and cache a converter when GPU acceleration is requested so that
+        # model weights are loaded once at adapter init rather than per document.
+        self._gpu_converter: Any = None
+        if self.gpu_device:
+            self._gpu_converter = self._build_gpu_converter()
+
         if self.use_vlm_pipeline:
             logger.info(
                 "Initialized DoclingAdapter with VLM enabled - preset: %s, engine: %s, additional formats: %s",
                 self.vlm_preset,
                 self.vlm_engine_type or "default",
+                self.additional_formats,
+            )
+        elif self.gpu_device:
+            logger.info(
+                "Initialized DoclingAdapter with GPU acceleration - device: %s, num_threads: %s, "
+                "additional formats: %s",
+                self.gpu_device,
+                self.gpu_num_threads,
                 self.additional_formats,
             )
         if self.use_asr_pipeline:
@@ -102,10 +144,151 @@ class DoclingAdapter(TextExtractionPort):
             logger.warning(
                 "ASR pipeline requested but dependencies not available. Install with: uv pip install -e '.[asr]'"
             )
-        if not self.use_vlm_pipeline and not self.use_asr_pipeline:
+        if ocr_block:
+            logger.info(
+                "OCR config — enabled: %s, engine: %s, mode: %s",
+                self._ocr_enabled,
+                self._ocr_engine,
+                self._ocr_mode,
+            )
+        if not self.use_vlm_pipeline and not self.use_asr_pipeline and not self.gpu_device:
             logger.info(
                 "Initialized DoclingAdapter with standard extraction, additional formats: %s", self.additional_formats
             )
+
+    def _build_gpu_converter(self) -> Any:
+        """Build a DocumentConverter configured for GPU-accelerated standard pipeline extraction.
+
+        Uses the Docling 2105 mapping: AcceleratorOptions -> ThreadedPdfPipelineOptions ->
+        PdfFormatOption + ImageFormatOption (+ AudioFormatOption when ASR is enabled).
+
+        The converter is constructed once at adapter init and reused for all documents
+        processed by this adapter instance, so model weights are loaded onto the GPU
+        only once per adapter lifetime.
+
+        Returns:
+            DocumentConverter instance with AcceleratorOptions set, or None if docling
+            is not available.
+        """
+        try:
+            from docling.datamodel.base_models import InputFormat
+            from docling.datamodel.pipeline_options import (
+                AcceleratorDevice,
+                AcceleratorOptions,
+                ThreadedPdfPipelineOptions,
+            )
+            from docling.document_converter import DocumentConverter, ImageFormatOption, PdfFormatOption
+
+            # Normalise device string — validation already passed by factory, but cuda:N
+            # must map to the bare CUDA enum value (device index is handled at torch level).
+            normalised = (self.gpu_device or "").strip().lower()  # type: ignore[arg-type]
+            base_device_map = {
+                OperatorConstants.Extraction.DEVICE_MPS: AcceleratorDevice.MPS,
+                OperatorConstants.Extraction.DEVICE_CUDA: AcceleratorDevice.CUDA,
+                OperatorConstants.Extraction.DEVICE_XPU: AcceleratorDevice.XPU,
+            }
+            # cuda:N -> AcceleratorDevice.CUDA (index handled by torch runtime)
+            device_key = (
+                OperatorConstants.Extraction.DEVICE_CUDA
+                if normalised.startswith(OperatorConstants.Extraction.DEVICE_CUDA)
+                else normalised
+            )
+            accelerator_device = base_device_map.get(device_key)
+            if accelerator_device is None:
+                logger.warning("Unrecognised GPU device '%s' — falling back to default converter", self.gpu_device)
+                return DocumentConverter()
+
+            accelerator_options = AcceleratorOptions(
+                num_threads=self.gpu_num_threads if self.gpu_num_threads is not None else 4,
+                device=accelerator_device,
+            )
+            # Docling 2105 mapping: ThreadedPdfPipelineOptions carries AcceleratorOptions;
+            # both PDF and IMAGE format options share the same pipeline options instance.
+            threaded_options = ThreadedPdfPipelineOptions(accelerator_options=accelerator_options)
+
+            format_options: dict[Any, Any] = {
+                InputFormat.PDF: PdfFormatOption(pipeline_options=threaded_options),
+                InputFormat.IMAGE: ImageFormatOption(pipeline_options=threaded_options),
+            }
+
+            # Include AudioFormatOption only when ASR is enabled and installed
+            if self.use_asr_pipeline and _ASR_AVAILABLE:
+                try:
+                    from docling.document_converter import AudioFormatOption
+                    from docling.pipeline.asr_pipeline import AsrPipeline
+
+                    asr_opts = self._configure_asr_engine()
+                    format_options[InputFormat.AUDIO] = AudioFormatOption(
+                        pipeline_cls=AsrPipeline,
+                        pipeline_options=asr_opts,
+                    )
+                except ImportError as asr_exc:
+                    logger.warning("Could not add ASR to GPU converter: %s", asr_exc)
+
+            logger.info(
+                "Building GPU-accelerated DocumentConverter (device=%s, num_threads=%s)",
+                self.gpu_device,
+                accelerator_options.num_threads,
+            )
+            return DocumentConverter(format_options=format_options)
+        except ImportError as exc:
+            logger.warning("Docling GPU acceleration unavailable (%s). Falling back to standard converter.", exc)
+            return None
+
+    def _build_ocr_options(self) -> Any:
+        """Build a Docling OcrOptions instance from adapter OCR config.
+
+        Each engine's optional dependency is imported independently so that a missing
+        dep for one engine does not prevent other engines from loading.
+
+        Returns:
+            Configured OcrOptions subclass instance, or None to use Docling defaults.
+        """
+        import importlib
+
+        _engine_imports: dict[str, tuple[str, str]] = {
+            "auto": ("docling.datamodel.pipeline_options", "OcrAutoOptions"),
+            "easyocr": ("docling.datamodel.pipeline_options", "EasyOcrOptions"),
+            "tesserocr": ("docling.datamodel.pipeline_options", "TesseractOcrOptions"),
+            "tesseract": ("docling.datamodel.pipeline_options", "TesseractCliOcrOptions"),
+            "rapidocr": ("docling.datamodel.pipeline_options", "RapidOcrOptions"),
+            "ocrmac": ("docling.datamodel.pipeline_options", "OcrMacOptions"),
+            "kserve_v2_ocr": ("docling.datamodel.pipeline_options", "KserveV2OcrOptions"),
+            "nemotron-ocr": ("docling.datamodel.pipeline_options", "NemotronOcrOptions"),
+        }
+
+        entry = _engine_imports.get(self._ocr_engine)
+        if entry is None:
+            logger.warning(
+                "Unknown OCR engine '%s' — falling back to OcrAutoOptions. Valid engines: %s",
+                self._ocr_engine,
+                sorted(_engine_imports.keys()),
+            )
+            self._ocr_engine = "auto"
+            entry = _engine_imports["auto"]
+
+        module_name, cls_name = entry
+        try:
+            module = importlib.import_module(module_name)
+            cls = getattr(module, cls_name)
+        except (ImportError, AttributeError) as exc:
+            logger.warning(
+                "Could not import OCR options for engine '%s': %s — using Docling defaults",
+                self._ocr_engine,
+                exc,
+            )
+            return None
+
+        opts = self._ocr_engine_options or {}
+        try:
+            return cls(**opts) if opts else cls()
+        except Exception as exc:
+            logger.warning(
+                "Failed to build OCR options for engine '%s': %s — using Docling defaults",
+                self._ocr_engine,
+                exc,
+            )
+            return None
 
     def _configure_vlm_engine(self) -> Any:
         """Configure VLM pipeline options based on engine type.
@@ -126,9 +309,7 @@ class DoclingAdapter(TextExtractionPort):
 
         # Create complete pipeline options using the provider
         provider_config = self.vlm_provider_config or {}
-        pipeline_options = provider.create_pipeline_options(preset=self.vlm_preset, config=provider_config)
-
-        return pipeline_options
+        return provider.create_pipeline_options(preset=self.vlm_preset, config=provider_config)
 
     def _configure_asr_engine(self) -> Any:
         """Configure ASR pipeline options based on model configuration.
@@ -169,9 +350,16 @@ class DoclingAdapter(TextExtractionPort):
             logger.warning("ASR pipeline dependencies not available: %s", str(e))
             return None
 
-    def extract_single_document(
-        self, *, file_path: str, binary_content: bytes, **kwargs: Any
-    ) -> dict[str, Any]:  # NOSONAR python:S3776
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        return DoclingLibraryConfig
+
+    def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs: Any) -> dict[str, Any]:
         """Extract content from a single document using Docling.
 
         Performs template-based extraction if a template is provided, otherwise
@@ -196,13 +384,21 @@ class DoclingAdapter(TextExtractionPort):
             logger.info(
                 "Processing file with VLM pipeline (preset: %s, engine: %s): %s",
                 self.vlm_preset,
-                self.vlm_engine_type or "default",
+                self.vlm_engine_type or OperatorConstants.Config.DEFAULT,
                 file_path,
+            )
+        elif self.gpu_device:
+            logger.info(
+                "Processing file with GPU-accelerated standard pipeline (device: %s): %s", self.gpu_device, file_path
             )
         else:
             logger.info("Processing file with standard extraction: %s", file_path)
 
         try:
+            from docling.datamodel.base_models import InputFormat
+            from docling.document_converter import ImageFormatOption, PdfFormatOption
+            from docling.pipeline.vlm_pipeline import VlmPipeline
+
             # Prepare converter configuration
             converter_config = None
             format_options: dict[InputFormat, Any] = {}
@@ -237,17 +433,50 @@ class DoclingAdapter(TextExtractionPort):
                     pipeline_options=asr_options,
                 )
 
+            # Apply OCR configuration for standard (non-VLM) pipeline
+            if not self.use_vlm_pipeline and (
+                not self._ocr_enabled or self._ocr_engine != "rapidocr" or self._ocr_mode != "default"
+            ):
+                from docling.datamodel.pipeline_options import OcrMode, PdfPipelineOptions
+
+                pdf_pipeline_opts = PdfPipelineOptions()
+                pdf_pipeline_opts.do_ocr = self._ocr_enabled
+                if self._ocr_enabled:
+                    ocr_options = self._build_ocr_options()
+                    if ocr_options is not None:
+                        pdf_pipeline_opts.ocr_options = ocr_options
+                    if self._ocr_mode != "default" and pdf_pipeline_opts.ocr_options is not None:
+                        pdf_pipeline_opts.ocr_options.mode = OcrMode(self._ocr_mode)
+
+                format_options[InputFormat.PDF] = PdfFormatOption(pipeline_options=pdf_pipeline_opts)
+                format_options[InputFormat.IMAGE] = ImageFormatOption(pipeline_options=pdf_pipeline_opts)
+
             # Only set converter_config if we have format options
             if format_options:
                 converter_config = {OperatorConstants.Config.FORMAT_OPTIONS: format_options}
 
-            # Use common extraction method with output_formats
-            result = OperatorUtils.extract_content(
-                file_path=file_path,
-                binary_content=binary_content,
-                converter_config=converter_config,
-                additional_formats=self.additional_formats,
-            )
+            # When GPU acceleration is active use the pre-built converter directly so
+            # that model weights are not reloaded for every document.
+            if self.gpu_device and self._gpu_converter is not None:
+                result = OperatorUtils.extract_content(
+                    file_path=file_path,
+                    binary_content=binary_content,
+                    converter_config=None,
+                    additional_formats=self.additional_formats,
+                    converter=self._gpu_converter,
+                )
+            else:
+                # Use common extraction method with output_formats
+                result = OperatorUtils.extract_content(
+                    file_path=file_path,
+                    binary_content=binary_content,
+                    converter_config=converter_config,
+                    additional_formats=self.additional_formats,
+                )
+
+            # Add GPU-specific metadata if extraction succeeded and GPU was used
+            if self.gpu_device and result.get(OperatorConstants.Extraction.SUCCESS):
+                result[OperatorConstants.Metadata.METADATA][OperatorConstants.Extraction.DEVICE] = self.gpu_device
 
             # Add VLM-specific metadata if extraction succeeded and VLM was used
             if self.use_vlm_pipeline and result.get(OperatorConstants.Extraction.SUCCESS):

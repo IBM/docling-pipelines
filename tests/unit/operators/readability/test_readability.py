@@ -26,6 +26,7 @@ class TestReadabilityOperator(unittest.TestCase):
     def test_readability_metadata(self):
         operator = ReadabilityOperator(config={"readability_score_list": ["flesch_reading_ease"]})
         metadata = operator.get_metadata()
+
         self.assertIn(OperatorConstants.Misc.SDK, metadata)
         self.assertTrue(metadata[OperatorConstants.Misc.SDK])
         self.assertIn(OperatorConstants.Misc.CATEGORY, metadata)
@@ -40,6 +41,7 @@ class TestReadabilityOperator(unittest.TestCase):
             "readability_score_list": ["flesch_reading_ease", "flesch_kincaid_grade"],
         }
         operator = ReadabilityOperator(config=config)
+
         content = pa.array(
             [
                 "The cat sat on the mat. It was a sunny day.",
@@ -48,11 +50,15 @@ class TestReadabilityOperator(unittest.TestCase):
             ]
         )
         test_table = pa.Table.from_arrays([content], names=["content"])
+
         table_list, metadata = operator.transform(table=test_table)
+
         self.assertEqual(len(table_list), 1)
         transformed_table = table_list[0]
+
         self.assertIn("flesch_reading_ease", transformed_table.column_names)
         self.assertIn("flesch_kincaid_grade", transformed_table.column_names)
+
         self.assertIn(Metrics.External.PROCESSED_DOCS, metadata)
         self.assertEqual(metadata[Metrics.External.PROCESSED_DOCS], 3)
 
@@ -63,14 +69,17 @@ class TestReadabilityOperator(unittest.TestCase):
         }
         operator = ReadabilityOperator(config=config)
         required_features = operator.get_required_features()
+
         self.assertEqual(len(required_features), 1)
         self.assertIn("content", required_features)
 
     def test_readability_validation_warning(self):
         operator = ReadabilityOperator(config={"readability_score_list": []})
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
+
         operator.validate(errors=errors, warnings=warnings, available_features=["content"])
+
         self.assertEqual(len(errors), 0)
         self.assertEqual(len(warnings), 1)
         self.assertIn("at least one readability score must be selected", warnings[0].lower())
@@ -80,9 +89,11 @@ class TestReadabilityOperator(unittest.TestCase):
             "doc_column": "content",
             "readability_score_list": DEFAULT_READABILITY_SCORES,
         }
+
         operator = ReadabilityOperator(config=config)
         content = pa.array(["This is a simple test sentence."])
         test_table = pa.Table.from_arrays([content], names=["content"])
+
         table_list, _ = operator.transform(table=test_table)
         transformed_table = table_list[0]
         for score in DEFAULT_READABILITY_SCORES:
@@ -91,13 +102,16 @@ class TestReadabilityOperator(unittest.TestCase):
 
 class TestReadabilityOperatorEdgeCases(unittest.TestCase):
     def test_empty_table(self):
-        empty_table = pa.table({"content": []})
+        data: dict[str, list[str]] = {"content": []}
+        empty_table = pa.table(data)
+
         operator = ReadabilityOperator(
             config={
                 "doc_column": "content",
                 "readability_score_list": ["flesch_reading_ease"],
             }
         )
+
         result_tables, metadata = operator.transform(table=empty_table)
         self.assertEqual(result_tables[0].num_rows, 0)
         self.assertEqual(metadata[Metrics.External.PROCESSED_DOCS], 0)
@@ -106,20 +120,24 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
         custom_col = "my_text"
         content = pa.array(["Test document content."])
         test_table = pa.Table.from_arrays([content], names=[custom_col])
+
         operator = ReadabilityOperator(
             config={
                 "doc_column": custom_col,
                 "readability_score_list": ["flesch_reading_ease"],
             }
         )
+
         result_tables, _ = operator.transform(table=test_table)
+
         self.assertEqual(result_tables[0].num_rows, 1)
         self.assertIn("flesch_reading_ease", result_tables[0].column_names)
 
     def test_validation_invalid_scores(self):
         operator = ReadabilityOperator(config={"readability_score_list": ["invalid_score", "another_invalid"]})
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
+
         operator.validate(errors=errors, warnings=warnings, available_features=["content"])
         self.assertEqual(len(warnings), 1)
         self.assertIn("invalid", warnings[0].lower())
@@ -134,14 +152,21 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
             ]
         )
         test_table = pa.Table.from_arrays([content], names=["content"])
+
         operator = ReadabilityOperator(
             config={
                 "doc_column": "content",
-                "readability_score_list": ["flesch_reading_ease", "flesch_kincaid_grade", "gunning_fog"],
+                "readability_score_list": [
+                    "flesch_reading_ease",
+                    "flesch_kincaid_grade",
+                    "gunning_fog",
+                ],
             }
         )
+
         result_tables, metadata = operator.transform(table=test_table)
         result_table = result_tables[0]
+
         self.assertEqual(result_table.num_rows, 4)
         self.assertEqual(metadata[Metrics.External.PROCESSED_DOCS], 4)
         self.assertIn("flesch_reading_ease", result_table.column_names)
@@ -156,20 +181,28 @@ class TestReadabilityMetrics(unittest.TestCase):
         from docpipe.core.operators.quality.readability.readability_metrics import ReadabilityMetrics
 
         metrics = ReadabilityMetrics()
+
+        # Test syllable counting
         self.assertEqual(metrics.count_syllables(word="hello"), 2)
         self.assertEqual(metrics.count_syllables(word="cat"), 1)
         self.assertEqual(metrics.count_syllables(word="programming"), 3)
         self.assertEqual(metrics.count_syllables(word=""), 0)
-        self.assertEqual(metrics.count_syllables(word="a"), 1)
+        self.assertEqual(metrics.count_syllables(word="a"), 1)  # At least 1 syllable
 
     def test_easy_words_list(self):
         from docpipe.core.operators.quality.readability.readability_metrics import ReadabilityMetrics
 
         metrics = ReadabilityMetrics()
+
+        # Verify word list is loaded
         self.assertGreater(len(metrics.easy_words), 0)
-        self.assertGreaterEqual(len(metrics.easy_words), 2900)
+        self.assertGreaterEqual(len(metrics.easy_words), 2900)  # Should have ~2940 words
+
+        # Common words should be in the list
         self.assertIn("the", metrics.easy_words)
         self.assertIn("cat", metrics.easy_words)
+
+        # Complex words should not be in easy word list
         self.assertNotIn("sophisticated", metrics.easy_words)
         self.assertNotIn("implementation", metrics.easy_words)
 

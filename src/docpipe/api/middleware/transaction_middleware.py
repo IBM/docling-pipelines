@@ -6,6 +6,7 @@ and manages it through multiple mechanisms:
 - Sets in async context variable for logging access
 - Populates session_info for ConditionalFormatter access
 - Adds to response headers for client tracking
+- Creates OpenTelemetry spans for distributed tracing (when enabled)
 
 Header pattern for distributed tracing:
 - Request: Reads transaction ID from X-Global-Transaction-Id header
@@ -16,6 +17,7 @@ The async context variable approach allows ConditionalFormatter and other
 logging components to access the transaction ID without explicit parameter passing.
 """
 
+import time
 import uuid
 from contextvars import ContextVar
 
@@ -24,6 +26,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from docpipe.core.models.session_info import create_session_info
+from docpipe.utils.infrastructure import get_telemetry_service
 
 # Context variable to store transaction ID for async context propagation
 # This allows logging components to access the transaction ID without explicit passing
@@ -67,16 +70,18 @@ class TransactionMiddleware(BaseHTTPMiddleware):
     a consistent header naming convention for request/response flow.
 
     Stores the ID in request.state.transaction_id, sets it in the async context,
-    populates session_info, and adds it to response headers.
+    populates session_info, adds to response headers, and creates OTEL spans
+    for distributed tracing when telemetry is enabled.
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        """Process request and add transaction ID.
+        """Process request and add transaction ID with optional OTEL tracing.
 
         Header handling:
         1. Reads transaction ID from X-Global-Transaction-Id header (incoming)
         2. Generates new UUID if header not present
         3. Returns transaction ID in X-Transaction-ID header (outgoing)
+        4. Creates OTEL span for request tracing (if telemetry enabled)
 
         Args:
             request: FastAPI request object
@@ -101,10 +106,51 @@ class TransactionMiddleware(BaseHTTPMiddleware):
         # Populate session_info for ConditionalFormatter access
         create_session_info(transaction_id=transaction_id)
 
-        # Process request
-        response = await call_next(request)
+        # Start OTEL span for HTTP request tracing
+        telemetry = get_telemetry_service()
+        span = telemetry.start_span(
+            name=f"{request.method} {request.url.path}",
+            attributes={
+                "http.method": request.method,
+                "http.url": str(request.url),
+                "http.scheme": request.url.scheme,
+                "http.host": request.url.hostname,
+                "http.target": request.url.path,
+                "transaction.id": transaction_id,
+            },
+        )
 
-        # Add transaction ID to response headers
-        response.headers["X-Transaction-ID"] = transaction_id
+        start_time = time.monotonic()
 
-        return response
+        try:
+            # Process request
+            response = await call_next(request)
+
+            # Add response attributes to span
+            telemetry.set_span_attribute("http.status_code", response.status_code, span=span)
+
+            # Set span status based on HTTP status code
+            if response.status_code >= 500:
+                telemetry.set_span_attribute("error", True, span=span)
+
+            # Add transaction ID to response headers
+            response.headers["X-Transaction-ID"] = transaction_id
+
+            return response
+
+        except Exception as e:
+            # Record exception in span
+            telemetry.record_exception(e, span=span)
+            telemetry.set_span_attribute("error", True, span=span)
+            raise
+
+        finally:
+            duration_ms = (time.monotonic() - start_time) * 1000
+            status_code = getattr(response, "status_code", 0) if "response" in dir() else 0
+            telemetry.record_http_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=status_code,
+                duration_ms=duration_ms,
+            )
+            telemetry.end_span(span)

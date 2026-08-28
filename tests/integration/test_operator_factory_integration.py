@@ -49,23 +49,23 @@ class TestOperatorFactoryIntegration:
         print("=" * 80)
 
         # Set environment variable to test custom operator path
-        test_operator_path = str(Path(__file__).parent.parent / "sample_test_flows" / "custom_operators")
+        test_operator_path = str(Path(__file__).parent.parent / "fixtures" / "custom_operators")
         os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = test_operator_path
 
         # Create factory - should automatically load from environment variable
         factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
 
         # Verify custom operator was loaded
-        assert "uppercase" in factory.operators, (
-            "Custom operator 'uppercase' should be loaded from environment variable"
+        assert "valid_custom" in factory.operators, (
+            "Custom operator 'valid_custom' should be loaded from environment variable"
         )
 
-        uppercase_op = factory.operators["uppercase"]
-        assert uppercase_op.short_name == "uppercase"
-        assert getattr(uppercase_op, "owner", None) == DocpipeConstants.OWNER_CUSTOM
+        valid_custom_op = factory.operators["valid_custom"]
+        assert valid_custom_op.short_name == "valid_custom"
+        assert getattr(valid_custom_op, "owner", None) == DocpipeConstants.OWNER_CUSTOM
 
-        print(f"✓ Loaded custom operator from environment variable: {uppercase_op.__name__}")
-        print(f"  Owner: {getattr(uppercase_op, 'owner', 'unknown')}")
+        print(f"✓ Loaded custom operator from environment variable: {valid_custom_op.__name__}")
+        print(f"  Owner: {getattr(valid_custom_op, 'owner', 'unknown')}")
         print(f"  Total operators: {len(factory.operators)}")
 
     def test_filesystem_path_loading(self):
@@ -376,7 +376,7 @@ class MixedSourceOperator(AbstractOperator):
 """)
 
             # Set environment variable to test operator path
-            test_operator_path = str(Path(__file__).parent.parent / "sample_test_flows" / "custom_operators")
+            test_operator_path = str(Path(__file__).parent.parent / "fixtures" / "custom_operators")
             os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = test_operator_path
 
             # Create factory with additional filesystem path
@@ -386,11 +386,11 @@ class MixedSourceOperator(AbstractOperator):
 
             # Verify both operators are loaded
             assert "mixed_source" in factory.operators, "Operator from filesystem should be loaded"
-            assert "uppercase" in factory.operators, "Operator from environment variable should be loaded"
+            assert "valid_custom" in factory.operators, "Operator from environment variable should be loaded"
 
             print("✓ Loaded operators from multiple sources:")
             print("  - Filesystem: mixed_source")
-            print("  - Environment: uppercase")
+            print("  - Environment: valid_custom")
             print(f"  Total operators: {len(factory.operators)}")
 
 

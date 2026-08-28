@@ -1,22 +1,28 @@
 """Unit tests for JWT token handling."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from jose import jwt
+from pydantic import ValidationError
 
 from docpipe.api.auth.jwt_handler import (
+    _JWT_SECRET_MIN_LENGTH,
     JWTConfig,
     create_access_token,
     verify_token,
 )
+
+# Must be ≥ 32 characters to pass the length validator.
+_VALID_SECRET = "a-sufficiently-long-test-secret-key"  # pragma: allowlist secret
 
 
 @pytest.fixture
 def jwt_config():
     """Create JWT configuration for testing."""
     return JWTConfig(
-        jwt_secret_key="test-secret-key-for-testing-only",
+        jwt_secret_key=_VALID_SECRET,
         jwt_algorithm="HS256",
         jwt_access_token_expire_minutes=30,
     )
@@ -25,20 +31,36 @@ def jwt_config():
 class TestJWTConfig:
     """Test JWT configuration."""
 
-    def test_jwt_config_defaults(self):
-        """Test JWT config with default values."""
-        config = JWTConfig(jwt_secret_key="test-key")
+    def test_jwt_config_valid_key_accepted(self):
+        """A key meeting the minimum length is accepted."""
+        config = JWTConfig(jwt_secret_key=_VALID_SECRET)
         assert config.jwt_algorithm == "HS256"
         assert config.jwt_access_token_expire_minutes == 30
+
+    def test_jwt_config_empty_key_rejected(self):
+        """An empty key is rejected by the validator."""
+        with pytest.raises(ValidationError, match="JWT secret key must be at least"):
+            JWTConfig(jwt_secret_key="")
+
+    def test_jwt_config_short_key_rejected(self):
+        """A key shorter than the minimum is rejected."""
+        with pytest.raises(ValidationError, match="JWT secret key must be at least"):
+            JWTConfig(jwt_secret_key="short")  # pragma: allowlist secret
+
+    def test_jwt_config_key_at_minimum_length_accepted(self):
+        """A key exactly at the minimum length is accepted."""
+        key = "x" * _JWT_SECRET_MIN_LENGTH
+        config = JWTConfig(jwt_secret_key=key)
+        assert config.jwt_secret_key == key
 
     def test_jwt_config_custom_values(self):
         """Test JWT config with custom values."""
         config = JWTConfig(
-            jwt_secret_key="custom-key",
+            jwt_secret_key=_VALID_SECRET,
             jwt_algorithm="HS512",
             jwt_access_token_expire_minutes=60,
         )
-        assert config.jwt_secret_key == "custom-key"
+        assert config.jwt_secret_key == _VALID_SECRET
         assert config.jwt_algorithm == "HS512"
         assert config.jwt_access_token_expire_minutes == 60
 
@@ -89,7 +111,7 @@ class TestCreateAccessToken:
             algorithms=[jwt_config.jwt_algorithm],
         )
 
-        datetime.fromtimestamp(payload["exp"], tz=UTC)
+        _exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
         expected_min = before_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
         expected_max = after_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
 
@@ -142,11 +164,11 @@ class TestVerifyToken:
 
     def test_verify_expired_token(self, jwt_config):
         """Test verifying an expired token."""
-        data = {"username": "testuser"}
+        data: dict[str, Any] = {"username": "testuser"}
         # Create token with past expiration
         to_encode = data.copy()
         expire = datetime.now(UTC) - timedelta(minutes=1)
-        to_encode.update({"exp": expire})
+        to_encode.update({"exp": expire.timestamp()})
 
         token = jwt.encode(
             to_encode,
@@ -163,9 +185,8 @@ class TestVerifyToken:
         data = {"username": "testuser"}
         token = create_access_token(data, jwt_config)
 
-        # Create config with different secret
         wrong_config = JWTConfig(
-            jwt_secret_key="wrong-secret-key",
+            jwt_secret_key="wrong-secret-key-that-is-long-enough",  # pragma: allowlist secret
             jwt_algorithm="HS256",
         )
 

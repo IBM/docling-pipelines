@@ -728,7 +728,7 @@ class PaginatedFlowResponse(BaseModel):
         max_length=URL_MAX_LENGTH,
         pattern=URL_PATTERN,
         description=FIRST_URL_DESC,
-        examples=["https://api.example.com/v1/flows?offset=0&limit=10"],
+        examples=["http://api.example.com/v1/flows?offset=0&limit=10"],
     )
     next: str | None = Field(
         default=None,
@@ -736,7 +736,7 @@ class PaginatedFlowResponse(BaseModel):
         max_length=URL_MAX_LENGTH,
         pattern=URL_PATTERN,
         description=NEXT_URL_DESC,
-        examples=["https://api.example.com/v1/flows?offset=20&limit=10"],
+        examples=["http://api.example.com/v1/flows?offset=20&limit=10"],
     )
     prev: str | None = Field(
         default=None,
@@ -744,7 +744,7 @@ class PaginatedFlowResponse(BaseModel):
         max_length=URL_MAX_LENGTH,
         pattern=URL_PATTERN,
         description=PREV_URL_DESC,
-        examples=["https://api.example.com/v1/flows?offset=0&limit=10"],
+        examples=["http://api.example.com/v1/flows?offset=0&limit=10"],
     )
 
     class Config:

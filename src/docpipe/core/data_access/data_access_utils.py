@@ -1,3 +1,5 @@
+"""Utility functions for data access and parquet table I/O in docpipe."""
+
 import re
 
 from docpipe.core.constants.constants import DocpipeConstants
@@ -5,6 +7,8 @@ from docpipe.utils.infrastructure.filesystem import get_data_path
 
 
 class DataAccessConstants:
+    """Dataaccessconstants."""
+
     MEMORY = "memory"
     LOCAL = "local"
     COS = "cos"
@@ -24,8 +28,11 @@ data_access_config_key_map: dict[str, str] = {
 
 
 class DataAccessUtils:
+    """Utility class for data access operations in docpipe."""
+
     @staticmethod
     def add_node_name_to_output_folder(*, params: dict, node_name):
+        """Add node name to output folder."""
         node_name = re.sub(r"\W+", "_", node_name)
         storage_type = params.get(DataAccessConstants.DATA_STORAGE_TYPE)
         if not storage_type:
@@ -64,6 +71,7 @@ class DataAccessUtils:
 
     @staticmethod
     def add_data_local_config_for_cpd(config: dict, job_id: str, job_run_id: str):
+        """Add data local config for cpd."""
         local_config = config.get("data_local_config", {})
         config["data_config"] = None
         if not local_config or not local_config.get("output_folder"):

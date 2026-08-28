@@ -12,11 +12,12 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
+from docpipe.api.auth.dependencies import get_current_user
+from docpipe.api.auth.models import User
+from docpipe.api.dependencies import get_flow_repository
 from docpipe.api.main import app
-from docpipe.api.routes.flows import get_flow_repository
-from docpipe.core.assets.flows.adapters.repositories.local.local_flow_repository import (
-    LocalFlowRepository,
-)
+from docpipe.core.assets.common.adapters.repositories.local_asset_repository import LocalAssetRepository
+from docpipe.core.assets.flows.domain.models.flow import Flow
 
 
 @pytest.fixture
@@ -32,16 +33,18 @@ def temp_flows_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
-def test_flow_repository(*, temp_flows_dir: Path, monkeypatch) -> LocalFlowRepository:
-    """Create a LocalFlowRepository instance using temporary directory."""
-    monkeypatch.setenv("LOCAL_FLOWS_DIR", str(temp_flows_dir))
-    return LocalFlowRepository()
+def test_flow_repository(*, temp_flows_dir: Path) -> LocalAssetRepository:
+    """Create a LocalAssetRepository[Flow] instance using temporary directory."""
+    return LocalAssetRepository(asset_type=Flow, storage_path=str(temp_flows_dir))
 
 
 @pytest.fixture
-def flow_client(*, test_flow_repository: LocalFlowRepository) -> Generator[TestClient, None, None]:
+def flow_client(*, test_flow_repository: LocalAssetRepository) -> Generator[TestClient, None, None]:
     """Create FastAPI test client with dependency overrides for flow operations."""
     app.dependency_overrides[get_flow_repository] = lambda: test_flow_repository
+    app.dependency_overrides[get_current_user] = lambda: User(
+        username="testuser", email="test@example.com", full_name="Test User"
+    )
 
     client = TestClient(app)
 

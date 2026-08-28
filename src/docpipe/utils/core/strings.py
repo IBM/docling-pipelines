@@ -75,9 +75,8 @@ def get_truncated_text(*, text_string: str, n_chars: int = 1000, n_json_entries:
             # Truncate the list and re-serialize to JSON string
             truncated_list = parsed[:n_json_entries]
             return json.dumps(truncated_list)
-        else:
-            # Return original string truncated to n_chars
-            return text_string[:n_chars]
+        # Return original string truncated to n_chars
+        return text_string[:n_chars]
 
     except (json.JSONDecodeError, TypeError):
         return text_string[:n_chars]

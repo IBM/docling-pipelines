@@ -56,7 +56,7 @@ To report a conduct issue, email the maintainers at the addresses listed in the 
 | **GitHub Issues** | Bug reports, feature requests, operator questions | [github.com/IBM/docling-pipelines/issues](https://github.com/IBM/docling-pipelines/issues) |
 | **GitHub Discussions** | General questions, ideas, show & tell, Q&A | [github.com/IBM/docling-pipelines/discussions](https://github.com/IBM/docling-pipelines/discussions) |
 | **Pull Requests** | Code contributions, documentation improvements | [github.com/IBM/docling-pipelines/pulls](https://github.com/IBM/docling-pipelines/pulls) |
-| **Security vulnerabilities** | Private disclosure of security issues | See [SECURITY.md](docs/guides/SECURITY_BEST_PRACTICES.md) |
+| **Security vulnerabilities** | Private disclosure of security issues | See [SECURITY.md](.github/SECURITY.md) |
 
 ### When to use which channel
 
@@ -64,7 +64,7 @@ To report a conduct issue, email the maintainers at the addresses listed in the 
 - **I have a feature idea** → Open a [GitHub Issue](https://github.com/IBM/docling-pipelines/issues/new) using the feature request template.
 - **I have a question about usage** → Start a [GitHub Discussion](https://github.com/IBM/docling-pipelines/discussions/new?category=q-a) in the Q&A category.
 - **I want to contribute** → Read [CONTRIBUTING.md](CONTRIBUTING.md) and open a PR.
-- **I found a security vulnerability** → Follow the process in [SECURITY.md](docs/guides/SECURITY_BEST_PRACTICES.md). Do **not** open a public issue.
+- **I found a security vulnerability** → Follow the process in [SECURITY.md](.github/SECURITY.md). Do **not** open a public issue.
 
 ### Out-of-scope support
 
@@ -83,7 +83,7 @@ These are best-effort targets. The maintainers are a small team — your patienc
 | Activity | Target response time | Notes |
 |----------|---------------------|-------|
 | New bug report | 5 business days | Initial triage and label assignment |
-| Security vulnerability | 2 business days | Initial acknowledgement; see [SECURITY.md](docs/guides/SECURITY_BEST_PRACTICES.md) |
+| Security vulnerability | 2 business days | Initial acknowledgement; see [SECURITY.md](.github/SECURITY.md) |
 | Feature request | 10 business days | Initial triage; may be deferred to backlog |
 | Pull request (first review) | 10 business days | Complex PRs may take longer |
 | Pull request (subsequent reviews) | 5 business days | After author addresses feedback |
@@ -127,7 +127,7 @@ Maintainers are trusted contributors with write access to the repository. Their 
 ### Security
 
 - Monitor Dependabot and Mend/Whitesource alerts and act on critical/high severity findings within 10 business days.
-- Handle privately-reported vulnerabilities per [SECURITY.md](docs/guides/SECURITY_BEST_PRACTICES.md).
+- Handle privately-reported vulnerabilities per [SECURITY.md](.github/SECURITY.md).
 - Rotate any compromised credentials immediately.
 
 ### Community Health

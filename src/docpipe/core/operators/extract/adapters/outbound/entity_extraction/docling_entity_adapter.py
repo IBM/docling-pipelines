@@ -10,11 +10,14 @@ import json
 from typing import Any
 
 import pyarrow as pa
-from docling.datamodel.base_models import InputFormat
-from docling_core.types.io import DocumentStream
+from pydantic import BaseModel
 
 from docpipe.core.constants import OperatorConstants
 from docpipe.core.constants.constants import DoclingClientConfigConstants
+from docpipe.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
+    EntityExtractionAdapterFactory,
+    register_entity_extraction_adapter,
+)
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -24,6 +27,7 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger(__name__)
 
 
+@register_entity_extraction_adapter
 class DoclingEntityAdapter(EntityExtractionPort):
     """Template-based entity extraction adapter.
 
@@ -50,7 +54,7 @@ class DoclingEntityAdapter(EntityExtractionPort):
         """
         super().__init__(config=config)
 
-    def validate(self, *, config: dict[str, Any]) -> None:  # NOSONAR python:S3776
+    def validate(self, *, config: dict[str, Any]) -> None:
         """Validate adapter configuration.
 
         Validates both base configuration and vlm_pipeline for custom models.
@@ -135,6 +139,35 @@ class DoclingEntityAdapter(EntityExtractionPort):
             self.extraction_format_options = self._build_vlm_extraction_options(vlm_pipeline=self.vlm_pipeline)
         except (ImportError, ValueError) as e:
             logger.warning("Failed to build VLM extraction options during initialization: %s", e)
+
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (
+            DoclingEntityConfig,
+        )
+
+        return DoclingEntityConfig
+
+    @classmethod
+    def build_provider_config(cls, *, entity_extraction_config: dict[str, Any], doc_column: str) -> dict[str, Any]:
+        """Build Docling-specific adapter config from the entity_extraction config block.
+
+        Args:
+            entity_extraction_config: Nested entity_extraction configuration dictionary
+            doc_column: Document column name from text_extraction config
+
+        Returns:
+            Adapter-specific configuration dictionary
+        """
+        provider_config = entity_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        base = EntityExtractionAdapterFactory.build_common_config(
+            entity_extraction_config=entity_extraction_config, doc_column=doc_column
+        )
+        vlm_pipeline = provider_config.get(DoclingClientConfigConstants.VLM_PIPELINE)
+        if vlm_pipeline:
+            base[DoclingClientConfigConstants.VLM_PIPELINE] = vlm_pipeline
+        return base
 
     @staticmethod
     def _build_vlm_extraction_options(*, vlm_pipeline: Any) -> dict[Any, Any] | None:
@@ -281,7 +314,9 @@ class DoclingEntityAdapter(EntityExtractionPort):
         logger.info("Processing file with template: %s", doc_name)
 
         try:
+            from docling.datamodel.base_models import InputFormat
             from docling.document_extractor import DocumentExtractor
+            from docling_core.types.io import DocumentStream
 
             # Handle both str and bytes content
             content_bytes = content.encode("utf-8") if isinstance(content, str) else content
@@ -324,8 +359,8 @@ class DoclingEntityAdapter(EntityExtractionPort):
                 }
                 pages_data.append(page_dict)
             logger.info("Saved structured results for %s", doc_name)
-            logger.debug(f"Extraction Format Options used: {extractor.extraction_format_to_options}")
-            logger.debug(f"Extracted Pages: {pages_data}")
+            logger.debug("Extraction Format Options used: %s", extractor.extraction_format_to_options)
+            logger.debug("Extracted Pages: %s", pages_data)
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
                 OperatorConstants.Misc.ENTITIES: pages_data,
@@ -333,13 +368,13 @@ class DoclingEntityAdapter(EntityExtractionPort):
             }
         except ImportError as e:
             logger.error("DocumentExtractor not available. Install with: pip install docling[vlm]")
-            logger.error(f"Error: {e!s}")
+            logger.error("Error: %s", e)
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
                 OperatorConstants.Extraction.ERROR: "DocumentExtractor not available",
             }
         except Exception as e:
-            logger.error(f"Error extracting with template: {e!s}")
+            logger.error("Error extracting with template: %s", e)
             return {OperatorConstants.Extraction.SUCCESS: False, OperatorConstants.Extraction.ERROR: str(e)}
 
     def _prepare_document_tasks(
@@ -362,7 +397,9 @@ class DoclingEntityAdapter(EntityExtractionPort):
             List of task dictionaries with binary content
         """
         doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
-            table=table, global_config=self.global_config
+            table=table,
+            global_config=self.global_config,
+            supported_extensions=set(OperatorConstants.FileExtensions.DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY),
         )
 
         for doc_task in doc_tasks:
@@ -440,7 +477,9 @@ class DoclingEntityExtractionService(EntityExtractionService):
             List of task dictionaries with binary content
         """
         doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
-            table=table, global_config=self.global_config
+            table=table,
+            global_config=self.global_config,
+            supported_extensions=set(OperatorConstants.FileExtensions.DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY),
         )
 
         for doc_task in doc_tasks:

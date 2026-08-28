@@ -163,7 +163,6 @@ def currency_to_numeric(*, amount: str | None, locale: str = "en_US") -> str | N
         # Apply magnitude multiplier
         number = number * multiplier
         # parse_decimal returns a Decimal; format it as a plain string.
-        numeric_str = format(number, "f")
-        return numeric_str
+        return format(number, "f")
     except ValueError:
         return None

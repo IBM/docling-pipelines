@@ -96,6 +96,11 @@ DOCS_COUNT_MAX = 1000000000  # 1 billion documents
 DURATION_MIN = 0
 DURATION_MAX_SECONDS = 31536000  # 1 year in seconds
 
+# Batch ID
+BATCH_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
+"""Batch ID pattern — alphanumeric, underscores, hyphens. Accepts UUIDs and short deterministic keys."""
+BATCH_ID_MAX_LENGTH = 256
+
 # Batch Numbers
 BATCH_NUM_MIN = 0
 BATCH_NUM_MAX = 10000
@@ -196,7 +201,7 @@ TYPE_PATTERN = r"^[^\x00-\x1F]+$"
 
 Rationale: Type identifiers must be non-empty and without control characters.
 Allows: All Unicode characters except ASCII control characters, minimum 1 character
-Example: "ingest_local", "extract_operator", "embeddings"
+Example: "ingest_source", "extract_operator", "embeddings"
 """
 
 DESCRIPTION_PATTERN = r"^[\s\S]*$"
@@ -533,16 +538,26 @@ NODE_SEQUENCE_DESC = "Ordered list of node IDs in execution sequence"
 # Operator Field Descriptions
 OPERATOR_TYPE_DESC = "Data type of the feature (e.g., 'string', 'int64', 'double', 'float', 'int32', 'boolean', 'list')"
 OPERATOR_FEATURE_DESCRIPTION_DESC = "Human-readable description of the feature"
+OPERATOR_FEATURE_NAME_DESC = "Human-readable display name for the feature"
 OPERATOR_FEATURE_REQUIRED_DESC = "Whether this feature is required"
 OPERATOR_FEATURE_DEFAULT_DESC = "Default value for the feature"
 OPERATOR_FEATURE_FILTER_DESC = "Whether this feature can be used for filtering"
 OPERATOR_FEATURE_VECTOR_DB_DESC = "Whether this feature can be used in vector database operations"
+OPERATOR_FEATURE_OPENSEARCH_DESC = "Whether this feature can be stored in OpenSearch"
+OPERATOR_FEATURE_MANDATORY_VECTOR_DB_DESC = "Whether this feature is mandatory for vector database operations"
+OPERATOR_FEATURE_IS_PRIMARY_DESC = "Whether this feature is the primary key"
+OPERATOR_FEATURE_TAGS_DESC = "Tags for this feature (e.g., 'mandatory', 'primary', 'internal_feature')"
+OPERATOR_FEATURE_PROPERTIES_DESC = "Nested property definitions for structured/JSON-type attributes"
+OPERATOR_FEATURE_VALID_VALUES_DESC = "List of valid values for constrained attributes"
+OPERATOR_FEATURE_PROVIDERS_DESC = "Per-provider JSON Schema definitions for provider_config fields, keyed by provider name (e.g., 'opensearch', 'litellm'). Each value is a JSON Schema object produced by model_json_schema()."
 OPERATOR_LABEL_DESC = "Human-readable label for the operator"
 OPERATOR_CATEGORY_DESC = "Category of the operator"
 OPERATOR_DESCRIPTION_DESC = "Detailed description of the operator's functionality"
 OPERATOR_FEATURES_DESC = "Dictionary of features provided by this operator"
 OPERATOR_REQUIRED_FEATURES_DESC = "List of feature names required by this operator"
 OPERATOR_ATTRIBUTES_DESC = "Dictionary of configuration attributes/parameters for this operator"
+OPERATOR_OWNER_DESC = "Owner of the operator ('docpipe' for built-in operators, None for custom)"
+OPERATOR_IS_AVAILABLE_DESC = "Whether this operator is currently available in the system"
 
 # ============================================================================
 # FIELD FACTORY FUNCTIONS

@@ -20,7 +20,7 @@ from docpipe.core.orchestration.flow_validator import FlowValidator
 from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException, FlowInvalidDataException, FlowValidationException
 from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
-from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
+from docpipe.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level, setup_logging
 from docpipe.utils.operators.display import list_operators as _list_operators
 
 
@@ -65,6 +65,7 @@ class DocpipeFlowManager:
         flow_id: str | None = None,
         enable_custom_operators: bool | None = None,
         enable_execution_reporter: bool = True,
+        configure_logging: bool = True,
     ):
         """
         Initialize DocpipeFlowManager.
@@ -77,6 +78,9 @@ class DocpipeFlowManager:
             flow_id: Flow identifier (priority: parameter > flow_def > job_id)
             enable_custom_operators: Whether to enable custom operators (default: from env or True)
             enable_execution_reporter: Whether to enable user-friendly console output (default: True)
+            configure_logging: When True (default), installs handlers and formatters on the
+                               root docpipe logger. Set to False when the calling application
+                               manages its own logging configuration.
 
         Raises:
             DocpipeException: If neither flow_file nor flow_def is provided
@@ -99,15 +103,23 @@ class DocpipeFlowManager:
         # Configure DPK log level to match DS_LOG_LEVEL
         set_dpk_log_level_from_ds_log_level()
 
-        # Set up logging
+        # Install handlers only when this instance owns the process output
+        if configure_logging:
+            setup_logging()
+
         self.logger: Logger = get_logger()
+
+        # Initialize original_flow_def with proper type annotation
+        self.original_flow_def: dict[str, Any] | None = None
 
         # Load and compile flow definition from authoring format
         if flow_file is not None:
             self.flow_file = flow_file
-            self.flow_def = self._load_and_compile_flow(file_path=flow_file)
+            # Load and compile - returns both original and compiled
+            self.original_flow_def, self.flow_def = self._load_and_compile_flow(file_path=flow_file)
         else:
             self.flow_file = None  # type: ignore[assignment]
+            self.original_flow_def = flow_def  # Store original for audit trail
             self.flow_def = self._compile_flow_dict(flow_dict=flow_def)  # type: ignore
 
         # Set up execution parameters with priority: parameter > flow_def > UUID
@@ -137,7 +149,7 @@ class DocpipeFlowManager:
         self.session_info: SessionInfo | None = None
         self.executor: FlowExecutor | None = None
 
-    def _load_and_compile_flow(self, *, file_path: str) -> dict[str, Any]:
+    def _load_and_compile_flow(self, *, file_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
         """
         Load authoring format flow from JSON file and compile to runtime DAG format.
 
@@ -145,7 +157,7 @@ class DocpipeFlowManager:
             file_path: Path to authoring format JSON file
 
         Returns:
-            Compiled runtime DAG format flow definition
+            Tuple of (original_flow_data, compiled_runtime_dag)
 
         Raises:
             FileNotFoundError: If file doesn't exist
@@ -157,12 +169,13 @@ class DocpipeFlowManager:
             raise FileNotFoundError(f"Flow definition file '{file_path}' not found")
 
         try:
-            with open(path_obj) as f:
+            with Path(path_obj).open() as f:
                 flow_data = json.load(f)
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Invalid JSON in flow definition file: {e.msg}", e.doc, e.pos) from e
 
-        return self._compile_flow_dict(flow_dict=flow_data)
+        compiled_flow = self._compile_flow_dict(flow_dict=flow_data)
+        return flow_data, compiled_flow
 
     def register_custom_operators(self, *, package_names: list[str]) -> None:
         """
@@ -257,7 +270,9 @@ class DocpipeFlowManager:
         self.orchestrator.initialize(job_id=self.job_id, job_run_id=self.job_run_id)
 
         # Create flow executor - must be done after session_info is set
-        self.executor = FlowExecutor(flow_def=self.flow_def, orchestrator=self.orchestrator)
+        self.executor = FlowExecutor(
+            flow_def=self.flow_def, orchestrator=self.orchestrator, original_flow_def=self.original_flow_def
+        )
 
     def validate(self) -> dict[str, Any]:
         """
@@ -348,11 +363,13 @@ class DocpipeFlowManager:
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
         }
+        flow_global_config = self.flow_def.get("global_config", {})
+        if DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_global_config:
+            params[DocpipeConstants.ENABLE_MICRO_BATCHING] = True
 
         try:
             # Delegate execution to FlowExecutor (logging moved to FlowExecutor.execute())
-            result = self.executor.execute(orchestrator=self.orchestrator, params=params)  # type: ignore
-            return result
+            return self.executor.execute(orchestrator=self.orchestrator, params=params)  # type: ignore
         except Exception as e:
             self.logger.error(f"Flow execution failed: {e}")
             raise

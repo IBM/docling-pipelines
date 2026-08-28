@@ -1,6 +1,6 @@
 # Docling Pipelines OpenShift Deployment Guide
 
-Complete guide for deploying Docling Pipelines on OpenShift using the automated deployment script.
+Complete guide for deploying the Docling Pipelines project on OpenShift using the automated deployment script.
 
 ## Overview
 
@@ -161,7 +161,7 @@ If you prefer manual deployment or need to customize the process:
 
 ```bash
 oc new-project docpipe --display-name="Docling Pipelines" \
-  --description="Docling Pipelines - Modular data processing framework"
+  --description="Docling Pipelines - Modular document processing framework"
 ```
 
 ### 2. Create Application from Git

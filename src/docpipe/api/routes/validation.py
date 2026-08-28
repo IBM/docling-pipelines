@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from docpipe.api.dto.authoring_flow_dto import AuthoringFlowCreateRequest
 from docpipe.api.dto.error_dto import ErrorResponse
 from docpipe.api.dto.flow_dto import ElyraFlowCreateRequest, FlowValidationResponse
+from docpipe.core.assets.flows.application.services.flow_enrichment_service import FlowEnrichmentService
 from docpipe.core.assets.flows.application.services.validation_service import ValidationService
 
 # Configure logging
@@ -118,10 +119,11 @@ def validate_flow(
             "flow_name": "Simple Ingest Flow",
             "flow": [
                 {
-                    "type": "ingest_local",
+                    "type": "ingest_source",
                     "name": "Ingest Documents",
                     "config": {
-                        "folder_path": "/data/documents"
+                        "provider": "filesystem",
+                        "connection_params": {"paths": ["/data/documents"]}
                     },
                     "depends_on": []
                 }
@@ -189,3 +191,100 @@ def validate_flow(
     )
 
     return FlowValidationResponse(**result)
+
+
+@lru_cache
+def get_flow_enrichment_service() -> FlowEnrichmentService:
+    """Create and cache a singleton FlowEnrichmentService for dependency injection.
+
+    The instance is cached for the lifetime of the process via ``lru_cache``.
+    FlowEnrichmentService is safe to share across requests because it holds no
+    per-request state; the underlying FlowValidator is created fresh on each
+    call to ``enrich_flow_with_features`` via the injected validator factory.
+
+    Returns:
+        FlowEnrichmentService: The cached service instance.
+    """
+    return FlowEnrichmentService()
+
+
+@validation_router.post(
+    "/enrich_flow_features",
+    # response_model=dict is intentional: the response is the full Elyra JSON with metadata
+    # merged into node.parameters. Constraining it to a Pydantic model would require
+    # modelling the entire open-ended Elyra schema, which is out of scope.
+    response_model=dict,
+    status_code=200,
+    summary="Enrich flow operators with feature metadata",
+    description=(
+        "Propagates features through the flow DAG and enriches each operator "
+        "node with available_features, input_features, and output_features."
+    ),
+    responses={
+        200: {"description": "Flow enriched with operator metadata"},
+        400: {"description": "Invalid request data or flow validation failure", "model": ErrorResponse},
+        500: {"description": "Internal server error", "model": ErrorResponse},
+    },
+)
+def enrich_flow_features(
+    body: dict,
+    service: Annotated[FlowEnrichmentService, Depends(get_flow_enrichment_service)],
+) -> dict:
+    """Propagate features through a flow DAG and enrich each operator node with metadata.
+
+    Accepts a raw Elyra pipeline JSON (no wrapper object), runs feature
+    propagation through the DAG without raising on validation warnings, and
+    returns the same JSON with three metadata keys merged into every node's
+    top-level ``parameters`` dict:
+
+    - ``available_features``: features the UI should surface in
+      operator-specific widgets. Populated for ``sql_filter`` (surviving
+      post-SELECT features, drives the criteria dropdown) and ``vectordb``
+      (all visible features, drives the field-mapping UI). Empty dict for all
+      other operators.
+    - ``input_features``: feature metadata objects flowing into this node from
+      upstream operators.
+    - ``output_features``: feature metadata objects produced by this node.
+
+    Unlike ``validate_flow``, this endpoint tolerates in-progress flows that
+    would generate validation warnings, so the UI can display metadata while
+    the pipeline is still being built.
+
+    Args:
+        body: Raw Elyra pipeline JSON. Must be the top-level pipeline object
+            directly (no ``{"flow_def": ...}`` wrapper), e.g.:
+            ``{"doc_type": "pipeline", "version": "3.0", "pipelines": [...]}``
+        service: FlowEnrichmentService instance provided via dependency
+            injection. Cached per-process by get_flow_enrichment_service().
+
+    Returns:
+        A deep copy of the input Elyra JSON with feature metadata merged into
+        each node's ``parameters`` dict. The original request body is not
+        mutated.
+
+    Raises:
+        400: If ``body`` is empty (``ValueError``) or the flow structure is
+            critically invalid (``FlowValidationException``) — both are handled
+            by the error middleware and returned as 400 responses.
+        500: Unexpected internal error handled by global exception middleware.
+
+    Example:
+        Request body::
+
+            {
+                "doc_type": "pipeline",
+                "version": "3.0",
+                "pipelines": [{
+                    "nodes": [
+                        {"id": "node-1", "op": "ingest_source", "parameters": {}},
+                        {"id": "node-2", "op": "chunker", "parameters": {}}
+                    ],
+                    "app_data": {"ds_flow": {"name": "My Flow", "global_config": {}}}
+                }]
+            }
+
+        Each node in the response will have ``available_features``,
+        ``input_features``, and ``output_features`` merged into its
+        ``parameters`` dict.
+    """
+    return service.enrich_flow_with_features(flow_definition=body)

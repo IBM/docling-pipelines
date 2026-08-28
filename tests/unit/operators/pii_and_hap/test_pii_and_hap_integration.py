@@ -11,8 +11,6 @@ Run these tests separately when you want to verify real LLM behavior:
 For fast, consistent unit tests, use test_pii_and_hap_annotator.py instead.
 """
 
-import os
-
 import pyarrow as pa
 import pytest
 import requests
@@ -69,7 +67,7 @@ def test_real_pii_detection_with_ollama():
 
     # Verify basic structure
     assert len(table_list) > 0
-    assert metadata["total_docs_count"] == 1
+    assert metadata["documents_in_scope"] == 1
     assert metadata["processed_docs"] == 1
     assert metadata["node_status"] == "Completed"
 
@@ -110,7 +108,7 @@ def test_real_hap_detection_with_ollama():
 
     # Verify basic structure
     assert len(table_list) > 0
-    assert metadata["total_docs_count"] == 2
+    assert metadata["documents_in_scope"] == 2
     assert metadata["processed_docs"] == 2
     assert metadata["node_status"] == "Completed"
 
@@ -141,7 +139,7 @@ def test_real_combined_pii_and_hap_with_ollama():
 
     content = pa.array(
         [
-            f"Email me at test@example.com with your SSN {os.environ.get('TEST_SSN', '000-00-0000')}",
+            "Email me at test@example.com with your SSN 123-45-6789",
             "You idiot, send it to admin@test.com",
         ]
     )
@@ -156,7 +154,7 @@ def test_real_combined_pii_and_hap_with_ollama():
     assert len(table_list) > 0
     table = table_list[0]
 
-    assert metadata["total_docs_count"] == 2
+    assert metadata["documents_in_scope"] == 2
     assert metadata["processed_docs"] == 2
     assert metadata["node_status"] == "Completed"
 
@@ -210,7 +208,7 @@ def test_real_openai_compatible_api():
 
     # Verify basic structure
     assert len(table_list) > 0
-    assert metadata["total_docs_count"] == 1
+    assert metadata["documents_in_scope"] == 1
     assert metadata["processed_docs"] == 1
     assert metadata["node_status"] == "Completed"
 

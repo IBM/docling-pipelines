@@ -20,8 +20,12 @@ class FeatureMetadata(BaseModel):
     description: str = Field(default="", description="Human-readable description of the feature")
     node_id: str = Field(..., description="ID of the operator that added this feature")
     tags: list[str] = Field(default_factory=list, description="Tags like 'mandatory', 'internal', etc.")
-    available_for_filter: bool = Field(default=True, description="Whether feature can be used in SQL filters")
+    available_for_filter: bool = Field(default=False, description="Whether feature can be used in SQL filters")
     available_for_vector_db: bool = Field(default=False, description="Whether feature can be stored in vector DB")
+    mandatory_for_vector_db: bool = Field(
+        default=False,
+        description="Whether a vector DB operator must have a mapping for this feature to write correctly",
+    )
     type: str = Field(default="string", description="Data type of the feature")
 
 
@@ -105,6 +109,11 @@ class FeaturePropagationResult:
 
         # Global parameters (e.g., embeddings_model_id)
         self.global_params: dict[str, Any] = {}
+
+        # The DAG node ID that produced this result. Set by FlowValidator after
+        # propagation so that merge_features() can look up the link name for
+        # this branch using input_links[node_id_ref → link_name].
+        self.source_node_id: str | None = None
 
     def set_input_features(self, *, node_id: str, features: dict[str, Any]) -> None:
         """Set input features for a node (features received from parent nodes).
@@ -215,6 +224,7 @@ class FeaturePropagationResult:
         tags: list[str] | None = None,
         available_for_filter: bool = True,
         available_for_vector_db: bool = False,
+        mandatory_for_vector_db: bool = False,
         type: str = "string",
     ) -> None:
         """Add a feature with full metadata.
@@ -226,6 +236,7 @@ class FeaturePropagationResult:
             tags: Tags like 'mandatory', 'internal', etc.
             available_for_filter: Whether feature can be used in SQL filters
             available_for_vector_db: Whether feature can be stored in vector DB
+            mandatory_for_vector_db: Whether a VectorDB operator must map this feature
             type: Data type of the feature
         """
         self.feature_metadata[feature_name] = FeatureMetadata(
@@ -235,6 +246,7 @@ class FeaturePropagationResult:
             tags=tags or [],
             available_for_filter=available_for_filter,
             available_for_vector_db=available_for_vector_db,
+            mandatory_for_vector_db=mandatory_for_vector_db,
             type=type,
         )
 

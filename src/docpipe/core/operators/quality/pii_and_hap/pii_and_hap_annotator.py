@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
+
 """
 PII and HAP Detection Annotator using Ollama/OpenAI-compatible/WatsonX APIs.
 
@@ -34,6 +37,7 @@ from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_helper import (
 )
 from docpipe.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
 from docpipe.utils.core.strings import split_text_into_chunks
+from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -56,7 +60,7 @@ MIN_CHUNK_SIZE_KEY = "min_chunk_size_kb"
 MAX_CHUNK_SIZE_KEY = "max_chunk_size_kb"
 
 
-class PIIAndHAPAnnotator(AbstractOperator):
+class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
     """
     Extract PII and HAP information from ingested documents.
 
@@ -112,12 +116,6 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
         # Configuration mapping: (attribute_name, config_key, default_value)
         config_mappings = [
-            # Document column
-            (
-                "doc_column_name",
-                OperatorConstants.Columns.DOC_COLUMN,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
-            ),
             # Detection configuration
             ("provider", PROVIDER, PROVIDER_DEFAULT),
             # Redaction configuration
@@ -253,6 +251,24 @@ class PIIAndHAPAnnotator(AbstractOperator):
             raise ValueError(
                 f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
             )
+
+    @staticmethod
+    def _get_piihap_provider_schemas() -> dict[str, Any]:
+        """Return per-provider JSON Schema dicts for the provider_config field.
+
+        Add a new entry here when registering a new PII/HAP provider.
+        """
+        from docpipe.core.operators.operator_utils import OperatorUtils
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+
+        return {
+            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
+                schema=LLMProviderConfig.model_json_schema()
+            ),
+            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxProviderConfig.model_json_schema()
+            ),
+        }
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -402,40 +418,18 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration. Fields vary by provider — see the 'providers' schema for details.",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: {},
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                    OperatorConstants.Config.PROPERTIES: {
-                        OperatorConstants.Config.MODEL_ID: {
-                            OperatorConstants.Misc.NAME: "Model ID",
-                            OperatorConstants.Config.DESCRIPTION: "Model identifier for the provider",
-                            OperatorConstants.Config.REQUIRED: True,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_BASE: {
-                            OperatorConstants.Misc.NAME: "API Base URL",
-                            OperatorConstants.Config.DESCRIPTION: "API endpoint URL",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                        OperatorConstants.Config.API_KEY: {
-                            OperatorConstants.Misc.NAME: "API Key",
-                            OperatorConstants.Config.DESCRIPTION: "Authentication key",
-                            OperatorConstants.Config.REQUIRED: False,
-                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                        },
-                    },
+                    OperatorConstants.Config.PROVIDERS: PIIAndHAPAnnotator._get_piihap_provider_schemas(),
                 },
             },
         }
 
     @staticmethod
-    def get_static_required_features() -> list[str]:
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
-
-    @staticmethod
     def get_required_features() -> list[str]:
+        """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def get_payload_for_detections(self, doc_contents: Any) -> dict[str, Any]:
@@ -450,7 +444,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
     def populate_table_columns(
         self,
-        table_columns: dict[str, list],
+        table_columns: dict[str, list[Any]],
         columns_to_add: dict[str, Any],
         fields_to_redact: list[str],
     ) -> None:
@@ -556,7 +550,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
         OperatorUtils.validate_columns(
             table=table,
-            required=self.get_required_features(),
+            required=PIIAndHAPAnnotator.get_required_features(),
             operator_name=self.short_name,
         )
 
@@ -574,13 +568,13 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
         remove_row_idx: list[int] = []
         remove_row_id: list[str] = []
-        new_doc_content = table[self.doc_column_name].to_pylist()
+        new_doc_content = table[self.doc_column].to_pylist()
         name_column = table[OperatorConstants.Misc.NAME].to_pylist()
         id_column = table[OperatorConstants.Columns.ID].to_pylist()
 
         doc_info_list = []
 
-        for idx, doc_contents in enumerate(table[self.doc_column_name]):
+        for idx, doc_contents in enumerate(table[self.doc_column]):
             doc_info = {"idx": idx, "doc_contents": doc_contents}
             doc_info_list.append(doc_info)
 
@@ -592,7 +586,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
             )
 
             futures = [
-                executor.submit(self._perform_detections_for_single_document, doc_info) for doc_info in doc_info_list
+                submit_task_with_context_propagation(executor, self._perform_detections_for_single_document, doc_info)
+                for doc_info in doc_info_list
             ]
 
             _ = [future.result() for future in futures]
@@ -611,14 +606,14 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 idx = doc_info["idx"]
-                file_name = name_column[idx]
+                actual_file_name = name_column[idx]
                 _id = id_column[idx]
                 logger.error(
-                    f"PII and HAP extraction failed. {file_name} is removed",
+                    f"PII and HAP extraction failed. {actual_file_name} is removed",
                     extra=self.common_log_arguments,
                 )
                 self._populate_remove_row_id_and_index(
-                    file_name=file_name,
+                    file_name=actual_file_name,
                     metadata=metadata,
                     remove_row_id=remove_row_id,
                     _id=_id,
@@ -640,6 +635,11 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     detected_field = get_detected_field(detection_dict, fields_to_redact)
 
                     if not detected_field:
+                        logger.debug(
+                            "Unknown detection label %s - not in mapping, skipping",
+                            detection_dict.get("detection"),
+                            extra=self.common_log_arguments,
+                        )
                         continue
 
                     detection_dict.pop("evidences", None)
@@ -672,14 +672,14 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 idx = doc_info["idx"]
-                file_name = name_column[idx]
+                actual_file_name = name_column[idx]
                 _id = id_column[idx]
                 logger.error(
-                    f"PII and HAP extraction failed. {file_name} is removed",
+                    f"PII and HAP extraction failed. {actual_file_name} is removed",
                     extra=self.common_log_arguments,
                 )
                 self._populate_remove_row_id_and_index(
-                    file_name=file_name,
+                    file_name=actual_file_name,
                     metadata=metadata,
                     remove_row_id=remove_row_id,
                     _id=_id,
@@ -701,6 +701,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
         return [table], metadata
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """Validate."""
         from docpipe.utils.operators.config_validation import validate_config_from_metadata
 
         super().validate(errors, warnings, available_features)
@@ -745,9 +746,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
         *,
         file_name: str,
         metadata: dict[str, Any],
-        remove_row_id: list,
+        remove_row_id: list[Any],
         _id: str,
-        remove_row_idx: list,
+        remove_row_idx: list[Any],
         idx: int,
         e: Exception,
     ) -> None:

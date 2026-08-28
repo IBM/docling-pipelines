@@ -33,6 +33,7 @@ class JobStats(BaseModel):
     end_time: int = 0
     duration: int = 0
     heartbeat_timestamp: int | None = 0
+    heartbeat_failure_count: int = 0
 
     # Document Counts
     total_docs: int = 0
@@ -57,6 +58,11 @@ class JobStats(BaseModel):
     user_id: str | None = None
     account_id: str | None = None
     user_entitlements: dict[str, Any] | None = Field(default_factory=dict)
+
+    # Report Generation Status
+    report_status: str | None = None  # "GENERATING", "COMPLETED", "FAILED"
+    report_generation_started_at: int | None = None
+    report_generation_completed_at: int | None = None
 
     # Nested Statistics (Populated by aggregation)
     node_stats: dict[str, NodeStats] = Field(default_factory=dict)

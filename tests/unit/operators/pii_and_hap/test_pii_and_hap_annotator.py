@@ -13,7 +13,6 @@ Tests verify the same output format as the enterprise version, including:
 - Column naming conventions
 """
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
@@ -27,8 +26,6 @@ from docpipe.core.operators.quality.pii_and_hap.domain.models import (
 from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
     PIIAndHAPAnnotator,
 )
-
-_TEST_SSN = os.environ.get("TEST_SSN", "000-00-0000")
 
 
 def mock_detect_pii_hap(payload: dict):
@@ -72,15 +69,15 @@ def mock_detect_pii_hap(payload: dict):
         )
 
     # Check for SSN
-    if _TEST_SSN in text:
+    if "123-45-6789" in text:
         detections.append(
             {
                 "detection": "NationalNumber.SocialSecurityNumber.US",
                 "detection_type": "pii",
-                "start": text.find(_TEST_SSN),
-                "end": text.find(_TEST_SSN) + len(_TEST_SSN),
+                "start": text.find("123-45-6789"),
+                "end": text.find("123-45-6789") + len("123-45-6789"),
                 "score": 0.8,
-                "text": _TEST_SSN,
+                "text": "123-45-6789",
             }
         )
 
@@ -187,7 +184,7 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
     # 2. Create an in-memory py-arrow table as input
     content = pa.array(
         [
-            f"Your email is support@ibm.com! 5340904586541378 Only the next instance of email will be processed. test@ibm.com. Your SSN is {_TEST_SSN}. Contact me at 123-456-7890",
+            "Your email is support@ibm.com! 5340904586541378 Only the next instance of email will be processed. test@ibm.com. Your SSN is 123-45-6789. Contact me at 123-456-7890",
             "Subject: Assistance 127.0.0.1 adityars@ibm.com with credit card update [213254000]",
             "People like you shouldn't even be allowed to speak. Honestly, anyone who believes in [religion] or follows [ethnicity] is a fool.",
         ]
@@ -209,7 +206,7 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
         "IPAddress": 1,
         "PhoneNumber": 1,
         "SocialSecurityNumber": 1,
-        "total_docs_count": 3,
+        "documents_in_scope": 3,
         "processed_docs": 3,
         "failed_docs_count": 0,
         "failed_docs": [],
@@ -275,7 +272,7 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
     # 2. Create input table
     content = pa.array(
         [
-            f"Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is {_TEST_SSN}. Contact me at 123-456-7890",
+            "Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is 123-45-6789. Contact me at 123-456-7890",
             "Subject: Assistance  adityars@ibm.com with credit card update [213254000]",
         ]
     )
@@ -296,7 +293,7 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
         "IPAddress": 0,
         "PhoneNumber": 1,
         "SocialSecurityNumber": 1,
-        "total_docs_count": 2,
+        "documents_in_scope": 2,
         "processed_docs": 2,
         "failed_docs_count": 0,
         "failed_docs": [],
@@ -358,7 +355,7 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
             "end": 119,
             "detection": "NationalNumber.SocialSecurityNumber.US",
             "score": 0.8,
-            "text": _TEST_SSN,
+            "text": "123-45-6789",
         }
     ]
     expected_phone_number_doc1 = [
@@ -413,7 +410,7 @@ def test_pii_extraction_with_redaction(mock_pii_hap_service):
     # 2. Create input table
     content = pa.array(
         [
-            f"Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is {_TEST_SSN}.",
+            "Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is 123-45-6789.",
             "Subject: Assistance adityars@ibm.com with credit card update",
         ]
     )
@@ -432,7 +429,7 @@ def test_pii_extraction_with_redaction(mock_pii_hap_service):
     # Verify that PII has been replaced with redaction character
     assert "support@ibm.com" not in redacted_content, "Email should be redacted"
     assert "test@ibm.com" not in redacted_content, "Email should be redacted"
-    assert _TEST_SSN not in redacted_content, "SSN should be redacted"
+    assert "123-45-6789" not in redacted_content, "SSN should be redacted"
     assert "*" in redacted_content, "Redaction character should be present"
 
 
@@ -502,7 +499,7 @@ def test_hap_extraction_without_redaction(mock_pii_hap_service):
     # 2. Create input table
     content = pa.array(
         [
-            f"Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is {_TEST_SSN}. Contact me at 123-456-7890",
+            "Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is 123-45-6789. Contact me at 123-456-7890",
             "People like you shouldn't even be allowed to speak. Honestly, anyone who believes in [religion] or follows [ethnicity] is a fool.",
         ]
     )
@@ -546,8 +543,8 @@ def test_empty_input_table(mock_pii_hap_service):
 
     # 2. Create empty input table
     content = pa.array([])
-    ids = []
-    names = []
+    ids: list[str] = []
+    names: list[str] = []
     col_names = ["id", "content", "name"]
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
@@ -555,7 +552,7 @@ def test_empty_input_table(mock_pii_hap_service):
     _, metadata = operator.transform(input_table)
 
     # 4. Verify metadata for empty input
-    assert metadata["total_docs_count"] == 0
+    assert metadata["documents_in_scope"] == 0
     assert metadata["processed_docs"] == 0
     assert metadata["node_status"] == "Completed"
 
@@ -574,7 +571,7 @@ def test_configuration_validation():
                 },
             }
         )
-        assert operator.doc_column_name == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
     except Exception as e:
         pytest.fail(f"Unexpected exception with default doc_column: {e!s}")
 
@@ -591,7 +588,7 @@ def test_configuration_validation():
                 },
             }
         )
-        assert operator.doc_column_name == "text"
+        assert operator.doc_column == "text"
         assert operator.provider == "litellm"
     except Exception as e:
         pytest.fail(f"Unexpected exception with custom configuration: {e!s}")
