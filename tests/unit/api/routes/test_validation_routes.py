@@ -15,7 +15,7 @@ from docpipe.api.routes.validation import (
 )
 from docpipe.core.assets.flows.application.services.flow_enrichment_service import FlowEnrichmentService
 from docpipe.core.assets.flows.application.services.validation_service import ValidationService
-from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+from docpipe.exceptions.docpipe_exceptions import TROUBLESHOOTING_DOCS_URL, FlowValidationException
 from tests.unit.api.routes.conftest import mock_current_user
 
 
@@ -713,6 +713,7 @@ class TestEnrichFlowFeaturesErrorHandling:
         data = response.json()
         assert "errors" in data
         assert response.status_code == 400
+        assert "more_info" not in data["errors"][0]
 
     def test_flow_validation_exception_with_empty_errors_returns_400(self, client, override_enrichment_service):
         """FlowValidationException with no errors still returns 400."""
@@ -721,3 +722,4 @@ class TestEnrichFlowFeaturesErrorHandling:
         response = client.post("/validation/enrich_flow_features", json=_minimal_elyra_flow())
 
         assert response.status_code == 400
+        assert response.json()["errors"][0]["more_info"] == f"{TROUBLESHOOTING_DOCS_URL}#issue-flow-validation-failed"

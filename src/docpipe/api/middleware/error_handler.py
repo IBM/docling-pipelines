@@ -20,7 +20,7 @@ from docpipe.api.dto.error_dto import (
     TargetType,
 )
 from docpipe.core.constants.constants import DocpipeConstants
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import DOCLING_PIPELINES_DOCS_URL, DocpipeException
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +246,7 @@ def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONRe
         error_code=api_error_code,  # type: ignore[arg-type]
         message=str(exc),
         trace_id=trace_id,
-        more_info=exc.more_info,
+        more_info=exc.more_info if exc.more_info is not None else DOCLING_PIPELINES_DOCS_URL,
         target=target,
     )
 

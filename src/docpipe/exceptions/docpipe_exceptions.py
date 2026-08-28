@@ -19,7 +19,7 @@ class DocpipeException(Exception):
         status_code: int = 500,
         error_code: ErrorCode | None = None,
         message_code: str | None = None,
-        more_info: str = DOCLING_PIPELINES_DOCS_URL,
+        more_info: str | None = None,
     ):
         super().__init__(message)
         self.status_code = status_code

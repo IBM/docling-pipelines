@@ -16,7 +16,18 @@ from docpipe.api.middleware.error_handler import (
     http_exception_handler,
     validation_exception_handler,
 )
-from docpipe.exceptions.docpipe_exceptions import RepositoryConfigurationException
+from docpipe.exceptions.docpipe_exceptions import (
+    DOCLING_PIPELINES_DOCS_URL,
+    TROUBLESHOOTING_DOCS_URL,
+    DocpipeException,
+    FlowAlreadyExistsException,
+    FlowExecutionFailedException,
+    FlowInvalidDataException,
+    FlowNotFoundException,
+    FlowStorageException,
+    FlowValidationException,
+    RepositoryConfigurationException,
+)
 
 
 @pytest.fixture
@@ -72,6 +83,7 @@ async def test_http_exception_handler_404(mock_request):
     assert content["errors"][0]["message"] == "Flow not found"
     assert content["trace"] == "12345678-1234-4234-8234-123456789012"
     assert content["status_code"] == 404
+    assert "more_info" not in content["errors"][0]
 
 
 @pytest.mark.anyio
@@ -265,6 +277,26 @@ async def test_exception_handlers_log_errors(mock_request):
         assert call_kwargs.get("stack_info") is True
 
 
+# more_info defaults — exception class contract
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_more_info"),
+    [
+        (DocpipeException("base"), None),
+        (FlowExecutionFailedException("failed"), f"{TROUBLESHOOTING_DOCS_URL}#issue-flow-execution-failed"),
+        (FlowValidationException(), f"{TROUBLESHOOTING_DOCS_URL}#issue-flow-validation-failed"),
+        (FlowNotFoundException("not found"), f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors"),
+        (FlowAlreadyExistsException("exists"), f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors"),
+        (FlowInvalidDataException("invalid"), f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors"),
+        (FlowStorageException("error"), f"{TROUBLESHOOTING_DOCS_URL}#flow-crud-operation-errors"),
+    ],
+)
+def test_exception_more_info_defaults(exc, expected_more_info):
+    """Each exception class carries the expected more_info default."""
+    assert exc.more_info == expected_more_info
+
+
 # RepositoryConfigurationException Tests
 
 
@@ -308,6 +340,8 @@ def test_repository_configuration_exception_has_correct_error_code(repo_config_c
     assert "errors" in data
     assert len(data["errors"]) == 1
     assert data["errors"][0]["code"] == "invalid_configuration"
+    # RepositoryConfigurationException has more_info=None; handler falls back to the docs URL
+    assert data["errors"][0]["more_info"] == DOCLING_PIPELINES_DOCS_URL
 
 
 def test_repository_configuration_exception_has_message(repo_config_client):
