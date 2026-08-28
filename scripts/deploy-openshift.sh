@@ -5,7 +5,7 @@ set -e
 # Usage: ./deploy-openshift.sh [project-name] [git-repo-url]
 
 PROJECT_NAME=${1:-docpipe}
-GIT_REPO=${2:-https://github.ibm.com/wdp-gov/docling-pipelines.git}
+GIT_REPO=${2:-https://github.com/IBM/docling-pipelines.git}
 GIT_BRANCH=${3:-main}
 GIT_USERNAME=${GIT_USERNAME:-}
 GIT_TOKEN=${GIT_TOKEN:-}
@@ -36,19 +36,19 @@ log_step() {
 
 check_prerequisites() {
     log_step "Checking prerequisites..."
-    
+
     # Check oc CLI
     if ! command -v oc &> /dev/null; then
         log_error "oc CLI not found. Please install OpenShift CLI."
         exit 1
     fi
-    
+
     # Check if logged in
     if ! oc whoami &> /dev/null; then
         log_error "Not logged in to OpenShift. Please run 'oc login' first."
         exit 1
     fi
-    
+
     log_info "Logged in as: $(oc whoami)"
     log_info "Current server: $(oc whoami --show-server)"
     log_info "Prerequisites check passed"
@@ -56,24 +56,24 @@ check_prerequisites() {
 
 create_git_secret() {
     log_step "Creating Git credentials secret..."
-    
+
     if [ -z "$GIT_USERNAME" ] || [ -z "$GIT_TOKEN" ]; then
         log_warn "GIT_USERNAME or GIT_TOKEN not set. Skipping Git secret creation."
         return 0
     fi
-    
+
     oc create secret generic "$GIT_SECRET_NAME" \
         --from-literal=username="$GIT_USERNAME" \
         --from-literal=password="$GIT_TOKEN" \
         --type=kubernetes.io/basic-auth \
         --dry-run=client -o yaml | oc apply -f -
-    
+
     log_info "Git credentials secret ready: $GIT_SECRET_NAME"
 }
 
 create_project() {
     log_step "Creating OpenShift project: $PROJECT_NAME"
-    
+
     # Check if project exists
     if oc get project "$PROJECT_NAME" &> /dev/null; then
         log_warn "Project $PROJECT_NAME already exists"
@@ -88,16 +88,16 @@ create_project() {
             --description="Docpipe - Modular data processing framework"
         log_info "Project created successfully"
     fi
-    
+
     # Switch to project
     oc project "$PROJECT_NAME"
 }
 
 create_app_from_git() {
     log_step "Creating application from Git repository..."
-    
+
     APP_NAME="docpipe-app"
-    
+
     # Check if app already exists
     if oc get bc "$APP_NAME" &> /dev/null 2>&1 || oc get deployment "$APP_NAME" &> /dev/null 2>&1; then
         log_warn "Application $APP_NAME already exists"
@@ -111,10 +111,10 @@ create_app_from_git() {
             return 0
         fi
     fi
-    
+
     log_info "Creating new application from Git: $GIT_REPO"
     log_info "Branch: $GIT_BRANCH"
-    
+
     # Create docker build config from repository Dockerfile.
     cat <<EOF | oc apply -f -
 apiVersion: build.openshift.io/v1
@@ -144,24 +144,24 @@ spec:
       dockerfilePath: docker/Dockerfile
   triggers: []
 EOF
-    
+
     oc start-build "$APP_NAME"
-    
+
     log_info "BuildConfig created successfully"
     log_info "Build started. You can monitor with: oc logs -f build/$(oc get builds --sort-by=.metadata.creationTimestamp -l buildconfig="$APP_NAME" -o name | tail -1 | cut -d'/' -f2)"
 }
 
 create_imagestream() {
     log_step "Creating ImageStream..."
-    
+
     IMAGESTREAM_NAME="docpipe-image"
-    
+
     # Check if imagestream exists
     if oc get imagestream "$IMAGESTREAM_NAME" &> /dev/null; then
         log_warn "ImageStream $IMAGESTREAM_NAME already exists"
         return 0
     fi
-    
+
     # Create internal imagestream without external import source.
     cat <<EOF | oc apply -f -
 apiVersion: image.openshift.io/v1
@@ -175,22 +175,22 @@ spec:
   lookupPolicy:
     local: true
 EOF
-    
+
     log_info "ImageStream created successfully"
 }
 
 
 create_deployment() {
     log_step "Creating Deployment configuration..."
-    
+
     DEPLOYMENT_NAME="docpipe-backend"
-    
+
     # Check if deployment exists
     if oc get deployment "$DEPLOYMENT_NAME" &> /dev/null; then
         log_warn "Deployment $DEPLOYMENT_NAME already exists"
         return 0
     fi
-    
+
     # Create deployment
     cat <<EOF | oc apply -f -
 apiVersion: apps.openshift.io/v1
@@ -254,21 +254,21 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 5
 EOF
-    
+
     log_info "Deployment created successfully"
 }
 
 create_service() {
     log_step "Creating Service..."
-    
+
     SERVICE_NAME="docpipe-service"
-    
+
     # Check if service exists
     if oc get service "$SERVICE_NAME" &> /dev/null; then
         log_warn "Service $SERVICE_NAME already exists"
         return 0
     fi
-    
+
     # Create service
     cat <<EOF | oc apply -f -
 apiVersion: v1
@@ -289,21 +289,21 @@ spec:
     protocol: TCP
   type: ClusterIP
 EOF
-    
+
     log_info "Service created successfully"
 }
 
 create_route() {
     log_step "Creating Route..."
-    
+
     ROUTE_NAME="docpipe-route"
-    
+
     # Check if route exists
     if oc get route "$ROUTE_NAME" &> /dev/null; then
         log_warn "Route $ROUTE_NAME already exists"
         return 0
     fi
-    
+
     # Create route
     cat <<EOF | oc apply -f -
 apiVersion: route.openshift.io/v1
@@ -323,32 +323,32 @@ spec:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
 EOF
-    
+
     log_info "Route created successfully"
 }
 
 wait_for_build() {
     log_step "Waiting for build to complete..."
-    
+
     APP_NAME="docpipe-app"
     BUILD_NAME=""
     BUILD_STATUS=""
     MAX_ATTEMPTS=120
     ATTEMPT=1
-    
+
     while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
         BUILD_NAME=$(oc get builds --sort-by=.metadata.creationTimestamp -l buildconfig="$APP_NAME" -o name 2>/dev/null | tail -1 | cut -d'/' -f2)
-        
+
         if [ -z "$BUILD_NAME" ]; then
             log_info "Waiting for build to be created... ($ATTEMPT/$MAX_ATTEMPTS)"
             sleep 5
             ATTEMPT=$((ATTEMPT + 1))
             continue
         fi
-        
+
         BUILD_STATUS=$(oc get build "$BUILD_NAME" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
         log_info "Build $BUILD_NAME status: ${BUILD_STATUS:-Unknown}"
-        
+
         case "$BUILD_STATUS" in
             Complete)
                 log_info "Build completed successfully"
@@ -367,10 +367,10 @@ wait_for_build() {
                 sleep 5
                 ;;
         esac
-        
+
         ATTEMPT=$((ATTEMPT + 1))
     done
-    
+
     log_error "Timed out waiting for build to complete"
     if [ -n "$BUILD_NAME" ]; then
         oc logs "build/$BUILD_NAME" || true
@@ -380,18 +380,18 @@ wait_for_build() {
 
 verify_deployment() {
     log_step "Verifying deployment..."
-    
+
     log_info "Checking pods..."
     oc get pods -n "$PROJECT_NAME"
-    
+
     log_info ""
     log_info "Checking services..."
     oc get svc -n "$PROJECT_NAME"
-    
+
     log_info ""
     log_info "Checking routes..."
     oc get route -n "$PROJECT_NAME"
-    
+
     log_info ""
     log_info "Checking imagestreams..."
     oc get imagestream -n "$PROJECT_NAME"
@@ -399,19 +399,19 @@ verify_deployment() {
 
 print_access_info() {
     log_step "Deployment Summary"
-    
+
     echo ""
     echo "=========================================="
     echo "  Docpipe Deployment Completed!"
     echo "=========================================="
     echo ""
-    
+
     ROUTE_URL=$(oc get route docpipe-route -n "$PROJECT_NAME" -o jsonpath='{.spec.host}' 2>/dev/null || echo "Not configured")
-    
+
     echo "Project: $PROJECT_NAME"
     echo "Application URL: https://$ROUTE_URL"
     echo ""
-    
+
     echo "Useful Commands:"
     echo "  View pods:        oc get pods -n $PROJECT_NAME"
     echo "  View logs:        oc logs -f dc/docpipe-backend -n $PROJECT_NAME"
@@ -419,7 +419,7 @@ print_access_info() {
     echo "  Start new build:  oc start-build docpipe-app -n $PROJECT_NAME"
     echo "  Scale app:        oc scale dc/docpipe-backend --replicas=3 -n $PROJECT_NAME"
     echo ""
-    
+
     echo "Access the application:"
     echo "  curl -k https://$ROUTE_URL/health"
     echo ""
@@ -435,22 +435,22 @@ main() {
     echo "Git Repository: $GIT_REPO"
     echo "Git Branch: $GIT_BRANCH"
     echo ""
-    
+
     check_prerequisites
     create_project
     create_git_secret
     create_imagestream
     create_app_from_git
     create_deployment
-    
+
     log_info "Waiting for initial build to complete..."
     wait_for_build
     create_service
     create_route
-    
+
     verify_deployment
     print_access_info
-    
+
     log_info "Deployment script completed!"
 }
 

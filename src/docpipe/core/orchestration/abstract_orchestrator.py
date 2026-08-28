@@ -443,7 +443,7 @@ class AbstractOrchestrator(ABC):
                 deleted_rows_table_path = self.get_deleted_rows_table_path_impl(
                     job_id=self.job_id, job_run_id=self.job_run_id
                 )
-                # This will be replaced by TableStoragePort as part of https://github.ibm.com/wdp-gov/datasift-tracker/issues/6899
+                # TODO: replace with TableStoragePort storage abstraction
                 parquet_table_handler: BaseParquetTableHandler = self.get_parquet_table_handler_impl()
                 # delete table if exists already
                 parquet_table_handler.delete_file(path=deleted_rows_table_path)
