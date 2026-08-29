@@ -6,7 +6,7 @@ accelerate==1.13.0
     #   docling-ibm-models
     #   docling-pipelines
     #   docling-slim
-aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.7.1
     # via aiohttp
 aiohttp==3.14.3
     # via
@@ -23,13 +23,15 @@ alembic==1.18.4
     #   prefect
 amplitude-analytics==1.2.3
     # via prefect
-annotated-doc==0.0.4
-    # via fastapi
-annotated-types==0.7.0
+annotated-doc==0.0.5
+    # via
+    #   fastapi
+    #   typer
+annotated-types==0.8.0
     # via pydantic
 antlr4-python3-runtime==4.9.3
     # via omegaconf
-anyio==4.13.0
+anyio==4.14.1
     # via
     #   httpx
     #   openai
@@ -38,7 +40,7 @@ anyio==4.13.0
     #   watchfiles
 appdirs==1.4.4
     # via unicategories
-apprise==1.12.0
+apprise==1.13.0
     # via prefect
 asgi-lifespan==2.1.0
     # via prefect
@@ -51,7 +53,7 @@ attrs==26.1.0
     #   jsonlines
     #   jsonschema
     #   referencing
-azure-core==1.39.0
+azure-core==1.41.0
     # via azure-storage-blob
 azure-storage-blob==12.28.0
     # via docling-pipelines
@@ -61,10 +63,12 @@ bcrypt==5.0.0
     # via passlib
 beartype==0.22.9
     # via py-key-value-aio
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
     # via
     #   docling-slim
     #   o365
+blis==1.3.3
+    # via thinc
 boto3==1.42.55
     # via
     #   data-prep-toolkit
@@ -86,7 +90,12 @@ cachetools==5.5.2
     #   py-key-value-aio
     #   pyiceberg
     #   pymilvus
-certifi==2026.4.22
+catalogue==2.0.10
+    # via
+    #   spacy
+    #   srsly
+    #   thinc
+certifi==2026.7.22
     # via
     #   apprise
     #   docling-slim
@@ -95,54 +104,70 @@ certifi==2026.4.22
     #   ibm-watsonx-ai
     #   opensearch-py
     #   requests
-cffi==2.0.0 ; platform_python_implementation != 'PyPy'
+cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
-charset-normalizer==3.4.7
+charset-normalizer==3.5.1
     # via requests
-click==8.3.3
+click==8.5.0
     # via
     #   apprise
+    #   huggingface-hub
     #   litellm
     #   nltk
     #   prefect
     #   pyiceberg
-    #   typer
+    #   python-oxmsg
+    #   spacy
     #   uvicorn
+cloudpathlib==0.25.0
+    # via weasel
 cloudpickle==3.1.2
     # via
     #   prefect
     #   pydocket
 colorama==0.4.6
     # via
-    #   click
     #   colorlog
     #   griffe
     #   loguru
     #   tqdm
+    #   typer
     #   uvicorn
-colorlog==6.10.1
+    #   wasabi
+colorlog==6.12.0
     # via rapidocr
-coolname==2.2.0
+confection==1.3.3
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
+coolname==5.0.0
     # via prefect
 cronsim==2.7
     # via pydocket
-cryptography==49.0.0
+cryptography==50.0.0
     # via
     #   azure-storage-blob
+    #   docling-pipelines
     #   google-auth
     #   msal
     #   prefect
     #   pyjwt
     #   pyopenssl
     #   python-jose
-cuda-bindings==13.2.0 ; sys_platform == 'linux'
+cuda-bindings==13.3.1 ; sys_platform == 'linux'
     # via torch
-cuda-pathfinder==1.5.4 ; sys_platform == 'linux'
+cuda-pathfinder==1.8.0 ; sys_platform == 'linux'
     # via cuda-bindings
-cuda-toolkit==13.0.2 ; sys_platform == 'linux'
+cuda-toolkit==13.0.3.0 ; sys_platform == 'linux'
     # via torch
-cyclopts==4.14.1
+cyclopts==4.23.3
     # via prefect
+cymem==2.0.13
+    # via
+    #   preshed
+    #   spacy
+    #   thinc
 data-prep-toolkit==1.1.8
     # via data-prep-toolkit-transforms
 data-prep-toolkit-transforms==1.1.8
@@ -153,37 +178,35 @@ datatrove==0.3.0
     # via docling-pipelines
 datefinder==1.0.0
     # via docling-pipelines
-dateparser==1.4.0
+dateparser==1.4.2
     # via prefect
 defusedxml==0.7.1
     # via
     #   docling-core
     #   docling-slim
     #   nltk
-dill==0.3.8 ; sys_platform == 'darwin'
-    # via
-    #   datatrove
-    #   multiprocess
-dill==0.4.1 ; sys_platform != 'darwin'
+dill==0.4.1
     # via
     #   datatrove
     #   multiprocess
 distro==1.9.0
     # via openai
-docker==7.1.0
+docker==7.2.0
     # via prefect
-docling==2.105.0
+doclang==0.7.3
+    # via docling-core
+docling==2.121.0
     # via docling-pipelines
-docling-core==2.83.1
+docling-core==2.92.0
     # via
     #   docling-ibm-models
     #   docling-parse
     #   docling-slim
-docling-ibm-models==3.13.2
+docling-ibm-models==3.15.0
     # via docling-slim
-docling-parse==6.2.0
+docling-parse==7.16.0
     # via docling-slim
-docling-slim==2.105.0
+docling-slim==2.121.0
     # via docling
 docstring-parser==0.18.0
     # via cyclopts
@@ -199,7 +222,7 @@ exceptiongroup==1.3.1
     # via prefect
 faker==40.8.0
     # via polyfactory
-fastapi==0.136.3
+fastapi==0.141.1
     # via
     #   docling-pipelines
     #   prefect
@@ -220,14 +243,7 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2025.3.0 ; sys_platform == 'darwin'
-    # via
-    #   datatrove
-    #   huggingface-hub
-    #   prefect
-    #   pyiceberg
-    #   torch
-fsspec==2026.4.0 ; sys_platform != 'darwin'
+fsspec==2026.6.0
     # via
     #   datatrove
     #   huggingface-hub
@@ -236,14 +252,14 @@ fsspec==2026.4.0 ; sys_platform != 'darwin'
     #   torch
 ftfy==6.3.1
     # via docling-pipelines
-google-api-core==2.30.3
+google-api-core==2.34.0
     # via
     #   google-api-python-client
     #   google-cloud-core
     #   google-cloud-storage
 google-api-python-client==2.190.0
     # via docling-pipelines
-google-auth==2.49.2
+google-auth==2.57.0
     # via
     #   google-api-core
     #   google-api-python-client
@@ -257,7 +273,7 @@ google-auth-httplib2==0.3.0
     #   google-api-python-client
 google-auth-oauthlib==1.2.4
     # via docling-pipelines
-google-cloud-core==2.5.1
+google-cloud-core==2.7.0
     # via google-cloud-storage
 google-cloud-storage==3.9.0
     # via docling-pipelines
@@ -267,19 +283,19 @@ google-crc32c==1.8.0
     #   google-resumable-media
 google-re2==1.1.20251105
     # via docling-pipelines
-google-resumable-media==2.8.2
+google-resumable-media==2.10.2
     # via google-cloud-storage
-googleapis-common-protos==1.74.0
+googleapis-common-protos==1.75.2
     # via google-api-core
 graphviz==0.21
     # via prefect
-greenlet==3.5.0
+greenlet==3.5.5
     # via sqlalchemy
 griffe==1.15.0
     # via
     #   docling-pipelines
     #   prefect
-grpcio==1.80.0
+grpcio==1.83.1
     # via
     #   opensearch-protobufs
     #   pymilvus
@@ -287,11 +303,11 @@ h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
-h2==4.3.0
+h2==4.4.1
     # via httpx
-hf-xet==1.4.3 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+hf-xet==1.6.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
     # via huggingface-hub
-hpack==4.1.0
+hpack==4.2.0
     # via h2
 httpcore==1.0.9
     # via
@@ -301,7 +317,7 @@ httplib2==0.32.0
     # via
     #   google-api-python-client
     #   google-auth-httplib2
-httptools==0.7.1
+httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via
@@ -315,9 +331,10 @@ httpx==0.28.1
     #   ollama
     #   openai
     #   prefect
+    #   weasel
 httpx-sse==0.4.3
     # via langchain-community
-huggingface-hub==1.12.2
+huggingface-hub==1.29.0
     # via
     #   accelerate
     #   datatrove
@@ -326,7 +343,7 @@ huggingface-hub==1.12.2
     #   sentence-transformers
     #   tokenizers
     #   transformers
-humanize==4.15.0
+humanize==4.16.0
     # via
     #   datatrove
     #   jinja2-humanize-extension
@@ -345,10 +362,9 @@ ibm-cos-sdk-s3transfer==2.14.3
     # via ibm-cos-sdk
 ibm-watsonx-ai==1.5.10
     # via docling-pipelines
-idna==3.15
+idna==3.19
     # via
     #   anyio
-    #   docling-pipelines
     #   httpx
     #   requests
     #   yarl
@@ -363,10 +379,11 @@ jinja2==3.1.6
     #   jinja2-humanize-extension
     #   litellm
     #   prefect
+    #   spacy
     #   torch
 jinja2-humanize-extension==0.4.0
     # via prefect
-jiter==0.14.0
+jiter==0.16.0
     # via openai
 jmespath==1.0.1
     # via
@@ -419,7 +436,7 @@ langchain-core==1.4.6
     #   langgraph-sdk
 langchain-experimental==0.4.1
     # via docling-pipelines
-langchain-protocol==0.0.15
+langchain-protocol==0.0.19
     # via
     #   langchain-core
     #   langgraph-sdk
@@ -431,15 +448,15 @@ langdetect==1.0.9
     # via docling-pipelines
 langgraph==1.2.4
     # via langchain
-langgraph-checkpoint==4.1.1
+langgraph-checkpoint==4.2.0
     # via
     #   langgraph
     #   langgraph-prebuilt
 langgraph-prebuilt==1.1.0
     # via langgraph
-langgraph-sdk==0.4.2
+langgraph-sdk==0.4.4
     # via langgraph
-langsmith==0.8.4
+langsmith==0.8.18
     # via
     #   docling-pipelines
     #   langchain-classic
@@ -455,21 +472,21 @@ lomond==0.3.3
     # via ibm-watsonx-ai
 lxml==6.1.0
     # via
+    #   doclang
     #   docling-pipelines
-    #   docling-slim
     #   python-docx
     #   python-pptx
-mail-parser==4.4.0
+mail-parser==4.6.4
     # via docling-slim
 mako==1.3.12
     # via
     #   alembic
     #   docling-pipelines
-markdown==3.10.2
+markdown==3.10.3
     # via apprise
-markdown-it-py==4.0.0
+markdown-it-py==4.2.0
     # via rich
-marko==2.2.2
+marko==2.2.4
     # via docling-slim
 markupsafe==3.0.3
     # via
@@ -483,7 +500,7 @@ mlx==0.30.6 ; sys_platform == 'darwin'
     # via docling-pipelines
 mlx-metal==0.30.6 ; sys_platform == 'darwin'
     # via mlx
-mmh3==5.2.1
+mmh3==5.3.0
     # via
     #   data-prep-toolkit
     #   pyiceberg
@@ -499,25 +516,29 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-multiprocess==0.70.16 ; sys_platform == 'darwin'
+multiprocess==0.70.19
     # via
     #   datatrove
     #   mpire
-multiprocess==0.70.19 ; sys_platform != 'darwin'
+murmurhash==1.0.15
     # via
-    #   datatrove
-    #   mpire
-mypy-boto3-glue==1.43.0
+    #   preshed
+    #   spacy
+    #   thinc
+mypy-boto3-glue==1.43.72
     # via pyiceberg
 mypy-extensions==1.1.0
     # via typing-inspect
+narwhals==2.25.0
+    # via scikit-learn
 networkx==3.6.1
     # via torch
-nltk==3.10.0
+nltk==3.10.3
     # via docling-pipelines
 numpy==1.26.4
     # via
     #   accelerate
+    #   blis
     #   data-prep-toolkit
     #   datatrove
     #   docling-ibm-models
@@ -534,30 +555,34 @@ numpy==1.26.4
     #   scipy
     #   sentence-transformers
     #   shapely
+    #   spacy
+    #   thinc
     #   torchvision
     #   transformers
-nvidia-cublas==13.1.0.3 ; sys_platform == 'linux'
+nvidia-cublas==13.1.1.3 ; sys_platform == 'linux'
     # via
+    #   cuda-toolkit
     #   nvidia-cudnn-cu13
     #   nvidia-cusolver
-    #   torch
-nvidia-cuda-cupti==13.0.85 ; sys_platform == 'linux'
+nvidia-cuda-cupti==13.0.85 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cuda-toolkit
 nvidia-cuda-nvrtc==13.0.88 ; sys_platform == 'linux'
-    # via cuda-toolkit
-nvidia-cuda-runtime==13.0.96 ; sys_platform == 'linux'
+    # via
+    #   cuda-toolkit
+    #   nvidia-cublas
+nvidia-cuda-runtime==13.0.96 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cuda-toolkit
 nvidia-cudnn-cu13==9.20.0.48 ; sys_platform == 'linux'
     # via torch
-nvidia-cufft==12.0.0.61 ; sys_platform == 'linux'
+nvidia-cufft==12.0.0.61 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cuda-toolkit
-nvidia-cufile==1.15.1.6 ; sys_platform == 'linux'
+nvidia-cufile==1.15.1.6 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cuda-toolkit
-nvidia-curand==10.4.0.35 ; sys_platform == 'linux'
+nvidia-curand==10.4.0.35 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cuda-toolkit
-nvidia-cusolver==12.0.4.66 ; sys_platform == 'linux'
+nvidia-cusolver==12.0.4.66 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cuda-toolkit
-nvidia-cusparse==12.6.3.3 ; sys_platform == 'linux'
+nvidia-cusparse==12.6.3.3 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via
     #   cuda-toolkit
     #   nvidia-cusolver
@@ -565,7 +590,7 @@ nvidia-cusparselt-cu13==0.8.1 ; sys_platform == 'linux'
     # via torch
 nvidia-nccl-cu13==2.29.7 ; sys_platform == 'linux'
     # via torch
-nvidia-nvjitlink==13.0.88 ; sys_platform == 'linux'
+nvidia-nvjitlink==13.3.33 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via
     #   cuda-toolkit
     #   nvidia-cufft
@@ -573,27 +598,25 @@ nvidia-nvjitlink==13.0.88 ; sys_platform == 'linux'
     #   nvidia-cusparse
 nvidia-nvshmem-cu13==3.4.5 ; sys_platform == 'linux'
     # via torch
-nvidia-nvtx==13.0.85 ; sys_platform == 'linux'
+nvidia-nvtx==13.0.85 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cuda-toolkit
 o365==2.1.9
     # via docling-pipelines
 oauthlib==3.3.1
     # via requests-oauthlib
+olefile==0.47
+    # via python-oxmsg
 ollama==0.6.1
     # via docling-pipelines
-omegaconf==2.3.0
+omegaconf==2.3.1
     # via rapidocr
-onnxruntime==1.27.0
+onnxruntime==1.29.0
     # via docling-slim
 openai==2.33.0
     # via
     #   docling-pipelines
     #   litellm
-opencv-python==4.10.0.84 ; platform_machine == 's390x' and sys_platform == 'darwin'
-    # via rapidocr
-opencv-python==4.11.0.86 ; sys_platform != 'darwin'
-    # via rapidocr
-opencv-python==4.13.0.92 ; platform_machine != 's390x' and sys_platform == 'darwin'
+opencv-python==5.0.0.93
     # via rapidocr
 openpyxl==3.1.5
     # via docling-slim
@@ -614,7 +637,7 @@ orjson==3.11.7
     #   pymilvus
 ormsgpack==1.12.2
     # via langgraph-checkpoint
-packaging==25.0
+packaging==26.2
     # via
     #   accelerate
     #   huggingface-hub
@@ -624,8 +647,10 @@ packaging==25.0
     #   marshmallow
     #   onnxruntime
     #   prefect
-    #   safetensors
+    #   spacy
+    #   thinc
     #   transformers
+    #   weasel
 pandas==2.3.3
     # via
     #   docling-core
@@ -638,7 +663,7 @@ pathspec==1.1.1
     # via prefect
 pendulum==3.2.0
     # via prefect
-pillow==12.2.0
+pillow==12.3.0
     # via
     #   docling-core
     #   docling-ibm-models
@@ -658,19 +683,23 @@ polars==1.32.3
     #   docling-pipelines
 polyfactory==3.3.0
     # via docling-slim
-prefect==3.7.1
+prefect==3.8.3
     # via docling-pipelines
-prometheus-client==0.25.0
+preshed==3.0.13
+    # via
+    #   spacy
+    #   thinc
+prometheus-client==0.26.0
     # via
     #   prefect
     #   pydocket
-propcache==0.4.1
+propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
-proto-plus==1.27.2
+proto-plus==1.28.4
     # via google-api-core
-protobuf==7.34.1
+protobuf==6.33.6
     # via
     #   google-api-core
     #   googleapis-common-protos
@@ -684,7 +713,7 @@ psutil==7.2.2
     #   data-prep-toolkit
 psycopg2-binary==2.9.12
     # via docling-pipelines
-py-key-value-aio==0.4.4
+py-key-value-aio==0.4.5
     # via pydocket
 pyarrow==24.0.0
     # via
@@ -701,7 +730,7 @@ pyasn1-modules==0.4.2
     # via
     #   google-auth
     #   python-ldap
-pybind11==3.0.4
+pybind11==3.1.0
     # via fasttext-wheel
 pyclipper==1.4.0
     # via rapidocr
@@ -727,21 +756,24 @@ pydantic==2.12.5
     #   pydantic-extra-types
     #   pydantic-settings
     #   pyiceberg
+    #   spacy
     #   sqlmodel
+    #   thinc
+    #   weasel
 pydantic-core==2.41.5
     # via
     #   prefect
     #   pydantic
 pydantic-extra-types==2.11.1
     # via prefect
-pydantic-settings==2.14.0
+pydantic-settings==2.14.2
     # via
     #   docling-core
     #   docling-pipelines
     #   docling-slim
     #   langchain-community
     #   prefect
-pydocket==0.20.3
+pydocket==0.24.1
     # via prefect
 pygments==2.20.0
     # via
@@ -757,19 +789,19 @@ pyjwt==2.13.0
     # via
     #   docling-pipelines
     #   msal
-pylatexenc==2.10
+pylatexenc==2.11
     # via docling-slim
 pymilvus==2.6.13
     # via docling-pipelines
-pyopenssl==26.3.0
+pyopenssl==26.4.0
     # via docling-pipelines
 pyparsing==3.3.2
     # via
     #   httplib2
     #   pyiceberg
-pypdf==6.13.3
+pypdf==6.16.1
     # via docling-pipelines
-pypdfium2==5.7.1
+pypdfium2==5.13.0
     # via docling-slim
 pyphen==0.17.2
     # via docling-pipelines
@@ -787,7 +819,7 @@ python-dateutil==2.9.0.post0
     #   strictyaml
 python-docx==1.2.0
     # via docling-slim
-python-dotenv==1.2.1
+python-dotenv==1.2.2
     # via
     #   docling-pipelines
     #   docling-slim
@@ -797,23 +829,25 @@ python-dotenv==1.2.1
     #   uvicorn
 python-jose==3.5.0
     # via docling-pipelines
-python-json-logger==4.1.0
+python-json-logger==4.2.0
     # via
     #   data-prep-toolkit
     #   pydocket
 python-ldap==3.4.5
     # via docling-pipelines
+python-oxmsg==0.0.2
+    # via docling-slim
 python-pptx==1.0.2
     # via docling-slim
 python-slugify==8.0.4
     # via prefect
-pytz==2025.2
+pytz==2026.3.post1
     # via
     #   datefinder
     #   dateparser
     #   pandas
     #   prefect
-pywin32==311 ; sys_platform == 'win32'
+pywin32==312 ; sys_platform == 'win32'
     # via
     #   docker
     #   docling-parse
@@ -837,7 +871,7 @@ rapidocr==3.9.0
     # via docling-slim
 readchar==4.2.2
     # via prefect
-redis==7.4.0
+redis==8.1.0
     # via
     #   py-key-value-aio
     #   pydocket
@@ -845,14 +879,14 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-regex==2026.4.4
+regex==2026.7.19
     # via
     #   datefinder
     #   dateparser
     #   nltk
     #   tiktoken
     #   transformers
-requests==2.32.5
+requests==2.33.0
     # via
     #   apprise
     #   azure-core
@@ -875,6 +909,7 @@ requests==2.32.5
     #   rapidocr
     #   requests-oauthlib
     #   requests-toolbelt
+    #   spacy
     #   tiktoken
 requests-oauthlib==2.0.0
     # via
@@ -896,9 +931,9 @@ rich==13.9.4
     #   pyiceberg
     #   rich-rst
     #   typer
-rich-rst==2.0.1
+rich-rst==2.1.0
     # via cyclopts
-rpds-py==0.30.0
+rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
@@ -914,12 +949,12 @@ ruamel-yaml-clib==0.2.15 ; platform_python_implementation == 'CPython'
     # via prefect
 s3transfer==0.16.1
     # via boto3
-safetensors==0.7.0
+safetensors==0.8.0
     # via
     #   accelerate
     #   docling-ibm-models
     #   transformers
-scikit-learn==1.8.0
+scikit-learn==1.9.0
     # via sentence-transformers
 scipy==1.17.1
     # via
@@ -932,11 +967,13 @@ semver==3.0.4
     # via prefect
 sentence-transformers==5.4.1
     # via docling-pipelines
-setuptools==81.0.0
+setuptools==83.0.0
     # via
     #   docling-pipelines
     #   fasttext-wheel
     #   pymilvus
+    #   spacy
+    #   thinc
     #   torch
 shapely==2.1.2
     # via rapidocr
@@ -950,6 +987,8 @@ six==1.17.0
     #   python-dateutil
     #   rapidocr
     #   rfc3339-validator
+smart-open==8.0.1
+    # via weasel
 sniffio==1.3.1
     # via
     #   asgi-lifespan
@@ -957,8 +996,14 @@ sniffio==1.3.1
     #   prefect
 sortedcontainers==2.4.0
     # via pyiceberg
-soupsieve==2.8.4
+soupsieve==2.9.2
     # via beautifulsoup4
+spacy==3.8.16
+    # via docling-pipelines
+spacy-legacy==3.0.12
+    # via spacy
+spacy-loggers==1.0.5
+    # via spacy
 sqlalchemy==2.0.49
     # via
     #   alembic
@@ -971,10 +1016,15 @@ sqlglot==27.13.2
     # via docling-pipelines
 sqlmodel==0.0.38
     # via docling-pipelines
-starlette==1.3.1
+srsly==2.5.3
     # via
-    #   docling-pipelines
+    #   spacy
+    #   thinc
+    #   weasel
+starlette==1.6.0
+    # via
     #   fastapi
+    #   prefect
 strictyaml==1.7.3
     # via pyiceberg
 sympy==1.14.0
@@ -982,7 +1032,6 @@ sympy==1.14.0
 tabulate==0.9.0
     # via
     #   docling-core
-    #   docling-parse
     #   docling-pipelines
     #   ibm-watsonx-ai
 tenacity==8.3.0
@@ -993,9 +1042,11 @@ tenacity==8.3.0
     #   pyiceberg
 text-unidecode==1.3
     # via python-slugify
+thinc==8.3.13
+    # via spacy
 threadpoolctl==3.6.0
     # via scikit-learn
-tiktoken==0.12.0
+tiktoken==0.14.0
     # via litellm
 tokenizers==0.22.2
     # via
@@ -1005,7 +1056,7 @@ toml==0.10.2
     # via
     #   docling-pipelines
     #   prefect
-torch==2.12.1
+torch==2.13.0
     # via
     #   accelerate
     #   docling-ibm-models
@@ -1014,11 +1065,11 @@ torch==2.12.1
     #   safetensors
     #   sentence-transformers
     #   torchvision
-torchvision==0.27.1
+torchvision==0.28.0
     # via
     #   docling-ibm-models
     #   docling-slim
-tqdm==4.67.3
+tqdm==4.70.0
     # via
     #   datatrove
     #   docling-ibm-models
@@ -1030,6 +1081,7 @@ tqdm==4.67.3
     #   rapidocr
     #   semchunk
     #   sentence-transformers
+    #   spacy
     #   transformers
 transformers==5.8.1
     # via
@@ -1037,7 +1089,7 @@ transformers==5.8.1
     #   docling-ibm-models
     #   docling-pipelines
     #   sentence-transformers
-tree-sitter==0.25.2
+tree-sitter==0.26.0
     # via docling-core
 tree-sitter-c==0.24.2
     # via docling-core
@@ -1049,14 +1101,16 @@ tree-sitter-typescript==0.23.2
     # via docling-core
 triton==3.7.1 ; sys_platform == 'linux'
     # via torch
-typer==0.19.2
+typer==0.26.8
     # via
+    #   doclang
     #   docling-core
     #   docling-slim
-    #   huggingface-hub
     #   pydocket
+    #   spacy
     #   transformers
-typing-extensions==4.15.0
+    #   weasel
+typing-extensions==4.16.0
     # via
     #   aiohttp
     #   aiosignal
@@ -1083,6 +1137,7 @@ typing-extensions==4.15.0
     #   pydocket
     #   pyopenssl
     #   python-docx
+    #   python-oxmsg
     #   python-pptx
     #   referencing
     #   sentence-transformers
@@ -1090,17 +1145,16 @@ typing-extensions==4.15.0
     #   sqlmodel
     #   starlette
     #   torch
-    #   typer
     #   typing-inspect
     #   typing-inspection
 typing-inspect==0.9.0
     # via dataclasses-json
-typing-inspection==0.4.2
+typing-inspection==0.4.4
     # via
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.2
+tzdata==2026.3
     # via
     #   apprise
     #   faker
@@ -1109,11 +1163,11 @@ tzdata==2026.2
     #   pendulum
     #   pydocket
     #   tzlocal
-tzlocal==5.3.1
+tzlocal==5.4.4
     # via
     #   dateparser
     #   o365
-uncalled-for==0.3.2
+uncalled-for==0.4.0
     # via pydocket
 unicategories==0.1.2
     # via docling-pipelines
@@ -1130,7 +1184,7 @@ urllib3==2.7.0
     #   ibm-watsonx-ai
     #   opensearch-py
     #   requests
-uuid-utils==0.14.1
+uuid-utils==0.17.0
     # via
     #   langchain-core
     #   langsmith
@@ -1140,27 +1194,37 @@ uvicorn==0.40.0
     #   prefect
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
-watchfiles==1.1.1
+wasabi==1.1.3
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
+watchfiles==1.2.0
     # via uvicorn
-wcwidth==0.6.0
+wcwidth==0.8.3
     # via ftfy
-websockets==15.0.1
+weasel==1.0.0
+    # via spacy
+websockets==16.1.1
     # via
     #   docling-slim
     #   langgraph-sdk
+    #   langsmith
     #   prefect
     #   uvicorn
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
+wrapt==2.3.0
+    # via smart-open
 xlsxwriter==3.2.9
     # via python-pptx
-xxhash==3.7.0
+xxhash==4.0.1
     # via
     #   langgraph
     #   langsmith
-yarl==1.23.0
+yarl==1.24.5
     # via aiohttp
-zipp==3.23.1
+zipp==4.1.0
     # via importlib-metadata
 zstandard==0.25.0
     # via langsmith
