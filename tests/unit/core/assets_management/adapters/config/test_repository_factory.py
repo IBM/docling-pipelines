@@ -109,6 +109,16 @@ class TestRepositoryFactory:
         assert isinstance(repository, LocalFlowRepository)
         assert repository.flows_dir == custom_dir.resolve()
 
+    def test_load_yaml_config_falls_back_on_invalid_yaml(self, tmp_path, monkeypatch):
+        """Test that a malformed docpipe.yaml is swallowed and an empty config is returned."""
+        config_path = tmp_path / "docpipe.yaml"
+        config_path.write_text("assets_management: [unterminated", encoding="utf-8")
+
+        monkeypatch.setenv(ENV_CONFIG_PATH_KEY, str(config_path))
+
+        # Should not raise despite the invalid YAML; falls back to an empty config.
+        assert RepositoryFactory._load_yaml_config() == {}
+
     def test_create_flow_repository_env_base_dir_overrides_yaml(self, tmp_path, monkeypatch):
         """Test that LOCAL_FLOWS_DIR overrides docpipe.yaml base_dir."""
         yaml_dir = tmp_path / "yaml_flows"
