@@ -91,6 +91,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+mcp = [
+    "mcp>=1.0,<2.0",
+]
+
 dev = [
     "black==26.1.0",
     "detect-secrets==1.5.0",
@@ -146,6 +150,7 @@ vlm_asr = [
 [project.scripts]
 docling-pipelines-api = "docpipe.api.main:app"
 docling-pipelines = "docpipe.cli.docpipe_cli:main"
+docling-pipelines-docs-mcp = "docs_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/docpipe"]
