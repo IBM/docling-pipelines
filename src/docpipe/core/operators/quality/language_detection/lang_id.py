@@ -160,6 +160,46 @@ class LanguageDetect(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
+    def _handle_detection_error(
+        self,
+        *,
+        e: Exception,
+        idx: int,
+        file_name: Any,
+        table: pa.Table,
+        metadata: dict[str, Any],
+        language_name_column: list[str],
+        language_score_column: list[float],
+        remove_row_idx: list[int],
+        message: str,
+    ) -> str:
+        """Handle a language-detection failure for a single document.
+
+        Updates in-place collections and metadata. Returns the (possibly updated)
+        processing message.
+        """
+        if self.filter_value:
+            logger.error("User defined error for document %s: %s", file_name, e, extra=self.common_log_arguments)
+            remove_row_idx.append(idx)
+            error_detail = getattr(e, "message", None) or str(e) or repr(e)
+            self.record_failed_document(
+                metadata=metadata,
+                doc_id=table[OperatorConstants.Columns.ID][idx].as_py(),
+                doc_name=str(file_name),
+                reason=f"Filter out based on user selection with error: {error_detail}",
+            )
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS.value
+            if not message:
+                message = "Documents with no language detected are removed from the flow"
+        else:
+            logger.warning("Exception for document %s: %s", file_name, e, extra=self.common_log_arguments)
+            language_name_column.append("UNKNOWN")
+            language_score_column.append(0.0)
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+            if not message:
+                message = "Documents with no language detected are marked as UNKNOWN"
+        return message
+
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Detects all the available language and their respective score in the document
@@ -175,41 +215,26 @@ class LanguageDetect(AbstractOperator):
         remove_row_idx: list[int] = []
         message: str = ""
 
+        file_name_list: list[Any] = table[OperatorConstants.Misc.NAME].to_pandas().to_list()
+
         for idx, doc_content in enumerate(new_doc_content):
-            file_name_list: list[Any] = table[OperatorConstants.Misc.NAME].to_pandas().to_list()
             file_name: Any = file_name_list[idx] if idx < len(file_name_list) else "unknown"
             try:
                 result = self.language_adapter.detect_language(doc_content)
                 language_name_column.append(result.language_code)
                 language_score_column.append(result.confidence)
             except Exception as e:
-                if self.filter_value:
-                    logger.error(
-                        f"Used defined error for document {file_name}: {e}",
-                        extra=self.common_log_arguments,
-                    )
-                    remove_row_idx.append(idx)
-                    self.record_failed_document(
-                        metadata=metadata,
-                        doc_id=table[OperatorConstants.Columns.ID][idx].as_py(),
-                        doc_name=str(file_name),
-                        reason=f"Filter out based on user selection with error: {getattr(e, 'message', str(e)) if getattr(e, 'message', str(e)) else getattr(e, 'message', repr(e))}",
-                    )
-                    metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS.value
-                    if not message:
-                        message = "Documents with no language detected are removed from the flow"
-                else:
-                    language_name = "UNKNOWN"
-                    language_score_val: float = 0.0
-                    metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-                    logger.warning(
-                        f"Exception for document {file_name}: {e}",
-                        extra=self.common_log_arguments,
-                    )
-                    language_name_column.append(language_name)
-                    language_score_column.append(float(language_score_val))
-                    if not message:
-                        message = "Documents with no language detected are marked as UNKNOWN"
+                message = self._handle_detection_error(
+                    e=e,
+                    idx=idx,
+                    file_name=file_name,
+                    table=table,
+                    metadata=metadata,
+                    language_name_column=language_name_column,
+                    language_score_column=language_score_column,
+                    remove_row_idx=remove_row_idx,
+                    message=message,
+                )
 
         table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
 
