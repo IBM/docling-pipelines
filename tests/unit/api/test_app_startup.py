@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from docpipe.api.auth.dependencies import get_current_user
 from docpipe.api.auth.models import User
-from docpipe.api.main import app
+from docpipe.api.main import app, run
 from docpipe.api.middleware.security_headers import API_CSP, DOCS_CSP
 
 
@@ -23,6 +23,18 @@ def client() -> TestClient:
         username="testuser", email="test@example.com", full_name="Test User"
     )
     return TestClient(app)
+
+
+class TestEntryPoint:
+    """Test the docling-pipelines-api console entry point."""
+
+    def test_run_is_callable(self):
+        """Entry point must be a zero-argument callable, not an object instance."""
+        assert callable(run)
+
+    def test_run_is_not_the_app_object(self):
+        """Entry point must not point directly at the FastAPI app instance."""
+        assert run is not app
 
 
 class TestApplicationStartup:

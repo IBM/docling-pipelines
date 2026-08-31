@@ -118,7 +118,7 @@ Run any flow normally - telemetry will be automatically enabled:
 docling-pipelines --flow-file sample_flows/quickstart/basic_ingest_extract.json
 
 # API
-uvicorn docpipe.api.main:app --reload
+docling-pipelines-api
 ```
 
 ### 4. View Traces
