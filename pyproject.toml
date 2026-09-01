@@ -129,7 +129,9 @@ telemetry = [
     "opentelemetry-sdk==1.41.1",
 ]
 
-rapidocr = []
+rapidocr = [
+    "docling[rapidocr]==2.121.0",
+]
 
 easyocr = [
     "docling[easyocr]==2.121.0",
