@@ -592,6 +592,7 @@ class FlowValidator:
                 "available_for_vector_db": meta.available_for_vector_db,
                 "mandatory_for_vector_db": meta.mandatory_for_vector_db,
                 "type": meta.type,
+                "is_primary": meta.is_primary,
                 **({"source_node_id": meta.node_id} if meta.node_id else {}),
             }
             for name, meta in result.feature_metadata.items()

@@ -7,7 +7,7 @@ import pytest
 from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import OperatorCategory
-from docpipe.core.orchestration.feature_propagation.models import FeaturePropagationResult
+from docpipe.core.orchestration.feature_propagation.models import FeatureMetadata, FeaturePropagationResult
 from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
 from docpipe.exceptions.docpipe_exceptions import (
     FlowValidationException,
@@ -1316,6 +1316,89 @@ class TestPropagateFeaturesPerNode:
         assert "ingest-1" in result
         assert "extract-1" in result
         assert "operator" in result["ingest-1"]
+
+
+class TestFeatureMetadataIsPrimary:
+    """FeatureMetadata.is_primary — model field behaviour."""
+
+    def test_default_is_false(self):
+        meta = FeatureMetadata(name="doc_id", node_id="ingest-1")
+        assert meta.is_primary is False
+
+    def test_explicit_true(self):
+        meta = FeatureMetadata(name="doc_hash", node_id="hash-1", is_primary=True)
+        assert meta.is_primary is True
+
+    def test_explicit_false(self):
+        meta = FeatureMetadata(name="content", node_id="extract-1", is_primary=False)
+        assert meta.is_primary is False
+
+
+class TestFeaturePropagationResultAddFeatureIsPrimary:
+    """FeaturePropagationResult.add_feature() — is_primary resolution."""
+
+    def test_is_primary_explicit_true(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", is_primary=True)
+        assert result.feature_metadata["doc_hash"].is_primary is True
+
+    def test_is_primary_explicit_false_no_tag(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="content", node_id="extract-1", is_primary=False)
+        assert result.feature_metadata["content"].is_primary is False
+
+    def test_is_primary_derived_from_primary_tag(self):
+        """is_primary must be True when 'primary' appears in tags even if the flag is False."""
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_id", node_id="ingest-1", tags=["primary", "mandatory"], is_primary=False)
+        assert result.feature_metadata["doc_id"].is_primary is True
+
+    def test_is_primary_true_overrides_absent_tag(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", tags=["mandatory"], is_primary=True)
+        assert result.feature_metadata["doc_hash"].is_primary is True
+
+    def test_is_primary_false_with_non_primary_tags(self):
+        result = FeaturePropagationResult()
+        result.add_feature(
+            feature_name="content", node_id="extract-1", tags=["mandatory", "internal"], is_primary=False
+        )
+        assert result.feature_metadata["content"].is_primary is False
+
+    def test_is_primary_default_when_omitted(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="title", node_id="extract-1")
+        assert result.feature_metadata["title"].is_primary is False
+
+
+class TestFlowValidatorFeatureMetadataToDictIsPrimary:
+    """FlowValidator._feature_metadata_to_dict() — is_primary included in serialised output."""
+
+    @pytest.fixture
+    def validator(self):
+        mock_orchestrator = Mock()
+        mock_orchestrator.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orchestrator)
+
+    def test_is_primary_true_included(self, validator):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", is_primary=True)
+        output = validator._feature_metadata_to_dict(result=result)
+        assert output["doc_hash"]["is_primary"] is True
+
+    def test_is_primary_false_included(self, validator):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="content", node_id="extract-1", is_primary=False)
+        output = validator._feature_metadata_to_dict(result=result)
+        assert output["content"]["is_primary"] is False
+
+    def test_multiple_features_each_have_is_primary(self, validator):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", is_primary=True)
+        result.add_feature(feature_name="content", node_id="extract-1", is_primary=False)
+        output = validator._feature_metadata_to_dict(result=result)
+        assert output["doc_hash"]["is_primary"] is True
+        assert output["content"]["is_primary"] is False
 
 
 if __name__ == "__main__":
