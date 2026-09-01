@@ -9,12 +9,16 @@ It is suitable for programmatic access, UI integrations, and multi-tenant deploy
 ## Starting the Server
 
 ```bash
-# From the project root (recommended)
-uv run uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8080
+# Recommended — uses the installed console entry point
+source .venv/bin/activate
+docling-pipelines-api
 
-# Or with plain uvicorn after activating the virtual environment
+# Alternative — invoke uvicorn directly
 source .venv/bin/activate
 uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8080
+
+# Or via uv without activating the virtual environment
+uv run uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
 Once running, the following URLs are available:

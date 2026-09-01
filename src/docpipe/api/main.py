@@ -269,10 +269,15 @@ app.add_middleware(PayloadValidationMiddleware)
 app.include_router(api_router)
 
 
-if __name__ == "__main__":
+def run() -> None:
+    """Start the Uvicorn server for the Docpipe API."""
     uvicorn.run(
         "docpipe.api.main:app",
         host="127.0.0.1",
         port=8080,
         reload=True,
     )
+
+
+if __name__ == "__main__":
+    run()

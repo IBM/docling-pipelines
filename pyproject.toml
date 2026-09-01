@@ -159,7 +159,7 @@ Source = "https://github.com/IBM/docling-pipelines"
 "Bug Tracker" = "https://github.com/IBM/docling-pipelines/issues"
 
 [project.scripts]
-docling-pipelines-api = "docpipe.api.main:app"
+docling-pipelines-api = "docpipe.api.main:run"
 docling-pipelines = "docpipe.cli.docpipe_cli:main"
 
 [tool.hatch.build.targets.wheel]

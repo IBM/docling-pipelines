@@ -153,7 +153,7 @@ docling-pipelines --flow-file custom_flow.json
 export DOCPIPE_CUSTOM_OPERATORS="/path/to/operators/"
 
 # Start API server
-uvicorn docpipe.api.main:app --reload
+docling-pipelines-api
 
 # Submit flow via API
 curl -X POST http://localhost:8000/api/flows/execute \
