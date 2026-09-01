@@ -124,28 +124,8 @@ class FlowExecutionReporter:
             return "< 1s"
         return f"{float(time_taken):.2f}s"
 
-    def _print_schema_info(self, *, col_names: list[str], step_name: str) -> None:
-        """Print schema/column information in a user-friendly format.
-
-        Args:
-            col_names: List of column names in the table
-            step_name: Name of the operator step (for context)
-        """
-        if not col_names:
-            return
-
-        # Get new columns added by this operator
-        new_columns = self._get_new_columns(col_names=col_names)
-        # Get removed columns (columns that were in previous but not in current)
-        removed_columns = self._get_removed_columns(col_names=col_names)
-        existing_columns = [col for col in col_names if col not in new_columns]
-
-        total_cols = len(col_names)
-        new_cols_count = len(new_columns)
-        removed_cols_count = len(removed_columns)
-
-        logger.info("")
-        # Build the header message based on what changed
+    def _log_column_change_header(self, *, total_cols: int, new_cols_count: int, removed_cols_count: int) -> None:
+        """Log the Data Columns header line reflecting what changed."""
         if new_cols_count > 0 and removed_cols_count > 0:
             logger.info(
                 f" Data Columns: {total_cols} total ({new_cols_count} added, {removed_cols_count} removed by this operator)"
@@ -157,25 +137,41 @@ class FlowExecutionReporter:
         else:
             logger.info(f" Data Columns: {total_cols} total")
 
-        # Show new columns with appropriate formatting
+    def _print_schema_info(self, *, col_names: list[str], step_name: str) -> None:
+        """Print schema/column information in a user-friendly format.
+
+        Args:
+            col_names: List of column names in the table
+            step_name: Name of the operator step (for context)
+        """
+        if not col_names:
+            return
+
+        new_columns = self._get_new_columns(col_names=col_names)
+        removed_columns = self._get_removed_columns(col_names=col_names)
+        existing_columns = [col for col in col_names if col not in new_columns]
+
+        total_cols = len(col_names)
+        new_cols_count = len(new_columns)
+        removed_cols_count = len(removed_columns)
+
+        logger.info("")
+        self._log_column_change_header(
+            total_cols=total_cols, new_cols_count=new_cols_count, removed_cols_count=removed_cols_count
+        )
+
         if new_columns:
             logger.info(f"   Added ({new_cols_count}):")
             self._print_column_list(new_columns)
-
-            # Add spacing before removed/existing columns
             if removed_columns or existing_columns:
                 logger.info("")
 
-        # Show removed columns with appropriate formatting
         if removed_columns:
             logger.info(f"   Removed ({removed_cols_count}):")
             self._print_column_list(removed_columns)
-
-            # Add spacing before existing columns
             if existing_columns:
                 logger.info("")
 
-        # Show existing columns if any
         if existing_columns:
             logger.info(f"   Existing ({len(existing_columns)}): {', '.join(existing_columns[:10])}")
             if len(existing_columns) > 10:
@@ -456,19 +452,21 @@ class FlowExecutionReporter:
             display_name = field.replace("_", " ").title()
             self._format_dict_field(display_name, value)
 
+    def _print_nested_dict_field(self, *, display_name: str, value: dict) -> None:
+        """Print a dict field that contains nested dict values."""
+        logger.info(f"   {display_name}:")
+        for k, v in value.items():
+            if isinstance(v, dict):
+                logger.info(f"      {k}:")
+                for nested_k, nested_v in v.items():
+                    logger.info(f"         {nested_k}: {nested_v}")
+            else:
+                logger.info(f"      {k}: {v}")
+
     def _format_dict_field(self, display_name: str, value: dict) -> None:
         """Format and print a dictionary field."""
-        has_nested_dicts = any(isinstance(v, dict) for v in value.values())
-
-        if has_nested_dicts:
-            logger.info(f"   {display_name}:")
-            for k, v in value.items():
-                if isinstance(v, dict):
-                    logger.info(f"      {k}:")
-                    for nested_k, nested_v in v.items():
-                        logger.info(f"         {nested_k}: {nested_v}")
-                else:
-                    logger.info(f"      {k}: {v}")
+        if any(isinstance(v, dict) for v in value.values()):
+            self._print_nested_dict_field(display_name=display_name, value=value)
         elif len(value) <= 10:
             formatted = ", ".join(f"{k}={v}" for k, v in value.items())
             logger.info(f"   {display_name}: {formatted}")
@@ -538,6 +536,34 @@ class FlowExecutionReporter:
         else:
             logger.info(f"   {display_name}: []")
 
+    def _find_doc_name_in_table(self, *, table: Any, doc_id: str) -> str | None:
+        """Search a single PyArrow table for a document name matching doc_id.
+
+        Args:
+            table: A PyArrow table to search
+            doc_id: Document ID to look up
+
+        Returns:
+            Document name/path if found, None otherwise
+        """
+        id_column = OperatorConstants.Columns.ID
+        if id_column not in table.column_names:
+            return None
+
+        search_id = str(doc_id)
+        id_col = table.column(id_column)
+        for idx in range(len(id_col)):
+            if str(id_col[idx].as_py()) == search_id:
+                for col_name in ["name", "path"]:
+                    if col_name in table.column_names:
+                        name_value = table.column(col_name)[idx].as_py()
+                        if name_value and str(name_value) != search_id:
+                            return name_value
+                # Found the row but no usable name/path — use fallback
+                return None
+
+        return None
+
     def _lookup_doc_name_from_table(self, doc_id: str) -> str | None:
         """Look up document name from PyArrow table using document ID.
 
@@ -551,7 +577,6 @@ class FlowExecutionReporter:
             return None
 
         try:
-            # Try current tables first, then previous tables (for skipped docs)
             tables_to_search = []
             if self._current_tables:
                 tables_to_search.extend(self._current_tables)
@@ -561,34 +586,12 @@ class FlowExecutionReporter:
             if not tables_to_search:
                 return None
 
-            # Try each table in the list
             for table in tables_to_search:
                 if table is None:
                     continue
-
-                # Check if table has the 'id' column
-                id_column = OperatorConstants.Columns.ID
-                if id_column not in table.column_names:
-                    continue
-
-                # Look for the document ID by iterating through rows
-                id_col = table.column(id_column)
-                for idx in range(len(id_col)):
-                    # Convert both to string for comparison
-                    row_id = str(id_col[idx].as_py())
-                    search_id = str(doc_id)
-
-                    if row_id == search_id:
-                        # Found the document, now get its name
-                        # Try 'name' column first, then 'path'
-                        for col_name in ["name", "path"]:
-                            if col_name in table.column_names:
-                                name_value = table.column(col_name)[idx].as_py()
-                                if name_value and str(name_value) != search_id:
-                                    return name_value
-
-                        # If name/path same as ID, return None to use fallback
-                        return None
+                result = self._find_doc_name_in_table(table=table, doc_id=doc_id)
+                if result is not None:
+                    return result
 
             return None
         except Exception:

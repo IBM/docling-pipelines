@@ -217,6 +217,61 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         """Return list of required input features."""
         return []
 
+    def _validate_provider(self, *, errors: list[str]) -> None:
+        """Validate provider type and value against supported providers."""
+        if not self.should_validate_field(field_value=self.provider):
+            return
+        if not isinstance(self.provider, str):
+            errors.append(f"provider must be a string, got {type(self.provider)}")
+            return
+        supported_providers = LLMAdapterFactory.get_supported_providers(capability="embedding")
+        if self.provider not in supported_providers:
+            errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
+
+    def _validate_overlap_and_token(self, *, errors: list[str]) -> None:
+        """Validate overlap_ratio and token_limit configuration values."""
+        if self.should_validate_field(field_value=self.overlap_ratio):
+            if not isinstance(self.overlap_ratio, (int, float)):
+                errors.append(f"overlap_ratio must be a number, got {type(self.overlap_ratio)}")
+            elif not (OVERLAP_RATIO_MIN <= self.overlap_ratio <= OVERLAP_RATIO_MAX):
+                errors.append(f"overlap_ratio must be between {OVERLAP_RATIO_MIN} and {OVERLAP_RATIO_MAX}")
+
+        if self.should_validate_field(field_value=self.token_limit):
+            if not isinstance(self.token_limit, int):
+                errors.append(f"token_limit must be an integer, got {type(self.token_limit)}")
+            elif self.token_limit <= 0:
+                errors.append(f"token_limit must be positive, got {self.token_limit}")
+
+    def _validate_provider_config(self, *, errors: list[str]) -> None:
+        """Validate provider_config dict including model_id, max_concurrent_requests, and batch_size."""
+        if not self.should_validate_field(field_value=self.provider_config):
+            return
+        if not isinstance(self.provider_config, dict):
+            errors.append(f"provider_config must be a dictionary, got {type(self.provider_config)}")
+            return
+
+        model_id = self.provider_config.get(OperatorConstants.Config.MODEL_ID)
+        if not model_id or not isinstance(model_id, str):
+            errors.append("provider_config.model_id is required and must be a non-empty string")
+
+        max_concurrent_requests = self.provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
+        if max_concurrent_requests is not None and self.should_validate_field(field_value=max_concurrent_requests):
+            if not isinstance(max_concurrent_requests, int):
+                errors.append(
+                    f"provider_config.max_concurrent_requests must be an integer, got {type(max_concurrent_requests).__name__}"
+                )
+            elif max_concurrent_requests <= 0:
+                errors.append(
+                    f"provider_config.max_concurrent_requests must be positive, got {max_concurrent_requests}"
+                )
+
+        batch_size = self.provider_config.get(OperatorConstants.Config.BATCH_SIZE)
+        if batch_size is not None and self.should_validate_field(field_value=batch_size):
+            if not isinstance(batch_size, int):
+                errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
+            elif batch_size <= 0:
+                errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
+
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
         Validate operator configuration.
@@ -238,71 +293,17 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 f"or '{OperatorConstants.Columns.CHUNKED_CONTENT}' column to be available"
             )
 
-        # Get metadata and extract ATTRIBUTES for validation
+        # Validate configuration against metadata
         metadata = self.get_metadata()
         attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
-
-        # Validate configuration against metadata
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
-        # Validate provider
-        if self.should_validate_field(field_value=self.provider):
-            if not isinstance(self.provider, str):
-                errors.append(f"provider must be a string, got {type(self.provider)}")
-            else:
-                supported_providers = LLMAdapterFactory.get_supported_providers(capability="embedding")
-                if self.provider not in supported_providers:
-                    errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
-
-        # Validate overlap ratio
-        if self.should_validate_field(field_value=self.overlap_ratio):
-            if not isinstance(self.overlap_ratio, (int, float)):
-                errors.append(f"overlap_ratio must be a number, got {type(self.overlap_ratio)}")
-            elif not (OVERLAP_RATIO_MIN <= self.overlap_ratio <= OVERLAP_RATIO_MAX):
-                errors.append(f"overlap_ratio must be between {OVERLAP_RATIO_MIN} and {OVERLAP_RATIO_MAX}")
-
-        # Validate token limit
-        if self.should_validate_field(field_value=self.token_limit):
-            if not isinstance(self.token_limit, int):
-                errors.append(f"token_limit must be an integer, got {type(self.token_limit)}")
-            elif self.token_limit <= 0:
-                errors.append(f"token_limit must be positive, got {self.token_limit}")
-
-        # Validate provider_config and model_id
-        if self.should_validate_field(field_value=self.provider_config):
-            if not isinstance(self.provider_config, dict):
-                errors.append(f"provider_config must be a dictionary, got {type(self.provider_config)}")
-            else:
-                # Validate model_id within provider_config
-                model_id = self.provider_config.get(OperatorConstants.Config.MODEL_ID)
-                if not model_id or not isinstance(model_id, str):
-                    errors.append("provider_config.model_id is required and must be a non-empty string")
-
-                # Validate max_concurrent_requests if present
-                max_concurrent_requests = self.provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
-                if max_concurrent_requests is not None and self.should_validate_field(
-                    field_value=max_concurrent_requests
-                ):
-                    if not isinstance(max_concurrent_requests, int):
-                        errors.append(
-                            f"provider_config.max_concurrent_requests must be an integer, got {type(max_concurrent_requests).__name__}"
-                        )
-                    elif max_concurrent_requests <= 0:
-                        errors.append(
-                            f"provider_config.max_concurrent_requests must be positive, got {max_concurrent_requests}"
-                        )
-
-                # Validate batch_size if present
-                batch_size = self.provider_config.get(OperatorConstants.Config.BATCH_SIZE)
-                if batch_size is not None and self.should_validate_field(field_value=batch_size):
-                    if not isinstance(batch_size, int):
-                        errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
-                    elif batch_size <= 0:
-                        errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
+        self._validate_provider(errors=errors)
+        self._validate_overlap_and_token(errors=errors)
+        self._validate_provider_config(errors=errors)
 
         # Check if chunked_content feature is available (always validate, even during flow validation)
-        chunked_content_exists = OperatorConstants.Columns.CHUNKED_CONTENT in available_features
-        if not chunked_content_exists:
+        if OperatorConstants.Columns.CHUNKED_CONTENT not in available_features:
             from docpipe.exceptions.error_messages import ValidationCodeMessages
 
             warnings.append(ValidationCodeMessages.CHUNKER_OPERATOR_MISSING)

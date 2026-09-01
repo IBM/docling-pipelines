@@ -213,31 +213,20 @@ class AuthoringFlow:
     global_config: dict[str, Any] = field(default_factory=dict)
     flow_source: FlowSource = FlowSource.CLI
 
-    def validate(self) -> None:
-        """Validate the entire authoring flow.
-
-        Raises:
-            FlowInvalidDataException: If validation fails. Contains all validation
-                errors in the message for better user experience.
-        """
-        errors = []
-
-        # Validate flow_source
+    def _validate_global_fields(self, *, errors: list[str]) -> None:
+        """Validate flow_source, flow_name, description, and global_config fields."""
         if self.flow_source not in FlowSource:
             valid_sources = ", ".join([s.value for s in FlowSource])
             errors.append(f"Invalid flow_source '{self.flow_source}'. Must be one of: {valid_sources}")
 
-        # Validate flow_name
         if not self.flow_name or not self.flow_name.strip():
             errors.append("Flow name cannot be empty")
         elif len(self.flow_name) > 255:
             errors.append("Flow name cannot exceed 255 characters")
 
-        # Validate description length
         if self.description and len(self.description) > 2000:
             errors.append("Flow description cannot exceed 2000 characters")
 
-        # Validate disable_validation is boolean if present in global_config
         if OperatorConstants.Config.DISABLE_VALIDATION in self.global_config:
             disable_val = self.global_config[OperatorConstants.Config.DISABLE_VALIDATION]
             if not isinstance(disable_val, bool):
@@ -246,13 +235,8 @@ class AuthoringFlow:
                     f"got {type(disable_val).__name__}: {disable_val}"
                 )
 
-        # Validate flow is not empty
-        if not self.flow or len(self.flow) == 0:
-            raise FlowInvalidDataException(
-                message="Flow must contain at least one operator", field_name=DocpipeConstants.FLOW
-            )
-
-        # Validate all operators have names and check for uniqueness
+    def _collect_operator_map(self, *, errors: list[str]) -> tuple[set[str], dict[str, "AuthoringOperator"]]:
+        """Build operator name set and map, appending errors for missing or duplicate names."""
         operator_names: set[str] = set()
         operator_map: dict[str, AuthoringOperator] = {}
 
@@ -265,23 +249,71 @@ class AuthoringFlow:
                 operator_names.add(operator.name)
                 operator_map[operator.name] = operator
 
+        return operator_names, operator_map
+
+    def validate(self) -> None:
+        """Validate the entire authoring flow.
+
+        Raises:
+            FlowInvalidDataException: If validation fails. Contains all validation
+                errors in the message for better user experience.
+        """
+        errors: list[str] = []
+
+        self._validate_global_fields(errors=errors)
+
+        # Validate flow is not empty
+        if not self.flow or len(self.flow) == 0:
+            raise FlowInvalidDataException(
+                message="Flow must contain at least one operator", field_name=DocpipeConstants.FLOW
+            )
+
+        operator_names, operator_map = self._collect_operator_map(errors=errors)
+
         # Validate each operator
         for operator in self.flow:
-            operator_errors = operator.validate(all_operator_names=operator_names, operator_map=operator_map)
-            errors.extend(operator_errors)
+            errors.extend(operator.validate(all_operator_names=operator_names, operator_map=operator_map))
 
         # Ensure at least one operator has no dependencies (entry point)
-        has_root = any(len(op.depends_on) == 0 for op in self.flow)
-        if not has_root:
+        if not any(len(op.depends_on) == 0 for op in self.flow):
             errors.append("Flow must have at least one operator with no dependencies (entry point)")
 
-        # Check for circular dependencies
         errors.extend(self._check_circular_dependencies())
 
-        # If there are any errors, raise exception with all of them
         if errors:
             error_message = "Authoring flow validation failed:\n" + "\n".join(f"  - {err}" for err in errors)
             raise FlowInvalidDataException(message=error_message, field_name="flow")
+
+    def _build_dependency_graph(self) -> dict[str, set[str]]:
+        """Build a dependency graph mapping each operator name to its direct dependencies."""
+        dependencies: dict[str, set[str]] = {}
+        for operator in self.flow:
+            if operator.name:
+                deps = set()
+                for dep in operator.depends_on:
+                    if OperatorConstants.Misc.BRANCH_SEPARATOR in dep:
+                        dep = dep.split(OperatorConstants.Misc.BRANCH_SEPARATOR, 1)[0]
+                    deps.add(dep)
+                dependencies[operator.name] = deps
+        return dependencies
+
+    @staticmethod
+    def _has_cycle(*, node: str, dependencies: dict[str, set[str]], visited: set[str], rec_stack: set[str]) -> bool:
+        """DFS-based cycle detection. Returns True if a cycle is reachable from node."""
+        visited.add(node)
+        rec_stack.add(node)
+
+        for neighbor in dependencies.get(node, set()):
+            if neighbor not in visited:
+                if AuthoringFlow._has_cycle(
+                    node=neighbor, dependencies=dependencies, visited=visited, rec_stack=rec_stack
+                ):
+                    return True
+            elif neighbor in rec_stack:
+                return True
+
+        rec_stack.remove(node)
+        return False
 
     def _check_circular_dependencies(self) -> list[str]:
         """Check for circular dependencies in the flow.
@@ -289,46 +321,18 @@ class AuthoringFlow:
         Returns:
             List of error messages for circular dependencies
         """
-        errors = []
-
-        # Build dependency graph
-        dependencies: dict[str, set[str]] = {}
-        for operator in self.flow:
-            if operator.name:
-                deps = set()
-                for dep in operator.depends_on:
-                    # Extract operator name from branch references
-                    if OperatorConstants.Misc.BRANCH_SEPARATOR in dep:
-                        dep = dep.split(OperatorConstants.Misc.BRANCH_SEPARATOR, 1)[0]
-                    deps.add(dep)
-                dependencies[operator.name] = deps
+        errors: list[str] = []
+        dependencies = self._build_dependency_graph()
 
         # Check for self-dependencies
         for op_name, deps in dependencies.items():
             if op_name in deps:
                 errors.append(f"Operator '{op_name}' cannot depend on itself")
 
-        # Simple cycle detection using DFS
-        def has_cycle(*, node: str, visited: set[str], rec_stack: set[str]) -> bool:
-            visited.add(node)
-            rec_stack.add(node)
-
-            for neighbor in dependencies.get(node, set()):
-                if neighbor not in visited:
-                    if has_cycle(node=neighbor, visited=visited, rec_stack=rec_stack):
-                        return True
-                elif neighbor in rec_stack:
-                    return True
-
-            rec_stack.remove(node)
-            return False
-
-        visited: set[str] = set()
         for op_name in dependencies:
-            if op_name not in visited:
-                if has_cycle(node=op_name, visited=set(), rec_stack=set()):
-                    errors.append(f"Circular dependency detected involving operator '{op_name}'")
-                    break
+            if AuthoringFlow._has_cycle(node=op_name, dependencies=dependencies, visited=set(), rec_stack=set()):
+                errors.append(f"Circular dependency detected involving operator '{op_name}'")
+                break
 
         return errors
 

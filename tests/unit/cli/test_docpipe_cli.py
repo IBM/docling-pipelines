@@ -19,6 +19,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from docpipe.cli.docpipe_cli import (
+    _execute_flow_or_exit,
+    _load_flow_or_exit,
     load_flow_definition,
     main,
     validate_flow_definition,
@@ -493,6 +495,101 @@ class TestVaultInitializerWiring:
         run_command_line_executor(flow_def=flow_def)
 
         mock_init.assert_called_once()
+
+
+class TestLoadFlowOrExit:
+    """Unit tests for _load_flow_or_exit helper."""
+
+    def test_returns_tuple_on_success(self, valid_flow_file):
+        """Returns (original_json, compiled_dag) on a valid flow file."""
+        original, dag = _load_flow_or_exit(flow_file=valid_flow_file)
+        assert "flow_name" in original
+        assert "dag" in dag
+
+    def test_exits_1_on_file_not_found(self, tmp_path):
+        """Exits with code 1 when the flow file does not exist."""
+        with pytest.raises(SystemExit) as exc_info:
+            _load_flow_or_exit(flow_file=str(tmp_path / "missing.json"))
+        assert exc_info.value.code == 1
+
+    def test_exits_1_on_invalid_json(self, malformed_json_file):
+        """Exits with code 1 when the flow file contains malformed JSON."""
+        with pytest.raises(SystemExit) as exc_info:
+            _load_flow_or_exit(flow_file=malformed_json_file)
+        assert exc_info.value.code == 1
+
+    def test_exits_1_on_flow_invalid_data(self, tmp_path):
+        """Exits with code 1 when the flow definition is invalid (FlowInvalidDataException)."""
+        flow_file = tmp_path / "empty_flow.json"
+        flow_file.write_text(json.dumps({"flow_name": "x", "flow": [], "global_config": {}}))
+        with pytest.raises(SystemExit) as exc_info:
+            _load_flow_or_exit(flow_file=str(flow_file))
+        assert exc_info.value.code == 1
+
+    def test_exits_1_on_missing_key(self, tmp_path):
+        """Exits with code 1 when a required key (flow_name) is missing."""
+        flow_file = tmp_path / "no_flow_name.json"
+        flow_file.write_text(json.dumps({"flow": []}))
+        with pytest.raises(SystemExit) as exc_info:
+            _load_flow_or_exit(flow_file=str(flow_file))
+        assert exc_info.value.code == 1
+
+    def test_exits_1_on_unexpected_exception(self, valid_flow_file):
+        """Exits with code 1 when load_flow_definition raises an unexpected exception."""
+        with patch("docpipe.cli.docpipe_cli.load_flow_definition", side_effect=RuntimeError("error message")):
+            with pytest.raises(SystemExit) as exc_info:
+                _load_flow_or_exit(flow_file=valid_flow_file)
+        assert exc_info.value.code == 1
+
+
+class TestExecuteFlowOrExit:
+    """Unit tests for _execute_flow_or_exit helper."""
+
+    def test_calls_executor_and_returns(self):
+        """Calls run_command_line_executor without raising on success."""
+        flow_def = {"name": "test-flow", "dag": [], "global_config": {}}
+        with patch("docpipe.cli.docpipe_cli.run_command_line_executor") as mock_exec:
+            _execute_flow_or_exit(flow_def=flow_def, original_flow_json={})
+        mock_exec.assert_called_once_with(flow_def=flow_def, original_flow_json={})
+
+    def test_exits_1_on_docpipe_exception(self):
+        """Exits with code 1 when a DocpipeException is raised."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
+        flow_def = {"name": "test-flow", "dag": [], "global_config": {}}
+        with patch(
+            "docpipe.cli.docpipe_cli.run_command_line_executor",
+            side_effect=DocpipeException("something failed"),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                _execute_flow_or_exit(flow_def=flow_def, original_flow_json={})
+        assert exc_info.value.code == 1
+
+    def test_exits_1_on_flow_validation_exception_with_flow_name(self):
+        """Exits with code 1 and uses format_validation_exception when FlowValidationException raised."""
+        from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+
+        flow_def = {"name": "my-flow", "dag": [], "global_config": {}}
+        exc = FlowValidationException(errors=[], warnings=[])
+        with patch("docpipe.cli.docpipe_cli.run_command_line_executor", side_effect=exc):
+            with patch(
+                "docpipe.utils.infrastructure.error_formatter.format_validation_exception",
+                return_value="formatted",
+            ):
+                with pytest.raises(SystemExit) as exc_info:
+                    _execute_flow_or_exit(flow_def=flow_def, original_flow_json={})
+        assert exc_info.value.code == 1
+
+    def test_exits_1_on_generic_exception(self):
+        """Exits with code 1 and formats via format_generic_exception for non-Docpipe errors."""
+        flow_def = {"name": "test-flow", "dag": [], "global_config": {}}
+        with patch(
+            "docpipe.cli.docpipe_cli.run_command_line_executor",
+            side_effect=ValueError("unexpected"),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                _execute_flow_or_exit(flow_def=flow_def, original_flow_json={})
+        assert exc_info.value.code == 1
 
 
 class TestMicroBatchingDefaults:
