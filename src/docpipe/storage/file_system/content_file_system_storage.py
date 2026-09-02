@@ -87,10 +87,13 @@ class ContentFileSystemStorage(AbstractFileSystemStorage, ContentStoragePort):
 
     def check_data_availability(self, *, collection: str) -> tuple[bool, str]:
         """
-        Check whether ingest parquet files exist under the given collection.
+        Check whether any operator parquet output exists under the given collection.
 
         Parquet files are expected at:
-            {base_dir}/{collection}/data/ingest*_0/output.parquet
+            {base_dir}/{collection}/data/{node_name}_0/output.parquet
+
+        where ``{node_name}`` is the user-defined step name from the flow definition,
+        sanitised with ``re.sub(r'\\W+', '_')``.
 
         Args:
             collection: Sub-path of the form ``"{job_id}/{job_run_id}"``.
@@ -103,17 +106,12 @@ class ContentFileSystemStorage(AbstractFileSystemStorage, ContentStoragePort):
         if not data_dir.exists():
             return False, f"Data directory not found: {data_dir}"
 
-        ingest_dirs = list(data_dir.glob("ingest*_0"))
-        if not ingest_dirs:
-            return False, f"No ingest operator directory found in {data_dir}"
+        parquet_files = list(data_dir.glob("*/output.parquet"))
+        if not parquet_files:
+            return False, f"No output.parquet found in {data_dir}"
 
-        for ingest_dir in ingest_dirs:
-            parquet_file = ingest_dir / "output.parquet"
-            if parquet_file.exists():
-                logger.info("Found ingest parquet file: %s", parquet_file)
-                return True, ""
-
-        return False, f"No ingest parquet file found in {data_dir}"
+        logger.info("Found parquet file: %s", parquet_files[0])
+        return True, ""
 
     def write_text(self, *, collection: str, file_name: str, content: str) -> str:
         """Write content to a file. Delegates to write_file."""

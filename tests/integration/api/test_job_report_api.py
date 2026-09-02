@@ -256,6 +256,70 @@ doc2,émoji🚀.docx,Failed
             finally:
                 app.dependency_overrides.clear()
 
+    @patch("docpipe.core.job_management.application.services.report_generator.JobReportGenerator.generate_csv_content")
+    @patch("docpipe.core.job_management.application.services.report_utils.check_parquet_availability")
+    @patch("docpipe.core.job_management.application.services.report_utils.read_report_from_storage")
+    def test_download_report_returns_422_when_no_document_data(
+        self, mock_read_report, mock_parquet, mock_generate_csv, client, mock_job_stats_completed
+    ):
+        """Returns 422 when parquet files exist but generate_csv_content returns empty string (no documents processed)."""
+        job_run_id = mock_job_stats_completed.job_run_id
+
+        mock_read_report.return_value = ""
+        mock_parquet.return_value = (True, "")
+        # Parquet files exist but no document data inside them
+        mock_generate_csv.return_value = ""
+
+        mock_stats_service = MagicMock()
+        mock_stats_service.get_job.return_value = mock_job_stats_completed
+        mock_stats_service.get_flow_definition.return_value = {"dag": []}
+        app.dependency_overrides[get_job_stats_service] = lambda: mock_stats_service
+
+        try:
+            response = client.get(f"/api/v1/job_runs/{job_run_id}/report")
+
+            assert response.status_code == 422
+            response_data = response.json()
+            assert "errors" in response_data
+            assert "no document data" in response_data["errors"][0]["message"].lower()
+        finally:
+            app.dependency_overrides.clear()
+
+    @patch("docpipe.core.job_management.application.services.report_utils.check_parquet_availability")
+    @patch("docpipe.core.job_management.application.services.report_utils.read_report_from_storage")
+    def test_download_report_reraises_job_run_operation_failed_not_wrapped_as_500(
+        self, mock_read_report, mock_parquet, client, mock_job_stats_completed
+    ):
+        """JobRunOperationFailedException raised inside the try block is re-raised as-is, not wrapped as 500."""
+        from docpipe.exceptions.docpipe_exceptions import JobRunOperationFailedException
+
+        job_run_id = mock_job_stats_completed.job_run_id
+
+        mock_read_report.return_value = ""
+        mock_parquet.return_value = (True, "")
+
+        mock_stats_service = MagicMock()
+        mock_stats_service.get_job.return_value = mock_job_stats_completed
+        # Raise a 422 JobRunOperationFailedException from get_flow_definition (inside the try block)
+        mock_stats_service.get_flow_definition.side_effect = JobRunOperationFailedException(
+            message="Upstream failure",
+            job_run_id=job_run_id,
+            operation="get_flow_definition",
+            status_code=422,
+        )
+        app.dependency_overrides[get_job_stats_service] = lambda: mock_stats_service
+
+        try:
+            response = client.get(f"/api/v1/job_runs/{job_run_id}/report")
+
+            # Must preserve the original 422 status code — not wrapped as 500
+            assert response.status_code == 422
+            response_data = response.json()
+            assert "errors" in response_data
+            assert "Upstream failure" in response_data["errors"][0]["message"]
+        finally:
+            app.dependency_overrides.clear()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
