@@ -13,7 +13,7 @@ Features:
 
 from typing import Any, cast
 
-from sqlalchemy import Column, MetaData, String, delete, text
+from sqlalchemy import MetaData, delete, text
 from sqlalchemy import Table as SATable
 from sqlmodel import select
 
@@ -49,7 +49,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
     Schema: incremental_metadata (configurable)
     Table: inc_update_metadata
 
-    Primary Key: (job_id, doc_id)
+    Primary Key: (job_id, id)
 
     Configuration:
         Set environment variables or provide config dict:
@@ -249,14 +249,15 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
 
         try:
             with self._session_factory() as session:
+                table_c = cast(SATable, IncrementalMetadataPostgresModel.__table__).c  # type: ignore[attr-defined]
                 session.execute(
                     delete(IncrementalMetadataPostgresModel).where(
-                        Column("job_id", String) == job_id,
-                        Column("doc_id", String).in_(doc_ids),
+                        table_c.job_id == job_id,
+                        table_c.id.in_(doc_ids),
                     )
                 )
                 session.commit()
-                logger.info(f"Deleted {len(doc_ids)} docs for job_id={job_id}")
+                logger.info("Deleted %s docs for job_id=%s", len(doc_ids), job_id)
 
         except Exception as exc:
             raise FlowExecutionFailedException(f"Failed to delete docs for job_id={job_id}: {exc}") from exc
@@ -265,13 +266,14 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
         """Clear all incremental metadata for a specific job."""
         try:
             with self._session_factory() as session:
+                table_c = cast(SATable, IncrementalMetadataPostgresModel.__table__).c  # type: ignore[attr-defined]
                 session.execute(
                     delete(IncrementalMetadataPostgresModel).where(
-                        Column("job_id", String) == job_id,
+                        table_c.job_id == job_id,
                     )
                 )
                 session.commit()
-                logger.info(f"Cleared all metadata for job_id={job_id}")
+                logger.info("Cleared all metadata for job_id=%s", job_id)
 
         except Exception as exc:
             raise FlowExecutionFailedException(f"Failed to clear metadata for job_id={job_id}: {exc}") from exc

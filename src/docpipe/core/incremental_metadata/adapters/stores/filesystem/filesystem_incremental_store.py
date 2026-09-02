@@ -65,7 +65,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
 
     Schema:
         - job_id: string
-        - doc_id: string
+        - id: string
         - name: string (nullable)
         - modified_time: int64 (nullable)
         - job_run_id: string (nullable)
@@ -78,7 +78,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
     SCHEMA = pa.schema(
         [
             ("job_id", pa.string()),
-            ("doc_id", pa.string()),
+            ("id", pa.string()),
             ("name", pa.string()),
             ("modified_time", pa.int64()),
             ("job_run_id", pa.string()),
@@ -194,7 +194,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
         """Convert list of records to PyArrow table."""
         data = {
             "job_id": [r.job_id for r in records],
-            "doc_id": [r.doc_id for r in records],
+            "id": [r.doc_id for r in records],
             "name": [r.name for r in records],
             "modified_time": [r.modified_time for r in records],
             "job_run_id": [r.job_run_id for r in records],
@@ -220,7 +220,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                 # Build result dictionary
                 result = {}
                 for i in range(filtered_table.num_rows):
-                    doc_id = filtered_table["doc_id"][i].as_py()
+                    doc_id = filtered_table["id"][i].as_py()
                     modified_time = filtered_table["modified_time"][i].as_py()
                     job_run_id = filtered_table["job_run_id"][i].as_py()
                     result[doc_id] = {"modified_time": modified_time, "job_run_id": job_run_id}
@@ -256,7 +256,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                 new_doc_ids = {r.doc_id for r in records}
 
                 # Filter out existing records that will be updated
-                mask = pc.invert(pc.is_in(existing_table["doc_id"], pa.array(list(new_doc_ids))))  # type: ignore[attr-defined]
+                mask = pc.invert(pc.is_in(existing_table["id"], pa.array(list(new_doc_ids))))  # type: ignore[attr-defined]
                 filtered_existing = existing_table.filter(mask)
 
                 # Concatenate filtered existing with new records
@@ -283,7 +283,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                 mask = pc.equal(table["deleted"], True)  # type: ignore[attr-defined]
                 deleted_table = table.filter(mask)
 
-                result = set(deleted_table["doc_id"].to_pylist())
+                result = set(deleted_table["id"].to_pylist())
                 logger.debug(f"Retrieved {len(result)} soft-deleted docs for job_id={job_id}")
                 return result
 
@@ -305,12 +305,12 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
 
                 # Find documents not in current list and not already deleted
                 mask_not_deleted = pc.equal(table["deleted"], False)  # type: ignore[attr-defined]
-                mask_not_in_current = pc.invert(pc.is_in(table["doc_id"], pa.array(list(current_doc_ids))))  # type: ignore[attr-defined]
+                mask_not_in_current = pc.invert(pc.is_in(table["id"], pa.array(list(current_doc_ids))))  # type: ignore[attr-defined]
                 mask_to_delete = pc.and_(mask_not_deleted, mask_not_in_current)  # type: ignore[attr-defined]
 
                 # Get doc_ids to mark as deleted
                 to_delete_table = table.filter(mask_to_delete)
-                deleted_ids = set(to_delete_table["doc_id"].to_pylist())
+                deleted_ids = set(to_delete_table["id"].to_pylist())
 
                 if not deleted_ids:
                     return set()
@@ -342,7 +342,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                     return
 
                 # Filter out documents to delete
-                mask = pc.invert(pc.is_in(table["doc_id"], pa.array(doc_ids)))  # type: ignore[attr-defined]
+                mask = pc.invert(pc.is_in(table["id"], pa.array(doc_ids)))  # type: ignore[attr-defined]
                 filtered_table = table.filter(mask)
 
                 if filtered_table.num_rows == 0:

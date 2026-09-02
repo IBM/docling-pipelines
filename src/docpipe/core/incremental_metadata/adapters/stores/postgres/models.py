@@ -15,14 +15,14 @@ class IncrementalMetadataPostgresModel(SQLModel, table=True):  # type: ignore[ca
     Table: inc_update_metadata
     Schema: configured at store initialization time
 
-    Primary Key: (job_id, doc_id)
+    Primary Key: (job_id, id)
     """
 
     __tablename__ = "inc_update_metadata"
     __table_args__ = {"extend_existing": True}
 
     job_id: str = Field(sa_column=Column(String, primary_key=True))
-    doc_id: str = Field(sa_column=Column(String, primary_key=True))
+    doc_id: str = Field(sa_column=Column("id", String, primary_key=True))
     name: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     modified_time: int | None = Field(default=None, sa_column=Column(BIGINT, nullable=True))
     job_run_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
