@@ -205,6 +205,9 @@ class AuthoringFlow:
         description: Optional flow description
         global_config: Global configuration parameters
         flow_source: Source of flow creation (cli, programmatic, api, ui)
+        flow_id: Optional user-provided flow identifier. When set, the compiler
+                 preserves this value in the runtime DAG instead of generating
+                 a new UUID.
     """
 
     flow_name: str
@@ -212,6 +215,7 @@ class AuthoringFlow:
     description: str | None = None
     global_config: dict[str, Any] = field(default_factory=dict)
     flow_source: FlowSource = FlowSource.CLI
+    flow_id: str | None = None
 
     def _validate_global_fields(self, *, errors: list[str]) -> None:
         """Validate flow_source, flow_name, description, and global_config fields."""
@@ -402,4 +406,5 @@ class AuthoringFlow:
             description=data.get(DocpipeConstants.DESCRIPTION),
             global_config=data.get(OperatorConstants.Config.GLOBAL_CONFIG, {}),
             flow_source=flow_source,
+            flow_id=data.get(DocpipeConstants.FLOW_ID),
         )

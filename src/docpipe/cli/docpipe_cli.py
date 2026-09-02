@@ -124,7 +124,11 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
     )
 
     session_info: SessionInfo = create_session_info(
-        cli_mode=True, job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
+        cli_mode=True,
+        job_id=job_id,
+        job_run_id=job_run_id,
+        orchestrator=orchestrator,
+        flow_id=flow_def.get(DocpipeConstants.FLOW_ID, job_id),
     )
     set_session_info(session_info)
 
@@ -188,6 +192,7 @@ def validate_flow_definition(flow_file: str) -> bool:
     Returns:
         True if validation succeeds, False otherwise
     """
+    from docpipe.core.constants.constants import DocpipeConstants
     from docpipe.core.models.session_info import create_session_info
     from docpipe.core.orchestration.flow_validator import FlowValidator
     from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
@@ -211,7 +216,7 @@ def validate_flow_definition(flow_file: str) -> bool:
             job_id=validation_job_id,
             job_run_id=validation_job_run_id,
             orchestrator=orchestrator,
-            flow_id="validation_flow",
+            flow_id=flow_def.get(DocpipeConstants.FLOW_ID, validation_job_id),
         )
 
         orchestrator.initialize(job_id=validation_job_id, job_run_id=validation_job_run_id)
