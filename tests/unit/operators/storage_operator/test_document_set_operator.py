@@ -56,22 +56,22 @@ class TestOperatorMetadata:
 
         assert metadata["category"] == OperatorCategory.Storage.value
         assert "description" in metadata
-        assert "parameters" in metadata
+        assert "attributes" in metadata
 
-    def test_operator_parameters(self, basic_config):
-        """Test operator parameters definition."""
+    def test_operator_attributes(self, basic_config):
+        """Test operator attributes definition."""
         operator = DocumentSetOperator(basic_config)
         metadata = operator.get_metadata()
 
-        params = metadata["parameters"]
-        assert "document_set_name" in params
-        assert params["document_set_name"]["required"] is True
-        # database_path removed - always uses default
-        assert "description" in params
-        assert "metadata" in params
-        assert "document_set_id" in params
-        # metadata_backend removed - uses global_config.storage_type
-        assert "data_backend" in params
+        attrs = metadata["attributes"]
+        assert "document_set_name" in attrs
+        assert attrs["document_set_name"]["required"] is True
+        assert "description" in attrs
+        assert "metadata" in attrs
+        assert "document_set_id" in attrs
+        assert "data_backend" in attrs
+        assert "database_path" in attrs
+        assert attrs["data_backend"]["valid_values"] == ["duckdb", "filesystem"]
 
     def test_operator_category(self, basic_config):
         """Test operator category is Storage."""
