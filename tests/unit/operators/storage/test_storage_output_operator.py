@@ -1,10 +1,26 @@
 """Tests for StorageOutputOperator — processed_content mode."""
 
 import json as _json
-from unittest.mock import patch
+import sys
+from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
+
+# box_sdk_gen is an optional dependency not installed in the test environment.
+# Pre-mock it before any docpipe import triggers the box adapter import chain.
+if "box_sdk_gen" not in sys.modules:
+    _box_mock = MagicMock()
+    sys.modules["box_sdk_gen"] = _box_mock
+    for _attr in (
+        "BoxClient",
+        "BoxJWTAuth",
+        "JWTConfig",
+        "CreateFolderParent",
+        "UploadFileAttributes",
+        "UploadFileAttributesParentField",
+    ):
+        sys.modules[f"box_sdk_gen.{_attr}"] = MagicMock()
 
 from docpipe.core.operators.storage.storage_output_operator import StorageOutputOperator, _extract_source_relative_path
 
@@ -677,3 +693,100 @@ class TestStorageOutputOperatorS3Hierarchical:
             op.transform(_make_table([row]))
 
         assert (tmp_path / "a" / "b" / "c" / "deep.pdf").exists()
+
+
+class TestStorageOutputOperatorMetadata:
+    """Tests for StorageOutputOperator.get_metadata() attribute exposure."""
+
+    def test_get_metadata_returns_attributes_key(self):
+        meta = StorageOutputOperator.get_metadata()
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        assert OperatorConstants.Config.ATTRIBUTES in meta
+        assert meta[OperatorConstants.Config.ATTRIBUTES]
+
+    def test_get_metadata_top_level_attribute_keys(self):
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        attrs = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES]
+        assert "mode" in attrs
+        assert "destination_config" in attrs
+        assert "output_format" in attrs
+        assert "output_structure" in attrs
+
+    def test_mode_attribute_is_required_string_with_valid_values(self):
+        from docpipe.core.constants.constants import AttributeDataTypes
+        from docpipe.core.constants.operator_constants import OperatorConstants
+        from docpipe.core.operators.storage.domain.models import WriteMode
+
+        mode = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES]["mode"]
+        assert mode[OperatorConstants.Config.REQUIRED] is True
+        assert mode[OperatorConstants.Misc.TYPE] == AttributeDataTypes.STRING
+        assert set(mode[OperatorConstants.Config.VALID_VALUES]) == {m.value for m in WriteMode}
+
+    def test_destination_config_attribute_is_required_json(self):
+        from docpipe.core.constants.constants import AttributeDataTypes
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        dest = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES]["destination_config"]
+        assert dest[OperatorConstants.Config.REQUIRED] is True
+        assert dest[OperatorConstants.Misc.TYPE] == AttributeDataTypes.JSON
+
+    def test_destination_config_properties_has_provider_and_provider_config(self):
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        props = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES]["destination_config"][
+            OperatorConstants.Config.PROPERTIES
+        ]
+        assert OperatorConstants.Config.PROVIDER in props
+        assert OperatorConstants.Config.PROVIDER_CONFIG in props
+        assert OperatorConstants.Config.CREDENTIALS in props
+
+    def test_destination_provider_valid_values_includes_all_providers(self):
+        from docpipe.core.constants.operator_constants import OperatorConstants
+        from docpipe.core.operators.storage.adapters.outbound.destinations.factories.destination_factory import (
+            DestinationAdapterFactory,
+        )
+
+        valid_values = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES]["destination_config"][
+            OperatorConstants.Config.PROPERTIES
+        ][OperatorConstants.Config.PROVIDER][OperatorConstants.Config.VALID_VALUES]
+        assert set(valid_values) == set(DestinationAdapterFactory.get_registered_names())
+
+    def test_destination_provider_config_has_non_empty_providers_dict(self):
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        provider_config = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES][
+            "destination_config"
+        ][OperatorConstants.Config.PROPERTIES][OperatorConstants.Config.PROVIDER_CONFIG]
+        providers = provider_config[OperatorConstants.Config.PROVIDERS]
+        assert isinstance(providers, dict)
+        assert len(providers) > 0
+
+    def test_output_format_attribute_is_optional_json_with_correct_properties(self):
+        from docpipe.core.constants.constants import AttributeDataTypes
+        from docpipe.core.constants.operator_constants import OperatorConstants
+        from docpipe.core.operators.storage.domain.models import ContentFormat
+
+        fmt = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES]["output_format"]
+        assert fmt.get(OperatorConstants.Config.REQUIRED) is not True
+        assert fmt[OperatorConstants.Misc.TYPE] == AttributeDataTypes.JSON
+        props = fmt[OperatorConstants.Config.PROPERTIES]
+        assert "content_format" in props
+        assert set(props["content_format"][OperatorConstants.Config.VALID_VALUES]) == {f.value for f in ContentFormat}
+        assert "include_metadata_sidecar" in props
+        assert props["include_metadata_sidecar"][OperatorConstants.Config.DEFAULT] is False
+
+    def test_output_structure_attribute_is_optional_json_with_correct_properties(self):
+        from docpipe.core.constants.constants import AttributeDataTypes
+        from docpipe.core.constants.operator_constants import OperatorConstants
+
+        struct = StorageOutputOperator.get_metadata()[OperatorConstants.Config.ATTRIBUTES]["output_structure"]
+        assert struct.get(OperatorConstants.Config.REQUIRED) is not True
+        assert struct[OperatorConstants.Misc.TYPE] == AttributeDataTypes.JSON
+        props = struct[OperatorConstants.Config.PROPERTIES]
+        assert "type" in props
+        assert set(props["type"][OperatorConstants.Config.VALID_VALUES]) == {"flat", "hierarchical"}
+        assert "path_template" in props
+        assert "overwrite_existing" in props
+        assert props["overwrite_existing"][OperatorConstants.Config.DEFAULT] is True

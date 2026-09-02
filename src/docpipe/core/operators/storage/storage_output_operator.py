@@ -13,7 +13,7 @@ import docpipe.core.operators.storage.adapters.outbound.destinations.filesystem.
 import docpipe.core.operators.storage.adapters.outbound.destinations.google_drive.adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.s3.adapter
 import docpipe.core.operators.storage.adapters.outbound.destinations.sharepoint.adapter  # noqa: F401
-from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
+from docpipe.core.constants.constants import AttributeDataTypes, DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -210,6 +210,20 @@ class StorageOutputOperator(AbstractOperator):
                 errors.append(f"{self.short_name}: required column '{col}' not found in available features")
 
     @staticmethod
+    def _get_destination_provider_schemas() -> dict[str, Any]:
+        """Return per-provider config schemas for the destination_config.provider_config field.
+
+        Iterates all registered provider names (including aliases such as ibm_cos and onedrive)
+        and converts each adapter's Pydantic config model to docpipe metadata vocabulary.
+        """
+        return {
+            name: OperatorUtils.model_schema_to_docpipe(
+                schema=DestinationAdapterFactory.create(name).get_config_schema().model_json_schema()
+            )
+            for name in DestinationAdapterFactory.get_registered_names()
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """Return operator metadata for flow validation and discovery."""
         return {
@@ -220,6 +234,119 @@ class StorageOutputOperator(AbstractOperator):
                 "Writes pipeline documents to a storage destination. "
                 "Supports processed_content, refetch_original, and comprehensive_export modes."
             ),
+            OperatorConstants.Config.ATTRIBUTES: {
+                "mode": {
+                    OperatorConstants.Misc.NAME: "Mode",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Write mode: processed_content writes extracted text, "
+                        "refetch_original re-fetches and writes the source binary, "
+                        "comprehensive_export writes original + content + metadata sidecar."
+                    ),
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Config.VALID_VALUES: [m.value for m in WriteMode],
+                },
+                "destination_config": {
+                    OperatorConstants.Misc.NAME: "Destination Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Storage destination connection configuration.",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROPERTIES: {
+                        "provider": {
+                            OperatorConstants.Misc.NAME: "Provider",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                "Destination adapter: filesystem, s3, ibm_cos, box, "
+                                "sharepoint, onedrive, or google_drive."
+                            ),
+                            OperatorConstants.Config.REQUIRED: True,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            OperatorConstants.Config.VALID_VALUES: DestinationAdapterFactory.get_registered_names(),
+                        },
+                        "provider_config": {
+                            OperatorConstants.Misc.NAME: "Provider Configuration",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                "Provider-specific connection parameters. "
+                                "Fields vary by provider — see the providers schema for details."
+                            ),
+                            OperatorConstants.Config.REQUIRED: True,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                            OperatorConstants.Config.PROVIDERS: StorageOutputOperator._get_destination_provider_schemas(),
+                        },
+                        "credentials": {
+                            OperatorConstants.Misc.NAME: "Credentials",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                "Provider-specific credentials (API keys, secrets, paths to credential files)."
+                            ),
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                        },
+                    },
+                },
+                "output_format": {
+                    OperatorConstants.Misc.NAME: "Output Format",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Controls content format and optional metadata sidecar output."
+                    ),
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROPERTIES: {
+                        "content_format": {
+                            OperatorConstants.Misc.NAME: "Content Format",
+                            OperatorConstants.Config.DESCRIPTION: "Output file extension for extracted content.",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: ContentFormat.MD.value,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            OperatorConstants.Config.VALID_VALUES: [f.value for f in ContentFormat],
+                        },
+                        "include_metadata_sidecar": {
+                            OperatorConstants.Misc.NAME: "Include Metadata Sidecar",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                "Write a .meta.json sidecar per document (comprehensive_export mode only)."
+                            ),
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                        },
+                    },
+                },
+                "output_structure": {
+                    OperatorConstants.Misc.NAME: "Output Structure",
+                    OperatorConstants.Config.DESCRIPTION: "Controls output directory structure and file naming.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROPERTIES: {
+                        "type": {
+                            OperatorConstants.Misc.NAME: "Structure Type",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                "flat writes all files into the root; hierarchical mirrors the source directory tree."
+                            ),
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: "flat",
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                            OperatorConstants.Config.VALID_VALUES: ["flat", "hierarchical"],
+                        },
+                        "path_template": {
+                            OperatorConstants.Misc.NAME: "Path Template",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                "Template string for the output file path relative to the destination root. "
+                                "Supported variables: {doc_id}, {name}, {ext}, "
+                                "{year}, {month}, {day}, {relative_dir}."
+                            ),
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        "overwrite_existing": {
+                            OperatorConstants.Misc.NAME: "Overwrite Existing",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                "When false, existing files are skipped with write_status=skipped."
+                            ),
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: True,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                        },
+                    },
+                },
+            },
         }
 
     @staticmethod
@@ -243,6 +370,7 @@ class StorageOutputOperator(AbstractOperator):
             self._telemetry.end_span(span)
 
     def _transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Execute the write pipeline: validate params, build adapter, iterate rows."""
         # --- parameter validation ---
         if not self.mode:
             raise ValueError(f"{self.short_name}: 'mode' is required")
@@ -456,6 +584,7 @@ class StorageOutputOperator(AbstractOperator):
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
+        """Dispatch a single row to the correct write method based on mode."""
         if self.mode == WriteMode.PROCESSED_CONTENT:
             return self._write_processed_content(
                 row=row,
@@ -518,6 +647,7 @@ class StorageOutputOperator(AbstractOperator):
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
+        """Write extracted text content to the destination in the requested format."""
         content_str: str = row.get("content", "") or ""
 
         if not content_str:
@@ -581,6 +711,7 @@ class StorageOutputOperator(AbstractOperator):
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
+        """Re-fetch the original binary from the source and write it to the destination."""
         ext = row.get("document_format", "") or Path(doc_name).suffix.lstrip(".")
         relative_path = resolve_path_template(
             template=path_template,
@@ -631,6 +762,7 @@ class StorageOutputOperator(AbstractOperator):
         doc_id: str,
         doc_name: str,
     ) -> WriteResult:
+        """Write original binary, extracted content, and optional metadata sidecar."""
         include_sidecar = self.output_format.get("include_metadata_sidecar", False)
 
         # 1. Fetch original binary
