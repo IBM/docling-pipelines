@@ -117,7 +117,7 @@ class FileSystemStorage(KeyValueStorage):
             temp_path = record_path.with_suffix(".tmp")
 
             # Atomic write: write to temp file, then rename
-            with open(temp_path, "w", encoding="utf-8") as f:
+            with temp_path.open("w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, default=str)
 
             temp_path.replace(record_path)
@@ -140,7 +140,7 @@ class FileSystemStorage(KeyValueStorage):
             if not record_path.exists():
                 return None
 
-            with open(record_path, encoding="utf-8") as f:
+            with record_path.open(encoding="utf-8") as f:
                 data = json.load(f)
 
             logger.debug(f"Retrieved record: {collection}/{key}")
@@ -168,7 +168,7 @@ class FileSystemStorage(KeyValueStorage):
             records = []
             for record_file in collection_dir.glob("*.json"):
                 try:
-                    with open(record_file, encoding="utf-8") as f:
+                    with record_file.open(encoding="utf-8") as f:
                         data = json.load(f)
                     records.append(data)
                 except Exception as e:
