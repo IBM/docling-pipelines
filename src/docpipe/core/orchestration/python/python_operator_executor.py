@@ -26,7 +26,7 @@ logger = get_logger()
 
 
 class PythonOperatorExecutor(AbstractOperatorExecutor):
-    """Pythonoperatorexecutor."""
+    """Python operator executor that runs operators directly within the Python runtime."""
 
     def __init__(
         self,
@@ -38,6 +38,16 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
     ):
+        """Initialise the executor and build the operator factory.
+
+        Args:
+            name: Logical name for this executor node.
+            operator: Short name of the operator to resolve and run.
+            params: Configuration dictionary passed to the operator.
+            job_stats_service: Optional service for recording job statistics.
+            enable_custom_operators: Whether to load externally registered operators.
+            custom_operator_packages: Optional list of package names to load custom operators from.
+        """
         super().__init__(
             name=name,
             operator=operator,
@@ -95,12 +105,15 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
                 result = op.transform(table=pa.table({}), tables=tables)
             else:
                 result = op.transform(tables)
-                if len(op.output_features_to_drop) > 0:
-                    result[0][0] = OperatorUtils.drop_features_from_table(op.output_features_to_drop, result[0][0])
-                if len(op.updated_features) > 0:
-                    result[0][0] = OperatorUtils.rename_features_and_save_original(
+
+            if len(op.output_features_to_drop) > 0:
+                for i in range(len(result[0])):
+                    result[0][i] = OperatorUtils.drop_features_from_table(op.output_features_to_drop, result[0][i])
+            if len(op.updated_features) > 0:
+                for i in range(len(result[0])):
+                    result[0][i] = OperatorUtils.rename_features_and_save_original(
                         updated_features=op.updated_features,
-                        input_features=result[0][0],
+                        input_features=result[0][i],
                     )
             metadata_copy = copy.deepcopy(result[1])
             # Handle empty documents after execution
@@ -144,6 +157,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             op._telemetry.end_span(span)
 
     def _handle_exception(self, *, op_logger, node_id, exception):
+        """Log the exception that occurred during operator transformation."""
         from docpipe.core.models.session_info import get_session_info
 
         # Log error with transaction id
