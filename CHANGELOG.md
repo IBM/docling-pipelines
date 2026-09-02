@@ -34,6 +34,10 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - **GPU acceleration for `ExtractOperator`** — `docling_library` provider now supports GPU device selection via `standard_pipeline.accelerator` in `provider_config`. Accepted devices: `mps` (Apple Silicon), `cuda`, `cuda:<index>` (NVIDIA), `xpu` (Intel). When `device` is omitted from the accelerator block, the best available GPU is auto-detected at runtime via torch (CUDA → MPS → XPU). Validates device availability via torch backends before loading any model. Requires `max_workers: 1` and `use_processes: false`. One `DocumentConverter` is constructed per adapter execution and reused across all documents. Flows without accelerator config are unaffected.
 - Flow execution now defaults `enable_micro_batching` to `true` for CLI, REST job runs, and `DocpipeFlowManager` when the flow does not set it explicitly. A user-provided `global_config.enable_micro_batching` value still overrides the default.
 
+### Fixed
+
+- `scripts/test_examples.py --dry-run` now skips examples before probing Ollama, OpenSearch, environment variables, or example files.
+
 ---
 
 ## [0.1.0] - 2025-07-15
