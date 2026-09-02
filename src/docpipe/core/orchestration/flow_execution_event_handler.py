@@ -82,6 +82,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             self.job_stats_service.start_tracking_job(
                 job_id=self.job_id, job_run_id=self.job_run_id, flow_name=self.flow_id or "unknown"
             )
+            self._update_framework_status(status=ExecutionStatus.RUNNING.value)
 
     def _log_node_stats_debug(self, job_stats):
         """Log node stats for debugging."""

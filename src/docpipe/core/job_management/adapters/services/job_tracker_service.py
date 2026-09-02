@@ -61,6 +61,7 @@ class JobTrackerService(JobStatsService):
         flow_name: str,
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        initial_status: ExecutionStatus = ExecutionStatus.RUNNING,
     ) -> None:
         """
         Start tracking a new job run with initial statistics.
@@ -71,6 +72,10 @@ class JobTrackerService(JobStatsService):
             flow_name: Name of the flow being executed (stored in flow_id field)
             user_id: Optional user identifier
             metadata: Optional metadata dictionary (not used - JobStats has no metadata field)
+            initial_status: Initial status for the job stats record.
+                Defaults to ExecutionStatus.RUNNING for backward compatibility.
+                Pass ExecutionStatus.QUEUED when called from the HTTP thread
+                before the background thread has started.
 
         Raises:
             ValueError: If job_run_id already exists
@@ -80,7 +85,7 @@ class JobTrackerService(JobStatsService):
             job_run_id=job_run_id,
             flow_id=flow_name,  # Store flow_name in flow_id field
             user_id=user_id,
-            status=ExecutionStatus.RUNNING,
+            status=initial_status,
             start_time=round(datetime.now(tz=UTC).timestamp()),
             node_stats={},
             batch_node_stats={},
