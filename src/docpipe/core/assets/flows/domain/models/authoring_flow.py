@@ -386,15 +386,27 @@ class AuthoringFlow:
         Returns:
             AuthoringFlow instance
         """
-        operators = [
-            AuthoringOperator(
-                type=op_data[OperatorConstants.Misc.TYPE],
-                name=op_data.get(OperatorConstants.Misc.NAME),
-                depends_on=op_data.get(OperatorConstants.Misc.DEPENDS_ON, []),
-                config=op_data.get(OperatorConstants.Config.CONFIG, {}),
+        operators = []
+        for i, op_data in enumerate(data.get(DocpipeConstants.FLOW, [])):
+            if OperatorConstants.Misc.TYPE not in op_data:
+                raise FlowInvalidDataException(
+                    message=f"Operator at index {i} is missing required field 'type'.",
+                    field_name=f"flow[{i}].type",
+                )
+            operators.append(
+                AuthoringOperator(
+                    type=op_data[OperatorConstants.Misc.TYPE],
+                    name=op_data.get(OperatorConstants.Misc.NAME),
+                    depends_on=op_data.get(OperatorConstants.Misc.DEPENDS_ON, []),
+                    config=op_data.get(OperatorConstants.Config.CONFIG, {}),
+                )
             )
-            for op_data in data.get(DocpipeConstants.FLOW, [])
-        ]
+
+        if DocpipeConstants.FLOW_NAME not in data:
+            raise FlowInvalidDataException(
+                message="Missing required field 'flow_name' in flow definition.",
+                field_name=DocpipeConstants.FLOW_NAME,
+            )
 
         # Parse flow_source, defaulting to CLI if not provided
         flow_source_str = data.get(DocpipeConstants.FLOW_SOURCE, FlowSource.CLI.value)

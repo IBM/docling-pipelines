@@ -233,3 +233,45 @@ class TestAuthoringFlow:
         )
 
         flow.validate()  # Should not raise
+
+
+class TestAuthoringFlowFromDict:
+    """Tests for AuthoringFlow.from_dict()."""
+
+    def test_from_dict_valid(self):
+        """Happy path: from_dict constructs an AuthoringFlow from a complete dict."""
+        data = {
+            "flow_name": "my-flow",
+            "flow": [
+                {"type": "ingest_source", "name": "ingest", "depends_on": [], "config": {}},
+            ],
+            "global_config": {},
+        }
+        flow = AuthoringFlow.from_dict(data=data)
+        assert flow.flow_name == "my-flow"
+        assert len(flow.flow) == 1
+        assert flow.flow[0].type == "ingest_source"
+
+    def test_from_dict_missing_flow_name_raises_flow_invalid_data_exception(self):
+        """Missing 'flow_name' must raise FlowInvalidDataException, not KeyError."""
+        data = {
+            "flow": [{"type": "ingest_source", "name": "ingest", "depends_on": [], "config": {}}],
+        }
+        with pytest.raises(FlowInvalidDataException) as exc_info:
+            AuthoringFlow.from_dict(data=data)
+
+        assert "flow_name" in str(exc_info.value)
+
+    def test_from_dict_operator_missing_type_raises_flow_invalid_data_exception(self):
+        """An operator dict without 'type' must raise FlowInvalidDataException, not KeyError."""
+        data = {
+            "flow_name": "my-flow",
+            "flow": [
+                {"name": "ingest"},  # 'type' is absent
+            ],
+        }
+        with pytest.raises(FlowInvalidDataException) as exc_info:
+            AuthoringFlow.from_dict(data=data)
+
+        assert "type" in str(exc_info.value)
+        assert "0" in str(exc_info.value)  # index reported in message

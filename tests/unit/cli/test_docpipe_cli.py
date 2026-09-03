@@ -149,8 +149,10 @@ class TestLoadFlowDefinition:
     def test_load_elyra_format_fails(self, elyra_format_file):
         """Test that Elyra format (with 'definition' wrapper) is not supported by CLI."""
         # CLI's load_flow_definition only supports authoring format, not Elyra format
-        # It will raise KeyError for missing 'flow_name'
-        with pytest.raises(KeyError) as exc_info:
+        # Missing 'flow_name' raises FlowInvalidDataException (not a raw KeyError)
+        from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
+
+        with pytest.raises(FlowInvalidDataException) as exc_info:
             load_flow_definition(file_path=elyra_format_file)
 
         assert "flow_name" in str(exc_info.value)
