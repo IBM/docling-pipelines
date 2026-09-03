@@ -163,6 +163,10 @@
   │  @register(name="duckdb")│
   │  on DuckDBDocumentSet    │
   │  Storage class           │
+  │                          │
+  │  Delegates construction  │
+  │  to adapter_class        │
+  │  .from_config(config)    │
   └──────────────────────────┘
 
 
