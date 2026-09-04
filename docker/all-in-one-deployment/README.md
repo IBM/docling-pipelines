@@ -1,87 +1,110 @@
 # Docpipe All-in-One Docker Compose Setup
 
-This directory contains a simplified Docker Compose configuration for running Docpipe with all required services in a single deployment.
+This directory contains a Docker Compose configuration for running Docpipe with all required services in a single deployment.
 
 ## Quick Start
 
 ### Prerequisites
 - Docker Engine 20.10+
 - Docker Compose v2.0+
-- At least 6GB RAM available for containers
+- At least 6 GB RAM available for containers
+- `make` (optional but recommended)
 
-### Basic Usage
+### First-time setup
 
-1. **Setup directory permissions (first time only):**
-   ```bash
-   cd docker/all-in-one-deployment
-   ```
+**Option A — using Make (recommended):**
+```bash
+cd docker/all-in-one-deployment
+make up
+```
+`make up` pre-creates all required directories at the **repo root** then starts every service.
 
-2. **Start all services:**
-   ```bash
-   docker-compose up -d
-   ```
+**Option B — manual:**
+```bash
+# From the repo root
+mkdir -p data/job_stats_store_data data/duckdb logs sample_flows sample_projects
+docker compose -f docker/all-in-one-deployment/docker-compose.yml up -d
+```
 
-3. **View logs:**
-   ```bash
-   docker-compose logs -f
-   ```
+> **Why the `mkdir` step?**
+> The `docpipe` container runs as UID 1000. Docker creates any missing bind-mount
+> directories as `root:root`, which UID 1000 cannot write into. Pre-creating them
+> as your own user gives UID 1000 the necessary ownership. Skipping this step causes
+> `job_runs` and `projects` endpoints to return `403 Permission denied` on first startup.
+> The bind-mount paths in `docker-compose.yml` use `../../` so they always resolve
+> to the repo root regardless of where the compose file lives.
 
-4. **Stop all services:**
-   ```bash
-   docker-compose down
-   ```
+### Common commands
 
-5. **Stop and remove volumes (clean slate):**
-   ```bash
-   docker-compose down -v
-   ```
+| Action | Make | Docker Compose |
+|---|---|---|
+| Start all services | `make up` | `docker compose up -d` |
+| Stop all services | `make down` | `docker compose down` |
+| View logs | `make logs` | `docker compose logs -f` |
+| Reset everything (removes data) | `make clean` | `docker compose down -v && rm -rf data logs sample_flows sample_projects` |
 
 ## Services
 
-The default `docker-compose.yml` includes:
-
 | Service | Port | Description |
-|---------|------|-------------|
-| **docpipe** | 8080 | Main Docpipe application API |
-| **postgres** | 5432 | PostgreSQL database |
+|---|---|---|
+| **docpipe** | 8080 | Docpipe FastAPI application |
+| **bff** | 3001 | Node/Express Backend-for-Frontend |
+| **postgres** | 5432 | PostgreSQL — job/flow metadata |
 | **ollama** | 11434 | Ollama LLM service |
 | **opensearch** | 9200, 9600 | OpenSearch vector database |
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
-Copy the example environment file and customize:
+Copy the example environment file and customise:
 
 ```bash
 cp .env.example .env
-# Edit .env with your preferred values
 ```
 
 Key variables:
-- `POSTGRES_PASSWORD` - PostgreSQL password (default: docpipe_password)
-- `OPENSEARCH_PASSWORD` - OpenSearch admin password (default: MyStrongPass123!)
-- `OPENSEARCH_JAVA_OPTS` - OpenSearch JVM memory (default: -Xms1g -Xmx1g)
-- `DOCPIPE_PORT` - Docpipe API port (default: 8080)
 
-### Ollama Models
+| Variable | Default | Description |
+|---|---|---|
+| `POSTGRES_PASSWORD` | `docpipe_password` | PostgreSQL password |
+| `OPENSEARCH_PASSWORD` | `MyStrongPass123!` | OpenSearch admin password |
+| `OPENSEARCH_JAVA_OPTS` | `-Xms1g -Xmx1g` | OpenSearch JVM heap |
+| `DOCPIPE_PORT` | `8080` | Docpipe API port |
+| `BFF_PORT` | `3001` | BFF port |
 
-The Ollama service automatically pulls these models on first startup:
-- `llama3.2` - LLM for text generation
-- `nomic-embed-text` - Embeddings model
+### Ollama models
 
-**Note:** Initial startup takes 5-10 minutes while models download.
+Ollama pulls these models automatically on first startup:
+- `llama3.2` — LLM for text generation
+- `nomic-embed-text` — embeddings model
 
-## Health Checks
+**Note:** First startup takes 5–10 minutes while models download.
 
-Check service health:
+## Data persistence
+
+| Path | What is stored |
+|---|---|
+| `./data/job_stats_store_data` | Job run statistics (JSON) |
+| `./data/duckdb` | DuckDB databases (document sets, libraries) |
+| `./logs` | Application logs |
+| `./sample_flows` | Flow definitions created via the API |
+| `./sample_projects` | Projects created via the API |
+| `postgres-data` (Docker volume) | PostgreSQL data |
+| `ollama-data` (Docker volume) | Ollama models (~4 GB) |
+| `opensearch-data` (Docker volume) | OpenSearch indices |
+
+## Health checks
 
 ```bash
 # All services
-docker-compose ps
+docker compose ps
 
 # Docpipe API
 curl http://localhost:8080/health
+
+# BFF
+curl http://localhost:3001/health
 
 # OpenSearch
 curl -u admin:MyStrongPass123! http://localhost:9200/_cluster/health
@@ -90,47 +113,27 @@ curl -u admin:MyStrongPass123! http://localhost:9200/_cluster/health
 curl http://localhost:11434/api/tags
 ```
 
-## Data Persistence
-
-Data is persisted in Docker volumes:
-- `postgres-data` - PostgreSQL database
-- `ollama-data` - Ollama models (~4GB)
-- `opensearch-data` - OpenSearch indices
-
-Local directories (owned by UID 1000):
-- `./data` - Docpipe application data
-- `./logs` - Application logs
-
-
-## Permission Issues
-
-If you encounter permission errors with `/data` or `/logs`:
-
-1. **Run the setup script:**
-   ```bash
-   sudo chown -R 1000:1000 ./data ./logs
-   sudo chmod -R 755 ./data ./logs
-   ```
-
-2. **Verify ownership:**
-   ```bash
-   ls -la ./data ./logs
-   ```
-
 ## Troubleshooting
+
+### `403 Permission denied` on write operations (`POST /projects`, `/flows`, `/job_runs`)
+The bind-mount directories were created by Docker as `root:root` before `make setup` ran.
+```bash
+make fix-perms
+```
+This stops the stack, fixes ownership, and restarts. Or wipe everything and start clean:
+```bash
+make clean && make up
+```
 
 ### Ollama models not loading
 ```bash
-# Check Ollama logs
-docker-compose logs ollama
-
-# Manually pull models
-docker-compose exec ollama ollama pull llama3.2
-docker-compose exec ollama ollama pull nomic-embed-text
+docker compose logs ollama
+docker compose exec ollama ollama pull llama3.2
+docker compose exec ollama ollama pull nomic-embed-text
 ```
 
 ### OpenSearch memory errors
-Increase heap size in `.env`:
+Increase heap in `.env`:
 ```
 OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g
 ```
@@ -139,34 +142,15 @@ OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g
 Change ports in `.env`:
 ```
 DOCPIPE_PORT=8081
+BFF_PORT=3002
 POSTGRES_PORT=5433
 ```
 
-### Reset everything
-```bash
-docker-compose down -v
-docker-compose up -d
-```
+## Production considerations
 
-## Production Considerations
-
-For production deployments:
-
-1. **Use strong passwords** - Change all default passwords in `.env`
-2. **Enable SSL** - Configure OpenSearch with proper certificates
-3. **Pin versions** - Replace `:latest` tags with specific versions
-4. **Resource limits** - Add memory/CPU limits to services
-5. **Backup volumes** - Implement backup strategy for data volumes
-6. **Use secrets** - Consider Docker secrets or external secret management
-
-## Alternative Configurations
-
-- `../docker-compose.distributed.yml` - Full distributed setup with Prefect, MinIO, and multiple workers
-- `../docker-compose.opensearch.yml` - OpenSearch only with dashboards
-
-## Support
-
-For issues or questions:
-- Check logs: `docker-compose logs -f [service-name]`
-- Review documentation in `/docs`
-- Open an issue on GitHub
+1. **Change all default passwords** in `.env`
+2. **Enable OpenSearch SSL** — configure proper certificates
+3. **Pin image versions** — replace `:latest` tags with specific versions
+4. **Add resource limits** — memory/CPU limits per service
+5. **Back up bind-mount directories** — `data/`, `sample_flows/`, `sample_projects/`
+6. **Use Docker secrets** or an external secret manager for credentials

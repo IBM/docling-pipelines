@@ -1,0 +1,1 @@
+export { ProjectsTable } from './ProjectsTable';

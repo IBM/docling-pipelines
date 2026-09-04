@@ -1,0 +1,125 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.sidePanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background-color: $layer-01;
+  border-left: 1px solid $border-subtle-01;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidePanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-07 $spacing-06 $spacing-05;
+  flex-shrink: 0;
+  border-bottom: 1px solid $border-subtle-01;
+}
+
+.sidePanelTitle {
+  @include type-style('heading-03');
+  margin: 0;
+}
+
+.sidePanelClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: $text-secondary;
+  display: flex;
+  align-items: center;
+  padding: $spacing-02;
+
+  &:hover { color: $text-primary; }
+
+  &:focus-visible {
+    outline: 2px solid $focus;
+    outline-offset: 2px;
+  }
+}
+
+.sidePanelBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-06;
+}
+
+.detailsBlock {
+  margin-bottom: $spacing-05;
+}
+
+.sidePanelSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-05;
+
+  // Flush the ghost button's left padding so the pencil aligns to the right edge
+  :global(.cds--btn--ghost.cds--btn--sm) {
+    padding-inline: $spacing-02;
+    min-block-size: auto;
+  }
+}
+
+.sidePanelSectionTitle {
+  @include type-style('heading-compact-01');
+  margin: 0;
+}
+
+// Horizontal rule between sections
+.divider {
+  border: none;
+  border-top: 1px solid $border-subtle-01;
+  margin: $spacing-05 0;
+}
+
+.detailItem {
+  margin-bottom: $spacing-05;
+}
+
+.detailLabel {
+  @include type-style('label-01');
+  color: $text-secondary;
+  display: block;
+  margin-bottom: $spacing-02;
+}
+
+.detailValue {
+  @include type-style('body-01');
+  color: $text-primary;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.detailLink {
+  @include type-style('body-01');
+  color: $link-primary;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+
+  &:hover {
+    text-decoration: underline;
+    color: $link-primary-hover;
+  }
+}
+
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-02;
+  margin-top: $spacing-02;
+}

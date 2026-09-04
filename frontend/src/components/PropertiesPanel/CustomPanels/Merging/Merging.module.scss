@@ -1,0 +1,266 @@
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/theme' as themes;
+@use '@carbon/colors' as colors;
+
+// CSS custom properties — match datasift-ui MergingOperatorPanel.scss
+:root {
+  --merging-blue-light:   #{colors.$blue-20};
+  --merging-purple-light: #{colors.$purple-20};
+  --merging-blue:         #{colors.$blue-60};
+  --merging-purple:       #{colors.$purple-60};
+  --merging-gray:         #{themes.$text-secondary};
+  --merging-light-gray:   #{colors.$gray-10};
+}
+
+:global(.cds--g100) {
+  --merging-blue-light:   #{colors.$blue-70};
+  --merging-purple-light: #{colors.$purple-70};
+  --merging-blue:         #{colors.$blue-40};
+  --merging-purple:       #{colors.$purple-40};
+  --merging-light-gray:   #{colors.$gray-80};
+}
+
+// ── Main panel container ─────────────────────────────────────────────────
+.panelContainer {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-06;
+  padding: 0;
+}
+
+// ── Form fields ──────────────────────────────────────────────────────────
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-02;
+}
+
+.fieldLabel {
+  @include type.type-style('label-02');
+  font-weight: 600;
+  color: themes.$text-primary;
+  margin: 0;
+}
+
+.fieldHint {
+  @include type.type-style('helper-text-01');
+  color: themes.$text-secondary;
+  margin: 0;
+}
+
+// ── Radio buttons — matches datasift-ui .radioButtonGroup / .radioOption ─
+.radioButtonGroup {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-05;
+}
+
+.radioOption {
+  margin-bottom: spacing.$spacing-05;
+
+  &:first-child {
+    margin-top: spacing.$spacing-03;
+  }
+}
+
+// ── Combine columns sub-section — matches datasift-ui .combineColumnsContent
+.combineColumnsContent {
+  position: relative;
+  margin-left: 0;
+  margin-top: -1 * spacing.$spacing-06;
+  padding-left: spacing.$spacing-05;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: spacing.$spacing-02;
+    top: 0;
+    bottom: 0;
+    width: spacing.$spacing-01;
+    background-color: themes.$border-subtle-01;
+  }
+
+  .formField {
+    &:not(:last-child) {
+      margin-bottom: spacing.$spacing-03;
+    }
+  }
+}
+
+// ── Preview button — matches datasift-ui .mergePreviewSection / .selectButtonWrapper
+.mergePreviewSection {
+  margin-top: spacing.$spacing-09;
+}
+
+.selectButtonWrapper {
+  margin-top: -1 * spacing.$spacing-07;
+}
+
+.selectButton {
+  color: themes.$interactive !important;
+  border: 0.5 * spacing.$spacing-01 solid themes.$interactive;
+  min-width: spacing.$spacing-10;
+
+  &:disabled {
+    border: 0.5 * spacing.$spacing-01 solid themes.$background-active;
+    opacity: 3;
+  }
+}
+
+// ── Incoming link summary ────────────────────────────────────────────────
+.linkSummary {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-03;
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────
+.emptyState {
+  padding: spacing.$spacing-05;
+
+  p {
+    @include type.type-style('body-short-01');
+    color: themes.$text-secondary;
+    margin: 0;
+  }
+}
+
+// ── Tearsheet wrapper — matches datasift-ui .tearsheetTableWrapper ───────
+.tearsheetTableWrapper {
+  padding: spacing.$spacing-05 spacing.$spacing-09;
+}
+
+// ── Preview type dropdown — matches datasift-ui .previewSelectContainer / .fullWidthSelect
+.previewSelectContainer {
+  width: 50%;
+  position: relative;
+}
+
+.fullWidthSelect {
+  width: 100%;
+}
+
+// ── Note / disclaimer text — matches datasift-ui exactly ─────────────────
+.noteText {
+  @include type.type-style('body-compact-01');
+  font-style: italic;
+  color: themes.$text-secondary;
+  margin-top: spacing.$spacing-05;
+  margin-bottom: spacing.$spacing-03;
+  text-align: left;
+  margin-left: 0;
+}
+
+.disclaimerText {
+  @include type.type-style('body-compact-01');
+  font-style: italic;
+  color: themes.$text-secondary;
+  margin-top: spacing.$spacing-05;
+  text-align: left;
+  margin-left: 0;
+}
+
+// ── Diagram wrapper — matches datasift-ui .diagramWrapper exactly ─────────
+// The SVG uses position:absolute and fills this container.
+// Fixed min-height ensures the SVG coordinates (y=120, y=350) land correctly.
+.diagramWrapper {
+  position: relative;
+  padding: spacing.$spacing-09 0;
+  min-height: spacing.$spacing-13 * 2; // ~192px — same as datasift-ui
+  transform: scale(1);
+  transform-origin: top left;
+}
+
+// ── SVG overlay — matches datasift-ui .connectorSvg ──────────────────────
+.connectorSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
+}
+
+// SVG stroke style — matches datasift-ui .svgLine
+.svgLine {
+  stroke: var(--merging-gray);
+  stroke-width: spacing.$spacing-01;
+  fill: none;
+}
+
+// ── Table layout — matches datasift-ui .mergePreviewLayout ───────────────
+.mergePreviewLayout {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: spacing.$spacing-10;
+  position: relative;
+  z-index: 2;
+}
+
+// Left column: two input branch tables stacked
+.inputTables {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-10;
+}
+
+// Aligns the two branch tables flush-right so right edges line up
+.tableAlignment {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-07;
+  align-items: flex-end;
+}
+
+// Right column: merged output table
+.mergedTableContainer {
+  margin-left: 2 * spacing.$spacing-13; // matches datasift-ui
+  margin-top: -1 * spacing.$spacing-10;
+  z-index: 2;
+}
+
+// ── Table boxes — match datasift-ui fixed widths ──────────────────────────
+.tableBox {
+  padding: spacing.$spacing-05;
+  border-radius: spacing.$spacing-01;
+  width: spacing.$spacing-13 * 2.7; // ≈259px — datasift-ui branch1Table width
+  z-index: 2;
+
+  h5 {
+    font-weight: normal;
+  }
+}
+
+// Branch 1: same fixed width as tableBox
+.branch1Table {
+  width: spacing.$spacing-13 * 2.7;
+}
+
+// Branch 2: slightly narrower for columns mode
+.branch2Table {
+  width: spacing.$spacing-13 * 2;
+}
+
+// Merged table: wider to fit extra columns
+.mergedTable {
+  width: spacing.$spacing-13 * 4.5;
+}
+
+// ── Row colour coding — match datasift-ui exactly ─────────────────────────
+.branch1Row {
+  background-color: var(--merging-blue-light);
+}
+
+.branch2Row {
+  background-color: var(--merging-purple-light);
+}
+
+// ── Warning icon — matches datasift-ui .warningIcon ───────────────────────
+.warningIcon {
+  margin-right: spacing.$spacing-01;
+  vertical-align: middle;
+}

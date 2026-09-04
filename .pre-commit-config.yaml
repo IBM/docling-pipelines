@@ -78,3 +78,13 @@ repos:
     hooks:
       - id: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
+
+  # Frontend linting
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: ESLint (Frontend)
+        entry: frontend/lint-hook.sh
+        language: script
+        files: ^frontend/src/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false

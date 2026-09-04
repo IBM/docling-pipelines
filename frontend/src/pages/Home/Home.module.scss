@@ -1,0 +1,168 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+
+// ── Zone 1: AnimatedHeader ────────────────────────────────────────────────────
+
+// data-carbon-theme on the wrapper scopes AnimatedHeader token overrides:
+// app 'white' → 'g10', app 'g100' → 'g100'
+.animatedHeaderWrapper {
+  flex-shrink: 0;
+
+  // 2-tile layout: override clabs AnimatedHeader default tile width (33%/25%) to 50% per tile.
+  // !important needed because the clabs component sets inline-size directly on the tile element
+  // with higher specificity than this :global() selector.
+  :global(.clabs--animated-header__tiles-container)
+    > :global(.clabs--animated-header__tile) {
+    inline-size: calc(50% - $spacing-05) !important;
+  }
+}
+
+// ── Zone 2: Recently Visited Bar ──────────────────────────────────────────────
+
+.recentBar {
+  padding-block: $spacing-06;
+  border-bottom: 1px solid $border-subtle-01;
+  background-color: $background;
+}
+
+.recentBarInner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  @include breakpoint-down('md') {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $spacing-05;
+  }
+}
+
+.recentBarLabel {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02;
+  min-width: calc($spacing-09 * 4); // 12rem — label column floor
+  flex-shrink: 0;
+
+  @include breakpoint-down('md') {
+    min-width: unset;
+  }
+}
+
+.recentBarHeading {
+  @include type-style('heading-03');
+  color: $text-primary;
+}
+
+.recentBarSub {
+  @include type-style('label-01');
+  color: $text-secondary;
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+}
+
+.recentItems {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  flex-wrap: wrap;           // always wrap — prevents overflow on any screen width
+  gap: 0;
+  min-width: 0;              // allows the flex child to shrink below its content width
+}
+
+// Two-line chip using Carbon ghost Button.
+// Layout overrides are scoped to &:global(.cds--btn) to avoid !important.
+.recentItem {
+  flex: 1 1 calc(25% - $spacing-05); // 4 across on wide screens, fewer on narrow
+  min-width: calc($spacing-09 * 3);  // 9rem floor — ensures chips never get too tiny
+  max-width: 100%;                   // allow full width when wrapping to one per row
+
+  &:global(.cds--btn) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: $spacing-01;
+    inline-size: 100%;
+    block-size: auto;
+    min-block-size: $spacing-09;
+    padding-block: $spacing-03;
+    padding-inline: $spacing-05;
+  }
+
+  @include breakpoint-down('md') {
+    flex: 1 1 100%;
+    min-width: unset;
+
+    &:global(.cds--btn) {
+      inline-size: 100%;
+      padding-inline: $spacing-03;
+    }
+  }
+}
+
+.recentItemType {
+  @include type-style('label-01');
+  color: $text-secondary;
+  white-space: nowrap;
+}
+
+.recentItemName {
+  @include type-style('body-01');
+  color: $link-primary;
+  // Truncate long names with ellipsis — requires min-width:0 on the flex parent
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ── Zone 3: Recent Work + Card Grid ───────────────────────────────────────────
+
+.cardZone {
+  flex: 1;
+  padding-block: $spacing-07;
+  background-color: $background;
+}
+
+.cardZoneInner {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: $spacing-07;
+
+  @include breakpoint-down('md') {
+    flex-direction: column;
+    gap: $spacing-05;
+  }
+}
+
+.cardZoneHeading {
+  @include type-style('heading-03');
+  color: $text-primary;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-block-start: $spacing-05; // baseline-aligns with card header text
+  min-width: calc($spacing-09 * 2.5); // 7.5rem — "Recent work" heading floor
+
+  @include breakpoint-down('md') {
+    padding-block-start: 0;
+  }
+}
+
+.cardGrid {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  align-items: flex-start; // cards size to their own content, not the tallest sibling
+  gap: $spacing-05;
+
+  @include breakpoint-down('md') {
+    flex-direction: column;
+    align-items: stretch; // full width on mobile
+  }
+}

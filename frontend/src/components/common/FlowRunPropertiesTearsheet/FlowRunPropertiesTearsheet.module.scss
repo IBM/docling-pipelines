@@ -1,0 +1,41 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type' as *;
+
+.propertiesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06;
+  padding: $spacing-05;
+  padding-bottom: $spacing-13;
+}
+
+.description {
+  margin: 0 0 $spacing-06 0;
+  color: $text-secondary;
+  // font-size/line-height replaced with Carbon type token (body-01 = 0.875rem / 1.29)
+  @include type-style('body-01');
+}
+
+.propertySection {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05;
+}
+
+.toggleWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.nestedProperty {
+  margin-left: $spacing-07;
+  padding-left: $spacing-05;
+  border-left: 2px solid $border-subtle-01;
+}
+
+.dropdownSection {
+  display: flex;
+  flex-direction: column;
+  max-width: 28rem; // 448px — layout constraint; no Carbon token maps to this width
+}

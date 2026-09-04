@@ -1,0 +1,66 @@
+/**
+ * @fileoverview JobRunLogs styles — log accordion component.
+ * Displays per-node logs in expandable accordion items with copy buttons.
+ * Uses Carbon Design tokens for theming.
+ */
+
+@use '@carbon/react/scss/theme' as themes;
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/type' as type;
+
+.logsContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding: spacing.$spacing-05;
+}
+
+.logItemContent {
+  padding: spacing.$spacing-03 0;
+}
+
+/* Log row: pre-wrap text on the left, CopyButton on the right */
+.logRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: spacing.$spacing-03;
+}
+
+.displayedLogContent {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: themes.$text-primary;
+  @include type.type-style('code-01');
+}
+
+/* "Show detailed log" action below long entries */
+.showMoreLink {
+  margin-top: spacing.$spacing-02;
+}
+
+.showMoreButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: themes.$link-primary;
+  cursor: pointer;
+  @include type.type-style('label-01');
+
+  &:hover {
+    color: themes.$link-primary-hover;
+    text-decoration: underline;
+  }
+}
+
+/* Failed-run-with-no-sequence error notification */
+.inlineNotification {
+  margin-bottom: spacing.$spacing-05;
+}
+
+/* Error message text below the notification */
+.flowLogs {
+  padding: spacing.$spacing-03;
+  background-color: themes.$layer-01;
+  border-radius: spacing.$spacing-02;
+}

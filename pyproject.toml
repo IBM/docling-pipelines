@@ -156,7 +156,15 @@ docling-pipelines-docs-mcp = "docs_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/docpipe"]
+# TODO: After adding npm to CI pipeline, change 'artifacts' to 'force-include' to ensure
+# frontend assets are always built and included (build will fail if static dir is missing)
+# force-include = { "src/docpipe/api/static" = "docpipe/api/static" }
+artifacts = [
+    "src/docpipe/api/static/**/*",
+    "src/docpipe/api/bff/**/*",
+]
 
+[tool.hatch.build.hooks.custom]
 
 [tool.hatch.build]
 exclude = [

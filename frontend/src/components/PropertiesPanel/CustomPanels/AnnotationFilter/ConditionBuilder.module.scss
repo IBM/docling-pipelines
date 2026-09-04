@@ -1,0 +1,154 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type';
+
+// ---------------------------------------------------------------------------
+// Outer wrapper — stacks cards + logical-operator strip + Add button
+// ---------------------------------------------------------------------------
+
+.conditionsWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0; // no gap — cards and strips sit flush so the left border is continuous
+  padding-top: $spacing-05;
+}
+
+// ---------------------------------------------------------------------------
+// Blue accent rail — wraps cards + logical-operator strip so they share one
+// continuous left border line.
+// ---------------------------------------------------------------------------
+
+// Sub-conditions only — rendered after the logical operator strip.
+// The blue line visually groups all joined conditions together and signals
+// to the user that these rows are subordinate to the primary condition.
+.conditionsRail {
+  border-left: $spacing-01 solid $interactive; // 0.125rem blue accent
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Single condition card
+// ---------------------------------------------------------------------------
+
+// White card with border.
+// When inside .conditionsRail the left border is suppressed — the rail's
+// blue accent takes its place. When rendered as the primary condition
+// (outside the rail) the full border is shown.
+.conditionCard {
+  background-color: $layer-01;
+  border: 1px solid $border-subtle-01;
+  padding: $spacing-05; // 1rem inset
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-03;
+
+  // Cards inside the rail: suppress left border so the blue accent shows through
+  .conditionsRail & {
+    border-left: none;
+  }
+}
+
+// Three equal columns: Variable | Operator | Value — fill available space
+.conditionFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: $spacing-05; // 1rem between columns
+  flex: 1;
+  align-items: flex-start;
+}
+
+// AND / OR pill — sits to the right of the Value column, aligned to the input box.
+// Carbon field labels + margin-bottom ≈ $spacing-06 (1.5 rem).
+.logicalPill {
+  flex-shrink: 0;
+  margin-top: $spacing-06;
+  padding: $spacing-01 $spacing-04;
+  background-color: $layer-02;
+  color: $link-primary;
+  border-radius: 0.75rem;
+  @include type.type-style('label-01');
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+// Delete (TrashCan) button — aligned to the input box level, not the label
+.deleteButton {
+  flex-shrink: 0;
+  margin-top: $spacing-05; // slightly less than pill — button has its own padding
+}
+
+// ---------------------------------------------------------------------------
+// Logical operator strip — between cards, outside any card border
+// ---------------------------------------------------------------------------
+
+.logicalOperatorStrip {
+  padding: $spacing-04 $spacing-05; // 0.75rem top/bottom, 1rem left (aligns with card content)
+  background-color: $background; // matches page background — outside card styling
+}
+
+// Inline row: "Logical operator" text + info icon
+.logicalOperatorLabel {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+  @include type.type-style('label-01');
+  color: $text-primary;
+  margin-bottom: $spacing-03;
+}
+
+// Info tooltip trigger — no browser button chrome
+.infoButton {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: $icon-secondary;
+}
+
+// AND / OR radio buttons side by side
+.equalColumns {
+  display: flex;
+  gap: $spacing-05;
+}
+
+// ---------------------------------------------------------------------------
+// Boolean value input
+// ---------------------------------------------------------------------------
+
+.booleanInputWrapper {
+  padding-top: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Between value inputs (two side-by-side inside the Value grid cell)
+// ---------------------------------------------------------------------------
+
+.betweenInputWrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-03;
+  align-items: flex-start;
+}
+
+// ---------------------------------------------------------------------------
+// Add condition button — below all cards, link-style
+// ---------------------------------------------------------------------------
+
+.addButtonWrapper {
+  padding-top: $spacing-05;
+}
+
+// ---------------------------------------------------------------------------
+// Empty / loading states
+// ---------------------------------------------------------------------------
+
+.noDataWrapper {
+  padding: $spacing-05 0;
+  @include type.type-style('body-short-01');
+  color: $text-secondary;
+}

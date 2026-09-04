@@ -1,0 +1,9 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: $spacing-07;
+}

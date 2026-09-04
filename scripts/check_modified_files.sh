@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to run ruff check and mypy on git-modified files
+# Script to run ruff and mypy on git-modified Python files
 # Usage: ./scripts/check_modified_files.sh
 
 set -e
@@ -13,90 +13,85 @@ NC='\033[0m' # No Color
 
 echo -e "${YELLOW}Fetching modified files...${NC}"
 
+TARGET_BRANCH="${CHANGE_TARGET_BRANCH:-main}"
+TARGET_REF="origin/${TARGET_BRANCH}"
+DIFF_BASE=$(git merge-base HEAD "${TARGET_REF}")
 
-# Get list of modified Python files
-MODIFIED_FILES=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' || true)
+PYTHON_MODIFIED_FILES=$(git diff --name-only --diff-filter=ACMR "${DIFF_BASE}"..HEAD | grep '\.py$' || true)
 
-if [ -z "$MODIFIED_FILES" ]; then
+RUFF_STATUS=0
+MYPY_STATUS=0
+
+if [ -n "$PYTHON_MODIFIED_FILES" ]; then
+    echo -e "${YELLOW}Modified Python files:${NC}"
+    echo "$PYTHON_MODIFIED_FILES"
+    echo ""
+
+    PYTHON_FILES_ARRAY=($PYTHON_MODIFIED_FILES)
+    EXISTING_PYTHON_FILES=()
+    for file in "${PYTHON_FILES_ARRAY[@]}"; do
+        if [ -f "$file" ]; then
+            EXISTING_PYTHON_FILES+=("$file")
+        fi
+    done
+
+    if [ ${#EXISTING_PYTHON_FILES[@]} -gt 0 ]; then
+        echo -e "${YELLOW}Running ruff check...${NC}"
+        echo "================================"
+
+        if command -v ruff &> /dev/null; then
+            if ruff check "${EXISTING_PYTHON_FILES[@]}"; then
+                echo -e "${GREEN}Ruff check passed!${NC}"
+            else
+                echo -e "${RED}Ruff check found issues.${NC}"
+                RUFF_STATUS=1
+            fi
+        else
+            echo -e "${RED}ruff not found. Install with: pip install ruff${NC}"
+            RUFF_STATUS=1
+        fi
+
+        echo ""
+        echo -e "${YELLOW}Running mypy analysis...${NC}"
+        echo "================================"
+
+        # Filter out examples/ from mypy (standalone scripts, not part of the package)
+        MYPY_FILES=()
+        for file in "${EXISTING_PYTHON_FILES[@]}"; do
+            if [[ "$file" != examples/* ]]; then
+                MYPY_FILES+=("$file")
+            fi
+        done
+
+        if command -v mypy &> /dev/null; then
+            if [ ${#MYPY_FILES[@]} -eq 0 ]; then
+                echo -e "${GREEN}No files to check with mypy.${NC}"
+                MYPY_STATUS=0
+            elif mypy --config-file=./pyproject.toml "${MYPY_FILES[@]}"; then
+                echo -e "${GREEN}Mypy analysis passed!${NC}"
+            else
+                echo -e "${RED}Mypy analysis found issues.${NC}"
+                MYPY_STATUS=1
+            fi
+        else
+            echo -e "${RED}mypy not found. Install with: pip install mypy${NC}"
+            MYPY_STATUS=1
+        fi
+    else
+        echo -e "${GREEN}No existing modified Python files to check.${NC}"
+    fi
+else
     echo -e "${GREEN}No modified Python files found.${NC}"
-    exit 0
-fi
-
-echo -e "${YELLOW}Modified Python files:${NC}"
-echo "$MODIFIED_FILES"
-echo ""
-
-# Convert to array for processing
-FILES_ARRAY=($MODIFIED_FILES)
-
-# Check if files exist (in case of deletions)
-EXISTING_FILES=()
-for file in "${FILES_ARRAY[@]}"; do
-    if [ -f "$file" ]; then
-        EXISTING_FILES+=("$file")
-    fi
-done
-
-if [ ${#EXISTING_FILES[@]} -eq 0 ]; then
-    echo -e "${GREEN}No existing modified Python files to check.${NC}"
-    exit 0
-fi
-
-echo -e "${YELLOW}Running ruff check...${NC}"
-echo "================================"
-
-# Run ruff check
-if command -v ruff &> /dev/null; then
-    if ruff check "${EXISTING_FILES[@]}"; then
-        echo -e "${GREEN}Ruff check passed!${NC}"
-        RUFF_STATUS=0
-    else
-        echo -e "${RED}Ruff check found issues.${NC}"
-        RUFF_STATUS=1
-    fi
-else
-    echo -e "${RED}ruff not found. Install with: pip install ruff${NC}"
-    RUFF_STATUS=1
-fi
-
-echo ""
-echo -e "${YELLOW}Running mypy analysis...${NC}"
-echo "================================"
-
-# Filter out examples/ from mypy (standalone scripts, not part of the package)
-MYPY_FILES=()
-for file in "${EXISTING_FILES[@]}"; do
-    if [[ "$file" != examples/* ]]; then
-        MYPY_FILES+=("$file")
-    fi
-done
-
-# Run mypy
-if command -v mypy &> /dev/null; then
-    if [ ${#MYPY_FILES[@]} -eq 0 ]; then
-        echo -e "${GREEN}No files to check with mypy.${NC}"
-        MYPY_STATUS=0
-    elif mypy --config-file=./pyproject.toml "${MYPY_FILES[@]}"; then
-        echo -e "${GREEN}Mypy analysis passed!${NC}"
-        MYPY_STATUS=0
-    else
-        echo -e "${RED}Mypy analysis found issues.${NC}"
-        MYPY_STATUS=1
-    fi
-else
-    echo -e "${RED}mypy not found. Install with: pip install mypy${NC}"
-    MYPY_STATUS=1
 fi
 
 echo ""
 echo "================================"
 echo -e "${YELLOW}Summary${NC}"
 echo "================================"
-echo "Files checked: ${#EXISTING_FILES[@]}"
+echo "Python files checked: ${#EXISTING_PYTHON_FILES[@]}"
 echo -e "Ruff status: $([ $RUFF_STATUS -eq 0 ] && echo -e "${GREEN}PASSED${NC}" || echo -e "${RED}FAILED${NC}")"
 echo -e "Mypy status: $([ $MYPY_STATUS -eq 0 ] && echo -e "${GREEN}PASSED${NC}" || echo -e "${RED}FAILED${NC}")"
 
-# Exit with error if either check failed
 if [ $RUFF_STATUS -ne 0 ] || [ $MYPY_STATUS -ne 0 ]; then
     exit 1
 fi

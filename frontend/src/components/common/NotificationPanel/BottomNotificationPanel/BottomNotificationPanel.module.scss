@@ -1,0 +1,249 @@
+/*
+ * Licensed Materials - Property of IBM
+ * © Copyright IBM Corp. 2024, 2026.
+ */
+
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type' as *;
+
+// ── Panel shell ──────────────────────────────────────────────────────────────
+
+.bottomPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: $background;
+  border-top: 1px solid $border-subtle-01;
+}
+
+// ── Header ───────────────────────────────────────────────────────────────────
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-04 $spacing-05;
+  background-color: $background;
+  border-bottom: 1px solid $border-subtle-01;
+  flex-shrink: 0;
+}
+
+.title {
+  @include type-style('productive-heading-01');
+  margin: 0;
+  color: $text-primary;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+}
+
+// ── Table container ───────────────────────────────────────────────────────────
+
+.tableContainer {
+  flex: 1;
+  overflow: auto;
+  background-color: $background;
+
+  // Search toolbar — white, full-width, bottom border only
+  :global(.cds--table-toolbar) {
+    background-color: $background;
+    border-bottom: 1px solid $border-subtle-01;
+  }
+
+  :global(.cds--toolbar-content) {
+    width: 100%;
+  }
+
+  :global(.cds--toolbar-search-container-active),
+  :global(.cds--toolbar-search-container-persistent) {
+    width: 100%;
+    flex: 1;
+  }
+
+  :global(.cds--search) {
+    width: 100%;
+  }
+
+  :global(.cds--search-input) {
+    background-color: $background;
+    border-bottom: none;
+  }
+
+  // Table — white background
+  :global(.cds--data-table-container) {
+    background-color: $background;
+  }
+
+  :global(.cds--data-table) {
+    background-color: $background;
+    border-collapse: collapse;
+  }
+
+  // Header row — light grey
+  :global(.cds--data-table thead tr) {
+    background-color: $layer-accent-01;
+  }
+
+  :global(.cds--data-table th) {
+    background-color: $layer-accent-01;
+    @include type-style('label-01');
+    font-weight: 600;
+    color: $text-primary;
+    border-bottom: 1px solid $border-subtle-01;
+    vertical-align: middle;
+    padding-top: $spacing-03;
+    padding-bottom: $spacing-03;
+  }
+
+  // Body rows — white, thin dividers
+  :global(.cds--data-table td) {
+    background-color: $background;
+    color: $text-primary;
+    border-bottom: 1px solid $border-subtle-01;
+    vertical-align: middle;
+    padding-top: $spacing-03;
+    padding-bottom: $spacing-03;
+  }
+
+  :global(.cds--data-table tbody tr:hover td) {
+    background-color: $layer-accent-01;
+  }
+
+  // Remove Carbon zebra tinting
+  :global(.cds--data-table--zebra tbody tr:nth-child(odd) td) {
+    background-color: $background;
+  }
+
+  // Pagination — white, top border
+  :global(.cds--pagination) {
+    background-color: $background;
+    border-top: 1px solid $border-subtle-01;
+  }
+
+  :global(.cds--pagination__control-buttons),
+  :global(.cds--select-input),
+  :global(.cds--pagination-nav__page) {
+    background-color: $background;
+  }
+}
+
+// ── Expand chevron ────────────────────────────────────────────────────────────
+
+.expandIcon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: $spacing-01;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $text-primary;
+  width: $spacing-06;
+  height: $spacing-06;
+  border-radius: 2px;
+
+  &:hover {
+    background-color: $layer-hover-01;
+  }
+
+  &:focus {
+    outline: 2px solid $focus;
+    outline-offset: 1px;
+  }
+}
+
+// ── Status icons ──────────────────────────────────────────────────────────────
+
+.errorIcon {
+  color: $support-error;
+  display: block;
+}
+
+.warningIcon {
+  color: $support-warning;
+  display: block;
+}
+
+// ── Node name link ────────────────────────────────────────────────────────────
+
+.nodeLink {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: $link-primary;
+  padding: 0;
+  @include type-style('body-compact-01');
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+    color: $link-primary-hover;
+  }
+
+  &:focus {
+    outline: 2px solid $focus;
+    outline-offset: 1px;
+  }
+}
+
+// ── Description cell ──────────────────────────────────────────────────────────
+
+.descriptionCell {
+  display: flex;
+  align-items: center;
+  gap: $spacing-03;
+  width: 100%;
+}
+
+.descriptionText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: $text-primary;
+}
+
+.copyButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: $spacing-01;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $icon-secondary;
+  flex-shrink: 0;
+  border-radius: 2px;
+
+  &:hover {
+    color: $text-primary;
+    background-color: $layer-hover-01;
+  }
+
+  &:focus {
+    outline: 2px solid $focus;
+    outline-offset: 1px;
+  }
+}
+
+// ── Expanded detail row ───────────────────────────────────────────────────────
+// Rendered as a <tr> immediately after the data row inside the same <tbody>
+// via SharedDataTable's renderRowExtras prop.
+
+.expandedRow td,
+.expandedCell {
+  background-color: $layer-accent-01 !important;
+  border-bottom: 1px solid $border-subtle-01 !important;
+  padding: $spacing-04 $spacing-05 !important;
+}
+
+.expandedContent {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

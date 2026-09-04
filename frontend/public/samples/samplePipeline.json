@@ -1,0 +1,247 @@
+{
+  "doc_type": "pipeline",
+  "version": "3.0",
+  "json_schema": "http://api.dataplatform.ibm.com/schemas/common-pipeline/pipeline-flow/pipeline-flow-v3-schema.json",
+  "id": "sample-pipeline",
+  "primary_pipeline": "primary",
+  "pipelines": [
+    {
+      "id": "primary",
+      "nodes": [
+        {
+          "id": "node1",
+          "type": "execution_node",
+          "op": "ingest_local",
+          "app_data": {
+            "label": "Ingest Data",
+            "react_nodes_data": {
+              "color": "#f1c21b",
+              "cardDescription": "Ingest"
+            },
+            "ui_data": {
+              "label": "Ingest Data",
+              "x_pos": 100,
+              "y_pos": 100,
+              "description": "Load data from various sources"
+            }
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "ingest_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "node2",
+          "type": "execution_node",
+          "op": "extract_operator",
+          "app_data": {
+            "label": "Extract Text",
+            "react_nodes_data": {
+              "color": "#0072c3",
+              "cardDescription": "Extract"
+            },
+            "ui_data": {
+              "label": "Extract Text",
+              "x_pos": 350,
+              "y_pos": 100,
+              "description": "Extract text from documents"
+            }
+          },
+          "inputs": [
+            {
+              "id": "extract_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              },
+              "links": [
+                {
+                  "node_id_ref": "node1",
+                  "port_id_ref": "ingest_outPort"
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "id": "extract_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "node3",
+          "type": "execution_node",
+          "op": "chunker",
+          "app_data": {
+            "label": "Chunk Text",
+            "react_nodes_data": {
+              "color": "#520408",
+              "cardDescription": "Functional"
+            },
+            "ui_data": {
+              "label": "Chunk Text",
+              "x_pos": 600,
+              "y_pos": 100,
+              "description": "Split text into chunks"
+            }
+          },
+          "inputs": [
+            {
+              "id": "chunker_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              },
+              "links": [
+                {
+                  "node_id_ref": "node2",
+                  "port_id_ref": "extract_outPort"
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "id": "chunker_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "node4",
+          "type": "execution_node",
+          "op": "embeddings",
+          "app_data": {
+            "label": "Generate Embeddings",
+            "react_nodes_data": {
+              "color": "#520408",
+              "cardDescription": "Functional"
+            },
+            "ui_data": {
+              "label": "Generate Embeddings",
+              "x_pos": 850,
+              "y_pos": 100,
+              "description": "Create vector embeddings"
+            }
+          },
+          "inputs": [
+            {
+              "id": "embeddings_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              },
+              "links": [
+                {
+                  "node_id_ref": "node3",
+                  "port_id_ref": "chunker_outPort"
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "id": "embeddings_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "node5",
+          "type": "execution_node",
+          "op": "vectordb",
+          "app_data": {
+            "label": "Store in Vector DB",
+            "react_nodes_data": {
+              "color": "#009d9a",
+              "cardDescription": "Vector DB"
+            },
+            "ui_data": {
+              "label": "Store in Vector DB",
+              "x_pos": 1100,
+              "y_pos": 100,
+              "description": "Store vectors in database"
+            }
+          },
+          "inputs": [
+            {
+              "id": "vectordb_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              },
+              "links": [
+                {
+                  "node_id_ref": "node4",
+                  "port_id_ref": "embeddings_outPort"
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "id": "vectordb_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": []
+}

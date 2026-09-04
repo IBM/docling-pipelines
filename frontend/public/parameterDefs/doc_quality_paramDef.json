@@ -1,0 +1,18 @@
+{
+  "parameters": [
+    { "id": "text_lang" }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "doc_quality_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "text_lang" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

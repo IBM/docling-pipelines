@@ -1,0 +1,33 @@
+{
+  "parameters": [
+    { "id": "provider" },
+    { "id": "provider_config" },
+    { "id": "document_types" },
+    { "id": "confidence_threshold" },
+    { "id": "output_column" },
+    { "id": "include_confidence" },
+    { "id": "include_reasoning" },
+    { "id": "doc_column" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "document_classifier_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "provider" },
+      { "parameter_ref": "provider_config" },
+      { "parameter_ref": "document_types" },
+      { "parameter_ref": "confidence_threshold" },
+      { "parameter_ref": "output_column" },
+      { "parameter_ref": "include_confidence" },
+      { "parameter_ref": "include_reasoning" },
+      { "parameter_ref": "doc_column" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

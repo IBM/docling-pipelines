@@ -1,0 +1,30 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+
+// ── Layout height constants ───────────────────────────────────────────────────
+$header-height:    3rem;    // Carbon fixed top header (48px)
+$breadcrumb-height: 2.5rem; // Breadcrumb row below header (~40px)
+$toolbar-height:   3rem;    // Canvas toolbar (~48px)
+
+// Fixed top-right stack — sits above all page content.
+// Each ToastNotification stacks vertically with Carbon's default 16px gap.
+.container {
+  position: fixed;
+  top: calc(#{$header-height} + #{$breadcrumb-height} + #{$toolbar-height} + #{$spacing-05});
+  right: $spacing-07;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+  pointer-events: none;
+
+  // Each toast re-enables interaction for its own surface
+  :global(.cds--toast-notification) {
+    pointer-events: all;
+  }
+
+  @include breakpoint-down(md) {
+    right: $spacing-05;
+    left: $spacing-05;
+  }
+}

@@ -1,0 +1,39 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type';
+
+// ---------------------------------------------------------------------------
+// Table wrapper
+// ---------------------------------------------------------------------------
+
+// Padding around the SharedDataTable inside the full-view Tearsheet.
+// 1.5rem on all sides gives the table breathing room from the Tearsheet edges.
+.fullViewTableWrapper {
+  padding: $spacing-06; // 1.5rem on all sides
+}
+
+// ---------------------------------------------------------------------------
+// Condition cell — row layout inside the table
+// ---------------------------------------------------------------------------
+
+// Stretches across the full cell width; pushes the AND/OR badge to the right.
+.conditionCell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: $spacing-05; // 1rem minimum gap between text and badge
+}
+
+// AND / OR pill badge — right-aligned, floats at the end of each row
+// (except the last row, which never receives a badge).
+.logicalOperatorBadge {
+  flex-shrink: 0;
+  padding: $spacing-01 $spacing-04; // 0.125rem 0.75rem
+  background-color: $layer-02;
+  color: $link-primary;
+  border-radius: $spacing-06; // 1rem pill shape
+  @include type.type-style('label-01'); // 0.75rem, weight 400
+  font-weight: 600;
+  text-transform: uppercase;
+}

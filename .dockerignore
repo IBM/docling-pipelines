@@ -57,6 +57,12 @@ dist/
 build/
 *.egg-info/
 
+# Frontend build artefacts — never send local node_modules into Docker context.
+# npm ci inside the builder stage installs the correct Linux-native binaries.
+frontend/node_modules/
+frontend/dist/
+frontend/bff/
+
 # CI/CD
 .github/
 Jenkinsfile

@@ -1,0 +1,25 @@
+{
+  "parameters": [
+    { "id": "provider" },
+    { "id": "provider_config" },
+    { "id": "feature_mappings" },
+    { "id": "add_sparse_vector" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "vectordb_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "provider" },
+      { "parameter_ref": "provider_config" },
+      { "parameter_ref": "feature_mappings" },
+      { "parameter_ref": "add_sparse_vector" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

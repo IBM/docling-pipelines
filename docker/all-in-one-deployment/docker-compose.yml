@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   # ============================================================================
   # POSTGRESQL DATABASE
   # ============================================================================
-  
+
   postgres:
     image: postgres:17-alpine
     container_name: docpipe-postgres
@@ -28,7 +26,7 @@ services:
   # ============================================================================
   # OLLAMA - LLM SERVICE
   # ============================================================================
-  
+
   ollama:
     image: ollama/ollama:0.5.4
     container_name: docpipe-ollama
@@ -57,7 +55,7 @@ services:
   # ============================================================================
   # OPENSEARCH - VECTOR DATABASE
   # ============================================================================
-  
+
   opensearch:
     image: opensearchproject/opensearch:3.60.0
     container_name: docpipe-opensearch
@@ -95,7 +93,42 @@ services:
   # ============================================================================
   # DOCPIPE APPLICATION
   # ============================================================================
-  
+
+  # ============================================================================
+  # BFF — Node/Express Backend-for-Frontend
+  # ============================================================================
+
+  bff:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.bff
+    image: docling-pipelines-bff:latest
+    container_name: docpipe-bff
+    environment:
+      # Points to the docpipe FastAPI container on the shared network.
+      # No depends_on here — the BFF is resilient to FastAPI not being
+      # ready yet (Express starts in ~1 s; FastAPI takes much longer).
+      BACKEND_API_URL: "http://docpipe:8080"
+      BFF_PORT: "3001"
+    # No external port binding — the BFF is an internal routing layer only.
+    # All external traffic enters via the docpipe service on port 8080.
+    # FastAPI proxies /api/* internally to http://bff:3001 on docpipe-net.
+    expose:
+      - "3001"
+    networks:
+      - docpipe-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # ============================================================================
+  # DOCPIPE APPLICATION
+  # ============================================================================
+
   docpipe:
     build:
       context: ../..
@@ -106,10 +139,15 @@ services:
     environment:
       # Database Configuration
       DATABASE_URL: postgresql://${POSTGRES_USER:-docpipe}:${POSTGRES_PASSWORD:-docpipe_password}@postgres:5432/${POSTGRES_DB:-docpipe}
-      
+
       # Python Configuration
       PYTHONPATH: /opt/app-root/src
-      
+
+      # BFF Configuration — tells FastAPI where the BFF container is.
+      # _start_bff() skips the Popen sidecar when this is already set.
+      BFF_URL: "http://bff:3001"
+      FASTAPI_PORT: "8080"
+
       # External Services
       OLLAMA_HOST: http://ollama:11434
       OPENSEARCH_HOST: opensearch
@@ -118,7 +156,7 @@ services:
       OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:-MyStrongPass123!}
       OPENSEARCH_USE_SSL: "false"
       OPENSEARCH_VERIFY_CERTS: "false"
-      
+
       # Application Configuration
       DOCPIPE_DATA_PATH: /opt/app-root/src/data
     ports:
@@ -130,11 +168,18 @@ services:
         condition: service_started
       opensearch:
         condition: service_healthy
+      # BFF must be accepting connections before FastAPI starts proxying /api/*
+      # to it. The BFF has no depends_on on docpipe to avoid a circular
+      # dependency — it simply retries failed upstream calls at the app level.
+      bff:
+        condition: service_healthy
     networks:
       - docpipe-net
     volumes:
-      - ./data:/opt/app-root/src/data:rw
-      - ./logs:/opt/app-root/src/logs:rw
+      - ../../data:/opt/app-root/src/data:rw
+      - ../../logs:/opt/app-root/src/logs:rw
+      - ../../sample_flows:/opt/app-root/src/sample_flows:rw
+      - ../../sample_projects:/opt/app-root/src/sample_projects:rw
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 30s

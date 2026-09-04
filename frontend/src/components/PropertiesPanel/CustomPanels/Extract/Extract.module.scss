@@ -1,0 +1,17 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type';
+
+// Root wrapper — no gap needed; Accordion handles section spacing
+.panelBody {
+  display: flex;
+  flex-direction: column;
+}
+
+// Each field: label row + input
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02;
+  margin-bottom: $spacing-05;
+}
