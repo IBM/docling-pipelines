@@ -299,3 +299,58 @@ class TestFinalizeDagFlow:
         orchestrator.flow_execution_event_handler = MagicMock()
         orchestrator._finalize_dag_flow(op_flow=[], global_config={})
         orchestrator.flow_execution_event_handler.after_flow_execution_complete.assert_called_once()
+
+
+class TestSyncCancellationStatus:
+    def test_noop_when_no_job_stats_service(self, orchestrator):
+        orchestrator.job_stats_service = None
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.RUNNING
+
+    def test_noop_when_no_job_run_id(self, orchestrator):
+        orchestrator.job_run_id = None
+        orchestrator.job_stats_service = MagicMock()
+        orchestrator._sync_cancellation_status()
+        orchestrator.job_stats_service.get_job_run_stats.assert_not_called()
+
+    def test_short_circuits_when_already_canceling(self, orchestrator):
+        orchestrator.job_status = ExecutionStatus.CANCELING
+        svc = MagicMock()
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        svc.get_job_run_stats.assert_not_called()
+
+    def test_short_circuits_when_already_terminal(self, orchestrator):
+        orchestrator.job_status = ExecutionStatus.COMPLETED
+        svc = MagicMock()
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        svc.get_job_run_stats.assert_not_called()
+
+    def test_sets_canceling_when_store_returns_canceling(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.return_value = MagicMock(status=ExecutionStatus.CANCELING)
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.CANCELING
+
+    def test_does_not_change_status_when_store_returns_running(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.return_value = MagicMock(status=ExecutionStatus.RUNNING)
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.RUNNING
+
+    def test_does_not_change_status_when_store_returns_none(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.return_value = None
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.RUNNING
+
+    def test_swallows_exception_and_continues(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.side_effect = RuntimeError("db gone")
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()  # must not raise
+        assert orchestrator.job_status == ExecutionStatus.RUNNING

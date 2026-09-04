@@ -8,7 +8,7 @@ from typing import Any, ParamSpec, TypeVar
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
+from docpipe.core.constants.constants import TERMINAL_JOB_STATUSES, DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.incremental_metadata import get_incremental_update_service
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
@@ -577,6 +577,19 @@ class AbstractOrchestrator(ABC):
             )
             self.non_recoverable_docs_tables.clear()
 
+    def _sync_cancellation_status(self) -> None:
+        """Sync in-memory job status with persistent store if cancellation was requested."""
+        if not self.job_stats_service or not self.job_run_id:
+            return
+        if self.job_status == ExecutionStatus.CANCELING or self.job_status in TERMINAL_JOB_STATUSES:
+            return
+        try:
+            job_stats = self.job_stats_service.get_job_run_stats(job_run_id=self.job_run_id)
+            if job_stats and job_stats.status == ExecutionStatus.CANCELING:
+                self.job_status = ExecutionStatus.CANCELING
+        except Exception:
+            self.logger.warning("Failed to sync cancellation status from job stats service", exc_info=True)
+
     def cancel(self):
         """
         Request for cancelling a running job
@@ -686,6 +699,8 @@ class AbstractOrchestrator(ABC):
             job_status=self.job_status,
             prev_results=prev_results,
         )
+
+        self._sync_cancellation_status()
 
         # Record skipped node when upstream failure prevents execution
         if prev_results is None or self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
