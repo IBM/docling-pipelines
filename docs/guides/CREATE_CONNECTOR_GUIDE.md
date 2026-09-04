@@ -483,6 +483,8 @@ Create a JSON flow file (e.g., `sample_flows/use_cases/your_connector_pipeline.j
 
 Here's a complete example implementing a Dropbox connector:
 
+> **Note:** A production Dropbox connector now ships with the project. This section remains a simplified teaching example built on raw HTTP calls; the shipped adapter uses the Dropbox SDK, supports refresh-token authentication and paginates listings. See [`sources/dropbox/README.md`](../../src/docpipe/core/operators/ingest/adapters/outbound/sources/dropbox/README.md) for the real implementation.
+
 ### `dropbox/config.py`
 
 ```python

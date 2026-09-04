@@ -1,6 +1,6 @@
 # IngestSourceOperator
 
-Ingests document metadata from cloud storage and collaboration platforms (S3, SharePoint, OneDrive, Google Drive, Box).
+Ingests document metadata from cloud storage and collaboration platforms (S3, SharePoint, OneDrive, Google Drive, Box, Dropbox).
 
 - **Short Name:** `ingest_source`
 - **Category:** Ingest
@@ -265,7 +265,60 @@ The adapter uses JWT (JSON Web Token) authentication which provides:
 - Rotate keys periodically as per security policy
 - Use environment variables for file paths in production
 
-### 7. Custom Loaders
+### 7. Dropbox
+Ingest documents from a Dropbox account using the Dropbox SDK.
+
+**Configuration:**
+```python
+node_config = {
+    'provider': 'dropbox',
+    'connection_params': {
+        'folder_path': '/Reports',  # Optional: folder to ingest from ('' or '/' for account root)
+        'recursive': True,  # Optional: include subfolders (default: True)
+        'max_file_size_mb': 50,  # Optional: max file size in MB
+        'exclude_patterns': ['*.tmp', '*/Archive/*']  # Optional: patterns to exclude
+    },
+    'credentials': {
+        'access_token': '${DROPBOX_ACCESS_TOKEN}'
+    },
+    'include_filter': 'pdf,docx,txt',  # Optional: file extensions to include
+    'max_files': 100  # Optional
+}
+```
+
+**Prerequisites:**
+- Dropbox account and a Dropbox app created in the [App Console](https://www.dropbox.com/developers/apps)
+- App scopes: `account_info.read`, `files.metadata.read`, `files.content.read`
+- An access token, or a refresh token with the app key and secret
+- Dependencies: `pip install dropbox`
+
+**Parameters:**
+- `folder_path` (optional): Dropbox folder to ingest from; empty string or `/` means the account root
+- `file_path` (optional): Ingest a single file by path (`/Reports/q1.pdf`) or file id (`id:abc123`); ignores folder settings and filters
+- `recursive` (optional): Boolean, include subfolders (default: `True`)
+- `max_file_size_mb` (optional): Maximum file size in MB to process
+- `exclude_patterns` (optional): List of glob patterns to exclude (e.g., `['*.tmp', '*/Archive/*']`)
+- `access_token` (credentials): Dropbox OAuth2 access token
+- `refresh_token`, `app_key`, `app_secret` (credentials): Long-lived alternative to `access_token`
+
+**Dropbox App Setup:**
+1. Create a scoped app in the [Dropbox App Console](https://www.dropbox.com/developers/apps)
+2. Choose **App folder** access to limit the app to a single folder, or **Full Dropbox**
+3. On the **Permissions** tab enable `account_info.read`, `files.metadata.read` and `files.content.read`, then submit
+4. Generate an access token on the **Settings** tab, or run the OAuth2 flow with `token_access_type=offline` to obtain a refresh token
+5. Export the token as an environment variable and reference it as `${DROPBOX_ACCESS_TOKEN}` in the flow
+
+**Authentication Notes:**
+- Generated access tokens are short-lived (four hours); use the refresh-token flow for scheduled pipelines
+- Tokens issued before new scopes were saved do not carry those scopes; re-issue the token after changing permissions
+- Apps with **App folder** access see paths relative to their own app folder, not the account root
+
+**Security Notes:**
+- Never commit Dropbox tokens to version control; reference them through environment variables
+- Grant only the scopes listed above; the adapter never writes to Dropbox
+- Rotate tokens periodically and revoke unused app authorizations
+
+### 8. Custom Loaders
 Extend functionality with custom LangChain-compatible loaders.
 
 **Configuration:**
@@ -349,7 +402,7 @@ See the [Usage](#usage) section above and per-provider configuration in [Support
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `provider` | string | **Yes** | — | Source provider: `s3`, `sharepoint`, `onedrive`, `googledrive`, `box` |
+| `provider` | string | **Yes** | — | Source provider: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `google_drive`, `box_driver`, `dropbox`, `web` |
 | `connection_params` | object | **Yes** | — | Provider-specific connection settings |
 | `credentials` | object | **Yes** | — | Provider-specific authentication credentials |
 | `include_filter` | string | No | all types | Comma-separated file extensions to include (no dot) |
@@ -650,6 +703,7 @@ botocore==1.42.55
 - **Google Drive:** `google-auth-oauthlib==1.2.4`, `google-auth-httplib2==0.3.0`, `google-api-python-client==2.190.0`, `langchain-google-community==3.0.5`
 - **SharePoint/OneDrive:** `O365==2.1.9`, `langchain-community==0.4.1`
 - **Box:** `box-sdk-gen==1.17.0`, `langchain-community==0.4.1`
+- **Dropbox:** `dropbox==12.2.1`
 - **PDF Processing:** `pypdf2==3.0.1`, `unstructured[pdf]>=0.10.0`
 - **GCP:** `google-cloud-storage==3.9.0`
 - **Azure:** `azure-storage-blob==12.28.0`
@@ -710,7 +764,7 @@ Initialize the operator with configuration.
 
 **Parameters:**
 - `node_config` (dict): Configuration dictionary containing:
-  - `provider` (str): Provider identifier (s3, google_drive, sharepoint, onedrive, box_driver, filesystem, web, custom)
+  - `provider` (str): Provider identifier (s3, google_drive, sharepoint, onedrive, box_driver, dropbox, filesystem, web, custom)
   - `connection_params` (dict): Provider-specific connection parameters
   - `credentials` (dict): Authentication credentials
   - `job_id` (str, optional): Job identifier for tracking
@@ -881,6 +935,24 @@ node_config = {
         'credentials_json_path': os.getenv('BOX_JWT_CONFIG_FILE')
     },
     'include_filter': 'pdf,docx,txt,pptx,xlsx',  # File extensions to include
+    'max_files': 100
+}
+```
+
+### Example 9: Dropbox Folder with Extension Filtering
+```python
+node_config = {
+    'provider': 'dropbox',
+    'connection_params': {
+        'folder_path': '/Reports/2026',
+        'recursive': True,
+        'max_file_size_mb': 50,
+        'exclude_patterns': ['*.tmp', '*/Archive/*']
+    },
+    'credentials': {
+        'access_token': os.getenv('DROPBOX_ACCESS_TOKEN')
+    },
+    'include_filter': 'pdf,docx,txt',
     'max_files': 100
 }
 ```
