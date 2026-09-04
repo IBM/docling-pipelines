@@ -649,6 +649,74 @@ class TestFlowValidatorIntegration:
             ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name in str(warning.message_code) for warning in warnings
         ), "Expected GENERATE_OUTPUT_MISSING warning not found"
 
+    def test_last_operator_not_vectordb_warns_for_each_branch(self, validator, fixtures_invoices_dir):
+        """Test that a warning is emitted for every branch terminal that is not VectorDB.
+
+        Flow shape:
+            ingest-1 → extract-1 → branching-1 → chunker-a (branch A terminal)
+                                               → chunker-b (branch B terminal)
+        Both branch terminals miss VectorDB, so two GENERATE_OUTPUT_MISSING warnings
+        are expected — one per terminal node.
+        """
+        flow_def = {
+            "dag": [
+                {
+                    "id": "ingest-1",
+                    "name": "ingest_documents",
+                    "operator": "ingest_source",
+                    "config": {"paths": str(fixtures_invoices_dir)},
+                    "input_edges": [],
+                    "output_edges": [{"node_id_ref": "extract-1"}],
+                },
+                {
+                    "id": "extract-1",
+                    "name": "extract_documents",
+                    "operator": "extract_operator",
+                    "config": {"doc_column": "content"},
+                    "input_edges": [{"node_id_ref": "ingest-1"}],
+                    "output_edges": [{"node_id_ref": "branching-1"}],
+                },
+                {
+                    "id": "branching-1",
+                    "name": "branch_documents",
+                    "operator": "branching",
+                    "config": {},
+                    "input_edges": [{"node_id_ref": "extract-1"}],
+                    "output_edges": [
+                        {"node_id_ref": "chunker-a"},
+                        {"node_id_ref": "chunker-b"},
+                    ],
+                },
+                {
+                    "id": "chunker-a",
+                    "name": "chunk_branch_a",
+                    "operator": "chunker",
+                    "config": {"doc_column": "content", "chunk_size": 200},
+                    "input_edges": [{"node_id_ref": "branching-1"}],
+                    "output_edges": [],
+                },
+                {
+                    "id": "chunker-b",
+                    "name": "chunk_branch_b",
+                    "operator": "chunker",
+                    "config": {"doc_column": "content", "chunk_size": 200},
+                    "input_edges": [{"node_id_ref": "branching-1"}],
+                    "output_edges": [],
+                },
+            ]
+        }
+
+        with pytest.raises(FlowValidationException) as exc_info:
+            validator.validate_dag(flow_def=flow_def, global_config={})
+
+        warnings = exc_info.value.warnings or []
+        matching = [w for w in warnings if w.message_code == ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name]
+        assert len(matching) == 2, (
+            f"Expected 2 GENERATE_OUTPUT_MISSING warnings (one per branch terminal), got {len(matching)}"
+        )
+        warned_node_ids = {w.node_id for w in matching}
+        assert warned_node_ids == {"chunker-a", "chunker-b"}
+
     def test_first_operator_not_ingest_fails(self, validator, fixtures_invoices_dir):
         """Test that flow where first operator is not Ingest fails."""
         flow_def = {

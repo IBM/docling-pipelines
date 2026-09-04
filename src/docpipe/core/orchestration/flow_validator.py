@@ -944,6 +944,10 @@ class FlowValidator:
                 return node_id
         return None
 
+    def _find_all_terminal_nodes(self, graph: dict) -> list[str]:
+        """Find all terminal nodes (nodes with no outgoing edges) in a graph."""
+        return [node_id for node_id, neighbors in graph.items() if not neighbors]
+
     def _report_non_vectordb_terminal(
         self,
         *,
@@ -1256,22 +1260,33 @@ class FlowValidator:
         return extract_operator_count
 
     def validate_last_operator(self, *, dag: list, validate_results: ValidateStepResults):
-        """Validate that the last operator in the DAG is a VectorDB operator."""
+        """Validate that every terminal node in the DAG is a VectorDB operator.
+
+        A terminal node is any node with no outgoing edges. In a branching flow there
+        can be more than one terminal node, so each branch end is checked independently.
+        A warning is emitted for every terminal node that is not a VectorDB operator.
+        """
         if not dag:
             return
 
-        last_op = dag[-1]
-        category = self._get_operator_category(op_def=last_op, alerts=validate_results.errors)
+        graph = self._build_graph(dag)
+        id_to_index = {node["id"]: i for i, node in enumerate(dag)}
 
-        if category != OperatorCategory.VectorDB:
-            add_validation_alert(
-                message=ValidationMessage(
-                    message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
-                    message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
-                ),
-                op_def=last_op,
-                alerts=validate_results.warnings,
-            )
+        for terminal_node_id in self._find_all_terminal_nodes(graph):
+            index = id_to_index.get(terminal_node_id)
+            if index is None:
+                continue
+            terminal_node = dag[index]
+            category = self._get_operator_category(op_def=terminal_node, alerts=validate_results.errors)
+            if category != OperatorCategory.VectorDB:
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
+                        message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
+                    ),
+                    op_def=terminal_node,
+                    alerts=validate_results.warnings,
+                )
 
     def _validate_no_cycles(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain cycles.
