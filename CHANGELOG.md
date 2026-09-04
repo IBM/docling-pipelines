@@ -15,6 +15,8 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Added
 
+- **Dropbox ingest source adapter** — new `dropbox` provider for `IngestSourceOperator`, built on the official Dropbox Python SDK. Supports access-token and refresh-token (long-lived) OAuth2 authentication, cursor-based pagination, recursive or single-level folder traversal, single-file ingestion by path or file id, extension / size / glob-exclusion filters, `max_files` limits, and lazy binary retrieval by Dropbox file id. Adds the `dropbox==12.2.1` dependency. See [the adapter README](src/docpipe/core/operators/ingest/adapters/outbound/sources/dropbox/README.md).
+
 - **Full OCR engine exposure** — Both `docling_library` and `docling_serve` providers now accept an `ocr` block inside `text_extraction.provider_config`. Users can set `ocr.engine` (8 engines: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`), `ocr.mode` (`default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions`), `ocr.enabled` (bool), and `ocr.engine_options` (pass-through dict). The previously hardcoded `ocr_preset: "auto"` default in `DoclingServeClient` is removed — when no engine is specified, the docling-serve instance uses its own default. Old `do_ocr` / `ocr_engine` / `ocr_languages` fields remain functional but are deprecated in favour of the new `ocr` block.
 
 - **docling-pipelines-slim** — New lightweight package variant that excludes certain operator dependencies. Use when your codebase doesn't require specific built-in operators. See [docs/guides/SLIM_VARIANT.md](docs/guides/SLIM_VARIANT.md) for installation and usage details.
