@@ -158,11 +158,11 @@ cryptography==50.0.0
     #   python-jose
 cuda-bindings==13.3.1 ; sys_platform == 'linux'
     # via torch
-cuda-pathfinder==1.8.0 ; sys_platform == 'linux'
+cuda-pathfinder==1.8.1 ; sys_platform == 'linux'
     # via cuda-bindings
 cuda-toolkit==13.0.3.0 ; sys_platform == 'linux'
     # via torch
-cyclopts==4.23.3
+cyclopts==4.24.0
     # via prefect
 cymem==2.0.13
     # via
@@ -179,7 +179,7 @@ datatrove==0.3.0
     # via docling-pipelines
 datefinder==1.0.0
     # via docling-pipelines
-dateparser==1.4.2
+dateparser==1.4.3
     # via prefect
 defusedxml==0.7.1
     # via
@@ -198,19 +198,21 @@ doclang==0.7.3
     # via docling-core
 docling==2.121.0
     # via docling-pipelines
-docling-core==2.92.0
+docling-core==2.94.1
     # via
     #   docling-ibm-models
     #   docling-parse
     #   docling-slim
 docling-ibm-models==3.15.0
     # via docling-slim
-docling-parse==7.16.0
+docling-parse==7.17.0
     # via docling-slim
 docling-slim==2.121.0
     # via docling
 docstring-parser==0.18.0
     # via cyclopts
+dropbox==12.2.1
+    # via docling-pipelines
 duckdb==1.3.2
     # via docling-pipelines
 ecdsa==0.19.2
@@ -260,7 +262,7 @@ google-api-core==2.34.0
     #   google-cloud-storage
 google-api-python-client==2.190.0
     # via docling-pipelines
-google-auth==2.57.0
+google-auth==2.57.1
     # via
     #   google-api-core
     #   google-api-python-client
@@ -286,7 +288,7 @@ google-re2==1.1.20251105
     # via docling-pipelines
 google-resumable-media==2.10.2
     # via google-cloud-storage
-googleapis-common-protos==1.75.2
+googleapis-common-protos==1.75.3
     # via google-api-core
 graphviz==0.21
     # via prefect
@@ -335,7 +337,7 @@ httpx==0.28.1
     #   weasel
 httpx-sse==0.4.3
     # via langchain-community
-huggingface-hub==1.29.0
+huggingface-hub==1.30.0
     # via
     #   accelerate
     #   datatrove
@@ -381,6 +383,7 @@ jinja2==3.1.6
     #   litellm
     #   prefect
     #   spacy
+    #   stone
     #   torch
 jinja2-humanize-extension==0.4.0
     # via prefect
@@ -649,6 +652,7 @@ packaging==26.2
     #   onnxruntime
     #   prefect
     #   spacy
+    #   stone
     #   thinc
     #   transformers
     #   weasel
@@ -774,7 +778,7 @@ pydantic-settings==2.14.2
     #   docling-slim
     #   langchain-community
     #   prefect
-pydocket==0.24.1
+pydocket==0.25.0
     # via prefect
 pygments==2.20.0
     # via
@@ -880,7 +884,7 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-regex==2026.8.31
+regex==2026.9.3
     # via
     #   datefinder
     #   dateparser
@@ -895,6 +899,7 @@ requests==2.33.0
     #   docker
     #   docling-pipelines
     #   docling-slim
+    #   dropbox
     #   google-api-core
     #   google-cloud-storage
     #   ibm-cos-sdk-core
@@ -1026,6 +1031,8 @@ starlette==1.6.0
     # via
     #   fastapi
     #   prefect
+stone==3.5.4
+    # via dropbox
 strictyaml==1.7.3
     # via pyiceberg
 sympy==1.14.0

@@ -156,7 +156,7 @@ For full details on the priority system, override behaviour, and registering cus
 
 #### IngestSourceOperator
 
-**Purpose:** Multi-provider ingest abstraction for sources such as object storage, SharePoint, OneDrive, Google Drive, web pages, and filesystem adapters.
+**Purpose:** Multi-provider ingest abstraction for sources such as object storage, SharePoint, OneDrive, Google Drive, Box, Dropbox, web pages, and filesystem adapters.
 
 **Category:** Ingest
 
