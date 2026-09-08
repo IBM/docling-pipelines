@@ -25,7 +25,7 @@ jobs:
         run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install dependencies
-        run: uv pip install -e .
+        run: uv pip install --system -e .
 
       - name: Build package
         run: uv build --out-dir dist/
