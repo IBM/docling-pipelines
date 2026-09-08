@@ -4,9 +4,6 @@ on:
   release:
     types: [published]
 
-env:
-  UV_FROZEN: "1"
-
 permissions:
   contents: read
 
@@ -28,7 +25,7 @@ jobs:
         run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install dependencies
-        run: uv sync --frozen --extra dev
+        run: uv pip install -e .
 
       - name: Build package
         run: uv build --out-dir dist/
