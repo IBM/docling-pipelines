@@ -19,9 +19,8 @@ def _default_validator_factory(
 ) -> FlowValidator:
     """Create a FlowValidator backed by a fresh Python orchestrator.
 
-    Constructs a Python-mode orchestrator, initialises it with fixed
-    job/run IDs suitable for metadata work (no persistence side-effects),
-    and wraps it in a FlowValidator ready for feature propagation.
+    Constructs a Python-mode orchestrator and wraps it in a FlowValidator
+    ready for feature propagation.
 
     Args:
         feature_propagator: Optional shared FeaturePropagator instance to inject
@@ -34,7 +33,6 @@ def _default_validator_factory(
     from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
     orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
-    orchestrator.initialize(job_id="enrich-flow", job_run_id="enrich-flow-run")
     return FlowValidator(orchestrator=orchestrator, feature_propagator=feature_propagator)
 
 

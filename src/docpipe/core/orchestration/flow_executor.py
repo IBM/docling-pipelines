@@ -99,7 +99,7 @@ class FlowExecutor:
             )
             return None
 
-        # Initialize orchestrator before validation (creates flow_engine required by validator)
+        # Initialize orchestrator for job execution (sets job_id/job_run_id context and creates flow_engine)
         if job_id and job_run_id:
             self.__orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 

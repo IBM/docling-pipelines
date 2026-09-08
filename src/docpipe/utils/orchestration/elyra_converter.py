@@ -15,7 +15,7 @@ Internal Format:
     - Topologically sorted for execution order
 """
 
-from collections import defaultdict, deque
+from collections import defaultdict
 from copy import deepcopy
 from uuid import uuid4
 
@@ -549,70 +549,13 @@ class ElyraConverter:
             logger.warning("Pipeline has multiple disconnected starting nodes.")
 
     def _sort_dag_topologically(self, *, dag: list[dict]) -> list[dict]:
+        """Sort DAG nodes in topological order.
+
+        Delegates to ``sort_dag_topologically`` in ``flow_utils``.
         """
-        Sort DAG nodes in topological order using Kahn's algorithm.
+        from docpipe.utils.orchestration.flow_utils import sort_dag_topologically
 
-        Args:
-            dag: List of node definitions with edges
-
-        Returns:
-            Topologically sorted list of nodes
-
-        Raises:
-            FlowValidationException: If cycle detected during sorting
-        """
-        # Build adjacency list from output edges
-        adjacency_list = self._get_adjacency_list(dag=dag)
-        by_node_id_map = {node[OperatorConstants.Misc.ID]: node for node in dag}
-
-        # Calculate in-degree for each node
-        indegree: dict[str, int] = defaultdict(int)
-        for u in adjacency_list:
-            indegree[u]  # Initialize
-            for v in adjacency_list[u]:
-                indegree[v] += 1
-
-        # Start with zero in-degree nodes
-        queue = deque([u for u, deg in indegree.items() if deg == 0])
-        topo_order = []
-
-        # BFS-style topological sort
-        while queue:
-            u = queue.popleft()
-            topo_order.append(by_node_id_map.get(u, {}))
-            for v in adjacency_list.get(u, []):
-                indegree[v] -= 1
-                if indegree[v] == 0:
-                    queue.append(v)
-
-        # Verify all nodes processed
-        if len(topo_order) != len(indegree):
-            error = ValidationAlert(
-                code=ErrorCode.FLOW_VALIDATION_FAILED.value,
-                message="DAG contains a cycle; topological sort not possible",
-            )
-            logger.error(str(error))
-            raise FlowValidationException(errors=[error])
-
-        return topo_order
-
-    def _get_adjacency_list(self, *, dag: list[dict]) -> dict[str, list[str]]:
-        """
-        Build adjacency list from DAG output edges.
-
-        Args:
-            dag: List of node definitions
-
-        Returns:
-            Adjacency list mapping node IDs to their successors
-        """
-        adjacency_list: dict[str, list[str]] = defaultdict(list)
-        for node in dag:
-            node_id = node[OperatorConstants.Misc.ID]
-            adjacency_list[node_id]  # Initialize
-            for edge in node.get(DocpipeConstants.OUTPUT_EDGES, []):
-                adjacency_list[node_id].append(edge[ElyraConstants.NODE_ID_REF])
-        return adjacency_list
+        return sort_dag_topologically(dag=dag)
 
     def transform_internal_to_elyra(
         self,

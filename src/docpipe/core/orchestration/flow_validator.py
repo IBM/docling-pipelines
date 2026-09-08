@@ -27,7 +27,6 @@ from docpipe.exceptions.error_messages import ValidationCodeMessages, Validation
 from docpipe.types import FlowConfig
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.orchestration.flow_utils import add_validation_alert
-from docpipe.utils.orchestration.prefect_config import clean_up_prefect_home
 
 logger = get_logger()
 
@@ -106,7 +105,7 @@ class FlowValidator:
         FlowValidator works in conjunction with:
         - FeaturePropagator: Handles feature tracking through the DAG
         - OperatorMetadata: Provides operator capability information
-        - FlowEngine: Executes validation traversal (Prefect-based)
+        - _traverse_dag: Executes validation traversal (plain Python topological walk)
 
     Validation Modes:
         1. validate(): Basic structural validation without feature tracking
@@ -178,8 +177,9 @@ class FlowValidator:
         loads operator metadata once during initialization for efficient validation.
 
         Args:
-            orchestrator: Reference to the AbstractOrchestrator instance that will
-                execute the validation traversal. Must have flow_engine initialized.
+            orchestrator: Reference to the AbstractOrchestrator instance. Used to
+                resolve custom operator packages and enable_custom_operators settings.
+                Does not need flow_engine to be initialized.
             feature_propagator: Optional shared FeaturePropagator instance. When
                 provided the validator reuses it instead of constructing a new one,
                 avoiding a redundant operator-metadata load (e.g. when called from
@@ -344,21 +344,7 @@ class FlowValidator:
                 session_info=session_info,
             )
 
-        if self.orchestrator.flow_engine is None:
-            raise FlowValidationException(
-                errors=[
-                    ValidationAlert(
-                        ErrorCode.FLOW_VALIDATION_FAILED.value,
-                        message="Flow engine not initialized",
-                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
-                    )
-                ]
-            )
-
-        self.orchestrator.flow_engine.execute_non_execute_flow(
-            flow_name="dag_validation_flow", task=node_validation_task, dag=dag
-        )
-        clean_up_prefect_home()
+        self._traverse_dag(dag=dag, task=node_validation_task)
 
         self.validate_last_operator(dag=dag, validate_results=validate_results)
 
@@ -464,22 +450,7 @@ class FlowValidator:
             )
             return node_result
 
-        # Execute feature propagation traversal
-        if self.orchestrator.flow_engine is None:
-            raise FlowValidationException(
-                errors=[
-                    ValidationAlert(
-                        ErrorCode.FLOW_VALIDATION_FAILED.value,
-                        message="Flow engine not initialized",
-                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
-                    )
-                ]
-            )
-
-        self.orchestrator.flow_engine.execute_non_execute_flow(
-            flow_name="feature_propagation_flow", task=feature_propagation_task, dag=dag
-        )
-        clean_up_prefect_home()
+        self._traverse_dag(dag=dag, task=feature_propagation_task)
 
         logger.info(
             f"Feature propagation complete: {len(propagation_result.available_features)} nodes processed",
@@ -832,23 +803,51 @@ class FlowValidator:
 
             return node_result
 
-        if self.orchestrator.flow_engine is None:
-            raise FlowValidationException(
-                errors=[
-                    ValidationAlert(
-                        ErrorCode.FLOW_VALIDATION_FAILED.value,
-                        message="Flow engine not initialized",
-                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
-                    )
-                ]
-            )
-
-        self.orchestrator.flow_engine.execute_non_execute_flow(
-            flow_name="feature_propagation_debug_flow", task=feature_debug_task, dag=dag
-        )
-        clean_up_prefect_home()
+        self._traverse_dag(dag=dag, task=feature_debug_task)
         self._node_features_cache = node_features
         return node_features
+
+    def _traverse_dag(self, *, dag: list, task: Any) -> None:
+        """Traverse the DAG in topological order, calling task for each node.
+
+        Replaces the previous Prefect-based traversal. Delegates ordering to
+        ``sort_dag_topologically`` (shared utility, Kahn's algorithm) so this
+        method is correct for all DAG shapes regardless of input list order,
+        including branch+merge flows where the merge node has multiple parents.
+
+        Parent results are resolved from a node-keyed results dict and passed
+        into the task function in the same shape the previous Prefect traversal
+        used:
+        - No parents (root node)   → None
+        - Single parent            → the parent result directly
+        - Multiple parents (merge) → dict of {link_name: result}
+
+        Args:
+            dag: List of DAG node definitions. Order need not be topological.
+            task: Callable with signature
+                ``task(task_name, op_def, prev_result, link_name) -> Any``.
+                The return value is stored and forwarded to downstream nodes.
+        """
+        from docpipe.utils.orchestration.flow_utils import sort_dag_topologically
+
+        results: dict[str, Any] = {}
+
+        for op_def in sort_dag_topologically(dag=dag):
+            node_id = op_def["id"]
+            input_edges = op_def.get("input_edges", [])
+            link_name = op_def.get(OperatorConstants.Misc.LINK_NAME)
+            task_name = op_def.get(OperatorConstants.Columns.NAME, node_id)
+
+            if not input_edges:
+                prev_result = None
+            elif len(input_edges) == 1:
+                prev_result = results.get(input_edges[0]["node_id_ref"])
+            else:
+                prev_result = {
+                    edge.get(OperatorConstants.Misc.LINK_NAME): results.get(edge["node_id_ref"]) for edge in input_edges
+                }
+
+            results[node_id] = task(task_name, op_def, prev_result, link_name)
 
     def _validate_root_operator(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the root operator of the DAG (no incoming edges) is an Ingest operator.

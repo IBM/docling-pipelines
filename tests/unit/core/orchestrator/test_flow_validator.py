@@ -73,8 +73,7 @@ class TestFlowValidator:
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
-    def test_validate_dag_empty_dag(self, mock_cleanup):
+    def test_validate_dag_empty_dag(self):
         """Test validation with empty DAG."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
@@ -88,8 +87,7 @@ class TestFlowValidator:
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
-    def test_validate_dag_unnamed_operators(self, mock_cleanup):
+    def test_validate_dag_unnamed_operators(self):
         """Test validation with unnamed operators."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
@@ -116,8 +114,7 @@ class TestFlowValidator:
         # Should have warnings about unnamed operators
         assert len(exc_info.value.warnings) > 0 or len(exc_info.value.errors) > 0
 
-    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
-    def test_validate_dag_duplicate_names(self, mock_cleanup):
+    def test_validate_dag_duplicate_names(self):
         """Test validation with duplicate operator names."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
@@ -517,19 +514,7 @@ class TestFlowValidatorIntegration:
         """Create orchestrator instance for testing."""
         from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
-        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
-
-        # Replace the Prefect-based flow engine with a simple sequential walker so
-        # the validation traversal never starts an ephemeral Prefect API server.
-        def _sequential_execute_non_execute_flow(*, flow_name: str, task, dag):
-            result = None
-            for node in dag:
-                node_name = node.get("name", "")
-                result = task(node_name, node, result, None)
-
-        orch.flow_engine.execute_non_execute_flow = _sequential_execute_non_execute_flow
-        return orch
+        return OrchestratorFactory.create_orchestrator(orchestrator_name="python")
 
     @pytest.fixture
     def validator(self, orchestrator):
@@ -1244,36 +1229,6 @@ class TestGetRequiredNodeFieldsErrors:
             validator._get_required_node_fields(op_def={"id": "n1"})
 
 
-class TestValidateDagFlowEngineNone:
-    """validate_dag raises when flow_engine is None."""
-
-    def test_raises_when_flow_engine_none(self):
-        mock_orch = Mock()
-        mock_orch.common_log_arguments = {}
-        mock_orch.enable_custom_operators = False
-        mock_orch.custom_operator_packages = None
-        mock_orch.flow_engine = None
-
-        validator = FlowValidator(orchestrator=mock_orch)
-
-        # Patch all early-exit checks so we reach the flow_engine check
-        with (
-            patch.object(validator, "_validate_root_operator"),
-            patch.object(validator, "_validate_acl_operator_placement"),
-            patch.object(validator, "_validate_storage_output_operator_placement"),
-            patch.object(validator, "_validate_disjoint_operators"),
-            patch.object(validator, "_validate_no_cycles"),
-            patch.object(validator, "_validate_operator_availability"),
-        ):
-            with pytest.raises(FlowValidationException) as exc_info:
-                validator.validate_dag(
-                    flow_def={"dag": [{"id": "n1", "name": "n", "operator": "ingest_source"}]},
-                    global_config={},
-                )
-
-        assert any("FLOW_ENGINE_NOT_INITIALIZED" in str(e) for e in exc_info.value.errors)
-
-
 class TestValidateDagWithFeatures:
     """Tests for validate_dag_with_features — covers lines 440-488."""
 
@@ -1281,16 +1236,7 @@ class TestValidateDagWithFeatures:
     def orchestrator(self):
         from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
-        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
-
-        def _seq(*, flow_name, task, dag):
-            result = None
-            for node in dag:
-                result = task(node.get("name", ""), node, result, None)
-
-        orch.flow_engine.execute_non_execute_flow = _seq
-        return orch
+        return OrchestratorFactory.create_orchestrator(orchestrator_name="python")
 
     def test_validate_dag_with_features_returns_result(self, orchestrator, fixtures_invoices_dir):
         validator = FlowValidator(orchestrator=orchestrator)
@@ -1347,16 +1293,7 @@ class TestPropagateFeaturesPerNode:
     def orchestrator(self):
         from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
-        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
-
-        def _seq(*, flow_name, task, dag):
-            result = None
-            for node in dag:
-                result = task(node.get("name", ""), node, result, None)
-
-        orch.flow_engine.execute_non_execute_flow = _seq
-        return orch
+        return OrchestratorFactory.create_orchestrator(orchestrator_name="python")
 
     def test_returns_per_node_snapshot(self, orchestrator, fixtures_invoices_dir):
         validator = FlowValidator(orchestrator=orchestrator)
@@ -1400,6 +1337,115 @@ class TestFeatureMetadataIsPrimary:
     def test_explicit_false(self):
         meta = FeatureMetadata(name="content", node_id="extract-1", is_primary=False)
         assert meta.is_primary is False
+
+
+class TestTraverseDag:
+    """_traverse_dag works correctly for linear, branching, and out-of-order DAGs."""
+
+    @pytest.fixture
+    def validator(self):
+        mock_orch = Mock()
+        mock_orch.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orch)
+
+    def test_linear_dag(self, validator):
+        """Simple A→B→C chain returns results in order."""
+        visited = []
+
+        def task(task_name, op_def, prev_result, link_name):
+            visited.append(op_def["id"])
+            return op_def["id"]
+
+        dag = [
+            {"id": "a", "name": "a", "input_edges": [], "output_edges": [{"node_id_ref": "b"}]},
+            {
+                "id": "b",
+                "name": "b",
+                "input_edges": [{"node_id_ref": "a", "link_name": "a"}],
+                "output_edges": [{"node_id_ref": "c"}],
+            },
+            {"id": "c", "name": "c", "input_edges": [{"node_id_ref": "b", "link_name": "b"}], "output_edges": []},
+        ]
+        validator._traverse_dag(dag=dag, task=task)
+        assert visited == ["a", "b", "c"]
+
+    def test_branch_merge_dag_in_order(self, validator):
+        """A→[B,C]→D: merge node receives a dict of two parent results."""
+        received_prev = {}
+
+        def task(task_name, op_def, prev_result, link_name):
+            received_prev[op_def["id"]] = prev_result
+            return op_def["id"]
+
+        dag = [
+            {"id": "a", "name": "a", "input_edges": [], "output_edges": [{"node_id_ref": "b"}, {"node_id_ref": "c"}]},
+            {
+                "id": "b",
+                "name": "b",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_1"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+            {
+                "id": "c",
+                "name": "c",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_2"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+            {
+                "id": "d",
+                "name": "d",
+                "input_edges": [
+                    {"node_id_ref": "b", "link_name": "branch_1"},
+                    {"node_id_ref": "c", "link_name": "branch_2"},
+                ],
+                "output_edges": [],
+            },
+        ]
+        validator._traverse_dag(dag=dag, task=task)
+        assert received_prev["a"] is None
+        assert received_prev["b"] == "a"
+        assert received_prev["c"] == "a"
+        # merge node gets a dict keyed by link_name
+        assert received_prev["d"] == {"branch_1": "b", "branch_2": "c"}
+
+    def test_branch_merge_dag_out_of_order(self, validator):
+        """Same branch+merge DAG but nodes shuffled — result must be identical."""
+        received_prev = {}
+
+        def task(task_name, op_def, prev_result, link_name):
+            received_prev[op_def["id"]] = prev_result
+            return op_def["id"]
+
+        # d appears before b and c in the list — deliberately out of topological order
+        dag = [
+            {
+                "id": "d",
+                "name": "d",
+                "input_edges": [
+                    {"node_id_ref": "b", "link_name": "branch_1"},
+                    {"node_id_ref": "c", "link_name": "branch_2"},
+                ],
+                "output_edges": [],
+            },
+            {
+                "id": "c",
+                "name": "c",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_2"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+            {"id": "a", "name": "a", "input_edges": [], "output_edges": [{"node_id_ref": "b"}, {"node_id_ref": "c"}]},
+            {
+                "id": "b",
+                "name": "b",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_1"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+        ]
+        validator._traverse_dag(dag=dag, task=task)
+        assert received_prev["a"] is None
+        assert received_prev["b"] == "a"
+        assert received_prev["c"] == "a"
+        assert received_prev["d"] == {"branch_1": "b", "branch_2": "c"}
 
 
 class TestFeaturePropagationResultAddFeatureIsPrimary:
