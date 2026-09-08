@@ -24,24 +24,23 @@ lock = threading.Lock()
 
 class FlowExecutor:
     """
-    This class is responsible for loading a flow definition from a JSON file, instantiating
+    This class is responsible for loading a flow definition, instantiating
     an orchestrator object, executing the flow, and visualizing the flow.
     ## Attributes
-    - flow_def: A dictionary containing the flow definition loaded from the JSON file.
+    - flow_def: A dictionary containing the compiled runtime flow definition.
     """
 
     def __init__(
         self,
-        flow_def_file: str | None = None,
         flow_def: FlowConfig | None = None,
         orchestrator: AbstractOrchestrator | None = None,
         original_flow_def: FlowConfig | None = None,
     ) -> None:
         """
-        Loads the flow definition from the given JSON file and stores it in the `flow_def` attribute.
+        Stores the compiled flow definition in the `flow_def` attribute.
         Parameters:
-        - flow_def_file: The path to the JSON file containing the flow definition.
-        - flow_def: Actual flow definition in JSON format. Will be ignored if flow_def_file is passed
+        - flow_def: Compiled runtime flow definition (DAG format). Must be pre-compiled
+          by the caller using AuthoringCompiler before passing here.
         - orchestrator: Orchestrator to be used by this flow executor.
         - original_flow_def: Original flow definition before compilation (for audit trail)
         """
@@ -49,11 +48,7 @@ class FlowExecutor:
         self.common_log_arguments = self.session_info.get_common_log_arguments()
         self.__orchestrator = orchestrator
         self.original_flow_def = original_flow_def
-        if flow_def_file is not None:
-            with Path(flow_def_file).open() as json_file:
-                self.flow_def = json.load(json_file).get("flow")
-        else:
-            self.flow_def = flow_def
+        self.flow_def: FlowConfig = flow_def or {}
         self.trace_memory_allocations = os.getenv(DocpipeConstants.TRACE_MEMORY_ALLOCATIONS, False)
 
     def __str__(self):
@@ -240,6 +235,9 @@ class FlowExecutor:
 # main entry point into the program
 def main():  # pragma: no cover
     """Main."""
+    from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
+    from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow, FlowSource
+
     parser = argparse.ArgumentParser(description="Run flow json file")
     parser.add_argument(
         "-f",
@@ -257,7 +255,14 @@ def main():  # pragma: no cover
 
     logger.info(f"Running flow [{args.file}] with orchestrator [{args.orchestrator}]")
 
-    flow = FlowExecutor(flow_def_file=args.file)
+    with Path(args.file).open() as json_file:
+        flow_dict = json.load(json_file)
+    flow_dict[DocpipeConstants.FLOW_SOURCE] = FlowSource.CLI
+    authoring_flow = AuthoringFlow.from_dict(data=flow_dict)
+    compiler = AuthoringCompiler()
+    flow_def = compiler.compile(authoring_flow=authoring_flow)
+
+    flow = FlowExecutor(flow_def=flow_def)
     logger.info(f">>> Loaded flow {flow!s}")
     logger.debug(flow.flow_def)
 
