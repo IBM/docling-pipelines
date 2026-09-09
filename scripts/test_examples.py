@@ -296,6 +296,15 @@ class ExampleTester:
 
         start_time = time.time()
 
+        if self.dry_run:
+            return TestResult(
+                name=test.name,
+                status=TestStatus.SKIPPED,
+                duration=0,
+                output="",
+                skip_reason="Dry run mode",
+            )
+
         # Check prerequisites
         can_run, skip_reason = self.check_prerequisites(test=test)
         if not can_run:
@@ -305,15 +314,6 @@ class ExampleTester:
                 duration=0,
                 output="",
                 skip_reason=skip_reason,
-            )
-
-        if self.dry_run:
-            return TestResult(
-                name=test.name,
-                status=TestStatus.SKIPPED,
-                duration=0,
-                output="",
-                skip_reason="Dry run mode",
             )
 
         # Run the test
