@@ -277,3 +277,81 @@ class TestCountBatchesByStatus:
         assert result[ExecutionStatus.PENDING.value] == 5
         assert result[ExecutionStatus.COMPLETED.value] == 0
         assert result[ExecutionStatus.FAILED.value] == 0
+
+
+class TestAddProgressFieldProgressPercentage:
+    """Tests that _add_progress_field always writes a numeric progress_percentage float."""
+
+    def _make_status_counts(self, *, completed=0, running=0, failed=0, skipped=0):
+        return {
+            ExecutionStatus.COMPLETED.value: completed,
+            ExecutionStatus.RUNNING.value: running,
+            ExecutionStatus.FAILED.value: failed,
+            ExecutionStatus.SKIPPED.value: skipped,
+            ExecutionStatus.COMPLETED_WITH_ERRORS.value: 0,
+            ExecutionStatus.COMPLETED_WITH_WARNINGS.value: 0,
+            ExecutionStatus.PENDING.value: 0,
+            ExecutionStatus.QUEUED.value: 0,
+            ExecutionStatus.CANCELING.value: 0,
+            ExecutionStatus.CANCELED.value: 0,
+        }
+
+    def test_progress_percentage_written_as_float(self):
+        """progress_percentage must be a float alongside the Progress string."""
+        from docpipe.core.job_management.application.aggregation.batch_aggregator import _add_progress_field
+
+        metadata: dict[str, object] = {}
+        _add_progress_field(
+            metadata=metadata,
+            finished_batches=2,
+            total_batches=4,
+            status_counts=self._make_status_counts(completed=2),
+        )
+
+        assert "progress_percentage" in metadata
+        assert isinstance(metadata["progress_percentage"], float)
+        assert metadata["progress_percentage"] == 50.0
+        assert "Progress" in metadata
+
+    def test_progress_percentage_100_when_all_complete(self):
+        """All batches finished → progress_percentage == 100.0."""
+        from docpipe.core.job_management.application.aggregation.batch_aggregator import _add_progress_field
+
+        metadata: dict[str, object] = {}
+        _add_progress_field(
+            metadata=metadata,
+            finished_batches=5,
+            total_batches=5,
+            status_counts=self._make_status_counts(completed=5),
+        )
+
+        assert metadata["progress_percentage"] == 100.0
+
+    def test_progress_percentage_0_when_none_finished(self):
+        """No batches finished → progress_percentage == 0.0."""
+        from docpipe.core.job_management.application.aggregation.batch_aggregator import _add_progress_field
+
+        metadata: dict[str, object] = {}
+        _add_progress_field(
+            metadata=metadata,
+            finished_batches=0,
+            total_batches=4,
+            status_counts=self._make_status_counts(running=4),
+        )
+
+        assert metadata["progress_percentage"] == 0.0
+
+    def test_no_progress_percentage_when_total_batches_zero(self):
+        """When total_batches == 0, neither Progress nor progress_percentage is written."""
+        from docpipe.core.job_management.application.aggregation.batch_aggregator import _add_progress_field
+
+        metadata: dict[str, object] = {}
+        _add_progress_field(
+            metadata=metadata,
+            finished_batches=0,
+            total_batches=0,
+            status_counts=self._make_status_counts(),
+        )
+
+        assert "progress_percentage" not in metadata
+        assert "Progress" not in metadata

@@ -908,6 +908,9 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         FIELD_ENTITIES_EXTRACTED: Final[str] = "Entities Extracted"
         FIELD_DOCS_CLASSIFIED: Final[str] = "Documents Classified"
 
+        # Numeric progress percentage (float 0-100) for programmatic UI consumption
+        PROGRESS_PERCENTAGE: Final[str] = "progress_percentage"
+
     class Storage:
         """Storage constants."""
 

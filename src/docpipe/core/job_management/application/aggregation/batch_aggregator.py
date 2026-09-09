@@ -628,6 +628,9 @@ def _add_progress_field(
         else:
             metadata[OperatorConstants.Metadata.FIELD_PROGRESS] = base_progress
 
+        # Numeric progress percentage for programmatic UI consumption (float, 0-100)
+        metadata[OperatorConstants.Metadata.PROGRESS_PERCENTAGE] = pct
+
 
 def _add_extraction_stage_fields(
     *, metadata: dict[str, Any], extraction_info: ExtractionInfo, has_pending_batches: bool

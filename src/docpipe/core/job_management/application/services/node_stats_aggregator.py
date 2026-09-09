@@ -8,7 +8,8 @@ and this service handles the aggregation.
 
 from collections import defaultdict
 
-from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.job_management.application.aggregation import MetadataAggregator, aggregate_batch_node_stats
 from docpipe.core.job_management.domain.models import NodeStats
 from docpipe.core.job_management.domain.ports import JobStatsStore
@@ -111,13 +112,56 @@ class NodeStatsAggregator:
                 if aggregated_stats:
                     result[node_id] = aggregated_stats
 
-        # Step 5: Add non-batch records directly (no aggregation needed)
+        # Step 5: Add non-batch records with progress_percentage injected
         for record in non_batch_records:
             node_id = getattr(record, "id", getattr(record, DocpipeConstants.NODE_ID, None))
             if node_id:
+                self._inject_progress_percentage(record)
                 result[node_id] = record
 
         return result
+
+    @staticmethod
+    def _inject_progress_percentage(record: NodeStats) -> None:
+        """Inject progress_percentage (float 0-100) into node_metadata for non-batch records.
+
+        Uses total_docs, docs_completed, failed_docs, skipped_docs (lists of doc IDs).
+        Falls back to integer counts stored in node_metadata when the list is empty
+        (operators that track counts rather than individual doc IDs).
+
+        Same formula as the microbatching path (finished_batches / total_batches * 100).
+        Mutates the record in-place before it is returned to the caller.
+        """
+        node_metadata = getattr(record, "node_metadata", None)
+        if not isinstance(node_metadata, dict):
+            return
+
+        inner = node_metadata.get(OperatorConstants.Metadata.NODE_METADATA)
+        if not isinstance(inner, dict):
+            return
+
+        # Derive total from the list of doc IDs; fall back to the integer count
+        # stored inside node_metadata for operators that track counts, not IDs.
+        total_list = getattr(record, "total_docs", None) or []
+        total = len(total_list)
+        if total == 0:
+            total = inner.get(Metrics.External.TOTAL_DOCS, 0) or 0
+
+        if total == 0:
+            return
+
+        processed = len(
+            set(getattr(record, "docs_completed", None) or [])
+            | set(getattr(record, "failed_docs", None) or [])
+            | set(getattr(record, "skipped_docs", None) or [])
+        )
+        # If doc-ID lists are all empty but we have a count-based total, fall back
+        # to processed_docs integer from node_metadata.
+        if processed == 0 and total_list == []:
+            processed = inner.get("processed_docs", 0) or 0
+
+        pct = round((processed / total) * 100, 2)
+        inner[OperatorConstants.Metadata.PROGRESS_PERCENTAGE] = pct
 
     def get_batch_node_stats(self, *, job_id: str, job_run_id: str) -> dict[str, dict[str, NodeStats]]:
         """
