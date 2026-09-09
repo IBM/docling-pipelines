@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { go } from '@/utils';
 import {
@@ -16,7 +16,7 @@ import * as projectMapper from '@/services/api/mappers/project-mapper';
 import { API_STATUS_MAP } from '@/constants/flowStatus';
 import { setFlow, updateFlow, setLoading, setError } from '@/slices/flowSlice';
 import { setProject } from '@/slices/projectsSlice';
-import { makeSelectFlow, selectFlowLoading, selectFlowError, makeSelectProject } from '@/selectors';
+import { makeSelectFlow, makeSelectProject } from '@/selectors';
 import { useAppDispatch, useAppSelector, useNotify, useTheme } from '@/hooks';
 import { useRecentlyVisited } from '@/hooks/useRecentlyVisited';
 import { ROUTES, generateRoute } from '@/config';
@@ -69,8 +69,6 @@ export function FlowDetail(): React.JSX.Element | null {
 
   // ── Flow row from store ──────────────────────────────────────────────────
   const flowRow = useAppSelector(makeSelectFlow(flowId));
-  const flowLoading = useAppSelector(selectFlowLoading);
-  const flowError = useAppSelector(selectFlowError);
 
   // ── Project name for the side panel display label ────────────────────────
   // projectId comes from the ?project_id= query param; resolve the human-readable
@@ -104,13 +102,8 @@ export function FlowDetail(): React.JSX.Element | null {
   const [deleteTarget, setDeleteTarget] = useState<RunRow | null>(null);
 
   // ── Bootstrap: fetch flow if not in store (deep link / page refresh) ───
-  // fetchedRef prevents a second fetch under React StrictMode's double-invoke and
-  // ensures the effect never re-fires while an in-flight request is pending.
-  // AbortController cleans up the request on unmount to silence React 18 no-op warnings.
-  const fetchedRef = useRef(false);
   useEffect(() => {
-    if (!flowId || flowRow || fetchedRef.current) { return; }
-    fetchedRef.current = true;
+    if (!flowId || flowRow) { return; }
     const abortController = new AbortController();
     dispatch(setLoading(true));
     getFlow(flowId)
@@ -119,9 +112,16 @@ export function FlowDetail(): React.JSX.Element | null {
         const row = flowMapper.fromResponse(res.data);
         dispatch(setFlow({ flowId: row.flow_id || flowId, flow: row }));
       })
-      .catch(() => {
+      .catch((err: { response?: { status?: number } } | unknown) => {
         if (abortController.signal.aborted) { return; }
-        dispatch(setError('Failed to load flow. Please try again.'));
+        removeEntry(`flow-${flowId}`);
+        const axiosErr = err as { response?: { status?: number } };
+        if (axiosErr?.response?.status === 404) {
+          go(navigate, ROUTES.ERROR, { state: { message: 'Flow not found.', statusCode: 404 }, replace: true });
+        } else {
+          dispatch(setError('Failed to load flow. Please try again.'));
+          go(navigate, ROUTES.ERROR, { state: { message: 'Failed to load flow. Please try again.', statusCode: 500 }, replace: true });
+        }
       })
       .finally(() => {
         if (!abortController.signal.aborted) {
@@ -129,6 +129,7 @@ export function FlowDetail(): React.JSX.Element | null {
         }
       });
     return () => { abortController.abort(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flowId, flowRow, dispatch]);
 
   // Record this flow as recently visited once its name is available.
@@ -262,18 +263,6 @@ export function FlowDetail(): React.JSX.Element | null {
       notify.error('Failed to delete run', { subtitle: 'Could not delete run. Please try again.' });
     }
   };
-
-  // ── Redirect to error page once fetch settles without a result ───────────
-  useEffect(() => {
-    if (flowLoading) { return; }
-    if (flowRow) { return; }
-    if (flowId) { removeEntry(`flow-${flowId}`); }
-    if (flowError) {
-      go(navigate, ROUTES.ERROR, { state: { message: flowError, statusCode: 500 }, replace: true });
-    } else {
-      go(navigate, ROUTES.ERROR, { state: { message: 'Flow not found.', statusCode: 404 }, replace: true });
-    }
-  }, [flowLoading, flowRow, flowError, flowId, removeEntry, navigate]);
 
   // Show spinner while fetch is in flight or before redirect fires
   if (!flowRow) {

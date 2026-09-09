@@ -7,15 +7,13 @@ import { NoDataEmptyState } from '@carbon/ibm-products';
 import { PageLayout } from '@/components';
 import { CreateFlowTearsheet, FlowsTable } from '@/components/common';
 import { buildFlowDefinition } from '@/lib/helpers';
-import { createFlow, patchFlow, deleteFlow, getProjects, getFlowsByProjectId } from '@/services/api';
+import { createFlow, patchFlow, deleteFlow, getProject, getFlowsByProjectId } from '@/services/api';
 import * as projectMapper from '@/services/api/mappers/project-mapper';
 import * as flowMapper from '@/services/api/mappers/flow-mapper';
 import type { CreateFlowFormValues } from '@/types';
-import { setProjects, setProject, setLoading, setError } from '@/slices/projectsSlice';
+import { setProject, setLoading, setError } from '@/slices/projectsSlice';
 import { setFlows, setFlow, updateFlow, removeFlow, setLoading as setFlowsLoading, setError as setFlowsError } from '@/slices/flowSlice';
 import {
-  selectProjectsLoading,
-  selectProjectsError,
   makeSelectProject,
   selectFlowsArray,
   selectFlowLoading,
@@ -53,8 +51,6 @@ export function ProjectDetail(): React.JSX.Element | null {
 
   // ── Project from store ───────────────────────────────────────────────────
   const project = useAppSelector(makeSelectProject(projectId));
-  const loading = useAppSelector(selectProjectsLoading);
-  const error = useAppSelector(selectProjectsError);
   // ── Flows from store ─────────────────────────────────────────────────────
   const flows = useAppSelector(selectFlowsArray);
   const flowsLoading = useAppSelector(selectFlowLoading);
@@ -64,30 +60,34 @@ export function ProjectDetail(): React.JSX.Element | null {
   const [createFlowLoading, setCreateFlowLoading] = useState(false);
   const [createFlowError, setCreateFlowError] = useState<string | null>(null);
 
-  // ── Bootstrap: fetch projects if this specific project isn't in the store ─
-  // We cannot rely on `storePopulated` alone — the store may hold a different
-  // page of results (e.g. the 5 fetched by ProjectsCard) that doesn't include
-  // this project ID. Always fetch when the project is missing.
+  // ── Bootstrap: fetch project if this specific project isn't in the store ─
   useEffect(() => {
-    if (project) { return; }         // already in store — nothing to do
-    if (loading) { return; }         // fetch already in flight
+    if (!projectId || project) { return; }
+    let cancelled = false;
     dispatch(setLoading(true));
-    getProjects()
+    getProject(projectId)
       .then((res) => {
-        const projectsMap = Object.fromEntries(
-          res.data.projects.map((p) => {
-            const domain = projectMapper.fromResponse(p);
-            return [domain.id, domain];
-          })
-        );
-        dispatch(setProjects(projectsMap));
+        if (cancelled) { return; }
+        const domain = projectMapper.fromResponse(res.data);
+        dispatch(setProject({ projectId: domain.id, project: domain }));
       })
-      .catch(() => {
-        dispatch(setError('Failed to load project. Please try again.'));
+      .catch((err: { response?: { status?: number } } | unknown) => {
+        if (cancelled) { return; }
+        removeEntry(`project-${projectId}`);
+        const axiosErr = err as { response?: { status?: number } };
+        if (axiosErr?.response?.status === 404) {
+          go(navigate, ROUTES.ERROR, { state: { message: 'Project not found.', statusCode: 404 }, replace: true });
+        } else {
+          dispatch(setError('Failed to load project. Please try again.'));
+          go(navigate, ROUTES.ERROR, { state: { message: 'Failed to load project. Please try again.', statusCode: 500 }, replace: true });
+        }
       })
       .finally(() => {
-        dispatch(setLoading(false));
+        if (!cancelled) {
+          dispatch(setLoading(false));
+        }
       });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
@@ -222,19 +222,6 @@ export function ProjectDetail(): React.JSX.Element | null {
   const handleRefresh = (): void => {
     if (project?.id) { fetchFlows(project.id); }
   };
-
-  // ── Loading / error / not-found guards ───────────────────────────────────
-  // ── Redirect to error page once fetch settles without a result ───────────
-  useEffect(() => {
-    if (loading) { return; }
-    if (project) { return; }
-    if (projectId) { removeEntry(`project-${projectId}`); }
-    if (error) {
-      go(navigate, ROUTES.ERROR, { state: { message: error, statusCode: 500 }, replace: true });
-    } else {
-      go(navigate, ROUTES.ERROR, { state: { message: 'Project not found.', statusCode: 404 }, replace: true });
-    }
-  }, [loading, project, error, projectId, removeEntry, navigate]);
 
   // Nothing to render yet — project fetch is in flight or a redirect is about
   // to fire. No spinner here: this window is brief and the project header has
