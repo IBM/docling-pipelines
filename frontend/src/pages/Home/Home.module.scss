@@ -17,6 +17,13 @@
     > :global(.clabs--animated-header__tile) {
     inline-size: calc(50% - $spacing-05) !important;
   }
+
+  // Disable the tooltip — the library hardcodes a Carbon Tooltip onto the title
+  // which cannot be removed via props; pointer-events: none suppresses it entirely.
+  :global(.clabs--animated-header__title-and-actions)
+    :global(.cds--tooltip-trigger__wrapper) {
+    pointer-events: none;
+  }
 }
 
 // ── Zone 2: Recently Visited Bar ──────────────────────────────────────────────

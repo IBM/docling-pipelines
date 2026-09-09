@@ -9,10 +9,13 @@
 }
 
 // Horizontal scroll wrapper — contains only the <Table>, not the toolbar or pagination.
+// overflow-y: visible declared but browser computes it as auto (CSS spec:
+// overflow-y cannot be visible when overflow-x is auto). Vertical clipping
+// is handled by the containing .contentZone, not this element.
 .tableScrollX {
   flex: 1;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: visible;
   width: 100%;
 }
 

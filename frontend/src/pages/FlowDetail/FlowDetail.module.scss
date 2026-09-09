@@ -37,6 +37,7 @@
   background-color: $background;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
   padding: $spacing-07;
   position: relative;
   transition: padding-right 0.15s ease;

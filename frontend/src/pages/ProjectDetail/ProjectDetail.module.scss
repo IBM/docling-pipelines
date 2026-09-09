@@ -89,11 +89,12 @@
   }
 }
 
-// ── Content zone — fills remaining viewport height ──────────────────
+// ── Content zone — fills remaining viewport height and owns the scroll ──
 .contentZone {
   background-color: $layer-01;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
   padding: $spacing-07;
 }
 
