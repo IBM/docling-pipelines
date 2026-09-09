@@ -193,6 +193,27 @@ timestamps {
         echo "Skipping Sonar: only frontend files changed"
       }
 
+      if (frontendChanged) {
+        stage('Sonar (Frontend)') {
+          script {
+            withCredentials([string(credentialsId: 'sonarqube-auth-token-cio', variable: 'SONAR_PWD')]) {
+              println "Running sonarqube for frontend.."
+              sh("chmod +x sonar/sonarscan-frontend.sh")
+              def scanBranch=''
+              if (env.BRANCH_NAME.startsWith("PR-")) {
+                scanBranch = env.CHANGE_BRANCH
+              } else {
+                scanBranch = env.BRANCH_NAME
+              }
+              println "Base branch is ${env.CHANGE_TARGET}"
+              sh("./sonar/sonarscan-frontend.sh ${scanBranch} ${SONAR_PWD} ${WORKSPACE} ${env.BUILD_ID}")
+            }
+          }
+        }
+      } else {
+        echo "Skipping Sonar (Frontend): no frontend files changed"
+      }
+
       if (isReleaseBuild) {
         if (currentBuild.currentResult == 'SUCCESS') {
           stage('Build and Push Wheel') {
