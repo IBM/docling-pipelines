@@ -333,10 +333,12 @@ class AuthoringFlow:
             if op_name in deps:
                 errors.append(f"Operator '{op_name}' cannot depend on itself")
 
+        visited: set[str] = set()
         for op_name in dependencies:
-            if AuthoringFlow._has_cycle(node=op_name, dependencies=dependencies, visited=set(), rec_stack=set()):
-                errors.append(f"Circular dependency detected involving operator '{op_name}'")
-                break
+            if op_name not in visited:
+                if AuthoringFlow._has_cycle(node=op_name, dependencies=dependencies, visited=visited, rec_stack=set()):
+                    errors.append(f"Circular dependency detected involving operator '{op_name}'")
+                    break
 
         return errors
 

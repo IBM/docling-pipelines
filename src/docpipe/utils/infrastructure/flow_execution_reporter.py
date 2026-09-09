@@ -536,6 +536,27 @@ class FlowExecutionReporter:
         else:
             logger.info(f"   {display_name}: []")
 
+    def _extract_name_from_row(self, *, table: Any, idx: int, search_id: str) -> str | None:
+        """Extract a usable display name from a matched row.
+
+        Tries the name then path columns; returns the first non-empty value
+        that is not the document ID itself.
+
+        Args:
+            table: PyArrow table containing the row
+            idx: Row index to inspect
+            search_id: The document ID string (excluded from results)
+
+        Returns:
+            Display name if found, None otherwise
+        """
+        for col_name in [OperatorConstants.Columns.NAME, OperatorConstants.Columns.PATH]:
+            if col_name in table.column_names:
+                name_value = table.column(col_name)[idx].as_py()
+                if name_value and str(name_value) != search_id:
+                    return name_value
+        return None
+
     def _find_doc_name_in_table(self, *, table: Any, doc_id: str) -> str | None:
         """Search a single PyArrow table for a document name matching doc_id.
 
@@ -554,13 +575,8 @@ class FlowExecutionReporter:
         id_col = table.column(id_column)
         for idx in range(len(id_col)):
             if str(id_col[idx].as_py()) == search_id:
-                for col_name in ["name", "path"]:
-                    if col_name in table.column_names:
-                        name_value = table.column(col_name)[idx].as_py()
-                        if name_value and str(name_value) != search_id:
-                            return name_value
-                # Found the row but no usable name/path — use fallback
-                return None
+                # Found the row — delegate name extraction to helper
+                return self._extract_name_from_row(table=table, idx=idx, search_id=search_id)
 
         return None
 

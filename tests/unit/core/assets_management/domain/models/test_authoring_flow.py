@@ -9,6 +9,39 @@ from docpipe.core.assets.flows.domain.models.authoring_flow import (
 )
 from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
 
+# ---------------------------------------------------------------------------
+# Helpers for cycle detection tests
+# ---------------------------------------------------------------------------
+
+
+def _linear_chain(n: int) -> AuthoringFlow:
+    """Build a valid linear chain: op_0 -> op_1 -> ... -> op_{n-1}."""
+    operators = [AuthoringOperator(type="noop", name="op_0", depends_on=[])]
+    for i in range(1, n):
+        operators.append(AuthoringOperator(type="noop", name=f"op_{i}", depends_on=[f"op_{i - 1}"]))
+    return AuthoringFlow(flow_name="linear-chain", flow=operators)
+
+
+def _flow_with_cycle(*, cycle_back_to: int, n: int) -> AuthoringFlow:
+    """Build a chain of length n and close a cycle.
+
+    A cycle is created by making op_{cycle_back_to} also depend on the last node
+    op_{n-1}, so the DFS will encounter:
+    op_{cycle_back_to} -> ... -> op_{n-1} -> op_{cycle_back_to}.
+    """
+    operators = [AuthoringOperator(type="noop", name="op_0", depends_on=[])]
+    for i in range(1, n):
+        operators.append(AuthoringOperator(type="noop", name=f"op_{i}", depends_on=[f"op_{i - 1}"]))
+    # Close the cycle: op_{cycle_back_to} gains an additional dependency on the last node,
+    # creating: op_{cycle_back_to} -> op_{n-1} -> ... -> op_{cycle_back_to}
+    operators[cycle_back_to].depends_on.append(f"op_{n - 1}")
+    return AuthoringFlow(flow_name="cycle-flow", flow=operators)
+
+
+def _invoke_cycle_check(flow: AuthoringFlow) -> list[str]:
+    """Call _check_circular_dependencies directly (bypasses full validate())."""
+    return flow._check_circular_dependencies()
+
 
 class TestAuthoringOperator:
     """Tests for AuthoringOperator validation."""
@@ -275,3 +308,97 @@ class TestAuthoringFlowFromDict:
 
         assert "type" in str(exc_info.value)
         assert "0" in str(exc_info.value)  # index reported in message
+
+
+# ---------------------------------------------------------------------------
+# Cycle detection correctness tests
+# ---------------------------------------------------------------------------
+
+
+class TestCycleDetectionCorrectness:
+    """Verify that _check_circular_dependencies returns the right result for known graphs."""
+
+    def test_linear_chain_has_no_cycle(self) -> None:
+        flow = _linear_chain(5)
+        errors = _invoke_cycle_check(flow)
+        assert errors == []
+
+    def test_single_operator_has_no_cycle(self) -> None:
+        flow = AuthoringFlow(
+            flow_name="single",
+            flow=[AuthoringOperator(type="noop", name="op_0", depends_on=[])],
+        )
+        errors = _invoke_cycle_check(flow)
+        assert errors == []
+
+    def test_self_dependency_detected(self) -> None:
+        flow = AuthoringFlow(
+            flow_name="self-dep",
+            flow=[AuthoringOperator(type="noop", name="op_0", depends_on=["op_0"])],
+        )
+        errors = _invoke_cycle_check(flow)
+        assert any("op_0" in err for err in errors)
+
+    def test_two_node_cycle_detected(self) -> None:
+        """op_0 depends on op_1 and op_1 depends on op_0 -- a direct cycle."""
+        flow = AuthoringFlow(
+            flow_name="two-cycle",
+            flow=[
+                AuthoringOperator(type="noop", name="op_0", depends_on=["op_1"]),
+                AuthoringOperator(type="noop", name="op_1", depends_on=["op_0"]),
+            ],
+        )
+        errors = _invoke_cycle_check(flow)
+        assert len(errors) >= 1
+
+    def test_back_edge_cycle_detected_in_longer_chain(self) -> None:
+        """Chain of 10 with a back edge from op_0 to op_9."""
+        flow = _flow_with_cycle(cycle_back_to=0, n=10)
+        errors = _invoke_cycle_check(flow)
+        assert len(errors) >= 1
+
+    def test_back_edge_to_middle_detected(self) -> None:
+        """Chain of 8 with a back edge from op_3 to op_7."""
+        flow = _flow_with_cycle(cycle_back_to=3, n=8)
+        errors = _invoke_cycle_check(flow)
+        assert len(errors) >= 1
+
+    def test_no_false_positive_on_diamond(self) -> None:
+        """Diamond DAG (shared ancestor, not a cycle) must not raise errors."""
+        #   op_0
+        #  /    \
+        # op_1  op_2
+        #  \    /
+        #   op_3
+        flow = AuthoringFlow(
+            flow_name="diamond",
+            flow=[
+                AuthoringOperator(type="noop", name="op_0", depends_on=[]),
+                AuthoringOperator(type="noop", name="op_1", depends_on=["op_0"]),
+                AuthoringOperator(type="noop", name="op_2", depends_on=["op_0"]),
+                AuthoringOperator(type="noop", name="op_3", depends_on=["op_1", "op_2"]),
+            ],
+        )
+        errors = _invoke_cycle_check(flow)
+        assert errors == []
+
+    def test_no_false_positive_on_wide_dag(self) -> None:
+        """A wide DAG (many nodes, no cycles) returns no errors."""
+        # op_0 is root; every other node depends on op_0 only
+        operators = [AuthoringOperator(type="noop", name="op_0", depends_on=[])]
+        for i in range(1, 30):
+            operators.append(AuthoringOperator(type="noop", name=f"op_{i}", depends_on=["op_0"]))
+        flow = AuthoringFlow(flow_name="wide-dag", flow=operators)
+        errors = _invoke_cycle_check(flow)
+        assert errors == []
+
+    def test_validate_raises_on_cyclic_flow(self) -> None:
+        """Full validate() raises FlowInvalidDataException when a cycle exists."""
+        flow = _flow_with_cycle(cycle_back_to=0, n=5)
+        with pytest.raises(FlowInvalidDataException):
+            flow.validate()
+
+    def test_validate_passes_on_acyclic_flow(self) -> None:
+        """Full validate() does not raise for a well-formed linear flow."""
+        flow = _linear_chain(5)
+        flow.validate()  # must not raise
