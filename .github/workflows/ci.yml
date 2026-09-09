@@ -38,25 +38,25 @@ jobs:
         run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install Dependencies
-        run: uv sync --extra dev
+        run: uv pip install --system -e ".[dev]"
 
       - name: Check Formatting (Ruff)
         run: |
           MODIFIED=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' || true)
           if [ -z "$MODIFIED" ]; then echo "No modified Python files."; exit 0; fi
-          uv run ruff format --check $MODIFIED
+          python -m ruff format --check $MODIFIED
 
       - name: Lint Code (Ruff)
         run: |
           MODIFIED=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' || true)
           if [ -z "$MODIFIED" ]; then echo "No modified Python files."; exit 0; fi
-          uv run ruff check $MODIFIED
+          python -m ruff check $MODIFIED
 
       - name: Static Type Checking (Mypy)
         run: |
           MODIFIED=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' | grep -v '^examples/' || true)
           if [ -z "$MODIFIED" ]; then echo "No modified Python files."; exit 0; fi
-          uv run mypy --config-file=pyproject.toml $MODIFIED
+          python -m mypy --config-file=pyproject.toml $MODIFIED
 
   test:
     name: Test Suite (Python ${{ matrix.python-version }})
@@ -91,13 +91,13 @@ jobs:
         run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install Dependencies
-        run: uv sync --extra dev
+        run: uv pip install --system -e ".[dev]"
 
       - name: Run Unit Tests
-        run: uv run pytest tests/unit -m "unit and not integration" -v --cov=src --cov-report=xml --cov-report=term-missing
+        run: python -m pytest tests/unit -m "unit and not integration" -v --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Run CLI Tests
-        run: uv run pytest tests/test_docpipe_cli.py -v
+        run: python -m pytest tests/test_docpipe_cli.py -v
 
       - name: Upload Test Coverage Artifact
         uses: actions/upload-artifact@v4
