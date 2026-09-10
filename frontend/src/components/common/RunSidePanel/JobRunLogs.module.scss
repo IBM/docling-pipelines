@@ -11,11 +11,8 @@
 .logsContainer {
   flex: 1;
   overflow-y: auto;
-  padding: spacing.$spacing-05;
-}
-
-.logItemContent {
-  padding: spacing.$spacing-03 0;
+  /* No horizontal padding — accordion items + log blocks fill full width */
+  padding-bottom: calc(spacing.$spacing-09 * 2);
 }
 
 /* Log row: pre-wrap text on the left, CopyButton on the right */
@@ -23,7 +20,22 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: spacing.$spacing-03;
+}
+
+/* White log text block inside the gray accordion item — matches datasift-ui .logs */
+.logContent {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-02;
+  background-color: themes.$background;
+  padding: spacing.$spacing-04;
+  margin-bottom: spacing.$spacing-05;
+  @include type.type-style('code-01');
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
 }
 
 .displayedLogContent {
@@ -32,6 +44,37 @@
   word-break: break-word;
   color: themes.$text-primary;
   @include type.type-style('code-01');
+}
+
+/* Accordion Carbon overrides scoped inside .logsContainer so they don't bleed
+   to other accordion instances on the page. */
+.logsContainer {
+  :global {
+    /* Item background = layer-01 (gray) so the white .logContent stands out */
+    .cds--accordion__item {
+      background-color: themes.$layer-01;
+    }
+
+    /* No top border on first item */
+    .cds--accordion__item:first-child {
+      border-top: none;
+    }
+
+    /* Subtle border below active heading */
+    .cds--accordion__item--active > .cds--accordion__heading {
+      border-block-end: calc(spacing.$spacing-01 / 4) solid themes.$border-subtle-01;
+    }
+
+    /* Extra bottom padding when expanded */
+    .cds--accordion__item--active > .cds--accordion__wrapper {
+      padding-block-end: spacing.$spacing-05;
+    }
+
+    /* No right padding — .logContent fills full width */
+    .cds--accordion__content {
+      padding-inline-end: 0;
+    }
+  }
 }
 
 /* "Show detailed log" action below long entries */
@@ -60,7 +103,17 @@
 
 /* Error message text below the notification */
 .flowLogs {
-  padding: spacing.$spacing-03;
-  background-color: themes.$layer-01;
-  border-radius: spacing.$spacing-02;
+  display: flex;
+  background-color: themes.$background;
+  padding: spacing.$spacing-04;
+  @include type.type-style('code-01');
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+  flex-direction: column;
+  gap: spacing.$spacing-03;
+  max-height: 100%;
+  overflow-y: auto;
 }

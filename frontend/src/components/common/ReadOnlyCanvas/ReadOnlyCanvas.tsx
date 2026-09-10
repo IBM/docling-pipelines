@@ -116,7 +116,7 @@ export function ReadOnlyCanvas({
     : PLACEHOLDER_JOB_STATS;
 
   const [isMinimized, setIsMinimized] = useState(false);
-  const [logsPanelVisible, setLogsPanelVisible] = useState(true);
+  const [logsPanelVisible, setLogsPanelVisible] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   // Initial stop-button state: only trust executionLogs if they belong to THIS run.
@@ -199,6 +199,21 @@ export function ReadOnlyCanvas({
     }
   }, [executionLogs, logsMatchCurrentRun, applyNodeDecorations]);
 
+  // Open the logs panel automatically once actual log content arrives for this run.
+  // node_sequence can be populated before any log text is written, so we check that
+  // at least one node has non-empty log content rather than just a non-empty sequence.
+  useEffect(() => {
+    if (!executionLogs || !logsMatchCurrentRun) { return; }
+    const { node_sequence } = executionLogs;
+    if (!node_sequence?.length) { return; }
+    const hasLogContent = node_sequence.some(
+      (nodeId) => !!(executionLogs as Record<string, unknown>)[nodeId]
+    );
+    if (hasLogContent) {
+      setLogsPanelVisible(true);
+    }
+  }, [executionLogs, logsMatchCurrentRun]);
+
   // Auto-select the most-recently-active node after each poll.
   // Mirrors datasift-ui's useEffect([jobRunLogs, jobRunStatusResponse]) behaviour:
   // pick the last node in node_sequence that already has a node_stats entry.
@@ -235,6 +250,7 @@ export function ReadOnlyCanvas({
     pendingDecorationsRef.current = null;
     setIsStopDisabled(true);
     setSelectedNodeId(null);
+    setLogsPanelVisible(false);
     clearNodeDecorations();
     // Clear stale logs immediately — before the async createJobRun call — so the
     // decoration effect and side panel guard (logsMatchCurrentRun) both see null

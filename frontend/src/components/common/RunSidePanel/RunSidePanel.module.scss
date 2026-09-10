@@ -59,12 +59,12 @@
   font-weight: 600;
 }
 
-/* Scrollable content area */
+/* Scrollable content area — layer-01 (gray) so white log blocks stand out */
 .tabContent {
   flex: 1;
   overflow: auto;
   padding-bottom: spacing.$spacing-09;
-  background-color: themes.$background;
+  background-color: themes.$layer-01;
 }
 
 /* Shown when tab has no data yet */
@@ -96,68 +96,6 @@
   svg {
     fill: themes.$icon-primary;
   }
-}
-
-/* Log content styles */
-.logs {
-  display: flex;
-  flex-direction: column;
-  gap: spacing.$spacing-03;
-  max-height: 100%;
-  overflow-y: auto;
-}
-
-.logContent {
-  white-space: pre-wrap;
-  background-color: themes.$layer-01;
-  padding: spacing.$spacing-03;
-  border-radius: spacing.$spacing-02;
-  @include type.type-style('code-01');
-}
-
-/* Each log line: text on left, expand icon on right */
-.logRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.displayedLogContent {
-  white-space: pre-wrap;
-  flex: 1;
-}
-
-.logsContainer {
-  margin: spacing.$spacing-05;
-}
-
-/* "Show more" link below truncated log */
-.showMoreLink {
-  margin-top: spacing.$spacing-02;
-  font-size: 0.9em;
-
-  a {
-    color: themes.$link-primary;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-}
-
-/* Flyout wrapper (used when rendered inside Elyra's right flyout instead of custom panel) */
-.flyoutLogs {
-  display: flex;
-  background-color: themes.$background;
-  padding: spacing.$spacing-04;
-  @include type.type-style('code-01');
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: break-word;
-  user-select: text;
-  cursor: text;
-  flex-direction: column;
-  gap: spacing.$spacing-03;
-  max-height: 100%;
-  overflow-y: auto;
 }
 
 /* Icon-only button wrapper */
@@ -215,7 +153,7 @@
   justify-content: space-between;
   align-items: center;
   padding: spacing.$spacing-04 spacing.$spacing-05;
-  border-bottom: 1px solid themes.$border-subtle-01;
+  border-block-end: calc(spacing.$spacing-01 / 4) solid themes.$border-subtle-01;
   background-color: themes.$layer-02;
   flex-shrink: 0;
 

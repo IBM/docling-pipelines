@@ -39,7 +39,6 @@ import {
   CELL_VALUE_FLOAT_DECIMALS,
   CELL_VALUE_FLOAT_THRESHOLD,
   DEFAULT_NODE_STATUS,
-  DEFAULT_EXECUTION_TIME,
   METADATA_TABLE_HEADERS,
 } from '@/constants/runSidePanel';
 import { SharedTearsheet } from '../SharedTearsheet';
@@ -296,11 +295,6 @@ export function NodeSummary({
   const statusBadgeClass = `${styles.nodeStatus} ${getStatusClass(nodeStatus)}`;
   const StatusIcon = getStatusIconComponent(nodeStatus);
 
-  const executionTime = useMemo(() => {
-    if (!nodeStat) { return DEFAULT_EXECUTION_TIME; }
-    return `${nodeStat.time_taken} seconds`;
-  }, [nodeStat]);
-
   // Parse doc arrays from node_metadata once
   const skippedDocs = useMemo(
     () => parseDocArray(nodeMetadata.node_metadata?.['skipped_docs']),
@@ -403,24 +397,6 @@ export function NodeSummary({
 
       {/* Content */}
       <div className={styles.nodeSummaryContent}>
-
-        {/* Execution Stats — plain key-value rows above the metadata table */}
-        {nodeStat && (
-          <>
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>Execution Stats</span>
-            </div>
-            <MetadataDataTable
-              rows={[
-                { id: 'exec-time',      name: 'Execution time', value: executionTime },
-                { id: 'total-docs',     name: 'Total docs',     value: String(nodeStat.total_docs ?? '') },
-                { id: 'docs-completed', name: 'Docs completed', value: String(nodeStat.docs_completed ?? '') },
-                { id: 'docs-failed',    name: 'Docs failed',    value: String(nodeStat.failed_docs ?? '') },
-                { id: 'docs-skipped',   name: 'Docs skipped',   value: String(nodeStat.skipped_docs ?? '') },
-              ]}
-            />
-          </>
-        )}
 
         {/* Node Metadata — filtered properties from the metadata object */}
         {metadataRows.length > 0 && (

@@ -117,7 +117,7 @@ export function JobRunLogs({
                 title={nodeName}
                 open  // all items open by default — matches datasift-ui
               >
-                <div className={styles.logItemContent}>
+                <div className={styles.logContent}>
                   <div className={styles.logRow}>
                     <div className={styles.displayedLogContent}>{fullLog}</div>
                     <CopyButton
