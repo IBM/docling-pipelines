@@ -7,7 +7,8 @@ RUN dnf install -y gcc gcc-c++ openldap-devel cyrus-sasl-devel openssl-devel && 
 WORKDIR /opt/app-root
 
 # 1. Cache dependencies (This layer stays cached if pyproject.toml doesn't change)
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
+
 RUN mkdir -p ./src && \
     uv pip install --no-cache ".[llm]" prefect-docker prefect-kubernetes
 
