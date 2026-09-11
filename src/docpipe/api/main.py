@@ -138,8 +138,13 @@ try:
     if ldap_config:
         ldap_authenticator = LDAPAuthenticator(ldap_config)
 
-    jwt_config: JWTConfig | None = JWTConfig()
-    logger.info("Authentication configurations initialized successfully")
+    try:
+        jwt_config: JWTConfig | None = JWTConfig()
+        logger.info("Authentication configurations initialized successfully")
+    except Exception as e:
+        logger.warning("JWT secret key not configured: %s. Login and token issuance are disabled. Set JWT_SECRET_KEY to enable authentication.", e)
+        jwt_config = None
+
 except Exception as e:
     logger.error("Failed to initialize authentication configurations: %s", e)
     ldap_config = None
