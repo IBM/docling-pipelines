@@ -10,7 +10,6 @@ WORKDIR /opt/app-root
 COPY pyproject.toml ./
 RUN touch README.md
 
-
 RUN mkdir -p ./src && \
     uv pip install --no-cache ".[llm]" prefect-docker prefect-kubernetes
 
