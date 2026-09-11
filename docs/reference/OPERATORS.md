@@ -156,7 +156,7 @@ For full details on the priority system, override behaviour, and registering cus
 
 #### IngestSourceOperator
 
-**Purpose:** Multi-provider ingest abstraction for sources such as object storage, SharePoint, OneDrive, Google Drive, web pages, and filesystem adapters.
+**Purpose:** Multi-provider ingest abstraction for sources such as object storage, SharePoint, OneDrive, Google Drive, Box, Dropbox, web pages, and filesystem adapters.
 
 **Category:** Ingest
 
@@ -2492,7 +2492,7 @@ For new backends, implement the `DocumentSetStorage` and `DocumentSetMetadataRep
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `provider` | string | Adapter name: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, or `google_drive` |
+| `provider` | string | Adapter name: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `dropbox`, `onedrive`, or `google_drive` |
 | `provider_config` | object | Provider-specific connection parameters (see operator README) |
 | `credentials` | object | Provider-specific credentials |
 

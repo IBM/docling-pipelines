@@ -256,7 +256,7 @@ MAX_FILES_DEFAULT_VALUE: int = 100
 INCLUDE_FILTER_KEY: str = "include_filter"
 EXCLUDE_FILTER_KEY: str = "exclude_filter"
 ADAPTER_MANAGED_PROVIDERS: frozenset[str] = frozenset(
-    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "filesystem", "web"}
+    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "dropbox", "filesystem", "web"}
 )
 
 logger = get_logger()
