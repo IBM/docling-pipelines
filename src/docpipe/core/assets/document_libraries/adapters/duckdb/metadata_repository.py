@@ -6,7 +6,7 @@ This adapter implements the repository port using a hybrid approach:
 """
 
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
@@ -260,7 +260,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             if deleted:
                 with self._connection_manager.get_connection(database_path=self._database_path) as conn:
                     conn.execute(
-                        f"DELETE FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE} WHERE library_id = ?",
+                        f"DELETE FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE} WHERE library_id = ?",  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
                         (library_id,),
                     )
 
@@ -396,8 +396,8 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                     INSERT INTO {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                     (library_id, document_set_id, added_at)
                     VALUES (?, ?, ?)
-                    """,
-                    (library_id, document_set_id, datetime.utcnow()),
+                    """,  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
+                    (library_id, document_set_id, datetime.now(UTC)),
                 )
 
             logger.info(f"Added document set {document_set_id} to library {library_id}")
@@ -452,7 +452,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                     f"""
                     DELETE FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                     WHERE library_id = ? AND document_set_id = ?
-                    """,
+                    """,  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
                     (library_id, document_set_id),
                 )
 
@@ -495,7 +495,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                     FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                     WHERE library_id = ?
                     ORDER BY added_at
-                    """,
+                    """,  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
                     (library_id,),
                 ).fetchall()
 
@@ -553,10 +553,10 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 INSERT INTO {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                 (library_id, document_set_id, added_at)
                 VALUES {placeholders}
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             # Flatten params: (lib_id, doc_set_id, timestamp) for each document set
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(UTC)
             params = []
             for doc_set_id in document_set_ids:
                 params.extend([library_id, doc_set_id, timestamp])
@@ -622,7 +622,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             query = f"""
                 DELETE FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                 WHERE library_id = ? AND document_set_id IN ({placeholders})
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             params = (library_id, *document_set_ids)
 
@@ -679,7 +679,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
 
             # Test junction table connectivity
             with self._connection_manager.get_connection(database_path=self._database_path) as conn:
-                conn.execute(f"SELECT COUNT(*) FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}").fetchone()
+                conn.execute(f"SELECT COUNT(*) FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}").fetchone()  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             return HealthCheckResult(
                 healthy=True,
