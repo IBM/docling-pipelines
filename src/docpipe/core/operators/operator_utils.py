@@ -208,6 +208,21 @@ def resolve_env_var(value: Any) -> Any:
     return value
 
 
+def format_failed_docs_summary(*, failed_docs: list) -> str:
+    """Build a human-readable failure summary from a list of failed-doc dicts.
+
+    Each entry is expected to have keys: id, name, reason (all optional).
+    Returns a string like ``" Failures: [doc.pdf: reason; doc2.pdf: reason]"``
+    or an empty string when *failed_docs* is empty.
+    """
+    if not failed_docs:
+        return ""
+    reasons = "; ".join(
+        f"{d.get('name', d.get('id', 'unknown'))}: {d.get('reason', 'unknown error')}" for d in failed_docs
+    )
+    return f" Failures: [{reasons}]"
+
+
 class OperatorUtils:
     @staticmethod
     def determine_execution_status(*, processed_count: int, failed_count: int, skipped_count: int) -> str:
@@ -1063,7 +1078,7 @@ class OperatorUtils:
             )
             binary_content = get_binary_content(doc_metadata=doc_metadata, global_config=global_config)
             if binary_content is None:
-                raise ValueError(f"Failed to fetch binary content for document {doc_name}")
+                raise ValueError(f"Binary content is empty for document '{doc_name}'")
 
         return {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}
 
@@ -1114,6 +1129,12 @@ class OperatorUtils:
 
         doc_tasks = []
         for row_idx in range(table.num_rows):
+            doc_name = (
+                table[OperatorConstants.Columns.NAME][row_idx].as_py()
+                if OperatorConstants.Columns.NAME in table.column_names
+                else f"document_{row_idx}"
+            )
+            doc_id = OperatorUtils._resolve_doc_id(table=table, row_idx=row_idx)
             try:
                 doc_tasks.append(
                     OperatorUtils._prepare_single_document(
@@ -1125,10 +1146,8 @@ class OperatorUtils:
                     )
                 )
             except Exception as e:
-                logger.error("Error preparing document at index %s: %s", row_idx, str(e))
-                doc_tasks.append(
-                    {"idx": row_idx, "doc_id": f"doc_{row_idx}", "doc_name": f"document_{row_idx}", "error": str(e)}
-                )
+                logger.error("Error preparing document '%s' at index %s: %s", doc_name, row_idx, str(e), exc_info=True)
+                doc_tasks.append({"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "error": str(e)})
         return doc_tasks
 
     @staticmethod

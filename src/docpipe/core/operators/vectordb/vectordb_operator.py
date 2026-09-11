@@ -210,20 +210,26 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         # by file_id so the query and the new-PK set use the same key space).
         unique_doc_ids: set[str] = set()
         doc_hash_to_id: dict[str, str] = {}
+        doc_hash_to_name: dict[str, str] = {}
         file_ids: set[str] = set()
         id_column = OperatorConstants.Misc.ID
 
         if self.doc_id_column and self.doc_id_column in table.column_names:
+            has_name_col = "name" in table.column_names
             for idx in range(table.num_rows):
                 doc_hash = table[self.doc_id_column][idx].as_py()
                 if doc_hash:
                     unique_doc_ids.add(str(doc_hash))
-                    # Build mapping from doc_id_hash to original id
+                    # Build mapping from doc_id_hash to original id and name
                     if id_column in table.column_names:
                         original_id = table[id_column][idx].as_py()
                         if original_id:
                             doc_hash_to_id[str(doc_hash)] = str(original_id)
                             file_ids.add(str(original_id))
+                    if has_name_col:
+                        name_val = table["name"][idx].as_py()
+                        if name_val:
+                            doc_hash_to_name[str(doc_hash)] = str(name_val)
         total_unique_docs = len(unique_doc_ids) if unique_doc_ids else table.num_rows
 
         # Initialize metadata
@@ -305,7 +311,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     self.record_failed_document(
                         metadata=metadata,
                         doc_id=original_id,
-                        doc_name=original_id,
+                        doc_name=doc_hash_to_name.get(doc_hash, original_id),
                         reason=f"Failed to create index: {e!s}",
                     )
                 metadata[Metrics.External.PROCESSED_DOCS] = 0
@@ -491,7 +497,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 self.record_failed_document(
                     metadata=metadata,
                     doc_id=f"row_{idx}",
-                    doc_name=f"row_{idx}",
+                    doc_name=row_data.get("name") or f"row_{idx}",
                     reason=str(e),
                 )
 
@@ -578,7 +584,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 self.record_failed_document(
                     metadata=metadata,
                     doc_id=doc_id,
-                    doc_name=doc_id,  # We don't have doc_name at this point
+                    doc_name=doc_hash_to_name.get(doc_id, doc_id),
                     reason="One or more chunks failed to index",
                 )
 
@@ -607,7 +613,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 self.record_failed_document(
                     metadata=metadata,
                     doc_id=original_id,
-                    doc_name=original_id,
+                    doc_name=doc_hash_to_name.get(doc_hash, original_id),
                     reason=f"Indexing operation failed: {e!s}",
                 )
             metadata[Metrics.External.PROCESSED_DOCS] = 0

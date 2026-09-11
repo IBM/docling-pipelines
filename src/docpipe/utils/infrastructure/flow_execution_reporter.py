@@ -89,12 +89,19 @@ class FlowExecutionReporter:
         failed_count = len(node_stats.failed_docs)
         skipped_count = len(node_stats.skipped_docs)
 
+        has_failures = failed_count > 0
+        log = logger.error if has_failures else logger.info
+
         logger.info("")
-        logger.info("=" * 80)
-        logger.info(f" {step_name} ({status})")
-        logger.info("=" * 80)
-        logger.info(
-            f" Duration: {duration_str} | Documents: {completed_count} processed, {failed_count} failed, {skipped_count} skipped"
+        log("=" * 80)
+        log(" %s (%s)", step_name, status)
+        log("=" * 80)
+        log(
+            " Duration: %s | Documents: %s processed, %s failed, %s skipped",
+            duration_str,
+            completed_count,
+            failed_count,
+            skipped_count,
         )
 
         # Print schema information if available
@@ -501,27 +508,31 @@ class FlowExecutionReporter:
                 self._print_generic_list(field, value)
 
     def _print_failed_skipped_docs(self, field: str, docs: list) -> None:
-        """Print failed or skipped documents."""
+        """Print failed or skipped documents.
+
+        Failed docs are printed at ERROR level so they surface regardless of DS_LOG_LEVEL.
+        Skipped docs remain at INFO level.
+        """
         if not docs:
             return
 
-        logger.info("")
-        logger.info(f" {field.replace('_', ' ').upper()} ({len(docs)} items):")
-        for item in docs[:10]:
+        is_failed = field == "failed_docs"
+        log = logger.error if is_failed else logger.info
+
+        log("")
+        log(" %s (%d items):", field.replace("_", " ").upper(), len(docs))
+        for item in docs:
             if isinstance(item, dict):
                 doc_id = item.get("id", "unknown")
                 reason = item.get("reason", "")
-                display_name = self._lookup_doc_name_from_table(doc_id) or doc_id
+                display_name = self._lookup_doc_name_from_table(doc_id) or item.get("name") or doc_id
 
                 if reason:
-                    logger.info(f"   - {display_name}: {reason}")
+                    log("   - %s: %s", display_name, reason)
                 else:
-                    logger.info(f"   - {display_name}")
+                    log("   - %s", display_name)
             else:
-                logger.info(f"   - {item}")
-
-        if len(docs) > 10:
-            logger.info(f"   ... and {len(docs) - 10} more")
+                log("   - %s", item)
 
     def _print_generic_list(self, field: str, value: list) -> None:
         """Print generic list field."""
@@ -617,6 +628,9 @@ class FlowExecutionReporter:
     def print_flow_summary(self, *, job_stats: JobStats, dag_nodes: list[dict]) -> None:
         """Print final flow execution summary.
 
+        Uses logger.error when there are any failures so the summary is visible
+        regardless of DS_LOG_LEVEL.
+
         Args:
             job_stats: Complete job statistics
             dag_nodes: DAG node definitions in execution order
@@ -624,42 +638,47 @@ class FlowExecutionReporter:
         status = job_stats.status.value if job_stats.status else "UNKNOWN"
         duration = float(job_stats.duration) if job_stats.duration else 0.0
 
-        logger.info("")
-        logger.info("=" * 80)
-        logger.info(" FLOW EXECUTION SUMMARY")
-        logger.info("=" * 80)
-        logger.info(f" Status: {status}")
-        logger.info(f" Total Duration: {duration:.2f}s")
+        has_failures = job_stats.failed_docs > 0
+        log = logger.error if has_failures else logger.info
 
-        # Use total_docs as the authoritative count
         total_docs = job_stats.total_docs
         actually_completed = total_docs - job_stats.failed_docs - job_stats.skipped_docs
 
-        logger.info(
-            f" Documents: {actually_completed} completed, {job_stats.failed_docs} failed, {job_stats.skipped_docs} skipped (of {total_docs} total)"
+        log("")
+        log("=" * 80)
+        log(" FLOW EXECUTION SUMMARY")
+        log("=" * 80)
+        log(" Status: %s", status)
+        log(" Total Duration: %.2fs", duration)
+        log(
+            " Documents: %s completed, %s failed, %s skipped (of %s total)",
+            actually_completed,
+            job_stats.failed_docs,
+            job_stats.skipped_docs,
+            total_docs,
         )
 
-        # Print per-operator summary table in execution order
         if job_stats.node_stats:
-            self._print_operator_summary_table(job_stats.node_stats, dag_nodes)
+            self._print_operator_summary_table(job_stats.node_stats, dag_nodes, log=log)
 
-        logger.info("=" * 80)
-        logger.info("")
+        log("=" * 80)
+        log("")
 
-    def _print_operator_summary_table(self, node_stats: dict, dag_nodes: list[dict]) -> None:
+    def _print_operator_summary_table(self, node_stats: dict, dag_nodes: list[dict], *, log=None) -> None:
         """Print operator summary table in DAG execution order."""
-        logger.info("")
-        logger.info(" Operator Summary:")
-        logger.info(f" {'Operator':<30} {'Status':<20} {'Duration':<12} {'Docs':<10}")
-        logger.info(" " + "-" * 78)
+        if log is None:
+            log = logger.info
 
-        # Create position map from DAG order
+        log("")
+        log(" Operator Summary:")
+        log(" %-30s %-20s %-12s %-10s", "Operator", "Status", "Duration", "Docs")
+        log(" %s", "-" * 78)
+
         dag_order = [
             op_def.get(OperatorConstants.Columns.ID) for op_def in dag_nodes if op_def.get(OperatorConstants.Columns.ID)
         ]
         position_map = {node_id: idx for idx, node_id in enumerate(dag_order)}
 
-        # Sort nodes by DAG position
         sorted_nodes = sorted(node_stats.items(), key=lambda x: position_map.get(x[0], float("inf")))
 
         for node_id, stats in sorted_nodes:
@@ -667,11 +686,11 @@ class FlowExecutionReporter:
             status_str = stats.node_status
             duration_str = self._format_duration(stats.time_taken)
 
-            # Calculate document counts
             completed = len(stats.docs_completed)
             failed = len(stats.failed_docs)
             skipped = len(stats.skipped_docs)
             total = completed + failed + skipped
             docs_str = f"{completed}/{total}"
 
-            logger.info(f" {step_name:<30} {status_str:<20} {duration_str:<12} {docs_str:<10}")
+            row_log = logger.error if failed > 0 else log
+            row_log(" %-30s %-20s %-12s %-10s", step_name, status_str, duration_str, docs_str)

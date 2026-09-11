@@ -128,7 +128,7 @@ from docpipe.core.operators.extract.domain.models import (
 )
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
-from docpipe.core.operators.operator_utils import OperatorUtils
+from docpipe.core.operators.operator_utils import OperatorUtils, format_failed_docs_summary
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.logging import get_logger
@@ -1104,9 +1104,10 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
 
             # Text stage is fully done — guard against all-failed case
             if text_completed == 0:
+                suffix = format_failed_docs_summary(failed_docs=metadata.get(Metrics.External.FAILED_DOCS, []))
                 raise ValueError(
                     f"All {total_docs} document(s) failed text extraction. "
-                    "No content was extracted. Cannot continue pipeline with empty content."
+                    f"No content was extracted. Cannot continue pipeline with empty content.{suffix}"
                 )
 
             # Drain entity futures

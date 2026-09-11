@@ -80,6 +80,33 @@ def generate_job_id_from_flow_name(*, flow_name: str) -> str:
     return job_id
 
 
+def _enrich_exception_from_job_stats(*, exception: Exception, job_run_id: str) -> None:
+    """Attach per-node error detail from the job stats store to the exception.
+
+    Prefect serialises exceptions across task boundaries, which drops the
+    __cause__ chain and loses the operator-level failure message.  The job
+    stats store records the real error string in NodeStats.error before that
+    boundary is crossed, so we read it back here and attach it as
+    a ``node_failures`` attribute so the CLI summary box can display it.
+    """
+    try:
+        from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
+
+        factory = get_default_factory()
+        store = factory.create_job_stats_store()
+        node_stats_list = store.get_node_stats(job_run_id=job_run_id)
+
+        failed_nodes = [ns for ns in (node_stats_list or []) if getattr(ns, "node_status", None) == "Failed"]
+        if not failed_nodes:
+            return
+
+        node_failures = {ns.name: ns.error for ns in failed_nodes if getattr(ns, "error", None)}
+        if node_failures:
+            exception.node_failures = node_failures  # type: ignore[attr-defined]
+    except Exception:  # nosec B110 — best-effort enrichment, never block the raise
+        pass
+
+
 def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = None) -> None:
     """Run command line executor."""
     from docpipe.core.constants.constants import DocpipeConstants
@@ -138,8 +165,15 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
     orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
     logger.info(">>> Starting flow execution")
-    executor.execute(orchestrator=orchestrator, params=params)
-    telemetry.shutdown()
+    try:
+        executor.execute(orchestrator=orchestrator, params=params)
+    except Exception as exc:
+        # Attempt to enrich the exception message with per-node error detail
+        # stored in the job stats before Prefect's task boundary erased it.
+        _enrich_exception_from_job_stats(exception=exc, job_run_id=job_run_id)
+        raise
+    finally:
+        telemetry.shutdown()
     logger.info(">>> Completed flow execution")
 
 

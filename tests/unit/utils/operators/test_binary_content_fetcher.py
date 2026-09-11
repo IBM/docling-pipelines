@@ -29,29 +29,35 @@ class TestGetBinaryContentLocalFile:
 
         assert result == b"text content"
 
-    def test_missing_path_returns_none(self):
+    def test_missing_path_raises(self):
+        import pytest
+
         from docpipe.utils.operators.binary_content_fetcher import get_binary_content
 
-        result = get_binary_content(doc_metadata={}, global_config={})
-        assert result is None
+        with pytest.raises(ValueError, match="missing 'path'"):
+            get_binary_content(doc_metadata={}, global_config={})
 
-    def test_nonexistent_file_returns_none(self):
+    def test_nonexistent_file_raises(self):
+        import pytest
+
         from docpipe.utils.operators.binary_content_fetcher import get_binary_content
 
-        result = get_binary_content(
-            doc_metadata={"path": "/nonexistent/path/file.pdf"},
-            global_config={},
-        )
-        assert result is None
+        with pytest.raises(FileNotFoundError, match="Local file not found"):
+            get_binary_content(
+                doc_metadata={"path": "/nonexistent/path/file.pdf"},
+                global_config={},
+            )
 
-    def test_path_is_directory_returns_none(self, tmp_path):
+    def test_path_is_directory_raises(self, tmp_path):
+        import pytest
+
         from docpipe.utils.operators.binary_content_fetcher import get_binary_content
 
-        result = get_binary_content(
-            doc_metadata={"path": str(tmp_path)},
-            global_config={},
-        )
-        assert result is None
+        with pytest.raises(ValueError, match="Path is not a file"):
+            get_binary_content(
+                doc_metadata={"path": str(tmp_path)},
+                global_config={},
+            )
 
 
 class TestGetBinaryContentCloudSource:

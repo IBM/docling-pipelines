@@ -19,7 +19,7 @@ from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.job_management.domain.models.node_stats import NodeMetadataItem
 from docpipe.core.operators.abstract_operator import AbstractOperator
 from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
-from docpipe.core.operators.operator_utils import OperatorUtils
+from docpipe.core.operators.operator_utils import OperatorUtils, format_failed_docs_summary
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.operators.non_recoverable_utils import is_non_recoverable_error, process_non_recoverable_errors
@@ -388,10 +388,11 @@ class TextExtractionPort(ABC):
             table_list, _ = hash_operator.transform(table)
             table = table_list[0]
         else:
-            # All extractions failed - stop pipeline
+            # All extractions failed - stop pipeline.
+            suffix = format_failed_docs_summary(failed_docs=metadata.get(Metrics.External.FAILED_DOCS, []))
             error_msg = (
                 f"All {total_files} document(s) failed extraction. "
-                f"No content was extracted. Cannot continue pipeline with empty content."
+                f"No content was extracted. Cannot continue pipeline with empty content.{suffix}"
             )
             logger.error(error_msg, extra=self.common_log_arguments)
             raise ValueError(error_msg)
