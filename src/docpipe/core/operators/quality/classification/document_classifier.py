@@ -106,7 +106,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
     """
 
     short_name: str = OperatorConstants.Misc.DOCUMENT_CLASSIFIER
-    category: OperatorCategory = OperatorCategory.Functional
+    category: OperatorCategory = OperatorCategory.Quality
     owner = DocpipeConstants.OWNER_DOCPIPE
 
     def __init__(self, config: dict[str, Any]) -> None:
