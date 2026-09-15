@@ -15,6 +15,7 @@ Welcome to the Docling Pipelines documentation! This guide will help you navigat
 Task-oriented guides to help you accomplish specific goals:
 
 ### Core Guides
+- **[UI User Guide](guides/UI_USER_GUIDE.md)** - Navigate the web UI: projects, flows, canvas editor, and runs
 - **[Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)** - Learn the simplified flow authoring format
 - **[Flow Configuration Guide](guides/FLOW_CONFIGURATION_GUIDE.md)** - Complete flow configuration reference
 - **[Python API Guide](guides/PYTHON_API_GUIDE.md)** - Use Docling Pipelines programmatically

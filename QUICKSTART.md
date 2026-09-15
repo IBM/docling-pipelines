@@ -217,8 +217,23 @@ Your document went through this pipeline:
 ```bash
 # List all available sample flows
 ls -la sample_flows/
+```
 
-# Try the invoice processing example
+#### Invoice Processing Example
+
+This flow uses entity extraction (NuExtract) and an LLM-based document classifier. Before running it, install the required dependency and pull the required model:
+
+```bash
+# Required for entity extraction with NuExtract
+uv pip install qwen-vl-utils
+
+# Required for the document classifier node (openai/llama3.2 via Ollama)
+ollama pull llama3.2
+```
+
+Then run the flow:
+
+```bash
 docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json
 ```
 
@@ -256,6 +271,62 @@ docling-pipelines --list-operators --verbose
 - **[README](README.md)** - Full operator reference and examples
 - **[Job Stats Metadata Aggregation Guide](docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer rules for micro-batch metadata aggregation
 - **[Sample Flows Directory](sample_flows/README.md)** - More pipeline examples by category and use case
+
+---
+
+## Run the Web UI
+
+The frontend source is in `frontend/` and requires Node.js. The FastAPI backend must already be running (see [Automated Setup](#automated-setup-2-minutes) above).
+
+### Step 1 — Install Node.js 22.15.1
+
+```bash
+# With nvm (recommended)
+nvm install 22.15.1
+nvm use 22.15.1
+
+# Verify
+node --version   # v22.15.1
+npm --version
+```
+
+Don't have nvm? Install it from https://github.com/nvm-sh/nvm, or get Node.js 22 directly:
+- **macOS**: `brew install node@22 && brew link node@22`
+- **Ubuntu/Debian**: use the [NodeSource installer](https://github.com/nodesource/distributions#installation-instructions) — `sudo apt install nodejs npm` alone will install the wrong version
+- **Fedora/RHEL**: `sudo dnf module install nodejs:22`
+- **Any OS**: download the v22.15.1 installer from https://nodejs.org/en/download
+
+### Step 2 — Start the FastAPI backend
+
+In one terminal, from the project root:
+
+```bash
+source .venv/bin/activate
+uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080
+```
+
+> ⚠️ **Do not use `python src/docpipe/api/main.py`** when running the UI in dev mode. That invocation automatically starts a BFF sidecar on port 3001, which conflicts with `npm run dev` (which also starts the BFF). Use `uvicorn` as shown above to avoid the port conflict.
+
+### Step 3 — Start the UI
+
+In a second terminal, from the project root:
+
+```bash
+cd frontend
+
+# Install dependencies (once)
+npm install
+
+# Copy the environment file (once)
+cp .env.example .env
+
+# Start the UI
+npm run dev
+```
+
+Open your browser to **http://localhost:3000/ui/**.
+
+> This starts two processes together: a UI server on port 3000 and a backend proxy (BFF) on port 3001. The BFF forwards all `/api/*` requests to FastAPI on port 8080.
 
 ---
 

@@ -18,7 +18,7 @@ this exact checklist and can be used as a reference implementation throughout.
 ```bash
 cd frontend
 npm install          # install deps if not already done
-npm run dev          # start dev server at http://localhost:5173
+npm run dev          # start dev server at http://localhost:3000
 ```
 
 ---

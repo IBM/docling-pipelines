@@ -652,6 +652,99 @@ EOF
 9. **Network Policies**: Implement network policies for security
 10. **Documentation**: Keep deployment documentation up to date
 
+## Frontend (BFF) Deployment
+
+The UI is served through a **Backend-for-Frontend (BFF)** Node.js sidecar that proxies `/api/*` requests from the browser to the FastAPI backend. The BFF image is built from [`docker/Dockerfile.bff`](../../docker/Dockerfile.bff).
+
+### Required environment variable
+
+The BFF container requires exactly one environment variable at startup:
+
+| Variable | Value in OpenShift | Description |
+|---|---|---|
+| `BACKEND_API_URL` | `http://<docpipe-service>:<port>` | URL of the FastAPI backend **as seen from within the cluster** |
+
+If this variable is not set, the BFF will start but all `/api/*` calls from the browser will fail.
+
+### Deploy the BFF as a separate Deployment
+
+```bash
+# Build and push the BFF image (from project root)
+docker build -f docker/Dockerfile.bff -t <registry>/docpipe-bff:latest .
+docker push <registry>/docpipe-bff:latest
+
+# Create the BFF Deployment
+cat <<EOF | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docpipe-bff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docpipe-bff
+  template:
+    metadata:
+      labels:
+        app: docpipe-bff
+    spec:
+      containers:
+      - name: bff
+        image: <registry>/docpipe-bff:latest
+        ports:
+        - containerPort: 3001
+        env:
+        - name: BACKEND_API_URL
+          value: "http://docpipe-service:8080"
+        - name: BFF_PORT
+          value: "3001"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+EOF
+
+# Expose the BFF as an internal ClusterIP service
+oc expose deployment docpipe-bff --port=3001 --name=docpipe-bff-service
+```
+
+### Configure the FastAPI backend to use the BFF
+
+Set `BFF_URL` on the backend deployment so FastAPI proxies `/api/*` requests to the BFF:
+
+```bash
+oc set env deployment/docpipe-backend BFF_URL=http://docpipe-bff-service:3001
+```
+
+### Expose the `/ui` route
+
+The React UI is served by FastAPI at `/ui/*`. Expose it through the existing backend route — no separate route is needed for the UI:
+
+```bash
+# If the route already exists, verify it targets the backend service
+oc get route docpipe-route
+
+# The UI is accessible at:
+DOCPIPE_URL=$(oc get route docpipe-route -o jsonpath='{.spec.host}')
+echo "UI: https://$DOCPIPE_URL/ui"
+echo "API docs: https://$DOCPIPE_URL/api/v1/docs"
+```
+
+### Using a sidecar pattern instead
+
+If you prefer to run the BFF as a sidecar container in the same pod as FastAPI (sharing `localhost`), set `BACKEND_API_URL=http://localhost:8080` and `BFF_URL=http://localhost:3001` in the pod spec. The sidecar pattern avoids an extra service but prevents independent scaling of the BFF.
+
+---
+
 ## Support
 
 For issues or questions:

@@ -221,11 +221,11 @@ npm run dev:vite  # Vite dev server on port 3000
 
 ### Environment Variables
 
-BFF configuration in `server/.env`:
+BFF configuration in `server/.env` (copy from `frontend/.env.example`):
 
 ```env
-BACKEND_API_URL=http://localhost:8000
-PORT=3001
+BACKEND_API_URL=http://localhost:8080
+BFF_PORT=3001
 ```
 
 ### Adding New BFF Endpoints
@@ -250,7 +250,7 @@ PORT=3001
    app.get('/api/flows', flowController.getFlows);
    ```
 
-For detailed BFF setup instructions, see [BFF_SETUP.md](BFF_SETUP.md) and [BFF_IMPLEMENTATION_GUIDE.md](BFF_IMPLEMENTATION_GUIDE.md).
+For build integration details (wheel, Docker, CI/CD), see [`FRONTEND_BUILD_INTEGRATION.md`](../FRONTEND_BUILD_INTEGRATION.md).
 
 ## Recent Updates
 
@@ -284,9 +284,13 @@ The application features a clean navigation hierarchy:
 
 ## Available Scripts
 
-- `npm run dev` - Start development server on port 3000
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
+- `npm run dev` - Start dev server (Vite on :3000) and BFF (Express on :3001) together
+- `npm run dev:vite` - Start Vite dev server only (port 3000)
+- `npm run dev:bff` - Start BFF Express server only (port 3001)
+- `npm run build` - Build the React app for production (outputs to `dist/`)
+- `npm run build:bff` - Bundle the BFF server into a single `bff/server.cjs` file for production
+- `npm run start` - Build the React app and start the BFF in production mode
+- `npm run preview` - Preview the production Vite build locally
 - `npm run lint` - Run ESLint to check code quality
 - `npm run lint:fix` - Run ESLint and automatically fix issues
 
@@ -334,7 +338,7 @@ navigate(generateRoute.canvas('flow-456'));
 - **Breadcrumb Navigation**: Automatic breadcrumb generation for all pages
 - **Active State Highlighting**: Smart detection of active navigation items
 
-For comprehensive routing documentation, see [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md).
+The routing configuration lives in [`src/config/routes.config.ts`](src/config/routes.config.ts).
 
 ## Carbon Design System
 
