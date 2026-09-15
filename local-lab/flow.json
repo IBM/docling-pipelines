@@ -1,0 +1,129 @@
+{
+  "flow_name": "local-lab-minio-docling-serve",
+  "description": "MinIO ingest, Docling Serve extract + hybrid chunk, Ollama embeddings, OpenSearch.",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "enable_micro_batching": false,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest_minio",
+      "config": {
+        "provider": "s3",
+        "connection_params": {
+          "bucket": "docpipe-documents",
+          "prefix": "pdfs/",
+          "endpoint_url": "http://127.0.0.1:9000",
+          "region": "us-east-1"
+        },
+        "credentials": {
+          "access_key": "${MINIO_ROOT_USER}",
+          "secret_key": "${MINIO_ROOT_PASSWORD}"
+        },
+        "include_filter": "pdf",
+        "force_ingest": true
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_docling_serve",
+      "depends_on": ["ingest_minio"],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_serve",
+          "doc_column": "content",
+          "provider_config": {
+            "base_url": "http://127.0.0.1:5001",
+            "timeout": 600,
+            "poll_interval": 2,
+            "max_retries": 3
+          }
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      }
+    },
+    {
+      "type": "chunker",
+      "name": "hybrid_chunker_docling_serve",
+      "depends_on": ["extract_docling_serve"],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "provider": "docling_serve",
+        "doc_column": "content",
+        "retain_original_content": false,
+        "provider_config": {
+          "api_base": "http://127.0.0.1:5001",
+          "timeout": 300,
+          "max_retries": 3,
+          "verify_ssl": false
+        }
+      }
+    },
+    {
+      "type": "embeddings",
+      "name": "ollama_embeddings",
+      "depends_on": ["hybrid_chunker_docling_serve"],
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://127.0.0.1:11434/v1",
+          "api_key": "ollama"
+        },
+        "embeddings_column": "embeddings"
+      }
+    },
+    {
+      "type": "vectordb",
+      "name": "opensearch_vector_store",
+      "depends_on": ["ollama_embeddings"],
+      "config": {
+        "provider": "opensearch",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": true,
+        "provider_config": {
+          "index_name": "local-lab-documents",
+          "host": "127.0.0.1",
+          "port": 9200,
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "feature_mappings": [
+          {
+            "feature_name": "doc_id_hash",
+            "mapped_column_name": "pk"
+          },
+          {
+            "feature_name": "content",
+            "mapped_column_name": "text"
+          },
+          {
+            "feature_name": "name",
+            "mapped_column_name": "doc_name"
+          },
+          {
+            "feature_name": "embeddings",
+            "mapped_column_name": "vector_embeddings"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: local-lab-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    container_name: local-lab-minio-init
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-docpipe-documents}
+    volumes:
+      - ./pdfs:/seed:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        i=0
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          i=$$((i+1))
+          if [ "$$i" -gt 30 ]; then exit 1; fi
+          sleep 2
+        done
+        mc mb --ignore-existing "local/$$MINIO_BUCKET"
+        for f in /seed/*.pdf; do
+          [ -f "$$f" ] || continue
+          mc cp "$$f" "local/$$MINIO_BUCKET/pdfs/"
+        done
+        mc ls "local/$$MINIO_BUCKET/pdfs/"
+        echo "MinIO seed complete"
+
+  docling-serve:
+    image: ghcr.io/docling-project/docling-serve-cpu:latest
+    container_name: local-lab-docling-serve
+    ports:
+      - "5001:5001"
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: local-lab-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        sleep 8
+        ollama pull nomic-embed-text
+        wait
+
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    container_name: local-lab-opensearch
+    environment:
+      - cluster.name=local-lab
+      - node.name=local-lab-node
+      - discovery.type=single-node
+      - plugins.security.disabled=false
+      - plugins.security.ssl.http.enabled=false
+      - plugins.security.ssl.transport.enabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_PASSWORD}
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+volumes:
+  minio-data:
+  ollama-data:
+  opensearch-data:
