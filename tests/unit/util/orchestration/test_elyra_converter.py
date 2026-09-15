@@ -854,9 +854,7 @@ class TestElyraConverterInternalToElyra:
             "extract_operator": {"category": "Extract", "description": "Extract text"},
             "chunker": {"category": "Functional", "description": "Split text"},
         }
-        result = converter.transform_internal_to_elyra(
-            internal_json=simple_internal_flow, metadata=metadata
-        )
+        result = converter.transform_internal_to_elyra(internal_json=simple_internal_flow, metadata=metadata)
 
         nodes = {n["op"]: n for n in result["pipelines"][0]["nodes"]}
         color = nodes["ingest_source"]["app_data"]["react_nodes_data"]["color"]

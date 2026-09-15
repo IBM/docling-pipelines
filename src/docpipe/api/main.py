@@ -172,6 +172,17 @@ async def lifespan(app: FastAPI):
     # BFF_URL (set by docker-compose / k8s env injection before the process starts).
     bff_url = (started_bff_url or os.getenv("BFF_URL", "")).rstrip("/")
     app.state.bff_client = httpx.AsyncClient(timeout=30.0, base_url=bff_url) if bff_url else None
+
+    # Wire custom operators catalog path into DOCPIPE_CUSTOM_OPERATORS for pipeline runtime discovery
+    from docpipe.utils.infrastructure.filesystem import get_data_path
+
+    custom_operators_dir = get_data_path(sub_dir="/custom_operators")
+    existing_custom_ops = os.getenv(EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS, "")
+    custom_op_paths = [p for p in existing_custom_ops.split(",") if p.strip()]
+    if custom_operators_dir not in custom_op_paths:
+        custom_op_paths.append(custom_operators_dir)
+        os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = ",".join(custom_op_paths)
+
     yield
     if app.state.bff_client is not None:
         await app.state.bff_client.aclose()

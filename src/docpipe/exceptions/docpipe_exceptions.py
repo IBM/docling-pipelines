@@ -874,8 +874,64 @@ class PostgresQueryException(DocpipeException):
         self.query = query
 
 
+class CustomOperatorNotFoundException(DocpipeException):
+    """Exception raised when a custom operator is not found."""
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        operator_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=404,
+            error_code=ErrorCode.CUSTOM_OPERATOR_NOT_FOUND,
+        )
+        self.operator_id = operator_id
+
+
+class CustomOperatorAlreadyExistsException(DocpipeException):
+    """Exception raised when attempting to create a custom operator that already exists."""
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        operator_id: str | None = None,
+        short_name: str | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=409,
+            error_code=ErrorCode.CUSTOM_OPERATOR_ALREADY_EXISTS,
+        )
+        self.operator_id = operator_id
+        self.short_name = short_name
+
+
+class CustomOperatorInvalidDataException(DocpipeException):
+    """Exception raised when custom operator data or file is invalid."""
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        field_name: str | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=400,
+            error_code=ErrorCode.CUSTOM_OPERATOR_INVALID_DATA,
+        )
+        self.field_name = field_name
+
+
 __all__ = [
     "ConfigurationError",
+    "CustomOperatorAlreadyExistsException",
+    "CustomOperatorInvalidDataException",
+    "CustomOperatorNotFoundException",
     "DatabaseMigrationException",
     "DependencyError",
     "DocpipeException",

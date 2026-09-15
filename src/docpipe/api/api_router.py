@@ -6,6 +6,7 @@ for including them in the FastAPI application.
 
 from fastapi import APIRouter
 
+from docpipe.api.routes.custom_operators import custom_operators_router
 from docpipe.api.routes.document_classes import document_classes_router
 from docpipe.api.routes.document_libraries import document_libraries_router
 from docpipe.api.routes.document_sets import document_sets_router
@@ -27,6 +28,7 @@ api_router.include_router(document_libraries_router)
 api_router.include_router(document_sets_router)
 api_router.include_router(documents_router)
 api_router.include_router(operators_router)
+api_router.include_router(custom_operators_router)
 api_router.include_router(providers_router)
 api_router.include_router(job_runs_router)
 api_router.include_router(validation_router)
