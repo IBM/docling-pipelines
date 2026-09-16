@@ -962,5 +962,189 @@ class TestPrefectEngineCleanup:
         # Should complete without errors (no batches to process)
 
 
+class TestBatchHelperMethods:
+    def setup_method(self):
+        self.bm = BatchManager()
+
+    # --- _batches_by_record_count ---
+
+    def test_record_count_splits_table(self):
+        """Splits a table into fixed-size chunks."""
+        table = pa.table({"id": list(range(5))})
+        batches = self.bm._batches_by_record_count(table=table, batch_size=2)
+        assert len(batches) == 3
+        assert sum(b.table.num_rows for b in batches) == 5
+        assert [b.batch_num for b in batches] == [0, 1, 2]
+
+    def test_record_count_single_row_table(self):
+        """Single-row table produces one batch."""
+        table = pa.table({"id": [42]})
+        batches = self.bm._batches_by_record_count(table=table, batch_size=10)
+        assert len(batches) == 1
+        assert batches[0].batch_num == 0
+
+    def test_record_count_batch_ids_unique(self):
+        """Each returned BatchInfo has a distinct UUID batch_id."""
+        table = pa.table({"id": list(range(6))})
+        batches = self.bm._batches_by_record_count(table=table, batch_size=2)
+        ids = [b.batch_id for b in batches]
+        assert len(ids) == len(set(ids))
+
+    # --- _batches_by_round_robin ---
+
+    def test_round_robin_distributes_rows(self):
+        """Rows are distributed round-robin across num_batches buckets."""
+        table = pa.table({"id": list(range(6))})
+        batches = self.bm._batches_by_round_robin(table=table, num_batches=3, num_rows=6)
+        assert len(batches) == 3
+        assert sum(b.table.num_rows for b in batches) == 6
+        assert [b.batch_num for b in batches] == [0, 1, 2]
+
+    def test_round_robin_fewer_rows_than_batches(self):
+        """When num_rows < num_batches, only non-empty buckets are returned."""
+        table = pa.table({"id": [1, 2]})
+        batches = self.bm._batches_by_round_robin(table=table, num_batches=5, num_rows=2)
+        assert len(batches) == 2
+        assert all(b.table.num_rows > 0 for b in batches)
+
+    def test_round_robin_batch_ids_unique(self):
+        """Each returned BatchInfo has a distinct UUID batch_id."""
+        table = pa.table({"id": list(range(4))})
+        batches = self.bm._batches_by_round_robin(table=table, num_batches=2, num_rows=4)
+        ids = [b.batch_id for b in batches]
+        assert len(ids) == len(set(ids))
+
+    # --- _batches_from_assignments ---
+
+    def test_assignments_groups_correctly(self):
+        """Rows are grouped by their assignment index."""
+        import numpy as np
+
+        table = pa.table({"id": [10, 20, 30, 40]})
+        # assign: rows 0,2 → batch 0; rows 1,3 → batch 1
+        assignments = np.array([0, 1, 0, 1], dtype=np.int32)
+        batches = self.bm._batches_from_assignments(table=table, batch_assignments=assignments, num_batches=2)
+        assert len(batches) == 2
+        assert sum(b.table.num_rows for b in batches) == 4
+        assert [b.batch_num for b in batches] == [0, 1]
+
+    def test_assignments_skips_empty_buckets(self):
+        """Buckets with no assigned rows are omitted."""
+        import numpy as np
+
+        table = pa.table({"id": [1, 2, 3]})
+        # all rows assigned to batch 0; batch 1 is empty
+        assignments = np.array([0, 0, 0], dtype=np.int32)
+        batches = self.bm._batches_from_assignments(table=table, batch_assignments=assignments, num_batches=2)
+        assert len(batches) == 1
+        assert batches[0].batch_num == 0
+        assert batches[0].table.num_rows == 3
+
+    def test_assignments_batch_ids_unique(self):
+        """Each returned BatchInfo has a distinct UUID batch_id."""
+        import numpy as np
+
+        table = pa.table({"id": list(range(6))})
+        assignments = np.array([0, 1, 2, 0, 1, 2], dtype=np.int32)
+        batches = self.bm._batches_from_assignments(table=table, batch_assignments=assignments, num_batches=3)
+        ids = [b.batch_id for b in batches]
+        assert len(ids) == len(set(ids))
+
+    def test_configure_batching_string_batch_size_converted(self):
+        """batch_size as digit string is coerced to int."""
+        global_config = {
+            DocpipeConstants.ENABLE_MICRO_BATCHING: True,
+            DocpipeConstants.MICRO_BATCH_SIZE: "50",
+        }
+        enabled, size = self.bm.configure_batching(global_config=global_config)
+        assert enabled is True
+        assert size == 50
+        assert isinstance(size, int)
+
+    def test_record_count_skips_empty_chunk(self):
+        """Empty chunks produced by to_batches are skipped."""
+        # A table where to_batches with chunksize > num_rows produces one real + potential empty
+        table = pa.table({"id": [1]})
+        batches = self.bm._batches_by_record_count(table=table, batch_size=100)
+        assert all(b.table.num_rows > 0 for b in batches)
+
+    def test_round_robin_handles_zero_num_rows(self):
+        """With 0 rows, no batches are produced (indices always empty)."""
+        table = pa.table({"id": pa.array([], type=pa.int64())})
+        batches = self.bm._batches_by_round_robin(table=table, num_batches=3, num_rows=0)
+        assert batches == []
+
+    def test_batches_from_assignments_empty_bucket_skipped(self):
+        """Bucket with no assigned rows is not included in result."""
+        import numpy as np
+
+        table = pa.table({"id": [1, 2]})
+        # all rows go to batch 0; batch 1 and 2 are empty
+        assignments = np.array([0, 0], dtype=np.int32)
+        batches = self.bm._batches_from_assignments(table=table, batch_assignments=assignments, num_batches=3)
+        assert len(batches) == 1
+        assert batches[0].batch_num == 0
+
+    def test_create_batches_with_size_column_balanced(self):
+        """create_batches uses greedy bin-packing when SIZE column present."""
+        table = pa.table(
+            {
+                "id": list(range(6)),
+                "SIZE": [100, 200, 300, 100, 200, 300],
+            }
+        )
+        batches = self.bm.create_batches(table=table, batch_size=3)
+        assert len(batches) > 0
+        assert sum(b.table.num_rows for b in batches) == 6
+        assert all(b.table.num_rows > 0 for b in batches)
+
+    def test_create_batches_size_column_all_null(self):
+        """SIZE column with all null/zero values falls back to round-robin."""
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "SIZE": [0, 0, 0],
+            }
+        )
+        batches = self.bm.create_batches(table=table, batch_size=2)
+        assert len(batches) > 0
+        assert sum(b.table.num_rows for b in batches) == 3
+
+    def test_create_batches_size_column_with_negative_values(self):
+        """Negative SIZE values are treated as zero."""
+        table = pa.table(
+            {
+                "id": [1, 2, 3, 4],
+                "SIZE": [-1, -100, 0, 0],
+            }
+        )
+        # All zeros → round-robin
+        batches = self.bm.create_batches(table=table, batch_size=2)
+        assert sum(b.table.num_rows for b in batches) == 4
+
+    def test_create_batches_with_positive_sizes_uses_binpacking(self):
+        """SIZE column with positive values triggers greedy bin-packing path."""
+        table = pa.table(
+            {
+                "id": list(range(9)),
+                "SIZE": [100, 200, 300, 150, 250, 50, 400, 120, 80],
+            }
+        )
+        batches = self.bm.create_batches(table=table, batch_size=3)
+        # 9 rows / batch_size 3 → 3 batches
+        assert len(batches) == 3
+        assert sum(b.table.num_rows for b in batches) == 9
+        assert [b.batch_num for b in batches] == [0, 1, 2]
+        # SIZE column preserved in output
+        assert "SIZE" in batches[0].table.column_names
+
+    def test_create_batches_size_column_single_row(self):
+        """Single row with SIZE column still produces one batch via bin-packing."""
+        table = pa.table({"id": [1], "SIZE": [500]})
+        batches = self.bm.create_batches(table=table, batch_size=10)
+        assert len(batches) == 1
+        assert batches[0].table.num_rows == 1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

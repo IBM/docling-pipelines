@@ -291,6 +291,59 @@ class PrefectEngine(FlowEnginePort):
 
         return batch_futures
 
+    def _cancel_batch_future(self, *, batch_future: BatchFuture, reason: str) -> None:
+        """Attempt to cancel a single batch future, logging the outcome either way."""
+        try:
+            cancel_result = batch_future.future.cancel()  # type: ignore[attr-defined]
+            self.logger.info(
+                f"Cancelled batch {batch_future.batch_num} (ID: {batch_future.batch_id}) {reason}; cancel_result={cancel_result}; state_after_cancel={batch_future.describe_state()}",
+                extra=self.common_log_arguments,
+            )
+        except Exception as cancel_error:
+            self.logger.warning(
+                f"Could not cancel batch {batch_future.batch_num} (ID: {batch_future.batch_id}): {cancel_error}; state_on_cancel_error={batch_future.describe_state()}",
+                extra=self.common_log_arguments,
+            )
+
+    def _handle_batch_failure(
+        self,
+        *,
+        batch_future: BatchFuture,
+        batch_futures: list[BatchFuture],
+        future_index: int,
+        cancelled_batch_futures: list[BatchFuture],
+        cancellation_event: threading.Event,
+        exc: Exception,
+    ) -> None:
+        """Cancel all remaining futures and raise FlowExecutionFailedException (fail-fast path)."""
+        cancellation_event.set()
+        self.logger.error(
+            f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed in future.result(); exception_type={type(exc).__name__}; exception={exc}; state_on_failure={batch_future.describe_state()}; cancelling all remaining batches",
+            extra=self.common_log_arguments,
+            exc_info=True,
+        )
+        for remaining in batch_futures[future_index + 1 :]:
+            self._cancel_batch_future(batch_future=remaining, reason="")
+            cancelled_batch_futures.append(remaining)
+        raise FlowExecutionFailedException(
+            f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed during sub-flow execution: {type(exc).__name__}: {exc}"
+        ) from exc
+
+    def _wait_for_cancelled_batches(self, *, cancelled_batch_futures: list[BatchFuture]) -> None:
+        """Block until every cancelled future reaches a terminal state."""
+        for cancelled in cancelled_batch_futures:
+            try:
+                cancelled.future.wait()
+                self.logger.info(
+                    f"Cancelled batch {cancelled.batch_num} (ID: {cancelled.batch_id}) reached terminal state before semaphore reset",
+                    extra=self.common_log_arguments,
+                )
+            except Exception as wait_error:
+                self.logger.warning(
+                    f"Error while waiting for cancelled batch {cancelled.batch_num} (ID: {cancelled.batch_id}) to finish: {wait_error}",
+                    extra=self.common_log_arguments,
+                )
+
     def _wait_for_sub_flows(self, *, batch_futures: list[BatchFuture], global_config: dict):
         """
         Wait for all sub-flows (batches) to complete with fail-fast cancellation.
@@ -322,19 +375,11 @@ class PrefectEngine(FlowEnginePort):
 
                 # Check if another batch already failed (only in fail-fast mode)
                 if cancellation_event.is_set():
-                    try:
-                        # PrefectFuture.cancel() exists at runtime in Prefect 2.x
-                        cancel_result = batch_future.future.cancel()  # type: ignore[attr-defined]
-                        cancelled_batch_futures.append(batch_future)
-                        self.logger.info(
-                            f"Cancelled batch {batch_future.batch_num} (ID: {batch_future.batch_id}) due to failure in batch {failed_batch}; cancel_result={cancel_result}; state_after_cancel={batch_future.describe_state()}",
-                            extra=self.common_log_arguments,
-                        )
-                    except Exception as cancel_error:
-                        self.logger.warning(
-                            f"Could not cancel batch {batch_future.batch_num} (ID: {batch_future.batch_id}): {cancel_error}; state_on_cancel_error={batch_future.describe_state()}",
-                            extra=self.common_log_arguments,
-                        )
+                    self._cancel_batch_future(
+                        batch_future=batch_future,
+                        reason=f"due to failure in batch {failed_batch}",
+                    )
+                    cancelled_batch_futures.append(batch_future)
                     continue
 
                 try:
@@ -354,35 +399,16 @@ class PrefectEngine(FlowEnginePort):
                         )
                         continue
 
-                    # Fail-fast mode: Batch failed - trigger cancellation
+                    # Fail-fast mode: cancel remaining batches and raise
                     failed_batch = batch_future.batch_num
-                    cancellation_event.set()
-
-                    self.logger.error(
-                        f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed in future.result(); exception_type={type(e).__name__}; exception={e}; state_on_failure={batch_future.describe_state()}; cancelling all remaining batches",
-                        extra=self.common_log_arguments,
-                        exc_info=True,
+                    self._handle_batch_failure(
+                        batch_future=batch_future,
+                        batch_futures=batch_futures,
+                        future_index=future_index,
+                        cancelled_batch_futures=cancelled_batch_futures,
+                        cancellation_event=cancellation_event,
+                        exc=e,
                     )
-
-                    for remaining_batch_future in batch_futures[future_index + 1 :]:
-                        try:
-                            # PrefectFuture.cancel() exists at runtime in Prefect 2.x
-                            cancel_result = remaining_batch_future.future.cancel()  # type: ignore[attr-defined]
-                            cancelled_batch_futures.append(remaining_batch_future)
-                            self.logger.info(
-                                f"Cancelled batch {remaining_batch_future.batch_num} (ID: {remaining_batch_future.batch_id}); cancel_result={cancel_result}; state_after_cancel={remaining_batch_future.describe_state()}",
-                                extra=self.common_log_arguments,
-                            )
-                        except Exception as cancel_error:
-                            self.logger.warning(
-                                f"Could not cancel batch {remaining_batch_future.batch_num} (ID: {remaining_batch_future.batch_id}): {cancel_error}; state_on_cancel_error={remaining_batch_future.describe_state()}",
-                                extra=self.common_log_arguments,
-                            )
-
-                    # Re-raise the exception to fail the entire job
-                    raise FlowExecutionFailedException(
-                        f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed during sub-flow execution: {type(e).__name__}: {e}"
-                    ) from e
 
             # After all batches complete, check failure scenarios in continue_on_batch_failure mode
             if continue_on_batch_failure and failed_batch_nums:
@@ -403,19 +429,7 @@ class PrefectEngine(FlowEnginePort):
                         extra=self.common_log_arguments,
                     )
         finally:
-            for cancelled_batch_future in cancelled_batch_futures:
-                try:
-                    cancelled_batch_future.future.wait()
-                    self.logger.info(
-                        f"Cancelled batch {cancelled_batch_future.batch_num} (ID: {cancelled_batch_future.batch_id}) reached terminal state before semaphore reset",
-                        extra=self.common_log_arguments,
-                    )
-                except Exception as wait_error:
-                    self.logger.warning(
-                        f"Error while waiting for cancelled batch {cancelled_batch_future.batch_num} (ID: {cancelled_batch_future.batch_id}) to finish: {wait_error}",
-                        extra=self.common_log_arguments,
-                    )
-
+            self._wait_for_cancelled_batches(cancelled_batch_futures=cancelled_batch_futures)
             self.logger.info(
                 "Resetting batch semaphore after sub-flow completion",
                 extra=self.common_log_arguments,

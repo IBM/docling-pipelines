@@ -297,6 +297,29 @@ class AbstractOrchestrator(ABC):
 
         return data_accesses, tables
 
+    def _unpack_prev_results(
+        self, *, prev_results: ExecuteStepResults | dict[str, ExecuteStepResults]
+    ) -> tuple[Any, Any]:
+        """Unpack prev_results into (prev_data_access, prev_table) regardless of shape."""
+        if isinstance(prev_results, ExecuteStepResults):
+            return (
+                prev_results.data_accesses[0] if prev_results.data_accesses else None,
+                prev_results.tables[0] if prev_results.tables else None,
+            )
+        # prev_results is a dict of [str, ExecuteStepResults]
+        prev_data_access = {
+            link_name: res.data_accesses[0] if res.data_accesses else None for link_name, res in prev_results.items()
+        }
+        prev_table = [res.tables[0] if res.tables else None for res in prev_results.values()]
+        return prev_data_access, prev_table
+
+    def _refresh_job_status(self) -> None:
+        """Pull the latest job status from the job stats service and update self.job_status."""
+        if self.job_stats_service and self.job_run_id:
+            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=False)
+            if job_stats:
+                self.job_status = ExecutionStatus(job_stats.status)
+
     def _execute_step(
         self,
         *,
@@ -330,16 +353,7 @@ class AbstractOrchestrator(ABC):
 
         executor = self.create_executor(op_def=op_def, global_config=global_config)
 
-        if isinstance(prev_results, ExecuteStepResults):
-            prev_data_access = prev_results.data_accesses[0] if prev_results.data_accesses else None
-            prev_table = prev_results.tables[0] if prev_results.tables else None
-        else:
-            # prev_results is a dictionary of [str, ExecuteStepResults]
-            prev_data_access = {
-                link_name: res.data_accesses[0] if res.data_accesses else None
-                for link_name, res in prev_results.items()
-            }
-            prev_table = [res.tables[0] if res.tables else None for res in prev_results.values()]
+        prev_data_access, prev_table = self._unpack_prev_results(prev_results=prev_results)
         skip = self.evaluate_execution_skip(executor=executor, tables=prev_table, deleted_docs_count=deleted_docs_count)
         metadata = {}
         internal_metadata = {}
@@ -371,10 +385,7 @@ class AbstractOrchestrator(ABC):
         )
 
         # Update job status from job stats service
-        if self.job_stats_service and self.job_run_id:
-            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=False)
-            if job_stats:
-                self.job_status = ExecutionStatus(job_stats.status)
+        self._refresh_job_status()
 
         return ExecuteStepResults(data_accesses, tables, internal_metadata)
 
@@ -671,6 +682,43 @@ class AbstractOrchestrator(ABC):
         """The concrete subclasses needs to implement this method"""
         ...
 
+    def _resolve_skip_reason(self) -> str:
+        """Return a user-friendly skip reason based on the current job status."""
+        if self.job_status == ExecutionStatus.CANCELING:
+            return "Skipped - job cancellation requested by user"
+        if self.job_status == ExecutionStatus.FAILING:
+            return "Skipped - cannot proceed due to failure in pipeline"
+        return "Skipped - no data received from previous step"
+
+    def _resolve_branch_prev_results(self, *, prev_results: ExecuteStepResults, link_id: str) -> ExecuteStepResults:
+        """
+        Narrow prev_results down to the single branch identified by link_id.
+        Raises FlowExecutionFailedException when branch metadata is missing or inconsistent.
+        """
+        if not isinstance(prev_results.internal_metadata, dict):
+            return prev_results
+
+        branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
+        if branches is None or not isinstance(branches, dict):
+            raise FlowExecutionFailedException("Expected branches metadata as a dict but found None or wrong type")
+
+        if len(prev_results.tables) != len(branches):
+            raise FlowExecutionFailedException(
+                f"Number of tables ({len(prev_results.tables)}) in previous operator output "
+                f"do not match branches ({len(branches)}) created."
+            )
+
+        branch_info = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
+        result_index = branch_info.get("result_index")
+        if result_index is None:
+            raise FlowExecutionFailedException(f"Result index not found for link_id {link_id}")
+
+        return ExecuteStepResults(
+            [prev_results.data_accesses[result_index]],
+            [prev_results.tables[result_index]],
+            branch_info,
+        )
+
     def _inner_task(
         self,
         op_def,
@@ -704,15 +752,6 @@ class AbstractOrchestrator(ABC):
 
         # Record skipped node when upstream failure prevents execution
         if prev_results is None or self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
-            # Determine user-friendly skip reason based on specific condition
-            if self.job_status == ExecutionStatus.CANCELING:
-                skip_reason = "Skipped - job cancellation requested by user"
-            elif self.job_status == ExecutionStatus.FAILING:
-                skip_reason = "Skipped - cannot proceed due to failure in pipeline"
-            else:  # prev_results is None
-                skip_reason = "Skipped - no data received from previous step"
-
-            # Record skipped node via event handler (which extracts batch context from global_config)
             self.flow_execution_event_handler.after_node_skipped(
                 node_id=op_def[OperatorConstants.Columns.ID],
                 node_name=op_def[OperatorConstants.Columns.NAME],
@@ -721,7 +760,7 @@ class AbstractOrchestrator(ABC):
                 start_time=get_current_timestamp(),
                 end_time=get_current_timestamp(),
                 column_names=[],
-                reason=skip_reason,
+                reason=self._resolve_skip_reason(),
             )
             return None
 
@@ -729,29 +768,7 @@ class AbstractOrchestrator(ABC):
 
         try:
             if link_id and isinstance(prev_results, ExecuteStepResults):
-                if isinstance(prev_results.internal_metadata, dict):
-                    branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
-                    if branches is None or not isinstance(branches, dict):
-                        raise FlowExecutionFailedException(
-                            "Expected branches metadata as a dict but found None or wrong type"
-                        )
-
-                    if len(prev_results.tables) != len(branches):
-                        raise FlowExecutionFailedException(
-                            f"Number of tables ({len(prev_results.tables)}) in previous operator output "
-                            f"do not match branches ({len(branches)}) created."
-                        )
-
-                    branch_info = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
-                    result_index = branch_info.get("result_index")
-                    if result_index is None:
-                        raise FlowExecutionFailedException(f"Result index not found for link_id {link_id}")
-
-                    table = prev_results.tables[result_index]
-                    data_access = prev_results.data_accesses[result_index]
-                    internal_metadata = branch_info
-
-                    prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
+                prev_results = self._resolve_branch_prev_results(prev_results=prev_results, link_id=link_id)
 
             return self._execute_step(
                 op_def=op_def,

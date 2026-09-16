@@ -34,8 +34,10 @@ class TestFailFastDownstreamSkip:
         orchestrator.logger = Mock()
         orchestrator.flow_execution_event_handler = Mock()
 
-        # Make _execute_step use the real implementation
+        # Make _execute_step and its helpers use the real implementations
         orchestrator._execute_step = AbstractOrchestrator._execute_step.__get__(orchestrator)
+        orchestrator._unpack_prev_results = AbstractOrchestrator._unpack_prev_results.__get__(orchestrator)
+        orchestrator._refresh_job_status = AbstractOrchestrator._refresh_job_status.__get__(orchestrator)
         orchestrator.create_executor = Mock()
         orchestrator.evaluate_execution_skip = Mock(return_value=False)
         orchestrator._handle_active_execution = Mock()

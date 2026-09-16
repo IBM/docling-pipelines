@@ -1218,6 +1218,43 @@ class ChunkerOperator(AbstractOperator):
             ).value
             return False
 
+    def _build_chunk_dicts(self, *, chunks: list) -> list[dict[str, Any]]:
+        """Convert a list of Document chunks into the serialisable dict format."""
+        chunked_content: list[dict[str, Any]] = []
+        for chunk_seq, chunk in enumerate(chunks):
+            chunked_content.append(
+                {
+                    OperatorConstants.Columns.CHUNK: chunk.page_content,
+                    OperatorConstants.Columns.CHUNK_SEQUENCE_NUMBER: chunk_seq,
+                    OperatorConstants.Processing.START_INDEX: chunk.metadata.get(
+                        OperatorConstants.Processing.START_INDEX, 0
+                    )
+                    if chunk.metadata
+                    else 0,
+                }
+            )
+        return chunked_content
+
+    def _apply_summarization(
+        self, *, doc: dict[str, Any], chunked_content: list[dict[str, Any]], metadata: dict[str, Any]
+    ) -> None:
+        """Generate summaries for chunked content when summarisation is enabled, logging warnings on failure."""
+        if not (self.enable_summarization and chunked_content and self._summarization_service):
+            return
+        try:
+            self._summarization_service.generate_summary_for_chunked_content(chunked_content=chunked_content)
+        except Exception as e:
+            logger.warning(
+                f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
+                extra=self.common_log_arguments,
+            )
+            metadata[Metrics.External.PROCESSING_MESSAGE] = "Failed to generate summary for some or all documents"
+            current_status = metadata[Metrics.External.NODE_STATUS]
+            metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
+                ExecutionStatus.COMPLETED_WITH_WARNINGS,
+            ).value
+
     def _process_single_document(
         self, doc: dict[str, Any], idx: int, metadata: dict[str, Any]
     ) -> tuple[list[dict[str, Any]] | None, bool]:
@@ -1277,35 +1314,8 @@ class ChunkerOperator(AbstractOperator):
             ).value
             return None, True
 
-        chunked_content: list[dict[str, Any]] = []
-        for chunk_seq, chunk in enumerate(chunks):
-            chunked_content.append(
-                {
-                    OperatorConstants.Columns.CHUNK: chunk.page_content,
-                    OperatorConstants.Columns.CHUNK_SEQUENCE_NUMBER: chunk_seq,
-                    OperatorConstants.Processing.START_INDEX: chunk.metadata.get(
-                        OperatorConstants.Processing.START_INDEX, 0
-                    )
-                    if chunk.metadata
-                    else 0,
-                }
-            )
-
-        if self.enable_summarization and chunked_content and self._summarization_service:
-            try:
-                self._summarization_service.generate_summary_for_chunked_content(chunked_content=chunked_content)
-            except Exception as e:
-                logger.warning(
-                    f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
-                    extra=self.common_log_arguments,
-                )
-                metadata[Metrics.External.PROCESSING_MESSAGE] = "Failed to generate summary for some or all documents"
-                current_status = metadata[Metrics.External.NODE_STATUS]
-                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                    current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
-                    ExecutionStatus.COMPLETED_WITH_WARNINGS,
-                ).value
-
+        chunked_content = self._build_chunk_dicts(chunks=chunks)
+        self._apply_summarization(doc=doc, chunked_content=chunked_content, metadata=metadata)
         return chunked_content, False
 
     def _finalize_table(

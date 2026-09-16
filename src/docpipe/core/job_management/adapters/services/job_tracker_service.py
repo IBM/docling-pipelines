@@ -1499,21 +1499,31 @@ class JobTrackerService(JobStatsService):
         return metadata_items
 
     @staticmethod
-    def _format_node_log_string(*, node_id: str, node_stat: Any) -> str:
+    def _unpack_node_stat(*, node_stat: Any) -> tuple[str, float, list, Any, Any, str]:
+        """Extract fields from a node_stat regardless of whether it is a dict or an object."""
         if isinstance(node_stat, dict):
-            name = node_stat.get("name", "Unknown")
-            time_taken = node_stat.get("time_taken", 0) or 0
-            col_names = node_stat.get("col_names", []) or []
-            node_metadata = node_stat.get(OperatorConstants.Metadata.NODE_METADATA)
-            node_status = node_stat.get("node_status", "Completed")
-            error = node_stat.get("error", "")
-        else:
-            name = getattr(node_stat, "name", "Unknown")
-            time_taken = getattr(node_stat, "time_taken", 0) or 0
-            col_names = getattr(node_stat, "col_names", []) or []
-            node_metadata = getattr(node_stat, OperatorConstants.Metadata.NODE_METADATA, None)
-            node_status = getattr(node_stat, "node_status", "Completed")
-            error = getattr(node_stat, "error", "")
+            return (
+                node_stat.get("name", "Unknown"),
+                node_stat.get("time_taken", 0) or 0,
+                node_stat.get("col_names", []) or [],
+                node_stat.get(OperatorConstants.Metadata.NODE_METADATA),
+                node_stat.get("node_status", "Completed"),
+                node_stat.get("error", ""),
+            )
+        return (
+            getattr(node_stat, "name", "Unknown"),
+            getattr(node_stat, "time_taken", 0) or 0,
+            getattr(node_stat, "col_names", []) or [],
+            getattr(node_stat, OperatorConstants.Metadata.NODE_METADATA, None),
+            getattr(node_stat, "node_status", "Completed"),
+            getattr(node_stat, "error", ""),
+        )
+
+    @staticmethod
+    def _format_node_log_string(*, node_id: str, node_stat: Any) -> str:
+        name, time_taken, col_names, node_metadata, node_status, error = JobTrackerService._unpack_node_stat(
+            node_stat=node_stat
+        )
 
         # Handle ExecutionStatus enum vs string
         terminal_states_values = frozenset(state.value for state in TERMINAL_NODE_STATES)
