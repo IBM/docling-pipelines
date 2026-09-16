@@ -85,6 +85,8 @@ class SQLFilterOperator(AbstractOperator):
         )
         self.columns_to_drop: list[str] = self.features_to_drop
         self.filter_criteria_json: dict[str, Any] | None = config.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
+        self.duckdb_memory_limit: str = config.get(OperatorConstants.Filtering.DUCKDB_MEMORY_LIMIT, "512MB")
+        self.duckdb_threads: int = config.get(OperatorConstants.Filtering.DUCKDB_THREADS, 2)
 
     def validate(
         self,
@@ -289,7 +291,9 @@ class SQLFilterOperator(AbstractOperator):
                 duckdb.CatalogException,
             )
 
-            with duckdb.connect() as con:
+            with duckdb.connect(
+                config={"memory_limit": self.duckdb_memory_limit, "threads": self.duckdb_threads}
+            ) as con:
                 try:
                     # collect per-criterion stats before the main filter (filter_criteria_list path only)
                     if len(self.filter_criteria) > 0 and not self.filter_criteria_json:

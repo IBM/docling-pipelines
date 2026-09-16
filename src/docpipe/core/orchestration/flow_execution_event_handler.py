@@ -542,6 +542,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         from docpipe.core.job_management.application.services.report_utils import check_parquet_availability
         from docpipe.core.models.session_info import set_session_info
         from docpipe.utils.core.datetime import get_current_timestamp
+        from docpipe.utils.infrastructure.performance import reclaim_memory
 
         # Restore SessionInfo in this thread — ContextVar is not inherited from the spawning thread
         set_session_info(session_info)
@@ -559,6 +560,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 extra=self.common_log_arguments,
             )
             self._mark_report_not_available()
+            # This thread is the last work the flow does.  The reclaim at flow end
+            # ran while this thread was still allocating, so ask again now.
+            reclaim_memory(context="report-end")
             return
 
         try:
@@ -630,6 +634,10 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         except Exception as e:
             elapsed_time = time.time() - start_time
             self._mark_report_failed(elapsed_time, e)
+        finally:
+            # This thread is the last work the flow does.  The reclaim at flow end
+            # ran while this thread was still allocating, so ask again now.
+            reclaim_memory(context="report-end")
 
     def _start_background_report_generation(self, *, job_stats, op_flow) -> None:
         """

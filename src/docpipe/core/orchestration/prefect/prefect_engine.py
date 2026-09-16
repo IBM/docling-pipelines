@@ -15,6 +15,7 @@ from docpipe.utils.orchestration.prefect_config import set_prefect_env_variables
 set_prefect_env_variables()
 
 from prefect import flow, task  # noqa: E402
+from prefect.cache_policies import NO_CACHE  # noqa: E402
 from prefect.futures import PrefectFuture  # noqa: E402
 from prefect.runtime import task_run  # noqa: E402
 from prefect.states import Completed  # noqa: E402
@@ -53,14 +54,50 @@ class SupportsSubmit(Protocol):
 class BatchFuture:
     """Container for batch execution future with metadata."""
 
-    def __init__(self, *, batch_id: str, batch_num: int, future: PrefectFuture):
+    def __init__(self, *, batch_id: str, batch_num: int, future: PrefectFuture, batch_info=None, data_access=None):
         self.batch_id = batch_id
         self.batch_num = batch_num
-        self.future = future
+        self.future: PrefectFuture[Any] | None = future
+        # Kept so the batch's table and DataAccess can be dropped the moment the
+        # batch finishes, instead of living until the whole outer flow returns.
+        self.batch_info = batch_info
+        self.data_access = data_access
+        self.released = False
+
+    def release(self) -> None:
+        """Drop this batch's data once it has reached a terminal state.
+
+        The outer flow holds one BatchFuture per batch for the whole job.  Without
+        this, every batch's table stays resident until the last batch finishes, so
+        memory scales with batch count instead of with concurrency.
+
+        The DataAccess is also passed to Prefect as a task parameter, and Prefect
+        may keep its own reference to it.  Emptying the DataAccess's table dict
+        frees the table regardless of who still holds the object.
+
+        Only the data is dropped.  batch_id and batch_num stay, so logging and
+        failure reporting keep working.
+        """
+        if self.released:
+            return
+        if self.data_access is not None:
+            try:
+                self.data_access.tables = None
+            except Exception:  # nosec B110 - pragma: no cover - releasing memory must never fail a flow
+                pass
+            self.data_access = None
+        if self.batch_info is not None:
+            self.batch_info.table = None
+            self.batch_info = None
+        self.future = None
+        self.released = True
 
     def describe_state(self) -> str:
         """Describe state."""
         state_parts: list[str] = []
+
+        if self.future is None:
+            return "released"
 
         try:
             state_parts.append(f"is_completed={self.future.state.is_completed()}")
@@ -194,21 +231,18 @@ class PrefectEngine(FlowEnginePort):
 
         self.batch_manager.initialize_batch_semaphore(max_concurrent_batches=max_concurrent_batches)
 
-        # 1. Build the inner flow to execute a batch once (reusable for all batches)
+        # 1. Build the inner flow to execute a batch once (reusable for all batches).
         inner_flow = self._build_flow(name="batch_sub_flow", flow_impl=self.__flow_impl)
 
-        # Create a task wrapper for subflow execution
-        def batch_cache_key_fn(context, parameters):
-            """Custom cache key that excludes batch_data_access to avoid serialization errors."""
-            return f"{parameters.get('batch_id')}_{self.job_run_id}"
-
-        # 2. Define a task to execute inner flow
-        @task(cache_key_fn=batch_cache_key_fn)
+        # 2. Define a task to execute inner flow.
+        #    NO_CACHE avoids result persistence that cache_key_fn silently enabled.
+        @task(cache_policy=NO_CACHE)
         def batch_subflow_task(batch_id, batch_num, op_flow, global_config, batch_data_access):
             """Execute a single batch as a Prefect subflow."""
+            # Throttle concurrent batches.  The task runner has 50 workers, so
+            # without this every batch runs at once and max_concurrent_batches
+            # is silently ignored.
             batch_semaphore = self.batch_manager.get_batch_semaphore()
-
-            # Acquire batch semaphore before batch execution
             if batch_semaphore:
                 batch_semaphore.acquire()
                 self.logger.info(
@@ -250,13 +284,21 @@ class PrefectEngine(FlowEnginePort):
                 )
                 return result
             finally:
-                # Release batch semaphore in finally block to ensure cleanup
+                # Release in finally so a failed or cancelled batch never strands a slot.
                 if batch_semaphore:
                     batch_semaphore.release()
                     self.logger.info(
                         f"Batch {batch_num} (ID: {batch_id}): released batch semaphore slot",
                         extra=self.common_log_arguments,
                     )
+                # Last-resort drop of this batch's non-recoverable-docs bucket.
+                # The sub-flow drops it on both its success and fail-fast paths;
+                # this covers any other exception, so a bucket keyed by batch_id
+                # can never outlive the batch.  pop() is idempotent.
+                try:
+                    self.orchestrator._non_recoverable_docs_tables.pop(batch_id, None)
+                except Exception:  # nosec B110 - cleanup must never fail a batch
+                    pass
 
         # Submit all batches as tasks
         batch_futures: list[BatchFuture] = []
@@ -275,7 +317,13 @@ class PrefectEngine(FlowEnginePort):
                 global_config=global_config,
                 batch_data_access=batch_data_access,
             )
-            batch_future = BatchFuture(batch_id=batch_info.batch_id, batch_num=batch_info.batch_num, future=future)
+            batch_future = BatchFuture(
+                batch_id=batch_info.batch_id,
+                batch_num=batch_info.batch_num,
+                future=future,
+                batch_info=batch_info,
+                data_access=batch_data_access,
+            )
             batch_futures.append(batch_future)
             self.logger.info(
                 f"Submitted batch {batch_future.batch_num} (ID: {batch_future.batch_id}) future: {batch_future.describe_state()}",
@@ -294,6 +342,8 @@ class PrefectEngine(FlowEnginePort):
     def _cancel_batch_future(self, *, batch_future: BatchFuture, reason: str) -> None:
         """Attempt to cancel a single batch future, logging the outcome either way."""
         try:
+            if batch_future.future is None:
+                return
             cancel_result = batch_future.future.cancel()  # type: ignore[attr-defined]
             self.logger.info(
                 f"Cancelled batch {batch_future.batch_num} (ID: {batch_future.batch_id}) {reason}; cancel_result={cancel_result}; state_after_cancel={batch_future.describe_state()}",
@@ -333,6 +383,8 @@ class PrefectEngine(FlowEnginePort):
         """Block until every cancelled future reaches a terminal state."""
         for cancelled in cancelled_batch_futures:
             try:
+                if cancelled.future is None:
+                    continue
                 cancelled.future.wait()
                 self.logger.info(
                     f"Cancelled batch {cancelled.batch_num} (ID: {cancelled.batch_id}) reached terminal state before semaphore reset",
@@ -383,11 +435,17 @@ class PrefectEngine(FlowEnginePort):
                     continue
 
                 try:
+                    if batch_future.future is None:
+                        # Already released — completed on a prior iteration. Skip.
+                        continue
                     batch_future.future.result()
                     self.logger.info(
                         f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) completed successfully; state_after_result={batch_future.describe_state()}",
                         extra=self.common_log_arguments,
                     )
+                    # This batch is done.  Drop its table and future now rather than
+                    # holding every batch's data until the outer flow returns.
+                    batch_future.release()
 
                 except Exception as e:
                     if continue_on_batch_failure:
@@ -397,6 +455,8 @@ class PrefectEngine(FlowEnginePort):
                             f"Batch {batch_future.batch_num} failed but continuing with remaining batches due to continue_on_batch_failure=True: {e}",
                             extra=self.common_log_arguments,
                         )
+                        # Terminal state reached, even though it failed — drop its data.
+                        batch_future.release()
                         continue
 
                     # Fail-fast mode: cancel remaining batches and raise
@@ -645,13 +705,21 @@ class PrefectEngine(FlowEnginePort):
         if self.orchestrator.job_status == ExecutionStatus.FAILING and not continue_on_batch_failure:
             batch_num = global_config.get(DocpipeConstants.BATCH_NUM, "unknown")
             micro_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+            # Drop this batch's non-recoverable-docs bucket before bailing out.
+            # The bucket is keyed by batch_id, so a failed batch that skipped the
+            # reset below would leave its tables in the dict for the life of the
+            # orchestrator.
+            self.orchestrator._reset_non_recoverable_docs_for_batch(
+                global_config=global_config, common_log_arguments=self.common_log_arguments
+            )
             raise FlowExecutionFailedException(
                 f"Batch {batch_num}: One or more operators failed "
                 f"(micro_batching_enabled={micro_batching_enabled}, continue_on_batch_failure={continue_on_batch_failure})"
             )
 
         # Only collect results and save metadata if batch succeeded
-        failed_doc_ids = self._collect_failed_doc_ids()
+        batch_id = global_config.get(DocpipeConstants.BATCH_ID)
+        failed_doc_ids = self._collect_failed_doc_ids(batch_id=batch_id)
 
         tables = [
             destination[0].result().tables[0]
@@ -778,27 +846,28 @@ class PrefectEngine(FlowEnginePort):
             logger.error(error, stack_info=True, exc_info=True)
             raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED) from e
 
-    def _collect_failed_doc_ids(self) -> list[str]:
-        """Collect all failed document IDs from node stats"""
+    def _collect_failed_doc_ids(self, *, batch_id: str | None) -> list[str]:
+        """Collect failed document IDs for the current batch only.
 
-        # Get job stats service from orchestrator
+        Scopes the query to batch_id to avoid O(N²) growth — previously
+        fetched aggregated node stats for the entire job on every batch.
+        """
         job_stats_service = self.orchestrator.job_stats_service
         if not job_stats_service:
             logger.warning("Job stats service not available")
             return []
 
-        job_stats = job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
-        if not job_stats or not job_stats.node_stats:
-            self.logger.warning(
-                f"Job stats not available for job_run_id={self.job_run_id}, cannot collect failed doc IDs",
-                extra=self.common_log_arguments,
-            )
-            return []
+        if not batch_id:
+            # Non-batched flow: fall back to full aggregated fetch (single call, no growth)
+            job_stats = job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+            if not job_stats or not job_stats.node_stats:
+                return []
+            failed_doc_ids: list[str] = []
+            for node_stats in job_stats.node_stats.values():
+                if hasattr(node_stats, "failed_docs") and node_stats.failed_docs:
+                    failed_doc_ids.extend(node_stats.failed_docs)
+                elif isinstance(node_stats, dict) and node_stats.get("failed_docs"):
+                    failed_doc_ids.extend(node_stats["failed_docs"])
+            return failed_doc_ids
 
-        failed_doc_ids: list[str] = []
-        for node_stats in job_stats.node_stats.values():
-            if hasattr(node_stats, "failed_docs") and node_stats.failed_docs:
-                failed_doc_ids.extend(node_stats.failed_docs)
-            elif isinstance(node_stats, dict) and node_stats.get("failed_docs"):
-                failed_doc_ids.extend(node_stats["failed_docs"])
-        return failed_doc_ids
+        return job_stats_service.get_failed_doc_ids_for_batch(job_run_id=self.job_run_id, batch_id=batch_id)

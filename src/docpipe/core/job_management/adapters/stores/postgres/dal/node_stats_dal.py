@@ -197,6 +197,34 @@ class NodeStatsDAL:
                 message=f"Failed to get batch node stats: {e}", operation="get_batch", table="node_stats"
             ) from e
 
+    def get_failed_docs_for_batch(self, *, job_run_id: str, batch_id: str) -> list:
+        """
+        Retrieve all node stats rows scoped to a single batch.
+
+        Args:
+            job_run_id: Job run identifier
+            batch_id: Batch identifier to scope the query
+
+        Returns:
+            List of model instances with matching job_run_id and batch_id
+
+        Raises:
+            PostgresOperationException: If query fails
+        """
+        try:
+            model = self._dao.model
+            query = (
+                select(model).where(model.job_run_id == job_run_id).where(model.batch_id == batch_id)  # type: ignore[union-attr]
+            )
+            return self._dao.get_by_query(query=query)
+        except Exception as e:
+            logger.error(f"Failed to get failed docs for batch: {e}")
+            raise PostgresOperationException(
+                message=f"Failed to get failed docs for batch: {e}",
+                operation="get_failed_docs_for_batch",
+                table="node_stats",
+            ) from e
+
     def get_all_node_stats(self, *, job_run_id: str):
         """
         Get ALL node stats (both batch and non-batch) for a job run.

@@ -830,6 +830,10 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         FILTER_LOGICAL_OPERATOR_KEY: Final[str] = "logical_operator"
         INCLUDE_FILTER_KEY: Final[str] = "include_filter"
 
+        # DuckDB resource limits (sql_filter operator)
+        DUCKDB_MEMORY_LIMIT: Final[str] = "duckdb_memory_limit"
+        DUCKDB_THREADS: Final[str] = "duckdb_threads"
+
         # SQL Operations
         SQL_FILTER: Final[str] = "sql_filter"
 

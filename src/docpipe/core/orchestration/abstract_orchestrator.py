@@ -73,7 +73,10 @@ class AbstractOrchestrator(ABC):
         self.message: str | None = ""
         self.flow_id = None
         self.deleted_rows_list: Queue[pa.Table] = Queue()
-        self.non_recoverable_docs_tables: list[pa.Table] = []  # Track non-recoverable document tables
+        # Per-batch store: dict[batch_id, list[pa.Table]].
+        # Keyed by batch_id so concurrent batches never clobber each other's tables.
+        # Non-batched flows use None as the key (same behaviour as before).
+        self._non_recoverable_docs_tables: dict[str | None, list[pa.Table]] = {}
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
         self.flow_execution_event_handler = FlowExecutionEventHandler(
@@ -84,6 +87,19 @@ class AbstractOrchestrator(ABC):
         self.batch_manager = BatchManager()
         self.flow_engine: FlowEnginePort | None = None
         self.common_log_arguments: dict[Any, str] | None = None
+
+    @property
+    def non_recoverable_docs_tables(self) -> list[pa.Table]:
+        """Backward-compatible view of the None-keyed (non-batched) bucket.
+
+        Tests and non-batched callers that read or set this attribute directly
+        continue to work without changes.
+        """
+        return self._non_recoverable_docs_tables.setdefault(None, [])
+
+    @non_recoverable_docs_tables.setter
+    def non_recoverable_docs_tables(self, value: list[pa.Table]) -> None:
+        self._non_recoverable_docs_tables[None] = value
 
     def initialize(self, *, job_id: str, job_run_id: str):
         """
@@ -205,6 +221,7 @@ class AbstractOrchestrator(ABC):
         op_def,
         executor: AbstractOperatorExecutor,
         prev_data_access: dict[str, DataAccess | None] | DataAccess | None,
+        batch_id: str | None = None,
     ):
         """Execute an active operator and collect its outputs and metadata.
 
@@ -212,6 +229,7 @@ class AbstractOrchestrator(ABC):
             op_def: Operator definition dict.
             executor: The executor instance wrapping the operator.
             prev_data_access: Data access(es) from the previous step.
+            batch_id: Current batch identifier (None for non-batched flows).
 
         Returns:
             Tuple of (data_accesses, tables, metadata, internal_metadata)."""
@@ -229,7 +247,10 @@ class AbstractOrchestrator(ABC):
 
         # Collect non-recoverable docs table from this operator's internal metadata
         self._collect_non_recoverable_docs(
-            internal_metadata=internal_metadata, op_def=op_def, common_log_arguments=self.common_log_arguments or {}
+            internal_metadata=internal_metadata,
+            op_def=op_def,
+            common_log_arguments=self.common_log_arguments or {},
+            batch_id=batch_id,
         )
 
         operator = executor.get_operator()
@@ -345,14 +366,33 @@ class AbstractOrchestrator(ABC):
         # This prevents resource waste and potential side effects.
         if self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
             self.logger.info(
-                f"Skipping operator {op_def[OperatorConstants.Columns.NAME]} - job is in {self.job_status.value} state",
+                "Skipping operator %s - job is in %s state",
+                op_def[OperatorConstants.Columns.NAME],
+                self.job_status.value,
                 extra=self.common_log_arguments,
             )
             # Return empty result to signal skip to downstream operators
             return ExecuteStepResults([], [], {})
 
         executor = self.create_executor(op_def=op_def, global_config=global_config)
+        try:
+            return self._run_node(
+                op_def=op_def,
+                executor=executor,
+                prev_results=prev_results,
+                global_config=global_config,
+                deleted_docs_count=deleted_docs_count,
+                start=start,
+            )
+        finally:
+            # Release operator-held resources (e.g. the FastText model reference)
+            # once we are done with this executor.  Covers both the executed and
+            # the skipped path -- a skipped operator has still been constructed by
+            # get_operator() and may hold a reference.  Never raises.
+            executor.release()
 
+    def _run_node(self, *, op_def, executor, prev_results, global_config, deleted_docs_count, start):
+        """Body of a single node execution.  See _execute_step."""
         prev_data_access, prev_table = self._unpack_prev_results(prev_results=prev_results)
         skip = self.evaluate_execution_skip(executor=executor, tables=prev_table, deleted_docs_count=deleted_docs_count)
         metadata = {}
@@ -363,7 +403,10 @@ class AbstractOrchestrator(ABC):
             )
         else:
             data_accesses, tables, metadata, internal_metadata = self._handle_active_execution(
-                op_def=op_def, executor=executor, prev_data_access=prev_data_access
+                op_def=op_def,
+                executor=executor,
+                prev_data_access=prev_data_access,
+                batch_id=global_config.get(DocpipeConstants.BATCH_ID),
             )
 
         processed_docs_count = OperatorUtils.find_doc_count_from_tables(tables=tables)
@@ -515,27 +558,42 @@ class AbstractOrchestrator(ABC):
         except Exception as e:
             self.logger.warning(f"Failed to cleanup memmap files: {e}")
 
-    def _collect_non_recoverable_docs(self, internal_metadata: dict, op_def: dict, common_log_arguments: dict) -> None:
+    def _collect_non_recoverable_docs(
+        self,
+        internal_metadata: dict,
+        op_def: dict,
+        common_log_arguments: dict,
+        batch_id: str | None = None,
+    ) -> None:
         """
         Collect non-recoverable docs table from operator internal metadata.
+
+        Uses per-batch storage keyed by batch_id so concurrent batches each
+        append to their own isolated list and never clobber one another.
 
         Args:
             internal_metadata: Internal metadata dict (not shown in UI)
             op_def: Operator definition
             common_log_arguments: Common logging arguments
+            batch_id: Current batch identifier (None for non-batched flows)
         """
         if internal_metadata and Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE in internal_metadata:
             non_rec_table = internal_metadata[Metrics.Internal.NON_RECOVERABLE_DOCS_TABLE]
             if non_rec_table and isinstance(non_rec_table, pa.Table) and non_rec_table.num_rows > 0:
-                self.non_recoverable_docs_tables.append(non_rec_table)
+                bucket = self._non_recoverable_docs_tables.setdefault(batch_id, [])
+                bucket.append(non_rec_table)
                 self.logger.info(
-                    f"Collected {non_rec_table.num_rows} non-recoverable docs from operator '{op_def.get('name', 'unknown')}'. Total tables: {len(self.non_recoverable_docs_tables)}",
+                    "Collected %d non-recoverable docs from operator '%s' (batch_id=%s). Tables in bucket: %d",
+                    non_rec_table.num_rows,
+                    op_def.get("name", "unknown"),
+                    batch_id,
+                    len(bucket),
                     extra=common_log_arguments,
                 )
 
     def _merge_non_recoverable_docs(self, global_config: dict, common_log_arguments: dict) -> pa.Table | None:
         """
-        Merge accumulated non-recoverable docs tables into a single table.
+        Merge accumulated non-recoverable docs tables for the current batch into a single table.
 
         Args:
             global_config: Global configuration
@@ -544,37 +602,46 @@ class AbstractOrchestrator(ABC):
         Returns:
             Merged PyArrow table or None if no tables to merge
         """
-        if not self.non_recoverable_docs_tables:
+        batch_id: str | None = global_config.get(DocpipeConstants.BATCH_ID)
+        tables = self._non_recoverable_docs_tables.get(batch_id, [])
+
+        if not tables:
             return None
 
         try:
-            merged_table = pa.concat_tables(self.non_recoverable_docs_tables)
+            merged_table = pa.concat_tables(tables)
 
             batch_num = global_config.get(DocpipeConstants.BATCH_NUM)
             if batch_num is not None:
                 self.logger.info(
-                    f"Batch {batch_num}: Merged {len(self.non_recoverable_docs_tables)} tables "
-                    f"with {merged_table.num_rows} total non-recoverable docs",
+                    "Batch %s: Merged %d tables with %d total non-recoverable docs",
+                    batch_num,
+                    len(tables),
+                    merged_table.num_rows,
                     extra=common_log_arguments,
                 )
             else:
                 self.logger.info(
-                    f"Merged {len(self.non_recoverable_docs_tables)} tables "
-                    f"with {merged_table.num_rows} total non-recoverable docs",
+                    "Merged %d tables with %d total non-recoverable docs",
+                    len(tables),
+                    merged_table.num_rows,
                     extra=common_log_arguments,
                 )
             return merged_table
         except Exception as e:
             self.logger.error(
-                f"Failed to merge non-recoverable docs tables: {e}. Proceeding without non-recoverable docs tracking.",
+                "Failed to merge non-recoverable docs tables: %s. Proceeding without non-recoverable docs tracking.",
+                e,
                 extra=common_log_arguments,
             )
             return None
 
     def _reset_non_recoverable_docs_for_batch(self, global_config: dict, common_log_arguments: dict) -> None:
         """
-        Reset non-recoverable docs tables list for micro-batching.
-        Each batch should start fresh and not accumulate tables from previous batches.
+        Drop the non-recoverable docs bucket for the current batch.
+
+        Each batch starts fresh. The dict entry is deleted (not just cleared)
+        so the tables are freed immediately rather than holding an empty list.
 
         Args:
             global_config: Global configuration
@@ -582,11 +649,14 @@ class AbstractOrchestrator(ABC):
         """
         batch_num = global_config.get(DocpipeConstants.BATCH_NUM)
         if batch_num is not None:
+            batch_id: str | None = global_config.get(DocpipeConstants.BATCH_ID)
             self.logger.debug(
-                f"Batch {batch_num}: Resetting non_recoverable_docs_tables list after metadata save",
+                "Batch %s: Dropping non_recoverable_docs bucket (batch_id=%s)",
+                batch_num,
+                batch_id,
                 extra=common_log_arguments,
             )
-            self.non_recoverable_docs_tables.clear()
+            self._non_recoverable_docs_tables.pop(batch_id, None)
 
     def _sync_cancellation_status(self) -> None:
         """Sync in-memory job status with persistent store if cancellation was requested."""
@@ -682,43 +752,6 @@ class AbstractOrchestrator(ABC):
         """The concrete subclasses needs to implement this method"""
         ...
 
-    def _resolve_skip_reason(self) -> str:
-        """Return a user-friendly skip reason based on the current job status."""
-        if self.job_status == ExecutionStatus.CANCELING:
-            return "Skipped - job cancellation requested by user"
-        if self.job_status == ExecutionStatus.FAILING:
-            return "Skipped - cannot proceed due to failure in pipeline"
-        return "Skipped - no data received from previous step"
-
-    def _resolve_branch_prev_results(self, *, prev_results: ExecuteStepResults, link_id: str) -> ExecuteStepResults:
-        """
-        Narrow prev_results down to the single branch identified by link_id.
-        Raises FlowExecutionFailedException when branch metadata is missing or inconsistent.
-        """
-        if not isinstance(prev_results.internal_metadata, dict):
-            return prev_results
-
-        branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
-        if branches is None or not isinstance(branches, dict):
-            raise FlowExecutionFailedException("Expected branches metadata as a dict but found None or wrong type")
-
-        if len(prev_results.tables) != len(branches):
-            raise FlowExecutionFailedException(
-                f"Number of tables ({len(prev_results.tables)}) in previous operator output "
-                f"do not match branches ({len(branches)}) created."
-            )
-
-        branch_info = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
-        result_index = branch_info.get("result_index")
-        if result_index is None:
-            raise FlowExecutionFailedException(f"Result index not found for link_id {link_id}")
-
-        return ExecuteStepResults(
-            [prev_results.data_accesses[result_index]],
-            [prev_results.tables[result_index]],
-            branch_info,
-        )
-
     def _inner_task(
         self,
         op_def,
@@ -752,6 +785,15 @@ class AbstractOrchestrator(ABC):
 
         # Record skipped node when upstream failure prevents execution
         if prev_results is None or self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
+            # Determine user-friendly skip reason based on specific condition
+            if self.job_status == ExecutionStatus.CANCELING:
+                skip_reason = "Skipped - job cancellation requested by user"
+            elif self.job_status == ExecutionStatus.FAILING:
+                skip_reason = "Skipped - cannot proceed due to failure in pipeline"
+            else:  # prev_results is None
+                skip_reason = "Skipped - no data received from previous step"
+
+            # Record skipped node via event handler (which extracts batch context from global_config)
             self.flow_execution_event_handler.after_node_skipped(
                 node_id=op_def[OperatorConstants.Columns.ID],
                 node_name=op_def[OperatorConstants.Columns.NAME],
@@ -760,7 +802,7 @@ class AbstractOrchestrator(ABC):
                 start_time=get_current_timestamp(),
                 end_time=get_current_timestamp(),
                 column_names=[],
-                reason=self._resolve_skip_reason(),
+                reason=skip_reason,
             )
             return None
 
@@ -768,7 +810,29 @@ class AbstractOrchestrator(ABC):
 
         try:
             if link_id and isinstance(prev_results, ExecuteStepResults):
-                prev_results = self._resolve_branch_prev_results(prev_results=prev_results, link_id=link_id)
+                if isinstance(prev_results.internal_metadata, dict):
+                    branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
+                    if branches is None or not isinstance(branches, dict):
+                        raise FlowExecutionFailedException(
+                            "Expected branches metadata as a dict but found None or wrong type"
+                        )
+
+                    if len(prev_results.tables) != len(branches):
+                        raise FlowExecutionFailedException(
+                            f"Number of tables ({len(prev_results.tables)}) in previous operator output "
+                            f"do not match branches ({len(branches)}) created."
+                        )
+
+                    branch_info = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
+                    result_index = branch_info.get("result_index")
+                    if result_index is None:
+                        raise FlowExecutionFailedException(f"Result index not found for link_id {link_id}")
+
+                    table = prev_results.tables[result_index]
+                    data_access = prev_results.data_accesses[result_index]
+                    internal_metadata = branch_info
+
+                    prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
 
             return self._execute_step(
                 op_def=op_def,

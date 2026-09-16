@@ -60,6 +60,10 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             package_names=custom_operator_packages,
             enable_custom_operators=enable_custom_operators,
         )
+        # Cached operator instance — constructed once on first call, reused within this executor.
+        # An executor lives exactly one node execution (created per node per batch), so caching
+        # here carries no cross-batch state and needs no thread-safety guard.
+        self._operator_instance: AbstractOperator | None = None
 
     def _execute_impl(self, tables: pa.Table | dict[str, pa.Table] | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -168,25 +172,58 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         )
 
     def get_operator(self) -> AbstractOperator:
-        """Get operator."""
+        """Return this executor's operator, constructing it on first use.
+
+        The operator is built once and cached for the lifetime of this executor.
+        An executor is created per node per batch, so the cache is always
+        batch-scoped — no cross-batch state and no thread-safety concern.
+        """
+        if self._operator_instance is not None:
+            return self._operator_instance
+
         clazz = self.operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
             raise DocpipeException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")
-        from docpipe.integrations.secrets.secret_provider import is_vault_reference, resolve_value
+        from docpipe.integrations.secrets.secret_provider import has_vault_references, resolve_value
 
-        vault_keys = (
-            [k for k, v in self._params.items() if is_vault_reference(v)] if isinstance(self._params, dict) else []
-        )
-        if vault_keys:
+        if has_vault_references(self._params):
+            vault_keys = (
+                [k for k, v in self._params.items() if isinstance(v, str) and v.startswith("vault://")]
+                if isinstance(self._params, dict)
+                else []
+            )
             logger.info(
                 "Resolving vault references in operator '%s' config for keys: %s",
                 self._operator,
                 vault_keys,
             )
-        resolved_params = resolve_value(self._params)
-        if vault_keys:
+            resolved_params = resolve_value(self._params)
             logger.info("Vault references resolved successfully for operator '%s'", self._operator)
-        return clazz(config=resolved_params)
+        else:
+            resolved_params = self._params
+
+        self._operator_instance = clazz(config=resolved_params)
+        return self._operator_instance
+
+    def release(self) -> None:
+        """Release resources held by this executor's operator.
+
+        Called by the orchestrator once it has finished with the executor, so it
+        covers both the executed and the skipped path — a skipped operator has
+        still been constructed by ``get_operator()`` and may hold a model
+        reference (e.g. FastText).
+
+        The cached instance is dropped as well as cleaned, so a later
+        ``get_operator()`` rebuilds rather than returning a half-destroyed object.
+        Idempotent, and never raises.
+        """
+        op, self._operator_instance = self._operator_instance, None
+        if op is None or not hasattr(op, "cleanup"):
+            return
+        try:
+            op.cleanup()
+        except Exception:
+            logger.warning("operator cleanup failed for %s", self._operator, exc_info=True)
 
 
 # used for unit testing only

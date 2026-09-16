@@ -144,6 +144,28 @@ def is_vault_reference(value: Any) -> bool:
     return isinstance(value, str) and value.startswith("vault://")
 
 
+def has_vault_references(value: Any) -> bool:
+    """Return True if *value* contains any vault:// reference, anywhere in its structure.
+
+    This is a fast detection pass — it returns as soon as it finds one reference
+    without rebuilding any data.  Used to short-circuit ``resolve_value`` when the
+    config contains no vault references at all, which is the common case.
+
+    Args:
+        value: A string, dict, list, or any other value.
+
+    Returns:
+        True if any string in the structure starts with ``vault://``.
+    """
+    if isinstance(value, str):
+        return value.startswith("vault://")
+    if isinstance(value, dict):
+        return any(has_vault_references(v) for v in value.values())
+    if isinstance(value, list):
+        return any(has_vault_references(item) for item in value)
+    return False
+
+
 def resolve_value(value: Any) -> Any:
     """Resolve vault references in a value, recursively.
 

@@ -147,6 +147,15 @@ class JobTrackerService(JobStatsService):
 
         return job_stats
 
+    def get_failed_doc_ids_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """
+        Collect failed document IDs scoped to a single batch.
+
+        Delegates to the store's SQL-scoped query so only rows for this
+        batch_id are fetched — O(1 batch) instead of O(N batches).
+        """
+        return self.job_stats_store.get_failed_docs_for_batch(job_run_id=job_run_id, batch_id=batch_id)
+
     @staticmethod
     def normalize_execution_status(status: str | ExecutionStatus) -> ExecutionStatus:
         """

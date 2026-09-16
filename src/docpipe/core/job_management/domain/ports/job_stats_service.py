@@ -647,3 +647,20 @@ class JobStatsService(ABC):
             True if partial batch failure detected, False otherwise
         """
         ...
+
+    @abstractmethod
+    def get_failed_doc_ids_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """
+        Collect failed document IDs scoped to a single batch.
+
+        Queries only the node stats rows for the given batch_id, avoiding
+        O(N²) growth where N is the number of completed batches.
+
+        Args:
+            job_run_id: Job run identifier
+            batch_id: Batch identifier to scope the query
+
+        Returns:
+            List of failed document IDs for that batch (may be empty)
+        """
+        ...

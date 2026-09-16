@@ -1,54 +1,18 @@
 """
 Unit tests for PrefectEngine.
 
-Prefect imports are mocked at the sys.modules level *before* the engine module
-is imported, so the test suite requires no live Prefect server and runs in
-milliseconds.
+Prefect 3.x is installed in the venv — import it directly, no sys.modules
+stubbing required.
 """
 
-import sys
 import threading
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-# ---------------------------------------------------------------------------
-# Pre-mock all Prefect modules before any docpipe import resolves them.
-# ---------------------------------------------------------------------------
-for _mod in [
-    "prefect",
-    "prefect.futures",
-    "prefect.runtime",
-    "prefect.runtime.task_run",
-    "prefect.states",
-    "prefect.task_runners",
-]:
-    if _mod not in sys.modules:
-        sys.modules[_mod] = MagicMock()
+import pytest
 
-# Make prefect.flow / prefect.task return a decorator-like passthrough so that
-# @flow(...) and @task(...) simply return the wrapped function unchanged.
-_prefect_stub = sys.modules["prefect"]
-
-
-def _passthrough_decorator(*args, **kwargs):
-    """Return a decorator that returns the function untouched."""
-
-    def _decorator(fn):
-        return fn
-
-    # Support both @flow(fn) and @flow(...)(fn) call patterns.
-    if args and callable(args[0]):
-        return args[0]
-    return _decorator
-
-
-_prefect_stub.flow = _passthrough_decorator  # type: ignore[attr-defined]
-_prefect_stub.task = _passthrough_decorator  # type: ignore[attr-defined]
-
-import pytest  # noqa: E402 — must come after sys.modules patching
-
-from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus  # noqa: E402
-from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine  # noqa: E402
-from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException  # noqa: E402
+from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus
+from docpipe.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
+from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -339,14 +303,14 @@ class TestCollectFailedDocIds:
         orch = _mock_orchestrator()
         orch.job_stats_service = None
         engine = _make_engine(orchestrator=orch)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
     def test_returns_empty_list_when_job_stats_none(self):
         orch = _mock_orchestrator()
         orch.job_stats_service.get_job.return_value = None
         engine = _make_engine(orchestrator=orch)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
     def test_returns_empty_list_when_node_stats_empty(self):
@@ -355,7 +319,7 @@ class TestCollectFailedDocIds:
         job_stats.node_stats = {}
         orch.job_stats_service.get_job.return_value = job_stats
         engine = _make_engine(orchestrator=orch)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
     def test_collects_failed_doc_ids_from_node_stats_objects(self):
@@ -366,7 +330,7 @@ class TestCollectFailedDocIds:
         job_stats.node_stats = {"node_a": node_stat}
         orch.job_stats_service.get_job.return_value = job_stats
         engine = _make_engine(orchestrator=orch)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == ["doc-1", "doc-2"]
 
     def test_collects_failed_doc_ids_from_dict_node_stats(self):
@@ -375,7 +339,7 @@ class TestCollectFailedDocIds:
         job_stats.node_stats = {"node_a": {"failed_docs": ["doc-3"]}}
         orch.job_stats_service.get_job.return_value = job_stats
         engine = _make_engine(orchestrator=orch)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == ["doc-3"]
 
     def test_node_stats_without_failed_docs_attribute_skipped(self):
@@ -385,7 +349,7 @@ class TestCollectFailedDocIds:
         job_stats.node_stats = {"node_a": node_stat}
         orch.job_stats_service.get_job.return_value = job_stats
         engine = _make_engine(orchestrator=orch)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
 

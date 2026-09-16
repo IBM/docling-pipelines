@@ -515,3 +515,250 @@ class TestPostgresJobStatsStoreInjectedModel:
         # Called once per record
         assert mock_injected_node_stats_model.call_count == 2
         mock_injected_job_stats_model.assert_not_called()
+
+
+class TestGetFailedDocsForBatch:
+    """Tests for PostgresJobStatsStore.get_failed_docs_for_batch."""
+
+    def test_returns_failed_doc_ids(self):
+        """Collects failed_docs from each db model returned by the DAL."""
+        from unittest.mock import Mock, patch
+
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._node_stats_dal = Mock()
+
+            m1 = Mock()
+            m1.failed_docs = ["doc-a", "doc-b"]
+            m2 = Mock()
+            m2.failed_docs = ["doc-c"]
+            store._node_stats_dal.get_failed_docs_for_batch.return_value = [m1, m2]
+
+            result = store.get_failed_docs_for_batch(job_run_id="run-1", batch_id="batch-1")
+
+            assert sorted(result) == ["doc-a", "doc-b", "doc-c"]
+            store._node_stats_dal.get_failed_docs_for_batch.assert_called_once_with(
+                job_run_id="run-1", batch_id="batch-1"
+            )
+
+    def test_returns_empty_when_no_failed_docs(self):
+        """Returns empty list when db models have empty failed_docs."""
+        from unittest.mock import Mock, patch
+
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._node_stats_dal = Mock()
+
+            m = Mock()
+            m.failed_docs = []
+            store._node_stats_dal.get_failed_docs_for_batch.return_value = [m]
+
+            result = store.get_failed_docs_for_batch(job_run_id="run-2", batch_id="batch-2")
+
+            assert result == []
+
+    def test_returns_empty_when_dal_returns_nothing(self):
+        """Returns empty list when the DAL returns no rows."""
+        from unittest.mock import Mock, patch
+
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._node_stats_dal = Mock()
+            store._node_stats_dal.get_failed_docs_for_batch.return_value = []
+
+            result = store.get_failed_docs_for_batch(job_run_id="run-3", batch_id="batch-3")
+
+            assert result == []
+
+    def test_raises_on_dal_error(self):
+        """Raises JobStatsStoreReadException when the DAL raises."""
+        from unittest.mock import Mock, patch
+
+        import pytest
+
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._node_stats_dal = Mock()
+            store._node_stats_dal.get_failed_docs_for_batch.side_effect = RuntimeError("db down")
+
+            with pytest.raises(JobStatsStoreReadException):
+                store.get_failed_docs_for_batch(job_run_id="run-4", batch_id="batch-4")
+
+
+class TestStoreMethodErrorPaths:
+    """Tests for error and empty-result paths across all PostgresJobStatsStore methods."""
+
+    def _store(self):
+        """Return a store with __init__ bypassed and DALs mocked."""
+        from docpipe.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+
+        with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
+            store = PostgresJobStatsStore()
+            store._job_stats_dal = Mock()
+            store._node_stats_dal = Mock()
+            store._job_stats_model_cls = None
+            store._node_stats_model_cls = None
+        return store
+
+    # ── store_job_stats error path ────────────────────────────────────────────
+
+    def test_store_job_stats_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
+
+        store = self._store()
+        store._job_stats_dal.upsert.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreWriteException):
+            store.store_job_stats(Mock(job_run_id="r1"))
+
+    # ── get_job_stats error paths ─────────────────────────────────────────────
+
+    def test_get_job_stats_returns_none_when_not_found(self):
+        store = self._store()
+        store._job_stats_dal.get_by_job_run_id.return_value = None
+
+        result = store.get_job_stats("r1")
+
+        assert result is None
+
+    def test_get_job_stats_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
+
+        store = self._store()
+        store._job_stats_dal.get_by_job_run_id.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreReadException):
+            store.get_job_stats("r1")
+
+    # ── store_node_stats error path ───────────────────────────────────────────
+
+    def test_store_node_stats_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
+
+        store = self._store()
+        store._node_stats_dal.upsert.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreWriteException):
+            store.store_node_stats(job_run_id="r1", node_stats=Mock(id="n1", batch_id=None))
+
+    # ── get_node_stats ────────────────────────────────────────────────────────
+
+    def test_get_node_stats_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
+
+        store = self._store()
+        store._node_stats_dal.get_all_node_stats.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreReadException):
+            store.get_node_stats(job_run_id="r1")
+
+    # ── get_batch_node_stats ──────────────────────────────────────────────────
+
+    def test_get_batch_node_stats_returns_empty_for_no_records(self):
+        """Returns empty dict when there are no batch records."""
+        store = self._store()
+        store._node_stats_dal.get_batch_node_stats.return_value = []
+
+        result = store.get_batch_node_stats(job_run_id="r1")
+
+        assert result == {}
+
+    def test_get_batch_node_stats_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
+
+        store = self._store()
+        store._node_stats_dal.get_batch_node_stats.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreReadException):
+            store.get_batch_node_stats(job_run_id="r1")
+
+    # ── bulk_store_node_stats ─────────────────────────────────────────────────
+
+    def test_bulk_store_node_stats_empty_list_returns_immediately(self):
+        store = self._store()
+        store.bulk_store_node_stats(job_run_id="r1", node_stats_list=[])
+        store._node_stats_dal.bulk_insert.assert_not_called()
+
+    def test_bulk_store_node_stats_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
+
+        store = self._store()
+        store._node_stats_dal.bulk_insert.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreWriteException):
+            store.bulk_store_node_stats(job_run_id="r1", node_stats_list=[Mock(id="n1", batch_id=None)])
+
+    # ── atomic_increment_fields ───────────────────────────────────────────────
+
+    def test_atomic_increment_fields_delegates_to_dal(self):
+        store = self._store()
+        store.atomic_increment_fields("r1", increments={"processed_docs": 1})
+        store._job_stats_dal.atomic_increment_fields.assert_called_once()
+
+    def test_atomic_increment_fields_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreWriteException
+
+        store = self._store()
+        store._job_stats_dal.atomic_increment_fields.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreWriteException):
+            store.atomic_increment_fields("r1", increments={})
+
+    # ── get_node_stats_by_batch_and_node ──────────────────────────────────────
+
+    def test_get_node_stats_by_batch_and_node_returns_none_when_not_found(self):
+        store = self._store()
+        store._node_stats_dal.get_node_stats_by_run_batch.return_value = None
+
+        result = store.get_node_stats_by_batch_and_node("r1", "n1")
+
+        assert result is None
+
+    def test_get_node_stats_by_batch_and_node_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
+
+        store = self._store()
+        store._node_stats_dal.get_node_stats_by_run_batch.side_effect = RuntimeError("err")
+
+        with pytest.raises(JobStatsStoreReadException):
+            store.get_node_stats_by_batch_and_node("r1", "n1")
+
+    # ── delete_job_stats ──────────────────────────────────────────────────────
+
+    def test_delete_job_stats_raises_when_not_found(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreDeleteException
+
+        store = self._store()
+        store._job_stats_dal.delete_job_stats.return_value = 0
+
+        with pytest.raises(JobStatsStoreDeleteException):
+            store.delete_job_stats("r1")
+
+    def test_delete_job_stats_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreDeleteException
+
+        store = self._store()
+        store._job_stats_dal.delete_job_stats.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreDeleteException):
+            store.delete_job_stats("r1")
+
+    # ── list_job_runs ─────────────────────────────────────────────────────────
+
+    def test_list_job_runs_raises_on_error(self):
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
+
+        store = self._store()
+        store._job_stats_dal.list_job_runs.side_effect = RuntimeError("db error")
+
+        with pytest.raises(JobStatsStoreReadException):
+            store.list_job_runs()

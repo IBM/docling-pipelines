@@ -232,6 +232,21 @@ class InMemoryJobStatsStore(JobStatsStore):
             logger.debug(f"Retrieved batch node stats: job_run_id={job_run_id}, nodes={len(result)}")
             return result
 
+    def get_failed_docs_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """Retrieve failed document IDs for all nodes in a single batch."""
+        lock = self._get_job_lock(job_run_id=job_run_id)
+        with lock:
+            failed_doc_ids: list[str] = []
+            nodes = self._node_stats.get(job_run_id, {})
+            for _node_id, batches in nodes.items():
+                node_stats = batches.get(batch_id)
+                if node_stats is None:
+                    continue
+                failed_docs = getattr(node_stats, "failed_docs", None)
+                if failed_docs:
+                    failed_doc_ids.extend(failed_docs)
+            return failed_doc_ids
+
     def bulk_store_node_stats(self, *, job_run_id: str, node_stats_list: list[NodeStats]) -> None:
         """
         Bulk store multiple node statistics (micro-batching).

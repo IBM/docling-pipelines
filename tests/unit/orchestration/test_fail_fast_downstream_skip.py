@@ -36,11 +36,15 @@ class TestFailFastDownstreamSkip:
 
         # Make _execute_step and its helpers use the real implementations
         orchestrator._execute_step = AbstractOrchestrator._execute_step.__get__(orchestrator)
+        orchestrator._run_node = AbstractOrchestrator._run_node.__get__(orchestrator)
         orchestrator._unpack_prev_results = AbstractOrchestrator._unpack_prev_results.__get__(orchestrator)
         orchestrator._refresh_job_status = AbstractOrchestrator._refresh_job_status.__get__(orchestrator)
-        orchestrator.create_executor = Mock()
+        mock_executor = Mock()
+        mock_executor.release = Mock()
+        orchestrator.create_executor = Mock(return_value=mock_executor)
         orchestrator.evaluate_execution_skip = Mock(return_value=False)
         orchestrator._handle_active_execution = Mock()
+        orchestrator._handle_skipped_execution = Mock(return_value=([], []))
         orchestrator.job_stats_service = None  # Add missing attribute
         orchestrator.job_run_id = None  # Add missing attribute
 
@@ -108,8 +112,8 @@ class TestFailFastDownstreamSkip:
         mock_orchestrator.logger.info.assert_called_once()
         log_call = mock_orchestrator.logger.info.call_args
         assert "Skipping operator" in log_call[0][0]
-        assert "TestOperator" in log_call[0][0]
-        assert "Failing" in log_call[0][0]  # Changed from "FAILING" to "Failing"
+        assert log_call[0][1] == "TestOperator"
+        assert "Failing" in log_call[0][2]
 
     def test_execute_step_skips_when_job_canceling(self, mock_orchestrator, op_def, global_config, prev_results):
         """
@@ -137,7 +141,7 @@ class TestFailFastDownstreamSkip:
         # Verify: Logger should log the skip with Canceling status
         mock_orchestrator.logger.info.assert_called_once()
         log_call = mock_orchestrator.logger.info.call_args
-        assert "Canceling" in log_call[0][0]  # Changed from "CANCELING" to "Canceling"
+        assert "Canceling" in log_call[0][2]
 
     def test_execute_step_proceeds_when_job_running(self, mock_orchestrator, op_def, global_config, prev_results):
         """
