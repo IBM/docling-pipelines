@@ -30,12 +30,16 @@
 .newFlowButton { flex-shrink: 0; }
 
 // ── Name cell ─────────────────────────────────────────────────────────────────
-.nameLink {
+.nameLink,
+.runLink {
   @include type-style('body-compact-01');
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 0;
+  padding: 0;
   color: $link-primary;
   background: none;
   border: none;
-  padding: 0;
   cursor: pointer;
   text-align: left;
 

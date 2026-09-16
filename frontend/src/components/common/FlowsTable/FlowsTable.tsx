@@ -24,6 +24,7 @@ interface FlowsTableProps {
   readonly isLoading?: boolean;
   readonly onNewFlow: () => void;
   readonly onOpenFlow: (flowId: string) => void;
+  readonly onOpenRuns: (flowId: string) => void;
   readonly onRefresh: () => void;
   readonly onEditFlow: (flowId: string, updates: { name: string; description: string; tags: string[] }) => Promise<void>;
   readonly onDeleteFlow: (flowId: string) => Promise<void>;
@@ -110,6 +111,7 @@ export function FlowsTable({
   isLoading = false,
   onNewFlow,
   onOpenFlow,
+  onOpenRuns,
   onRefresh,
   onEditFlow,
   onDeleteFlow,
@@ -202,16 +204,27 @@ export function FlowsTable({
           switch (cell.info.header) {
             case 'name':
               return (
-                <button
-                  type="button"
+                <Button
+                  kind="ghost"
+                  size="sm"
                   className={styles.nameLink}
                   onClick={() => { onOpenFlow(original.flow_id); }}
                 >
                   {original.name}
-                </button>
+                </Button>
               );
             case 'run_count':
-              return original.run_count ?? '—';
+              if (original.run_count === null) { return '—'; }
+              return (
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  className={styles.runLink}
+                  onClick={() => { onOpenRuns(original.flow_id); }}
+                >
+                  {original.run_count}
+                </Button>
+              );
             case 'run_status':
               return renderNeedsReviewCell(original.run_status, original.run_count);
             case 'tags':

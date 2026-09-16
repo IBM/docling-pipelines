@@ -181,6 +181,10 @@ export function ProjectDetail(): React.JSX.Element | null {
   };
 
   const handleOpenFlow = (flowId: string): void => {
+    go(navigate, generateRoute.canvas(flowId, project?.id ?? projectId ?? ''));
+  };
+
+  const handleOpenRuns = (flowId: string): void => {
     go(navigate, generateRoute.flowDetail(flowId, project?.id ?? projectId ?? ''));
   };
 
@@ -277,6 +281,7 @@ export function ProjectDetail(): React.JSX.Element | null {
               isLoading={flowsLoading}
               onNewFlow={handleCreateFlow}
               onOpenFlow={handleOpenFlow}
+              onOpenRuns={handleOpenRuns}
               onRefresh={handleRefresh}
               onEditFlow={handleEditFlow}
               onDeleteFlow={handleDeleteFlow}
