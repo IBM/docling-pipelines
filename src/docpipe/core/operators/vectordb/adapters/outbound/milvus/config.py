@@ -29,7 +29,11 @@ class MilvusConfig(BaseModel):
     )
     uri: str | None = Field(
         default=None,
-        description="Full connection URI (e.g. https://xxx.zillizcloud.com). Takes precedence over host/port when provided.",
+        description=(
+            "Connection URI. Use a local file path ending in '.db' for Milvus Lite "
+            "(e.g. './data/milvus/docs.db') or a remote URI (e.g. https://xxx.zillizcloud.com). "
+            "Required when auth_type is 'uri' or 'lite'."
+        ),
     )
     token: str | None = Field(
         default=None,
@@ -49,7 +53,12 @@ class MilvusConfig(BaseModel):
     )
     auth_type: str | None = Field(
         default=None,
-        description="Authentication type override (e.g. 'wx.data'). Leave unset for standard Milvus auth.",
+        description=(
+            "Authentication type. Options: 'standalone' (host/port + username/password), "
+            "'grpc' (IBM wx.data via gRPC), 'uri' (pre-built remote URI), "
+            "'token' (IAM token), 'lite' (local Milvus Lite .db file — no external service required). "
+            "Use 'lite' with a local 'uri' path for container-free operation."
+        ),
     )
     secure: bool = Field(
         default=False,
@@ -71,7 +80,10 @@ class MilvusConfig(BaseModel):
         "SPARSE_WAND",
     ] = Field(
         default="HNSW",
-        description="Vector index algorithm.",
+        description=(
+            "Vector index algorithm. Milvus Lite (auth_type='lite') only supports FLAT. "
+            "Use HNSW for standalone/remote deployments."
+        ),
     )
     metric_type: Literal["L2", "IP", "COSINE", "BM25"] = Field(
         default="L2",

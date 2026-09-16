@@ -613,6 +613,12 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         except Exception as e:
             logger.warning(f"Failed to refresh index: {e!s}", extra=self.common_log_arguments)
 
+        # Release adapter resources (connections, file locks)
+        try:
+            self.adapter.close()
+        except Exception as e:
+            logger.warning("Failed to close adapter: %s", e, extra=self.common_log_arguments)
+
         return [table], metadata
 
     def query_by_doc_names(self, doc_names: list[str], fields: list[str] | None = None) -> list[dict[str, Any]]:
