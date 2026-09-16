@@ -8,6 +8,8 @@ WORKDIR /opt/app-root
 
 # 1. Cache dependencies (This layer stays cached if pyproject.toml doesn't change)
 COPY pyproject.toml ./
+RUN touch README.md
+
 RUN mkdir -p ./src && \
     uv pip install --no-cache ".[llm]" prefect-docker prefect-kubernetes
 
