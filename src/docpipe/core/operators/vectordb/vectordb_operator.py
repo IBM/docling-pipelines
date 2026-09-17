@@ -230,6 +230,30 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             logger.warning("Empty table provided", extra=self.common_log_arguments)
             return [table], metadata
 
+        try:
+            return self._transform_internal(
+                table=table,
+                unique_doc_ids=unique_doc_ids,
+                doc_hash_to_id=doc_hash_to_id,
+                metadata=metadata,
+            )
+        finally:
+            try:
+                self.adapter.close()
+            except Exception as e:
+                logger.warning("Failed to close adapter: %s", e, extra=self.common_log_arguments)
+
+    def _transform_internal(
+        self,
+        *,
+        table: pa.Table,
+        unique_doc_ids: set[str],
+        doc_hash_to_id: dict[str, str],
+        metadata: dict[str, Any],
+    ) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Core transform logic. Called by transform(); adapter.close() is guaranteed by the caller."""
+        id_column = OperatorConstants.Misc.ID
+
         # Validate required doc_id column
         if self.doc_id_column not in table.column_names:
             missing_doc_id_msg: str = f"Required column '{self.doc_id_column}' not found in table"
@@ -612,12 +636,6 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             self.adapter.refresh_index()
         except Exception as e:
             logger.warning(f"Failed to refresh index: {e!s}", extra=self.common_log_arguments)
-
-        # Release adapter resources (connections, file locks)
-        try:
-            self.adapter.close()
-        except Exception as e:
-            logger.warning("Failed to close adapter: %s", e, extra=self.common_log_arguments)
 
         return [table], metadata
 

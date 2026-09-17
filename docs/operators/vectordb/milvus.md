@@ -122,11 +122,11 @@ Configure multiple vector columns in `available_features`:
       "type": "vector"
     }
   },
-  "feature_mappings": {
-    "doc_id_hash": "pk",
-    "embeddings": "vector_embeddings",
-    "embeddings_alt": "vector_embeddings_alt"
-  }
+  "feature_mappings": [
+    {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+    {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+    {"feature_name": "embeddings_alt", "mapped_column_name": "vector_embeddings_alt"}
+  ]
 }
 ```
 
@@ -202,11 +202,11 @@ config = {
             "type": "vector"
         }
     },
-    "feature_mappings": {
-        "doc_id_hash": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings"
-    }
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}
+    ]
 }
 
 # Create sample data
@@ -257,11 +257,11 @@ config = {
             "type": "vector"
         }
     },
-    "feature_mappings": {
-        "doc_id_hash": "pk",
-        "content": "text",
-        "embeddings": "vector"
-    }
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector"}
+    ]
 }
 
 operator = VectorDBOperator(config)
@@ -302,11 +302,11 @@ config = {
             "type": "vector"
         }
     },
-    "feature_mappings": {
-        "doc_id_hash": "pk",
-        "embeddings": "vector_embeddings",
-        "embeddings_alt": "vector_embeddings_alt"
-    }
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        {"feature_name": "embeddings_alt", "mapped_column_name": "vector_embeddings_alt"}
+    ]
 }
 
 # Data with two embedding models (different dimensions)
@@ -351,11 +351,11 @@ config = {
             "type": "vector"
         }
     },
-    "feature_mappings": {
-        "doc_id_hash": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings"
-    }
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}
+    ]
 }
 ```
 
@@ -428,11 +428,11 @@ config = {
         "type": "vector"
       }
     },
-    "feature_mappings": {
-      "doc_id_hash": "pk",
-      "content": "text",
-      "embeddings": "vector_embeddings"
-    }
+    "feature_mappings": [
+      {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+      {"feature_name": "content", "mapped_column_name": "text"},
+      {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}
+    ]
   }
 }
 ```
