@@ -291,7 +291,7 @@ npm --version
 ```
 
 Don't have nvm? Install it from https://github.com/nvm-sh/nvm, or get Node.js 22 directly:
-- **macOS**: `brew install node@22 && brew link node@22`
+- **macOS**: `brew install nvm && nvm install && nvm use`
 - **Ubuntu/Debian**: use the [NodeSource installer](https://github.com/nodesource/distributions#installation-instructions) — `sudo apt install nodejs npm` alone will install the wrong version
 - **Fedora/RHEL**: `sudo dnf module install nodejs:22`
 - **Any OS**: download the v22.15.1 installer from https://nodejs.org/en/download
