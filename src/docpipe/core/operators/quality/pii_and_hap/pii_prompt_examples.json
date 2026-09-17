@@ -1,5 +1,5 @@
 {
-  "description": "You are a precise text analyzer that extracts ALL Personally Identifiable Information (PII) and Hate, Abuse and Profanity (HAP) from text.\n\nIMPORTANT RULES:\n1. Find EVERY instance of PII - do not skip any\n2. Detect these PII types: EmailAddress, PhoneNumber, SocialSecurityNumber (SSN), CreditCardNumber, BankAccountNumber, IPAddress\n3. For HAP, detect hate speech, abuse, profanity, discrimination\n4. Output ONLY valid JSON with NO additional text\n5. REQUIRED: Every detection MUST include ALL fields: detection, detection_type, start, end, score, AND text\n6. The 'text' field MUST contain the exact substring from the input at positions [start:end]\n\nOutput format:\n{\n  \"detections\": [\n    {\n      \"detection\": \"<type>\",\n      \"detection_type\": \"pii\" or \"hap\",\n      \"start\": <number>,\n      \"end\": <number>,\n      \"score\": <0.0-1.0>,\n      \"text\": \"<exact text from input[start:end]>\"\n    }\n  ]\n}\n",
+  "description": "You are a precise text analyzer that extracts ALL Personally Identifiable Information (PII) and Hate, Abuse and Profanity (HAP) from text.\n\nIMPORTANT RULES:\n1. Find EVERY instance of PII - do not skip any\n2. Detect these PII types: EmailAddress, PhoneNumber, SocialSecurityNumber, CreditCardNumber, BankAccountNumber, IPAddress, PersonName, DateOfBirth, Address, PassportNumber, DriverLicenseNumber, NationalID, MedicalRecordNumber\n3. For HAP, detect hate speech, abuse, profanity, discrimination\n4. Output ONLY valid JSON with NO additional text\n5. REQUIRED: Every detection MUST include ALL fields: detection, detection_type, start, end, score, AND text\n6. The 'text' field MUST contain the exact substring from the input at positions [start:end]\n\nOutput format:\n{\n  \"detections\": [\n    {\n      \"detection\": \"<type>\",\n      \"detection_type\": \"pii\" or \"hap\",\n      \"start\": <number>,\n      \"end\": <number>,\n      \"score\": <0.0-1.0>,\n      \"text\": \"<exact text from input[start:end]>\"\n    }\n  ]\n}\n",
   "examples": [
     {
       "input": "Your email is support@ibm.com and your SSN is 123-45-6789.",
@@ -128,6 +128,84 @@
             "end": 53,
             "score": 0.8,
             "text": "john@example.com"
+          }
+        ]
+      }
+    },
+    {
+      "input": "The patient John Smith, born on 14/03/1985, lives at 42 Maple Street, Springfield. His passport number is P12345678 and his driver's license is D1234-5678-9012. National ID: 987-65-4321. Medical record: MRN-00293847.",
+      "output": {
+        "detections": [
+          {
+            "detection": "PersonName",
+            "detection_type": "pii",
+            "start": 12,
+            "end": 22,
+            "score": 0.9,
+            "text": "John Smith"
+          },
+          {
+            "detection": "DateOfBirth",
+            "detection_type": "pii",
+            "start": 32,
+            "end": 42,
+            "score": 0.9,
+            "text": "14/03/1985"
+          },
+          {
+            "detection": "Address",
+            "detection_type": "pii",
+            "start": 53,
+            "end": 83,
+            "score": 0.85,
+            "text": "42 Maple Street, Springfield"
+          },
+          {
+            "detection": "PassportNumber",
+            "detection_type": "pii",
+            "start": 101,
+            "end": 110,
+            "score": 0.9,
+            "text": "P12345678"
+          },
+          {
+            "detection": "DriverLicenseNumber",
+            "detection_type": "pii",
+            "start": 134,
+            "end": 150,
+            "score": 0.9,
+            "text": "D1234-5678-9012"
+          },
+          {
+            "detection": "NationalID",
+            "detection_type": "pii",
+            "start": 163,
+            "end": 174,
+            "score": 0.9,
+            "text": "987-65-4321"
+          },
+          {
+            "detection": "MedicalRecordNumber",
+            "detection_type": "pii",
+            "start": 193,
+            "end": 205,
+            "score": 0.9,
+            "text": "MRN-00293847"
+          }
+        ]
+      }
+    },
+    {
+      "input": "Patient file reference: MRN-00293847. Please update the medical record accordingly.",
+      "output": {
+        "detections": [
+          {
+            "detection": "MedicalRecordNumber",
+            "detection_type": "pii",
+            "start": 24,
+            "end": 36,
+            "score": 0.9,
+            "text": "MRN-00293847"
           }
         ]
       }

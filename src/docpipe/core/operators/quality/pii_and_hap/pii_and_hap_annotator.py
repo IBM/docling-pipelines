@@ -172,6 +172,13 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         for attr_name, config_key, default_value in config_mappings:
             setattr(self, attr_name, config.get(config_key, default_value))
 
+        # Coerce numeric fields — global_config merging can inject them as strings
+        self.batch_size = int(self.batch_size)
+        self.min_chunk_size = int(self.min_chunk_size)
+        self.max_chunk_size = int(self.max_chunk_size)
+        self.pii_threshold = float(self.pii_threshold)
+        self.hap_threshold = float(self.hap_threshold)
+
         # Read model_name directly from provider_config
         self.model_name = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}).get(
             OperatorConstants.Config.MODEL_ID, "granite4"
@@ -313,6 +320,48 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
                 "pii_ssn_details": {
                     OperatorConstants.Misc.NAME: "SSN Details Count",
                     OperatorConstants.Config.DESCRIPTION: "Number of SSNs found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_person_name": {
+                    OperatorConstants.Misc.NAME: "Person Name Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Person Names found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_date_of_birth": {
+                    OperatorConstants.Misc.NAME: "Date of Birth Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Dates of Birth found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_address": {
+                    OperatorConstants.Misc.NAME: "Address Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Addresses found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_passport_number": {
+                    OperatorConstants.Misc.NAME: "Passport Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Passport Numbers found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_driver_license": {
+                    OperatorConstants.Misc.NAME: "Driver License Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Driver License Numbers found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_national_id": {
+                    OperatorConstants.Misc.NAME: "National ID Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of National IDs found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_medical_record": {
+                    OperatorConstants.Misc.NAME: "Medical Record Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Medical Record Numbers found in document",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
