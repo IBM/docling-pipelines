@@ -23,9 +23,9 @@ import React, { useMemo, useState } from 'react';
 import {
   DefinitionTooltip,
   Dropdown,
+  FilterableMultiSelect,
   NumberInput,
   TextArea,
-  TextInput,
   Toggle,
 } from '@carbon/react';
 import type { OperatorFeature, OperatorMetadata } from '@/types';
@@ -35,6 +35,7 @@ import {
   INGEST_SOURCE_ATTRIBUTE as ATTR,
   INGEST_SOURCE_LABELS as LABEL,
   PROVIDER_SOURCE_LOCATIONS,
+  SUPPORTED_FILE_EXTENSIONS,
 } from './constants';
 import common from '../../CommonPropertiesPanel.module.scss';
 import { isValidJsonObject, toJsonString } from '@/utils/json';
@@ -43,6 +44,22 @@ import { RequiredParamTooltip } from '@/components/common';
 
 interface IngestSourcePanelBodyProps {
   controller: any;
+}
+
+/**
+ * Normalizes filter extensions from string or array to an array of extension names.
+ */
+function normalizeFilterExtensions(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item).trim().replace(/^\./, '')).filter(Boolean);
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return raw
+      .split(',')
+      .map((item) => item.trim().replace(/^\./, ''))
+      .filter(Boolean);
+  }
+  return [];
 }
 
 /**
@@ -146,13 +163,21 @@ export function IngestSourcePanelBody({
     ?? (nodeAttributes[ATTR.MAX_FILES]?.default as number | undefined)
     ?? 100;
 
-  const includeFilter = (controller?.getPropertyValue?.({ name: ATTR.INCLUDE_FILTER }) as string | undefined)
-    ?? (nodeAttributes[ATTR.INCLUDE_FILTER]?.default as string | undefined)
-    ?? '';
+  const includeFilterRaw = controller?.getPropertyValue?.({ name: ATTR.INCLUDE_FILTER })
+    ?? nodeAttributes[ATTR.INCLUDE_FILTER]?.default;
+  const selectedIncludeFilter = useMemo(
+    () => normalizeFilterExtensions(includeFilterRaw),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(includeFilterRaw)]
+  );
 
-  const excludeFilter = (controller?.getPropertyValue?.({ name: ATTR.EXCLUDE_FILTER }) as string | undefined)
-    ?? (nodeAttributes[ATTR.EXCLUDE_FILTER]?.default as string | undefined)
-    ?? '';
+  const excludeFilterRaw = controller?.getPropertyValue?.({ name: ATTR.EXCLUDE_FILTER })
+    ?? nodeAttributes[ATTR.EXCLUDE_FILTER]?.default;
+  const selectedExcludeFilter = useMemo(
+    () => normalizeFilterExtensions(excludeFilterRaw),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(excludeFilterRaw)]
+  );
 
   const ignoreHiddenFiles = (controller?.getPropertyValue?.({ name: ATTR.IGNORE_HIDDEN_FILES }) as boolean | undefined)
     ?? (nodeAttributes[ATTR.IGNORE_HIDDEN_FILES]?.default as boolean | undefined)
@@ -191,8 +216,14 @@ export function IngestSourcePanelBody({
     credentialsRaw ?? null
   );
   const maxFilesValidation = validate(ATTR.MAX_FILES, maxFiles);
-  const includeFilterValidation = validate(ATTR.INCLUDE_FILTER, includeFilter);
-  const excludeFilterValidation = validate(ATTR.EXCLUDE_FILTER, excludeFilter);
+  const includeFilterValidation = validate(
+    ATTR.INCLUDE_FILTER,
+    selectedIncludeFilter.length > 0 ? selectedIncludeFilter : undefined
+  );
+  const excludeFilterValidation = validate(
+    ATTR.EXCLUDE_FILTER,
+    selectedExcludeFilter.length > 0 ? selectedExcludeFilter : undefined
+  );
 
   /** TextArea value: live edit buffer, or the stripped persisted value. */
   const connectionParamsTextValue = connectionParamsRawEdit ?? connectionParamsDisplayed;
@@ -423,17 +454,20 @@ export function IngestSourcePanelBody({
             {LABEL.INCLUDE_FILTER}
           </RequiredParamTooltip>
         </div>
-        <TextInput
+        <FilterableMultiSelect
+          key={selectedIncludeFilter.join(',')}
           id="include_filter"
-          labelText={LABEL.INCLUDE_FILTER}
+          titleText={LABEL.INCLUDE_FILTER}
           hideLabel
-          placeholder="pdf, docx, xlsx"
-          value={includeFilter}
+          placeholder="Select file types to include"
+          items={[...SUPPORTED_FILE_EXTENSIONS]}
+          itemToString={(item: string | null) => item ?? ''}
+          initialSelectedItems={selectedIncludeFilter}
+          onChange={({ selectedItems }: { selectedItems: string[] }) => {
+            controller?.updatePropertyValue?.({ name: ATTR.INCLUDE_FILTER }, selectedItems);
+          }}
           invalid={includeFilterValidation.isInvalid}
           invalidText={includeFilterValidation.errorMessage}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            controller?.updatePropertyValue?.({ name: ATTR.INCLUDE_FILTER }, e.target.value);
-          }}
         />
       </div>
 
@@ -447,17 +481,20 @@ export function IngestSourcePanelBody({
             {LABEL.EXCLUDE_FILTER}
           </RequiredParamTooltip>
         </div>
-        <TextInput
+        <FilterableMultiSelect
+          key={selectedExcludeFilter.join(',')}
           id="exclude_filter"
-          labelText={LABEL.EXCLUDE_FILTER}
+          titleText={LABEL.EXCLUDE_FILTER}
           hideLabel
-          placeholder="tmp, log"
-          value={excludeFilter}
+          placeholder="Select file types to exclude"
+          items={[...SUPPORTED_FILE_EXTENSIONS]}
+          itemToString={(item: string | null) => item ?? ''}
+          initialSelectedItems={selectedExcludeFilter}
+          onChange={({ selectedItems }: { selectedItems: string[] }) => {
+            controller?.updatePropertyValue?.({ name: ATTR.EXCLUDE_FILTER }, selectedItems);
+          }}
           invalid={excludeFilterValidation.isInvalid}
           invalidText={excludeFilterValidation.errorMessage}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            controller?.updatePropertyValue?.({ name: ATTR.EXCLUDE_FILTER }, e.target.value);
-          }}
         />
       </div>
 

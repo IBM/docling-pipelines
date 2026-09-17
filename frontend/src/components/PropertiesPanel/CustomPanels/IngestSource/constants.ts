@@ -76,3 +76,40 @@ export const INGEST_SOURCE_LABELS = {
   EXCLUDE_FILTER: 'Exclude file types',
   IGNORE_HIDDEN_FILES: 'Ignore hidden files',
 } as const;
+
+/**
+ * Supported file extensions for `include_filter` and `exclude_filter`.
+ * Matches OperatorConstants.FileExtensions from backend.
+ */
+export const SUPPORTED_FILE_EXTENSIONS = [
+  // Documents
+  'pdf',
+  'docx',
+  'pptx',
+  'xlsx',
+  // Text & Markup
+  'txt',
+  'md',
+  'html',
+  // Images
+  'png',
+  'jpeg',
+  'jpg',
+  'tiff',
+  'tif',
+  'bmp',
+  'webp',
+  'gif',
+  'jfif',
+  // Audio
+  'wav',
+  'mp3',
+  'm4a',
+  'aac',
+  'ogg',
+  'flac',
+  // Video
+  'mp4',
+  'avi',
+  'mov',
+] as const;
