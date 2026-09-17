@@ -75,7 +75,7 @@
       "config": {
         "provider": "litellm",
         "provider_config": {
-          "model_id": "openai/nomic-embed-text",
+          "model_id": "openai/nomic-embed-text:v1.5",
           "api_base": "http://127.0.0.1:11434/v1",
           "api_key": "ollama"
         },

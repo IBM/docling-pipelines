@@ -1,7 +1,6 @@
 services:
   minio:
-    image: quay.io/minio/minio:latest
-    container_name: local-lab-minio
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -13,8 +12,7 @@ services:
       - minio-data:/data
 
   minio-init:
-    image: quay.io/minio/mc:latest
-    container_name: local-lab-minio-init
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     depends_on:
       - minio
     environment:
@@ -23,48 +21,23 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-docpipe-documents}
     volumes:
       - ./pdfs:/seed:ro
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        i=0
-        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
-          i=$$((i+1))
-          if [ "$$i" -gt 30 ]; then exit 1; fi
-          sleep 2
-        done
-        mc mb --ignore-existing "local/$$MINIO_BUCKET"
-        for f in /seed/*.pdf; do
-          [ -f "$$f" ] || continue
-          mc cp "$$f" "local/$$MINIO_BUCKET/pdfs/"
-        done
-        mc ls "local/$$MINIO_BUCKET/pdfs/"
-        echo "MinIO seed complete"
+      - ./scripts/minio-init.sh:/minio-init.sh:ro
+    entrypoint: ["/bin/sh", "/minio-init.sh"]
 
   docling-serve:
-    image: ghcr.io/docling-project/docling-serve-cpu:latest
-    container_name: local-lab-docling-serve
+    image: ghcr.io/docling-project/docling-serve-cpu:v1.33.0
     ports:
       - "5001:5001"
 
   ollama:
-    image: ollama/ollama:latest
-    container_name: local-lab-ollama
+    image: ollama/ollama:0.34.1
     ports:
       - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        ollama serve &
-        sleep 8
-        ollama pull nomic-embed-text
-        wait
 
   opensearch:
-    image: opensearchproject/opensearch:2.14.0
-    container_name: local-lab-opensearch
+    image: opensearchproject/opensearch:3.8.0
     environment:
       - cluster.name=local-lab
       - node.name=local-lab-node
