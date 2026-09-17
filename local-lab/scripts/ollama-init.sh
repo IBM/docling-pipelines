@@ -2,10 +2,10 @@
 set -e
 
 # ---------------------------------------------------------------------------
-# local-lab init script — run once after `docker-compose up -d`
+# local-lab init script — run once after compose is up, from local-lab/
 # Handles Ollama model pull (MinIO seeding is done by the minio-init container)
 # Requires: curl
-# Usage: ./scripts/init.sh
+# Usage: ./scripts/ollama-init.sh
 # ---------------------------------------------------------------------------
 
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"

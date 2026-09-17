@@ -20,12 +20,14 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-docpipe-documents}
     volumes:
-      - ./pdfs:/seed:ro
-      - ./scripts/minio-init.sh:/minio-init.sh:ro
+      - ../pdfs:/seed:ro
+      - ../scripts/minio-init.sh:/minio-init.sh:ro
     entrypoint: ["/bin/sh", "/minio-init.sh"]
 
   docling-serve:
     image: ghcr.io/docling-project/docling-serve-cpu:v1.33.0
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "1"
     ports:
       - "5001:5001"
 

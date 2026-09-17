@@ -1,0 +1,31 @@
+name: local-lab-api
+
+include:
+  - ../cli/docker-compose.yml
+
+services:
+  docling-pipelines:
+    build:
+      context: ../..
+      dockerfile: local-lab/api/Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      OPENSEARCH_USERNAME: ${OPENSEARCH_USERNAME}
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
+      OLLAMA_HOST: http://ollama:11434
+      DOCPIPE_DATA_PATH: /data
+    volumes:
+      - docling-pipelines-data:/data
+    depends_on:
+      - minio
+      - docling-serve
+      - ollama
+      - opensearch
+
+volumes:
+  docling-pipelines-data:
