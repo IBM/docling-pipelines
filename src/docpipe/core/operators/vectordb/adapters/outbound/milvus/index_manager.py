@@ -46,6 +46,8 @@ class MilvusIndexTypes:
     ALL_DENSE_TYPES: ClassVar[list[str]] = [FLAT, IVF_FLAT, IVF_SQ8, IVF_PQ, HNSW, DISKANN, AUTOINDEX]
     ALL_SPARSE_TYPES: ClassVar[list[str]] = [SPARSE_INVERTED_INDEX, SPARSE_WAND]
     ALL_TYPES: ClassVar[list[str]] = ALL_DENSE_TYPES + ALL_SPARSE_TYPES
+    # Milvus Lite only supports FLAT for dense vectors
+    LITE_SUPPORTED_DENSE_TYPES: ClassVar[list[str]] = [FLAT]
 
 
 # Default parameters for index types
@@ -89,6 +91,7 @@ class MilvusIndexManager:
         primary_key_field: str = OperatorConstants.VectorDB.DEFAULT_PRIMARY_KEY_FIELD,
         auto_id: bool = False,
         add_sparse_vector: bool = False,
+        is_lite: bool = False,
     ) -> None:
         """
         Initialize the index manager.
@@ -116,18 +119,36 @@ class MilvusIndexManager:
         self.primary_key_field = primary_key_field
         self.auto_id = auto_id
         self.add_sparse_vector = add_sparse_vector
+        self.is_lite = is_lite
 
         self._validate_index_type()
         self._validate_metric_type()
 
     def _validate_index_type(self) -> None:
         """Validate index type. Skip validation in sparse mode as index type is set programmatically."""
-        logger.info(f"Validating index type: index_type={self.index_type}, add_sparse_vector={self.add_sparse_vector}")
+        logger.info(
+            "Validating index type: index_type=%s, add_sparse_vector=%s, is_lite=%s",
+            self.index_type,
+            self.add_sparse_vector,
+            self.is_lite,
+        )
 
         # Skip validation in sparse mode
         if self.add_sparse_vector:
-            logger.info(f"Sparse mode enabled, skipping index type validation (using {self.index_type})")
+            logger.info("Sparse mode enabled, skipping index type validation (using %s)", self.index_type)
             return
+
+        # Milvus Lite only supports FLAT
+        if self.is_lite and self.index_type not in MilvusIndexTypes.LITE_SUPPORTED_DENSE_TYPES:
+            raise DocpipeException(
+                message=(
+                    f"MilvusDB Error: index_type '{self.index_type}' is not supported by Milvus Lite. "
+                    f"Supported index types for Lite: {MilvusIndexTypes.LITE_SUPPORTED_DENSE_TYPES}. "
+                    "Set index_type to 'FLAT' in your provider_config when using auth_type='lite'."
+                ),
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
 
         # Validate dense index types
         if self.index_type not in MilvusIndexTypes.ALL_DENSE_TYPES:
@@ -226,19 +247,24 @@ class MilvusIndexManager:
             )
             added_vector_columns.add(vector_column)
 
-        # Add content field (always needed, but enable_analyzer only for sparse mode)
+        # Add content field (always needed, but enable_analyzer only for sparse mode).
+        # In dense mode the content value comes from per-chunk data and may be absent
+        # for some rows, so mark it nullable to avoid insert failures.
         content_field_name = self._mapping_dict.get(
             OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
             OperatorConstants.VectorDB.DEFAULT_TEXT_FIELD_NAME,
         )
-        fields.append(
-            FieldSchema(
-                name=content_field_name,
-                dtype=DataType.VARCHAR,
-                max_length=65535,
-                enable_analyzer=self.add_sparse_vector,  # Enable analyzer only for BM25 sparse mode
-            )
-        )
+        content_field_params: dict[str, Any] = {
+            "name": content_field_name,
+            "dtype": DataType.VARCHAR,
+            "max_length": 65535,
+            "enable_analyzer": self.add_sparse_vector,  # Enable analyzer only for BM25 sparse mode
+        }
+        if not self.add_sparse_vector:
+            # BM25 sparse mode requires the field to be non-nullable (analyser needs it);
+            # dense mode allows NULL so chunk rows without text can still be inserted.
+            content_field_params["nullable"] = True
+        fields.append(FieldSchema(**content_field_params))
 
         # Add other fields from feature_mappings (only fields that are actually mapped)
         for source_column_name, milvus_field_name in feature_mapping_items(self.feature_mappings):
