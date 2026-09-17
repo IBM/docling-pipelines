@@ -192,7 +192,7 @@ class StorageOutputOperator(AbstractOperator):
     # Validation
     # ------------------------------------------------------------------
 
-    def validate(self, errors: list, warnings: list, available_features: list) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """Validate."""
         if not self.mode:
             errors.append(f"{self.short_name}: 'mode' is required")

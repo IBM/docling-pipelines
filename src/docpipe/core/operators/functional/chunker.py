@@ -527,7 +527,7 @@ class ChunkerOperator(AbstractOperator):
         """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
-    def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """Validate."""
         super().validate(errors, warnings, available_features)
 

@@ -102,7 +102,7 @@ class RedactionOperator(AbstractOperator):
             },
         }
 
-    def validate(self, errors: list, warnings: list, available_features: list):
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """Validate."""
         super().validate(errors, warnings, available_features)
 

@@ -290,7 +290,7 @@ class IngestSourceOperator(AbstractOperator):
     category: OperatorCategory = OperatorCategory.Ingest
     owner = DocpipeConstants.OWNER_DOCPIPE
 
-    def validate(self, errors: list, warnings: list, available_features: list):
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
         Validate operator configuration including adapter-specific requirements.
 

@@ -184,7 +184,7 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
             True by default; subclasses override for optional-dep checks."""
         return True
 
-    def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         # The concrete subclasses validates the parameters passed to the operators from the flow definition
         """Validate operator configuration against available pipeline features.
 
