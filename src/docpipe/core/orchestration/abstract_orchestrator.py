@@ -724,7 +724,7 @@ class AbstractOrchestrator(ABC):
 
     def get_type(self):
         """
-        Returns the type of the orchestrator, Python or Spark
+        Returns the type of the orchestrator.
         """
 
     def create_executor(self, *, op_def: dict, global_config: dict) -> AbstractOperatorExecutor:

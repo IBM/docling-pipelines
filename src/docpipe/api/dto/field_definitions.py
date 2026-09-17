@@ -163,7 +163,7 @@ TOTAL_PAGES_DESC = "Total number of pages processed"
 PAGE_TYPE_STATS_DESC = "Page type statistics"
 
 # Execution Context Descriptions
-ORCHESTRATOR_DESC = "Orchestrator type used for execution (Python, Spark, etc.)"
+ORCHESTRATOR_DESC = "Orchestrator type used for execution (e.g., Python)"
 CONTAINER_TYPE_DESC = "Container type (PROJECT, SPACE, etc.)"
 CONTAINER_ID_DESC_JOB = "Container identifier"
 FLOW_ID_DESC_JOB = "Flow definition ID"

@@ -71,18 +71,11 @@ def get_app_operators(orchestrator=None):
     Provider function that returns application operators.
 
     Args:
-        orchestrator: Optional orchestrator type ("python", "spark")
+        orchestrator: Optional orchestrator type (e.g., "python")
 
     Returns:
         frozenset: Set of operator classes
     """
-    # Optional: Filter by orchestrator
-    if orchestrator == "spark":
-        return frozenset({
-            op for op in APP_OPERATORS
-            if hasattr(op, 'supports_spark') and op.supports_spark
-        })
-
     return APP_OPERATORS
 
 # Register at application startup (before using docpipe)
@@ -118,29 +111,6 @@ result = manager.execute()
 ```
 
 ## Advanced Usage
-
-### Orchestrator-Specific Operators
-
-Filter operators based on orchestrator type:
-
-```python
-def get_app_operators(orchestrator=None):
-    """Return operators filtered by orchestrator."""
-
-    if orchestrator == "python":
-        return frozenset({
-            PythonOnlyOperator,
-            SharedOperator,
-        })
-    elif orchestrator == "spark":
-        return frozenset({
-            SparkOnlyOperator,
-            SharedOperator,
-        })
-
-    # Return all if orchestrator not specified
-    return APP_OPERATORS
-```
 
 ### Multiple Provider Registration
 

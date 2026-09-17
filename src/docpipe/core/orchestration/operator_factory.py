@@ -43,7 +43,7 @@ class OperatorFactoryProvider:
         Get or create an operator factory with optional custom operator support.
 
         Parameters:
-        - orchestrator: Type of orchestrator (python, spark)
+        - orchestrator: Type of orchestrator (e.g., "python")
         - package_names: Optional list of custom operator package paths
         - enable_custom_operators: Whether to enable custom operators (default: from env or True)
 
@@ -72,7 +72,7 @@ class OperatorFactoryProvider:
         Refreshes the operator factory by reloading custom operator classes dynamically.
 
         Parameters:
-        - orchestrator: Type of orchestrator (python, spark)
+        - orchestrator: Type of orchestrator (e.g., "python")
         - package_names: Optional list of custom operator package paths
         - enable_custom_operators: Whether to enable custom operators
 
@@ -376,12 +376,6 @@ def main():  # pragma: no cover
     """
     main entry point into the program; used for unit testing only
     """
-    factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.SPARK)
-    logger.info(f"Loaded {len(factory.operators)} operators")
-
-    for key, value in factory.operators.items():
-        print(f" short_name: {key} ==> class_name: {value.__name__}")
-
     factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
     logger.info(f"Loaded {len(factory.operators)} operators")
 

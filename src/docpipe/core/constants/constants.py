@@ -526,7 +526,6 @@ class OrchestratorType:
     """Orchestratortype."""
 
     PYTHON = "python"
-    SPARK = "spark"
 
 
 class DataSourceType:
