@@ -30,10 +30,10 @@ from prefect import get_client
 from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterId
 from prefect.client.schemas.objects import FlowRun
 from prefect.deployments import run_deployment
-from prefect.flow_runs import wait_for_flow_run
 from prefect.states import Cancelling
 
 from docpipe.core.constants import EnvironmentVariables
+from docpipe.core.constants.constants import ExecutionStatus
 from docpipe.core.job_management.adapters.config.job_management_factory import JobManagementFactory
 from docpipe.core.orchestration.batch_manager import BatchInfo
 from docpipe.core.orchestration.prefect.config.work_pool_config import (
@@ -197,26 +197,66 @@ class WorkPoolAdapter(BatchExecutionPort):
             extra={"job_run_id": job_run_id},
         )
 
-        # Run the pipelined execution in the event loop
-        asyncio.run(
+        from docpipe.core.constants.constants import DocpipeConstants
+
+        continue_on_batch_failure = global_config.get(
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE,
+            DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT,
+        )
+
+        failed_info, completed_count = asyncio.run(
             self._execute_pipelined_batches_async(
                 batches=batches,
                 op_flow=op_flow,
                 global_config=global_config,
                 job_run_id=job_run_id,
+                continue_on_batch_failure=continue_on_batch_failure,
             )
         )
 
         # Cleanup batch storage (best-effort)
         self._cleanup_batch_storage(job_run_id=job_run_id)
 
+        orchestrator = self.prefect_engine.orchestrator
+
+        # Raise when: fail-fast mode with any failure, or continue mode but ALL batches failed.
+        # Only raise when FAILING — a partial continue-mode failure must not raise,
+        # or the API path overwrites COMPLETED_WITH_ERRORS with FAILED.
+        if failed_info and (not continue_on_batch_failure or len(failed_info) == len(batches)):
+            orchestrator.job_status = ExecutionStatus.FAILING
+            orchestrator.message = (
+                f"Batch execution failed. Failed: {len(failed_info)}, "
+                f"Completed: {completed_count}, Total: {len(batches)}"
+            )
+            self._raise_failure(failed_info=failed_info, completed_count=completed_count, total_count=len(batches))
+
+        if failed_info:
+            # Partial failure in continue mode — warn and return without raising.
+            self.prefect_engine.logger.warning(
+                "Partial batch failure: %s of %s batches failed: %s",
+                len(failed_info),
+                len(batches),
+                [f["batch_num"] for f in failed_info],
+                extra={"job_run_id": job_run_id},
+            )
+            return
+
         self.prefect_engine.logger.info("All batches completed successfully", extra={"job_run_id": job_run_id})
 
     async def _execute_pipelined_batches_async(
-        self, *, batches: list[BatchInfo], op_flow: list[dict], global_config: dict, job_run_id: str
-    ) -> None:
+        self,
+        *,
+        batches: list[BatchInfo],
+        op_flow: list[dict],
+        global_config: dict,
+        job_run_id: str,
+        continue_on_batch_failure: bool,
+    ) -> tuple[list[dict], int]:
         """
         Async implementation of pipelined batch execution.
+
+        Returns (failed_info, completed_count). Never raises — execute_batches()
+        decides whether to raise based on the returned outcome and the flag.
         """
         # Get concurrency limit from config or fallback to a safe default
         from docpipe.core.constants.constants import DocpipeConstants
@@ -381,8 +421,8 @@ class WorkPoolAdapter(BatchExecutionPort):
             # Monitor tasks as they complete
             for coro in asyncio.as_completed(running_tasks):
                 await coro
-                if failed_info:
-                    # First failure detected, break the monitoring loop
+                if failed_info and not continue_on_batch_failure:
+                    # Fail-fast: first failure detected, stop monitoring
                     break
         finally:
             # Cancel poller and wait for clean shutdown
@@ -393,6 +433,7 @@ class WorkPoolAdapter(BatchExecutionPort):
             # CRITICAL: If we break due to failure (or an exception occurs),
             # we must cancel ALL background tasks that haven't finished yet.
             # This prevents "ghost submissions" of remaining batches.
+            # In continue mode nothing breaks early, so still_running is empty.
             still_running = [t for t in running_tasks if not t.done()]
             if still_running:
                 self.prefect_engine.logger.warning(
@@ -404,10 +445,12 @@ class WorkPoolAdapter(BatchExecutionPort):
                 # Wait for cancellation to settle
                 await asyncio.gather(*still_running, return_exceptions=True)
 
-        # If any failures occurred, cancel the remote Prefect flow runs and raise
-        if failed_info:
+        # Only fail-fast cancels remote runs. In continue mode every batch is
+        # allowed to finish, so cancellation would be counterproductive.
+        if failed_info and not continue_on_batch_failure:
             await self._cancel_remaining_runs_async(flow_runs=submitted_runs, job_run_id=job_run_id)
-            self._raise_failure(failed_info=failed_info, completed_count=completed_count, total_count=len(batches))
+
+        return failed_info, completed_count
 
     # ─── Batch Data Transfer ────────────────────────────────────────────
 
@@ -581,124 +624,7 @@ class WorkPoolAdapter(BatchExecutionPort):
 
         return {"type": BatchStorageType.INLINE.value, "data": batch_dict}
 
-    # ─── Flow Run Monitoring ────────────────────────────────────────────
-
-    def _wait_for_flow_runs(self, *, flow_runs: list[FlowRun], job_run_id: str) -> None:
-        """
-        Wait for all flow runs to complete concurrently with fail-fast cancellation.
-
-        Uses Prefect's built-in wait_for_flow_run() with asyncio.gather() for
-        concurrent waiting (per Prefect docs pattern). On first failure, cancels
-        all remaining pending flow runs.
-
-        Args:
-            flow_runs: List of FlowRun objects from run_deployment()
-            job_run_id: Parent job run ID for logging context
-
-        Raises:
-            FlowExecutionFailedException: If any flow run fails or times out
-        """
-        # Run async waiting in event loop (Prefect docs pattern)
-        asyncio.run(self._wait_for_flow_runs_async(flow_runs=flow_runs, job_run_id=job_run_id))
-
-    def _classify_flow_run_result(
-        self,
-        *,
-        batch_num: int,
-        flow_run: FlowRun,
-        result: Any,
-        completed_count: int,
-        failed_info: list[dict],
-        job_run_id: str,
-    ) -> int:
-        """Classify a single finished flow-run result and update failed_info / completed_count.
-
-        Returns the updated completed_count.
-        """
-        if isinstance(result, Exception):
-            failed_info.append({"batch_num": batch_num, "run_id": str(flow_run.id), "message": str(result)})
-            self.prefect_engine.logger.error(
-                f"Error waiting for batch {batch_num} (flow_run={flow_run.id}): {result}",
-                extra={"job_run_id": job_run_id},
-                exc_info=True,
-            )
-            return completed_count
-
-        if not isinstance(result, FlowRun) or result.state is None:
-            return completed_count
-
-        if result.state.is_completed():
-            completed_count += 1
-            self.prefect_engine.logger.info(
-                f"Batch {batch_num} completed (flow_run={flow_run.id})", extra={"job_run_id": job_run_id}
-            )
-        elif result.state.is_failed() or result.state.is_crashed():
-            state_type = "CRASHED" if result.state.is_crashed() else "FAILED"
-            failed_info.append(
-                {
-                    "batch_num": batch_num,
-                    "run_id": str(flow_run.id),
-                    "message": result.state.message or f"Flow {state_type.lower()}",
-                }
-            )
-            self.prefect_engine.logger.error(
-                f"Batch {batch_num} {state_type} (flow_run={flow_run.id}): {result.state.message}",
-                extra={"job_run_id": job_run_id},
-            )
-        elif result.state.is_cancelled():
-            self.prefect_engine.logger.warning(
-                f"Batch {batch_num} was cancelled (flow_run={flow_run.id})", extra={"job_run_id": job_run_id}
-            )
-
-        return completed_count
-
-    async def _wait_for_flow_runs_async(self, *, flow_runs: list[FlowRun], job_run_id: str) -> None:
-        """
-        Async implementation of concurrent flow run waiting.
-
-        Follows Prefect documentation pattern:
-        https://docs.prefect.io/llms-full.txt lines 77865-77880
-        """
-        completed_count = 0
-        failed_info: list[dict] = []
-
-        try:
-            coros = [
-                wait_for_flow_run(
-                    flow_run_id=flow_run.id,
-                    timeout=10800,
-                    log_states=True,
-                )
-                for flow_run in flow_runs
-            ]
-
-            finished_runs = await asyncio.gather(*coros, return_exceptions=True)
-
-            for batch_num, (flow_run, result) in enumerate(zip(flow_runs, finished_runs, strict=True)):
-                completed_count = self._classify_flow_run_result(
-                    batch_num=batch_num,
-                    flow_run=flow_run,
-                    result=result,
-                    completed_count=completed_count,
-                    failed_info=failed_info,
-                    job_run_id=job_run_id,
-                )
-
-            if failed_info:
-                await self._cancel_remaining_runs_async(flow_runs=flow_runs, job_run_id=job_run_id)
-                self._raise_failure(
-                    failed_info=failed_info, completed_count=completed_count, total_count=len(flow_runs)
-                )
-
-        except FlowExecutionFailedException:
-            raise
-        except Exception as e:
-            self.prefect_engine.logger.error(
-                f"Unexpected error during flow run waiting: {e}",
-                extra={"job_run_id": job_run_id},
-                exc_info=True,
-            )
-            raise
+    # ─── Flow Run Cancellation ──────────────────────────────────────────
 
     async def _cancel_single_run(self, *, client: Any, flow_run: FlowRun, job_run_id: str) -> Any | None:
         """Cancel a single flow run if it is not already in a terminal state.

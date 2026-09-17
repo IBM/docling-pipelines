@@ -6,7 +6,6 @@ following hexagonal architecture principles by implementing the FlowEnginePort i
 """
 
 import copy
-import threading
 from typing import Any, Callable, ParamSpec, Protocol, TypeVar, cast
 
 # CRITICAL: Set Prefect env vars BEFORE importing Prefect modules
@@ -40,6 +39,9 @@ from docpipe.utils.infrastructure.logging import get_logger  # noqa: E402
 from docpipe.utils.orchestration.flow_utils import create_node_id_to_index_map  # noqa: E402
 
 logger = get_logger()
+
+DRAIN_TIMEOUT_SECONDS = 300
+
 
 R = TypeVar("R")  # The return type of the user's function
 P = ParamSpec("P")
@@ -239,9 +241,10 @@ class PrefectEngine(FlowEnginePort):
         @task(cache_policy=NO_CACHE)
         def batch_subflow_task(batch_id, batch_num, op_flow, global_config, batch_data_access):
             """Execute a single batch as a Prefect subflow."""
-            # Throttle concurrent batches.  The task runner has 50 workers, so
+            # Throttle concurrent batches. The task runner has 50 workers, so
             # without this every batch runs at once and max_concurrent_batches
-            # is silently ignored.
+            # is silently ignored. Snapshot it before acquire() so its finally
+            # block releases the same semaphore if the main thread resets it.
             batch_semaphore = self.batch_manager.get_batch_semaphore()
             if batch_semaphore:
                 batch_semaphore.acquire()
@@ -339,157 +342,104 @@ class PrefectEngine(FlowEnginePort):
 
         return batch_futures
 
-    def _cancel_batch_future(self, *, batch_future: BatchFuture, reason: str) -> None:
-        """Attempt to cancel a single batch future, logging the outcome either way."""
-        try:
-            if batch_future.future is None:
-                return
-            cancel_result = batch_future.future.cancel()  # type: ignore[attr-defined]
+    def _drain_batch_future(self, *, batch_future: BatchFuture) -> None:
+        """Wait for a remaining batch without calling Prefect's removed cancel API."""
+        if batch_future.future is None:
+            return
+        batch_future.future.wait(timeout=DRAIN_TIMEOUT_SECONDS)
+        wrapped = getattr(batch_future.future, "_wrapped_future", None)
+        if wrapped is None:
             self.logger.info(
-                f"Cancelled batch {batch_future.batch_num} (ID: {batch_future.batch_id}) {reason}; cancel_result={cancel_result}; state_after_cancel={batch_future.describe_state()}",
+                "Batch %s (ID: %s): drain finished, completion unverified",
+                batch_future.batch_num,
+                batch_future.batch_id,
                 extra=self.common_log_arguments,
             )
-        except Exception as cancel_error:
+            return
+        if not wrapped.done():
             self.logger.warning(
-                f"Could not cancel batch {batch_future.batch_num} (ID: {batch_future.batch_id}): {cancel_error}; state_on_cancel_error={batch_future.describe_state()}",
+                "Batch %s (ID: %s): still running after %ss drain timeout",
+                batch_future.batch_num,
+                batch_future.batch_id,
+                DRAIN_TIMEOUT_SECONDS,
                 extra=self.common_log_arguments,
             )
+            return
+        self.logger.info(
+            "Batch %s (ID: %s): drained after fail-fast",
+            batch_future.batch_num,
+            batch_future.batch_id,
+            extra=self.common_log_arguments,
+        )
+        batch_future.release()
 
     def _handle_batch_failure(
-        self,
-        *,
-        batch_future: BatchFuture,
-        batch_futures: list[BatchFuture],
-        future_index: int,
-        cancelled_batch_futures: list[BatchFuture],
-        cancellation_event: threading.Event,
-        exc: Exception,
-    ) -> None:
-        """Cancel all remaining futures and raise FlowExecutionFailedException (fail-fast path)."""
-        cancellation_event.set()
+        self, *, batch_future: BatchFuture, exception: Exception, continue_on_batch_failure: bool
+    ) -> bool:
+        """Apply the batch failure policy and return whether fail-fast was triggered."""
+        if continue_on_batch_failure:
+            self.logger.warning(
+                "Batch %s (ID: %s) failed, continuing because continue_on_batch_failure=True: %s",
+                batch_future.batch_num,
+                batch_future.batch_id,
+                exception,
+                extra=self.common_log_arguments,
+            )
+            return False
+        self.orchestrator.job_status = ExecutionStatus.FAILING
+        self.orchestrator.message = (
+            f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed: "
+            f"{type(exception).__name__}: {exception}"
+        )
         self.logger.error(
-            f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed in future.result(); exception_type={type(exc).__name__}; exception={exc}; state_on_failure={batch_future.describe_state()}; cancelling all remaining batches",
+            "Batch %s (ID: %s) failed, triggering fail-fast: %s",
+            batch_future.batch_num,
+            batch_future.batch_id,
+            exception,
             extra=self.common_log_arguments,
             exc_info=True,
         )
-        for remaining in batch_futures[future_index + 1 :]:
-            self._cancel_batch_future(batch_future=remaining, reason="")
-            cancelled_batch_futures.append(remaining)
-        raise FlowExecutionFailedException(
-            f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed during sub-flow execution: {type(exc).__name__}: {exc}"
-        ) from exc
+        return True
 
-    def _wait_for_cancelled_batches(self, *, cancelled_batch_futures: list[BatchFuture]) -> None:
-        """Block until every cancelled future reaches a terminal state."""
-        for cancelled in cancelled_batch_futures:
-            try:
-                if cancelled.future is None:
-                    continue
-                cancelled.future.wait()
-                self.logger.info(
-                    f"Cancelled batch {cancelled.batch_num} (ID: {cancelled.batch_id}) reached terminal state before semaphore reset",
-                    extra=self.common_log_arguments,
-                )
-            except Exception as wait_error:
-                self.logger.warning(
-                    f"Error while waiting for cancelled batch {cancelled.batch_num} (ID: {cancelled.batch_id}) to finish: {wait_error}",
-                    extra=self.common_log_arguments,
-                )
-
-    def _wait_for_sub_flows(self, *, batch_futures: list[BatchFuture], global_config: dict):
-        """
-        Wait for all sub-flows (batches) to complete with fail-fast cancellation.
-
-        Behavior is controlled by the continue_on_batch_failure flag:
-        - False (default): Fail-fast - cancel remaining batches on first failure
-        - True: Continue execution - allow all batches to complete even if some fail,
-                but raise exception if ALL batches fail
-
-        Note: This method does not return batch results to avoid loading all PyArrow tables
-        into memory. Each sub-flow saves its metadata incrementally.
-        """
+    def _wait_for_sub_flows(self, *, batch_futures: list[BatchFuture], global_config: dict) -> None:
+        """Wait for every batch to reach a terminal state without raising."""
         continue_on_batch_failure = global_config.get(
             DocpipeConstants.CONTINUE_ON_BATCH_FAILURE,
             DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT,
         )
-
-        failed_batch = None
-        cancellation_event = threading.Event()
-        cancelled_batch_futures: list[BatchFuture] = []
+        fail_fast_triggered = False
         failed_batch_nums: list[int] = []
-
         try:
-            for future_index, batch_future in enumerate(batch_futures):
-                self.logger.info(
-                    f"Resolving batch {batch_future.batch_num} (ID: {batch_future.batch_id}) future before result(): {batch_future.describe_state()}",
-                    extra=self.common_log_arguments,
-                )
-
-                # Check if another batch already failed (only in fail-fast mode)
-                if cancellation_event.is_set():
-                    self._cancel_batch_future(
-                        batch_future=batch_future,
-                        reason=f"due to failure in batch {failed_batch}",
-                    )
-                    cancelled_batch_futures.append(batch_future)
+            for batch_future in batch_futures:
+                if fail_fast_triggered:
+                    self._drain_batch_future(batch_future=batch_future)
                     continue
-
                 try:
                     if batch_future.future is None:
-                        # Already released — completed on a prior iteration. Skip.
                         continue
                     batch_future.future.result()
-                    self.logger.info(
-                        f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) completed successfully; state_after_result={batch_future.describe_state()}",
-                        extra=self.common_log_arguments,
-                    )
-                    # This batch is done.  Drop its table and future now rather than
-                    # holding every batch's data until the outer flow returns.
                     batch_future.release()
-
-                except Exception as e:
-                    if continue_on_batch_failure:
-                        # Track failed batch and continue
-                        failed_batch_nums.append(batch_future.batch_num)
-                        self.logger.warning(
-                            f"Batch {batch_future.batch_num} failed but continuing with remaining batches due to continue_on_batch_failure=True: {e}",
-                            extra=self.common_log_arguments,
-                        )
-                        # Terminal state reached, even though it failed — drop its data.
-                        batch_future.release()
-                        continue
-
-                    # Fail-fast mode: cancel remaining batches and raise
-                    failed_batch = batch_future.batch_num
-                    self._handle_batch_failure(
+                except Exception as exception:
+                    failed_batch_nums.append(batch_future.batch_num)
+                    fail_fast_triggered = self._handle_batch_failure(
                         batch_future=batch_future,
-                        batch_futures=batch_futures,
-                        future_index=future_index,
-                        cancelled_batch_futures=cancelled_batch_futures,
-                        cancellation_event=cancellation_event,
-                        exc=e,
+                        exception=exception,
+                        continue_on_batch_failure=continue_on_batch_failure,
                     )
-
-            # After all batches complete, check failure scenarios in continue_on_batch_failure mode
+                    batch_future.release()
             if continue_on_batch_failure and failed_batch_nums:
                 if len(failed_batch_nums) == len(batch_futures):
-                    # All batches failed - set job status to FAILING
-                    # after_flow_execution_complete will convert FAILING → FAILED
                     self.orchestrator.job_status = ExecutionStatus.FAILING
                     self.orchestrator.message = f"All {len(batch_futures)} batches failed: {failed_batch_nums}"
-                    self.logger.error(
-                        f"All {len(batch_futures)} batches failed: {failed_batch_nums}",
-                        extra=self.common_log_arguments,
-                    )
                 else:
-                    # Some batches failed but not all - log warning
-                    # Status will be determined by after_flow_execution_complete based on node stats
                     self.logger.warning(
-                        f"Partial batch failure: {len(failed_batch_nums)} out of {len(batch_futures)} batches failed: {failed_batch_nums}",
+                        "Partial batch failure: %s of %s batches failed: %s",
+                        len(failed_batch_nums),
+                        len(batch_futures),
+                        failed_batch_nums,
                         extra=self.common_log_arguments,
                     )
         finally:
-            self._wait_for_cancelled_batches(cancelled_batch_futures=cancelled_batch_futures)
             self.logger.info(
                 "Resetting batch semaphore after sub-flow completion",
                 extra=self.common_log_arguments,
@@ -696,19 +646,14 @@ class PrefectEngine(FlowEnginePort):
 
         self.__wait_for_tasks(destinations=destinations)
 
-        # Check if batch failed in fail-fast mode and raise exception immediately
-        # This prevents unnecessary result collection and metadata saving
-        # Exception is caught by _wait_for_sub_flows() which cancels remaining batches
         continue_on_batch_failure = global_config.get(
             DocpipeConstants.CONTINUE_ON_BATCH_FAILURE, DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT
         )
-        if self.orchestrator.job_status == ExecutionStatus.FAILING and not continue_on_batch_failure:
-            batch_num = global_config.get(DocpipeConstants.BATCH_NUM, "unknown")
-            micro_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
-            # Drop this batch's non-recoverable-docs bucket before bailing out.
-            # The bucket is keyed by batch_id, so a failed batch that skipped the
-            # reset below would leave its tables in the dict for the life of the
-            # orchestrator.
+        micro_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
+        batch_num = global_config.get(DocpipeConstants.BATCH_NUM, "unknown")
+        batch_failed = micro_batching_enabled and self.orchestrator.has_batch_failed(batch_num=batch_num)
+        fail_fast_triggered = self.orchestrator.job_status == ExecutionStatus.FAILING and not continue_on_batch_failure
+        if batch_failed or fail_fast_triggered:
             self.orchestrator._reset_non_recoverable_docs_for_batch(
                 global_config=global_config, common_log_arguments=self.common_log_arguments
             )

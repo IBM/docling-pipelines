@@ -263,21 +263,23 @@ class TestWaitForSubFlows:
         assert bf1.released
         assert bf2.released
 
-    def test_fail_fast_raises_on_first_failure(self):
-        """Fail-fast mode: FlowExecutionFailedException raised when a batch fails."""
-        from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
+    def test_fail_fast_marks_orchestrator_failing_and_drains_remaining_batches(self):
+        """Fail-fast records failure and drains later batches without raising in the flow."""
+        from docpipe.core.constants.constants import ExecutionStatus
 
         engine = _make_engine()
         bf1 = _make_batch_future(batch_id="b1", batch_num=1)
         bf2 = _make_batch_future(batch_id="b2", batch_num=2)
         bf1.future.result.side_effect = RuntimeError("task exploded")
-        bf2.future.result.return_value = None
-        # cancel() must be callable on the second future
-        bf2.future.cancel = MagicMock(return_value=True)
         bf2.future.wait = MagicMock()
+        bf2.future._wrapped_future = MagicMock()
+        bf2.future._wrapped_future.done.return_value = True
+        drained_future = bf2.future
 
-        with pytest.raises(FlowExecutionFailedException):
-            engine._wait_for_sub_flows(batch_futures=[bf1, bf2], global_config=self._global_config())
+        engine._wait_for_sub_flows(batch_futures=[bf1, bf2], global_config=self._global_config())
+
+        assert engine.orchestrator.job_status == ExecutionStatus.FAILING
+        drained_future.wait.assert_called_once_with(timeout=300)
 
     def test_continue_on_batch_failure_does_not_raise_on_partial_failure(self):
         """continue_on_batch_failure=True: partial failures are logged, no exception raised."""
@@ -315,14 +317,11 @@ class TestWaitForSubFlows:
 
     def test_semaphore_reset_always_called(self):
         """batch_manager.reset_batch_semaphore() is called even when a batch fails."""
-        from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
-
         engine = _make_engine()
         bf = _make_batch_future(batch_id="b1", batch_num=1)
         bf.future.result.side_effect = RuntimeError("fail")
 
-        with pytest.raises(FlowExecutionFailedException):
-            engine._wait_for_sub_flows(batch_futures=[bf], global_config=self._global_config())
+        engine._wait_for_sub_flows(batch_futures=[bf], global_config=self._global_config())
 
         engine.batch_manager.reset_batch_semaphore.assert_called_once()
 
@@ -335,21 +334,19 @@ class TestWaitForSubFlows:
         # Must not raise
         engine._wait_for_sub_flows(batch_futures=[bf], global_config=self._global_config())
 
-    def test_cancel_error_is_logged_not_raised(self):
-        """Cancellation errors for remaining batches are logged, not re-raised."""
-        from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
-
+    def test_drain_timeout_is_logged_not_raised(self):
+        """A remaining batch that outlives the drain timeout only logs a warning."""
         engine = _make_engine()
         bf1 = _make_batch_future(batch_id="b1", batch_num=1)
         bf2 = _make_batch_future(batch_id="b2", batch_num=2)
         bf1.future.result.side_effect = RuntimeError("batch 1 failed")
-        bf2.future.cancel = MagicMock(side_effect=RuntimeError("cancel exploded"))
         bf2.future.wait = MagicMock()
+        bf2.future._wrapped_future = MagicMock()
+        bf2.future._wrapped_future.done.return_value = False
 
-        with pytest.raises(FlowExecutionFailedException):
-            engine._wait_for_sub_flows(batch_futures=[bf1, bf2], global_config=self._global_config())
+        engine._wait_for_sub_flows(batch_futures=[bf1, bf2], global_config=self._global_config())
 
-        # Cancel error must have been logged (not silently swallowed without a trace)
+        bf2.future.wait.assert_called_once_with(timeout=300)
         engine.logger.warning.assert_called()
 
 
@@ -503,22 +500,21 @@ class TestWaitForSubFlowsAlreadyReleased:
 
         return {DocpipeConstants.CONTINUE_ON_BATCH_FAILURE: continue_on_batch_failure}
 
-    def test_cancelled_future_wait_is_called_on_fail_fast(self):
-        """Fail-fast: bf2 is cancelled and _wait_for_cancelled_batches calls .wait() on it."""
-        from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
-
+    def test_remaining_future_is_drained_on_fail_fast(self):
+        """Fail-fast drains a later future without calling Prefect's cancel API."""
         engine = _make_engine()
         bf1 = _make_batch_future(batch_id="b1", batch_num=1)
         bf2 = _make_batch_future(batch_id="b2", batch_num=2)
         bf1.future.result.side_effect = RuntimeError("fail")
-        bf2.future.cancel = MagicMock(return_value=True)
         bf2.future.wait = MagicMock()
+        bf2.future._wrapped_future = MagicMock()
+        bf2.future._wrapped_future.done.return_value = True
+        drained_future = bf2.future
 
-        with pytest.raises(FlowExecutionFailedException):
-            engine._wait_for_sub_flows(batch_futures=[bf1, bf2], global_config=self._global_config())
+        engine._wait_for_sub_flows(batch_futures=[bf1, bf2], global_config=self._global_config())
 
-        # The cancelled future's .wait() must have been called in _wait_for_cancelled_batches
-        bf2.future.wait.assert_called_once()
+        drained_future.wait.assert_called_once_with(timeout=300)
+        drained_future.cancel.assert_not_called()
 
     def test_continue_on_batch_failure_partial_failure_sets_warning_not_failing_status(self):
         """Partial failure in continue mode logs warning but does not set FAILING status."""

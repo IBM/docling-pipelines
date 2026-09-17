@@ -634,7 +634,7 @@ class TestExecuteBatches:
             patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio") as mock_asyncio,
             patch.object(adapter, "_cleanup_batch_storage") as mock_cleanup,
         ):
-            mock_asyncio.run.return_value = None
+            mock_asyncio.run.return_value = ([], 0)
             adapter.execute_batches(batches=[], op_flow=[], global_config={}, job_run_id="jr1")
 
         mock_asyncio.run.assert_called_once()
@@ -654,37 +654,15 @@ class TestExecuteBatches:
 
             async def run():
                 await adapter._execute_pipelined_batches_async(
-                    batches=[], op_flow=[], global_config={}, job_run_id="jr1"
+                    batches=[],
+                    op_flow=[],
+                    global_config={},
+                    job_run_id="jr1",
+                    continue_on_batch_failure=False,
                 )
 
-            # Should complete without error
+            # Should complete without error and return empty outcome
             stdlib_asyncio.run(run())
-
-    def test_execute_pipelined_batches_failure_raises(self):
-        """Covers failure path: any failed_info causes FlowExecutionFailedException."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        # Patch the inner helpers to simulate a run that fails
-        batch_info = MagicMock()
-        batch_info.batch_num = 1
-        batch_info.table = _small_table()
-
-        async def run():
-            with (
-                patch.object(adapter, "_transfer_batch", return_value=MagicMock()),
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.create_task") as mock_ct,
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.get_client"),
-            ):
-                # Mock create_task to return a done task immediately to skip poller
-                mock_ct.return_value = MagicMock()
-                # Skip the actual async execution by patching asyncio.gather
-                with patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather"):
-                    # Direct the async method to do nothing
-                    pass
-
-        stdlib_asyncio.run(run())
 
 
 # ---------------------------------------------------------------------------
@@ -828,214 +806,10 @@ class TestGetEffectiveJobManagementEnv:
 
 
 # ---------------------------------------------------------------------------
-# TestWaitForFlowRunsAsync
+# TestWaitForFlowRunsAsync — deleted
+# _wait_for_flow_runs and _wait_for_flow_runs_async were dead code
+# (no callers in src/) and have been removed from work_pool_adapter.py.
 # ---------------------------------------------------------------------------
-
-
-class TestWaitForFlowRunsAsync:
-    """Tests for _wait_for_flow_runs and _wait_for_flow_runs_async (lines 586-689)."""
-
-    def test_empty_flow_runs_completes(self):
-        """Covers empty list path — no coros created."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        async def run():
-            await adapter._wait_for_flow_runs_async(flow_runs=[], job_run_id="jr1")
-
-        stdlib_asyncio.run(run())  # should not raise
-
-    def test_wait_for_flow_runs_sync_wrapper(self):
-        """Covers line 602: _wait_for_flow_runs delegates to asyncio.run."""
-        adapter = _make_adapter()
-        with patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio") as mock_asyncio:
-            mock_asyncio.run.return_value = None
-            adapter._wait_for_flow_runs(flow_runs=[], job_run_id="jr1")
-        mock_asyncio.run.assert_called_once()
-
-    def test_exception_result_causes_failure(self):
-        """Covers lines 630-643: Exception in result list -> failed_info populated."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        mock_run = MagicMock()
-        mock_run.id = "uuid-1"
-
-        async def run():
-            async def mock_gather(*args, **kwargs):
-                return [ValueError("batch timed out")]
-
-            with (
-                patch(
-                    "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
-                    side_effect=mock_gather,
-                ),
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run"),
-                patch.object(adapter, "_cancel_remaining_runs_async"),
-            ):
-                with pytest.raises(FlowExecutionFailedException):
-                    await adapter._wait_for_flow_runs_async(flow_runs=[mock_run], job_run_id="jr1")
-
-        stdlib_asyncio.run(run())
-
-    def test_flowrun_completed_result(self):
-        """Covers lines 644-648: FlowRun instance with completed state."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        mock_flow_run = MagicMock()
-        mock_flow_run.id = "uuid-2"
-
-        # Patch FlowRun in the module to be our real stub class so isinstance() works
-        completed_result = _FlowRunClass()
-        completed_state = MagicMock()
-        completed_state.is_completed.return_value = True
-        completed_result.state = completed_state
-
-        async def run():
-            async def mock_gather(*args, **kwargs):
-                return [completed_result]
-
-            with (
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.FlowRun", _FlowRunClass),
-                patch(
-                    "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
-                    side_effect=mock_gather,
-                ),
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run"),
-            ):
-                await adapter._wait_for_flow_runs_async(flow_runs=[mock_flow_run], job_run_id="jr1")
-
-        stdlib_asyncio.run(run())
-
-    def test_flowrun_failed_result(self):
-        """Covers lines 649-666: FlowRun instance with failed state."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        mock_flow_run = MagicMock()
-        mock_flow_run.id = "uuid-3"
-
-        failed_result = _FlowRunClass()
-        failed_state = MagicMock()
-        failed_state.is_completed.return_value = False
-        failed_state.is_failed.return_value = True
-        failed_state.is_crashed.return_value = False
-        failed_state.message = "worker error"
-        failed_result.state = failed_state
-
-        async def run():
-            async def mock_gather(*args, **kwargs):
-                return [failed_result]
-
-            with (
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.FlowRun", _FlowRunClass),
-                patch(
-                    "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
-                    side_effect=mock_gather,
-                ),
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run"),
-                patch.object(adapter, "_cancel_remaining_runs_async"),
-            ):
-                with pytest.raises(FlowExecutionFailedException):
-                    await adapter._wait_for_flow_runs_async(flow_runs=[mock_flow_run], job_run_id="jr1")
-
-        stdlib_asyncio.run(run())
-
-    def test_flowrun_crashed_result(self):
-        """Covers lines 655: CRASHED state type."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        mock_flow_run = MagicMock()
-        mock_flow_run.id = "uuid-4"
-
-        crashed_result = _FlowRunClass()
-        crashed_state = MagicMock()
-        crashed_state.is_completed.return_value = False
-        crashed_state.is_failed.return_value = False
-        crashed_state.is_crashed.return_value = True
-        crashed_state.message = "OOM killed"
-        crashed_result.state = crashed_state
-
-        async def run():
-            async def mock_gather(*args, **kwargs):
-                return [crashed_result]
-
-            with (
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.FlowRun", _FlowRunClass),
-                patch(
-                    "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
-                    side_effect=mock_gather,
-                ),
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run"),
-                patch.object(adapter, "_cancel_remaining_runs_async"),
-            ):
-                with pytest.raises(FlowExecutionFailedException):
-                    await adapter._wait_for_flow_runs_async(flow_runs=[mock_flow_run], job_run_id="jr1")
-
-        stdlib_asyncio.run(run())
-
-    def test_flowrun_cancelled_result(self):
-        """Covers lines 667-670: cancelled state — logged, not a failure."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        mock_flow_run = MagicMock()
-        mock_flow_run.id = "uuid-5"
-
-        cancelled_result = _FlowRunClass()
-        cancelled_state = MagicMock()
-        cancelled_state.is_completed.return_value = False
-        cancelled_state.is_failed.return_value = False
-        cancelled_state.is_crashed.return_value = False
-        cancelled_state.is_cancelled.return_value = True
-        cancelled_result.state = cancelled_state
-
-        async def run():
-            async def mock_gather(*args, **kwargs):
-                return [cancelled_result]
-
-            with (
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.FlowRun", _FlowRunClass),
-                patch(
-                    "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
-                    side_effect=mock_gather,
-                ),
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run"),
-            ):
-                await adapter._wait_for_flow_runs_async(flow_runs=[mock_flow_run], job_run_id="jr1")
-
-        stdlib_asyncio.run(run())
-        adapter.prefect_engine.logger.warning.assert_called()
-
-    def test_unexpected_exception_reraises(self):
-        """Covers lines 683-689: unexpected exception re-raised."""
-        import asyncio as stdlib_asyncio
-
-        adapter = _make_adapter()
-
-        async def run():
-            async def mock_gather(*args, **kwargs):
-                raise ConnectionError("server dropped")
-
-            with (
-                patch(
-                    "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
-                    side_effect=mock_gather,
-                ),
-                patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run"),
-            ):
-                with pytest.raises(ConnectionError):
-                    await adapter._wait_for_flow_runs_async(flow_runs=[MagicMock()], job_run_id="jr1")
-
-        stdlib_asyncio.run(run())
 
 
 # ---------------------------------------------------------------------------

@@ -203,6 +203,11 @@ class TestHandleNodeFailure:
         )
         assert orchestrator.job_status == ExecutionStatus.RUNNING
 
+    def test_does_not_record_failure_without_batch_number(self, orchestrator):
+        orchestrator._record_batch_failure(global_config={})
+
+        assert not orchestrator.has_batch_failed(batch_num=None)
+
 
 class TestExecuteStepFastPath:
     def test_returns_empty_result_when_failing(self, orchestrator):

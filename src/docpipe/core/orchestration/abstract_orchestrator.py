@@ -1,5 +1,6 @@
 """Abstract base class for all docpipe flow orchestrators."""
 
+import threading
 from abc import ABC, abstractmethod
 from operator import itemgetter
 from queue import Queue
@@ -87,6 +88,12 @@ class AbstractOrchestrator(ABC):
         self.batch_manager = BatchManager()
         self.flow_engine: FlowEnginePort | None = None
         self.common_log_arguments: dict[Any, str] | None = None
+        # Batch numbers that hit a node failure. Keyed by batch so continue mode can
+        # tell "this batch failed" from "some other batch failed" — job_status cannot,
+        # because one orchestrator is shared by every batch thread in the ThreadPool
+        # path and setting it to FAILING would short-circuit the batches still running.
+        self._failed_batch_nums: set[Any] = set()
+        self._failed_batch_lock = threading.Lock()
 
     @property
     def non_recoverable_docs_tables(self) -> list[pa.Table]:
@@ -201,6 +208,12 @@ class AbstractOrchestrator(ABC):
             DocpipeConstants.CONTINUE_ON_BATCH_FAILURE_DEFAULT,
         )
 
+        # Record the failure against this batch before applying any policy. In
+        # continue_on_batch_failure mode job_status stays RUNNING so the remaining
+        # batches keep going, which leaves the submitter with no other way to learn
+        # that this batch failed.
+        self._record_batch_failure(global_config=global_config)
+
         # Only set job_status to FAILING if not in continue_on_batch_failure mode
         # In continue_on_batch_failure mode, status will be determined by after_flow_execution_complete
         if not (is_batching_enabled and continue_on_batch_failure):
@@ -214,6 +227,28 @@ class AbstractOrchestrator(ABC):
             global_config=global_config,
             e=e,
         )
+
+    def _record_batch_failure(self, *, global_config) -> None:
+        """Mark the batch in global_config as having had a node failure.
+
+        Args:
+            global_config: Current global configuration; carries BATCH_NUM."""
+        batch_num = global_config.get(DocpipeConstants.BATCH_NUM)
+        if batch_num is None:
+            return
+        with self._failed_batch_lock:
+            self._failed_batch_nums.add(batch_num)
+
+    def has_batch_failed(self, *, batch_num) -> bool:
+        """Whether the given batch hit a node failure.
+
+        Args:
+            batch_num: Batch number to check.
+
+        Returns:
+            True if a node in that batch failed."""
+        with self._failed_batch_lock:
+            return batch_num in self._failed_batch_nums
 
     def _handle_active_execution(
         self,

@@ -5,7 +5,6 @@ Prefect 3.x is installed in the venv — import it directly, no sys.modules
 stubbing required.
 """
 
-import threading
 from unittest.mock import Mock, patch
 
 import pytest
@@ -114,92 +113,38 @@ class TestPrefectEngineInit:
 
 
 # ---------------------------------------------------------------------------
-# _cancel_batch_future
-# ---------------------------------------------------------------------------
-
-
-class TestCancelBatchFuture:
-    def test_successful_cancel_is_logged(self):
-        engine = _make_engine()
-        bf = _make_batch_future()
-        bf.future.cancel = Mock(return_value=True)
-        engine._cancel_batch_future(batch_future=bf, reason="test reason")
-        bf.future.cancel.assert_called_once()
-
-    def test_cancel_exception_is_logged_as_warning(self):
-        engine = _make_engine()
-        bf = _make_batch_future()
-        bf.future.cancel = Mock(side_effect=RuntimeError("cancel failed"))
-        # Should not raise
-        engine._cancel_batch_future(batch_future=bf, reason="test reason")
-
-
-# ---------------------------------------------------------------------------
 # _handle_batch_failure
 # ---------------------------------------------------------------------------
 
 
 class TestHandleBatchFailure:
-    def test_raises_flow_execution_failed(self):
-        engine = _make_engine()
-        bf0 = _make_batch_future(batch_num=0, batch_id="bid-0")
-        bf1 = _make_batch_future(batch_num=1, batch_id="bid-1")
-        bf1.future.cancel = Mock(return_value=True)
-        cancelled: list[BatchFuture] = []
-        event = threading.Event()
+    def test_marks_orchestrator_failing(self):
+        orchestrator = _mock_orchestrator()
+        engine = _make_engine(orchestrator=orchestrator)
+        batch_future = _make_batch_future(batch_num=0, batch_id="bid-0")
 
-        with pytest.raises(FlowExecutionFailedException, match=r"Batch 0.*failed"):
-            engine._handle_batch_failure(
-                batch_future=bf0,
-                batch_futures=[bf0, bf1],
-                future_index=0,
-                cancelled_batch_futures=cancelled,
-                cancellation_event=event,
-                exc=ValueError("operator error"),
-            )
+        fail_fast_triggered = engine._handle_batch_failure(
+            batch_future=batch_future,
+            exception=ValueError("operator error"),
+            continue_on_batch_failure=False,
+        )
 
-        assert event.is_set()
-        assert bf1 in cancelled
+        assert fail_fast_triggered
+        assert orchestrator.job_status == ExecutionStatus.FAILING
+        assert "Batch 0" in orchestrator.message
 
-    def test_cancels_all_remaining_futures(self):
-        engine = _make_engine()
-        bfs = [_make_batch_future(i, f"bid-{i}") for i in range(4)]
-        for bf in bfs:
-            bf.future.cancel = Mock(return_value=True)
-        cancelled: list[BatchFuture] = []
-        event = threading.Event()
+    def test_continue_on_failure_leaves_orchestrator_running(self):
+        orchestrator = _mock_orchestrator()
+        engine = _make_engine(orchestrator=orchestrator)
 
-        with pytest.raises(FlowExecutionFailedException):
-            engine._handle_batch_failure(
-                batch_future=bfs[0],
-                batch_futures=bfs,
-                future_index=0,
-                cancelled_batch_futures=cancelled,
-                cancellation_event=event,
-                exc=RuntimeError("fail"),
-            )
+        fail_fast_triggered = engine._handle_batch_failure(
+            batch_future=_make_batch_future(),
+            exception=ValueError("operator error"),
+            continue_on_batch_failure=True,
+        )
 
-        assert len(cancelled) == 3  # bfs[1], bfs[2], bfs[3]
-
-
-# ---------------------------------------------------------------------------
-# _wait_for_cancelled_batches
-# ---------------------------------------------------------------------------
-
-
-class TestWaitForCancelledBatches:
-    def test_waits_on_each_cancelled_future(self):
-        engine = _make_engine()
-        bf = _make_batch_future()
-        bf.future.wait = Mock()
-        engine._wait_for_cancelled_batches(cancelled_batch_futures=[bf])
-        bf.future.wait.assert_called_once()
-
-    def test_wait_exception_is_logged_not_raised(self):
-        engine = _make_engine()
-        bf = _make_batch_future()
-        bf.future.wait = Mock(side_effect=RuntimeError("wait error"))
-        engine._wait_for_cancelled_batches(cancelled_batch_futures=[bf])  # must not raise
+        assert not fail_fast_triggered
+        assert orchestrator.job_status == ExecutionStatus.RUNNING
 
 
 # ---------------------------------------------------------------------------
@@ -217,36 +162,39 @@ class TestWaitForSubFlowsFailFast:
         bf.future.result = Mock(return_value=None)
         engine._wait_for_sub_flows(batch_futures=[bf], global_config=self._global_config())
 
-    def test_fail_fast_calls_handle_batch_failure(self):
+    def test_fail_fast_marks_orchestrator_failing_without_raising(self):
+        orchestrator = _mock_orchestrator()
+        engine = _make_engine(orchestrator=orchestrator)
+        bf = _make_batch_future(batch_num=0, batch_id="bid-0")
+        bf.future.result = Mock(side_effect=RuntimeError("boom"))
+
+        engine._wait_for_sub_flows(batch_futures=[bf], global_config=self._global_config(False))
+
+        assert orchestrator.job_status == ExecutionStatus.FAILING
+
+    def test_fail_fast_drains_later_batches_without_cancelling(self):
         engine = _make_engine()
-        bf0 = _make_batch_future(batch_num=0, batch_id="bid-0")
-        bf0.future.result = Mock(side_effect=RuntimeError("boom"))
-        bf0.future.cancel = Mock(return_value=True)
+        failed = _make_batch_future(batch_num=0, batch_id="bid-0")
+        failed.future.result = Mock(side_effect=RuntimeError("fail"))
+        remaining = _make_batch_future(batch_num=1, batch_id="bid-1")
+        remaining_future = remaining.future
+        remaining_future.wait = Mock()
+        remaining_future.cancel = Mock()
+        remaining_future._wrapped_future = Mock()
+        remaining_future._wrapped_future.done.return_value = True
 
-        with pytest.raises(FlowExecutionFailedException):
-            engine._wait_for_sub_flows(batch_futures=[bf0], global_config=self._global_config(False))
+        engine._wait_for_sub_flows(batch_futures=[failed, remaining], global_config=self._global_config(False))
 
-    def test_cancellation_event_skips_later_batches(self):
-        engine = _make_engine()
-        bf0 = _make_batch_future(batch_num=0, batch_id="bid-0")
-        bf1 = _make_batch_future(batch_num=1, batch_id="bid-1")
-        bf0.future.result = Mock(side_effect=RuntimeError("fail"))
-        bf0.future.cancel = Mock(return_value=True)
-        bf1.future.cancel = Mock(return_value=True)
-        bf1.future.wait = Mock()
-
-        with pytest.raises(FlowExecutionFailedException):
-            engine._wait_for_sub_flows(batch_futures=[bf0, bf1], global_config=self._global_config(False))
+        remaining_future.wait.assert_called_once_with(timeout=300)
+        remaining_future.cancel.assert_not_called()
 
     def test_semaphore_reset_called_in_finally(self):
         bm = _mock_batch_manager()
         engine = _make_engine(batch_manager=bm)
         bf = _make_batch_future()
         bf.future.result = Mock(side_effect=RuntimeError("boom"))
-        bf.future.cancel = Mock(return_value=True)
 
-        with pytest.raises(FlowExecutionFailedException):
-            engine._wait_for_sub_flows(batch_futures=[bf], global_config=self._global_config(False))
+        engine._wait_for_sub_flows(batch_futures=[bf], global_config=self._global_config(False))
 
         bm.reset_batch_semaphore.assert_called_once()
 

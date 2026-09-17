@@ -258,6 +258,43 @@ class TestJobManagementService:
     @patch("docpipe.core.job_management.application.services.job_management_service.set_session_info")
     @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
     @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
+    def test_execute_flow_async_partial_failure_keeps_computed_status(
+        self,
+        mock_flow_executor_class,
+        mock_create_orchestrator,
+        mock_set_session_info,
+    ):
+        """A flow that returns without raising must not have its status overwritten.
+
+        Both end_job() calls in _execute_flow_async live in exception handlers, and
+        end_job() overwrites status, end_time, duration and message with no guard on
+        what is already there. after_flow_execution_complete has already run by then,
+        from _finalize_dag_flow's finally block, so any exception that escapes the
+        flow replaces the status it just computed.
+
+        A partial failure in continue mode resolves to COMPLETED_WITH_ERRORS. This
+        test pins the rule the adapters have to keep: raise only when job_status is
+        FAILING, never on a partial failure. If either adapter starts raising there,
+        the API reports FAILED instead and this test goes red.
+        """
+        mock_create_orchestrator.return_value = Mock()
+        mock_flow_executor = Mock()
+        mock_flow_executor.execute.return_value = None  # partial failure: no raise
+        mock_flow_executor_class.return_value = mock_flow_executor
+
+        self.service._execute_flow_async(
+            session_info=Mock(),
+            job_id="job-1",
+            job_run_id="run-1",
+            flow_definition={"dag": []},
+            flow_config={},
+        )
+
+        self.job_stats_service.end_job.assert_not_called()
+
+    @patch("docpipe.core.job_management.application.services.job_management_service.set_session_info")
+    @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.core.orchestration.flow_executor.FlowExecutor")
     def test_execute_flow_async_respects_explicit_micro_batching_value(
         self,
         mock_flow_executor_class,

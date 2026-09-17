@@ -143,6 +143,12 @@ timestamps {
                 pytest -m "unit and not slow" -n 2 --dist=loadfile \
                   --cov=src/docpipe --cov-report=xml:coverage.xml --cov-report=term
                 echo "Unit test coverage report generated"
+
+                pytest tests/integration/orchestration/prefect_adapter/test_thread_pool_adapter_integration.py \
+                  --timeout=600 \
+                  -v --tb=short \
+                  --cov=src/docpipe --cov-report=xml:coverage.xml --cov-report=term --cov-append
+                echo "Thread pool integration tests completed"
               """
             }
           }
