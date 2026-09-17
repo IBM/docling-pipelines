@@ -87,6 +87,10 @@ class ValidationCodeMessages(StrEnum):
 
     SQL_FILTER_PAGES_DROP = """Pages Processed column drop was attempted"""
 
+    SQL_FILTER_ALLOWED_USERS_DROP_ATTEMPTED = """allowed_users column drop was attempted"""
+
+    SQL_FILTER_CHUNKED_CONTENT_DROP_ATTEMPTED = """chunked_content column drop was attempted"""
+
     SQL_FILTER_INVALID_COLUMN = """Invalid column name. Please ensure the filter_criteria has correct column names"""
 
     CHUNKER_INVALID_CHUNK_TYPE = "Invalid chunk_type: {chunk_type}"

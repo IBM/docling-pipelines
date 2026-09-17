@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `SQLFilterOperator` now protects `allowed_users` and `chunked_content` from being dropped via `features_to_drop`. Previously only `id`, `content`, and `pages_processed` were protected. Attempting to drop `allowed_users` or `chunked_content` now raises a validation error at flow-design time and a `DocpipeException` at runtime. Any existing flow that currently drops these columns silently will begin raising an error.
+
 ### Added
 
 - **Full OCR engine exposure** — Both `docling_library` and `docling_serve` providers now accept an `ocr` block inside `text_extraction.provider_config`. Users can set `ocr.engine` (8 engines: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`), `ocr.mode` (`default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions`), `ocr.enabled` (bool), and `ocr.engine_options` (pass-through dict). The previously hardcoded `ocr_preset: "auto"` default in `DoclingServeClient` is removed — when no engine is specified, the docling-serve instance uses its own default. Old `do_ocr` / `ocr_engine` / `ocr_languages` fields remain functional but are deprecated in favour of the new `ocr` block.

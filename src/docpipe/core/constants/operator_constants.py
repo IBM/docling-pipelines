@@ -1180,3 +1180,15 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         DEFAULT_RESOLVE_INHERITANCE: Final[bool] = True
         DEFAULT_EXPAND_GROUPS: Final[bool] = True
         DEFAULT_NORMALIZE_IDENTITIES: Final[bool] = True
+
+    # Columns that cannot be dropped by any operator (e.g. SQLFilterOperator).
+    # Downstream operators depend on these being present in the pipeline table.
+    PROTECTED_PIPELINE_COLUMNS: frozenset = frozenset(
+        {
+            "id",
+            "content",
+            "pages_processed",
+            "allowed_users",
+            "chunked_content",
+        }
+    )

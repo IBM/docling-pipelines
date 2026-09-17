@@ -1378,7 +1378,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | ------------------------- | ------------ | -------: | ------- | --------------------------------- |
 | `filter_criteria_list`    | list[string] |       No | `[]`    | SQL-style predicates              |
 | `filter_logical_operator` | string       |       No | `AND`   | Join operator for criteria        |
-| `features_to_drop`        | list[string] |       No | `[]`    | Columns to remove after filtering |
+| `features_to_drop`        | list[string] |       No | `[]`    | Columns to remove after filtering. Cannot drop `id`, `content`, `pages_processed`, `allowed_users`, or `chunked_content`. |
 | `filter_criteria_json`    | object       |       No | -       | Structured criteria format        |
 
 ---
