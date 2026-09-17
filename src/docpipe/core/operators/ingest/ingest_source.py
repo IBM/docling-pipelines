@@ -908,6 +908,29 @@ class IngestSourceOperator(AbstractOperator):
         raise ValueError(f"Provider '{self.provider}' is not supported.")
 
     @staticmethod
+    def _get_provider_schemas() -> dict[str, Any]:
+        """Return provider-specific connection field schemas in docpipe metadata vocabulary."""
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.config import FilesystemSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.config import OneDriveSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.config import SharePointSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.web.config import WebPageSourceConfig
+
+        s3_schema = OperatorUtils.model_schema_to_docpipe(schema=S3SourceConfig.model_json_schema())
+        return {
+            "filesystem": OperatorUtils.model_schema_to_docpipe(schema=FilesystemSourceConfig.model_json_schema()),
+            "s3": s3_schema,
+            "ibm_cos": s3_schema,
+            "google_drive": OperatorUtils.model_schema_to_docpipe(schema=GoogleDriveSourceConfig.model_json_schema()),
+            "onedrive": OperatorUtils.model_schema_to_docpipe(schema=OneDriveSourceConfig.model_json_schema()),
+            "sharepoint": OperatorUtils.model_schema_to_docpipe(schema=SharePointSourceConfig.model_json_schema()),
+            "box_driver": OperatorUtils.model_schema_to_docpipe(schema=BoxSourceConfig.model_json_schema()),
+            "web": OperatorUtils.model_schema_to_docpipe(schema=WebPageSourceConfig.model_json_schema()),
+        }
+
+    @staticmethod
     def get_metadata() -> dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
@@ -997,12 +1020,7 @@ class IngestSourceOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                },
-                CREDENTIALS_KEY: {
-                    OperatorConstants.Columns.NAME: "Credentials",
-                    OperatorConstants.Config.DESCRIPTION: "Authentication credentials for the provider",
-                    OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROVIDERS: IngestSourceOperator._get_provider_schemas(),
                 },
                 MAX_FILES_KEY: {
                     OperatorConstants.Columns.NAME: "Max Files",
