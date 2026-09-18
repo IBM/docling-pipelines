@@ -9,6 +9,7 @@ supporting embeddings and chat completions across OpenAI, Anthropic, Cohere, etc
 """
 
 import os
+from typing import Any
 
 from docpipe.core.constants.constants import ServiceConstants
 from docpipe.exceptions.docpipe_exceptions import (
@@ -296,6 +297,26 @@ class LiteLLMLLMClient(BaseLLMClient):
                 f"Failed to generate batch embeddings with LiteLLM model '{self.model_name}': {e}"
             ) from e
 
+    @staticmethod
+    def _extract_streaming_content(response: Any) -> str:
+        """Accumulate content from a streamed LiteLLM response."""
+        accumulated = ""
+        for chunk in response:
+            if hasattr(chunk, "choices") and chunk.choices:
+                delta = chunk.choices[0].delta
+                if hasattr(delta, "content") and delta.content:
+                    accumulated += delta.content
+        return accumulated
+
+    @staticmethod
+    def _extract_non_streaming_content(response: Any) -> str:
+        """Extract content from a standard (non-streamed) LiteLLM response."""
+        if hasattr(response, "choices") and response.choices:
+            return response.choices[0].message.content
+        if isinstance(response, dict) and "choices" in response:
+            return response["choices"][0]["message"]["content"]
+        raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
+
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def chat(self, messages: list[dict[str, str]], **kwargs) -> str:
         """
@@ -333,23 +354,11 @@ class LiteLLMLLMClient(BaseLLMClient):
                 **combined_kwargs,
             )
 
-            if should_stream:
-                # Accumulate streamed chunks
-                accumulated_content = ""
-                for chunk in response:
-                    if hasattr(chunk, "choices") and chunk.choices:
-                        delta = chunk.choices[0].delta
-                        if hasattr(delta, "content") and delta.content:
-                            accumulated_content += delta.content
-                content = accumulated_content
-            else:
-                # Extract content from normal response
-                if hasattr(response, "choices") and response.choices:
-                    content = response.choices[0].message.content
-                elif isinstance(response, dict) and "choices" in response:
-                    content = response["choices"][0]["message"]["content"]
-                else:
-                    raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
+            content = (
+                self._extract_streaming_content(response)
+                if should_stream
+                else self._extract_non_streaming_content(response)
+            )
 
             if not content:
                 raise ExternalServiceError("Empty response from LiteLLM chat API")

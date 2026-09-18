@@ -73,75 +73,25 @@ class FlowExecutor:
         if self.__orchestrator is None:
             raise ValueError("No orchestrator available for flow execution")
 
-        # Check for cancellation before validation using the injected job stats service
-        job_stats_service = self.__orchestrator.job_stats_service
-
         # Get job_run_id and job_id from params or session_info
         job_run_id = (params.get(DocpipeConstants.JOB_RUN_ID) if params else None) or self.session_info.job_run_id
         job_id = (params.get(DocpipeConstants.JOB_ID) if params else None) or self.session_info.job_id
 
-        if (
-            job_stats_service
-            and job_run_id
-            and job_stats_service.cancel_job_run_if_cancelling(
-                job_run_id=job_run_id,
-                job_log_path=self.__orchestrator.flow_execution_event_handler.job_log_path,
-            )
-        ):
-            logger.info(
-                ">>> Cancelled the execution: %s",
-                job_run_id,
-            )
+        # Check for cancellation before validation using the injected job stats service
+        if self._is_cancelled(job_run_id=job_run_id):
             return None
 
         # Initialize orchestrator for job execution (sets job_id/job_run_id context and creates flow_engine)
         if job_id and job_run_id:
             self.__orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
-        # Validate flow definition
-        try:
-            flow_validator = FlowValidator(orchestrator=self.__orchestrator)
-            flow_validator.validate(flow_def=self.flow_def, params=params or {})
-        except FlowValidationException as exc:
-            if not exc.errors or len(exc.errors) == 0:
-                # if there are no errors (only warnings), go ahead with the flow execution
-                logger.warning(
-                    f"Flow definition has warnings: {json.dumps(exc.warnings, cls=ValidationAlertEncoder)}",
-                    extra=self.common_log_arguments,
-                )
-            else:
-                raise exc
-
-        propagated_node_features = flow_validator.propagate_features_per_node(
-            flow_def=self.flow_def,
-            global_config=self.flow_def.get("global_config", {}),
-        )
-        # Inject available_features directly into each node's config — same mechanism
-        # used by FlowEnrichmentService for the API/UI path (injects into node.parameters).
-        # This avoids threading a private key through global_config and polluting every
-        # operator's config dict with the full propagation snapshot.
-        for node in self.flow_def.get("dag", []):
-            node_id = node.get("id")
-            features = propagated_node_features.get(node_id, {}).get("available_features", {})
-            if features:
-                node.setdefault("config", {})["available_features"] = features
+        flow_validator = self._validate_flow(params=params)
+        self._inject_node_features(flow_validator=flow_validator)
 
         FlowExecutor.print_diagnostic_info(self)
 
         # Save original flow definition to filesystem for audit and reproducibility
-        if job_id and job_run_id:
-            job_stats_service = self.__orchestrator.job_stats_service
-            if job_stats_service:
-                try:
-                    job_stats_service.save_flow_definition(
-                        job_id=job_id,
-                        job_run_id=job_run_id,
-                        flow_definition=self.original_flow_def,
-                        params=params,
-                    )
-                except Exception as e:
-                    # Log error but don't fail the flow execution
-                    logger.error(f"Failed to save flow definition for job_run_id={job_run_id}: {e}", exc_info=True)
+        self._save_flow_definition(job_id=job_id, job_run_id=job_run_id, params=params)
 
         try:
             data_access = self.__orchestrator.execute(flow_def=self.flow_def, params=params)
@@ -153,6 +103,77 @@ class FlowExecutor:
             FlowExecutor.print_diagnostic_info(self)
             FlowExecutor.stop_diagnostic_collection(self)
         return data_access
+
+    def _is_cancelled(self, *, job_run_id: str | None) -> bool:
+        """Return True and log if this job run has been signalled for cancellation."""
+        # self.__orchestrator is guaranteed non-None here — execute() guards it before calling
+        assert self.__orchestrator is not None
+        orchestrator = self.__orchestrator
+        job_stats_service = orchestrator.job_stats_service
+        if (
+            job_stats_service
+            and job_run_id
+            and job_stats_service.cancel_job_run_if_cancelling(
+                job_run_id=job_run_id,
+                job_log_path=orchestrator.flow_execution_event_handler.job_log_path,
+            )
+        ):
+            logger.info(">>> Cancelled the execution: %s", job_run_id)
+            return True
+        return False
+
+    def _validate_flow(self, *, params: FlowConfig | None) -> "FlowValidator":
+        """Validate the flow definition, allowing warnings-only results to proceed."""
+        flow_validator = FlowValidator(orchestrator=self.__orchestrator)  # type: ignore[arg-type]
+        try:
+            flow_validator.validate(flow_def=self.flow_def, params=params or {})  # type: ignore[arg-type]
+        except FlowValidationException as exc:
+            if not exc.errors or len(exc.errors) == 0:
+                # if there are no errors (only warnings), go ahead with the flow execution
+                logger.warning(
+                    f"Flow definition has warnings: {json.dumps(exc.warnings, cls=ValidationAlertEncoder)}",
+                    extra=self.common_log_arguments,
+                )
+            else:
+                raise exc
+        return flow_validator
+
+    def _inject_node_features(self, *, flow_validator: "FlowValidator") -> None:
+        """Propagate available features into each node's config dict.
+
+        Inject available_features directly into each node's config — same mechanism
+        used by FlowEnrichmentService for the API/UI path (injects into node.parameters).
+        This avoids threading a private key through global_config and polluting every
+        operator's config dict with the full propagation snapshot.
+        """
+        propagated_node_features = flow_validator.propagate_features_per_node(
+            flow_def=self.flow_def,
+            global_config=self.flow_def.get("global_config", {}),
+        )
+        for node in self.flow_def.get("dag", []):
+            node_id = node.get("id")
+            features = propagated_node_features.get(node_id, {}).get("available_features", {})
+            if features:
+                node.setdefault("config", {})["available_features"] = features
+
+    def _save_flow_definition(self, *, job_id: str | None, job_run_id: str | None, params: FlowConfig | None) -> None:
+        """Persist the original flow definition for audit/reproducibility (best-effort, never raises)."""
+        if not (job_id and job_run_id):
+            return
+        assert self.__orchestrator is not None
+        job_stats_service = self.__orchestrator.job_stats_service
+        if not job_stats_service:
+            return
+        try:
+            job_stats_service.save_flow_definition(
+                job_id=job_id,
+                job_run_id=job_run_id,
+                flow_definition=self.original_flow_def,
+                params=params,
+            )
+        except Exception as e:
+            # Log error but don't fail the flow execution
+            logger.error(f"Failed to save flow definition for job_run_id={job_run_id}: {e}", exc_info=True)
 
     def cancel(self) -> None:
         """Cancel."""

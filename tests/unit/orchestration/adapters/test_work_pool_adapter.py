@@ -813,6 +813,224 @@ class TestGetEffectiveJobManagementEnv:
 
 
 # ---------------------------------------------------------------------------
+# TestExecutePipelinedBatchesAsync
+# ---------------------------------------------------------------------------
+
+
+def _make_batch_info(batch_num: int):
+    """Build a BatchInfo for the pipelined path."""
+    from docpipe.core.orchestration.batch_manager import BatchInfo
+
+    return BatchInfo(batch_id=f"batch-{batch_num}", batch_num=batch_num, table=_small_table())
+
+
+def _make_state(*, completed: bool, name: str = "Completed", message: str = ""):
+    """Build a flow-run state stub that _classify_batch_result understands."""
+    state = MagicMock()
+    state.is_completed.return_value = completed
+    state.name = name
+    state.message = message
+    state.type = MagicMock(value=name.upper())
+    return state
+
+
+def _run_pipelined(adapter, *, batches, states):
+    """
+    Drive _execute_pipelined_batches_async with Prefect I/O stubbed out.
+
+    ``states`` maps batch_num -> the state the fake poller resolves that batch
+    with (None means the run comes back with no state at all).
+    """
+    import asyncio as stdlib_asyncio
+
+    submitted_by_id: dict[str, int] = {}
+
+    async def fake_run_deployment(**kwargs):
+        batch_num = kwargs["parameters"]["batch_num"]
+        run = _FlowRunClass()
+        run.id = f"run-{batch_num}"
+        submitted_by_id[str(run.id)] = batch_num
+        return run
+
+    async def fake_poller(*, pending_runs, job_run_id):
+        """Stand-in for _bulk_poll_runs: resolve each future as it appears."""
+        while True:
+            await stdlib_asyncio.sleep(0)
+            for run_id, future in list(pending_runs.items()):
+                if future.done():
+                    continue
+                final = _FlowRunClass()
+                final.state = states[submitted_by_id[run_id]]
+                future.set_result(final)
+
+    async def run():
+        with (
+            patch("docpipe.core.orchestration.prefect.adapters.work_pool_adapter.FlowRun", _FlowRunClass),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment",
+                side_effect=fake_run_deployment,
+            ),
+            patch.object(adapter, "_transfer_batch", return_value={"mode": "inline"}),
+            patch.object(adapter, "_bulk_poll_runs", side_effect=fake_poller),
+            patch.object(adapter, "_cancel_remaining_runs_async", new_callable=lambda: _async_noop()),
+        ):
+            failed_info, completed_count = await adapter._execute_pipelined_batches_async(
+                batches=batches,
+                op_flow=[],
+                global_config={},
+                job_run_id="jr1",
+                continue_on_batch_failure=False,
+            )
+            # Mirror what execute_batches does: raise when any batch failed in fail-fast mode
+            if failed_info:
+                adapter._raise_failure(
+                    failed_info=failed_info,
+                    completed_count=completed_count,
+                    total_count=len(batches),
+                )
+
+    return stdlib_asyncio.run(run())
+
+
+def _async_noop():
+    async def _noop(*args, **kwargs):
+        return None
+
+    return _noop
+
+
+class TestExecutePipelinedBatchesAsync:
+    """Tests for _execute_pipelined_batches_async and its helpers."""
+
+    def test_all_batches_complete(self):
+        """Happy path: every batch completes, no exception raised."""
+        adapter = _make_adapter()
+        batches = [_make_batch_info(0), _make_batch_info(1), _make_batch_info(2)]
+        states = {n: _make_state(completed=True) for n in range(3)}
+
+        _run_pipelined(adapter, batches=batches, states=states)  # should not raise
+
+    def test_failure_message_reports_completed_count(self):
+        """
+        Regression: completed_count must be shared across batch tasks.
+
+        Batch 0 completes and batch 1 fails. The raised message has to say
+        "Completed: 1" — an unshared counter reports 0 here.
+        """
+        adapter = _make_adapter()
+        batches = [_make_batch_info(0), _make_batch_info(1)]
+        states = {
+            0: _make_state(completed=True),
+            1: _make_state(completed=False, name="Failed", message="worker died"),
+        }
+
+        with pytest.raises(FlowExecutionFailedException) as exc_info:
+            _run_pipelined(adapter, batches=batches, states=states)
+
+        error_text = str(exc_info.value)
+        assert "Completed: 1" in error_text
+        assert "Failed: 1" in error_text
+        assert "Total: 2" in error_text
+        assert "worker died" in error_text
+
+    def test_run_without_state_is_recorded_as_failure(self):
+        """
+        Regression: a final flow run carrying no state must fail the job.
+
+        Returning early instead would let the batch vanish and the job report
+        success with one batch unaccounted for.
+        """
+        adapter = _make_adapter()
+        batches = [_make_batch_info(0)]
+        states = {0: None}
+
+        with pytest.raises(FlowExecutionFailedException) as exc_info:
+            _run_pipelined(adapter, batches=batches, states=states)
+
+        error_text = str(exc_info.value)
+        assert "Unknown state" in error_text
+        assert "Completed: 0" in error_text
+        assert "Total: 1" in error_text
+
+
+class TestClassifyBatchResult:
+    """Direct tests for _classify_batch_result bookkeeping."""
+
+    def test_completed_increments_shared_counter(self):
+        adapter = _make_adapter()
+        failed_info: list[dict] = []
+        counter = [4]
+
+        adapter._classify_batch_result(
+            batch_info=_make_batch_info(7),
+            final_flow_run=MagicMock(state=_make_state(completed=True)),
+            flow_run_id="run-7",
+            job_run_id="jr1",
+            failed_info=failed_info,
+            completed_count_ref=counter,
+        )
+
+        assert counter == [5]
+        assert failed_info == []
+
+    def test_completed_by_state_name_fallback(self):
+        """is_completed() False but state name says completed — still a success."""
+        adapter = _make_adapter()
+        failed_info: list[dict] = []
+        counter = [0]
+
+        adapter._classify_batch_result(
+            batch_info=_make_batch_info(1),
+            final_flow_run=MagicMock(state=_make_state(completed=False, name="COMPLETED")),
+            flow_run_id="run-1",
+            job_run_id="jr1",
+            failed_info=failed_info,
+            completed_count_ref=counter,
+        )
+
+        assert counter == [1]
+        assert failed_info == []
+
+    def test_missing_state_appends_failure(self):
+        adapter = _make_adapter()
+        failed_info: list[dict] = []
+        counter = [0]
+
+        adapter._classify_batch_result(
+            batch_info=_make_batch_info(3),
+            final_flow_run=MagicMock(state=None),
+            flow_run_id="run-3",
+            job_run_id="jr1",
+            failed_info=failed_info,
+            completed_count_ref=counter,
+        )
+
+        assert counter == [0]
+        assert len(failed_info) == 1
+        assert failed_info[0]["batch_num"] == 3
+        assert failed_info[0]["run_id"] == "run-3"
+        assert "Unknown state" in failed_info[0]["message"]
+
+    def test_falsy_final_flow_run_is_ignored(self):
+        """No run object at all: nothing to classify, nothing recorded."""
+        adapter = _make_adapter()
+        failed_info: list[dict] = []
+        counter = [0]
+
+        adapter._classify_batch_result(
+            batch_info=_make_batch_info(0),
+            final_flow_run=None,
+            flow_run_id="run-0",
+            job_run_id="jr1",
+            failed_info=failed_info,
+            completed_count_ref=counter,
+        )
+
+        assert counter == [0]
+        assert failed_info == []
+
+
+# ---------------------------------------------------------------------------
 # TestCreateS3Filesystem
 # ---------------------------------------------------------------------------
 
