@@ -115,6 +115,9 @@ export const NodeOperator = {
    * Input port id: `merge_inPort` (max: -1 / unlimited).
    */
   MERGING: 'merge',
+
+  /** Write pipeline documents to a storage destination */
+  STORAGE_OUTPUT: 'storage_output',
 } as const;
 
 /**

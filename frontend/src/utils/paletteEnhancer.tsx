@@ -27,6 +27,7 @@ import {
   Shuffle,
   Merge,
   Debug,
+  CloudUpload,
 } from '@carbon/icons-react';
 import { yellow } from '@carbon/colors';
 import { log4js, logUtil } from './logger';
@@ -64,6 +65,7 @@ const OPERATOR_ICON_MAP: Record<string, React.ReactElement> = {
   [NodeOperator.PII_AND_HAP]: <RuleDataQuality size={20} />,
   [NodeOperator.BRANCHING]: <Shuffle size={20} />,
   [NodeOperator.MERGING]: <Merge size={20} />,
+  [NodeOperator.STORAGE_OUTPUT]: <CloudUpload size={20} />,
 };
 
 /**

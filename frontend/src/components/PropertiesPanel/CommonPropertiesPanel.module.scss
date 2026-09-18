@@ -105,6 +105,14 @@
   gap: $spacing-06;
 }
 
+// Descriptive subtitle at the top of an AccordionItem
+.accordionDescription {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+  margin: 0;
+  padding-bottom: $spacing-02;
+}
+
 // Label row — holds DefinitionTooltip (description shows on hover, not below input)
 .labelWithTooltip {
   display: flex;

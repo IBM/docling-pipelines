@@ -51,6 +51,7 @@ import { ACLPanelBody } from './CustomPanels/ACL/ACL';
 import { VectorDBPanelBody } from './CustomPanels/VectorDB/VectorDB';
 import { DocQualityPanelBody } from './CustomPanels/DocQuality/DocQuality';
 import { NoopPanelBody } from './CustomPanels/Noop/Noop';
+import { StorageOutputPanelBody } from './CustomPanels/StorageOutput/StorageOutput';
 import { InputFeaturesTab } from './FeatureTabs/InputFeaturesTab';
 import { OutputFeaturesTab } from './FeatureTabs/OutputFeaturesTab';
 import type { NodeFeatureMap } from '@/utils/fetchNodeFeatures';
@@ -87,6 +88,7 @@ const OPERATOR_PANEL_MAP: Record<string, React.ComponentType<{ controller: any }
   [NodeOperator.PII_AND_HAP]: PiiAndHapPanelBody,
   [NodeOperator.BRANCHING]: BranchingPanelBody,
   [NodeOperator.MERGING]: MergingPanelBody,
+  [NodeOperator.STORAGE_OUTPUT]: StorageOutputPanelBody,
 };
 
 interface CommonPropertiesPanelProps {
@@ -164,11 +166,11 @@ export function CommonPropertiesPanel({
 
   // Disable the Save button whenever at least one required attribute is missing a value.
   const updateSaveButton = useCallback((): void => {
-     
+
     const propertyValues = (controller?.getPropertyValues?.() ?? {}) as Record<string, unknown>;
 
     const shouldDisable = hasAnyRequiredParamMissing(nodeAttributes, propertyValues);
-     
+
     controller?.setSaveButtonDisable?.(shouldDisable);
   }, [controller, nodeAttributes]);
 

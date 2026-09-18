@@ -115,6 +115,11 @@ export const OPERATOR_LABELS: Record<string, OperatorLabel> = {
     description:
       'Merge two or more branched streams back into a single stream. Connect input links from upstream branches into this node.',
   },
+  [NodeOperator.STORAGE_OUTPUT]: {
+    label: 'Storage Output',
+    description:
+      'Write pipeline documents to a storage destination. Supports processed content, original binary re-fetch, and comprehensive export modes.',
+  },
 };
 
 /**
