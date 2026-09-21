@@ -30,3 +30,5 @@ export { RunSidePanel } from './RunSidePanel/RunSidePanel';
 export { RequiredParamTooltip } from './RequiredParamTooltip/RequiredParamTooltip';
 export { VaultInput } from './VaultInput';
 export type { VaultInputProps } from './VaultInput';
+export { default as NodeSuggestion } from './NodeSuggestion';
+export type { NodeSuggestionProps } from './NodeSuggestion';

@@ -115,6 +115,12 @@ export const CANVAS_ACTIONS = {
 
   /** Delete a link (the canvas edge) entirely. */
   DELETE_LINK: 'deleteLink',
+
+  /**
+   * Open the "Recommended next nodes" suggestion card for the selected node.
+   * Triggered from the node context toolbar (Playlist icon).
+   */
+  RECOMMEND_NODES: 'recommendNodes',
 } as const;
 
 /**

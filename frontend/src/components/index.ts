@@ -20,3 +20,5 @@ export type { FlowPanelData } from './common/FlowInfoPanel';
 export { ReadOnlyCanvas } from './common/ReadOnlyCanvas/ReadOnlyCanvas';
 export { RunStatusTopPanel } from './common/RunStatusTopPanel/RunStatusTopPanel';
 export { RunSidePanel } from './common/RunSidePanel/RunSidePanel';
+export { default as NodeSuggestion } from './common/NodeSuggestion';
+export type { NodeSuggestionProps } from './common/NodeSuggestion/NodeSuggestion';

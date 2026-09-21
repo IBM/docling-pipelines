@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+ 
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { CanvasConfig, ToolbarConfig } from '@elyra/canvas';
 import { IconButton, InlineLoading } from '@carbon/react';
@@ -38,9 +41,10 @@ import {
   FlowRunPropertiesTearsheet,
   ReadOnlyCanvas,
 } from '@/components';
-import { EditDetailsModal, FlowInfoPanel, type FlowPanelData } from '@/components/common';
+import { EditDetailsModal, FlowInfoPanel, type FlowPanelData, NodeSuggestion } from '@/components/common';
 import CommonPropertiesPanelWrapper from '@/components/PropertiesPanel/CommonPropertiesPanelWrapper';
 import { getParameterDef } from '@/services/parameterDefs';
+import { useNodeSuggestion } from './useNodeSuggestion';
 import { CANVAS_ACTIONS, JOB_ASSET_REF_TYPE } from '@/constants/canvasActions';
 import { NodeOperator, BRANCHING_OUTPORT_ID, MERGING_INPORT_ID } from '@/constants/operators';
 import { applyAllLinkDecorations } from '@/utils/linkDecorations';
@@ -158,6 +162,21 @@ export function Canvas(): React.JSX.Element {
   const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [propertiesInfo, setPropertiesInfo] = useState<Record<string, any> | null>(null);
+
+  // ── Node Suggestion ───────────────────────────────────────────────────────
+  const {
+    nodeSuggestion,
+    openNodeSuggestion,
+    handleNodeSuggestionClose,
+    handleNodeSuggestionSelect: handleNodeSuggestionSelectFromHook,
+  } = useNodeSuggestion();
+
+  const handleNodeSuggestionSelect = useCallback(
+    (nodeOp: string) => {
+      handleNodeSuggestionSelectFromHook(nodeOp, canvasControllerRef.current);
+    },
+    [handleNodeSuggestionSelectFromHook]
+  );
 
   // ── Branching link-condition state ────────────────────────────────────────
   /** Whether the LinkConditionTearsheet is visible. */
@@ -586,7 +605,6 @@ export function Canvas(): React.JSX.Element {
       setBranchingNodeId(srcNodeId);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     controller.setPipelineFlow({ ...flow });
     reapplyAllLinkDecorations();
     setIsDirty(true);
@@ -616,7 +634,7 @@ export function Canvas(): React.JSX.Element {
         });
       }
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     controller.setPipelineFlow({ ...flow });
     reapplyAllLinkDecorations();
     setIsDirty(true);
@@ -646,7 +664,7 @@ export function Canvas(): React.JSX.Element {
       }
     });
     if (changed) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
       controller.setPipelineFlow({ ...flow });
       reapplyAllLinkDecorations();
     }
@@ -873,8 +891,9 @@ export function Canvas(): React.JSX.Element {
     (source, defaultMenu): ReturnType<ContextMenuHandler> => {
       if (source.type === 'node') {
         return [
-          { action: CANVAS_ACTIONS.EDIT_NODE, label: 'Edit', enable: true, icon: <Edit size={32} />, toolbarItem: true },
-          { action: CANVAS_ACTIONS.DELETE, label: 'Delete', enable: true, icon: <TrashCan size={32} />, toolbarItem: true },
+          { action: CANVAS_ACTIONS.EDIT_NODE,       label: 'Edit',           enable: true, icon: <Edit size={32} />,     toolbarItem: true },
+          { action: CANVAS_ACTIONS.RECOMMEND_NODES, label: 'Recommend nodes', enable: true, icon: <Playlist size={32} />, toolbarItem: true },
+          { action: CANVAS_ACTIONS.DELETE,          label: 'Delete',         enable: true, icon: <TrashCan size={32} />, toolbarItem: true },
         ];
       }
       if (source.type === 'comment') {
@@ -1011,7 +1030,7 @@ export function Canvas(): React.JSX.Element {
 
     // Auto-save the currently open panel before switching nodes.
     if (openPanelNodeIdRef.current && openPanelNodeIdRef.current !== nodeId) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
       propertiesControllerRef.current?.applyPropertiesEditing?.(false);
     }
 
@@ -1190,6 +1209,16 @@ export function Canvas(): React.JSX.Element {
         return;
       }
 
+      // ── Recommend nodes — open NodeSuggestion card from toolbar button ───────
+      if (data.editType === CANVAS_ACTIONS.RECOMMEND_NODES && data.targetObject) {
+        const nodeId = (data.targetObject as { id: string }).id;
+        const controller = canvasControllerRef.current;
+        if (nodeId && controller) {
+          openNodeSuggestion(nodeId, controller);
+        }
+        return;
+      }
+
       // ── Branching link condition actions ────────────────────────────────────
       if (data.type === 'link' && data.editType === CANVAS_ACTIONS.ADD_CONDITION) {
         openLinkConditionTearsheet((data as any).id as string);
@@ -1224,7 +1253,7 @@ export function Canvas(): React.JSX.Element {
         if (newNode?.id && newNode?.label) {
           const uniqueLabel = getUniqueNodeLabel(newNode.label, newNode.id);
           if (uniqueLabel !== newNode.label) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
             canvasControllerRef.current?.setNodeLabel(newNode.id, uniqueLabel, d.pipelineId);
           }
         }
@@ -1297,13 +1326,32 @@ export function Canvas(): React.JSX.Element {
     [handleRun, handleSave, openNodePanel, applyNodeDefaults, openLinkConditionTearsheet]
   );
 
-  // Double-click on a node opens the properties panel
+  // Double-click on a node opens the properties panel.
+  // Single-click on an output port opens the Node Suggestion panel.
   const clickActionHandler: ClickActionHandler = useCallback((rawSource) => {
     const source = rawSource as ClickActionSource;
+
+    // ── Port single-click → Node Suggestion ──────────────────────────────────
+    if (
+      source.objectType === 'port' &&
+      source.clickType  === 'SINGLE_CLICK' &&
+      source.id
+    ) {
+      // Close any existing suggestion panel before opening a new one.
+      handleNodeSuggestionClose();
+      const controller = canvasControllerRef.current;
+      if (!controller) { return; }
+      const nodeId = (source as any).nodeId as string | undefined;
+      if (!nodeId) { return; }
+      openNodeSuggestion(nodeId, controller);
+      return;
+    }
+
+    // ── Node double-click → Properties panel ─────────────────────────────────
     if (source.clickType === 'DOUBLE_CLICK' && source.objectType === 'node' && source.id) {
       openNodePanel(String(source.id));
     }
-  }, [openNodePanel]);
+  }, [openNodePanel, handleNodeSuggestionClose]);
 
   const handleApplyPropertyChanges = useCallback(
     (propertySet: Record<string, unknown>, appData?: Record<string, unknown>) => {
@@ -1366,13 +1414,12 @@ export function Canvas(): React.JSX.Element {
     const controller = propertiesControllerRef.current;
     if (!controller) { return; }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const propertyValues = (controller.getPropertyValues?.() ?? {}) as Record<string, unknown>;
     const attrs: Record<string, OperatorFeature> =
       selectedOperator ? (operatorMetadata[selectedOperator]?.attributes ?? {}) : {};
 
     const shouldDisable = hasAnyRequiredParamMissing(attrs, propertyValues);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
     controller.setSaveButtonDisable?.(shouldDisable);
   }, [operatorMetadata, selectedOperator]);
 
@@ -1588,6 +1635,16 @@ export function Canvas(): React.JSX.Element {
             flowId={flowId}
             projectId={projectId ?? ''}
           />
+          {nodeSuggestion && (
+            <NodeSuggestion
+              onClose={handleNodeSuggestionClose}
+              onSelectNode={handleNodeSuggestionSelect}
+              position={nodeSuggestion.position}
+              paletteData={nodeSuggestion.paletteData}
+              lineStart={nodeSuggestion.lineStart}
+              lineEnd={nodeSuggestion.lineEnd}
+            />
+          )}
           <LinkConditionTearsheet
             open={isLinkConditionOpen}
             onClose={() => {
