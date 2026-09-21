@@ -115,7 +115,8 @@ class OneDriveSourceAdapter(DocumentSourcePort):
 
         file_id = extract_msgraph_file_id_from_url(file_path)
         if not file_id:
-            raise ValueError(f"Could not extract file ID from URL: {file_path}")
+            msg = f"Could not extract file ID from URL: {file_path}"
+            raise ValueError(msg)
         logger.info("Extracted file ID from URL: %s", file_id)
         item_id, actual_drive_id = resolve_msgraph_file_id_to_item_id(
             file_id=file_id,
@@ -205,7 +206,8 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             )
             return data.get(OperatorConstants.Columns.ID)
         except Exception as e:
-            raise ValueError(f"Folder path '{folder_path}' not found in drive '{drive_id}': {e!s}") from e
+            msg = f"Folder path '{folder_path}' not found in drive '{drive_id}': {e!s}"
+            raise ValueError(msg) from e
 
     async def fetch_documents(self, config: OneDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
@@ -269,11 +271,11 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 yield document
 
         except ImportError as e:
-            raise ImportError(
-                "Microsoft Graph dependencies not installed. Install with: pip install msal requests"
-            ) from e
+            msg = "Microsoft Graph dependencies not installed. Install with: pip install msal requests"
+            raise ImportError(msg) from e
         except Exception as e:
-            raise ValueError(f"Failed to fetch documents from OneDrive: {e!s}") from e
+            msg = f"Failed to fetch documents from OneDrive: {e!s}"
+            raise ValueError(msg) from e
 
     async def test_connection(self, config: BaseModel) -> tuple[bool, str]:
         """

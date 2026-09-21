@@ -169,7 +169,8 @@ class JobTrackerService(JobStatsService):
 
         normalized_status = status.strip()
         if not normalized_status:
-            raise ValueError("Invalid status: empty value")
+            msg = "Invalid status: empty value"
+            raise ValueError(msg)
 
         try:
             return ExecutionStatus(normalized_status)
@@ -181,7 +182,8 @@ class JobTrackerService(JobStatsService):
         try:
             return ExecutionStatus[normalized_key]
         except KeyError as exc:
-            raise ValueError(f"Invalid status: {status}") from exc
+            msg = f"Invalid status: {status}"
+            raise ValueError(msg) from exc
 
     def end_job(self, *, job_run_id: str, status: str, job_run_stats: dict[str, Any] | None = None) -> None:
         """
@@ -314,7 +316,8 @@ class JobTrackerService(JobStatsService):
             job_run_id=job_run_id, node_id=node_id, batch_id=batch_id
         )
         if existing_node is None:
-            raise ValueError(f"Node execution was not started: node_id={node_id}")
+            msg = f"Node execution was not started: node_id={node_id}"
+            raise ValueError(msg)
 
         start_time: int = existing_node.start_time
         total_docs: list[str] = existing_node.total_docs or []
@@ -398,7 +401,8 @@ class JobTrackerService(JobStatsService):
             ValueError: If both exception and error are None
         """
         if exception is None and error is None:
-            raise ValueError("Either exception or error must be provided")
+            msg = "Either exception or error must be provided"
+            raise ValueError(msg)
 
         # Get existing start state
         existing_node: NodeStats | None = self.job_stats_store.get_node_stats_by_batch_and_node(
@@ -704,7 +708,8 @@ class JobTrackerService(JobStatsService):
         elif isinstance(node_stats, dict):
             incoming_dict = node_stats.copy()
         else:
-            raise ValueError(f"Invalid node_stats type: {type(node_stats)}")
+            msg = f"Invalid node_stats type: {type(node_stats)}"
+            raise ValueError(msg)
 
         # Merge existing and incoming stats
         merged_dict = self._merge_node_stats(
@@ -1265,8 +1270,9 @@ class JobTrackerService(JobStatsService):
 
             logger.info(f"Wrote job logs to: {job_log_path}")
         except Exception as e:
-            logger.error(f"Failed to write job logs to {job_log_path}: {e}")
-            raise OSError(f"Failed to write job logs: {e}") from e
+            logger.error("Failed to write job logs to %s: %s", job_log_path, e)
+            msg = f"Failed to write job logs: {e}"
+            raise OSError(msg) from e
 
     def list_job_runs(
         self,
@@ -1601,13 +1607,15 @@ class JobTrackerService(JobStatsService):
             IOError: If bulk operation fails
         """
         if len(batch_ids) != len(batch_nums):
-            raise ValueError(f"batch_ids and batch_nums must have same length: {len(batch_ids)} != {len(batch_nums)}")
+            msg = f"batch_ids and batch_nums must have same length: {len(batch_ids)} != {len(batch_nums)}"
+            raise ValueError(msg)
 
         if len(downstream_node_ids) != len(downstream_node_names):
-            raise ValueError(
+            msg = (
                 f"downstream_node_ids and downstream_node_names must have same length: "
                 f"{len(downstream_node_ids)} != {len(downstream_node_names)}"
             )
+            raise ValueError(msg)
 
         # Create pending node stats for all batch/node combinations
         pending_stats_list = []

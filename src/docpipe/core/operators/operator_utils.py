@@ -98,7 +98,8 @@ def _get_or_create_converter(converter_config: dict | None) -> Any:
         RuntimeError: If docling is not installed.
     """
     if not _DOCLING_AVAILABLE:
-        raise RuntimeError("docling is not installed. Install with: pip install 'docling-pipelines-slim[extract]'")
+        msg = "docling is not installed. Install with: pip install 'docling-pipelines-slim[extract]'"
+        raise RuntimeError(msg)
 
     cache_key = _converter_cache_key(converter_config)
 
@@ -193,13 +194,15 @@ def resolve_env_var(value: Any) -> Any:
             return os.getenv(env_var_name, default_value)
         resolved = os.getenv(env_var_name)
         if resolved is None:
-            raise ValueError(f"Environment variable {env_var_name} is not set")
+            msg = f"Environment variable {env_var_name} is not set"
+            raise ValueError(msg)
         return resolved
     if value.startswith("$"):
         env_var_name = value[1:]
         resolved = os.getenv(env_var_name)
         if resolved is None:
-            raise ValueError(f"Environment variable {env_var_name} is not set")
+            msg = f"Environment variable {env_var_name} is not set"
+            raise ValueError(msg)
         return resolved
     if value.isupper() and "_" in value:
         resolved = os.getenv(value)
@@ -863,7 +866,8 @@ class OperatorUtils:
 
         if len(new_names_ordered) != len(set(new_names_ordered)):
             dup = {name for name in new_names_ordered if new_names_ordered.count(name) > 1}
-            raise ValueError(f"After rename new column names would have duplicates: {dup}")
+            msg = f"After rename new column names would have duplicates: {dup}"
+            raise ValueError(msg)
         try:
             return input_table.rename_columns(new_names_ordered)
         except Exception as e:
@@ -1078,7 +1082,8 @@ class OperatorUtils:
             )
             binary_content = get_binary_content(doc_metadata=doc_metadata, global_config=global_config)
             if binary_content is None:
-                raise ValueError(f"Binary content is empty for document '{doc_name}'")
+                msg = f"Failed to fetch binary content for document {doc_name}"
+                raise ValueError(msg)
 
         return {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}
 

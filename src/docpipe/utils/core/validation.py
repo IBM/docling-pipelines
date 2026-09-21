@@ -89,9 +89,10 @@ def validate_uuid_format(value: str | None, field_name: str) -> str | None:
         UUID(value)
         return value
     except (ValueError, AttributeError, TypeError) as e:
-        raise ValueError(
+        msg = (
             f"{field_name} must be a valid UUID format, got '{value}'. Example: '550e8400-e29b-41d4-a716-446655440000'"
-        ) from e
+        )
+        raise ValueError(msg) from e
 
 
 def validate_container_kind(value: str | None) -> str | None:
@@ -123,10 +124,11 @@ def validate_container_kind(value: str | None) -> str | None:
     if value is None:
         return None
     if value not in ["project", "space"]:
-        raise ValueError(
+        msg = (
             f"container_kind must be 'project' or 'space', got '{value}'. "
             "Provide a valid container type or omit this field."
         )
+        raise ValueError(msg)
     return value
 
 
@@ -140,16 +142,18 @@ def _validate_operator_type_format(operator_type: str) -> None:
         ValueError: If operator_type format is invalid
     """
     if not operator_type or not isinstance(operator_type, str):
-        raise ValueError("operator_type must be a non-empty string")
+        msg = "operator_type must be a non-empty string"
+        raise ValueError(msg)
 
     # Check for valid Python identifier format (module.path.ClassName or simple_name)
     parts = operator_type.split(".")
     for part in parts:
         if not part or not (part[0].isalpha() or part[0] == "_"):
-            raise ValueError(
+            msg = (
                 f"operator_type '{operator_type}' contains invalid identifier '{part}'. "
                 "Must be valid Python class path (e.g., 'ingest_source' or 'core.operators.IngestSource')"
             )
+            raise ValueError(msg)
 
 
 def _validate_dag_nodes(nodes: list[dict[str, Any]]) -> None:
@@ -162,40 +166,48 @@ def _validate_dag_nodes(nodes: list[dict[str, Any]]) -> None:
         ValueError: If nodes structure is invalid
     """
     if not isinstance(nodes, list):
-        raise ValueError(f"nodes must be a list, got {type(nodes).__name__}")
+        msg = f"nodes must be a list, got {type(nodes).__name__}"
+        raise ValueError(msg)
 
     if not nodes:
-        raise ValueError("nodes list cannot be empty - at least one node is required")
+        msg = "nodes list cannot be empty - at least one node is required"
+        raise ValueError(msg)
 
     node_ids = set()
     for idx, node in enumerate(nodes):
         if not isinstance(node, dict):
-            raise ValueError(f"node at index {idx} must be a dictionary, got {type(node).__name__}")
+            msg = f"node at index {idx} must be a dictionary, got {type(node).__name__}"
+            raise ValueError(msg)
 
         # Validate required fields
         if "id" not in node:
-            raise ValueError(f"node at index {idx} is missing required field 'id'")
+            msg = f"node at index {idx} is missing required field 'id'"
+            raise ValueError(msg)
 
         node_id = node["id"]
         if not isinstance(node_id, str) or not node_id:
-            raise ValueError(f"node at index {idx} has invalid 'id': must be a non-empty string")
+            msg = f"node at index {idx} has invalid 'id': must be a non-empty string"
+            raise ValueError(msg)
 
         # Check for duplicate IDs
         if node_id in node_ids:
-            raise ValueError(f"duplicate node id '{node_id}' found at index {idx}")
+            msg = f"duplicate node id '{node_id}' found at index {idx}"
+            raise ValueError(msg)
         node_ids.add(node_id)
 
         # Validate operator field (can be 'operator' or 'operator_type')
         operator_field = node.get("operator") or node.get("operator_type")
         if not operator_field:
-            raise ValueError(f"node '{node_id}' at index {idx} is missing required field 'operator' or 'operator_type'")
+            msg = f"node '{node_id}' at index {idx} is missing required field 'operator' or 'operator_type'"
+            raise ValueError(msg)
 
         _validate_operator_type_format(operator_field)
 
         # Validate operator_params/config if present
         params = node.get("operator_params") or node.get("config")
         if params is not None and not isinstance(params, dict):
-            raise ValueError(f"node '{node_id}' has invalid 'operator_params'/'config': must be a dictionary")
+            msg = f"node '{node_id}' has invalid 'operator_params'/'config': must be a dictionary"
+            raise ValueError(msg)
 
 
 def _validate_authoring_format(value: dict[str, Any]) -> None:
@@ -213,37 +225,42 @@ def _validate_authoring_format(value: dict[str, Any]) -> None:
     """
     # Validate required 'flow_name' key
     if "flow_name" not in value:
-        raise ValueError(
+        msg = (
             "Authoring format definition must contain 'flow_name' key. Example: {'flow_name': 'My Flow', 'flow': [...]}"
         )
+        raise ValueError(msg)
 
     flow_name = value["flow_name"]
     if not isinstance(flow_name, str) or not flow_name.strip():
-        raise ValueError("flow_name must be a non-empty string")
+        msg = "flow_name must be a non-empty string"
+        raise ValueError(msg)
 
     # Validate required 'flow' key (array of operators)
     if "flow" not in value:
-        raise ValueError(
-            "Authoring format definition must contain 'flow' key. Example: {'flow_name': 'My Flow', 'flow': [...]}"
-        )
+        msg = "Authoring format definition must contain 'flow' key. Example: {'flow_name': 'My Flow', 'flow': [...]}"
+        raise ValueError(msg)
 
     flow = value["flow"]
     if not isinstance(flow, list):
-        raise ValueError(f"flow must be a list, got {type(flow).__name__}")
+        msg = f"flow must be a list, got {type(flow).__name__}"
+        raise ValueError(msg)
 
     if not flow:
-        raise ValueError("flow list cannot be empty - at least one operator is required")
+        msg = "flow list cannot be empty - at least one operator is required"
+        raise ValueError(msg)
 
     # Basic validation of operator structure
     for idx, operator in enumerate(flow):
         if not isinstance(operator, dict):
-            raise ValueError(f"flow operator at index {idx} must be a dictionary, got {type(operator).__name__}")
+            msg = f"flow operator at index {idx} must be a dictionary, got {type(operator).__name__}"
+            raise ValueError(msg)
 
         # Check for required keys (lightweight check)
         required_keys = ["type", "name", "config"]
         for key in required_keys:
             if key not in operator:
-                raise ValueError(f"flow operator at index {idx} is missing required field '{key}'")
+                msg = f"flow operator at index {idx} is missing required field '{key}'"
+                raise ValueError(msg)
 
 
 def _validate_elyra_format(value: dict[str, Any]) -> None:
@@ -257,23 +274,27 @@ def _validate_elyra_format(value: dict[str, Any]) -> None:
     """
     # Validate required Elyra fields
     if "pipelines" not in value:
-        raise ValueError(
+        msg = (
             "Elyra format definition must contain 'pipelines' key. "
             "Example: {'doc_type': 'pipeline', 'pipelines': [...], 'primary_pipeline': '...'}"
         )
+        raise ValueError(msg)
 
     pipelines = value["pipelines"]
     if not isinstance(pipelines, list):
-        raise ValueError(f"pipelines must be a list, got {type(pipelines).__name__}")
+        msg = f"pipelines must be a list, got {type(pipelines).__name__}"
+        raise ValueError(msg)
 
     if not pipelines:
-        raise ValueError("pipelines list cannot be empty")
+        msg = "pipelines list cannot be empty"
+        raise ValueError(msg)
 
     # Validate primary_pipeline if present
     if "primary_pipeline" in value:
         primary = value["primary_pipeline"]
         if not isinstance(primary, str) or not primary:
-            raise ValueError("primary_pipeline must be a non-empty string")
+            msg = "primary_pipeline must be a non-empty string"
+            raise ValueError(msg)
 
 
 def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -317,19 +338,21 @@ def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | N
         return None
 
     if not isinstance(value, dict):
-        raise ValueError(f"definition must be a dictionary, got {type(value).__name__}")
+        msg = f"definition must be a dictionary, got {type(value).__name__}"
+        raise ValueError(msg)
 
     # Determine format and validate accordingly
     has_flow_name = "flow_name" in value
     has_doc_type = "doc_type" in value
 
     if not has_flow_name and not has_doc_type:
-        raise ValueError(
+        msg = (
             "definition must contain either 'doc_type' (Elyra format) or 'flow_name' (Authoring format). "
             "Examples:\n"
             "  Authoring: {'flow_name': 'My Flow', 'flow': [...]}\n"
             "  Elyra: {'doc_type': 'pipeline', 'pipelines': [...]}"
         )
+        raise ValueError(msg)
 
     if has_flow_name:
         # Authoring format - validate structure
@@ -374,13 +397,15 @@ def deduplicate_tags(value: list[str] | None, allow_none: bool = False) -> list[
         return None if allow_none else []
 
     if not isinstance(value, list):
-        raise ValueError(f"tags must be a list, got {type(value).__name__}")
+        msg = f"tags must be a list, got {type(value).__name__}"
+        raise ValueError(msg)
 
     seen = set()
     result = []
     for tag in value:
         if not isinstance(tag, str):
-            raise ValueError(f"all tags must be strings, got {type(tag).__name__}")
+            msg = f"all tags must be strings, got {type(tag).__name__}"
+            raise ValueError(msg)
         if tag not in seen:
             seen.add(tag)
             result.append(tag)
@@ -413,7 +438,8 @@ def validate_database_path(path: str, base_dir: str | None = None) -> str:
         ValueError: Path traversal patterns (..) are not allowed
     """
     if not path or not isinstance(path, str) or not path.strip():
-        raise ValueError("Database path cannot be empty")
+        msg = "Database path cannot be empty"
+        raise ValueError(msg)
 
     # Allow in-memory databases
     if path == ":memory:":
@@ -421,21 +447,25 @@ def validate_database_path(path: str, base_dir: str | None = None) -> str:
 
     # Check for path traversal attempts before resolving
     if ".." in path:
-        raise ValueError("Path traversal patterns (..) are not allowed in database path")
+        msg = "Path traversal patterns (..) are not allowed in database path"
+        raise ValueError(msg)
 
     # Resolve to absolute path
     try:
         resolved_path = Path(path).resolve()
     except (OSError, RuntimeError) as e:
-        raise ValueError(f"Invalid database path: {e}") from e
+        msg = f"Invalid database path: {e}"
+        raise ValueError(msg) from e
 
     # If base_dir is specified, ensure path is within it
     if base_dir:
         try:
             base_path = Path(base_dir).resolve()
             if not str(resolved_path).startswith(str(base_path)):
-                raise ValueError(f"Database path must be within {base_dir}")
+                msg = f"Database path must be within {base_dir}"
+                raise ValueError(msg)
         except (OSError, RuntimeError) as e:
-            raise ValueError(f"Invalid base directory: {e}") from e
+            msg = f"Invalid base directory: {e}"
+            raise ValueError(msg) from e
 
     return str(resolved_path)

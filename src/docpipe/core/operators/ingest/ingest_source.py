@@ -90,7 +90,8 @@ class MicrosoftGraphLoader(BaseLoader):
         try:
             import msal
         except ImportError:
-            raise ImportError("msal package not found. Install with: pip install msal") from None
+            msg = "msal package not found. Install with: pip install msal"
+            raise ImportError(msg) from None
         app = msal.ConfidentialClientApplication(
             self.client_id,
             authority=f"{MICROSOFT_LOGIN_URL}/{self.tenant_id}",
@@ -99,13 +100,13 @@ class MicrosoftGraphLoader(BaseLoader):
         result = app.acquire_token_for_client(scopes=[MICROSOFT_GRAPH_SCOPE])
 
         if not isinstance(result, dict):
-            raise TypeError(f"Unexpected response type: {type(result).__name__}")
+            msg = f"Unexpected response type: {type(result).__name__}"
+            raise TypeError(msg)
 
         access_token = result.get("access_token")
         if not access_token:
-            raise ValueError(
-                f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
-            )
+            msg = f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
+            raise ValueError(msg)
 
         self._token = access_token
         return access_token
@@ -231,7 +232,8 @@ class MicrosoftGraphLoader(BaseLoader):
                 )
                 folder_item_id = data.get("id")
             except Exception as e:
-                raise ValueError(f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {e!s}") from e
+                msg = f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {e!s}"
+                raise ValueError(msg) from e
 
         files = self._list_files(folder_item_id=folder_item_id)
 
@@ -383,19 +385,21 @@ class IngestSourceOperator(AbstractOperator):
         if self.included_extensions:
             unsupported = set(self.included_extensions) - set(self.supported_extensions)
             if unsupported:
-                raise ValueError(
+                msg = (
                     f"Unsupported file extensions in include_filter: {', '.join(sorted(unsupported))}. "
                     f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
                 )
+                raise ValueError(msg)
 
         # Validate excluded_extensions are subset of supported extensions
         if self.excluded_extensions:
             unsupported = set(self.excluded_extensions) - set(self.supported_extensions)
             if unsupported:
-                raise ValueError(
+                msg = (
                     f"Unsupported file extensions in exclude_filter: {', '.join(sorted(unsupported))}. "
                     f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
                 )
+                raise ValueError(msg)
 
     def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -882,17 +886,19 @@ class IngestSourceOperator(AbstractOperator):
         # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive, Google Drive , Box & Web
         # These providers now use the hexagonal architecture adapter
         if self.provider in ADAPTER_MANAGED_PROVIDERS:
-            raise ValueError(
+            msg = (
                 f"{self.provider} provider should use _process_documents_from_adapter(). "
                 "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
+            raise ValueError(msg)
 
         # 2. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         if self.provider == "custom":
             loader_path = self.connection_params.get("loader_class_path")
             if not loader_path:
-                raise ValueError("Provider is 'custom' but 'loader_class_path' is missing.")
+                msg = "Provider is 'custom' but 'loader_class_path' is missing."
+                raise ValueError(msg)
 
             # Dynamic Import: "my_package.loaders.FileNetLoader"
             module_name: str
@@ -905,7 +911,8 @@ class IngestSourceOperator(AbstractOperator):
             init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
             return loader_class(**init_kwargs)
 
-        raise ValueError(f"Provider '{self.provider}' is not supported.")
+        msg = f"Provider '{self.provider}' is not supported."
+        raise ValueError(msg)
 
     @staticmethod
     def _get_provider_schemas() -> dict[str, Any]:

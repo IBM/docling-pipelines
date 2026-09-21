@@ -373,12 +373,15 @@ class StorageOutputOperator(AbstractOperator):
         """Execute the write pipeline: validate params, build adapter, iterate rows."""
         # --- parameter validation ---
         if not self.mode:
-            raise ValueError(f"{self.short_name}: 'mode' is required")
+            msg = f"{self.short_name}: 'mode' is required"
+            raise ValueError(msg)
         if not self.destination_config:
-            raise ValueError(f"{self.short_name}: 'destination_config' is required")
+            msg = f"{self.short_name}: 'destination_config' is required"
+            raise ValueError(msg)
         if self.mode in (WriteMode.REFETCH_ORIGINAL, WriteMode.COMPREHENSIVE_EXPORT):
             if not self._global_config.get(OperatorConstants.Config.INGEST_SOURCE):
-                raise ValueError(f"{self.short_name}: mode '{self.mode}' requires an upstream 'ingest_source' operator")
+                msg = f"{self.short_name}: mode '{self.mode}' requires an upstream 'ingest_source' operator"
+                raise ValueError(msg)
 
         total = table.num_rows if table is not None else 0
         metadata = self.create_base_metadata(total_docs_count=total)
@@ -629,7 +632,8 @@ class StorageOutputOperator(AbstractOperator):
                 doc_id=doc_id,
                 doc_name=doc_name,
             )
-        raise NotImplementedError(f"Mode '{self.mode}' not yet implemented")
+        msg = f"Mode '{self.mode}' not yet implemented"
+        raise NotImplementedError(msg)
 
     def _write_processed_content(
         self,

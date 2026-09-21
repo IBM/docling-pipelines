@@ -218,10 +218,11 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
                 required_keys = ["api_key", "url", "container_kind", "container_id"]
                 missing_keys = [key for key in required_keys if key not in service_config]
                 if missing_keys:
-                    raise ValueError(
+                    msg = (
                         f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
                         f"Missing: {', '.join(missing_keys)}"
                     )
+                    raise ValueError(msg)
                 # Add default timeout if not specified
                 service_config.setdefault("timeout", 300)
 
@@ -234,13 +235,16 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
             )
 
             logger.info(
-                f"Successfully initialized {self.provider} PII/HAP service",
+                "Successfully initialized %s PII/HAP service",
+                self.provider,
                 extra=self.common_log_arguments,
             )
             return service
         except ValueError as e:
             logger.error(
-                f"Failed to initialize PII/HAP service for provider '{self.provider}': {e}",
+                "Failed to initialize PII/HAP service for provider '%s': %s",
+                self.provider,
+                e,
                 extra=self.common_log_arguments,
             )
             raise
@@ -248,15 +252,17 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
     def _validate_config(self) -> None:
         """Validate configuration values to ensure they are within acceptable ranges."""
         if not 0 <= self.pii_threshold <= 1:
-            raise ValueError(f"pii_threshold must be between 0 and 1, got {self.pii_threshold}")
+            msg = f"pii_threshold must be between 0 and 1, got {self.pii_threshold}"
+            raise ValueError(msg)
         if not 0 <= self.hap_threshold <= 1:
-            raise ValueError(f"hap_threshold must be between 0 and 1, got {self.hap_threshold}")
+            msg = f"hap_threshold must be between 0 and 1, got {self.hap_threshold}"
+            raise ValueError(msg)
         if self.batch_size <= 0:
-            raise ValueError(f"batch_size must be positive, got {self.batch_size}")
+            msg = f"batch_size must be positive, got {self.batch_size}"
+            raise ValueError(msg)
         if self.min_chunk_size > self.max_chunk_size:
-            raise ValueError(
-                f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
-            )
+            msg = f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
+            raise ValueError(msg)
 
     @staticmethod
     def _get_piihap_provider_schemas() -> dict[str, Any]:
