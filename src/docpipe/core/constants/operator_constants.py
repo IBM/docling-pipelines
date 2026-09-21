@@ -185,6 +185,7 @@ class OperatorConstants:
         """Configuration key constants."""
 
         # Core Configuration Keys
+        ALLOW_EXTRA_KEYS: Final[str] = "allow_extra_keys"
         API_KEY: Final[str] = "api_key"  # pragma: allowlist secret
         ATTRIBUTES: Final[str] = "attributes"
         BATCH_SIZE: Final[str] = "batch_size"

@@ -23,6 +23,7 @@ from docpipe.core.operators.storage.adapters.outbound.destinations.factories.des
 from docpipe.core.operators.storage.domain.models import ContentFormat, WriteMode, WriteResult
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.operators.binary_content_fetcher import get_binary_content
+from docpipe.utils.operators.config_validation import validate_config_from_metadata
 
 logger = get_logger()
 
@@ -194,6 +195,12 @@ class StorageOutputOperator(AbstractOperator):
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """Validate."""
+        super().validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        metadata = self.get_metadata()
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
+
         if not self.mode:
             errors.append(f"{self.short_name}: 'mode' is required")
             return

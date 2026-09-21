@@ -1298,6 +1298,13 @@ class OperatorUtils:
         if "enum" in node:
             docpipe[OperatorConstants.Config.VALID_VALUES] = node["enum"]
 
+        # allow_extra_keys is True unless the schema explicitly forbids extra properties
+        # (Pydantic extra="forbid" → additionalProperties: false).
+        # extra="ignore" produces no additionalProperties key at all, and extra="allow"
+        # produces additionalProperties: true — both should permit unknown keys.
+        if node.get("additionalProperties") is not False:
+            docpipe[OperatorConstants.Config.ALLOW_EXTRA_KEYS] = True
+
         return docpipe
 
     @staticmethod

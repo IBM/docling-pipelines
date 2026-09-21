@@ -2746,6 +2746,7 @@ Practical rules from the reviewed code:
 - required input features must be present
 - branch and filter references must use valid columns
 - flow file must be valid JSON
+- `provider_config` keys are validated against the per-provider schema at flow-save time for operators that declare a `providers` schema in `get_metadata()`. Unknown keys produce a validation error for providers with a fixed key set (e.g. `watsonx`). Providers that accept arbitrary passthrough keys (e.g. `litellm`) do not flag unknown keys.
 
 ---
 

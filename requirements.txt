@@ -836,7 +836,7 @@ python-json-logger==4.2.0
     #   pydocket
 python-ldap==3.4.5
     # via docling-pipelines
-python-multipart==0.0.32
+python-multipart==0.0.27
     # via docling-pipelines
 python-oxmsg==0.0.2
     # via docling-slim

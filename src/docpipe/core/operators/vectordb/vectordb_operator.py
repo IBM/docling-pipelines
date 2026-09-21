@@ -19,6 +19,7 @@ from docpipe.utils.core.memmap_file_utils import (
     yield_embeddings_from_memmap_file,
 )
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.operators.config_validation import validate_config_from_metadata
 
 logger = get_logger()
 
@@ -165,6 +166,10 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             available_features: List of available features from previous operators
         """
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        metadata = self.get_metadata()
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
         # Validate that every mandatory_for_vector_db feature has a feature mapping.
         # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
