@@ -41,7 +41,7 @@ class TestLanguageDetectFastText:
                 "¡Hola, mundo! Este es un texto en español.",
                 "Привет, мир! Это русский текст.",
                 "こんにちは世界!これは日本語のテキストです。",
-                "Salom dunyo! Bu o'zbek tilidagi matn.",  # Uzbek text
+                "Bu o'zbek tilida yozilgan matn hisoblanadi.",  # Uzbek text
             ]
         )
         names = pa.array(
@@ -140,8 +140,7 @@ class TestLanguageDetectFastText:
             confidence = result_table[OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY][uzbek_idx].as_py()
 
             # Uzbek should be detected (uz is the ISO 639-1 code)
-            assert detected_lang is not None
-            assert detected_lang != "UNKNOWN"
+            assert detected_lang == "uz"
             assert confidence > 0.0
 
         finally:

@@ -494,7 +494,12 @@ class TestNullableFields:
     def test_content_field_is_always_added(
         self, mock_client, features_with_optional_fields, mappings_with_optional_fields
     ):
-        """Test that content field is always added (hardcoded, not nullable)"""
+        """Test that content field is always added and is nullable in dense mode.
+
+        In dense mode the content column is removed by the chunker operator and
+        re-populated per chunk; rows without chunk text must not fail insertion,
+        so the field is created with nullable=True.
+        """
         manager = MilvusIndexManager(
             client=mock_client,
             collection_name="test_collection",
@@ -510,11 +515,11 @@ class TestNullableFields:
         assert pk_field is not None
         assert pk_field.is_primary is True
 
-        # Check content field (hardcoded, always added, not nullable)
+        # Content field is always added in dense mode and must be nullable so that
+        # chunk rows without text do not fail insert.
         content_field = next((f for f in fields if f.name == "text"), None)
         assert content_field is not None
-        # Content field is hardcoded and doesn't have nullable attribute set
-        assert not hasattr(content_field, "nullable") or content_field.nullable is False
+        assert content_field.nullable is True
 
 
 class TestSparseVectorMode:

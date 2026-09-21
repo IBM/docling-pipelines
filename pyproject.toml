@@ -75,6 +75,7 @@ dependencies = [
     "pyiceberg-core==0.7.0",
     "pyiceberg[glue]==0.9.1",
     "pyjwt==2.13.0",
+    "milvus-lite==3.2.1",
     "pymilvus==2.6.13",
     "pyopenssl==26.4.0",
     "pypdf==6.16.1",
@@ -102,6 +103,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+benchmark = [
+    "matplotlib==3.11.0",
+    "psutil==7.2.2",
+    "scipy>=1.13.0,<1.19.0",
+]
+
 dev = [
     "black==26.3.1",
     "detect-secrets==1.5.0",
