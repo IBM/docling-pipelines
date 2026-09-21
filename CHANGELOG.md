@@ -11,9 +11,15 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Fixed
 
+- **Execution-granularity benchmark flow size** — S3 benchmark flows now use the configured prefix and `max_files` limit without embedding a corpus-wide exclusion list, avoiding Prefect validation payload-size failures.
+
 - **`docling-pipelines-api` console command** — The entry point previously pointed at the FastAPI `app` object (`docpipe.api.main:app`), causing a `TypeError` on invocation. A `run()` launcher function has been added to `src/docpipe/api/main.py` and `pyproject.toml` now registers `docpipe.api.main:run` as the entry point. Running `docling-pipelines-api` now correctly starts a Uvicorn server on `127.0.0.1:8080`.
 
 ### Added
+
+- **Milvus Lite support** — The `VectorDBOperator` Milvus adapter now supports `auth_type: "lite"` for container-free local operation using an embedded `.db` file (no Docker, Podman, or external Milvus service required). Set `uri` to a local path and `index_type` to `FLAT`. The `milvus-lite==3.2.1` package is now a core dependency. The adapter validates that unsupported index types (anything other than `FLAT`) are rejected at initialisation time for Lite connections. The `text` field in the Milvus schema is now nullable in dense mode so chunk rows without content can be inserted. `MilvusAdapter.close()` is called after every `transform()` to release the file lock. Adds a `sample_flows/vectordb/milvus_lite_integration.json` container-free sample flow and an integration test (`tests/integration/test_ingest_extract_chunk_embed_milvus_lite.py`) covering the full ingest → extract → chunk → embeddings (sentence-transformers) → Milvus Lite pipeline.
+
+- **Dropbox ingest source adapter** — new `dropbox` provider for `IngestSourceOperator`, built on the official Dropbox Python SDK. Supports access-token and refresh-token (long-lived) OAuth2 authentication, cursor-based pagination, recursive or single-level folder traversal, single-file ingestion by path or file id, extension / size / glob-exclusion filters, `max_files` limits, and lazy binary retrieval by Dropbox file id. Adds the `dropbox==12.2.1` dependency. See [the adapter README](src/docpipe/core/operators/ingest/adapters/outbound/sources/dropbox/README.md).
 
 - **Full OCR engine exposure** — Both `docling_library` and `docling_serve` providers now accept an `ocr` block inside `text_extraction.provider_config`. Users can set `ocr.engine` (8 engines: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`), `ocr.mode` (`default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions`), `ocr.enabled` (bool), and `ocr.engine_options` (pass-through dict). The previously hardcoded `ocr_preset: "auto"` default in `DoclingServeClient` is removed — when no engine is specified, the docling-serve instance uses its own default. Old `do_ocr` / `ocr_engine` / `ocr_languages` fields remain functional but are deprecated in favour of the new `ocr` block.
 
