@@ -471,7 +471,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         skipped_indices = set()  # Track indices skipped due to unsupported extensions
 
         if doc_column_exists:
-            # Use existing content column
+            # Use existing content column directly; LLM classifiers benefit from structured DocLang XML
             doc_contents = table.column(self.doc_column).to_pylist()
             # No extraction metadata available when content already exists
             doc_extraction_metadata = [None] * table.num_rows

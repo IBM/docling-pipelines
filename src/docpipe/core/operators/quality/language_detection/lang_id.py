@@ -209,7 +209,11 @@ class LanguageDetect(AbstractOperator):
 
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
-        new_doc_content: list[Any] = table[self.doc_column].to_pylist()
+        # Retrieve markdown content for detection — reuses content_markdown if present
+        # or strips DocLang tags without modifying the original table.
+        new_doc_content: list[Any] = OperatorUtils.get_markdown_content_col(
+            table=table, col_name=self.doc_column, doc_format=self.doc_format
+        )
         language_name_column: list[str] = []
         language_score_column: list[float] = []
         remove_row_idx: list[int] = []
@@ -220,7 +224,7 @@ class LanguageDetect(AbstractOperator):
         for idx, doc_content in enumerate(new_doc_content):
             file_name: Any = file_name_list[idx] if idx < len(file_name_list) else "unknown"
             try:
-                result = self.language_adapter.detect_language(doc_content)
+                result = self.language_adapter.detect_language(doc_content or "")
                 language_name_column.append(result.language_code)
                 language_score_column.append(result.confidence)
             except Exception as e:

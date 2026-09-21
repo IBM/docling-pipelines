@@ -138,8 +138,21 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         In this case, the transform() from DocQualityTransform() foe each row in the content column
         generates document statistics and adds a column for each statistic.
         """
+        # Strip DocLang for quality scoring only — pass stripped content to super() so
+        # metrics are computed on plain text, then restore the original DocLang column in
+        # the output so downstream operators receive the content unchanged.
+        processing_table = OperatorUtils.strip_doclang_column(
+            table, col_name=self.doc_content_column, doc_format=self.doc_format
+        )
 
-        transformed_table: pa.Table = super().transform(table)[0][0]
+        transformed_table: pa.Table = super().transform(processing_table)[0][0]
+
+        transformed_table = OperatorUtils.restore_doclang_column(
+            transformed_table,
+            original_table=table,
+            col_name=self.doc_content_column,
+            processing_table=processing_table,
+        )
 
         total_docs: int = OperatorUtils.find_doc_count(table=table)
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)

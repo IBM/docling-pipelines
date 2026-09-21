@@ -58,6 +58,7 @@ class AbstractOperator(AbstractTableTransform):  # type: ignore[misc]
         self.doc_column: str = config.get(
             OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
+        self.doc_format: str = config.get(OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT)
         self.common_log_arguments = {
             DocpipeConstants.JOB_ID: self.job_id,
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,

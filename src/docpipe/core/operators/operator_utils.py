@@ -1376,6 +1376,172 @@ class OperatorUtils:
             return ".pptx"
         return ".docx"  # generic ZIP-based Office fallback
 
+    # ------------------------------------------------------------------
+    # DocLang format helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def doclang_to_markdown(text: str) -> str:
+        """Convert DocLang XML to Markdown using the docling-native deserializer.
+
+        Passes *text* through ``DocLangDocDeserializer().deserialize_str()``
+        and returns the result of ``export_to_markdown()``.
+
+        Fallback behaviour (two levels):
+
+        1. **Import unavailable** — ``docling_core`` is part of the extraction
+           stack and is absent in slim installs without the ``[extract]`` extra.
+           When the import fails an ``ImportError`` is caught and a simple regex
+           tag strip is performed instead.  The result is plain text rather than
+           structured Markdown, which is acceptable for rule-based operators
+           (language detection, readability, quality scoring) but loses heading
+           and table structure.
+
+        2. **Deserialisation failure** — if ``docling_core`` is present but
+           cannot parse the content (malformed XML), the same regex fallback is
+           used.
+
+        Returns the input unchanged when it is not XML at all (i.e. already
+        Markdown or empty string).
+
+        Args:
+            text: Raw string that may be DocLang XML, Markdown, or empty.
+
+        Returns:
+            Markdown string with no XML tags, or the original string if the
+            input was not XML.
+        """
+        if not text or not text.lstrip().startswith("<"):
+            return text
+
+        import re
+
+        try:
+            from docling_core.transforms.deserializer.doclang import DocLangDocDeserializer
+
+            return DocLangDocDeserializer().deserialize_str(text).export_to_markdown()
+        except ImportError:
+            logger.warning(
+                "docling_core is not available (slim install without [extract]); "
+                "falling back to regex tag strip for DocLang content"
+            )
+            return re.sub(r"<[^>]+>", "", text)
+        except Exception:
+            logger.warning("DocLang deserialisation failed; falling back to regex tag strip")
+            return re.sub(r"<[^>]+>", "", text)
+
+    @staticmethod
+    def get_markdown_content_col(
+        table: "pa.Table",
+        *,
+        col_name: str,
+        doc_format: str,
+    ) -> list[Any]:
+        """Return the document content as a list of markdown strings.
+
+        If ``content_markdown`` is present in *table*, its values are returned directly
+        without allocating a new table or deserializing DocLang XML.
+        Otherwise, if *doc_format* is ``"doclang"``, the column values are converted
+        from DocLang XML to markdown via :meth:`doclang_to_markdown`.
+        If *doc_format* is not ``"doclang"``, the column's raw values are returned as-is.
+
+        Args:
+            table: Input ``pa.Table``.
+            col_name: Name of the content column.
+            doc_format: Value of the ``doc_format`` config key.
+
+        Returns:
+            A list of document content strings in markdown/plain-text format.
+        """
+        markdown_col = OperatorConstants.Columns.CONTENT_MARKDOWN
+        if markdown_col in table.column_names:
+            return table[markdown_col].to_pylist()
+
+        if doc_format == OperatorConstants.DocFormat.DOCLANG and col_name in table.column_names:
+            return [OperatorUtils.doclang_to_markdown(v or "") for v in table[col_name].to_pylist()]
+
+        if col_name in table.column_names:
+            return table[col_name].to_pylist()
+
+        return []
+
+    @staticmethod
+    def strip_doclang_column(
+        table: "pa.Table",
+        *,
+        col_name: str,
+        doc_format: str,
+    ) -> "pa.Table":
+        """Return *table* with the named column stripped of DocLang XML tags.
+
+        A no-op when *doc_format* is not ``"doclang"`` or *col_name* is not
+        present in *table*. If ``content_markdown`` is already present in *table*
+        (e.g. from upstream extraction with Markdown in additional formats),
+        its array is reused directly to avoid deserializing DocLang XML.
+        Otherwise, every value in the column is passed through
+        :meth:`doclang_to_markdown` and the column is replaced in-place.
+
+        Operators that bulk-strip a content column before delegating to a base
+        class transform should call this method instead of inlining the
+        strip / ``set_column`` idiom.
+
+        Args:
+            table: Input ``pa.Table``.
+            col_name: Name of the column to strip.
+            doc_format: Value of the ``doc_format`` config key.
+
+        Returns:
+            The original table (unchanged object) when stripping is not needed,
+            or a new table with the named column replaced by plain-text values.
+        """
+        import pyarrow as pa
+
+        if doc_format != OperatorConstants.DocFormat.DOCLANG or col_name not in table.column_names:
+            return table
+
+        col_idx = table.schema.get_field_index(col_name)
+        markdown_col = OperatorConstants.Columns.CONTENT_MARKDOWN
+        if markdown_col in table.column_names and col_name != markdown_col:
+            return table.set_column(col_idx, col_name, table[markdown_col])
+
+        stripped = [OperatorUtils.doclang_to_markdown(v or "") for v in table[col_name].to_pylist()]
+        return table.set_column(col_idx, col_name, pa.array(stripped))
+
+    @staticmethod
+    def restore_doclang_column(
+        output_table: "pa.Table",
+        *,
+        original_table: "pa.Table",
+        col_name: str,
+        processing_table: "pa.Table",
+    ) -> "pa.Table":
+        """Restore the original column in *output_table* after DocLang stripping.
+
+        After an operator runs its logic on a *processing_table* (a stripped copy
+        produced by :meth:`strip_doclang_column`), the output table's content
+        column contains plain Markdown.  This method puts the original DocLang
+        column back so that downstream operators receive the content unchanged.
+
+        A no-op when ``processing_table is original_table`` (i.e. no stripping
+        was performed — :meth:`strip_doclang_column` returns the same object when
+        the format is not doclang).
+
+        Args:
+            output_table: Table returned by the operator's processing logic.
+            original_table: The unmodified input table passed to ``transform()``.
+            col_name: Name of the content column to restore.
+            processing_table: The stripped table that was passed to the processing
+                logic (returned by :meth:`strip_doclang_column`).
+
+        Returns:
+            *output_table* with the named column replaced by values from
+            *original_table*, or *output_table* unchanged if no stripping was done.
+        """
+        if processing_table is original_table or col_name not in output_table.column_names:
+            return output_table
+        col_idx = output_table.schema.get_field_index(col_name)
+        return output_table.set_column(col_idx, col_name, original_table[col_name])
+
     @staticmethod
     def _export_docling_formats(
         *,

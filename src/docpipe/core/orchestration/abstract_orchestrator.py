@@ -787,6 +787,60 @@ class AbstractOrchestrator(ABC):
         """The concrete subclasses needs to implement this method"""
         ...
 
+    def _resolve_link_results(
+        self,
+        *,
+        link_id: str,
+        prev_results: ExecuteStepResults,
+    ) -> ExecuteStepResults:
+        """Resolve branch-specific output table and metadata for a given link_id."""
+        if not isinstance(prev_results.internal_metadata, dict):
+            return prev_results
+
+        branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
+        if branches is None or not isinstance(branches, dict):
+            raise FlowExecutionFailedException("Expected branches metadata as a dict but found None or wrong type")
+
+        if len(prev_results.tables) != len(branches):
+            raise FlowExecutionFailedException(
+                f"Number of tables ({len(prev_results.tables)}) in previous operator output "
+                f"do not match branches ({len(branches)}) created."
+            )
+
+        branch_info = branches.get(link_id, {})
+        result_index = branch_info.get("result_index")
+        if result_index is None:
+            raise FlowExecutionFailedException(f"Result index not found for link_id {link_id}")
+
+        table = prev_results.tables[result_index]
+        data_access = prev_results.data_accesses[result_index]
+        return ExecuteStepResults([data_access], [table], branch_info)
+
+    def _handle_skipped_task(
+        self,
+        *,
+        op_def: dict,
+        global_config: dict,
+    ) -> None:
+        """Record node skip event with appropriate reason when execution cannot proceed."""
+        if self.job_status == ExecutionStatus.CANCELING:
+            skip_reason = "Skipped - job cancellation requested by user"
+        elif self.job_status == ExecutionStatus.FAILING:
+            skip_reason = "Skipped - cannot proceed due to failure in pipeline"
+        else:
+            skip_reason = "Skipped - no data received from previous step"
+
+        self.flow_execution_event_handler.after_node_skipped(
+            node_id=op_def[OperatorConstants.Columns.ID],
+            node_name=op_def[OperatorConstants.Columns.NAME],
+            operator_type=op_def[OperatorConstants.Misc.OPERATOR],
+            global_config=global_config,
+            start_time=get_current_timestamp(),
+            end_time=get_current_timestamp(),
+            column_names=[],
+            reason=skip_reason,
+        )
+
     def _inner_task(
         self,
         op_def,
@@ -818,56 +872,16 @@ class AbstractOrchestrator(ABC):
 
         self._sync_cancellation_status()
 
-        # Record skipped node when upstream failure prevents execution
+        # Record skipped node when upstream failure or cancellation prevents execution
         if prev_results is None or self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
-            # Determine user-friendly skip reason based on specific condition
-            if self.job_status == ExecutionStatus.CANCELING:
-                skip_reason = "Skipped - job cancellation requested by user"
-            elif self.job_status == ExecutionStatus.FAILING:
-                skip_reason = "Skipped - cannot proceed due to failure in pipeline"
-            else:  # prev_results is None
-                skip_reason = "Skipped - no data received from previous step"
-
-            # Record skipped node via event handler (which extracts batch context from global_config)
-            self.flow_execution_event_handler.after_node_skipped(
-                node_id=op_def[OperatorConstants.Columns.ID],
-                node_name=op_def[OperatorConstants.Columns.NAME],
-                operator_type=op_def[OperatorConstants.Misc.OPERATOR],
-                global_config=global_config,
-                start_time=get_current_timestamp(),
-                end_time=get_current_timestamp(),
-                column_names=[],
-                reason=skip_reason,
-            )
+            self._handle_skipped_task(op_def=op_def, global_config=global_config)
             return None
 
         set_session_info(session_info)
 
         try:
             if link_id and isinstance(prev_results, ExecuteStepResults):
-                if isinstance(prev_results.internal_metadata, dict):
-                    branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
-                    if branches is None or not isinstance(branches, dict):
-                        raise FlowExecutionFailedException(
-                            "Expected branches metadata as a dict but found None or wrong type"
-                        )
-
-                    if len(prev_results.tables) != len(branches):
-                        raise FlowExecutionFailedException(
-                            f"Number of tables ({len(prev_results.tables)}) in previous operator output "
-                            f"do not match branches ({len(branches)}) created."
-                        )
-
-                    branch_info = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
-                    result_index = branch_info.get("result_index")
-                    if result_index is None:
-                        raise FlowExecutionFailedException(f"Result index not found for link_id {link_id}")
-
-                    table = prev_results.tables[result_index]
-                    data_access = prev_results.data_accesses[result_index]
-                    internal_metadata = branch_info
-
-                    prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
+                prev_results = self._resolve_link_results(link_id=link_id, prev_results=prev_results)
 
             return self._execute_step(
                 op_def=op_def,

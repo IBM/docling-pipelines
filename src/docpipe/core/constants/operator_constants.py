@@ -23,6 +23,7 @@ All constants must be accessed through their nested class structure:
     - OperatorConstants.Misc.* for miscellaneous constants
 """
 
+from enum import StrEnum
 from typing import Final
 
 
@@ -103,6 +104,7 @@ class OperatorConstants:
         SUMMARY: Final[str] = "summary"
 
         # Multi-format extraction columns
+        CONTENT_MARKDOWN: Final[str] = "content_markdown"
         CONTENT_HTML: Final[str] = "content_html"
         CONTENT_JSON: Final[str] = "content_json"
         CONTENT_TEXT: Final[str] = "content_text"
@@ -658,8 +660,9 @@ class OperatorConstants:
         DOCLING_SERVE_DOCTAGS_CONTENT: Final[str] = "doctags_content"
         DOCLING_SERVE_DOCLANG_CONTENT: Final[str] = "doclang_content"
 
-        # Valid output formats list (markdown is always generated, so not in this list)
+        # Valid output formats list
         VALID_OUTPUT_FORMATS: Final[list[str]] = [
+            OUTPUT_FORMAT_MARKDOWN,
             OUTPUT_FORMAT_HTML,
             OUTPUT_FORMAT_JSON,
             OUTPUT_FORMAT_TEXT,
@@ -669,6 +672,7 @@ class OperatorConstants:
 
         # Mapping from format name to output column name
         FORMAT_COLUMN_MAPPING: Final[dict[str, str]] = {
+            OUTPUT_FORMAT_MARKDOWN: "content_markdown",
             OUTPUT_FORMAT_HTML: "content_html",
             OUTPUT_FORMAT_JSON: "content_json",
             OUTPUT_FORMAT_TEXT: "content_text",
@@ -1180,6 +1184,23 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         DEFAULT_RESOLVE_INHERITANCE: Final[bool] = True
         DEFAULT_EXPAND_GROUPS: Final[bool] = True
         DEFAULT_NORMALIZE_IDENTITIES: Final[bool] = True
+
+    class DocFormat(StrEnum):
+        """Document format values for the ``doc_format`` global config key.
+
+        Being a :class:`~enum.StrEnum`, members compare equal to their string
+        counterparts (``DocFormat.MARKDOWN == "markdown"``), so existing
+        ``config.get(...)`` calls and equality checks work without change.
+        Iterating over the class yields all valid values, removing the need for
+        a separate ``VALID_VALUES`` list.
+        """
+
+        MARKDOWN = "markdown"
+        DOCLANG = "doclang"
+
+    # Config key for doc_format — kept outside the StrEnum so it is not an enum member
+    DOC_FORMAT_KEY: Final[str] = "doc_format"
+    DOC_FORMAT_DEFAULT: Final[str] = DocFormat.MARKDOWN
 
     # Columns that cannot be dropped by any operator (e.g. SQLFilterOperator).
     # Downstream operators depend on these being present in the pipeline table.

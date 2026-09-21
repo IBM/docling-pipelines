@@ -142,7 +142,6 @@ class AbstractOperatorExecutor:
         Default is a no-op.  Subclasses that construct and cache an operator
         override this to run the operator's ``cleanup()``.  Must never raise.
         """
-        return
 
     @abstractmethod
     def get_operator(self) -> AbstractOperator:

@@ -113,7 +113,6 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-
         # Configuration mapping: (attribute_name, config_key, default_value)
         config_mappings = [
             # Detection configuration
@@ -617,6 +616,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         remove_row_idx: list[int] = []
         remove_row_id: list[str] = []
+        # LLM-based PII/HAP detection may benefit from structured DocLang XML; pass content as-is
         new_doc_content = table[self.doc_column].to_pylist()
         name_column = table[OperatorConstants.Misc.NAME].to_pylist()
         id_column = table[OperatorConstants.Columns.ID].to_pylist()

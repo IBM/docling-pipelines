@@ -267,7 +267,6 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         self.doc_column = self.text_extraction_config.get(
             OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
-
         # Extract entity extraction parameters
         if entity_extraction_config:
             self.output_column = entity_extraction_config.get(
@@ -308,6 +307,18 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         # Preserve ingest_source from config if present (for cloud source binary fetching)
         if OperatorConstants.Config.INGEST_SOURCE in config:
             global_config[OperatorConstants.Config.INGEST_SOURCE] = config[OperatorConstants.Config.INGEST_SOURCE]
+
+        # When doc_format=doclang, ensure "doclang" is in additional_formats so the
+        # adapter extracts DocLang XML. The adapter always produces markdown as its
+        # primary output; promotion to doc_column happens at table assembly below.
+        if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+            doclang_fmt = OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
+            existing = self.text_extraction_config.get(OperatorConstants.Extraction.ADDITIONAL_FORMATS, [])
+            if doclang_fmt not in existing:
+                self.text_extraction_config = {
+                    **self.text_extraction_config,
+                    OperatorConstants.Extraction.ADDITIONAL_FORMATS: [*existing, doclang_fmt],
+                }
 
         # Create text extraction adapter - pass nested config directly
         try:
@@ -1189,7 +1200,25 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
             for fmt in format_lists:
                 format_lists[fmt] = [v for i, v in enumerate(format_lists[fmt]) if i not in remove_set]
 
-        # Add extracted text content column
+        # When doc_format=doclang, promote DocLang XML into the primary doc_column.
+        # The adapter always produces markdown as its primary output (doc_contents) and
+        # DocLang via additional_formats. Swap them here: DocLang becomes doc_column
+        # (the content column), and markdown is discarded — the user chose doclang as
+        # their format, so content_markdown is not added unless they explicitly requested
+        # it via additional_formats.
+        doclang_key = OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
+        if (
+            self.doc_format == OperatorConstants.DocFormat.DOCLANG
+            and doclang_key in format_lists
+            and any(v is not None for v in format_lists[doclang_key])
+        ):
+            doc_contents = [v or "" for v in format_lists.pop(doclang_key)]
+            # Discard the adapter's markdown output — user requested doclang only.
+            # It will not appear as content_markdown unless they listed "markdown"
+            # in additional_formats explicitly.
+            format_lists.pop(OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN, None)
+
+        # Add extracted content column (markdown or doclang depending on doc_format)
         table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
 
         # Add additional format columns
