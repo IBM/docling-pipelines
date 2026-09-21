@@ -38,6 +38,7 @@ class RestMethod(Enum):
     PUT = "PUT"
     PATCH = "PATCH"
     DELETE = "DELETE"
+    HEAD = "HEAD"
 
 
 class MethodConfig(TypedDict):
@@ -65,6 +66,10 @@ METHOD_CONFIG: dict[RestMethod, MethodConfig] = {
     },
     RestMethod.DELETE: {
         "expected_status_codes": [200, 204],
+        "supports_body": False,
+    },
+    RestMethod.HEAD: {
+        "expected_status_codes": [200],
         "supports_body": False,
     },
 }
