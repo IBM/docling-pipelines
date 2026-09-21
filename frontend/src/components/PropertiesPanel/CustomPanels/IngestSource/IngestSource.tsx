@@ -39,8 +39,9 @@ import {
 } from './constants';
 import common from '../../CommonPropertiesPanel.module.scss';
 import { isValidJsonObject, toJsonString } from '@/utils/json';
+import { isVaultReference } from '@/utils/vault';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
-import { RequiredParamTooltip } from '@/components/common';
+import { RequiredParamTooltip, VaultInput } from '@/components/common';
 
 interface IngestSourcePanelBodyProps {
   controller: any;
@@ -376,43 +377,51 @@ export function IngestSourcePanelBody({
       </div>
 
       {/* ── Credentials ────────────────────────────────────────────── */}
-      {/* TODO: Integrate support for vault reference URL */}
       <div className={common.formField}>
-        <div className={common.labelWithTooltip}>
-          <RequiredParamTooltip
-            paramId={ATTR.CREDENTIALS}
-            nodeAttributes={nodeAttributes}
-            definition={nodeAttributes[ATTR.CREDENTIALS]?.description ?? ''}
-          >
-            {LABEL.CREDENTIALS}
-          </RequiredParamTooltip>
-        </div>
-        <TextArea
+        <VaultInput
           id="credentials"
           labelText={LABEL.CREDENTIALS}
-          hideLabel
-          value={credentialsRawEdit ?? credentialsStored}
+          labelComponent={
+            <RequiredParamTooltip
+              paramId={ATTR.CREDENTIALS}
+              nodeAttributes={nodeAttributes}
+              definition={nodeAttributes[ATTR.CREDENTIALS]?.description ?? ''}
+            >
+              {LABEL.CREDENTIALS}
+            </RequiredParamTooltip>
+          }
+          multiline
           rows={4}
+          defaultValue={toJsonString(nodeAttributes[ATTR.CREDENTIALS]?.default)}
+          value={credentialsRawEdit ?? credentialsStored}
           invalid={
             credentialsValidation.isInvalid ||
-            (touchedFields.credentials && !isValidJsonObject(credentialsRawEdit ?? credentialsStored))
+            Boolean(
+              touchedFields.credentials &&
+              !isVaultReference(credentialsRawEdit ?? credentialsStored) &&
+              (credentialsRawEdit ?? credentialsStored).trim() !== '' &&
+              !isValidJsonObject(credentialsRawEdit ?? credentialsStored)
+            )
           }
           invalidText={
             credentialsValidation.isInvalid
               ? credentialsValidation.errorMessage
-              : 'Credentials must be a valid JSON object.'
+              : 'Credentials must be a valid JSON object or a vault:// reference.'
           }
-          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-            const rawInput = e.target.value;
-            setCredentialsRawEdit(rawInput);
-            if (rawInput === '' || isValidJsonObject(rawInput)) {
-              controller?.updatePropertyValue?.({ name: ATTR.CREDENTIALS }, rawInput === '' ? null : (JSON.parse(rawInput) as Record<string, unknown>));
-            }
-          }}
-          onBlur={() => {
-            markFieldAsTouched('credentials');
-            if (credentialsRawEdit !== null && isValidJsonObject(credentialsRawEdit)) {
-              setCredentialsRawEdit(null);
+          onChange={(v: string) => {
+            setCredentialsRawEdit(null);
+            if (v === '') {
+              controller?.updatePropertyValue?.({ name: ATTR.CREDENTIALS }, null);
+            } else if (isVaultReference(v)) {
+              controller?.updatePropertyValue?.({ name: ATTR.CREDENTIALS }, v);
+            } else if (isValidJsonObject(v)) {
+              try {
+                controller?.updatePropertyValue?.({ name: ATTR.CREDENTIALS }, JSON.parse(v) as Record<string, unknown>);
+              } catch {
+                controller?.updatePropertyValue?.({ name: ATTR.CREDENTIALS }, v);
+              }
+            } else {
+              controller?.updatePropertyValue?.({ name: ATTR.CREDENTIALS }, v);
             }
           }}
         />

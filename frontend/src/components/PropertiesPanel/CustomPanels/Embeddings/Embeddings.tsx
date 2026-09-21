@@ -9,7 +9,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
-import { RequiredParamTooltip } from '@/components/common';
+import { RequiredParamTooltip, VaultInput } from '@/components/common';
 import {
   Accordion,
   AccordionItem,
@@ -18,7 +18,6 @@ import {
   InlineLoading,
   InlineNotification,
   NumberInput,
-  PasswordInput,
   TextInput,
 } from '@carbon/react';
 import {
@@ -245,22 +244,22 @@ export function EmbeddingsPanelBody({ controller }: EmbeddingsPanelBodyProps): R
         </div>
 
         <div className={common.formField}>
-          <div className={common.labelWithTooltip}>
-            <DefinitionTooltip
-              definition={providerFieldDesc(provider, ATTR.PROVIDER_CONFIG_API_KEY)} // pragma: allowlist secret
-              openOnHover
-              align="right"
-            >
-              {LABEL.API_KEY}
-            </DefinitionTooltip>
-          </div>
-          <PasswordInput
+          <VaultInput
             id="embeddings-api-key"
             labelText={LABEL.API_KEY}
-            hideLabel
+            labelComponent={
+              <DefinitionTooltip
+                definition={providerFieldDesc(provider, ATTR.PROVIDER_CONFIG_API_KEY)} // pragma: allowlist secret
+                openOnHover
+                align="right"
+              >
+                {LABEL.API_KEY}
+              </DefinitionTooltip>
+            }
+            placeholder="sk-..."
             value={apiKey}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              updateProviderConfig(ATTR.PROVIDER_CONFIG_API_KEY, e.target.value);
+            onChange={(v: string) => {
+              updateProviderConfig(ATTR.PROVIDER_CONFIG_API_KEY, v);
             }}
           />
         </div>

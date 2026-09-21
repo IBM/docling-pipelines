@@ -110,6 +110,14 @@ class TestStorageOutputOperatorValidation:
         op.validate(errors, warnings, available_features=["id", "name", "path", "metadata", "document_format"])
         assert any("content" in e for e in errors)
 
+    def test_get_metadata_declares_sensitive_credentials(self):
+        metadata = StorageOutputOperator.get_metadata()
+        attributes = metadata.get("attributes", {})
+        dest_cfg = attributes.get("destination_config", {})
+        properties = dest_cfg.get("properties", {})
+        credentials = properties.get("credentials", {})
+        assert credentials.get("sensitive") is True
+
 
 class TestStorageOutputOperatorProcessedContent:
     def test_writes_md_files_to_disk(self, tmp_path):

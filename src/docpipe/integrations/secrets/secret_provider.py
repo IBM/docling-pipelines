@@ -15,6 +15,7 @@ Examples:
     vault://hashicorp/opensearch/credentials#username
 """
 
+import json
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -132,6 +133,24 @@ def parse_reference(value: str) -> SecretReference | None:
     )
 
 
+def parse_vault_reference(ref: str) -> tuple[str, str, str | None]:
+    """Parse a vault:// URI into (provider_name, secret_path, secret_key).
+
+    Args:
+        ref: The vault reference string.
+
+    Returns:
+        Tuple of (provider_name, path, optional_key).
+
+    Raises:
+        ValueError: If the string is not a valid vault reference.
+    """
+    parsed = parse_reference(ref)
+    if parsed is None:
+        raise ValueError(f"Invalid vault reference: '{ref}'")
+    return parsed.provider, parsed.path, parsed.key
+
+
 def is_vault_reference(value: Any) -> bool:
     """Check if a value is a vault:// reference string.
 
@@ -201,7 +220,20 @@ def resolve_value(value: Any) -> Any:
             )
 
         logger.debug("Resolving vault reference: provider=%s, path=%s, key=%s", ref.provider, ref.path, ref.key)
-        return provider.get_secret(path=ref.path, key=ref.key)
+        secret = provider.get_secret(path=ref.path, key=ref.key)
+
+        # If the resolved secret is a JSON object or array string, parse it back
+        # to a native Python value. This supports storing structured credentials
+        # (e.g. {"access_key": "...", "secret_key": "..."}) as a single vault key.
+        if isinstance(secret, str):
+            stripped = secret.strip()
+            if stripped.startswith(("{", "[")):
+                try:
+                    return json.loads(stripped)
+                except json.JSONDecodeError:
+                    pass
+
+        return secret
 
     if isinstance(value, dict):
         return {k: resolve_value(v) for k, v in value.items()}

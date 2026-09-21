@@ -184,18 +184,26 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         clazz = self.operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
             raise DocpipeException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")
-        from docpipe.integrations.secrets.secret_provider import has_vault_references, resolve_value
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference, resolve_value
 
-        if has_vault_references(self._params):
-            vault_keys = (
-                [k for k, v in self._params.items() if isinstance(v, str) and v.startswith("vault://")]
-                if isinstance(self._params, dict)
-                else []
-            )
+        def _collect_vault_paths(obj: object, prefix: str = "") -> list[str]:
+            paths: list[str] = []
+            if isinstance(obj, str) and is_vault_reference(obj):
+                paths.append(prefix)
+            elif isinstance(obj, dict):
+                for k, v in obj.items():
+                    paths.extend(_collect_vault_paths(v, f"{prefix}.{k}" if prefix else str(k)))
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    paths.extend(_collect_vault_paths(item, f"{prefix}[{i}]"))
+            return paths
+
+        vault_paths = _collect_vault_paths(self._params)
+        if vault_paths:
             logger.info(
-                "Resolving vault references in operator '%s' config for keys: %s",
+                "Resolving vault references in operator '%s' config for paths: %s",
                 self._operator,
-                vault_keys,
+                vault_paths,
             )
             resolved_params = resolve_value(self._params)
             logger.info("Vault references resolved successfully for operator '%s'", self._operator)

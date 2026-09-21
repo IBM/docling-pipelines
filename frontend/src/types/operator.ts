@@ -33,6 +33,7 @@ export interface OperatorPropertyDef {
   required?: boolean;
   default?: unknown;
   valid_values?: string[];
+  sensitive?: boolean;
 }
 
 /**
@@ -51,6 +52,7 @@ export interface OperatorFeature {
   default: unknown;
   available_for_filter: boolean | null;
   available_for_vector_db: boolean | null;
+  sensitive?: boolean;
   /** provider_config style: maps provider id → schema with properties. */
   providers?: Record<string, {
     name: string;

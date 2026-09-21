@@ -923,9 +923,13 @@ class AbstractOrchestrator(ABC):
             connection_params = operator_config.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
             credentials = operator_config.get(OperatorConstants.Config.CREDENTIALS, {})
 
-            # Merge connection_params and credentials for adapter compatibility
-            # Some adapters expect all config in connection_params, others split them
-            merged_connection_params = {**connection_params, **credentials}
+            # Merge connection_params and credentials for adapter compatibility.
+            # credentials may be a vault:// string (resolved at operator execution time,
+            # not here) — only unpack it when it is already a dict.
+            merged_connection_params = {
+                **connection_params,
+                **(credentials if isinstance(credentials, dict) else {}),
+            }
 
             global_config[OperatorConstants.Config.INGEST_SOURCE] = {
                 OperatorConstants.Config.PROVIDER: operator_config.get(OperatorConstants.Config.PROVIDER),

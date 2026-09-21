@@ -279,6 +279,7 @@ class StorageOutputOperator(AbstractOperator):
                             ),
                             OperatorConstants.Config.REQUIRED: False,
                             OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                            OperatorConstants.Config.SENSITIVE: True,
                         },
                     },
                 },

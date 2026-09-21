@@ -28,3 +28,5 @@ export { ReadOnlyCanvas } from './ReadOnlyCanvas/ReadOnlyCanvas';
 export { RunStatusTopPanel } from './RunStatusTopPanel/RunStatusTopPanel';
 export { RunSidePanel } from './RunSidePanel/RunSidePanel';
 export { RequiredParamTooltip } from './RequiredParamTooltip/RequiredParamTooltip';
+export { VaultInput } from './VaultInput';
+export type { VaultInputProps } from './VaultInput';

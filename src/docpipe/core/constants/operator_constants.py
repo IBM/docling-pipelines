@@ -213,6 +213,7 @@ class OperatorConstants:
         PROVIDER_LITELLM: Final[str] = "litellm"
         PROVIDER_WATSONX: Final[str] = "watsonx"
         REQUIRED: Final[str] = "required"
+        SENSITIVE: Final[str] = "sensitive"
         USERNAME: Final[str] = "username"
 
         # Logging Configuration

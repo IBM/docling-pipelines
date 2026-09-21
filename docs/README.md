@@ -29,6 +29,7 @@ Task-oriented guides to help you accomplish specific goals:
 ### Advanced Topics
 - **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)** - Production deployment and optimization
 - **[Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)** - Credential management, authentication, ACL, and production hardening
+- **[Vault Integration Guide](guides/VAULT_INTEGRATION_GUIDE.md)** - HashiCorp Vault credential management, AppRole setup, and `vault://` URI usage
 - **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)** - LLM integration patterns
 - **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)** - Managing document collections
 - **[Document Class Utils](guides/DOCUMENT_CLASS_UTILS.md)** - Document schema utilities
@@ -78,6 +79,8 @@ Integration-specific documentation:
 - **[Milvus](integrations/milvus/)** - Vector storage with Milvus
 - **[Prefect](integrations/prefect/)** - Distributed execution with Prefect
   - [Distributed Execution Guide](integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
+- **[HashiCorp Vault](integrations/vault/)** - Secure credential resolution and secret management
+  - [Integration Guide](guides/VAULT_INTEGRATION_GUIDE.md)
 
 ## 🛠️ Contributing
 

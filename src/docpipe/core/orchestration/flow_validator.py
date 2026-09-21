@@ -247,6 +247,75 @@ class FlowValidator:
             )
         self.validate_dag(flow_def=flow_def, global_config=global_config)
 
+    @staticmethod
+    def _sanitize_vault_refs_for_validation(value: object, *, key: str | None = None) -> object:
+        """Replace vault:// references with safe validation mock values.
+
+        Operators receive non-empty mock structures rather than unresolved URIs
+        so that required presence checks and dict validation pass cleanly.
+        """
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference
+
+        if isinstance(value, str) and is_vault_reference(value):
+            if key in ("credentials", "credentials_json", "provider_credentials"):
+                return {"__vault_mock__": True}
+            return "__vault_placeholder__"
+        if isinstance(value, dict):
+            return {k: FlowValidator._sanitize_vault_refs_for_validation(v, key=str(k)) for k, v in value.items()}
+        if isinstance(value, list):
+            return [FlowValidator._sanitize_vault_refs_for_validation(item, key=key) for item in value]
+        return value
+
+    def _validate_vault_references(self, *, dag: list, validate_results: ValidateStepResults) -> None:
+        """Validate vault reference URIs and warn when referenced provider is not registered."""
+        from docpipe.integrations.secrets.secret_provider import (
+            get_provider,
+            is_vault_reference,
+            parse_vault_reference,
+        )
+
+        def _collect_vault_refs(obj: object, prefix: str = "") -> list[tuple[str, str]]:
+            found: list[tuple[str, str]] = []
+            if isinstance(obj, str) and is_vault_reference(obj):
+                found.append((prefix, obj))
+            elif isinstance(obj, dict):
+                for k, v in obj.items():
+                    found.extend(_collect_vault_refs(v, f"{prefix}.{k}" if prefix else str(k)))
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    found.extend(_collect_vault_refs(item, f"{prefix}[{i}]"))
+            return found
+
+        for op_def in dag:
+            config = op_def.get(OperatorConstants.Config.CONFIG, {})
+            for path, ref in _collect_vault_refs(config):
+                try:
+                    provider_name, _, _ = parse_vault_reference(ref)
+                except Exception:
+                    add_validation_alert(
+                        message=ValidationMessage(
+                            message=f"Config key '{path}' contains a malformed vault URI: '{ref}'.",
+                            message_code="VAULT_URI_MALFORMED",
+                        ),
+                        op_def=op_def,
+                        alerts=validate_results.errors,
+                    )
+                    continue
+                if not provider_name or get_provider(name=provider_name) is None:
+                    add_validation_alert(
+                        message=ValidationMessage(
+                            message=(
+                                f"Config key '{path}' references vault provider "
+                                f"'{provider_name}' which is not currently registered. "
+                                "Set DOCPIPE_VAULT_ENABLED=true and ensure "
+                                "VAULT_ROLE_ID / VAULT_SECRET_ID are set."
+                            ),
+                            message_code="VAULT_PROVIDER_NOT_REGISTERED",
+                        ),
+                        op_def=op_def,
+                        alerts=validate_results.warnings,
+                    )
+
     def validate_dag(self, *, flow_def: FlowConfig, global_config: FlowConfig) -> None:
         """Validate the DAG structure and all nodes.
 
@@ -334,6 +403,7 @@ class FlowValidator:
         self._validate_disjoint_operators(dag=dag, validate_results=validate_results)
         self._validate_no_cycles(dag=dag, validate_results=validate_results)
         self._validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
+        self._validate_vault_references(dag=dag, validate_results=validate_results)
 
         def node_validation_task(task_name, op_def, result=None, link_name=None):
             return self._validate_node(
@@ -507,6 +577,7 @@ class FlowValidator:
                         | op_def.get(OperatorConstants.Config.CONFIG, {})
                         | {DocpipeConstants.VALIDATING_FLOW: True}
                     )
+                    config = self._sanitize_vault_refs_for_validation(config)
                     operator = operator_class(config=config)
                     operator.name = op_def.get(OperatorConstants.Columns.NAME)
                     operator.id = op_def.get(OperatorConstants.Columns.ID)

@@ -211,6 +211,13 @@ def resolve_env_var(value: Any) -> Any:
     return value
 
 
+# Field names that indicate secret material — used by _to_docpipe() to auto-tag sensitive: true.
+# Mirrors SENSITIVE_KEY_NAMES in flow_mapper.py; keep both in sync when adding new names.
+SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
+    {"password", "api_key", "jwt_token", "token", "secret_key", "client_secret", "credentials", "credentials_json"}
+)
+
+
 def format_failed_docs_summary(*, failed_docs: list) -> str:
     """Build a human-readable failure summary from a list of failed-doc dicts.
 
@@ -1272,6 +1279,14 @@ class OperatorUtils:
         # docpipe[NAME] — because required_fields contains property keys.
         if field_key and field_key in required_fields:
             docpipe[OperatorConstants.Config.REQUIRED] = True
+
+        # Sensitive field detection for secrets/credentials (Vault integration)
+        if field_key and (
+            field_key.lower() in SENSITIVE_FIELD_NAMES
+            or node.get("sensitive") is True
+            or (isinstance(node.get("json_schema_extra"), dict) and node["json_schema_extra"].get("sensitive") is True)
+        ):
+            docpipe[OperatorConstants.Config.SENSITIVE] = True
 
         if OperatorConstants.Config.PROPERTIES in node:
             child_required = set(node.get(OperatorConstants.Config.REQUIRED, []))

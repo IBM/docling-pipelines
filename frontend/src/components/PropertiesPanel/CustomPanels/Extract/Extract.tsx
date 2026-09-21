@@ -6,7 +6,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
-import { RequiredParamTooltip } from '@/components/common';
+import { RequiredParamTooltip, VaultInput } from '@/components/common';
 import {
   Accordion,
   AccordionItem,
@@ -14,7 +14,6 @@ import {
   DefinitionTooltip,
   Dropdown,
   NumberInput,
-  PasswordInput,
   TextArea,
   TextInput,
   Toggle,
@@ -670,22 +669,23 @@ export function ExtractPanelBody({ controller }: ExtractPanelBodyProps): React.J
             </div>
 
             <div className={styles.formField}>
-              <div className={common.labelWithTooltip}>
-                <DefinitionTooltip
-                  definition="API key for authenticating with the Docling Serve endpoint (if required)."
-                  openOnHover
-                  align="right"
-                >
-                  {LABEL.SERVE_API_KEY}
-                </DefinitionTooltip>
-              </div>
-              <PasswordInput
+              <VaultInput
                 id="serve_api_key"
                 labelText={LABEL.SERVE_API_KEY}
-                hideLabel
+                labelComponent={
+                  <div className={common.labelWithTooltip}>
+                    <DefinitionTooltip
+                      definition="API key for authenticating with the Docling Serve endpoint (if required)."
+                      openOnHover
+                      align="right"
+                    >
+                      {LABEL.SERVE_API_KEY}
+                    </DefinitionTooltip>
+                  </div>
+                }
                 value={serveApiKey}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  updateTextProviderConfig(DOCLING_SERVE_CONFIG_KEY.API_KEY, e.target.value || null);
+                onChange={(v: string) => {
+                  updateTextProviderConfig(DOCLING_SERVE_CONFIG_KEY.API_KEY, v || null);
                 }}
               />
             </div>
@@ -1057,22 +1057,23 @@ export function ExtractPanelBody({ controller }: ExtractPanelBodyProps): React.J
                 </div>
 
                 <div className={styles.formField}>
-                  <div className={common.labelWithTooltip}>
-                    <DefinitionTooltip
-                      definition="API key for authenticating with the LLM provider."
-                      openOnHover
-                      align="right"
-                    >
-                      {LABEL.ENTITY_API_KEY}
-                    </DefinitionTooltip>
-                  </div>
-                  <PasswordInput
+                  <VaultInput
                     id="entity_litellm_api_key"
                     labelText={LABEL.ENTITY_API_KEY}
-                    hideLabel
+                    labelComponent={
+                      <div className={common.labelWithTooltip}>
+                        <DefinitionTooltip
+                          definition="API key for authenticating with the LLM provider."
+                          openOnHover
+                          align="right"
+                        >
+                          {LABEL.ENTITY_API_KEY}
+                        </DefinitionTooltip>
+                      </div>
+                    }
                     value={strVal(entityProviderConfig, LLM_ENTITY_CONFIG_KEY.API_KEY)} // pragma: allowlist secret
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      updateEntityProviderConfig(LLM_ENTITY_CONFIG_KEY.API_KEY, e.target.value || null);
+                    onChange={(v: string) => {
+                      updateEntityProviderConfig(LLM_ENTITY_CONFIG_KEY.API_KEY, v || null);
                     }}
                   />
                 </div>
@@ -1182,22 +1183,23 @@ export function ExtractPanelBody({ controller }: ExtractPanelBodyProps): React.J
                 </div>
 
                 <div className={styles.formField}>
-                  <div className={common.labelWithTooltip}>
-                    <DefinitionTooltip
-                      definition="API key for authenticating with IBM watsonx."
-                      openOnHover
-                      align="right"
-                    >
-                      {LABEL.ENTITY_API_KEY}
-                    </DefinitionTooltip>
-                  </div>
-                  <PasswordInput
+                  <VaultInput
                     id="entity_watsonx_api_key"
                     labelText={LABEL.ENTITY_API_KEY}
-                    hideLabel
+                    labelComponent={
+                      <div className={common.labelWithTooltip}>
+                        <DefinitionTooltip
+                          definition="API key for authenticating with IBM watsonx."
+                          openOnHover
+                          align="right"
+                        >
+                          {LABEL.ENTITY_API_KEY}
+                        </DefinitionTooltip>
+                      </div>
+                    }
                     value={strVal(entityProviderConfig, LLM_ENTITY_CONFIG_KEY.API_KEY)} // pragma: allowlist secret
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      updateEntityProviderConfig(LLM_ENTITY_CONFIG_KEY.API_KEY, e.target.value || null);
+                    onChange={(v: string) => {
+                      updateEntityProviderConfig(LLM_ENTITY_CONFIG_KEY.API_KEY, v || null);
                     }}
                   />
                 </div>

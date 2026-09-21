@@ -12,14 +12,15 @@ import {
   AccordionItem,
   Dropdown,
   NumberInput,
-  PasswordInput,
   TextInput,
   Toggle,
 } from '@carbon/react';
 import type { OperatorFeature, OperatorMetadata } from '@/types';
 import { NodeOperator } from '@/constants/operators';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
-import { RequiredParamTooltip } from '@/components/common';
+import { RequiredParamTooltip, VaultInput } from '@/components/common';
+import { isVaultReference } from '@/utils/vault';
+import { isValidJsonObject, toJsonString } from '@/utils/json';
 import { JsonTextArea } from '@/components/common/JsonTextArea/JsonTextArea';
 import { TagInput } from '@/components/common/TagInput/TagInput';
 import {
@@ -89,7 +90,10 @@ export function StorageOutputPanelBody({
     ?.valid_values as string[] ?? [];
 
   const providerConfig = (destinationConfig[DESTINATION_CONFIG_KEY.PROVIDER_CONFIG] as Record<string, unknown> | undefined) ?? {};
-  const credentials = (destinationConfig[DESTINATION_CONFIG_KEY.CREDENTIALS] as Record<string, unknown> | undefined) ?? {};
+  const credentialsRaw = destinationConfig[DESTINATION_CONFIG_KEY.CREDENTIALS];
+  const credentialsStored = (credentialsRaw !== undefined && credentialsRaw !== null)
+    ? (typeof credentialsRaw === 'string' ? credentialsRaw : toJsonString(credentialsRaw))
+    : '';
 
   // ── Read saved output_format values ──────────────────────────────────────
 
@@ -193,8 +197,6 @@ export function StorageOutputPanelBody({
 
   // common across all providers
   const createDirs = pcBool('create_dirs', true);
-
-  const credentialsStored = Object.keys(credentials).length > 0 ? credentials : null;
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);
@@ -365,13 +367,12 @@ export function StorageOutputPanelBody({
                 {LABEL.ACCESS_KEY}
               </RequiredParamTooltip>
             </div>
-            <PasswordInput
+            <VaultInput
               id="s3_access_key"
               labelText={LABEL.ACCESS_KEY}
-              hideLabel
               value={s3AccessKey}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                updateProviderConfig(S3_CONFIG_KEY.ACCESS_KEY, e.target.value);
+              onChange={(val: string) => {
+                updateProviderConfig(S3_CONFIG_KEY.ACCESS_KEY, val);
               }}
             />
           </div>
@@ -385,13 +386,12 @@ export function StorageOutputPanelBody({
                 {LABEL.SECRET_KEY}
               </RequiredParamTooltip>
             </div>
-            <PasswordInput
+            <VaultInput
               id="s3_secret_key"
               labelText={LABEL.SECRET_KEY}
-              hideLabel
               value={s3SecretKey}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                updateProviderConfig(S3_CONFIG_KEY.SECRET_KEY, e.target.value);
+              onChange={(val: string) => {
+                updateProviderConfig(S3_CONFIG_KEY.SECRET_KEY, val);
               }}
             />
           </div>
@@ -638,13 +638,12 @@ export function StorageOutputPanelBody({
                 {LABEL.CLIENT_SECRET}
               </RequiredParamTooltip>
             </div>
-            <PasswordInput
+            <VaultInput
               id="sp_client_secret"
               labelText={LABEL.CLIENT_SECRET}
-              hideLabel
               value={spClientSecret}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                updateProviderConfig(SHAREPOINT_CONFIG_KEY.CLIENT_SECRET, e.target.value);
+              onChange={(val: string) => {
+                updateProviderConfig(SHAREPOINT_CONFIG_KEY.CLIENT_SECRET, val);
               }}
             />
           </div>
@@ -924,24 +923,43 @@ export function StorageOutputPanelBody({
       {/* ── Credentials (optional, all providers) ───────────────────────── */}
       {provider && (
         <div className={common.formField}>
-          <div className={common.labelWithTooltip}>
-            <RequiredParamTooltip
-              paramId={DESTINATION_CONFIG_KEY.CREDENTIALS}
-              nodeAttributes={destAttrs}
-              definition={destAttrs[DESTINATION_CONFIG_KEY.CREDENTIALS]?.description ?? ''}
-            >
-              {LABEL.CREDENTIALS}
-            </RequiredParamTooltip>
-          </div>
-          <JsonTextArea
-            id="credentials"
+          <VaultInput
+            id="destination_credentials"
             labelText={LABEL.CREDENTIALS}
-            storedValue={credentialsStored}
+            labelComponent={
+              <RequiredParamTooltip
+                paramId={DESTINATION_CONFIG_KEY.CREDENTIALS}
+                nodeAttributes={destAttrs}
+                definition={destAttrs[DESTINATION_CONFIG_KEY.CREDENTIALS]?.description ?? ''}
+              >
+                {LABEL.CREDENTIALS}
+              </RequiredParamTooltip>
+            }
+            multiline
             rows={4}
-            onChange={(value) => {
+            value={credentialsStored}
+            invalid={
+              !isVaultReference(credentialsStored) &&
+              credentialsStored.trim() !== '' &&
+              !isValidJsonObject(credentialsStored)
+            }
+            invalidText="Credentials must be a valid JSON object or a vault:// reference."
+            onChange={(val: string) => {
+              let parsedValue: unknown = val;
+              if (isVaultReference(val)) {
+                parsedValue = val;
+              } else if (val.trim() === '') {
+                parsedValue = {};
+              } else {
+                try {
+                  parsedValue = JSON.parse(val);
+                } catch {
+                  parsedValue = val;
+                }
+              }
               controller?.updatePropertyValue?.(
                 { name: ATTR.DESTINATION_CONFIG },
-                { ...destinationConfig, [DESTINATION_CONFIG_KEY.CREDENTIALS]: value ?? {} }
+                { ...destinationConfig, [DESTINATION_CONFIG_KEY.CREDENTIALS]: parsedValue }
               );
             }}
           />

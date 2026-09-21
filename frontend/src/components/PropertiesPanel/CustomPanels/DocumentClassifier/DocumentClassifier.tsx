@@ -23,7 +23,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
-import { RequiredParamTooltip } from '@/components/common';
+import { RequiredParamTooltip, VaultInput } from '@/components/common';
+import { isVaultReference } from '@/utils/vault';
+import { isValidJsonObject, toJsonString } from '@/utils/json';
 import {
   DefinitionTooltip,
   Dropdown,
@@ -109,9 +111,15 @@ export function DocumentClassifierPanelBody({
     (controller?.getPropertyValue?.({ name: ATTR.PROVIDER }) as string | undefined)
     ?? (nodeAttributes[ATTR.PROVIDER]?.default as string | undefined);
 
-  const providerConfig = (controller?.getPropertyValue?.({ name: ATTR.PROVIDER_CONFIG }) as string | undefined)
-    ?? (nodeAttributes[ATTR.PROVIDER_CONFIG]?.default as string | undefined)
-    ?? '';
+  const providerConfigRaw = controller?.getPropertyValue?.({ name: ATTR.PROVIDER_CONFIG });
+  const providerConfigDefault = nodeAttributes[ATTR.PROVIDER_CONFIG]?.default;
+  const providerConfig = (typeof providerConfigRaw === 'string'
+    ? providerConfigRaw
+    : typeof providerConfigRaw === 'object' && providerConfigRaw !== null
+      ? JSON.stringify(providerConfigRaw, null, 2)
+      : typeof providerConfigDefault === 'string'
+        ? providerConfigDefault
+        : '') ?? '';
 
   // document_types stored as a comma-separated string; parse to derive the multi-select selection
   const documentTypesRaw = (controller?.getPropertyValue?.({ name: ATTR.DOCUMENT_TYPES }) as string | undefined)
@@ -188,27 +196,51 @@ export function DocumentClassifierPanelBody({
           config keys. This field should render provider-specific inputs rather than a
           generic JSON textarea once the per-provider config schema is available. */}
       <div className={common.formField}>
-        <div className={common.labelWithTooltip}>
-          <RequiredParamTooltip
-            paramId={ATTR.PROVIDER_CONFIG}
-            nodeAttributes={nodeAttributes}
-            definition={nodeAttributes[ATTR.PROVIDER_CONFIG]?.description ?? ''}
-          >
-            {LABEL.PROVIDER_CONFIG}
-          </RequiredParamTooltip>
-        </div>
-        <TextArea
+        <VaultInput
           id="provider_config"
           labelText={LABEL.PROVIDER_CONFIG}
-          hideLabel
-          placeholder='{"model": "ollama/mistral", "api_base": "http://localhost:11434"}'
-          value={providerConfig}
+          labelComponent={
+            <RequiredParamTooltip
+              paramId={ATTR.PROVIDER_CONFIG}
+              nodeAttributes={nodeAttributes}
+              definition={nodeAttributes[ATTR.PROVIDER_CONFIG]?.description ?? ''}
+            >
+              {LABEL.PROVIDER_CONFIG}
+            </RequiredParamTooltip>
+          }
+          multiline
           rows={3}
-          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-            controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, e.target.value);
+          defaultValue={toJsonString(nodeAttributes[ATTR.PROVIDER_CONFIG]?.default)}
+          value={providerConfig}
+          invalid={
+            providerConfigValidation.isInvalid ||
+            Boolean(
+              providerConfig.trim() !== '' &&
+              !isVaultReference(providerConfig) &&
+              !isValidJsonObject(providerConfig)
+            )
+          }
+          invalidText={
+            providerConfigValidation.isInvalid
+              ? providerConfigValidation.errorMessage
+              : 'Must be a valid JSON object or a vault:// reference.'
+          }
+          placeholder='{"model": "ollama/mistral", "api_base": "http://localhost:11434"}'
+          onChange={(v: string) => {
+            if (v === '') {
+              controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, null);
+            } else if (isVaultReference(v)) {
+              controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, v);
+            } else if (isValidJsonObject(v)) {
+              try {
+                controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, JSON.parse(v) as Record<string, unknown>);
+              } catch {
+                controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, v);
+              }
+            } else {
+              controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, v);
+            }
           }}
-          invalid={providerConfigValidation.isInvalid}
-          invalidText={providerConfigValidation.errorMessage}
         />
       </div>
 

@@ -308,8 +308,20 @@ class IngestSourceOperator(AbstractOperator):
         # Call parent validation for required features
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
 
-        # Validate adapter configuration for adapter-managed providers
-        if self.provider in ADAPTER_MANAGED_PROVIDERS:
+        # Validate adapter configuration for adapter-managed providers.
+        # Skip when credentials came from a vault reference — either still a
+        # vault:// string (execution path) or already replaced with the
+        # {"__vault_mock__": True} sentinel by the flow validator sanitizer.
+        # In both cases the real credentials are unavailable here and will be
+        # resolved at execution time.
+        # When credentials is a plain dict, run validation so missing fields
+        # are caught as early as possible.
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference
+
+        credentials_is_vault = is_vault_reference(self.credentials) or (
+            isinstance(self.credentials, dict) and self.credentials.get("__vault_mock__")
+        )
+        if self.provider in ADAPTER_MANAGED_PROVIDERS and not credentials_is_vault:
             try:
                 # Attempt to build adapter config to trigger Pydantic validation
                 # This will catch missing required fields like secret_key
@@ -1028,6 +1040,13 @@ class IngestSourceOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                     OperatorConstants.Config.PROVIDERS: IngestSourceOperator._get_provider_schemas(),
+                },
+                CREDENTIALS_KEY: {
+                    OperatorConstants.Columns.NAME: "Credentials",
+                    OperatorConstants.Config.DESCRIPTION: "Authentication credentials for the provider",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.SENSITIVE: True,
                 },
                 MAX_FILES_KEY: {
                     OperatorConstants.Columns.NAME: "Max Files",

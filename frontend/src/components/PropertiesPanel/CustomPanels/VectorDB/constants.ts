@@ -93,8 +93,12 @@ interface ProviderConfigBase {
   /** Fallback similarity options when operator metadata returns none. */
   defaultSimilarityValues: string[];
   /**
-   * All resource-specific keys to omit from provider_config before API calls.
-   * These are saved state, not connection parameters — the backend must not see them.
+   * Keys stripped from provider_config before enrichment API calls.
+   *
+   * Includes resource identity keys (e.g. `index_name`, `collection_name`) and
+   * index-creation-time parameters (e.g. `space_type`, `engine`, `algorithm`,
+   * `index_type`). These are fixed at creation and must not bleed into connection-
+   * level calls for a different or new resource.
    */
   resourceSpecificKeys: string[];
   /** Default provider_config JSON shown in the textarea when no config is saved yet. null = show empty textarea. */
@@ -131,7 +135,9 @@ const PROVIDER_CONFIG_MAP: Record<string, ProviderConfig> = {
     hasEngine:               true,
     engineKey:               'engine',
     engineLabels:            ENGINE_LABELS,
-    resourceSpecificKeys:    ['index_name', 'space_type', 'engine'],
+    // algorithm: index-creation-time KNN parameter (default: "hnsw"). No dedicated UI
+    // control — set via the Advanced JSON textarea if a non-default value is needed.
+    resourceSpecificKeys:    ['index_name', 'space_type', 'engine', 'algorithm'],
     defaultConfig:           null,
   },
   [VECTORDB_PROVIDERS.MILVUS]: {
@@ -142,7 +148,9 @@ const PROVIDER_CONFIG_MAP: Record<string, ProviderConfig> = {
     similarityLabels:        METRIC_TYPE_LABELS,
     defaultSimilarityValues: DEFAULT_METRIC_TYPE_VALUES,
     hasEngine:               false,
-    resourceSpecificKeys:    ['collection_name', 'metric_type'],
+    // index_type: index-creation-time ANN parameter (default: "HNSW"). No dedicated UI
+    // control — set via the Advanced JSON textarea if a non-default value is needed.
+    resourceSpecificKeys:    ['collection_name', 'metric_type', 'index_type'],
     defaultConfig:           null,
   },
 };
