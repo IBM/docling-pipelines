@@ -158,6 +158,14 @@ class VectorStorePort(ABC):
         """
         ...
 
+    def close(self) -> None:
+        """Release any resources held by the adapter (connections, file locks).
+
+        Called by the operator after transform completes or on failure.
+        Adapters that hold persistent connections or file locks must override this.
+        The default implementation is a no-op so existing adapters are unaffected.
+        """
+
     @abstractmethod
     def get_chunk_ids_for_documents(self, doc_ids: list[str]) -> dict[str, set[str]]:
         """Return all existing chunk PKs for the given document IDs.

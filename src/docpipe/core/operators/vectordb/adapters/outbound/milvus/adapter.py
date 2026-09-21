@@ -103,6 +103,7 @@ class MilvusAdapter(VectorStorePort):
         auth_type = adapter_config.get(OperatorConstants.VectorDB.AUTH_TYPE)
         secure = adapter_config.get(OperatorConstants.VectorDB.SECURE, False)
         batch_size = adapter_config.get(OperatorConstants.Config.BATCH_SIZE, 100)
+        is_lite: bool = auth_type == "lite"
 
         # Extract Milvus-specific parameters from provider_config in adapter_config
         index_type = adapter_config.get(OperatorConstants.VectorDB.INDEX_TYPE, DEFAULT_INDEX_TYPE)
@@ -142,6 +143,7 @@ class MilvusAdapter(VectorStorePort):
             primary_key_field=self.primary_key_field,
             auto_id=False,
             add_sparse_vector=self.add_sparse_vector,
+            is_lite=is_lite,
         )
 
         # Initialize batch processor
@@ -157,9 +159,16 @@ class MilvusAdapter(VectorStorePort):
         )
 
         logger.info(
-            f"Initialized MilvusAdapter for collection: {self.collection_name} "
-            f"(index: {index_type}, metric: {metric_type})"
+            "Initialized MilvusAdapter for collection: %s (index: %s, metric: %s, lite: %s)",
+            self.collection_name,
+            index_type,
+            metric_type,
+            is_lite,
         )
+
+    def close(self) -> None:
+        """Close the underlying Milvus client connection and release any file locks."""
+        self.client_manager.close()
 
     @staticmethod
     def get_config_schema() -> type[BaseModel]:

@@ -81,3 +81,8 @@ examples/LDAP/.env
 
 # Local test artifacts with credentials
 test_flows/
+
+# Private execution-granularity benchmark inputs and generated artifacts
+benchmarks/
+benchmark_results/
+benchmarks/execution_granularity/study.local.json
