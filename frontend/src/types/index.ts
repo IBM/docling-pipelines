@@ -1,7 +1,7 @@
 export type { ValidationResult, RequiredParamValidator } from '../utils/requiredParamValidation';
 export type { ThemeType, ThemeContextType } from './theme';
 export type { Notification, NotificationKind, NotificationPreferences, NotificationsState } from './notifications';
-export type { OperatorFeature, OperatorMetadata, OperatorsResponse, NodeFeatureEntry, FeatureAttributes, FeatureMappingRow, VectorDBEnrichmentResult, OperatorsState, ModelInfo, ModelsResponse, DocumentClassItem } from './operator';
+export type { OperatorFeature, OperatorMetadata, OperatorPropertyDef, OperatorsResponse, NodeFeatureEntry, FeatureAttributes, FeatureMappingRow, VectorDBEnrichmentResult, OperatorsState, ModelInfo, ModelsResponse, DocumentClassItem } from './operator';
 export type { FeatureMappingItem } from './vectordb';
 export type { ElyraController } from './elyra';
 export type { Flow, FlowState, FlowRunProperties, IntermediateDataStorageType, PaginatedFlowResponse, CreateFlowFormValues, FlowDefinition, JobRunSummary } from './flow';

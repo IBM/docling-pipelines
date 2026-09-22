@@ -24,39 +24,48 @@ export const INGEST_SOURCE_ATTRIBUTE = {
 } as const;
 
 /**
- * Configuration for the source locations input shown for providers where the
- * ingestion roots (filesystem paths, web URLs) are managed through a dedicated
- * TagInput rather than typed as an array in Connection parameters input.
+ * Custom loader provider value.
+ * UI falls back to the generic JSON TextArea for connection parameters.
  */
-export interface ProviderSourceLocationsConfig {
-  /** Key inside `connection_params` the backend expects (e.g. "paths", "urls"). */
-  paramKey: string;
-  /** User-friendly label shown above the TagInput. */
-  label: string;
-  /** Placeholder shown inside the empty TagInput. */
-  placeholder: string;
-  /** Helper text shown below the TagInput. */
-  helperText: string;
-}
+export const CUSTOM_PROVIDER = 'custom';
 
 /**
- * Maps provider names to their source locations config.
- * Providers not listed here have no separate source locations input.
+ * Maps backend provider keys to user-friendly display labels.
+ * Keys match the `valid_values` returned by the operator metadata.
  */
-export const PROVIDER_SOURCE_LOCATIONS: Record<string, ProviderSourceLocationsConfig> = {
-  filesystem: {
-    paramKey: 'paths',
-    label: 'Paths (required)',
-    placeholder: '/data/documents',
-    helperText: 'Type a path and press Enter or comma to add it.',
-  },
-  web: {
-    paramKey: 'urls',
-    label: 'URLs (required)',
-    placeholder: 'https://example.com',
-    helperText: 'Type a URL and press Enter or comma to add it.',
-  },
+export const PROVIDER_DISPLAY_LABELS: Record<string, string> = {
+  s3: 'Amazon S3',
+  ibm_cos: 'IBM Cloud Object Storage',
+  sharepoint: 'Microsoft SharePoint',
+  onedrive: 'Microsoft OneDrive',
+  google_drive: 'Google Drive',
+  box_driver: 'Box',
+  filesystem: 'Local filesystem',
+  web: 'Web',
+  custom: 'Custom loader',
 };
+
+/**
+ * User-friendly descriptions shown under the Provider configuration accordion
+ * for each provider.
+ */
+export const PROVIDER_DESCRIPTIONS: Record<string, string> = {
+  s3: 'Connect to an Amazon S3 bucket or any S3-compatible storage such as MinIO.',
+  ibm_cos: 'Connect to an IBM Cloud Object Storage bucket using S3-compatible credentials.',
+  sharepoint: 'Ingest documents from a Microsoft SharePoint document library using Azure AD app authentication.',
+  onedrive: 'Ingest documents from a Microsoft OneDrive drive using Azure AD app authentication.',
+  google_drive: 'Ingest documents from a Google Drive folder using a service account or OAuth credentials.',
+  box_driver: 'Ingest documents from a Box folder using a Box JWT service account credentials file.',
+  filesystem: 'Ingest documents from one or more paths on the local filesystem.',
+  web: 'Crawl and ingest documents from one or more web URLs.',
+  custom: 'Use a custom LangChain-compatible loader class. Provide the class path and any required parameters.',
+};
+
+/**
+ * Description shown under the Ingestion settings accordion.
+ */
+export const INGESTION_SETTINGS_DESCRIPTION =
+  'Control how many files are ingested and which file types are included or excluded.';
 
 /**
  * Union type of all valid `ingest_source` attribute key strings.
