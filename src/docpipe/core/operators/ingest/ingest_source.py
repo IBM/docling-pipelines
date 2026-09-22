@@ -1043,8 +1043,11 @@ class IngestSourceOperator(AbstractOperator):
                 },
                 CREDENTIALS_KEY: {
                     OperatorConstants.Columns.NAME: "Credentials",
-                    OperatorConstants.Config.DESCRIPTION: "Authentication credentials for the provider",
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Authentication credentials for the provider. Optional — credential fields "
+                        "can be passed directly inside connection_params instead."
+                    ),
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                     OperatorConstants.Config.SENSITIVE: True,
                 },

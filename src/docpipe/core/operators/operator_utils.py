@@ -212,9 +212,23 @@ def resolve_env_var(value: Any) -> Any:
 
 
 # Field names that indicate secret material — used by _to_docpipe() to auto-tag sensitive: true.
-# Mirrors SENSITIVE_KEY_NAMES in flow_mapper.py; keep both in sync when adding new names.
 SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
-    {"password", "api_key", "jwt_token", "token", "secret_key", "client_secret", "credentials", "credentials_json"}
+    {
+        "password",
+        "api_key",
+        "jwt_token",
+        "token",
+        "access_key",
+        "secret_key",
+        "client_id",
+        "client_secret",
+        "tenant_id",
+        "credentials",
+        "credentials_json",
+        "credentials_path",
+        "token_path",
+        "service_account_json_path",
+    }
 )
 
 

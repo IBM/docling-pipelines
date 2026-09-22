@@ -17,9 +17,13 @@ class S3SourceConfig(BaseModel):
     """
 
     # AWS credentials
-    access_key: str = Field(..., description="AWS access key ID or S3-compatible access key")
+    access_key: str = Field(
+        ..., description="AWS access key ID or S3-compatible access key", json_schema_extra={"sensitive": True}
+    )
 
-    secret_key: str = Field(..., description="AWS secret access key or S3-compatible secret key")
+    secret_key: str = Field(
+        ..., description="AWS secret access key or S3-compatible secret key", json_schema_extra={"sensitive": True}
+    )
 
     # S3 bucket configuration
     bucket: str = Field(..., description="S3 bucket name")

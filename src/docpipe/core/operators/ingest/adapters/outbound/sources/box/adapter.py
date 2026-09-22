@@ -262,8 +262,16 @@ class BoxSourceAdapter(DocumentSourcePort):
         max_files: int | None = None,
     ) -> BoxSourceConfig:
         """Build Box configuration from operator parameters."""
+        # Credential field falls back to connection_params so flows built from operator
+        # metadata (which places all fields under connection_params) work alongside
+        # legacy flows that use a separate credentials dict.
+        # Accepts both "credentials_path" (metadata key) and "credentials_json_path" (legacy key).
         config_dict = {
-            "credentials_path": credentials.get("credentials_json_path"),
+            "credentials_path": (
+                credentials.get("credentials_json_path")
+                or credentials.get("credentials_path")
+                or connection_params.get("credentials_path")
+            ),
             "folder_id": connection_params.get("folder_id", "0"),
             "recursive": connection_params.get("recursive", True),
             "file_extensions": included_extensions or [],

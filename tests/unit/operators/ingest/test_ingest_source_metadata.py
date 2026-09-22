@@ -1,8 +1,21 @@
 """Unit tests for IngestSourceOperator.get_metadata() provider schema structure."""
 
+import pytest
+
 from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
 EXPECTED_PROVIDERS = {"filesystem", "s3", "ibm_cos", "google_drive", "onedrive", "sharepoint", "box_driver", "web"}
+
+EXPECTED_SENSITIVE_FIELDS: dict[str, set[str]] = {
+    "s3": {"access_key", "secret_key"},
+    "ibm_cos": {"access_key", "secret_key"},
+    "onedrive": {"client_id", "client_secret", "tenant_id"},
+    "sharepoint": {"client_id", "client_secret", "tenant_id"},
+    "google_drive": {"credentials_path", "token_path", "service_account_json_path"},
+    "box_driver": {"credentials_path"},
+    "filesystem": set(),
+    "web": set(),
+}
 
 
 def test_get_metadata_has_provider_schemas() -> None:
@@ -30,3 +43,19 @@ def test_custom_has_no_providers() -> None:
     metadata = IngestSourceOperator.get_metadata()
     providers = metadata["attributes"]["connection_params"]["providers"]
     assert "custom" not in providers
+
+
+@pytest.mark.parametrize("provider", sorted(EXPECTED_PROVIDERS))
+def test_sensitive_fields_flagged(provider: str) -> None:
+    metadata = IngestSourceOperator.get_metadata()
+    providers = metadata["attributes"]["connection_params"]["providers"]
+    actual = {k for k, v in providers[provider]["properties"].items() if v.get("sensitive") is True}
+    assert actual == EXPECTED_SENSITIVE_FIELDS[provider], (
+        f"Provider '{provider}': expected sensitive={EXPECTED_SENSITIVE_FIELDS[provider]}, got {actual}"
+    )
+
+
+def test_credentials_attribute_is_not_required() -> None:
+    metadata = IngestSourceOperator.get_metadata()
+    credentials = metadata["attributes"]["credentials"]
+    assert credentials.get("required") is not True

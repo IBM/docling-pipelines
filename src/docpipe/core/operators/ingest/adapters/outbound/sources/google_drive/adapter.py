@@ -642,23 +642,33 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        # Build config dict with either OAuth or Service Account credentials
+        # Build config dict with either OAuth or Service Account credentials.
+        # Credential fields fall back to connection_params so flows built from operator
+        # metadata (which places all fields under connection_params) work alongside
+        # legacy flows that use a separate credentials dict.
         config_dict = {
             "folder_id": resolve_env_var(connection_params.get("folder_id")),
             "recursive": connection_params.get("recursive", False),
             "file_extensions": included_extensions or [],
             "exclude_patterns": [],
-            "scopes": credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"]),
+            "scopes": credentials.get(
+                "scopes", connection_params.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"])
+            ),
         }
 
-        # Add OAuth credentials if provided
-        if "credentials_path" in credentials:
-            config_dict["credentials_path"] = resolve_env_var(credentials.get("credentials_path"))
-            config_dict["token_path"] = resolve_env_var(credentials.get("token_path"))
+        # Add OAuth credentials if provided — check credentials dict first, then connection_params
+        credentials_path = credentials.get("credentials_path") or connection_params.get("credentials_path")
+        token_path = credentials.get("token_path") or connection_params.get("token_path")
+        if credentials_path:
+            config_dict["credentials_path"] = resolve_env_var(credentials_path)
+            config_dict["token_path"] = resolve_env_var(token_path)
 
-        # Add Service Account credentials if provided
-        if "service_account_json_path" in credentials:
-            config_dict["service_account_json_path"] = resolve_env_var(credentials.get("service_account_json_path"))
+        # Add Service Account credentials if provided — check credentials dict first, then connection_params
+        service_account_json_path = credentials.get("service_account_json_path") or connection_params.get(
+            "service_account_json_path"
+        )
+        if service_account_json_path:
+            config_dict["service_account_json_path"] = resolve_env_var(service_account_json_path)
 
         # Add optional fields only if they exist
         if "drive_id" in connection_params:

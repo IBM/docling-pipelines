@@ -452,10 +452,15 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         if included_extensions is None:
             included_extensions = []
 
+        # Credential fields fall back to connection_params so flows built from operator
+        # metadata (which places all fields under connection_params) work alongside
+        # legacy flows that use a separate credentials dict.
         config_params = {
-            "client_id": resolve_env_var(credentials.get("client_id", "")),
-            "client_secret": resolve_env_var(credentials.get("client_secret", "")),
-            "tenant_id": resolve_env_var(credentials.get("tenant_id", "")),
+            "client_id": resolve_env_var(credentials.get("client_id") or connection_params.get("client_id", "")),
+            "client_secret": resolve_env_var(
+                credentials.get("client_secret") or connection_params.get("client_secret", "")
+            ),
+            "tenant_id": resolve_env_var(credentials.get("tenant_id") or connection_params.get("tenant_id", "")),
             "drive_id": resolve_env_var(connection_params.get("drive_id", "")),
             "folder_path": resolve_env_var(connection_params.get("folder_path")),
             "recursive": connection_params.get("recursive", True),
