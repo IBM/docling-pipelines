@@ -8,6 +8,7 @@ from docpipe.core.assets.flows.application.services.validation_service import Va
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.orchestration.feature_propagation.features_propagator import FeaturePropagator
 from docpipe.core.orchestration.flow_validator import FlowValidator
+from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.orchestration.elyra_converter import ElyraConstants
 
@@ -100,7 +101,16 @@ class FlowEnrichmentService:
         # 1. Convert Elyra JSON to internal DAG (reuses ValidationService logic)
         internal_dag = self._validation_service._convert_to_dag_flow(flow_definition=flow_definition, is_elyra=True)
 
-        # 2. Run feature propagation without raising on warnings
+        # 2. Resolve vault:// references and ${ENV_VAR} placeholders across all
+        # operator configs in the DAG before propagation and any live I/O.
+        # The execution path resolves these in python_operator_executor.py, but
+        # the enrichment path bypasses that layer entirely. Resolving here — once,
+        # centrally — covers every operator that makes a live connection during
+        # enrichment (currently: vectordb). Failures are caught per-node so that
+        # a single unresolvable secret never aborts the entire enrichment call.
+        self._resolve_dag_secrets(internal_dag=internal_dag)
+
+        # 3. Run feature propagation without raising on warnings
         validator = self._validator_factory()
         logger.debug("Running feature propagation for flow enrichment")
         node_features = validator.propagate_features_per_node(
@@ -108,7 +118,7 @@ class FlowEnrichmentService:
         )
         logger.debug("Feature propagation complete: %d nodes", len(node_features))
 
-        # 3. Inject metadata back into each Elyra node's parameters
+        # 4. Inject metadata back into each Elyra node's parameters
         return self._inject_node_metadata(
             original_flow=flow_definition,
             node_features=node_features,
@@ -396,6 +406,67 @@ class FlowEnrichmentService:
         if vdb_meta is not None:
             result.update(vdb_meta)
         return result
+
+    @staticmethod
+    def _resolve_dag_secrets(*, internal_dag: dict[str, Any]) -> None:
+        """Resolve vault:// references and ${ENV_VAR} placeholders in operator configs.
+
+        Iterates every node in the DAG and resolves credential values in its
+        ``config`` block in-place. Two passes are applied:
+
+        1. ``${ENV_VAR}`` / ``$ENV_VAR`` strings are expanded via
+           ``os.path.expandvars()`` on every string value recursively.
+           Unset variables are left as-is (``${VAR}`` remains unchanged).
+
+        2. Remaining ``vault://provider/path#key`` URIs are resolved via
+           ``resolve_value()``. Failures (provider not registered, Vault
+           unreachable) are caught per-node and logged at DEBUG; the config
+           after env-var expansion is kept so enrichment continues.
+
+        Mutates ``internal_dag`` in-place. Never raises.
+
+        Args:
+            internal_dag: Unwrapped internal DAG dict as returned by
+                ``_convert_to_dag_flow``. Its ``dag`` list is iterated.
+        """
+        import os
+
+        from docpipe.core.constants.constants import DocpipeConstants
+        from docpipe.integrations.secrets.secret_provider import has_vault_references, resolve_value
+
+        def _expand_env_vars(value: Any) -> Any:
+            """Recursively expand ${ENV_VAR} placeholders in all string values.
+
+            Uses os.path.expandvars, which reads from the server process environment —
+            the same scope used by the execution path in python_operator_executor.py.
+            Unset variables are left unchanged (${VAR} remains as-is).
+            """
+            if isinstance(value, str):
+                return os.path.expandvars(value)
+            if isinstance(value, dict):
+                return {k: _expand_env_vars(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [_expand_env_vars(item) for item in value]
+            return value
+
+        for node in internal_dag.get(DocpipeConstants.DAG, []):
+            config = node.get(OperatorConstants.Config.CONFIG)
+            if not isinstance(config, dict):
+                continue
+
+            config = _expand_env_vars(config)
+
+            if has_vault_references(config):
+                try:
+                    config = resolve_value(config)
+                except DocpipeException as exc:
+                    logger.debug(
+                        "Vault resolution failed for operator '%s' config during enrichment: %s",
+                        node.get(OperatorConstants.Misc.NAME, node.get(OperatorConstants.Misc.ID, "unknown")),
+                        exc,
+                    )
+
+            node[OperatorConstants.Config.CONFIG] = config
 
     def _fetch_vectordb_metadata(
         self,
