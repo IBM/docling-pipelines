@@ -1307,7 +1307,7 @@ class TestGetOrCreateConverter:
 
         mock_converter = MagicMock()
         with patch(
-            "docpipe.core.operators.operator_utils.DocumentConverter",
+            "docling.document_converter.DocumentConverter",
             return_value=mock_converter,
         ) as mock_cls:
             from docpipe.core.operators.operator_utils import _get_or_create_converter
@@ -1323,7 +1323,7 @@ class TestGetOrCreateConverter:
 
         mock_converter = MagicMock()
         with patch(
-            "docpipe.core.operators.operator_utils.DocumentConverter",
+            "docling.document_converter.DocumentConverter",
             return_value=mock_converter,
         ) as mock_cls:
             from docpipe.core.operators.operator_utils import _get_or_create_converter
@@ -1348,7 +1348,7 @@ class TestGetOrCreateConverter:
         vlm_config = {"format_options": {"pdf": opt}}
 
         with patch(
-            "docpipe.core.operators.operator_utils.DocumentConverter",
+            "docling.document_converter.DocumentConverter",
             side_effect=side_effects,
         ) as mock_cls:
             from docpipe.core.operators.operator_utils import _get_or_create_converter
@@ -1373,7 +1373,7 @@ class TestGetOrCreateConverter:
 
         mock_converter = MagicMock()
         with patch(
-            "docpipe.core.operators.operator_utils.DocumentConverter",
+            "docling.document_converter.DocumentConverter",
             return_value=mock_converter,
         ):
             from docpipe.core.operators.operator_utils import _converter_cache_key, _get_or_create_converter
@@ -2111,7 +2111,7 @@ def test_get_or_create_converter_with_format_options():
         opt.__class__.__name__ = "PdfFormatOption"
         config = {"format_options": {"pdf": opt}}
 
-        with patch.object(ou, "DocumentConverter", mock_cls):
+        with patch("docling.document_converter.DocumentConverter", mock_cls):
             result = ou._get_or_create_converter(config)
 
         mock_cls.assert_called_once_with(format_options={"pdf": opt})

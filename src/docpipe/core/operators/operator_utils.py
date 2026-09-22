@@ -59,8 +59,6 @@ logger = get_logger()
 # instance, keyed by a stable MD5 hash of the format_options configuration so
 # that different pipeline configs (e.g. standard vs OCR-disabled) remain separate.
 _DOCLING_AVAILABLE = importlib.util.find_spec("docling") is not None
-if _DOCLING_AVAILABLE:
-    from docling.document_converter import DocumentConverter
 
 # Thread-local storage: each thread has its own dict[cache_key -> DocumentConverter]
 _thread_local_converters = threading.local()
@@ -100,6 +98,8 @@ def _get_or_create_converter(converter_config: dict | None) -> Any:
     if not _DOCLING_AVAILABLE:
         msg = "docling is not installed. Install with: pip install 'docling-pipelines-slim[extract]'"
         raise RuntimeError(msg)
+
+    from docling.document_converter import DocumentConverter
 
     cache_key = _converter_cache_key(converter_config)
 
