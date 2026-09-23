@@ -92,6 +92,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+lineage = [
+    "openlineage-python==1.52.0",
+]
 mcp = [
     "mcp>=1.0,<2.0",
 ]

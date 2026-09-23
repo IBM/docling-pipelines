@@ -88,6 +88,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+lineage = [
+    "openlineage-python==1.52.0",
+]
 dev = [
     "black==26.1.0",
     "detect-secrets==1.5.0",
