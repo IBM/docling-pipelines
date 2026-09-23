@@ -1123,5 +1123,565 @@ class TestChunkPkBranching:
         assert chunk_pks == [expected_pk0, expected_pk1]
 
 
+# ---------------------------------------------------------------------------
+# _process_doc_id_row
+# ---------------------------------------------------------------------------
+
+
+class TestProcessDocIdRow:
+    """Direct unit tests for _process_doc_id_row."""
+
+    @pytest.fixture
+    def op(self):
+        with patch("docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create"):
+            return VectorDBOperator(
+                {
+                    OperatorConstants.Config.PROVIDER: "opensearch",
+                    OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+                }
+            )
+
+    def test_adds_doc_hash_to_unique_ids(self, op):
+        table = pa.table({"doc_id_hash": ["h1"], "id": ["f1"], "name": ["doc.pdf"]})
+        unique_doc_ids: set = set()
+        doc_hash_to_id: dict = {}
+        doc_hash_to_name: dict = {}
+        file_ids: set = set()
+        op._process_doc_id_row(
+            table=table,
+            idx=0,
+            doc_hash="h1",
+            id_column="id",
+            has_id_col=True,
+            has_name_col=True,
+            unique_doc_ids=unique_doc_ids,
+            doc_hash_to_id=doc_hash_to_id,
+            doc_hash_to_name=doc_hash_to_name,
+            file_ids=file_ids,
+        )
+        assert "h1" in unique_doc_ids
+        assert doc_hash_to_id["h1"] == "f1"
+        assert file_ids == {"f1"}
+        assert doc_hash_to_name["h1"] == "doc.pdf"
+
+    def test_null_original_id_not_added_to_file_ids(self, op):
+        table = pa.table({"doc_id_hash": ["h1"], "id": pa.array([None], type=pa.string())})
+        unique_doc_ids: set = set()
+        doc_hash_to_id: dict = {}
+        doc_hash_to_name: dict = {}
+        file_ids: set = set()
+        op._process_doc_id_row(
+            table=table,
+            idx=0,
+            doc_hash="h1",
+            id_column="id",
+            has_id_col=True,
+            has_name_col=False,
+            unique_doc_ids=unique_doc_ids,
+            doc_hash_to_id=doc_hash_to_id,
+            doc_hash_to_name=doc_hash_to_name,
+            file_ids=file_ids,
+        )
+        assert "h1" in unique_doc_ids
+        assert doc_hash_to_id == {}
+        assert file_ids == set()
+
+    def test_null_name_not_added_to_name_map(self, op):
+        table = pa.table({"doc_id_hash": ["h1"], "name": pa.array([None], type=pa.string())})
+        unique_doc_ids: set = set()
+        doc_hash_to_name: dict = {}
+        op._process_doc_id_row(
+            table=table,
+            idx=0,
+            doc_hash="h1",
+            id_column="id",
+            has_id_col=False,
+            has_name_col=True,
+            unique_doc_ids=unique_doc_ids,
+            doc_hash_to_id={},
+            doc_hash_to_name=doc_hash_to_name,
+            file_ids=set(),
+        )
+        assert doc_hash_to_name == {}
+
+    def test_no_id_col_skips_id_mapping(self, op):
+        table = pa.table({"doc_id_hash": ["h1"]})
+        unique_doc_ids: set = set()
+        doc_hash_to_id: dict = {}
+        op._process_doc_id_row(
+            table=table,
+            idx=0,
+            doc_hash="h1",
+            id_column="id",
+            has_id_col=False,
+            has_name_col=False,
+            unique_doc_ids=unique_doc_ids,
+            doc_hash_to_id=doc_hash_to_id,
+            doc_hash_to_name={},
+            file_ids=set(),
+        )
+        assert "h1" in unique_doc_ids
+        assert doc_hash_to_id == {}
+
+
+# ---------------------------------------------------------------------------
+# _resolve_vector_dimensions — sparse + dense path
+# ---------------------------------------------------------------------------
+
+
+class TestResolveVectorDimensionsSparse:
+    """Covers the sparse+dense branch of _resolve_vector_dimensions (lines 363-368)."""
+
+    def test_sparse_with_dense_columns_detects_dimensions(self):
+        mock_adapter = Mock()
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 384}
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.index_documents.return_value = (0, [])
+        mock_adapter.refresh_index.return_value = None
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.VectorDB.ADD_SPARSE_VECTOR: True,
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "embeddings": {
+                    OperatorConstants.Misc.TYPE: "vector",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [{"feature_name": "embeddings", "mapped_column_name": "vec"}],
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(config)
+
+        table = pa.table({"doc_id_hash": ["doc1"], "embeddings": [[0.1, 0.2]]})
+        metadata: dict = {}
+        vec_cols, dim_map = op._resolve_vector_dimensions(table=table, metadata=metadata)
+
+        mock_adapter.detect_all_vector_dimensions.assert_called_once()
+        assert dim_map == {"embeddings": 384}
+        assert vec_cols == ["embeddings"]
+        assert metadata.get("node_status") != "Failed"
+
+
+# ---------------------------------------------------------------------------
+# _prepare_file_based_chunks
+# ---------------------------------------------------------------------------
+
+
+class TestPrepareFileBasedChunks:
+    """Direct unit tests for _prepare_file_based_chunks."""
+
+    @pytest.fixture
+    def op(self):
+        mock_adapter = Mock()
+        mock_adapter.generate_chunk_pk.side_effect = lambda *, file_id, chunk_index, chunk_content: (
+            f"{file_id}_{chunk_index}"
+        )
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            return VectorDBOperator(
+                {
+                    OperatorConstants.Config.PROVIDER: "opensearch",
+                    OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+                }
+            )
+
+    def test_produces_one_chunk_per_yielded_item(self, op):
+        import json
+
+        chunk_data = [json.dumps({"chunk": "hello"}), json.dumps({"chunk": "world"})]
+        # The memmap generator yields numpy arrays; .tolist() is called on each
+        embeddings = iter([np.array([0.1, 0.2]), np.array([0.3, 0.4])])
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.yield_chunks_from_file",
+            return_value=iter(chunk_data),
+        ):
+            result = op._prepare_file_based_chunks(
+                row_data={"id": "file.pdf", "content": "full text"},
+                doc_id="hash1",
+                chunks_filepath="/tmp/chunks.bin",
+                vector_column_generators={"embeddings": embeddings},
+                id_column="id",
+            )
+
+        assert len(result) == 2
+        pks = [pk for pk, _ in result]
+        assert pks[0] == "file.pdf_0"
+        assert pks[1] == "file.pdf_1"
+
+    def test_chunk_text_set_on_content_column(self, op):
+        import json
+
+        chunk_data = [json.dumps({"chunk": "chunk text"})]
+        embeddings = iter([np.array([0.1])])
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.yield_chunks_from_file",
+            return_value=iter(chunk_data),
+        ):
+            result = op._prepare_file_based_chunks(
+                row_data={"id": "file.pdf", "content": "original full text"},
+                doc_id="hash1",
+                chunks_filepath="/tmp/chunks.bin",
+                vector_column_generators={"embeddings": embeddings},
+                id_column="id",
+            )
+
+        _, row = result[0]
+        assert row[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "chunk text"
+
+    def test_empty_chunk_text_does_not_overwrite_content(self, op):
+        import json
+
+        chunk_data = [json.dumps({"chunk": ""})]
+        embeddings = iter([np.array([0.1])])
+
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.yield_chunks_from_file",
+            return_value=iter(chunk_data),
+        ):
+            result = op._prepare_file_based_chunks(
+                row_data={"id": "f.pdf", "content": "original"},
+                doc_id="hash1",
+                chunks_filepath="/tmp/chunks.bin",
+                vector_column_generators={"embeddings": embeddings},
+                id_column="id",
+            )
+
+        _, row = result[0]
+        assert row.get("content") == "original"
+
+
+# ---------------------------------------------------------------------------
+# _prepare_memory_based_chunks — empty chunk text path
+# ---------------------------------------------------------------------------
+
+
+class TestPrepareMemoryBasedChunks:
+    """Direct unit tests for _prepare_memory_based_chunks."""
+
+    @pytest.fixture
+    def op(self):
+        mock_adapter = Mock()
+        mock_adapter.generate_chunk_pk.side_effect = lambda *, file_id, chunk_index, chunk_content: (
+            f"{file_id}_{chunk_index}"
+        )
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            return VectorDBOperator(
+                {
+                    OperatorConstants.Config.PROVIDER: "opensearch",
+                    OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+                }
+            )
+
+    def test_empty_chunk_text_leaves_content_unchanged(self, op):
+        row_data = {
+            "id": "file.pdf",
+            "content": "original",
+            OperatorConstants.Columns.CHUNKED_CONTENT: [{"chunk": ""}],
+        }
+        result = op._prepare_memory_based_chunks(
+            row_data=row_data,
+            doc_id="h1",
+            num_chunks=1,
+            vector_column_data={},
+            id_column="id",
+        )
+        _, chunk_row = result[0]
+        assert chunk_row.get("content") == "original"
+
+    def test_chunk_text_replaces_content_column(self, op):
+        row_data = {
+            "id": "file.pdf",
+            "content": "original full text",
+            OperatorConstants.Columns.CHUNKED_CONTENT: [{"chunk": "chunk one text"}],
+        }
+        result = op._prepare_memory_based_chunks(
+            row_data=row_data,
+            doc_id="h1",
+            num_chunks=1,
+            vector_column_data={},
+            id_column="id",
+        )
+        _, chunk_row = result[0]
+        assert chunk_row[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "chunk one text"
+
+    def test_embeddings_sliced_per_chunk(self, op):
+        row_data = {
+            "id": "file.pdf",
+            OperatorConstants.Columns.CHUNKED_CONTENT: [{"chunk": "a"}, {"chunk": "b"}],
+        }
+        emb0 = [0.1, 0.2]
+        emb1 = [0.3, 0.4]
+        result = op._prepare_memory_based_chunks(
+            row_data=row_data,
+            doc_id="h1",
+            num_chunks=2,
+            vector_column_data={"embeddings": [emb0, emb1]},
+            id_column="id",
+        )
+        assert result[0][1]["embeddings"] == emb0
+        assert result[1][1]["embeddings"] == emb1
+
+    def test_num_chunks_beyond_content_list_uses_empty_text(self, op):
+        """num_chunks > len(chunked_content_list) → chunk_text stays empty."""
+        row_data = {
+            "id": "file.pdf",
+            "content": "original",
+            OperatorConstants.Columns.CHUNKED_CONTENT: [],
+        }
+        result = op._prepare_memory_based_chunks(
+            row_data=row_data,
+            doc_id="h1",
+            num_chunks=2,
+            vector_column_data={},
+            id_column="id",
+        )
+        assert len(result) == 2
+        for _, chunk_row in result:
+            assert chunk_row.get("content") == "original"
+
+
+# ---------------------------------------------------------------------------
+# _collect_embedding_for_column
+# ---------------------------------------------------------------------------
+
+
+class TestCollectEmbeddingForColumn:
+    """Direct unit tests for _collect_embedding_for_column."""
+
+    @pytest.fixture
+    def op(self):
+        with patch("docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create"):
+            return VectorDBOperator(
+                {
+                    OperatorConstants.Config.PROVIDER: "opensearch",
+                    OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+                }
+            )
+
+    def test_file_based_registers_generator(self, op):
+        from docpipe.core.constants.constants import DocpipeConstants
+
+        filepath = "/tmp/emb.bin"
+        embeddings_value = {DocpipeConstants.EMBEDDINGS_MEMMAP_FILE: filepath}
+        filepaths: dict = {}
+        generators: dict = {}
+
+        fake_gen = iter([[0.1]])
+        with (
+            patch(
+                "docpipe.core.operators.vectordb.vectordb_operator.read_embedding_metadata",
+                return_value=3,
+            ),
+            patch(
+                "docpipe.core.operators.vectordb.vectordb_operator.yield_embeddings_from_memmap_file",
+                return_value=fake_gen,
+            ),
+        ):
+            result = op._collect_embedding_for_column(
+                vec_col="embeddings",
+                embeddings_value=embeddings_value,
+                doc_id="doc1",
+                num_chunks=None,
+                vector_column_data={},
+                vector_column_filepaths=filepaths,
+                vector_column_generators=generators,
+            )
+
+        assert filepaths["embeddings"] == filepath
+        assert generators["embeddings"] is fake_gen
+        assert result is None  # num_chunks unchanged for file-based
+
+    def test_in_memory_sets_num_chunks(self, op):
+        data: dict = {}
+        result = op._collect_embedding_for_column(
+            vec_col="embeddings",
+            embeddings_value=[[0.1], [0.2], [0.3]],
+            doc_id="doc1",
+            num_chunks=None,
+            vector_column_data=data,
+            vector_column_filepaths={},
+            vector_column_generators={},
+        )
+        assert result == 3
+        assert data["embeddings"] == [[0.1], [0.2], [0.3]]
+
+    def test_inconsistent_chunk_count_raises(self, op):
+        with pytest.raises(ValueError, match="Inconsistent chunk counts"):
+            op._collect_embedding_for_column(
+                vec_col="embeddings_alt",
+                embeddings_value=[[0.1], [0.2]],  # 2 chunks
+                doc_id="doc1",
+                num_chunks=3,  # already set to 3 → mismatch
+                vector_column_data={},
+                vector_column_filepaths={},
+                vector_column_generators={},
+            )
+
+    def test_unrecognised_value_type_returns_num_chunks_unchanged(self, op):
+        """A value that is neither a dict nor a list is silently ignored."""
+        result = op._collect_embedding_for_column(
+            vec_col="embeddings",
+            embeddings_value="not_a_list",
+            doc_id="doc1",
+            num_chunks=5,
+            vector_column_data={},
+            vector_column_filepaths={},
+            vector_column_generators={},
+        )
+        assert result == 5
+
+
+# ---------------------------------------------------------------------------
+# _prepare_documents — exception path
+# ---------------------------------------------------------------------------
+
+
+class TestPrepareDocumentsExceptionPath:
+    """Row-level exception in _prepare_documents is caught and recorded as failure."""
+
+    def test_row_exception_records_failed_document(self):
+        mock_adapter = Mock()
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.index_documents.return_value = (0, [])
+        mock_adapter.refresh_index.return_value = None
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "embeddings": {
+                    OperatorConstants.Misc.TYPE: "vector",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [{"feature_name": "embeddings", "mapped_column_name": "vec"}],
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(config)
+
+        # Patch _extract_chunks_for_row to blow up on first call only
+        call_count = {"n": 0}
+
+        def boom(**kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise RuntimeError("simulated row error")
+            return
+
+        op._extract_chunks_for_row = boom
+
+        table = pa.table(
+            {
+                "doc_id_hash": ["doc1", "doc2"],
+                "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+            }
+        )
+        _, metadata = op.transform(table)
+        assert metadata["failed_docs_count"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# _index_and_record_results — failed chunk tracking
+# ---------------------------------------------------------------------------
+
+
+class TestIndexAndRecordResultsFailedChunks:
+    """Chunk-level failures are mapped back to their parent documents."""
+
+    def test_failed_chunk_increments_failed_docs(self):
+        mock_adapter = Mock()
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.refresh_index.return_value = None
+
+        # Simulate one chunk failing
+        failed_chunk = {"index": {"_id": "chunk_pk_1", "error": {"reason": "mapping error"}}}
+        mock_adapter.index_documents.return_value = (1, [failed_chunk])
+        mock_adapter.get_chunk_ids_for_documents.return_value = {}
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "embeddings": {
+                    OperatorConstants.Misc.TYPE: "vector",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [{"feature_name": "embeddings", "mapped_column_name": "vec"}],
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(config)
+
+        # Two docs; chunk_pk_1 belongs to doc1, chunk_pk_2 belongs to doc2
+        table = pa.table(
+            {
+                "doc_id_hash": ["doc1", "doc2"],
+                "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+            }
+        )
+        _, metadata = op.transform(table)
+
+        assert metadata["chunks_failed_to_index"] == 1
+        assert metadata["chunks_indexed_successfully"] == 1
+        assert metadata["total_chunks_to_index"] == 2
+        assert metadata["failed_docs_count"] >= 1
+
+    def test_chunk_failure_with_unknown_id_logged_not_crashed(self):
+        """A failed chunk whose _id maps to nothing does not crash — no doc is marked failed."""
+        mock_adapter = Mock()
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_exists.return_value = False
+        mock_adapter.refresh_index.return_value = None
+
+        # _id resolves to itself (not in chunk_id_to_doc_id) — original_doc_id is a non-empty string
+        # so the behaviour is: it's added to failed_doc_ids but record_failed_document
+        # is called with the same unknown id. Just verify no exception is raised.
+        failed_chunk = {"index": {"_id": "completely_unknown_pk", "error": {"reason": "oops"}}}
+        mock_adapter.index_documents.return_value = (1, [failed_chunk])
+        mock_adapter.get_chunk_ids_for_documents.return_value = {}
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "embeddings": {
+                    OperatorConstants.Misc.TYPE: "vector",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            OperatorConstants.Config.FEATURE_MAPPINGS: [{"feature_name": "embeddings", "mapped_column_name": "vec"}],
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(config)
+
+        table = pa.table({"doc_id_hash": ["doc1"], "embeddings": [[0.1, 0.2, 0.3]]})
+        _, metadata = op.transform(table)
+        # No crash — metadata is well-formed
+        assert "chunks_failed_to_index" in metadata
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
