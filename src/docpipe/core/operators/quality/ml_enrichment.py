@@ -109,7 +109,10 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
     @staticmethod
     def get_required_features() -> list[str]:
         """Return list of required input features."""
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+        return [
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY,
+        ]
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
@@ -120,13 +123,15 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
             warnings: List to append validation warnings
             available_features: List of available input features
         """
-        # Parent class already validates required features (doc_column)
-        super().validate(errors, warnings, available_features)
+        # Map configured custom columns to default names so parent class validates them correctly
+        mapped_features = list(available_features)
+        if self.doc_column in available_features:
+            mapped_features.append(OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        if self.lang_column and self.lang_column in available_features:
+            mapped_features.append(OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY)
 
-        # Validate language column if specified (optional, so only warn)
-        if self.should_validate_field(field_value=self.lang_column):
-            if self.lang_column and self.lang_column not in available_features:
-                warnings.append(f"Language column '{self.lang_column}' not found, may affect results")
+        # Call parent validation
+        super().validate(errors, warnings, mapped_features)
 
         # Check for output column conflicts
         if self.should_validate_field(field_value=self.output_column_prefix):

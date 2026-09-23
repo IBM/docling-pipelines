@@ -34,18 +34,6 @@ export function MlEnrichmentPanelBody({
   const nodeAttributes: Record<string, OperatorFeature> = operatorMetadata[NodeOperator.ML_ENRICHMENT]?.attributes ?? {};
 
   // ── Read current saved values, falling back to backend defaults ────────
-  const docColumn: string =
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (controller?.getPropertyValue?.({ name: ATTR.DOC_COLUMN }) as string | undefined)
-    ?? (nodeAttributes[ATTR.DOC_COLUMN]?.default as string | undefined)
-    ?? 'content';
-
-  const langColumn: string =
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (controller?.getPropertyValue?.({ name: ATTR.LANG_COLUMN }) as string | undefined)
-    ?? (nodeAttributes[ATTR.LANG_COLUMN]?.default as string | undefined)
-    ?? 'lang_name';
-
   const outputColumnPrefix: string =
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (controller?.getPropertyValue?.({ name: ATTR.OUTPUT_COLUMN_PREFIX }) as string | undefined)
@@ -54,62 +42,10 @@ export function MlEnrichmentPanelBody({
 
   // ── Required param validation ─────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);
-  const docColumnValidation = validate(ATTR.DOC_COLUMN, docColumn);
-  const langColumnValidation = validate(ATTR.LANG_COLUMN, langColumn);
   const outputColumnPrefixValidation = validate(ATTR.OUTPUT_COLUMN_PREFIX, outputColumnPrefix);
 
   return (
     <div className={common.commonPropertiesPanelBody}>
-
-      {/* ── Document content column ─────────────────────────────────── */}
-      <div className={common.formField}>
-        <div className={common.labelWithTooltip}>
-          <RequiredParamTooltip
-            paramId={ATTR.DOC_COLUMN}
-            nodeAttributes={nodeAttributes}
-            definition={nodeAttributes[ATTR.DOC_COLUMN]?.description ?? ''}
-          >
-            {LABEL.DOC_COLUMN}
-          </RequiredParamTooltip>
-        </div>
-        <TextInput
-          id="doc_column"
-          labelText={LABEL.DOC_COLUMN}
-          hideLabel
-          value={docColumn}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            controller?.updatePropertyValue?.({ name: ATTR.DOC_COLUMN }, e.target.value);
-          }}
-          invalid={docColumnValidation.isInvalid}
-          invalidText={docColumnValidation.errorMessage}
-        />
-      </div>
-
-      {/* ── Language column ──────────────────────────────────────────── */}
-      <div className={common.formField}>
-        <div className={common.labelWithTooltip}>
-          <RequiredParamTooltip
-            paramId={ATTR.LANG_COLUMN}
-            nodeAttributes={nodeAttributes}
-            definition={nodeAttributes[ATTR.LANG_COLUMN]?.description ?? ''}
-          >
-            {LABEL.LANG_COLUMN}
-          </RequiredParamTooltip>
-        </div>
-        <TextInput
-          id="lang_column"
-          labelText={LABEL.LANG_COLUMN}
-          hideLabel
-          value={langColumn}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            controller?.updatePropertyValue?.({ name: ATTR.LANG_COLUMN }, e.target.value);
-          }}
-          invalid={langColumnValidation.isInvalid}
-          invalidText={langColumnValidation.errorMessage}
-        />
-      </div>
 
       {/* ── Output column prefix ─────────────────────────────────────── */}
       <div className={common.formField}>
