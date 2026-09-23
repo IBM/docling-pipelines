@@ -1,3 +1,5 @@
+name: local-lab
+
 services:
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -20,8 +22,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-docpipe-documents}
     volumes:
-      - ../pdfs:/seed:ro
-      - ../scripts/minio-init.sh:/minio-init.sh:ro
+      - ./pdfs:/seed:ro
+      - ./scripts/minio-init.sh:/minio-init.sh:ro
     entrypoint: ["/bin/sh", "/minio-init.sh"]
 
   docling-serve:
@@ -61,7 +63,51 @@ services:
     volumes:
       - opensearch-data:/usr/share/opensearch/data
 
+  kafka:
+    image: apache/kafka:4.3.1
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://:29092,CONTROLLER://:9093,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "9092:9092"
+
+  docling-pipelines:
+    build:
+      context: ..
+      dockerfile: local-lab/Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      OPENSEARCH_USERNAME: ${OPENSEARCH_USERNAME}
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
+      OLLAMA_HOST: http://ollama:11434
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DOCPIPE_DATA_PATH: /data
+    volumes:
+      - docling-pipelines-data:/data
+    depends_on:
+      - minio
+      - docling-serve
+      - ollama
+      - opensearch
+      - kafka
+
 volumes:
   minio-data:
   ollama-data:
   opensearch-data:
+  docling-pipelines-data:
