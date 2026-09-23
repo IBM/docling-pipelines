@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import threading
 
-from confluent_kafka import Consumer, KafkaError
+from confluent_kafka import Consumer
 
 from docpipe.api.dto.job_run_dto import JobsAPIExecuteModel
 from docpipe.core.constants.constants import DocpipeConstants, EnvironmentVariables
@@ -23,94 +22,49 @@ class KafkaConsumerService:
     def __init__(self, *, job_management_service: JobManagementService) -> None:
         self._job_management_service = job_management_service
         self._stop_event = threading.Event()
-        self._task: asyncio.Task[None] | None = None
+        self._thread: threading.Thread | None = None
 
-    @property
-    def is_running(self) -> bool:
-        """Whether the background consumer task is still active."""
-        return self._task is not None and not self._task.done()
-
-    async def start(self) -> None:
-        """Start consuming without blocking the API event loop."""
+    def start(self) -> None:
+        """Start consuming in a background thread."""
         self._stop_event.clear()
-        self._task = asyncio.create_task(asyncio.to_thread(self._consume))
-        self._task.add_done_callback(self._on_task_done)
+        self._thread = threading.Thread(target=self._consume, name="kafka-consumer", daemon=True)
+        self._thread.start()
 
-    def _on_task_done(self, task: asyncio.Task[None]) -> None:
-        if self._stop_event.is_set():
-            return
-        try:
-            task.result()
-        except asyncio.CancelledError:
-            logger.error("Kafka consumer task was cancelled unexpectedly")
-        except Exception:
-            logger.exception("Kafka consumer task failed")
-        else:
-            logger.error("Kafka consumer task exited unexpectedly")
-
-    async def stop(self) -> None:
+    def stop(self) -> None:
         """Stop consuming and wait for the worker to exit."""
         self._stop_event.set()
-        if self._task is not None:
-            await self._task
-            self._task = None
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
 
     def _consume(self) -> None:
         consumer = Consumer(
             {
-                "bootstrap.servers": os.getenv(
-                    EnvironmentVariables.KAFKA_BOOTSTRAP_SERVERS,
-                    "localhost:9092",
-                ),
+                "bootstrap.servers": os.environ[EnvironmentVariables.KAFKA_BOOTSTRAP_SERVERS],
                 "group.id": os.getenv(
                     EnvironmentVariables.KAFKA_CONSUMER_GROUP_ID,
                     "docpipe-api",
                 ),
                 "auto.offset.reset": "earliest",
-                "enable.auto.commit": False,
-                "enable.auto.offset.store": False,
             }
         )
         topic = os.getenv(EnvironmentVariables.KAFKA_TOPIC, "docpipe-poc")
-        consumer.subscribe([topic])
 
         try:
+            consumer.subscribe([topic])
             logger.info("Kafka consumer listening on topic %s", topic)
             while not self._stop_event.is_set():
                 message = consumer.poll(1.0)
                 if message is None:
                     continue
                 if message.error():
-                    if message.error().code() != KafkaError._PARTITION_EOF:
-                        logger.error("Kafka consumer error: %s", message.error())
+                    logger.error("Kafka consumer error: %s", message.error())
                     continue
 
-                try:
-                    request_body = JobsAPIExecuteModel.model_validate(json.loads(message.value()))
-                    result = self._job_management_service.create_job_run_from_request(request_body=request_body)
-                    job_run_id = result.get(DocpipeConstants.JOB_RUN_ID)
-                    if not job_run_id:
-                        raise RuntimeError("Job run creation did not return a job_run_id")
-
-                    event_key = message.key()
-                    logger.info(
-                        "Started Kafka job run %s from event=%s topic=%s partition=%s offset=%s",
-                        job_run_id,
-                        event_key.decode("utf-8", errors="replace") if event_key else None,
-                        message.topic(),
-                        message.partition(),
-                        message.offset(),
-                    )
-                    committed = consumer.commit(message=message, asynchronous=False)
-                    if not committed or any(partition.err is not None for partition in committed):
-                        raise RuntimeError("Kafka offset commit failed")
-                except Exception:
-                    logger.exception(
-                        "Failed Kafka message topic=%s partition=%s offset=%s",
-                        message.topic(),
-                        message.partition(),
-                        message.offset(),
-                    )
-                    raise
+                request_body = JobsAPIExecuteModel.model_validate(json.loads(message.value()))
+                result = self._job_management_service.create_job_run_from_request(request_body=request_body)
+                logger.info("Started Kafka job run %s", result[DocpipeConstants.JOB_RUN_ID])
+        except Exception:
+            logger.exception("Kafka consumer stopped after an error")
         finally:
             consumer.close()
