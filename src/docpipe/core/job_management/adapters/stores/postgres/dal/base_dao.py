@@ -16,6 +16,12 @@ from docpipe.exceptions.docpipe_exceptions import (
 
 T = TypeVar("T", bound=SQLModel)
 
+# Postgres refuses a statement carrying more than 65535 bind parameters.
+PG_MAX_BIND_PARAMS = 65535
+# Matches SQLAlchemy's insertmanyvalues page size, so chunked upserts issue the
+# same number of round trips the ORM would.
+MAX_UPSERT_ROWS_PER_STATEMENT = 1000
+
 
 class BaseDAO[T: SQLModel]:
     """
@@ -153,6 +159,97 @@ class BaseDAO[T: SQLModel]:
             session.execute(stmt)
 
         self.execute_with_session(fn=op)
+
+    def _build_upsert_values(self, *, objs: list[T], index_elements: list[str]) -> list[dict[str, Any]]:
+        """
+        Turn model instances into row dicts for a multi-row INSERT.
+
+        Every dict must carry the same keys: a multi-row VALUES clause renders one
+        column list for the whole statement, so a row that omits a column another
+        row sets fails to compile.
+
+        Rows sharing a conflict key are collapsed, last one wins. Postgres rejects
+        ON CONFLICT DO UPDATE when the same key appears twice in one statement
+        ("cannot affect row a second time").
+
+        Args:
+            objs: List of model instances to upsert
+            index_elements: Column names forming the conflict key
+
+        Returns:
+            Row dicts, deduplicated by conflict key, all with identical keys
+
+        Raises:
+            ValueError: If the objects do not all set the same columns
+        """
+        columns = [c.name for c in objs[0].__table__.columns]  # type: ignore[attr-defined]
+        # An unset autoincrement id must be left out so the sequence supplies it.
+        skip_id = any(getattr(obj, "id", None) is None for obj in objs)
+        if skip_id and any(getattr(obj, "id", None) is not None for obj in objs):
+            msg = "bulk_upsert_with_conflict requires all objects to either set id or leave it unset"
+            raise ValueError(msg)
+        if skip_id:
+            columns = [name for name in columns if name != "id"]
+
+        deduped: dict[tuple, dict[str, Any]] = {}
+        for obj in objs:
+            values = {name: getattr(obj, name) for name in columns}
+            deduped[tuple(values.get(col) for col in index_elements)] = values
+        return list(deduped.values())
+
+    def bulk_upsert_with_conflict(
+        self,
+        *,
+        objs: list[T],
+        index_elements: list[str],
+        update_fields: list[str],
+        where_clause=None,
+        session: Session | None = None,
+    ) -> None:
+        """
+        Bulk upsert using INSERT ... ON CONFLICT DO UPDATE.
+
+        Rows that do not exist are inserted; rows that already exist have their
+        update_fields overwritten. Safe to call when rows may or may not exist.
+
+        Rows are sent in chunks. Postgres caps a statement at 65535 bind parameters,
+        so one INSERT holding every row breaks on large jobs. SQLAlchemy pages its own
+        bulk inserts at 1000 rows, which is why session.add_all never hit this.
+
+        Pass an open ``session`` to run inside an existing transaction (the caller
+        owns commit/rollback). Omit it to open a fresh session that commits on success.
+
+        Args:
+            objs: List of model instances to upsert
+            index_elements: Column names forming the target partial unique index
+            update_fields: Field names to overwrite on conflict
+            where_clause: Optional WHERE clause matching the partial unique index
+            session: Optional existing session to reuse
+
+        Raises:
+            ValueError: If the objects do not all set the same columns
+        """
+        if not objs:
+            return
+
+        # Built outside the session so a malformed batch fails before a transaction opens.
+        values_list = self._build_upsert_values(objs=objs, index_elements=index_elements)
+        chunk_size = min(MAX_UPSERT_ROWS_PER_STATEMENT, max(1, PG_MAX_BIND_PARAMS // len(values_list[0])))
+
+        def op(s: Session) -> None:
+            """Op."""
+            for start in range(0, len(values_list), chunk_size):
+                stmt = pg_insert(self.model).values(values_list[start : start + chunk_size])
+                update_dict = {field: getattr(stmt.excluded, field) for field in update_fields}
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=index_elements, index_where=where_clause, set_=update_dict
+                )
+                s.execute(stmt)
+
+        if session is not None:
+            op(session)
+        else:
+            self.execute_with_session(fn=op)
 
     def delete_by_query(self, *, condition) -> int:
         """Delete records matching condition."""

@@ -455,7 +455,7 @@ class PrefectEngine(FlowEnginePort):
             "max_workers": 50,
             "log_prints": True,
             "retry_delay_seconds": 60,
-            "timeout_seconds": 60000,
+            "timeout_seconds": 120000,
         }
 
     def __create_task(

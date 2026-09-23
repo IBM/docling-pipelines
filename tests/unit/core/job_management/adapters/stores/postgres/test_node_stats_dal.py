@@ -158,36 +158,81 @@ class TestNodeStatsDALOperations:
 
     # ── bulk_insert ───────────────────────────────────────────────────────────
 
-    def test_bulk_insert_empty_list_returns_immediately(self):
-        """bulk_insert with empty list skips the DAO call."""
-        dal = NodeStatsDAL.__new__(NodeStatsDAL)
+    def _make_executing_dao(self):
+        """Return a mock DAO whose execute_with_session actually invokes the passed fn."""
         mock_dao = Mock()
+        mock_dao.execute_with_session.side_effect = lambda fn: fn(Mock())
+        return mock_dao
+
+    def test_bulk_insert_empty_list_returns_immediately(self):
+        """bulk_insert with empty list skips all DAO calls."""
+        dal = NodeStatsDAL.__new__(NodeStatsDAL)
+        mock_dao = self._make_executing_dao()
         dal._dao = mock_dao
 
         dal.bulk_insert(node_stats=[])
 
-        mock_dao.bulk_add_no_refresh.assert_not_called()
+        mock_dao.execute_with_session.assert_not_called()
 
-    def test_bulk_insert_calls_dao(self):
-        """bulk_insert with items delegates to bulk_add_no_refresh."""
+    def test_bulk_insert_batch_rows_calls_bulk_upsert(self):
+        """bulk_insert with batch rows delegates to bulk_upsert_with_conflict on batch index."""
         dal = NodeStatsDAL.__new__(NodeStatsDAL)
-        mock_dao = Mock()
+        mock_dao = self._make_executing_dao()
         dal._dao = mock_dao
-        items = [Mock(), Mock()]
 
-        dal.bulk_insert(node_stats=items)
+        item = Mock()
+        item.batch_id = "batch-1"
 
-        mock_dao.bulk_add_no_refresh.assert_called_once_with(objs=items)
+        dal.bulk_insert(node_stats=[item])
+
+        mock_dao.bulk_upsert_with_conflict.assert_called_once()
+        call_kwargs = mock_dao.bulk_upsert_with_conflict.call_args.kwargs
+        assert call_kwargs["objs"] == [item]
+        assert "batch_id" in call_kwargs["index_elements"]
+
+    def test_bulk_insert_aggregated_rows_calls_bulk_upsert(self):
+        """bulk_insert with aggregated rows (batch_id=None) uses the no-batch partial index."""
+        dal = NodeStatsDAL.__new__(NodeStatsDAL)
+        mock_dao = self._make_executing_dao()
+        dal._dao = mock_dao
+
+        item = Mock()
+        item.batch_id = None
+
+        dal.bulk_insert(node_stats=[item])
+
+        mock_dao.bulk_upsert_with_conflict.assert_called_once()
+        call_kwargs = mock_dao.bulk_upsert_with_conflict.call_args.kwargs
+        assert call_kwargs["objs"] == [item]
+        assert "batch_id" not in call_kwargs["index_elements"]
+
+    def test_bulk_insert_mixed_rows_calls_bulk_upsert_twice(self):
+        """bulk_insert with mixed batch_id values issues two bulk upsert statements."""
+        dal = NodeStatsDAL.__new__(NodeStatsDAL)
+        mock_dao = self._make_executing_dao()
+        dal._dao = mock_dao
+
+        batch_item = Mock()
+        batch_item.batch_id = "batch-1"
+        agg_item = Mock()
+        agg_item.batch_id = None
+
+        dal.bulk_insert(node_stats=[batch_item, agg_item])
+
+        assert mock_dao.bulk_upsert_with_conflict.call_count == 2
 
     def test_bulk_insert_raises_on_error(self):
         """bulk_insert raises PostgresOperationException on DAO failure."""
         dal = NodeStatsDAL.__new__(NodeStatsDAL)
-        mock_dao = Mock()
-        mock_dao.bulk_add_no_refresh.side_effect = RuntimeError("bulk error")
+        mock_dao = self._make_executing_dao()
+        mock_dao.bulk_upsert_with_conflict.side_effect = RuntimeError("bulk error")
         dal._dao = mock_dao
 
+        item = Mock()
+        item.batch_id = "batch-1"
+
         with pytest.raises(PostgresOperationException):
-            dal.bulk_insert(node_stats=[Mock()])
+            dal.bulk_insert(node_stats=[item])
 
     # ── get_node_stats_by_run_batch ───────────────────────────────────────────
 
