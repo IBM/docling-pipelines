@@ -21,10 +21,28 @@ class KafkaConsumerService:
         self._stop_event = threading.Event()
         self._task: asyncio.Task[None] | None = None
 
+    @property
+    def is_running(self) -> bool:
+        """Whether the background consumer task is still active."""
+        return self._task is not None and not self._task.done()
+
     async def start(self) -> None:
         """Start consuming without blocking the API event loop."""
         self._stop_event.clear()
         self._task = asyncio.create_task(asyncio.to_thread(self._consume))
+        self._task.add_done_callback(self._on_task_done)
+
+    def _on_task_done(self, task: asyncio.Task[None]) -> None:
+        if self._stop_event.is_set():
+            return
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            logger.error("Kafka consumer task was cancelled unexpectedly")
+        except Exception:
+            logger.exception("Kafka consumer task failed")
+        else:
+            logger.error("Kafka consumer task exited unexpectedly")
 
     async def stop(self) -> None:
         """Stop consuming and wait for the worker to exit."""
@@ -45,6 +63,8 @@ class KafkaConsumerService:
                     "docpipe-api",
                 ),
                 "auto.offset.reset": "earliest",
+                "enable.auto.commit": False,
+                "enable.auto.offset.store": False,
             }
         )
         topic = os.getenv(EnvironmentVariables.KAFKA_TOPIC, "docpipe-poc")
@@ -61,6 +81,7 @@ class KafkaConsumerService:
                         logger.error("Kafka consumer error: %s", message.error())
                     continue
 
+                # Do not commit log-only messages; job-run handling will define success.
                 logger.info(
                     "Received Kafka message topic=%s partition=%s offset=%s",
                     message.topic(),
