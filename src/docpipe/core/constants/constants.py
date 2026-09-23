@@ -304,6 +304,9 @@ class DocpipeConfigKeys:
 class EnvironmentVariables:
     """Environment variable names used across Docpipe runtime components."""
 
+    KAFKA_BOOTSTRAP_SERVERS = "KAFKA_BOOTSTRAP_SERVERS"
+    KAFKA_CONSUMER_GROUP_ID = "KAFKA_CONSUMER_GROUP_ID"
+    KAFKA_TOPIC = "KAFKA_TOPIC"
     PREFECT_API_URL = "PREFECT_API_URL"
     PREFECT_MODE = "PREFECT_MODE"
     PREFECT_LOGGING_EXTRA_LOGGERS = "PREFECT_LOGGING_EXTRA_LOGGERS"
