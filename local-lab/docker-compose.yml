@@ -74,6 +74,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # Single broker. Factor 3 leaves the group coordinator unavailable.
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -96,9 +97,12 @@ services:
       OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
       OLLAMA_HOST: http://ollama:11434
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: docpipe-poc
+      KAFKA_OUTPUT_TOPIC: docpipe-poc-status
       DOCPIPE_DATA_PATH: /data
     volumes:
       - docling-pipelines-data:/data
+      - ../src:/app/src
     depends_on:
       - minio
       - docling-serve

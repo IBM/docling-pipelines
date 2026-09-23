@@ -196,6 +196,7 @@ class JobManagementService:
             flow_dag_definition,
             flow_config,
             flow.definition,  # Pass original flow definition
+            flow_id,
         )
 
         logger.info("Created job run: flow_id=%s, job_id=%s, job_run_id=%s", flow_id, job_id, job_run_id)
@@ -299,6 +300,7 @@ class JobManagementService:
         flow_definition: dict[str, Any],
         flow_config: dict[str, Any],
         original_flow_definition: dict[str, Any] | None = None,
+        flow_id: str | None = None,
     ) -> None:
         """Execute the resolved flow definition in a background thread."""
         try:
@@ -405,6 +407,31 @@ class JobManagementService:
                     f"Failed to finalize error job_run_id={job_run_id}: {end_exc}",
                     exc_info=True,
                 )
+        finally:
+            self._publish_kafka_flow_result(
+                flow_config=flow_config,
+                flow_id=flow_id or job_id,
+                job_run_id=job_run_id,
+            )
+
+    def _publish_kafka_flow_result(self, *, flow_config: dict[str, Any], flow_id: str, job_run_id: str) -> None:
+        """Publish path, flow id, and status when this run was started for a file path."""
+        metadata = flow_config.get("metadata") if isinstance(flow_config, dict) else None
+        path = metadata.get("object_key") if isinstance(metadata, dict) else None
+        if not isinstance(path, str) or not path:
+            return
+
+        stats = self.get_job_run_status(job_run_id=job_run_id)
+        status_value = getattr(stats, "status", None) if stats is not None else None
+        status = status_value.value if isinstance(status_value, ExecutionStatus) else status_value
+        if not isinstance(status, str) or not status:
+            status = ExecutionStatus.FAILED.value
+        try:
+            from docpipe.integrations.kafka_poc import publish_flow_result
+
+            publish_flow_result(path=path, flow_id=flow_id, status=status)
+        except Exception:
+            logger.exception("Failed to publish Kafka flow result for job_run_id=%s", job_run_id)
 
     def _serialize_validation_alerts(self, alerts: list[Any]) -> list[dict[str, Any]]:
         """

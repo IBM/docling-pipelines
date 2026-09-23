@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml ./
+RUN touch README.md
 COPY src ./src
 
 # hatch-vcs uses setuptools-scm; this image has no .git, so pretend a version.

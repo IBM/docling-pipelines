@@ -51,7 +51,7 @@ from docpipe.api.openapi import build_custom_openapi
 from docpipe.core.constants.constants import EnvironmentVariables
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
-from docpipe.integrations.kafka_consumer import KafkaConsumerService
+from docpipe.integrations.kafka_poc import KafkaConsumerService
 from docpipe.utils.infrastructure.logging import (
     configure_third_party_loggers,
     set_dpk_log_level_from_ds_log_level,
