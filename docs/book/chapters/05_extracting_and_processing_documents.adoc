@@ -1,0 +1,475 @@
+== Extracting and Processing Documents
+
+After ingestion, documents pass through `ExtractOperator` to convert raw binary files into structured text.
+The extracted text is then chunked by `ChunkerOperator` and optionally classified by `DocumentClassifierOperator`.
+
+=== ExtractOperator
+
+* **Short name:** `extract_operator`
+* **Category:** Extract
+
+The operator uses hexagonal architecture with separate adapters for text extraction and entity extraction.
+Text extraction and entity extraction run *concurrently* when entity extraction is enabled — each document is submitted for entity extraction as soon as its text extraction completes.
+
+==== Text Extraction Providers
+
+[cols="1,3",options="header"]
+|===
+|Provider |Description
+|`docling_library` |Default. Local extraction using the Docling library; supports VLM and ASR pipelines
+|`docling_serve` |Remote extraction via a running Docling Serve API instance
+|===
+
+==== Entity Extraction Providers
+
+[cols="1,3",options="header"]
+|===
+|Provider |Description
+|`none` |Default. Skip entity extraction
+|`litellm` |LiteLLM-based extraction (supports Ollama via `openai/` prefix)
+|`watsonx` |IBM WatsonX native entity extraction
+|`docling` |Template-based extraction using Docling and a VLM pipeline
+|===
+
+NOTE: When using any entity extraction provider (not `none`), either `custom_schema` must be provided OR a `document_type` column must be present from an upstream `document_classifier` operator.
+
+==== Basic Text Extraction
+
+[source,json]
+----
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content"
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
+  }
+}
+----
+
+==== LLM-Based Entity Extraction with Ollama
+
+[source,json]
+----
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content"
+    },
+    "entity_extraction": {
+      "provider": "litellm",
+      "custom_schema": {
+        "invoice_number": "string",
+        "vendor_name": "string",
+        "total_amount": "number",
+        "invoice_date": "string"
+      },
+      "provider_config": {
+        "model_id": "openai/granite4",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "${OLLAMA_API_KEY}",
+        "temperature": 0.0,
+        "max_tokens": 2000
+      }
+    }
+  }
+}
+----
+
+==== VLM Pipeline (Vision-Language Model)
+
+For enhanced extraction of scanned documents, forms, and images:
+
+[source,json]
+----
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "max_workers": 1,
+    "text_extraction": {
+      "provider": "docling_library",
+      "provider_config": {
+        "vlm_pipeline": {
+          "preset": "granite_docling",
+          "engine": "api_ollama",
+          "engine_options": {
+            "api_base": "http://localhost:11434"
+          }
+        }
+      }
+    },
+    "entity_extraction": {"provider": "none"}
+  }
+}
+----
+
+Valid VLM presets include: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`.
+
+Valid engines include: `api_ollama`, `api_openai`, `api_watsonx`, `transformers` (local), `mlx` (macOS).
+
+==== GPU-Accelerated Extraction
+
+[source,json]
+----
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "max_workers": 1,
+    "use_processes": false,
+    "text_extraction": {
+      "provider": "docling_library",
+      "provider_config": {
+        "standard_pipeline": {
+          "accelerator": {
+            "device": "cuda",
+            "num_threads": 6
+          }
+        }
+      }
+    },
+    "entity_extraction": {"provider": "none"}
+  }
+}
+----
+
+NOTE: GPU acceleration cannot be combined with `vlm_pipeline`.
+Requires `max_workers: 1` and `use_processes: false`.
+When `device` is omitted, the best available GPU is auto-detected (CUDA → MPS → XPU).
+
+==== Remote Extraction (Docling Serve)
+
+[source,json]
+----
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_serve",
+      "provider_config": {
+        "base_url": "http://docling-serve:5001",
+        "api_key": "${DOCLING_SERVE_API_KEY}",
+        "timeout": 300
+      }
+    },
+    "entity_extraction": {"provider": "none"}
+  }
+}
+----
+
+==== OCR Configuration
+
+[source,json]
+----
+{
+  "text_extraction": {
+    "provider": "docling_library",
+    "provider_config": {
+      "ocr": {
+        "enabled": true,
+        "engine": "rapidocr",
+        "mode": "default"
+      }
+    }
+  }
+}
+----
+
+Supported OCR engines: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`.
+Supported OCR modes: `default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions`.
+
+==== Key ExtractOperator Parameters
+
+[cols="2,1,1,3",options="header"]
+|===
+|Parameter |Type |Default |Description
+|`text_extraction.provider` |string |`docling_library` |Text extraction backend
+|`text_extraction.doc_column` |string |`content` |Output column for extracted text
+|`entity_extraction.provider` |string |`none` |Entity extraction backend
+|`entity_extraction.output_column` |string |`entities` |Output column for extracted entities
+|`entity_extraction.max_doc_chars` |integer |`8000` |Max characters per document for entity extraction
+|`entity_extraction.expand_extracted_data` |boolean |`false` |Expand entity JSON into individual columns
+|`entity_extraction.custom_schema` |object |`{}` |Schema dictionary for structured extraction
+|`max_workers` |integer |auto |Maximum parallel worker threads
+|`use_processes` |boolean |`false` |Use ProcessPoolExecutor instead of ThreadPoolExecutor
+|===
+
+=== ChunkerOperator
+
+* **Short name:** `chunker`
+* **Category:** Functional
+
+Splits extracted text into overlapping chunks sized for embedding model token limits.
+
+==== Chunking Strategies
+
+[cols="1,3",options="header"]
+|===
+|Strategy |Description
+|`simple` |Fixed-size character chunks with configurable overlap
+|`semantic` |Content-aware splits using embedding similarity boundaries
+|`hybrid` |Docling-based token-aware chunking (recommended for most use cases)
+|===
+
+==== Configuration
+
+[source,json]
+----
+{
+  "name": "chunk",
+  "type": "chunker",
+  "depends_on": ["extract"],
+  "config": {
+    "chunk_type": "hybrid",
+    "chunk_size": 512,
+    "chunk_overlap": 128,
+    "doc_column": "content",
+    "retain_original_content": false
+  }
+}
+----
+
+==== Key Parameters
+
+[cols="2,1,1,3",options="header"]
+|===
+|Parameter |Type |Default |Description
+|`chunk_type` |string |`simple` |Strategy: `simple`, `semantic`, or `hybrid`
+|`chunk_size` |integer |`2048` |Max chunk size (characters for `simple`, tokens for `hybrid`)
+|`chunk_overlap` |integer |`200` |Overlap between chunks (max 512)
+|`chunk_overlap_percentage` |integer |`20` |Overlap as percentage of `chunk_size` (0–40)
+|`doc_column` |string |`content` |Input column containing text
+|`retain_original_content` |boolean |`false` |Keep original content column alongside chunks
+|`docling_tokenizer` |string |`sentence-transformers/all-MiniLM-L6-v2` |Tokenizer for `hybrid` mode
+|===
+
+==== Semantic Chunking
+
+Requires an Ollama embedding model:
+
+[source,json]
+----
+{
+  "chunk_type": "semantic",
+  "semantic_embeddings_model": "nomic-embed-text",
+  "breakpoint_threshold_type": "percentile",
+  "breakpoint_threshold_amount": 95.0
+}
+----
+
+==== LLM-Based Summarisation
+
+Add a `summarization` block to generate summaries for each chunk:
+
+[source,json]
+----
+{
+  "chunk_type": "hybrid",
+  "chunk_size": 512,
+  "summarization": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "${OLLAMA_API_KEY}"
+    },
+    "summary_sentences": 2,
+    "summary_max_words": 20
+  }
+}
+----
+
+=== EmbeddingsOperator
+
+* **Short name:** `embeddings`
+* **Category:** Functional
+
+Generates dense vector embeddings from document text (or pre-chunked content).
+Long text is automatically split and averaged when it exceeds the model token limit.
+
+See xref:08_llm_integration.adoc[Chapter 8] for full provider configuration details.
+
+==== Quick Examples
+
+.Ollama via LiteLLM (recommended for local development)
+[source,json]
+----
+{
+  "name": "embed",
+  "type": "embeddings",
+  "depends_on": ["chunk"],
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/nomic-embed-text",
+      "api_base": "http://localhost:11434"
+    }
+  }
+}
+----
+
+.HuggingFace local (offline, no API key)
+[source,json]
+----
+{
+  "provider": "huggingface",
+  "provider_config": {
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "use_local": true,
+    "device": "cpu"
+  }
+}
+----
+
+.WatsonX
+[source,json]
+----
+{
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/slate-125m-english-rtrvr",
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE_URL}",
+    "container_kind": "project",
+    "container_id": "${WATSONX_PROJECT_ID}"
+  }
+}
+----
+
+=== DocumentClassifierOperator
+
+* **Short name:** `document_classifier`
+* **Category:** Quality
+
+Classifies each document into one of a set of predefined types using an LLM.
+The resulting `document_type` column can be used by a downstream `extract_operator` to select the appropriate entity extraction schema.
+
+[source,json]
+----
+{
+  "name": "classify",
+  "type": "document_classifier",
+  "depends_on": ["extract"],
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "${OLLAMA_API_KEY}"
+    },
+    "document_types": ["invoice", "contract", "purchase_order", "report"]
+  }
+}
+----
+
+The operator adds a `document_type` column (string) and a `classification_score` column (float).
+
+For WatsonX, replace the provider block:
+
+[source,json]
+----
+{
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE_URL}",
+    "container_kind": "project",
+    "container_id": "${WATSONX_PROJECT_ID}"
+  }
+}
+----
+
+=== EntityCurationOperator
+
+* **Short name:** `entity_curation`
+* **Category:** Functional
+
+Transforms raw key-value pairs from `extract_operator` into curated, type-normalised data.
+Applied after `extract_operator` when entity extraction is enabled.
+
+Supported transformations: `currency_to_numeric`, `make_date_uniform`, `to_number`, `weight_to_numeric`.
+
+[source,json]
+----
+{
+  "name": "curate",
+  "type": "entity_curation",
+  "depends_on": ["extract"],
+  "config": {
+    "entities_column": "entities",
+    "document_type_column": "document_type"
+  }
+}
+----
+
+The operator adds a `transformed_entities` column (JSON string) containing the schema-normalised entities.
+Documents with no matching schema pass through with `{}`.
+
+=== DocIdHashOperator
+
+* **Short name:** `doc_id_hash`
+* **Category:** Functional
+
+Computes a stable SHA-256 hash identifier from document content.
+Required upstream of `ededup` (deduplication) and recommended before `vectordb`.
+
+[source,json]
+----
+{
+  "name": "hash",
+  "type": "doc_id_hash",
+  "depends_on": ["extract"],
+  "config": {}
+}
+----
+
+Adds a `doc_id_hash` column (string, 64-character hex).
+
+=== Common Processing Patterns
+
+==== Full RAG Extraction Pipeline
+
+[source,json]
+----
+{
+  "flow_name": "full-rag",
+  "flow": [
+    {"name": "ingest",   "type": "ingest_source",   "config": {"provider": "filesystem", "connection_params": {"paths": ["./docs"]}}},
+    {"name": "extract",  "type": "extract_operator", "depends_on": ["ingest"],  "config": {"text_extraction": {"provider": "docling_library"}, "entity_extraction": {"provider": "none"}}},
+    {"name": "hash",     "type": "doc_id_hash",      "depends_on": ["extract"], "config": {}},
+    {"name": "dedup",    "type": "ededup",            "depends_on": ["hash"],    "config": {}},
+    {"name": "chunk",    "type": "chunker",           "depends_on": ["dedup"],   "config": {"chunk_type": "hybrid", "chunk_size": 512}},
+    {"name": "embed",    "type": "embeddings",        "depends_on": ["chunk"],   "config": {"provider": "litellm", "provider_config": {"model_id": "openai/nomic-embed-text", "api_base": "http://localhost:11434"}}},
+    {"name": "store",    "type": "vectordb",          "depends_on": ["embed"],   "config": {"provider": "opensearch", "provider_config": {"index_name": "docs", "host": "localhost", "port": 9200, "use_ssl": false}}}
+  ]
+}
+----
+
+==== Entity Extraction with Classification
+
+[source,json]
+----
+[
+  {"name": "ingest",   "type": "ingest_source",        "config": {...}},
+  {"name": "extract",  "type": "extract_operator",     "depends_on": ["ingest"],   "config": {"text_extraction": {"provider": "docling_library"}, "entity_extraction": {"provider": "none"}}},
+  {"name": "classify", "type": "document_classifier",  "depends_on": ["extract"],  "config": {"provider": "litellm", "provider_config": {"model_id": "openai/granite4", "api_base": "http://localhost:11434/v1", "api_key": "${OLLAMA_API_KEY}"}, "document_types": ["invoice", "report"]}},
+  {"name": "extract2", "type": "extract_operator",     "depends_on": ["classify"], "config": {"text_extraction": {"provider": "docling_library"}, "entity_extraction": {"provider": "litellm", "provider_config": {"model_id": "openai/granite4", "api_base": "http://localhost:11434/v1", "api_key": "${OLLAMA_API_KEY}"}}}},
+  {"name": "curate",   "type": "entity_curation",      "depends_on": ["extract2"], "config": {}}
+]
+----

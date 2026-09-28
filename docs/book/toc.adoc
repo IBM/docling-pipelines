@@ -1,0 +1,51 @@
+= Docling-pipelines: The Definitive Guide
+:doctype: book
+:toc: left
+:toclevels: 3
+:sectnums:
+:icons: font
+:source-highlighter: rouge
+:imagesdir: images
+// PDF title-page metadata
+:subtitle: A Complete Guide to Modular Document Processing Pipelines
+:revnumber: 1.0
+:revdate: {localdate}
+:author: Docling-pipelines Project
+:pdf-themesdir: .
+:pdf-theme: docling-pipelines
+:chapter-signifier: Chapter
+:appendix-caption: Appendix
+
+include::chapters/01_introduction_and_architecture.adoc[]
+
+include::chapters/02_installation_and_quick_start.adoc[]
+
+include::chapters/03_authoring_flows.adoc[]
+
+include::chapters/04_ingesting_data.adoc[]
+
+include::chapters/05_extracting_and_processing_documents.adoc[]
+
+include::chapters/06_data_quality_and_enrichment.adoc[]
+
+include::chapters/07_vector_storage_and_retrieval.adoc[]
+
+include::chapters/08_llm_integration.adoc[]
+
+include::chapters/09_python_api_and_programmatic_usage.adoc[]
+
+include::chapters/10_extending_docling_pipelines.adoc[]
+
+include::chapters/11_production_deployment_and_observability.adoc[]
+
+include::chapters/12_troubleshooting_and_contributing.adoc[]
+
+[appendix]
+== Operator Reference
+
+See the `docs/reference/OPERATORS.md` file in the repository for complete parameter specifications for all operators.
+
+[appendix]
+== Sample Flows
+
+See the `sample_flows/` directory in the repository for annotated, working pipeline definitions.

@@ -1,0 +1,192 @@
+== Introduction and Architecture
+
+Docling-pipelines (also referred to as *docpipe*) is a modular, operator-based document-processing framework for building flexible data curation pipelines.
+It enables advanced Retrieval-Augmented Generation (RAG) workflows by combining structured extraction, semantic chunking, vector embeddings, and hybrid search capabilities.
+
+=== What Docling-pipelines Does
+
+The framework lets you:
+
+* Ingest documents from local filesystems, S3, SharePoint, OneDrive, Google Drive, Box, and web pages.
+* Extract text and structured entities from PDFs, DOCX, XLSX, images, audio, and video files using Docling.
+* Split documents into chunks sized for embedding models.
+* Generate dense (and optionally sparse) vector embeddings with HuggingFace, Ollama, LiteLLM, or WatsonX.
+* Store vectors in OpenSearch or Milvus for similarity search.
+* Enforce row-level document access control (ACL).
+* Run quality checks: deduplication, language detection, PII/HAP detection, readability scoring, SQL filtering.
+* Orchestrate all of the above as a DAG pipeline defined in a single JSON file.
+
+=== Technology Stack
+
+[cols="1,3",options="header"]
+|===
+|Layer |Technologies
+|Orchestration |Prefect, Python 3.12+
+|Data processing |PyArrow
+|Storage |DuckDB (metadata), filesystem
+|Document processing |Docling (with ASR support for audio/video)
+|LLM integration |Ollama, WatsonX, LiteLLM (100+ providers), HuggingFace
+|Vector storage |OpenSearch, Milvus, NMSLIB, Faiss
+|Language detection |FastText, langdetect
+|REST API (optional) |FastAPI
+|Testing |pytest, pytest-cov
+|Package management |uv
+|===
+
+=== Architecture Overview
+
+Docling-pipelines intentionally uses a *mixed architectural approach* rather than a single dominant pattern.
+
+==== Architectural Layers
+
+*Interface Layer* — CLI (`docling-pipelines`) and `DocpipeFlowManager` Python API.
+Both accept the same flow JSON definition.
+
+*Orchestration Layer* — `FlowExecutor` is the entry point.
+It calls `FlowValidator` and then hands off to `PythonOrchestrator` (in-process) or `PrefectEngine` (distributed).
+`BatchManager` handles micro-batching for large document collections.
+
+*Operator Layer* — 21 specialised operators organised into six categories.
+Each operator receives a `pa.Table` and returns `tuple[list[pa.Table], dict]`.
+Operators are chained into a directed acyclic graph (DAG).
+
+*Integration Layer* — Adapters for Ollama, Docling, OpenSearch, LiteLLM, WatsonX, and cloud storage.
+
+*Data Layer* — PyArrow tables for in-flight data; DuckDB and filesystem for job stats and incremental metadata.
+
+==== Architectural Patterns
+
+[cols="1,3",options="header"]
+|===
+|Pattern |Where used
+|Hexagonal (Ports & Adapters) |LLM integrations, orchestration batch strategies, PII/HAP stack
+|Factory Pattern |`OrchestratorFactory`, `OperatorFactory`
+|Strategy Pattern |Interchangeable operator implementations
+|Observer Pattern |`FlowExecutionEventHandler` for monitoring
+|Template Method |`AbstractOperator` defines execution template; concrete operators fill in logic
+|===
+
+=== Operator Catalog
+
+The framework ships with 21 built-in operators.
+
+==== Ingest Category
+
+[cols="1,2,2",options="header"]
+|===
+|Short name |Class |Purpose
+|`ingest_source` |`IngestSourceOperator` |Multi-provider ingest: filesystem, S3, SharePoint, OneDrive, Google Drive, Box, web
+|===
+
+==== Extract Category
+
+[cols="1,2,2",options="header"]
+|===
+|Short name |Class |Purpose
+|`extract_operator` |`ExtractOperator` |Text and entity extraction via Docling (local or remote)
+|`acl_operator` |`ACLOperator` |Extract ACL permissions from the source system
+|===
+
+==== Functional Category
+
+[cols="1,2,2",options="header"]
+|===
+|Short name |Class |Purpose
+|`chunker` |`ChunkerOperator` |Split text into overlapping chunks
+|`embeddings` |`EmbeddingsOperator` |Generate dense vector embeddings
+|`entity_curation` |`EntityCurationOperator` |Schema-driven entity normalisation
+|`branching` |`BranchingOperator` |Split the data stream into branches
+|`merge` |`MergeOperator` |Merge branched streams back together
+|`doc_id_hash` |`DocIdHashOperator` |Compute stable SHA-256 document IDs
+|`noop` |`NOOPOperator` |Pass-through (testing / branching placeholder)
+|===
+
+==== Quality Category
+
+[cols="1,2,2",options="header"]
+|===
+|Short name |Class |Purpose
+|`document_classifier` |`DocumentClassifierOperator` |LLM-based document type classification
+|`lang_detect` |`LanguageDetect` |ISO 639-1 language identification
+|`readability` |`ReadabilityOperator` |Flesch-Kincaid and custom readability scores
+|`redaction` |`RedactionOperator` |Pattern-based text redaction
+|`pii_and_hap` |`PIIAndHAPAnnotator` |LLM-based PII and hate/abuse/profanity detection
+|`ededup` |`EdedupOperator` |Exact deduplication by SHA-256 hash
+|`ml_enrichment` |`MLEnrichmentOperator` |Custom ML model enrichment
+|`sql_filter` |`SQLFilterOperator` |Row filtering with SQL WHERE expressions
+|`doc_quality` |`DocQuality` |Composite document quality scoring
+|===
+
+==== VectorDB Category
+
+[cols="1,2,2",options="header"]
+|===
+|Short name |Class |Purpose
+|`vectordb` |`VectorDBOperator` |Index embeddings into OpenSearch or Milvus
+|===
+
+==== Storage Category
+
+[cols="1,2,2",options="header"]
+|===
+|Short name |Class |Purpose
+|`document_set` |`DocumentSetOperator` |Persist document metadata in a named document set
+|`storage_output` |`StorageOutputOperator` |Write pipeline output to a file destination
+|===
+
+=== Core Concepts
+
+==== Flow
+
+A *flow* is a JSON document that describes a pipeline as a DAG.
+It has a `flow_name`, optional `global_config`, and a `flow` array of operator nodes.
+Each node declares its `type` (operator short name), a unique `name`, optional `config`, and optional `depends_on` list.
+See xref:03_authoring_flows.adoc[Chapter 3] for the complete schema.
+
+==== Operator
+
+An *operator* is a Python class that extends `AbstractOperator`.
+Its `transform()` method receives a `pa.Table` and returns `tuple[list[pa.Table], dict]`.
+The `dict` is an execution metadata record that is aggregated across micro-batches.
+
+==== PyArrow Data Contract
+
+All inter-operator data is a `pyarrow.Table`.
+Operators may add columns; they must not silently remove upstream columns unless that is their documented purpose (e.g. `sql_filter`).
+
+==== Job and Job Run
+
+A *job* corresponds to a flow (identified by a deterministic UUID derived from `flow_name`).
+A *job run* is a single execution of a job.
+Job run state is persisted in DuckDB, filesystem JSON, or PostgreSQL depending on configuration.
+
+==== Incremental Processing
+
+By default, the ingest operators skip documents already seen in a previous run.
+Setting `force_ingest: true` in `global_config` forces reprocessing of all documents.
+Incremental state is keyed by `job_id`.
+
+==== Micro-batching
+
+For large document collections, the `BatchManager` splits the ingest output into micro-batches that are processed concurrently.
+`micro_batch_size` and `max_concurrent_batches` control throughput.
+The default is enabled automatically for REST and programmatic runs.
+
+=== Repository Structure
+
+----
+src/docpipe/
+├── cli/              CLI entry point
+├── lib/              DocpipeFlowManager (Python API)
+├── api/              FastAPI REST layer
+├── core/
+│   ├── operators/    All 21 operators
+│   ├── orchestration/ FlowExecutor, FlowValidator, PythonOrchestrator, PrefectEngine
+│   ├── adapters/     LLM adapters (WatsonX, LiteLLM, HuggingFace)
+│   ├── ports/        LLMInferencePort, LLMEmbeddingPort, TextDetectionPort
+│   ├── job_management/ DDD-layered job and job-run lifecycle
+│   └── assets/       DDD-layered flow, document-library, document-set management
+├── integrations/     External client wrappers
+├── storage/          DuckDB + filesystem storage abstractions
+└── utils/            Logging, PyArrow helpers, flow utilities
+----

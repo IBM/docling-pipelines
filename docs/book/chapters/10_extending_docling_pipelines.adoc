@@ -1,0 +1,365 @@
+== Extending Docling-pipelines
+
+Docling-pipelines is designed to be extended with custom operators, new data source connectors, and external operator packages.
+
+=== Custom Operators
+
+==== Quick Start
+
+The fastest way to get started is to copy and modify an example:
+
+[source,bash]
+----
+# The example is in the repository
+cp examples/custom_operators/my_custom_operator.py ./my_operator.py
+----
+
+Then register and use it:
+
+[source,bash]
+----
+export DOCPIPE_CUSTOM_OPERATORS=./my_operator.py
+docling-pipelines --flow-file my_flow.json
+----
+
+==== Minimum Requirements
+
+Any custom operator must:
+
+. Extend `AbstractOperator`
+. Define `short_name` as a class attribute (unique string)
+. Define `category` as a class attribute (`OperatorCategory.Quality`, etc.)
+. Define `owner` as a class attribute
+. Implement `transform(self, table: pa.Table) -> tuple[list[pa.Table], dict]`
+. Implement `get_metadata() -> dict` as a `@staticmethod`
+
+==== Operator Template
+
+[source,python]
+----
+import pyarrow as pa
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.utils.infrastructure.logging import get_logger
+
+logger = get_logger()
+
+
+class MyCustomOperator(AbstractOperator):
+    short_name: str = "my_operator"
+    category: OperatorCategory = OperatorCategory.Quality
+    owner: str = "custom"          # "docpipe" for built-in; "custom" for extensions
+
+    def __init__(self, *, config: dict) -> None:
+        super().__init__(config=config)
+        # Read parameters from config dict
+        self.my_param = config.get("my_param", "default_value")
+
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict]:
+        metadata = self.create_base_metadata(total_docs_count=len(table))
+
+        results = []
+        for i in range(len(table)):
+            doc_id = table["id"][i].as_py()
+            try:
+                # Process each document
+                results.append({"processed": True})
+            except Exception as exc:
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=doc_id,
+                    doc_name=table["name"][i].as_py(),
+                    reason=str(exc)
+                )
+
+        # Add a new column to the table
+        new_col = pa.array(["processed"] * len(table), type=pa.string())
+        table = table.append_column("my_output_column", new_col)
+
+        return [table], metadata
+
+    @staticmethod
+    def get_metadata() -> dict:
+        return {
+            "short_name": "my_operator",
+            "description": "My custom operator description",
+            "owner": "custom",
+            "category": "Quality",
+            "attributes": [
+                {
+                    "name": "my_param",
+                    "display_name": "My Parameter",
+                    "description": "Description of my parameter",
+                    "type": "string",
+                    "required": False,
+                    "default": "default_value"
+                }
+            ],
+            "features": [
+                {
+                    "name": "my_output_column",
+                    "display_name": "My Output",
+                    "description": "Output column added by this operator",
+                    "type": "string"
+                }
+            ]
+        }
+----
+
+==== Inherited Helper Methods
+
+[cols="2,3",options="header"]
+|===
+|Method |Description
+|`self.create_base_metadata(total_docs_count=N)` |Initialise the metadata dict
+|`self.record_failed_document(metadata, doc_id, doc_name, reason)` |Record a document failure
+|`self.record_skipped_document(metadata, doc_id, doc_name, reason)` |Record a document skip
+|`self.doc_column` |Content column name from config (default `"content"`)
+|`self.job_id`, `self.job_run_id` |Current job identifiers
+|`self.common_log_arguments` |Dict for consistent log context
+|===
+
+==== Optional Override Methods
+
+[cols="2,3",options="header"]
+|===
+|Method |Description
+|`validate(errors, warnings, available_features)` |Custom validation run before execution
+|`get_required_features() -> list[str]` |Declare required input columns
+|`get_static_required_features() -> list[str]` |Static version for operator discovery
+|`is_available() -> bool` |Check if operator dependencies are installed
+|===
+
+=== Registering Custom Operators
+
+==== Method 1: Environment Variable (Recommended)
+
+[source,bash]
+----
+# Point to a Python file or directory
+export DOCPIPE_CUSTOM_OPERATORS=./my_operators/
+
+# Or multiple paths
+export DOCPIPE_CUSTOM_OPERATORS=./op1.py,./op2.py
+
+docling-pipelines --flow-file my_flow.json
+----
+
+==== Method 2: Programmatic API
+
+[source,python]
+----
+from docpipe.core.operators.operator_registry import register_operator_provider
+from my_package.operators import MY_OPERATORS
+
+def get_my_operators(orchestrator=None):
+    return MY_OPERATORS
+
+register_operator_provider(get_my_operators)
+----
+
+Call `register_operator_provider` *before* any `DocpipeFlowManager` or `FlowExecutor` instantiation.
+
+==== Method 3: Package Entry Points
+
+For distributable operator packages, define entry points in `pyproject.toml`:
+
+[source,toml]
+----
+[project.entry-points."docpipe.operators"]
+my_package = "my_package.operators:get_operators"
+----
+
+The `get_operators` function must have signature `(orchestrator=None) -> frozenset`.
+
+==== Verifying Registration
+
+[source,bash]
+----
+docling-pipelines --list-operators --verbose
+----
+
+Your `short_name` should appear in the list.
+
+[source,python]
+----
+from docpipe.core.operators.operator_registry import get_docpipe_operators
+
+all_ops = get_docpipe_operators()
+names = {op.short_name for op in all_ops}
+assert "my_operator" in names
+----
+
+=== Operator Priority System
+
+When multiple operators share the same `short_name`, the priority system resolves which one is used.
+
+[cols="1,2,2",options="header"]
+|===
+|Priority |`owner` value |Who uses it
+|100 |`"custom"` |User-provided custom operators (default)
+|200 |`DocpipeConstants.OWNER_DOCPIPE` |Built-in docpipe operators
+|===
+
+Lower priority number = higher precedence.
+Custom operators (100) override built-in operators (200) automatically.
+
+For enterprise-tier overrides, register a custom tier:
+
+[source,python]
+----
+from docpipe.core.orchestration.operator_factory import OperatorFactory
+
+# Call once at startup, before operators are loaded
+OperatorFactory.register_owner_priority(owner="my_enterprise", priority=10)
+
+class MyEnterpriseExtract(AbstractOperator):
+    short_name = "extract_operator"
+    owner = "my_enterprise"     # priority 10 — overrides custom (100) and OSS (200)
+    ...
+----
+
+=== Creating a New Data Source Connector
+
+Connectors implement `DocumentSourcePort` and register with `@register_source_adapter`.
+
+==== Required Interface
+
+[source,python]
+----
+from docpipe.core.operators.ingest.adapters.outbound.sources.base import (
+    DocumentSourcePort,
+    register_source_adapter
+)
+from pydantic import BaseModel
+
+
+class MyConnectorConfig(BaseModel):
+    """Configuration for MyConnector."""
+    host: str
+    api_key: str
+    folder_path: str = "/"
+
+
+@register_source_adapter("my_source")
+class MyConnectorSourceAdapter(DocumentSourcePort):
+    SOURCE_NAME = "my_source"
+    SOURCE_DISPLAY_NAME = "My Source"
+    SOURCE_DESCRIPTION = "Ingest documents from My Source"
+    SOURCE_VERSION = "1.0.0"
+
+    def __init__(self, *, config: MyConnectorConfig) -> None:
+        self.config = config
+
+    async def fetch_documents(self):
+        """Async generator yielding Document objects."""
+        # Implement document discovery logic
+        async for doc in self._list_documents():
+            yield doc
+
+    async def test_connection(self) -> bool:
+        """Validate connectivity."""
+        try:
+            # Test the connection
+            return True
+        except Exception:
+            return False
+
+    @classmethod
+    def get_config_schema(cls):
+        return MyConnectorConfig
+
+    @classmethod
+    def build_config_from_operator_params(cls, params: dict) -> MyConnectorConfig:
+        return MyConnectorConfig(**params)
+----
+
+==== Directory Structure
+
+Place your connector in:
+
+----
+src/docpipe/core/operators/ingest/adapters/outbound/sources/my_connector/
+├── __init__.py      # Export adapter and config
+├── adapter.py       # Adapter implementation
+├── config.py        # Pydantic config model
+└── README.md        # Documentation
+----
+
+=== External Operator Packages
+
+External applications can register operators at startup:
+
+[source,python]
+----
+# external_app/__init__.py
+from docpipe.core.operators.operator_registry import register_operator_provider
+from external_app.operators import APP_OPERATORS
+
+def get_app_operators(orchestrator=None):
+    return APP_OPERATORS
+
+register_operator_provider(get_app_operators)
+----
+
+[source,python]
+----
+# external_app/pipeline.py
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+# Custom operator is now available
+flow_def = {
+    "flow_name": "App Pipeline",
+    "flow": [
+        {"name": "ingest", "type": "ingest_source", "config": {"provider": "filesystem", "connection_params": {"paths": ["./data"]}}},
+        {"name": "custom", "type": "my_custom_op", "config": {"param1": "value1"}, "depends_on": ["ingest"]}
+    ]
+}
+
+manager = DocpipeFlowManager(flow_def=flow_def)
+result = manager.execute()
+----
+
+==== API Reference
+
+[cols="2,3",options="header"]
+|===
+|Function |Description
+|`register_operator_provider(provider_func)` |Register a provider function; signature: `(orchestrator=None) -> frozenset`
+|`clear_operator_providers()` |Clear all registered providers (useful in tests)
+|`get_registered_provider_count()` |Return number of registered external providers
+|`get_docpipe_operators(orchestrator=None)` |Return all operators (built-in + external)
+|===
+
+=== Best Practices for Custom Operators
+
+. **Register Early** — call `register_operator_provider` at application startup, before any docpipe operations.
+. **Use Descriptive Names** — choose a unique `short_name` to avoid conflicts.
+. **Implement `is_available()`** — check optional dependencies inside this method so the operator gracefully reports itself as unavailable when deps are missing.
+. **Handle Errors Per Document** — use `record_failed_document` instead of letting exceptions bubble up; this allows the rest of the batch to continue.
+. **Document your operator** — fill in all `attributes` and `features` in `get_metadata()`.
+. **Write unit tests** — test `transform()` with sample `pa.Table` inputs.
+. **No emoji in logging** — use ASCII-only strings in all log statements.
+. **Use `%s`-style formatting** — never f-strings inside `logger.*()` calls.
+
+=== Slim Variant Considerations
+
+The `slim` variant ships without Docling and sentence-transformers.
+Custom operators that depend on these packages should check availability in `is_available()`:
+
+[source,python]
+----
+@classmethod
+def is_available(cls) -> bool:
+    try:
+        import docling  # noqa: F401
+        return True
+    except ImportError:
+        return False
+----
+
+== Next Steps
+
+* xref:01_introduction_and_architecture.adoc[Chapter 1] — review the full operator catalog and architectural patterns.
+* xref:03_authoring_flows.adoc[Chapter 3] — wire your new operator into a flow JSON definition.
+* xref:11_production_deployment_and_observability.adoc[Chapter 11] — deploy custom-operator packages to OpenShift or distributed Prefect workers.
+* xref:12_troubleshooting_and_contributing.adoc[Chapter 12] — follow the contribution guide and PR workflow to merge your operator upstream.

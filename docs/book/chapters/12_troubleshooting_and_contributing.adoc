@@ -1,0 +1,333 @@
+== Troubleshooting and Contributing
+
+This chapter covers diagnostics, common fixes, and the contribution workflow.
+
+=== Quick Diagnostics
+
+Run this checklist to check your environment:
+
+[source,bash]
+----
+# 1. Python version (must be 3.12)
+python3.12 --version
+
+# 2. Virtual environment active?
+which python   # should point to .venv/bin/python
+
+# 3. PYTHONPATH set?
+echo $PYTHONPATH   # should include src
+
+# 4. Ollama service
+curl http://localhost:11434/api/tags
+
+# 5. OpenSearch service
+curl -u admin:MyStrongPass123! http://localhost:9200
+
+# 6. Available Ollama models
+ollama list
+
+# 7. Working directory
+pwd   # should end with /docling-pipelines
+
+# 8. OpenSearch cluster health
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
+----
+
+Enable debug logging:
+
+[source,bash]
+----
+export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file my_flow.json
+----
+
+=== Common Issues
+
+==== Python / Import Errors
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Solution
+|`command not found: docling-pipelines` |Activate the virtual environment: `source .venv/bin/activate`
+|`ModuleNotFoundError: docpipe` |Set `PYTHONPATH`: `export PYTHONPATH="$(pwd)/src:$\{PYTHONPATH}"`
+|`Python 3.12 not found` |Install Python 3.12: `brew install python@3.12` or `sudo apt install python3.12`
+|`uv: command not found` |Install uv: run `curl -LsSf https://astral.sh/uv/install.sh \| sh`
+|===
+
+==== Ollama Issues
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Solution
+|`Connection refused` to port 11434 |Start Ollama: `ollama serve &`
+|Model not found |Pull the model: `ollama pull nomic-embed-text`
+|Slow responses |Check available GPU/CPU resources; reduce `max_workers` in operator config
+|===
+
+==== OpenSearch Issues
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Solution
+|`Connection refused` to port 9200 |Start OpenSearch: `podman-compose -f docker/docker-compose.opensearch.yml up -d`
+|`401 Unauthorized` |Check credentials in `provider_config` (username/password)
+|Index creation fails |Verify the KNN plugin is installed; try `engine: "lucene"` as a fallback
+|`ClusterNotReady` |Wait 30 seconds after startup; check with `/_cluster/health`
+|===
+
+==== Pipeline Execution Errors
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Solution
+|`FlowValidationException` |Run `--validate` and inspect the `errors` list; check for missing `depends_on`, wrong operator names
+|`ConfigurationError: custom_schema` |When entity extraction is enabled, provide `custom_schema` or run `document_classifier` upstream
+|Large PDFs time out |Reduce `max_workers`, use `docling_serve` provider, or process smaller batches
+|`ModuleNotFoundError` for optional deps |Install the relevant extra: `uv pip install -e ".[s3]"` or `uv pip install -e ".[telemetry]"`
+|`DistributionNotFound` in distributed mode |Ensure the same Python environment is active on all workers
+|===
+
+==== Job Stats and Execution Tracking
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Solution
+|Documents reprocessed on every run |Check that `job_id` is stable (same value across runs); verify `force_ingest: false`
+|`DuckDB file locked` |Only one DuckDB connection at a time; switch to PostgreSQL for distributed execution
+|Job run status not updating |Verify workers share the same `DOCPIPE_JOB_STATS_BASE_DIR` absolute path (not relative)
+|===
+
+=== Error Code Reference
+
+[cols="1,3",options="header"]
+|===
+|Exit code |Meaning
+|`0` |Success
+|`1` |Flow execution error
+|`2` |Validation error
+|`3` |Configuration error
+|`4` |Import / dependency error
+|===
+
+=== Debugging Guide
+
+==== Enable Verbose Logging
+
+[source,bash]
+----
+export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file my_flow.json 2>&1 | tee debug.log
+----
+
+==== Validate Only (No Execution)
+
+[source,bash]
+----
+docling-pipelines --flow-file my_flow.json --validate
+----
+
+==== List Registered Operators
+
+[source,bash]
+----
+# Summary
+docling-pipelines --list-operators
+
+# Full parameter specs
+docling-pipelines --list-operators --verbose
+----
+
+==== Start Fresh
+
+[source,bash]
+----
+# Stop services
+podman-compose -f docker/docker-compose.opensearch.yml down
+pkill -f "ollama serve"
+
+# Remove configuration state
+rm -f .docpipe_setup_config docpipe_setup.log
+
+# Re-run setup
+./scripts/setup_docpipe_environment.sh
+----
+
+=== Code Standards
+
+All contributions must follow the standards enforced by pre-commit hooks and project policy.
+
+==== Python Style
+
+* **Python 3.12+** — no legacy syntax
+* **Keyword-only arguments** — all functions with 2+ params (excluding `self`/`cls`) must use `*` separator:
+  `def __init__(self, *, config: dict) -> None`
+* **No f-strings in log calls** — use `%s` format: `logger.info("Processing %s", doc_id)`
+* **No emoji or non-ASCII characters** in Python logging, print, or exception messages
+* **No bare `except:` clauses** — always log or re-raise
+* **Public functions need docstrings** — unless trivial getters
+
+==== Operator Standards
+
+* `get_metadata()` must be `@staticmethod` — no `self`
+* Set `owner = DocpipeConstants.OWNER_DOCPIPE` for built-in operators
+* Register built-in operators in `DOCPIPE_OPERATORS` frozenset in `operator_registry.py`
+* Instance `get_required_features()` should have a companion `get_static_required_features()` static method
+
+==== Logging
+
+[source,python]
+----
+# Correct
+logger.info("Processing %s documents", len(table))
+logger.error("Failed to process %s: %s", doc_id, str(exc))
+
+# Wrong
+logger.info(f"Processing {len(table)} documents")   # f-string in logger
+logger.info("Processing 🔄 documents")                # emoji
+----
+
+==== Testing
+
+* Unit tests go in `tests/unit/`; integration tests in `tests/integration/`
+* Use `pytest` — no `unittest.TestCase` subclasses
+* Test naming: `test_<subject>_<condition>_<expected_result>`
+* No `for` loops over inputs in a single test — use `@pytest.mark.parametrize`
+* Mock at object level with `patch.object`, not string paths
+* Clean up `app.dependency_overrides` via `yield` + `.clear()`
+
+Run tests:
+
+[source,bash]
+----
+source .venv/bin/activate
+
+pytest tests/unit/ -v                              # unit tests only
+pytest tests/unit/operators/chunker/ -v            # specific operator
+pytest tests/ -m "not integration" -v              # CI-safe (skip integration)
+pytest --cov=src/docpipe --cov-report=html         # with coverage
+----
+
+=== Pull Request Workflow
+
+==== Step 1 — Set Up
+
+[source,bash]
+----
+# Fork on GitHub, then clone
+git clone https://github.com/YOUR-USERNAME/docling-pipelines.git
+cd docling-pipelines
+git remote add upstream https://github.com/IBM/docling-pipelines.git
+
+# Install dev dependencies
+uv sync --extra dev
+
+# Install pre-commit hooks
+pre-commit install
+----
+
+==== Step 2 — Create a Branch
+
+[source,bash]
+----
+git checkout -b feat/my-new-feature
+# or
+git checkout -b fix/bug-description
+----
+
+==== Step 3 — Make Changes
+
+Follow the code standards above.
+Update documentation:
+
+[cols="2,3",options="header"]
+|===
+|Change type |Docs to update
+|New operator |`docs/operators/<category>/<name>_readme.md` (create), `docs/reference/OPERATORS.md`
+|Operator modified |`docs/operators/<category>/<name>_readme.md`, `docs/reference/OPERATORS.md`
+|New connector |`docs/operators/ingest/ingest_source_readme.md`
+|Global config change |`docs/reference/GLOBAL_CONFIG.md`
+|Architecture change |`ARCHITECTURE.md`
+|New dependency |`pyproject.toml` and `slim/pyproject.toml` (mirror the change)
+|===
+
+==== Step 4 — Run Pre-Commit Hooks
+
+[source,bash]
+----
+# Run on changed files only
+git diff --name-only main | xargs pre-commit run --files
+
+# Minimum required: detect-secrets must pass
+pre-commit run detect-secrets --files $(git diff --name-only main)
+----
+
+Never use `--no-verify` on `git commit` or `--force` on `git push` — both are blocked by project policy.
+
+==== Step 5 — Create the PR
+
+[source,bash]
+----
+git push origin feat/my-new-feature
+gh pr create --base main --title "feat: add my feature" --body "..."
+----
+
+Fill in the PR template completely — all checklist items must be addressed.
+
+==== Commit Message Format
+
+Use Conventional Commits:
+
+[source]
+----
+feat: add sparse vector support to VectorDB operator
+fix: handle empty table in ededup operator
+docs: update chunker README with semantic examples
+test: add unit tests for SQLFilterOperator
+chore: bump docling to 2.5.0
+----
+
+=== Documentation Standards
+
+==== Operator README Template (8 sections, required order)
+
+. **Overview** — what the operator does, one paragraph
+. **Key Features** — bullet list, 4–8 items
+. **Operator Configuration** — minimal JSON example
+. **Parameters** — table with name, type, required, default, description
+. **Output Columns** — table with column name, type, description
+. **Examples** — 2+ annotated examples
+. **Troubleshooting** — common issues and solutions
+. **Architecture** (optional, last) — internal design if non-trivial
+
+==== File Naming
+
+* All docs: `UPPER_SNAKE_CASE.md` (e.g. `OPERATORS.md`, `GLOBAL_CONFIG.md`)
+* Operator READMEs: `<operator_name>_readme.md` (lowercase, under `docs/operators/<category>/`)
+
+==== Changelog
+
+Every change goes in `CHANGELOG.md` under `## [Unreleased]`.
+Never inline changelogs in documentation files.
+
+=== Getting Help
+
+* **Troubleshooting issues** — check `TROUBLESHOOTING.md` first
+* **Architecture questions** — read `ARCHITECTURE.md`
+* **Operator configuration** — check `docs/reference/OPERATORS.md`
+* **Global config** — check `docs/reference/GLOBAL_CONFIG.md`
+* **GitHub issues** — search existing issues before opening a new one
+* **Contributing** — read `CONTRIBUTING.md` for the full contribution guide
+
+=== Deprecation Policy
+
+Operators and API parameters are deprecated before removal.
+A deprecation notice is added in the release notes and in the relevant operator README.
+Deprecated items are removed in the next major version.
+See `docs/guides/DEPRECATION_POLICY.md` for the full policy.
+
+== Related Chapters
+
+* xref:02_installation_and_quick_start.adoc[Chapter 2] — environment setup and first pipeline, useful when verifying a fresh install.
+* xref:03_authoring_flows.adoc[Chapter 3] — flow JSON schema and validation rules.
+* xref:10_extending_docling_pipelines.adoc[Chapter 10] — creating and registering custom operators.
+* xref:11_production_deployment_and_observability.adoc[Chapter 11] — production hardening, Prefect setup, and OAuth2.

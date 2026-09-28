@@ -1,0 +1,14 @@
+{{#each items}}
+<li class="nav-item{{#if items}} is-expandable{{/if}}{{#if url}} {{#eq url ../currentPageUrl}}is-current-page{{/eq}}{{/if}}">
+  {{#if url}}
+  <a class="nav-link" href="{{relativizeUrlPath url ../currentPageUrl}}">{{content}}</a>
+  {{else}}
+  <span class="nav-title">{{content}}</span>
+  {{/if}}
+  {{#if items}}
+  <ul class="nav-list">
+    {{> nav-item items=items currentPageUrl=../currentPageUrl}}
+  </ul>
+  {{/if}}
+</li>
+{{/each}}

@@ -1,0 +1,323 @@
+== LLM Integration
+
+Docling-pipelines uses a unified LLM adapter architecture that standardises all LLM integrations across operators.
+A single `LLMAdapterFactory` creates provider adapters that implement common port interfaces.
+
+=== Architecture Overview
+
+==== Two Patterns
+
+Most operators follow **Pattern A** (Direct Port):
+
+----
+Operator
+  ↓
+Service Layer (optional for simple operators)
+  ↓ calls
+LLMAdapterFactory
+  ↓ returns
+Common Port Interface (LLMInferencePort / LLMEmbeddingPort / TextDetectionPort)
+  ↑ implemented by
+Consolidated Provider Adapters (WatsonXAdapter, LiteLLMAdapter)
+----
+
+Entity extraction uses **Pattern B** (Operator-Specific Adapter Layer):
+
+----
+ExtractOperator
+  ↓
+EntityExtractionAdapterFactory
+  ↓ creates
+LiteLLMEntityAdapter / WatsonxEntityAdapter
+  ↓ extends
+LLMEntityAdapter (parallelism, schema building, response normalisation)
+  ↓ calls
+LLMAdapterFactory
+  ↓ returns
+LLMInferencePort
+----
+
+==== Port Interfaces
+
+[cols="1,2,2",options="header"]
+|===
+|Port |Purpose |Used by
+|`LLMInferencePort` |Chat/generation APIs |Classification, Entity Extraction, Summarisation, PII/HAP (LLM mode)
+|`LLMEmbeddingPort` |Embedding generation |EmbeddingsOperator
+|`TextDetectionPort` |Specialised detection APIs |PII/HAP (WatsonX mode)
+|===
+
+=== LLM Providers
+
+==== Ollama via LiteLLM (Recommended for Local Development)
+
+Ollama is accessed through LiteLLM using the OpenAI-compatible API:
+
+[source,json]
+----
+{
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/granite4",
+    "api_base": "http://localhost:11434/v1",
+    "api_key": "${OLLAMA_API_KEY}"
+  }
+}
+----
+
+The `api_key` value `"ollama"` is a placeholder — Ollama does not require authentication.
+The `openai/` prefix in `model_id` tells LiteLLM to use the OpenAI-compatible endpoint.
+
+==== LiteLLM (100+ Providers)
+
+LiteLLM provides a unified interface for cloud and local LLM providers:
+
+[cols="2,3",options="header"]
+|===
+|Provider |model_id format
+|OpenAI |`openai/gpt-4`, `openai/gpt-4o`
+|Anthropic |`anthropic/claude-3-opus`, `anthropic/claude-3-sonnet`
+|AWS Bedrock |`bedrock/amazon.titan-text-express-v1`
+|Azure OpenAI |`azure/gpt-4`
+|Google Vertex AI |`vertex_ai/gemini-pro`
+|Cohere |`cohere/command-r`
+|Ollama |`openai/model_name` with `api_base: http://localhost:11434/v1`
+|HuggingFace API |`huggingface/model_id`
+|===
+
+[source,json]
+----
+{
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/gpt-4",
+    "api_key": "${OPENAI_API_KEY}",
+    "temperature": 0.0,
+    "max_tokens": 2000,
+    "timeout": 600
+  }
+}
+----
+
+For streaming (recommended for large documents with remote vLLM):
+
+[source,json]
+----
+{
+  "provider_config": {
+    "model_id": "openai/llama3-70b",
+    "api_base": "http://vllm-server:8000/v1",
+    "api_key": "${VLLM_API_KEY}",
+    "stream": true,
+    "timeout": 1800
+  }
+}
+----
+
+==== WatsonX Adapter
+
+The WatsonX adapter implements all three port interfaces:
+
+* `LLMInferencePort` — chat and generation
+* `LLMEmbeddingPort` — embeddings
+* `TextDetectionPort` — PII/HAP via `/ml/v1/text/detection` API
+
+[source,json]
+----
+{
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE_URL}",
+    "container_kind": "project",
+    "container_id": "${WATSONX_PROJECT_ID}",
+    "temperature": 0.0,
+    "max_tokens": 2000,
+    "timeout": 600
+  }
+}
+----
+
+For WatsonX embeddings:
+
+[source,json]
+----
+{
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/slate-125m-english-rtrvr",
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE_URL}",
+    "container_kind": "project",
+    "container_id": "${WATSONX_PROJECT_ID}",
+    "batch_size": 800,
+    "enable_rate_limiting": false
+  }
+}
+----
+
+==== HuggingFace Adapter (Embeddings Only)
+
+For local embedding generation without API calls:
+
+[source,json]
+----
+{
+  "provider": "huggingface",
+  "provider_config": {
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "use_local": true,
+    "device": "cpu",
+    "batch_size": 32
+  }
+}
+----
+
+For GPU inference:
+
+[source,json]
+----
+{
+  "provider_config": {
+    "model_id": "sentence-transformers/all-mpnet-base-v2",
+    "use_local": true,
+    "device": "cuda"
+  }
+}
+----
+
+For Apple Silicon:
+
+[source,json]
+----
+{
+  "provider_config": {
+    "device": "mps"
+  }
+}
+----
+
+=== Provider Configuration Reference
+
+==== Shared Connection Fields (LiteLLM and WatsonX)
+
+[cols="1,1,1,3",options="header"]
+|===
+|Field |Type |Required |Description
+|`model_id` |string |Yes |Model identifier with provider prefix (LiteLLM) or WatsonX model name
+|`api_key` |string |Conditional |Provider API key (required for most cloud providers)
+|`api_base` |string |No |Custom API endpoint URL
+|`temperature` |float |No |Sampling temperature (default: `0.0`)
+|`max_tokens` |integer |No |Maximum response tokens (default: `2000`)
+|`timeout` |integer |No |HTTP read timeout in seconds (default: `600`)
+|===
+
+==== WatsonX-Specific Fields
+
+[cols="1,1,1,3",options="header"]
+|===
+|Field |Type |Required |Description
+|`container_id` |string |Yes |WatsonX project or space UUID
+|`container_kind` |string |No |`project` or `space` (default: `project`)
+|===
+
+==== LiteLLM-Specific Fields
+
+[cols="1,1,1,3",options="header"]
+|===
+|Field |Type |Required |Description
+|`stream` |boolean |No |Enable HTTP chunked transfer encoding for streaming responses
+|===
+
+=== Operator-Specific LLM Configuration
+
+==== MLEnrichmentOperator
+
+* **Short name:** `ml_enrichment`
+* **Category:** Quality
+
+Uses the shared LLM infrastructure to compute text enrichment features and quality scores:
+
+[source,json]
+----
+{
+  "name": "enrich",
+  "type": "ml_enrichment",
+  "depends_on": ["extract"],
+  "config": {
+    "doc_column": "content",
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "${OLLAMA_API_KEY}"
+    }
+  }
+}
+----
+
+==== EntityCurationOperator
+
+See xref:05_extracting_and_processing_documents.adoc[Chapter 5] for the full description.
+`entity_curation` does not call LLMs directly — it applies schema-driven transformations to entities already extracted by `extract_operator`.
+
+=== Adding a New LLM Provider
+
+To add support for a new provider:
+
+. Implement `LLMInferencePort` or `LLMEmbeddingPort` in a new adapter class under `src/docpipe/core/adapters/`.
+. Register the adapter with `LLMAdapterFactory`.
+. Update the `provider` validation in the affected operator's `validate()` method.
+
+Alternatively, use `litellm` as the provider — LiteLLM supports 100+ providers out of the box.
+New providers added to LiteLLM become immediately available in docpipe without code changes.
+
+=== Environment Variables for LLM Providers
+
+[cols="2,3",options="header"]
+|===
+|Variable |Used by
+|`OLLAMA_HOST` |Ollama default endpoint (default: `http://localhost:11434`)
+|`OPENAI_API_KEY` |LiteLLM with OpenAI provider
+|`ANTHROPIC_API_KEY` |LiteLLM with Anthropic provider
+|`WATSONX_API_KEY` |WatsonX adapter (alternative to `provider_config.api_key`)
+|`WATSONX_API_BASE_URL` |WatsonX adapter (alternative to `provider_config.api_base`)
+|`WATSONX_PROJECT_ID` |WatsonX adapter (alternative to `provider_config.container_id`)
+|===
+
+Using environment variable substitution in flow JSON:
+
+[source,json]
+----
+{
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/gpt-4",
+    "api_key": "${OPENAI_API_KEY}"
+  }
+}
+----
+
+=== Chunker Summarisation
+
+The `chunker` operator can invoke an LLM to generate a short summary for each chunk.
+See xref:05_extracting_and_processing_documents.adoc[Chapter 5] for the `summarization` config block.
+
+Supported summarisation providers: `litellm`, `watsonx`.
+
+=== Document Classification
+
+The `document_classifier` operator uses `LLMInferencePort` (Pattern A) via `ClassificationService`.
+Its prompt asks the LLM to assign one of the provided `document_types` to the input document.
+
+Full configuration reference: see xref:05_extracting_and_processing_documents.adoc[Chapter 5].
+
+=== PII/HAP Detection
+
+The `pii_and_hap` operator uses:
+
+* *LiteLLM path* — `LLMInferencePort`; prompt-based detection; supports Ollama and 100+ providers.
+* *WatsonX path* — `TextDetectionPort`; uses the native WatsonX `/ml/v1/text/detection` endpoint.
+
+Full configuration reference: see xref:06_data_quality_and_enrichment.adoc[Chapter 6].

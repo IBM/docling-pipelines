@@ -1,0 +1,294 @@
+# =============================================================================
+# docling-pipelines-theme.yml — Docling-pipelines Book PDF Theme
+#
+# Loaded by asciidoctor-pdf: -a pdf-themesdir=. -a pdf-theme=docling-pipelines
+# All colours inlined — no variable references (asciidoctor-pdf 2.x compatible).
+# Palette: white page, IBM Navy headings, IBM Cyan accents — print-safe, A4.
+# =============================================================================
+
+extends: default
+
+# ── Page geometry ─────────────────────────────────────────────────────────────
+page:
+  layout: portrait
+  size: A4
+  margin: [20mm, 22mm, 20mm, 22mm]
+
+# ── Base font (NotoSerif is bundled with asciidoctor-pdf) ─────────────────────
+base:
+  font_family: Noto Serif
+  font_color: '#111827'
+  font_size: 10.5
+  line_height: 1.55
+  border_color: '#e5e7eb'
+  border_width: 0.5
+
+vertical_rhythm: 6
+
+# ── Link ──────────────────────────────────────────────────────────────────────
+link:
+  font_color: '#0284c7'
+  text_decoration: none
+
+# ── Title page ────────────────────────────────────────────────────────────────
+title_page:
+  background_color: '#16213e'
+  title:
+    font_size: 36
+    font_color: '#ffffff'
+    font_style: bold
+    line_height: 1.1
+    margin_top: 50mm
+    margin_bottom: 6mm
+  subtitle:
+    font_size: 16
+    font_color: '#0ea5e9'
+    font_style: normal
+    margin_bottom: 20mm
+  authors:
+    font_size: 11
+    font_color: '#9ca3af'
+    margin_bottom: 0
+  revision:
+    font_size: 10
+    font_color: '#9ca3af'
+
+# ── Table of contents ─────────────────────────────────────────────────────────
+toc:
+  font_color: '#0f3460'
+  font_size: 10.5
+  line_height: 1.4
+  dot_leader:
+    font_color: '#6b7280'
+    content: '. '
+    levels: 1 2 3
+  indent: 18
+  h2_indent: 0
+  h3_indent: 14
+  h4_indent: 28
+
+# ── Headings ──────────────────────────────────────────────────────────────────
+heading:
+  font_family: Noto Serif
+  font_color: '#0f3460'
+  font_style: bold
+  line_height: 1.15
+  margin_top: 14
+  margin_bottom: 6
+
+h1:
+  font_size: 28
+  font_color: '#0f3460'
+  margin_top: 0
+  margin_bottom: 10
+
+h2:
+  font_size: 20
+  font_color: '#0f3460'
+  margin_top: 16
+  margin_bottom: 8
+
+h3:
+  font_size: 14
+  font_color: '#0f3460'
+  margin_top: 12
+  margin_bottom: 5
+
+h4:
+  font_size: 11.5
+  font_color: '#374151'
+  font_style: bold
+  margin_top: 10
+  margin_bottom: 4
+
+h5:
+  font_size: 10.5
+  font_color: '#374151'
+  font_style: bold_italic
+
+h6:
+  font_size: 10
+  font_color: '#6b7280'
+  font_style: italic
+
+# ── Prose ─────────────────────────────────────────────────────────────────────
+prose:
+  margin_bottom: 8
+  margin_top: 0
+
+# ── Lists ─────────────────────────────────────────────────────────────────────
+list:
+  indent: 22
+  item_spacing: 3
+
+ulist:
+  marker:
+    font_color: '#0ea5e9'
+
+olist:
+  marker:
+    font_color: '#0284c7'
+    font_style: bold
+
+dlist:
+  term:
+    font_style: bold
+    font_color: '#0f3460'
+
+# ── Code blocks ───────────────────────────────────────────────────────────────
+code:
+  font_family: M+ 1mn
+  font_size: 8.5
+  font_color: '#111827'
+  background_color: '#f8fafc'
+  border_color: '#e5e7eb'
+  border_width: 0.75
+  border_radius: 3
+  padding: [6, 10, 6, 10]
+  line_height: 1.4
+
+codespan:
+  font_family: M+ 1mn
+  font_size: 0.9em
+  font_color: '#0f3460'
+  background_color: '#f8fafc'
+  border_color: '#e5e7eb'
+  border_width: 0.5
+  border_radius: 2
+  padding: [1, 3, 1, 3]
+
+# ── Tables ────────────────────────────────────────────────────────────────────
+table:
+  background_color: '#ffffff'
+  border_color: '#e5e7eb'
+  border_width: 0.75
+  font_size: 9.5
+  cell_padding: [5, 8, 5, 8]
+  head:
+    background_color: '#0f3460'
+    font_color: '#ffffff'
+    font_style: bold
+    font_size: 9
+  body:
+    stripe_background_color: '#e0f2fe'
+  foot:
+    background_color: '#f8fafc'
+    font_style: bold_italic
+
+# ── Admonition blocks ────────────────────────────────────────────────────────
+admonition:
+  column_rule_width: 3
+  column_rule_style: solid
+  padding: [8, 12, 8, 12]
+  font_size: 9.5
+  label:
+    font_style: bold
+    font_size: 8
+    text_transform: uppercase
+    min_width: 32
+
+# ── Sidebar blocks ────────────────────────────────────────────────────────────
+sidebar:
+  background_color: '#f8fafc'
+  border_color: '#e5e7eb'
+  border_width: 0.75
+  border_radius: 3
+  padding: [10, 14, 10, 14]
+  font_size: 9.5
+
+# ── Quote / verse ────────────────────────────────────────────────────────────
+quote:
+  font_size: 11
+  font_style: italic
+  font_color: '#374151'
+  border_left_color: '#0ea5e9'
+  border_left_width: 3
+  padding: [4, 12, 4, 14]
+  cite:
+    font_size: 9
+    font_color: '#6b7280'
+
+# ── Horizontal rule ───────────────────────────────────────────────────────────
+thematic_break:
+  border_color: '#e5e7eb'
+  border_style: solid
+  border_width: 0.75
+  margin_top: 10
+  margin_bottom: 10
+
+# ── Page header / footer ──────────────────────────────────────────────────────
+header:
+  height: 18mm
+  line_height: 1
+  border_bottom_color: '#e5e7eb'
+  border_bottom_width: 0.5
+  font_size: 8.5
+  font_color: '#6b7280'
+  recto:
+    right:
+      content: '{doctitle}'
+    left:
+      content: ''
+  verso:
+    left:
+      content: '{chapter-title}'
+    right:
+      content: ''
+
+footer:
+  height: 14mm
+  line_height: 1
+  border_top_color: '#0ea5e9'
+  border_top_width: 1
+  font_size: 8.5
+  font_color: '#6b7280'
+  recto:
+    right:
+      content: '{page-number}'
+    center:
+      content: 'Docling-pipelines — The Definitive Guide'
+  verso:
+    left:
+      content: '{page-number}'
+    center:
+      content: 'Docling-pipelines — The Definitive Guide'
+
+# ── Captions ─────────────────────────────────────────────────────────────────
+caption:
+  font_size: 9
+  font_style: italic
+  font_color: '#6b7280'
+  text_align: center
+  margin_inside: 4
+  margin_outside: 6
+
+# ── Footnotes ─────────────────────────────────────────────────────────────────
+footnotes:
+  font_size: 8.5
+  font_color: '#374151'
+  margin_top: 4
+  item_spacing: 2
+
+# ── Abstract / preamble ───────────────────────────────────────────────────────
+abstract:
+  font_size: 11
+  font_style: italic
+  font_color: '#374151'
+  padding: [8, 16, 8, 16]
+  background_color: '#e0f2fe'
+  border_left_color: '#0ea5e9'
+  border_left_width: 3
+
+# ── Callout numbers ───────────────────────────────────────────────────────────
+conum:
+  font_family: M+ 1mn
+  font_size: 8
+  font_color: '#ffffff'
+  background_color: '#0ea5e9'
+  border_radius: 10
+  line_height: 1.25
+
+callout_list:
+  font_size: 9
+  margin_top: 4
+  item_spacing: 2

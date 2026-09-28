@@ -1,0 +1,320 @@
+== Installation and Quick Start
+
+This chapter walks through the prerequisites, installation, external service setup, and a first working pipeline.
+For a faster path see the automated setup script described in <<automated-setup>>.
+
+=== Prerequisites
+
+* **Python 3.12** — required (`python3.12 --version`)
+* **5 GB+ free disk space** — models and dependencies
+* **Internet connection** — for downloading dependencies and models
+* **uv** package manager — installed automatically by the setup script or manually with `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+Install Python 3.12 if needed:
+
+.macOS
+[source,bash]
+----
+brew install python@3.12
+----
+
+.Ubuntu / Debian
+[source,bash]
+----
+sudo apt install python3.12 python3.12-venv python3.12-dev
+----
+
+.Fedora / RHEL
+[source,bash]
+----
+sudo dnf install python3.12 python3.12-devel
+----
+
+[[automated-setup]]
+=== Automated Setup (Recommended)
+
+The setup script installs all dependencies and starts required services:
+
+[source,bash]
+----
+git clone https://github.com/IBM/docling-pipelines.git
+cd docling-pipelines
+chmod +x scripts/setup_docling_pipelines_environment.sh
+./scripts/setup_docling_pipelines_environment.sh --models nomic-embed-text
+----
+
+The script installs:
+
+* uv package manager
+* Ollama server + `nomic-embed-text` model (~274 MB)
+* OpenSearch + Dashboards via Podman
+* Python virtual environment and all project dependencies
+
+Common options:
+
+[cols="2,3",options="header"]
+|===
+|Option |Effect
+|`--interactive` |Prompt before each step
+|`--models MODEL1,MODEL2` |Comma-separated Ollama models (default: `granite4,llama3.2,nomic-embed-text`)
+|`--skip-ollama` |Skip Ollama setup
+|`--skip-opensearch` |Skip OpenSearch setup
+|`--skip-python` |Skip Python environment setup
+|===
+
+=== Manual Installation
+
+If the automated script does not work for your environment:
+
+[source,bash]
+----
+# 1. Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Create and activate the virtual environment
+cd docling-pipelines
+uv sync --extra dev
+source .venv/bin/activate
+
+# 3. Install pre-commit hooks (optional but recommended)
+pre-commit install
+
+# 4. Verify
+docling-pipelines --help
+----
+
+==== Installing the Slim Variant
+
+A `slim` variant ships with a reduced dependency set (no Docling or sentence-transformers) for deployments where extraction runs on a separate service:
+
+[source,bash]
+----
+uv pip install -e "slim/[dev]"
+----
+
+=== Environment Configuration
+
+Copy the example `.env` and fill in any overrides needed for your environment:
+
+[source,bash]
+----
+cp .env.example .env
+# Edit .env as needed
+----
+
+The key environment variables for a local setup are:
+
+[cols="2,2,3",options="header"]
+|===
+|Variable |Default |Purpose
+|`OLLAMA_HOST` |`http://localhost:11434` |Ollama API endpoint
+|`DS_LOG_LEVEL` |`INFO` |Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+|`PYTHONPATH` |_(must include `src/`)_ |Required for all `docpipe.*` imports
+|===
+
+Always activate the environment before running the CLI:
+
+[source,bash]
+----
+# From the project root directory
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+source .venv/bin/activate
+----
+
+NOTE: All `docling-pipelines` commands *must* be run from the *project root directory*.
+Running from a subdirectory breaks Python imports.
+
+=== Ollama Setup
+
+Ollama provides local LLM inference for embeddings and entity extraction.
+
+==== Install and Start Ollama
+
+[source,bash]
+----
+# macOS / Linux — official installer
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Start the server
+ollama serve &
+
+# Verify
+curl http://localhost:11434/api/tags
+----
+
+==== Pull Required Models
+
+[source,bash]
+----
+# Embeddings model (required for basic RAG pipeline)
+ollama pull nomic-embed-text
+
+# Language model for entity extraction / classification (optional)
+ollama pull granite4
+
+# Verify
+ollama list
+----
+
+=== OpenSearch Setup
+
+OpenSearch stores vector embeddings and supports similarity search.
+
+==== Start with Podman (Recommended)
+
+[source,bash]
+----
+podman-compose -f docker/docker-compose.opensearch.yml up -d
+
+# Wait for startup (~30 seconds), then verify
+curl -u admin:MyStrongPass123! http://localhost:9200
+----
+
+The command starts:
+
+* OpenSearch on `http://localhost:9200`
+* OpenSearch Dashboards on `http://localhost:5601`
+
+==== Verify Connectivity
+
+[source,bash]
+----
+curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
+----
+
+A response with `"status": "green"` or `"yellow"` means the cluster is ready.
+
+=== Your First Pipeline
+
+==== Step 1 — Check Sample Documents
+
+[source,bash]
+----
+ls -la sample_documents/
+----
+
+The repository ships with `hello.txt` and `1kb_file.txt`.
+Add your own PDF, TXT, or DOCX files to this directory if desired.
+
+==== Step 2 — Activate the Environment
+
+[source,bash]
+----
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+source .venv/bin/activate
+----
+
+==== Step 3 — Run the Pipeline
+
+[source,bash]
+----
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+----
+
+==== Expected Output
+
+----
+================================================================================
+ FLOW: complete-document-pipeline
+ Operators: 5
+ Started: 2024-01-15 10:30:00
+================================================================================
+
+[ingest] Starting ingest_source...
+
+================================================================================
+ ingest (COMPLETED)
+================================================================================
+ Duration: 0.50s | Documents: 1 processed, 0 failed, 0 skipped
+ Data Columns: 8 total (8 added by this operator)
+   Added (8): id, name, path, size, created_time, modified_time, content, extension
+================================================================================
+
+[extract] Starting extract_operator...
+[chunk] Starting chunker...
+[embeddings] Starting embeddings...
+[vectordb] Starting vectordb...
+
+================================================================================
+ FLOW EXECUTION SUMMARY
+================================================================================
+ Status: COMPLETED
+ Total Duration: 15.30s
+ Documents: 1 completed, 0 failed, 0 skipped
+================================================================================
+----
+
+==== Step 4 — Verify in OpenSearch
+
+[source,bash]
+----
+curl -u admin:MyStrongPass123! \
+  "http://localhost:9200/sample-documents-index/_search?pretty" \
+  -H 'Content-Type: application/json' \
+  -d '{"query": {"match_all": {}}, "size": 1}'
+----
+
+A response containing `embeddings` fields confirms that documents were processed and stored correctly.
+
+==== What Happened
+
+Your document passed through this pipeline:
+
+----
+Text File → Ingest → Extract → Chunk → Embed → Store in OpenSearch
+----
+
+* **IngestSourceOperator** — read files from disk.
+* **ExtractOperator** — extracted structured content using Docling.
+* **ChunkerOperator** — split into simple chunks (~512 characters each).
+* **EmbeddingsOperator** — generated vector embeddings using Ollama.
+* **VectorDBOperator** — stored in OpenSearch for similarity search.
+
+=== Next Steps
+
+List all available operators:
+
+[source,bash]
+----
+# Summary table
+docling-pipelines --list-operators
+
+# Detailed view with full parameter specs
+docling-pipelines --list-operators --verbose
+----
+
+Try the invoice processing example:
+
+[source,bash]
+----
+docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json
+----
+
+View your indexed documents in OpenSearch Dashboards at `http://localhost:5601`.
+
+Continue to xref:03_authoring_flows.adoc[Chapter 3] to learn how to write your own flow definitions.
+
+=== Quick Diagnostics
+
+Run these commands to check your environment:
+
+[source,bash]
+----
+# Python version
+python3.12 --version
+
+# Virtual environment active?
+which python  # should point to .venv/bin/python
+
+# PYTHONPATH set?
+echo $PYTHONPATH  # should include src
+
+# Ollama
+curl http://localhost:11434/api/tags
+
+# OpenSearch
+curl -u admin:MyStrongPass123! http://localhost:9200
+
+# List models
+ollama list
+----

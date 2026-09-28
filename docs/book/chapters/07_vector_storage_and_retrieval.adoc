@@ -1,0 +1,356 @@
+== Vector Storage and Retrieval
+
+`VectorDBOperator` indexes document embeddings into a vector database for similarity search.
+It supports OpenSearch and Milvus through a pluggable adapter architecture.
+ACL-based retrieval is handled by the REST API layer.
+
+=== VectorDBOperator
+
+* **Short name:** `vectordb`
+* **Category:** VectorDB
+
+==== Core Parameters
+
+[cols="2,1,1,3",options="header"]
+|===
+|Parameter |Type |Default |Description
+|`provider` |string |— |Required. `opensearch` or `milvus`
+|`doc_id_column` |string |`doc_id_hash` |Column used as primary key
+|`embeddings_column` |string |`embeddings` |Column containing dense embeddings
+|`sparse_embeddings_column` |string |— |Column for sparse embeddings (hybrid search)
+|`create_index` |boolean |`true` |Create index/collection if it does not exist
+|`vector_dimension` |integer |auto |Embedding dimension (auto-detected from data)
+|`provider_config` |object |Required |Provider-specific settings
+|===
+
+The operator does not add or remove columns — the input table is returned unchanged to allow chaining.
+
+==== Required Input Columns
+
+[cols="1,1,1,3",options="header"]
+|===
+|Column |Type |Required |Description
+|`doc_id_hash` |string |Yes |Unique document ID — used as primary key
+|`embeddings` |vector |Yes |Dense vector embeddings for similarity search
+|`sparse_embeddings` |sparse vector |No |Sparse embeddings for hybrid search
+|`content` |string |No |Text content; stored for filtering and retrieval
+|===
+
+=== OpenSearch Configuration
+
+==== Basic Setup (Local, No Auth)
+
+[source,json]
+----
+{
+  "name": "store",
+  "type": "vectordb",
+  "depends_on": ["embed"],
+  "config": {
+    "provider": "opensearch",
+    "vector_dimension": 768,
+    "provider_config": {
+      "index_name": "my_documents",
+      "host": "localhost",
+      "port": 9200,
+      "use_ssl": false,
+      "verify_certs": false,
+      "engine": "faiss",
+      "algorithm": "hnsw",
+      "space_type": "cosinesimil"
+    }
+  }
+}
+----
+
+==== OpenSearch provider_config Fields
+
+[cols="2,1,1,3",options="header"]
+|===
+|Field |Type |Default |Description
+|`index_name` |string |Required |Name of the OpenSearch index
+|`host` |string |`localhost` |OpenSearch host
+|`port` |integer |`9200` |OpenSearch port
+|`username` |string |— |Authentication username
+|`password` |string |— |Authentication password
+|`use_ssl` |boolean |`false` |Enable SSL/TLS
+|`verify_certs` |boolean |`false` |Verify SSL certificates
+|`engine` |string |`nmslib` |KNN engine: `faiss`, `lucene`, `nmslib`, `jvector`
+|`algorithm` |string |`hnsw` |Index algorithm: `hnsw` or `ivf`
+|`space_type` |string |`l2` |Distance metric: `l2`, `cosinesimil`, `innerproduct`
+|`batch_size` |integer |`100` |Documents indexed per batch
+|`engine_parameters.ef_construction` |integer |`512` |Accuracy/speed tradeoff during indexing (HNSW)
+|`engine_parameters.m` |integer |`16` |Number of bi-directional links per node (HNSW)
+|`index_settings.number_of_shards` |integer |`1` |OpenSearch shards
+|`index_settings.number_of_replicas` |integer |`0` |OpenSearch replicas
+|`aws_auth` |boolean |`false` |Use AWS SigV4 auth
+|`aws_region` |string |— |AWS region (required when `aws_auth: true`)
+|`jwt_token` |string |— |JWT Bearer token for authentication
+|===
+
+NOTE: Only one authentication method can be used at a time: basic auth (username/password), AWS IAM (`aws_auth`), or JWT (`jwt_token`).
+
+==== KNN Engine Comparison
+
+[cols="1,1,1,1,2",options="header"]
+|===
+|Engine |Algorithms |Speed |Accuracy |Notes
+|FAISS |HNSW, IVF |High |High |Recommended for production
+|Lucene |HNSW |Medium |High |Native OpenSearch integration
+|nmslib |HNSW |High |High |Deprecated in OpenSearch 2.13+
+|jVector |HNSW |Medium |High |Java-based; requires k-NN plugin
+|===
+
+==== Production OpenSearch with Auth
+
+[source,json]
+----
+{
+  "provider": "opensearch",
+  "provider_config": {
+    "index_name": "prod_documents",
+    "host": "${OPENSEARCH_HOST}",
+    "port": 9200,
+    "username": "${OPENSEARCH_USER}",
+    "password": "${OPENSEARCH_PASSWORD}",
+    "use_ssl": true,
+    "verify_certs": true,
+    "engine": "faiss",
+    "algorithm": "hnsw",
+    "space_type": "cosinesimil",
+    "engine_parameters": {
+      "ef_construction": 256,
+      "m": 24
+    }
+  }
+}
+----
+
+==== Schema Templates
+
+Docling-pipelines provides pre-built OpenSearch index mapping templates:
+
+[source,json]
+----
+{
+  "provider_config": {
+    "index_name": "documents",
+    "schema_template": "text_768d"
+  }
+}
+----
+
+Available templates are listed in `docs/integrations/opensearch/SCHEMA_TEMPLATES.md`.
+
+=== Milvus Configuration
+
+==== Basic Setup
+
+[source,json]
+----
+{
+  "name": "store",
+  "type": "vectordb",
+  "depends_on": ["embed"],
+  "config": {
+    "provider": "milvus",
+    "vector_dimension": 768,
+    "provider_config": {
+      "collection_name": "my_documents",
+      "host": "localhost",
+      "port": 19530,
+      "index_type": "HNSW",
+      "metric_type": "COSINE",
+      "batch_size": 100
+    }
+  }
+}
+----
+
+==== Milvus provider_config Fields
+
+[cols="2,1,1,3",options="header"]
+|===
+|Field |Type |Default |Description
+|`collection_name` |string |Required |Name of the Milvus collection
+|`host` |string |`localhost` |Milvus host
+|`port` |integer |`19530` |Milvus port
+|`username` |string |— |Authentication username
+|`password` |string |— |Authentication password
+|`database` |string |`default` |Database name
+|`secure` |boolean |`false` |Enable SSL/TLS
+|`auth_type` |string |`standalone` |Auth mode: `standalone`, `grpc`, `uri`, `token`
+|`index_type` |string |`HNSW` |Index type: `HNSW`, `IVF_FLAT`, `IVF_SQ8`, `FLAT`, `AUTOINDEX`
+|`metric_type` |string |`L2` |Distance metric: `L2`, `IP`, `COSINE`
+|`batch_size` |integer |`100` |Documents indexed per batch
+|`add_sparse_vector` |boolean |`false` |Enable BM25 sparse vector hybrid search
+|===
+
+==== IBM watsonx.data Milvus
+
+[source,json]
+----
+{
+  "provider": "milvus",
+  "provider_config": {
+    "collection_name": "documents",
+    "auth_type": "grpc",
+    "host": "${MILVUS_HOST}",
+    "port": 443,
+    "username": "ibmlhapikey",
+    "password": "${WATSONX_API_KEY}",
+    "secure": true
+  }
+}
+----
+
+==== Sparse Vector (BM25) Hybrid Search
+
+[source,json]
+----
+{
+  "provider": "milvus",
+  "provider_config": {
+    "collection_name": "documents",
+    "host": "localhost",
+    "port": 19530,
+    "add_sparse_vector": true,
+    "index_type": "HNSW",
+    "metric_type": "COSINE"
+  }
+}
+----
+
+=== ACL Operator and Document Retrieval
+
+==== How ACL Works
+
+`ACLOperator` reads provider credentials from the upstream ingest metadata and fetches the current access control list (ACL) for each document from the source system.
+It appends an `allowed_users` column (JSON array of user identities).
+
+When documents are indexed in OpenSearch, the `allowed_users` field is included in the document record.
+The REST API then enforces ACL on retrieval — document endpoints return only documents where the authenticated user is in `allowed_users`.
+
+==== ACL Pipeline Pattern
+
+[source,json]
+----
+{
+  "flow_name": "acl-indexed-pipeline",
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_source",
+      "config": {
+        "provider": "sharepoint",
+        "connection_params": {
+          "site_url": "https://tenant.sharepoint.com/sites/docs",
+          "client_id": "${SHAREPOINT_CLIENT_ID}",
+          "client_secret": "${SHAREPOINT_CLIENT_SECRET}",
+          "tenant_id": "${SHAREPOINT_TENANT_ID}"
+        }
+      }
+    },
+    {
+      "name": "acl",
+      "type": "acl_operator",
+      "depends_on": ["ingest"],
+      "config": {
+        "fail_on_error": true,
+        "provider_config": {
+          "resolve_inheritance": true,
+          "expand_groups": true
+        }
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["acl"],
+      "config": {
+        "text_extraction": {"provider": "docling_library"},
+        "entity_extraction": {"provider": "none"}
+      }
+    },
+    {
+      "name": "chunk",   "type": "chunker",    "depends_on": ["extract"], "config": {"chunk_type": "hybrid", "chunk_size": 512}
+    },
+    {
+      "name": "embed",   "type": "embeddings", "depends_on": ["chunk"],   "config": {"provider": "litellm", "provider_config": {"model_id": "openai/nomic-embed-text", "api_base": "http://localhost:11434"}}
+    },
+    {
+      "name": "store",
+      "type": "vectordb",
+      "depends_on": ["embed"],
+      "config": {
+        "provider": "opensearch",
+        "provider_config": {
+          "index_name": "acl_documents",
+          "host": "localhost",
+          "port": 9200,
+          "use_ssl": false
+        }
+      }
+    }
+  ]
+}
+----
+
+==== ACL Operator Parameters
+
+[cols="1,1,1,3",options="header"]
+|===
+|Parameter |Type |Default |Description
+|`fail_on_error` |boolean |`true` |`true` — fail the flow if any document fails ACL extraction; `false` — skip and continue
+|`provider_config` |object |`{}` |Provider-specific settings (e.g. `resolve_inheritance`, `expand_groups`)
+|===
+
+The `allowed_users` column contains a sorted JSON array of normalised user identities (emails/UPNs).
+Empty array `"[]"` means no users have access.
+
+==== ACL-Based Document Search via REST API
+
+After documents are indexed with `allowed_users`, use the REST API search endpoint:
+
+[source,bash]
+----
+# Search documents — automatically filtered to authenticated user's ACL
+curl -X POST http://localhost:8080/api/v1/documents/search \
+  -H "Authorization: Bearer ${JWT_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "quarterly revenue", "size": 10}'
+----
+
+The API returns only documents where the authenticated user appears in `allowed_users`.
+Unauthorized documents return 404 (not 403) to prevent information leakage.
+
+=== DocumentSetOperator
+
+* **Short name:** `document_set`
+* **Category:** Storage
+
+Persists the pipeline table to a named DuckDB-backed document set.
+The operator passes the table through unchanged — it can be placed at any point in the pipeline.
+
+[source,json]
+----
+{
+  "name": "save",
+  "type": "document_set",
+  "depends_on": ["extract"],
+  "config": {
+    "document_set_name": "q1_reports",
+    "description": "Q1 2025 quarterly reports",
+    "tags": ["finance", "q1-2025"]
+  }
+}
+----
+
+Document sets are accessible via the REST API at `/api/v1/document-sets`.
+See xref:09_python_api_and_programmatic_usage.adoc[Chapter 9] for REST API endpoints and authentication details.
+
+== Next Steps
+
+* xref:08_llm_integration.adoc[Chapter 8] — configure LLM providers for entity extraction and ML enrichment before indexing.
+* xref:09_python_api_and_programmatic_usage.adoc[Chapter 9] — query indexed documents programmatically via `DocpipeFlowManager` or the REST API.
+* xref:11_production_deployment_and_observability.adoc[Chapter 11] — harden the deployment with OAuth2, ACL, and OpenTelemetry tracing.
