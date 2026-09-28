@@ -12,14 +12,18 @@ logger = get_logger(__name__)
 
 
 class KafkaSchemaRegistryInitializer:
-    """Register the file event schema when the API starts."""
+    """Register Kafka input and notification schemas when the API starts."""
 
     @staticmethod
     def initialize() -> None:
-        """Register the bundled schema, failing startup if registration fails."""
+        """Register the bundled schemas, failing startup if registration fails."""
         registry_url = os.environ[EnvironmentVariables.SCHEMA_REGISTRY_URL]
-        kafka_topic = os.environ[EnvironmentVariables.KAFKA_TOPIC]
-        schema_str = Path(__file__).with_name("file_event_schema.json").read_text(encoding="utf-8")
         client = SchemaRegistryClient({"url": registry_url})
-        schema_id = client.register_schema(f"{kafka_topic}-value", Schema(schema_str, schema_type="JSON"))
-        logger.info("Registered Kafka file event schema for %s-value (id=%d)", kafka_topic, schema_id)
+        for topic_name, schema_file in (
+            (EnvironmentVariables.KAFKA_INPUT_TOPIC, "file_event_schema.json"),
+            (EnvironmentVariables.KAFKA_NOTIFICATION_TOPIC, "file_event_status_schema.json"),
+        ):
+            topic = os.environ[topic_name]
+            schema_str = Path(__file__).with_name(schema_file).read_text(encoding="utf-8")
+            schema_id = client.register_schema(f"{topic}-value", Schema(schema_str, schema_type="JSON"))
+            logger.info("Registered Kafka schema for %s-value (id=%d)", topic, schema_id)

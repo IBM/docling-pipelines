@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://docpipe/kafka/file-event/v1",
-  "title": "FileEvent",
+  "$id": "https://docpipe/kafka/file-event-status/v1",
+  "title": "FileEventStatus",
   "type": "object",
-  "required": ["event_id", "event_type", "event_timestamp", "connection_id", "flow_id", "file_path"],
+  "required": ["event_id", "event_type", "event_timestamp", "connection_id", "flow_id", "file_path", "status"],
   "additionalProperties": false,
   "properties": {
     "event_id": {
@@ -27,6 +27,13 @@
       "format": "uuid"
     },
     "file_path": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["received", "processed", "failed", "skipped"]
+    },
+    "reason": {
       "type": "string"
     }
   }

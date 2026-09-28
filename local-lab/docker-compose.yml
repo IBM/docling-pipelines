@@ -109,8 +109,8 @@ services:
       FLOW_REPOSITORY_BASE_DIR: /data/flows
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      KAFKA_TOPIC: docpipe-poc
-      KAFKA_OUTPUT_TOPIC: docpipe-poc-status
+      KAFKA_INPUT_TOPIC: docpipe-poc
+      KAFKA_NOTIFICATION_TOPIC: docpipe-poc-notifications
       DOCPIPE_DATA_PATH: /data
     volumes:
       - docling-pipelines-data:/data

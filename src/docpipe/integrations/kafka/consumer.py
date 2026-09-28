@@ -8,6 +8,7 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.json_schema import JSONDeserializer
 
 from docpipe.core.constants.constants import EnvironmentVariables
+from docpipe.integrations.kafka.producer import KafkaFileEventNotificationProducer
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -17,7 +18,7 @@ class KafkaFileEventConsumer:
     """Consume file events in a thread for the lifetime of the API process."""
 
     def __init__(self) -> None:
-        self.topic = os.environ[EnvironmentVariables.KAFKA_TOPIC]
+        self.topic = os.environ[EnvironmentVariables.KAFKA_INPUT_TOPIC]
         group_id = os.getenv(EnvironmentVariables.KAFKA_GROUP_ID, "docpipe-file-events-consumer")
         registry_client = SchemaRegistryClient({"url": os.environ[EnvironmentVariables.SCHEMA_REGISTRY_URL]})
         registered_schema = registry_client.get_latest_version(f"{self.topic}-value")
@@ -30,6 +31,7 @@ class KafkaFileEventConsumer:
                 "value.deserializer": deserializer,
             }
         )
+        self._notification_producer = KafkaFileEventNotificationProducer()
         self._stop_event = Event()
         self._thread = Thread(target=self._consume, name="docpipe-kafka-consumer", daemon=True)
 
@@ -58,8 +60,7 @@ class KafkaFileEventConsumer:
         finally:
             self._consumer.close()
 
-    @staticmethod
-    def _handle_event(event: dict) -> None:
+    def _handle_event(self, event: dict) -> None:
         logger.info(
             "Kafka file event: type=%s connection_id=%s flow_id=%s file_path=%s",
             event["event_type"],
@@ -67,3 +68,4 @@ class KafkaFileEventConsumer:
             event["flow_id"],
             event["file_path"],
         )
+        self._notification_producer.publish_status(event=event, status="received")
