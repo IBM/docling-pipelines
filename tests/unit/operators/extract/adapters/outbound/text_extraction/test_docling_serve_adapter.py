@@ -1142,6 +1142,38 @@ class TestDoclingServeAdapterV2Response:
         # markdown is inserted at index 0 even when not in artifacts
         assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
 
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_doclang_primary_format_fetches_and_sets_doc_column(self, mock_get, mock_client_class):
+        """When doc_format='doclang', v2 doclang artifact is set on DOC_COLUMN_DEFAULT."""
+        doclang_xml = '<doclang version="0.7"><text>Hello DocLang</text></doclang>'
+        config = {
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+            "global_config": {OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG},
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "doclang", "uri": "http://s3/doc.xml"},
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                    ]
+                }
+            ],
+            "processing_time": 1.2,
+        }
+        mock_get.side_effect = self._mock_get({"doc.xml": doclang_xml, "doc.md": "# Ignored MD"})
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == doclang_xml
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
+
 
 # ---------------------------------------------------------------------------
 # Tests for get_config_schema()

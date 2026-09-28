@@ -9,6 +9,7 @@ import pyarrow as pa
 from docpipe.core.constants.constants import AttributeDataTypes, DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import VectorStoreFactory
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
@@ -482,7 +483,14 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 chunk_row_data[vec_col] = chunk_embedding.tolist()
 
             chunk_dict = json.loads(chunk_data) if isinstance(chunk_data, str) else chunk_data
-            chunk_text: str = chunk_dict.get(OperatorConstants.Columns.CHUNK, "")
+            if isinstance(chunk_dict, dict):
+                for k, v in chunk_dict.items():
+                    if k != OperatorConstants.Columns.CHUNK:
+                        chunk_row_data[k] = v
+                chunk_text: str = chunk_dict.get(OperatorConstants.Columns.CHUNK, "")
+            else:
+                chunk_text = ""
+
             if chunk_text:
                 # Update the content column with chunk text instead of full document
                 chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
@@ -516,10 +524,15 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 if chunk_idx < len(embeddings_list):
                     chunk_row_data[vec_col] = embeddings_list[chunk_idx]
 
-            # Replace content field with chunk-specific text
+            # Replace content field with chunk-specific text and extract chunk metadata
             chunk_text = ""
             if chunk_idx < len(chunked_content_list):
-                chunk_text = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
+                chunk_item = chunked_content_list[chunk_idx]
+                if isinstance(chunk_item, dict):
+                    for k, v in chunk_item.items():
+                        if k != OperatorConstants.Columns.CHUNK:
+                            chunk_row_data[k] = v
+                    chunk_text = chunk_item.get(OperatorConstants.Columns.CHUNK, "")
                 if chunk_text:
                     # Update the content column with chunk text instead of full document
                     chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
@@ -582,7 +595,16 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     id_column=id_column,
                 )
                 if chunks is None:
-                    # Non-chunked: index the row directly
+                    # Non-chunked: convert DocLang XML to clean text if needed before indexing
+                    if (
+                        self.doc_format == OperatorConstants.DocFormat.DOCLANG
+                        and OperatorConstants.Columns.DOC_COLUMN_DEFAULT in row_data
+                    ):
+                        raw_content = row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+                        if isinstance(raw_content, str):
+                            row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = OperatorUtils.doclang_to_markdown(
+                                raw_content
+                            )
                     documents.append((doc_id, row_data))
                 else:
                     for chunk_pk, chunk_row_data in chunks:
