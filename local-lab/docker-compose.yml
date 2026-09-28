@@ -74,13 +74,23 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      # Single broker. Factor 3 leaves the group coordinator unavailable.
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     ports:
       - "9092:9092"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:8.2.4
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8081:8081"
 
   docling-pipelines:
     build:
@@ -96,19 +106,22 @@ services:
       OPENSEARCH_USERNAME: ${OPENSEARCH_USERNAME}
       OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
       OLLAMA_HOST: http://ollama:11434
+      FLOW_REPOSITORY_BASE_DIR: /data/flows
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
       KAFKA_TOPIC: docpipe-poc
       KAFKA_OUTPUT_TOPIC: docpipe-poc-status
       DOCPIPE_DATA_PATH: /data
     volumes:
       - docling-pipelines-data:/data
-      - ../src:/app/src
+      - ../src:/opt/app-root/src:ro
     depends_on:
       - minio
       - docling-serve
       - ollama
       - opensearch
       - kafka
+      - schema-registry
 
 volumes:
   minio-data:
