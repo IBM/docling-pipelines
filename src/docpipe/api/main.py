@@ -51,7 +51,6 @@ from docpipe.api.openapi import build_custom_openapi
 from docpipe.core.constants.constants import EnvironmentVariables
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
-from docpipe.integrations.kafka_poc import KafkaConsumerService
 from docpipe.utils.infrastructure.logging import (
     configure_third_party_loggers,
     set_dpk_log_level_from_ds_log_level,
@@ -161,8 +160,7 @@ def _start_bff() -> tuple[subprocess.Popen | None, str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan."""
-    job_factory = get_default_factory()
-    job_factory.initialize_storage()
+    get_default_factory().initialize_storage()
     # Register secret providers (no-op when secrets.vault.enabled=false in config)
     from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
 
@@ -185,15 +183,9 @@ async def lifespan(app: FastAPI):
         custom_op_paths.append(custom_operators_dir)
         os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = ",".join(custom_op_paths)
 
-    kafka_consumer: KafkaConsumerService | None = None
-    if os.getenv(EnvironmentVariables.KAFKA_BOOTSTRAP_SERVERS):
-        kafka_consumer = KafkaConsumerService()
-        kafka_consumer.start()
     try:
         yield
     finally:
-        if kafka_consumer is not None:
-            kafka_consumer.stop()
         if app.state.bff_client is not None:
             await app.state.bff_client.aclose()
         if bff_process:

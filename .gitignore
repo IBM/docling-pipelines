@@ -46,7 +46,6 @@ build/
 
 # Runtime data and logs
 /data/
-local-lab/data/
 *.parquet
 *.parquet.lock
 *.pkl
