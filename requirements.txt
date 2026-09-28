@@ -33,8 +33,10 @@ antlr4-python3-runtime==4.9.3
 anyio==4.14.2
     # via
     #   httpx
+    #   mcp
     #   openai
     #   prefect
+    #   sse-starlette
     #   starlette
     #   watchfiles
 appdirs==1.4.4
@@ -331,12 +333,15 @@ httpx==0.28.1
     #   langgraph-sdk
     #   langsmith
     #   litellm
+    #   mcp
     #   ollama
     #   openai
     #   prefect
     #   weasel
 httpx-sse==0.4.3
-    # via langchain-community
+    # via
+    #   langchain-community
+    #   mcp
 huggingface-hub==1.33.0
     # via
     #   accelerate
@@ -411,6 +416,7 @@ jsonschema==4.26.0
     # via
     #   docling-core
     #   litellm
+    #   mcp
     #   prefect
 jsonschema-specifications==2025.9.1
     # via jsonschema
@@ -498,6 +504,8 @@ markupsafe==3.0.3
     #   mako
 marshmallow==3.26.2
     # via dataclasses-json
+mcp==1.30.0
+    # via docling-pipelines
 mdurl==0.1.2
     # via markdown-it-py
 milvus-lite==3.2.1
@@ -760,6 +768,7 @@ pydantic==2.12.5
     #   langgraph
     #   langsmith
     #   litellm
+    #   mcp
     #   ollama
     #   openai
     #   prefect
@@ -782,6 +791,7 @@ pydantic-settings==2.14.2
     #   docling-pipelines
     #   docling-slim
     #   langchain-community
+    #   mcp
     #   prefect
 pydocket==0.25.2
     # via prefect
@@ -798,6 +808,7 @@ pyiceberg-core==0.7.0
 pyjwt==2.13.0
     # via
     #   docling-pipelines
+    #   mcp
     #   msal
 pylatexenc==2.11
     # via docling-slim
@@ -846,7 +857,9 @@ python-json-logger==4.2.0
 python-ldap==3.4.5
     # via docling-pipelines
 python-multipart==0.0.32
-    # via docling-pipelines
+    # via
+    #   docling-pipelines
+    #   mcp
 python-oxmsg==0.0.2
     # via docling-slim
 python-pptx==1.0.2
@@ -863,6 +876,7 @@ pywin32==312 ; sys_platform == 'win32'
     # via
     #   docker
     #   docling-parse
+    #   mcp
     #   mpire
 pyyaml==6.0.3
     # via
@@ -1032,10 +1046,14 @@ srsly==2.5.4
     #   spacy
     #   thinc
     #   weasel
+sse-starlette==3.4.11
+    # via mcp
 starlette==1.7.0
     # via
     #   fastapi
+    #   mcp
     #   prefect
+    #   sse-starlette
 stone==3.5.4
     # via dropbox
 strictyaml==1.7.3
@@ -1138,6 +1156,7 @@ typing-extensions==4.16.0
     #   huggingface-hub
     #   langchain-core
     #   langchain-protocol
+    #   mcp
     #   openai
     #   opentelemetry-api
     #   polyfactory
@@ -1164,6 +1183,7 @@ typing-inspect==0.9.0
 typing-inspection==0.4.4
     # via
     #   fastapi
+    #   mcp
     #   pydantic
     #   pydantic-settings
 tzdata==2026.4
@@ -1203,6 +1223,7 @@ uuid-utils==0.17.1
 uvicorn==0.40.0
     # via
     #   docling-pipelines
+    #   mcp
     #   prefect
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
