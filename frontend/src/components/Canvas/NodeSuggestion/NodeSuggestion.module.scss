@@ -1,0 +1,184 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type' as *;
+
+// ── Card geometry ─────────────────────────────────────────────────────────────
+// Declared as variables so a single edit resizes every dependent rule.
+// Values that do not map to a Carbon spacing token are expressed in rem.
+
+/// Fixed width of the suggestion card (244px per Figma = 15.25rem).
+$card-width: 15.25rem;
+
+/// Maximum card height before the category list scrolls.
+$card-max-height: 30rem;
+
+/// Max height of a category's node list before it scrolls (160px = $spacing-13).
+$node-list-max-height: $spacing-13;
+
+/// Row height for each node button (40px per Figma = 2.5rem = $spacing-08).
+$node-row-height: $spacing-08;
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+.card {
+  position: fixed;
+  z-index: 9999;
+  width: $card-width;
+  // Height grows with content; cap so it doesn't overflow the viewport.
+  max-height: $card-max-height;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: $layer;
+  border: 1px solid $border-subtle-00;
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: $spacing-05;
+  flex-shrink: 0;
+  gap: $spacing-03;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-01;
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  @include type-style('heading-compact-01');
+  color: $text-primary;
+}
+
+.subtitle {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+}
+
+.closeButton {
+  flex-shrink: 0;
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+.search {
+  flex-shrink: 0;
+}
+
+.searchInput {
+  width: 100%;
+}
+
+// ── Category list ─────────────────────────────────────────────────────────────
+
+.categories {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+
+  &::-webkit-scrollbar       { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: $border-subtle-01;
+    border-radius: 2px;
+
+    &:hover { background: $border-strong-01; }
+  }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+.empty {
+  padding: $spacing-07 $spacing-05;
+  text-align: center;
+  @include type-style('body-compact-01');
+  color: $text-placeholder;
+}
+
+// ── Individual category ───────────────────────────────────────────────────────
+
+.category {
+  border-bottom: 1px solid $border-subtle-01;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $spacing-04 $spacing-05;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  @include type-style('body-compact-01');
+  font-weight: 600;
+  color: $text-primary;
+  transition: background-color 0.11s;
+
+  &:hover  { background-color: $layer-hover-01; }
+  &:focus  { outline: 2px solid $focus; outline-offset: -2px; }
+  &:active { background-color: $layer-active-01; }
+}
+
+.categoryLabel {
+  display: flex;
+  align-items: center;
+  gap: $spacing-03;
+  flex: 1;
+  min-width: 0;
+}
+
+.categoryIcon {
+  flex-shrink: 0;
+}
+
+// ── Node list ─────────────────────────────────────────────────────────────────
+
+.nodes {
+  overflow-y: auto;
+  max-height: $node-list-max-height;
+
+  &::-webkit-scrollbar       { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: $border-subtle-01;
+    border-radius: 2px;
+
+    &:hover { background: $border-strong-01; }
+  }
+}
+
+.node {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: $node-row-height;
+  padding: 0 $spacing-07;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  @include type-style('body-compact-01');
+  color: $text-primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.11s;
+  flex-shrink: 0;
+
+  &:hover  { background-color: $layer-hover-01; }
+  &:focus  { outline: 2px solid $focus; outline-offset: -2px; }
+  &:active { background-color: $layer-active-01; }
+}

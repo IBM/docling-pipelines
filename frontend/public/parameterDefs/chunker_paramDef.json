@@ -1,0 +1,41 @@
+{
+  "parameters": [
+    { "id": "chunk_type" },
+    { "id": "chunk_size" },
+    { "id": "chunk_overlap" },
+    { "id": "chunk_overlap_percentage" },
+    { "id": "semantic_embeddings_model" },
+    { "id": "breakpoint_threshold_type" },
+    { "id": "breakpoint_threshold_amount" },
+    { "id": "docling_tokenizer" },
+    { "id": "retain_original_content" },
+    { "id": "summarization" },
+    { "id": "provider" },
+    { "id": "provider_config" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "chunker_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "chunk_type" },
+      { "parameter_ref": "chunk_size" },
+      { "parameter_ref": "chunk_overlap" },
+      { "parameter_ref": "chunk_overlap_percentage" },
+      { "parameter_ref": "semantic_embeddings_model" },
+      { "parameter_ref": "breakpoint_threshold_type" },
+      { "parameter_ref": "breakpoint_threshold_amount" },
+      { "parameter_ref": "docling_tokenizer" },
+      { "parameter_ref": "retain_original_content" },
+      { "parameter_ref": "summarization" },
+      { "parameter_ref": "provider" },
+      { "parameter_ref": "provider_config" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

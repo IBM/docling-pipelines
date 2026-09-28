@@ -81,3 +81,20 @@ examples/LDAP/.env
 
 # Local test artifacts with credentials
 test_flows/
+frontend/node_modules/
+
+# Runtime-generated flow/project saves (UUID-named)
+
+# Runtime-generated flow/project saves (UUID-named)
+sample_projects/
+sample_flows/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*.json
+
+# Frontend build artifacts (generated, not committed)
+src/docpipe/api/static/
+src/docpipe/api/bff/
+frontend/.vite/
+frontend/bff/
+sonar/
+skills/
+frontend/node_modules/
+openspec/

@@ -1,0 +1,23 @@
+{
+  "parameters": [
+    { "id": "doc_column" },
+    { "id": "lang_column" },
+    { "id": "output_column_prefix" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "ml_enrichment_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "doc_column" },
+      { "parameter_ref": "lang_column" },
+      { "parameter_ref": "output_column_prefix" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "parameters": [
+    { "id": "merge_type",    "type": "string", "default": "rows" },
+    { "id": "column_option", "type": "string", "default": "inner_join" }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "merge_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "merge_type",    "visible": false },
+      { "parameter_ref": "column_option", "visible": false }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

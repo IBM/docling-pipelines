@@ -1,0 +1,44 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type';
+
+// ---------------------------------------------------------------------------
+// Tearsheet body
+// ---------------------------------------------------------------------------
+
+// Outer padding wrapper for the Tearsheet children div.
+// 1.5rem on top and sides, 0 at the bottom so the tab underline
+// sits flush with the Tearsheet border.
+.tearsheetBody {
+  padding: $spacing-06 $spacing-06 0; // 1.5rem top/sides, 0 bottom
+}
+
+// ---------------------------------------------------------------------------
+// Simple tab — condition row list
+// ---------------------------------------------------------------------------
+
+// Stacks all condition rows (and the logical-operator radio group) vertically.
+.conditionList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05; // 1rem between rows
+  padding-top: $spacing-05; // 1rem top gap below the TabPanel edge
+}
+
+// Single condition row: Variable | Operator | Value | Delete icon.
+// Three fluid columns plus a fixed-width icon column.
+.conditionRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: $spacing-03; // 0.5rem between columns
+  align-items: flex-end;
+}
+
+// ---------------------------------------------------------------------------
+// Advanced tab
+// ---------------------------------------------------------------------------
+
+// Adds top breathing room between the TabPanel edge and the TextArea.
+.advancedTabPanel {
+  padding-top: $spacing-05; // 1rem
+}

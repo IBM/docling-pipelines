@@ -1,0 +1,29 @@
+{
+  "parameters": [
+    {
+      "id": "max_file_size"
+    },
+    {
+      "id": "max_files"
+    },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "ingest_cpd_assets_uihints",
+    "parameter_info": [
+      {
+        "parameter_ref": "max_file_size"
+      },
+      {
+        "parameter_ref": "max_files"
+      }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

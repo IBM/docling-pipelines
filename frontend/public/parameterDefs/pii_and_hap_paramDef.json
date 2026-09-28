@@ -1,0 +1,39 @@
+{
+  "parameters": [
+    { "id": "expected_redactions", "type": "array", "default": ["PII", "HAP"] },
+    { "id": "pii_list", "type": "array", "default": ["BankAccountNumber", "CreditCardNumber", "EmailAddress", "IPAddress", "PhoneNumber", "SocialSecurityNumber"] },
+    { "id": "display_pii" },
+    { "id": "redaction" },
+    { "id": "redaction_character" },
+    { "id": "hap_redaction" },
+    { "id": "hap_redaction_character" },
+    { "id": "pii_threshold" },
+    { "id": "hap_threshold" },
+    { "id": "provider" },
+    { "id": "provider_config" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "pii_and_hap_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "expected_redactions" },
+      { "parameter_ref": "pii_list" },
+      { "parameter_ref": "display_pii" },
+      { "parameter_ref": "redaction" },
+      { "parameter_ref": "redaction_character" },
+      { "parameter_ref": "hap_redaction" },
+      { "parameter_ref": "hap_redaction_character" },
+      { "parameter_ref": "pii_threshold" },
+      { "parameter_ref": "hap_threshold" },
+      { "parameter_ref": "provider" },
+      { "parameter_ref": "provider_config" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

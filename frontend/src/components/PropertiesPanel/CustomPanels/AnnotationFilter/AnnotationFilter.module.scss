@@ -1,0 +1,107 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type';
+
+// ---------------------------------------------------------------------------
+// Panel body
+// ---------------------------------------------------------------------------
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06; // 1rem
+}
+
+// ---------------------------------------------------------------------------
+// Form fields
+// ---------------------------------------------------------------------------
+
+// Each field: label row + input
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02; // 0.25rem → tightest label-to-input gap
+}
+
+// Label row — holds DefinitionTooltip; mirrors DocumentClassifier panel convention
+.labelWithTooltip {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02; // 0.25rem between tooltip icon and label text
+  @include type.type-style('label-01'); // 0.75rem / 1rem, weight 400
+  color: $text-primary;
+}
+
+// ---------------------------------------------------------------------------
+// Criteria table cells
+// ---------------------------------------------------------------------------
+
+// Row layout: condition text + optional AND/OR badge + delete button
+.conditionCell {
+  display: flex;
+  align-items: center;
+  gap: $spacing-05; // 1rem — matches 0.75rem → nearest token up ($spacing-05 = 1rem)
+  width: 100%;
+}
+
+// Condition text — truncates with ellipsis on overflow
+.conditionText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+// AND / OR pill badge between condition rows
+.logicalOperatorBadge {
+  flex-shrink: 0;
+  padding: $spacing-01 $spacing-04; // 0.125rem 0.5rem → $spacing-01 = 0.125rem, $spacing-04 = 0.75rem (nearest to 0.625rem)
+  background-color: $layer-02;
+  color: $link-primary;
+  border-radius: $spacing-06; // 1rem pill shape
+  @include type.type-style('label-01'); // 0.75rem, matching badge text convention
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+// Delete / action icon buttons aligned to the row end
+.actionButtons {
+  flex-shrink: 0;
+  display: flex;
+  gap: $spacing-02; // 0.25rem between icon buttons
+  margin-left: auto;
+}
+
+// ---------------------------------------------------------------------------
+// Add / Update criteria ghost button
+// ---------------------------------------------------------------------------
+
+// Remove default left padding so the button text aligns with field labels
+.addCriteriaButton {
+  padding-left: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Available features table — allow text selection for copy-paste
+// ---------------------------------------------------------------------------
+
+.availableFeaturesTable {
+  :global {
+    .cds--data-table tbody td {
+      user-select: text;
+      cursor: text;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty state message for the available features table
+// ---------------------------------------------------------------------------
+
+// Shown when no upstream node is connected
+.emptyFeaturesMessage {
+  padding: $spacing-03 0; // 0.5rem top/bottom, flush sides
+  @include type.type-style('body-short-01'); // 0.875rem / 1.125rem
+  color: $text-secondary;
+}

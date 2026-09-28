@@ -1,0 +1,28 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.appContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  /* push all children below the fixed Carbon header ($spacing-09 = 3rem / 48px) */
+  padding-top: $spacing-09;
+}
+
+/* Breadcrumb row: in normal flow, height driven by its own content */
+.breadcrumbRow {
+  flex-shrink: 0;
+}
+
+/* Page content: takes all remaining vertical space and is the ONLY scroll zone */
+.pageContent {
+  flex: 1;
+  overflow: auto;
+  min-height: 0; /* required for flex children to scroll correctly */
+
+  /* Carbon's <Content> (<main>) has no height set — force it to fill
+     this container so fullBleed children can use height:100% / flex:1 */
+  :global(.cds--content) {
+    height: 100%;
+    padding: 0;
+  }
+}

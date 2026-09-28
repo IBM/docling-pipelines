@@ -1,0 +1,123 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// ── Click-outside overlay ────────────────────────────────────────────────────
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  background: transparent;
+}
+
+// ── Panel ────────────────────────────────────────────────────────────────────
+.panel {
+  position: fixed;
+  top: 3rem; // offset below the fixed Carbon header
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background-color: $background;
+  border-left: 1px solid $border-subtle-01;
+  z-index: 8001;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: $shadow;
+}
+
+// ── Header ───────────────────────────────────────────────────────────────────
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-05 $spacing-05 $spacing-05 $spacing-06;
+  border-bottom: 1px solid $border-subtle-01;
+  flex-shrink: 0;
+}
+
+.title {
+  @include type-style('heading-compact-02');
+  margin: 0;
+  color: $text-primary;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+}
+
+// ── Body ─────────────────────────────────────────────────────────────────────
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.empty {
+  @include type-style('body-01');
+  color: $text-secondary;
+  text-align: center;
+  margin-top: $spacing-07;
+  padding: 0 $spacing-06;
+}
+
+// ── List ─────────────────────────────────────────────────────────────────────
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// ── Item — icon left, content right ──────────────────────────────────────────
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-04;
+  padding: $spacing-05 $spacing-06;
+  border-bottom: 1px solid $border-subtle-01;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-top: $spacing-01; // optical alignment with first line of text
+}
+
+// ── Icon colours — Carbon semantic notification tokens ────────────────────────
+.iconSuccess { color: $support-success; }
+.iconError   { color: $support-error;   }
+.iconWarning { color: $support-warning; }
+.iconInfo    { color: $support-info;    }
+
+// ── Item content ─────────────────────────────────────────────────────────────
+.itemContent {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-01;
+  min-width: 0;
+}
+
+.itemTitle {
+  @include type-style('body-compact-01');
+  color: $text-primary;
+  margin: 0;
+  word-break: break-word;
+}
+
+.itemSubtitle {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+  margin: 0;
+  word-break: break-word;
+}
+
+.timestamp {
+  @include type-style('label-01');
+  color: $text-secondary;
+  margin-top: $spacing-01;
+}

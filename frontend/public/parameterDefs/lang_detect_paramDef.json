@@ -1,0 +1,21 @@
+{
+  "parameters": [
+    { "id": "language_provider" },
+    { "id": "filter_unknown_language" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "lang_detect_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "language_provider" },
+      { "parameter_ref": "filter_unknown_language" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "parameters": [
+    { "id": "entities_column" },
+    { "id": "document_type_column" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "entity_curation_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "entities_column" },
+      { "parameter_ref": "document_type_column" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

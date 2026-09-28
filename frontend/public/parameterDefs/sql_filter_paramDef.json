@@ -1,0 +1,21 @@
+{
+  "parameters": [
+    { "id": "criteria_json" },
+    { "id": "criteria_list" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "sql_filter_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "criteria_json" },
+      { "parameter_ref": "criteria_list" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

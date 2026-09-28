@@ -1,0 +1,157 @@
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/spacing' as *;
+
+.canvasContainer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background-color: $background;
+
+  // Carbon Charts CardNode styling
+  :global {
+    .d3-nodes-links-group {
+      .card-node {
+        height: 100%;
+
+        // Style the Carbon Charts card node
+        .cds--cc--card-node {
+          border-radius: 4px;
+        }
+
+        .cds--cc--card-node:hover {
+          background-color: $background-hover;
+        }
+      }
+
+      // Selection highlight styling
+      .d3-node-selection-highlight[data-selected='yes'] {
+        stroke: $layer-selected-inverse;
+        stroke-dasharray: 4, 4;
+        stroke-width: 1;
+        fill: transparent;
+        pointer-events: none;
+      }
+
+      // Port styling with animations
+      .d3-node-port-output {
+        opacity: 0;
+        transform: translateX(-8px);
+        transition:
+          opacity 0.1s cubic-bezier(0.4, 0.14, 0.3, 1),
+          transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition-delay: 0.125s;
+      }
+
+      .d3-node-port-input {
+        opacity: 0;
+      }
+
+      // Show ports on hover
+      .d3-node-group:hover {
+        .d3-node-port-output {
+          opacity: 1;
+          transform: translateX(0);
+          transition:
+            opacity 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+            transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          transition-delay: 0.125s;
+        }
+      }
+
+      // Ellipsis menu styling
+      .d3-node-ellipsis-group {
+        .d3-node-ellipsis {
+          fill: $icon-primary;
+        }
+
+        .d3-node-ellipsis-background {
+          fill: $background;
+        }
+
+        &:hover {
+          .d3-node-ellipsis-background {
+            fill: $layer-accent-01;
+          }
+        }
+      }
+    }
+
+    // Link styling
+    .d3-link-group.d3-data-link {
+      .d3-link-line,
+      .d3-link-line-arrow-head {
+        stroke: $layer-selected-inverse;
+        stroke-width: calc($spacing-01 / 2);
+      }
+
+      &:hover {
+        .d3-link-line,
+        .d3-link-line-arrow-head {
+          stroke-width: $spacing-01;
+        }
+      }
+    }
+
+    // Title truncation
+    .cds--cc--card-node {
+      .cds--cc--card-node__title {
+        width: calc($spacing-12 + $spacing-07);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    // ── Theme alignment: g10 light theme ─────────────────────────────────
+    // In g10: $background = #f4f4f4 (gray), $layer-01 = #ffffff (white).
+    // Elyra's own CSS already sets:
+    //   .d3-svg-canvas-div          → var(--cds-background) = #f4f4f4 ✓ gray
+    //   .palette-flyout-div         → var(--cds-layer-01)   = #ffffff ✓ white
+    //   .left/right-flyout-panel    → var(--cds-layer-01)   = #ffffff ✓ white
+    // No canvas/panel overrides needed — Elyra's defaults are correct for g10.
+    //
+    // Only the card nodes need an explicit white background so they stand out
+    // clearly against the gray canvas.
+    .cds--cc--card-node {
+      background-color: $layer-01 !important;
+    }
+
+    // ── Properties panel input contrast ──────────────────────────────────
+    // In g10, $field-01 = #ffffff (white) — same as the panel background
+    // ($layer-01 = #ffffff), making inputs invisible against the panel.
+    // Override the --cds-field CSS custom property on the flyout container so
+    // every Carbon input component that reads this token automatically uses
+    // $field-02 — no per-component selector list to maintain.
+    .right-flyout-panel {
+      --cds-field: #{$field-02};
+      --cds-field-01: #{$field-02};
+    }
+
+    // Right flyout: fixed width matching datasift-ui
+    .right-flyout-panel:not(:empty) {
+      width: 28.9375rem;
+    }
+
+    // Override Elyra's calc(100% - 65px - 4rem) so the scrollable content
+    // area fills the full viewport — this pushes Save/Cancel flush to the
+    // bottom with no blank strip. Matches datasift-ui canvasNodes.scss.
+    .properties-custom-container {
+      height: 100vh !important;
+    }
+
+    // Remove default left padding Elyra adds when there is only one category
+    .properties-single-category {
+      padding-left: 0;
+    }
+
+    // Fill the flex container so Save/Cancel (position: absolute; bottom: 0)
+    // anchors to the true canvas bottom.
+    .properties-right-flyout-container > .properties-right-flyout {
+      flex: 1;
+    }
+
+  }
+}

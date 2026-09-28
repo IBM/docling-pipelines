@@ -1,0 +1,31 @@
+{
+  "parameters": [
+    { "id": "provider" },
+    { "id": "connection_params" },
+    { "id": "credentials" },
+    { "id": "max_files" },
+    { "id": "include_filter" },
+    { "id": "exclude_filter" },
+    { "id": "ignore_hidden_files" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "ingest_source_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "provider" },
+      { "parameter_ref": "connection_params" },
+      { "parameter_ref": "credentials" },
+      { "parameter_ref": "max_files" },
+      { "parameter_ref": "include_filter" },
+      { "parameter_ref": "exclude_filter" },
+      { "parameter_ref": "ignore_hidden_files" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

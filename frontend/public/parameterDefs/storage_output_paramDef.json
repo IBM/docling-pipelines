@@ -1,0 +1,24 @@
+{
+  "parameters": [
+    { "id": "mode" },
+    { "id": "destination_config" },
+    { "id": "output_format" },
+    { "id": "output_structure" }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "storage_output_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "mode" },
+      { "parameter_ref": "destination_config" },
+      { "parameter_ref": "output_format" },
+      { "parameter_ref": "output_structure" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}
