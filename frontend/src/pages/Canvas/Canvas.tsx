@@ -346,7 +346,7 @@ export function Canvas(): React.JSX.Element {
           <IconButton
             kind="ghost"
             size="sm"
-            label="About this flow"
+            label="About flow"
             align="bottom-end"
             onClick={() => { setIsAboutPanelOpen((prev) => !prev); }}
           >

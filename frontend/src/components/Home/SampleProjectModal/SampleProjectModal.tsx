@@ -18,7 +18,6 @@ import { setProject } from '@/slices/projectsSlice';
 import { setFlow } from '@/slices/flowSlice';
 import { buildFlowDefinition } from '@/lib/helpers/flow';
 import { generateRoute } from '@/config';
-import sampleFlowNodes from '@/lib/sampleFlowNodes.json';
 import styles from './SampleProjectModal.module.scss';
 
 const PROJECT_NAME = 'Default_Docling_Pipeline_Project';
@@ -105,12 +104,14 @@ export function SampleProjectModal({
         prev.map((s, i) => (i === 1 ? { ...s, label: `Creating flow: ${flowName}` } : s))
       );
 
-      // Deep-clone nodes and stamp the vectordb index_name so each sample
-      // flow gets a unique OpenSearch index — never mutate the imported JSON.
+      // Fetch sample nodes from the public asset and stamp the vectordb index_name
+      // so each sample flow gets a unique OpenSearch index.
+      const sampleRes = await fetch('/samples/samplePipeline.json');
+      const sampleFlowNodes = (await sampleRes.json()) as Record<string, unknown>[];
       const stampedNodes = structuredClone(sampleFlowNodes);
-      const vectordbNode = stampedNodes.find((n) => n.op === 'vectordb');
+      const vectordbNode = stampedNodes.find((n) => n['op'] === 'vectordb');
       if (vectordbNode) {
-        (vectordbNode.parameters.provider_config as { index_name: string }).index_name = indexName;
+        ((vectordbNode['parameters'] as Record<string, unknown>)['provider_config'] as Record<string, unknown>)['index_name'] = indexName;
       }
 
       const definition = buildFlowDefinition(flowName, '', stampedNodes);
