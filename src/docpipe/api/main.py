@@ -51,6 +51,7 @@ from docpipe.api.openapi import build_custom_openapi
 from docpipe.core.constants.constants import EnvironmentVariables
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.integrations.kafka.schema_registry import KafkaSchemaRegistryInitializer
 from docpipe.utils.infrastructure.logging import (
     configure_third_party_loggers,
     set_dpk_log_level_from_ds_log_level,
@@ -165,6 +166,9 @@ async def lifespan(app: FastAPI):
     from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
 
     initialize_secret_providers()
+
+    KafkaSchemaRegistryInitializer.initialize()
+
     bff_process, started_bff_url = _start_bff()
     # Shared AsyncClient — reused across all proxy_to_bff requests so the
     # connection pool is maintained and TCP overhead is paid once, not per request.
