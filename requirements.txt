@@ -50,9 +50,14 @@ asyncpg==0.31.0
 attrs==26.1.0
     # via
     #   aiohttp
+    #   confluent-kafka
     #   cyclopts
     #   jsonschema
     #   referencing
+authlib==1.6.0
+    # via
+    #   confluent-kafka
+    #   docling-pipelines
 azure-core==1.41.0
     # via azure-storage-blob
 azure-storage-blob==12.28.0
@@ -85,6 +90,7 @@ burner-redis==0.1.7
     # via pydocket
 cachetools==5.5.2
     # via
+    #   confluent-kafka
     #   ibm-watsonx-ai
     #   prefect
     #   py-key-value-aio
@@ -98,6 +104,7 @@ catalogue==2.0.10
 certifi==2026.7.22
     # via
     #   apprise
+    #   confluent-kafka
     #   docling-slim
     #   httpcore
     #   httpx
@@ -150,6 +157,7 @@ cronsim==2.7
     # via pydocket
 cryptography==50.0.0
     # via
+    #   authlib
     #   azure-storage-blob
     #   docling-pipelines
     #   google-auth
@@ -328,6 +336,7 @@ httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via
+    #   confluent-kafka
     #   docling-pipelines
     #   docling-slim
     #   huggingface-hub

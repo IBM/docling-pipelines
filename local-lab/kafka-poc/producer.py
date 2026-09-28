@@ -1,34 +1,3 @@
-"""
-Standalone Kafka producer for docpipe file events.
-
-Usage:
-    python producer.py --event-type <type> --connection-id <uuid> --flow-id <uuid> --file-path <path>
-
-Reads KAFKA_BOOTSTRAP_SERVERS, KAFKA_TOPIC, and SCHEMA_PATH from a .env file or environment variables.
-
-Pre-requisite — create the topic (run once after docker compose up):
-    docker compose exec kafka /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server localhost:9092 \
-        --create --topic docpipe-file-events \
-        --partitions 1 --replication-factor 1 --if-not-exists
-
-Examples:
-    python producer.py --event-type created \
-        --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
-        --flow-id b5e7f8a0-9876-4321-dcba-fedcba987654 \
-        --file-path "/sites/finance/Shared Documents/quarterly_report.pdf"
-
-    python producer.py --event-type modified \
-        --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
-        --flow-id b5e7f8a0-9876-4321-dcba-fedcba987654 \
-        --file-path "s3://my-bucket/docs/contract_v2.docx"
-
-    python producer.py --event-type deleted \
-        --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
-        --flow-id b5e7f8a0-9876-4321-dcba-fedcba987654 \
-        --file-path "/mnt/nas/archive/old_report.pdf"
-"""
-
 import argparse
 import json
 import os

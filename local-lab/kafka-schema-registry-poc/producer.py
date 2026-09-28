@@ -1,56 +1,28 @@
-"""
-Standalone Kafka producer for docpipe file events.
-
-Usage:
-    python producer.py --event-type <type> --connection-id <uuid> --flow-id <uuid> --file-path <path>
-
-Reads KAFKA_BOOTSTRAP_SERVERS, KAFKA_TOPIC, and SCHEMA_PATH from a .env file or environment variables.
-
-Pre-requisite — create the topic (run once after docker compose up):
-    docker compose exec kafka /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server localhost:9092 \
-        --create --topic docpipe-file-events \
-        --partitions 1 --replication-factor 1 --if-not-exists
-
-Examples:
-    python producer.py --event-type created \
-        --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
-        --flow-id b5e7f8a0-9876-4321-dcba-fedcba987654 \
-        --file-path "/sites/finance/Shared Documents/quarterly_report.pdf"
-
-    python producer.py --event-type modified \
-        --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
-        --flow-id b5e7f8a0-9876-4321-dcba-fedcba987654 \
-        --file-path "s3://my-bucket/docs/contract_v2.docx"
-
-    python producer.py --event-type deleted \
-        --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
-        --flow-id b5e7f8a0-9876-4321-dcba-fedcba987654 \
-        --file-path "/mnt/nas/archive/old_report.pdf"
-"""
-
 import argparse
 import json
 import os
-import pathlib
 import uuid
 from datetime import datetime, timezone
 
-import jsonschema
-from confluent_kafka import Producer
+from confluent_kafka import SerializingProducer
+from confluent_kafka.schema_registry import SchemaRegistryClient, Schema
+from confluent_kafka.schema_registry.json_schema import JSONSerializer
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOOTSTRAP_SERVERS = os.environ["KAFKA_BOOTSTRAP_SERVERS"]
 TOPIC = os.environ["KAFKA_TOPIC"]
-SCHEMA_PATH = os.environ.get("SCHEMA_PATH", str(pathlib.Path(__file__).parent / "file_event_schema.json"))
+SCHEMA_REGISTRY_URL = os.environ["SCHEMA_REGISTRY_URL"]
 
-_SCHEMA = json.loads(pathlib.Path(SCHEMA_PATH).read_text())
+_registry_client = SchemaRegistryClient({"url": SCHEMA_REGISTRY_URL})
+# Fetch the latest registered schema for the topic's value subject
+_registered_schema = _registry_client.get_latest_version("%s-value" % TOPIC)
+_serializer = JSONSerializer(_registered_schema.schema.schema_str, _registry_client)
 
 
 def build_event(*, event_type: str, connection_id: str, flow_id: str, file_path: str) -> dict:
-    event = {
+    return {
         "event_id": str(uuid.uuid4()),
         "event_type": event_type,
         "event_timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -58,8 +30,6 @@ def build_event(*, event_type: str, connection_id: str, flow_id: str, file_path:
         "flow_id": flow_id,
         "file_path": file_path,
     }
-    jsonschema.validate(instance=event, schema=_SCHEMA)
-    return event
 
 
 def delivery_report(err, msg):
@@ -70,7 +40,12 @@ def delivery_report(err, msg):
 
 
 def produce(*, event_type: str, connection_id: str, flow_id: str, file_path: str) -> None:
-    producer = Producer({"bootstrap.servers": BOOTSTRAP_SERVERS})
+    producer = SerializingProducer(
+        {
+            "bootstrap.servers": BOOTSTRAP_SERVERS,
+            "value.serializer": _serializer,
+        }
+    )
 
     event = build_event(
         event_type=event_type,
@@ -82,8 +57,8 @@ def produce(*, event_type: str, connection_id: str, flow_id: str, file_path: str
     producer.produce(
         topic=TOPIC,
         key=event["event_id"],
-        value=json.dumps(event),
-        callback=delivery_report,
+        value=event,
+        on_delivery=delivery_report,
     )
     producer.flush()
     print("Event: %s" % json.dumps(event, indent=2))

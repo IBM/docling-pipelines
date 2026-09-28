@@ -1,27 +1,3 @@
-"""
-Standalone Kafka consumer for docpipe file events.
-
-Reads events from the topic, validates against the schema, and prints them.
-Press Ctrl+C to stop.
-
-Usage:
-    python consumer.py
-
-Reads KAFKA_BOOTSTRAP_SERVERS, KAFKA_TOPIC, KAFKA_GROUP_ID, and SCHEMA_PATH
-from a .env file or environment variables.
-
-Pre-requisite — create the topic (run once after docker compose up):
-    docker compose exec kafka /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server localhost:9092 \
-        --create --topic docpipe-file-events \
-        --partitions 1 --replication-factor 1 --if-not-exists
-
-Examples:
-    python consumer.py
-
-    KAFKA_GROUP_ID=my-group python consumer.py
-"""
-
 import json
 import os
 import pathlib

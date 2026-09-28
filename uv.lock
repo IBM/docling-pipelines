@@ -352,6 +352,18 @@ wheels = [
 ]
 
 [[package]]
+name = "authlib"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/9d/b1e08d36899c12c8b894a44a5583ee157789f26fc4b176f8e4b6217b56e1/authlib-1.6.0.tar.gz", hash = "sha256:4367d32031b7af175ad3a323d571dc7257b7099d55978087ceae4a0d88cd3210", size = 158371, upload-time = "2025-05-23T00:21:45.011Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/29/587c189bbab1ccc8c86a03a5d0e13873df916380ef1be461ebe6acebf48d/authlib-1.6.0-py2.py3-none-any.whl", hash = "sha256:91685589498f79e8655e8a8947431ad6288831d643f11c55c2143ffcc738048d", size = 239981, upload-time = "2025-05-23T00:21:43.075Z" },
+]
+
+[[package]]
 name = "av"
 version = "18.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -765,6 +777,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/25/08/8c404bb5849f98e8468b24f1f336360cc37802bb058ff750255621fea484/confluent_kafka-2.15.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:2d2d876c83214f2651d92c557d5057be1356dd3fbb31f26d50863f610655e2fe", size = 4994340, upload-time = "2026-09-10T15:27:21.431Z" },
     { url = "https://files.pythonhosted.org/packages/d7/a3/31112ce258d74be4636e6d1f73717587e19fd311c70477ae807136f3a48c/confluent_kafka-2.15.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:326e237f6b25587d7dc96854e3a1315979843bacbe48d76a50412f12e49328e1", size = 4806262, upload-time = "2026-09-10T15:27:22.822Z" },
     { url = "https://files.pythonhosted.org/packages/3c/b8/d07ef7c72f55c01d13de4873e86e49eb6ebd8989cb104cb982fa365d389b/confluent_kafka-2.15.1-cp312-cp312-win_amd64.whl", hash = "sha256:b6c73dcb91d5f84ed0d24b37817944f44b5d661f02ec8cc7a3c6d497c03bdc7c", size = 4565312, upload-time = "2026-09-10T15:27:24.321Z" },
+]
+
+[package.optional-dependencies]
+schemaregistry = [
+    { name = "attrs" },
+    { name = "authlib" },
+    { name = "cachetools" },
+    { name = "certifi" },
+    { name = "httpx" },
 ]
 
 [[package]]
@@ -1301,12 +1322,13 @@ dependencies = [
     { name = "accelerate" },
     { name = "aiohttp" },
     { name = "alembic" },
+    { name = "authlib" },
     { name = "azure-storage-blob" },
     { name = "babel" },
     { name = "boto3" },
     { name = "botocore" },
     { name = "box-sdk-gen" },
-    { name = "confluent-kafka" },
+    { name = "confluent-kafka", extra = ["schemaregistry"] },
     { name = "cryptography" },
     { name = "data-prep-toolkit-transforms" },
     { name = "datatrove" },
@@ -1459,13 +1481,14 @@ requires-dist = [
     { name = "accelerate", specifier = "==1.13.0" },
     { name = "aiohttp", specifier = "==3.14.3" },
     { name = "alembic", specifier = "==1.18.4" },
+    { name = "authlib", specifier = "==1.6.0" },
     { name = "azure-storage-blob", specifier = "==12.28.0" },
     { name = "babel", specifier = "==2.18.0" },
     { name = "black", marker = "extra == 'dev'", specifier = "==26.3.1" },
     { name = "boto3", specifier = "==1.42.55" },
     { name = "botocore", specifier = "==1.42.55" },
     { name = "box-sdk-gen", specifier = "==1.17.0" },
-    { name = "confluent-kafka", specifier = "==2.15.1" },
+    { name = "confluent-kafka", extras = ["schemaregistry"], specifier = "==2.15.1" },
     { name = "cryptography", specifier = "==50.0.0" },
     { name = "data-prep-toolkit-transforms", specifier = "==1.1.8" },
     { name = "datatrove", specifier = "==0.10.0" },

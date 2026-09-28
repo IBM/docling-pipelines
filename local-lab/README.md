@@ -5,6 +5,7 @@ From the repo root.
 ```bash
 colima start
 uv sync --extra dev
+uv export --no-hashes --frozen --output-file=requirements.txt --no-dev --all-packages
 source .venv/bin/activate
 cd local-lab
 ```

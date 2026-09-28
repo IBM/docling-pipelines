@@ -1,35 +1,9 @@
-"""
-Standalone Kafka consumer for docpipe file events.
-
-Reads events from the topic, validates against the schema, and prints them.
-Press Ctrl+C to stop.
-
-Usage:
-    python consumer.py
-
-Reads KAFKA_BOOTSTRAP_SERVERS, KAFKA_TOPIC, KAFKA_GROUP_ID, and SCHEMA_PATH
-from a .env file or environment variables.
-
-Pre-requisite — create the topic (run once after docker compose up):
-    docker compose exec kafka /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server localhost:9092 \
-        --create --topic docpipe-file-events \
-        --partitions 1 --replication-factor 1 --if-not-exists
-
-Examples:
-    python consumer.py
-
-    KAFKA_GROUP_ID=my-group python consumer.py
-"""
-
-import json
 import os
-import pathlib
 import signal
-import sys
 
-import jsonschema
-from confluent_kafka import Consumer, KafkaError
+from confluent_kafka import DeserializingConsumer, KafkaError
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.json_schema import JSONDeserializer
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -37,9 +11,12 @@ load_dotenv()
 BOOTSTRAP_SERVERS = os.environ["KAFKA_BOOTSTRAP_SERVERS"]
 TOPIC = os.environ["KAFKA_TOPIC"]
 GROUP_ID = os.environ.get("KAFKA_GROUP_ID", "docpipe-file-events-consumer")
-SCHEMA_PATH = os.environ.get("SCHEMA_PATH", str(pathlib.Path(__file__).parent / "file_event_schema.json"))
+SCHEMA_REGISTRY_URL = os.environ["SCHEMA_REGISTRY_URL"]
 
-_SCHEMA = json.loads(pathlib.Path(SCHEMA_PATH).read_text())
+_registry_client = SchemaRegistryClient({"url": SCHEMA_REGISTRY_URL})
+# Fetch the latest registered schema for the topic's value subject
+_registered_schema = _registry_client.get_latest_version("%s-value" % TOPIC)
+_deserializer = JSONDeserializer(_registered_schema.schema.schema_str, schema_registry_client=_registry_client)
 
 _running = True
 
@@ -63,11 +40,12 @@ def handle_event(event: dict) -> None:
 
 
 def consume() -> None:
-    consumer = Consumer(
+    consumer = DeserializingConsumer(
         {
             "bootstrap.servers": BOOTSTRAP_SERVERS,
             "group.id": GROUP_ID,
             "auto.offset.reset": "earliest",
+            "value.deserializer": _deserializer,
         }
     )
     consumer.subscribe([TOPIC])
@@ -83,14 +61,7 @@ def consume() -> None:
                     print("Consumer error: %s" % msg.error())
                 continue
 
-            try:
-                event = json.loads(msg.value())
-                jsonschema.validate(instance=event, schema=_SCHEMA)
-                handle_event(event)
-            except json.JSONDecodeError as exc:
-                print("Skipping non-JSON message: %s" % exc)
-            except jsonschema.ValidationError as exc:
-                print("Skipping invalid event: %s" % exc.message)
+            handle_event(msg.value())
     finally:
         consumer.close()
 
