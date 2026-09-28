@@ -8,6 +8,8 @@ Tests cover:
 - Edge cases and empty data
 """
 
+from typing import Any
+
 from docpipe.core.constants import DocpipeConstants, OperatorConstants
 from docpipe.core.job_management.domain.utils.normalization import normalize_node_stats_for_dto
 
@@ -17,7 +19,7 @@ class TestNormalizeNodeStatsForDto:
 
     def test_normalize_old_format_with_id(self):
         """Should add node_id field when only id exists (old format)."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {
@@ -29,10 +31,10 @@ class TestNormalizeNodeStatsForDto:
             },
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
-        # Should add node_id field
-        node_data = result[DocpipeConstants.NODE_STATS]["node-1"]
+        # Should add node_id field in-place
+        node_data = job_stats_data[DocpipeConstants.NODE_STATS]["node-1"]
         assert DocpipeConstants.NODE_ID in node_data
         assert node_data[DocpipeConstants.NODE_ID] == "node-1"
         # Original id field should still exist
@@ -40,7 +42,7 @@ class TestNormalizeNodeStatsForDto:
 
     def test_normalize_new_format_with_node_id(self):
         """Should not modify data that already has node_id (new format)."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {
@@ -52,10 +54,10 @@ class TestNormalizeNodeStatsForDto:
             },
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
-        # Should return unchanged
-        node_data = result[DocpipeConstants.NODE_STATS]["node-1"]
+        # Should be unchanged
+        node_data = job_stats_data[DocpipeConstants.NODE_STATS]["node-1"]
         assert DocpipeConstants.NODE_ID in node_data
         assert node_data[DocpipeConstants.NODE_ID] == "node-1"
         # Should not have added anything
@@ -63,7 +65,7 @@ class TestNormalizeNodeStatsForDto:
 
     def test_normalize_multiple_nodes_old_format(self):
         """Should normalize all nodes in old format."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {
@@ -82,55 +84,55 @@ class TestNormalizeNodeStatsForDto:
             },
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
         # All nodes should have node_id
         for node_key in ["node-1", "node-2", "node-3"]:
-            node_data = result[DocpipeConstants.NODE_STATS][node_key]
+            node_data = job_stats_data[DocpipeConstants.NODE_STATS][node_key]
             assert DocpipeConstants.NODE_ID in node_data
             assert node_data[DocpipeConstants.NODE_ID] == node_key
 
     def test_normalize_empty_node_stats(self):
         """Should handle empty node_stats dict."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {},
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
-        # Should return unchanged
-        assert result[DocpipeConstants.NODE_STATS] == {}
+        # Should be unchanged
+        assert job_stats_data[DocpipeConstants.NODE_STATS] == {}
 
     def test_normalize_missing_node_stats(self):
         """Should handle missing node_stats field."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
-        # Should return unchanged
-        assert DocpipeConstants.NODE_STATS not in result
+        # Should be unchanged
+        assert DocpipeConstants.NODE_STATS not in job_stats_data
 
     def test_normalize_node_stats_not_dict(self):
         """Should handle node_stats that is not a dict."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: "not a dict",
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
-        # Should return unchanged
-        assert result[DocpipeConstants.NODE_STATS] == "not a dict"
+        # Should be unchanged
+        assert job_stats_data[DocpipeConstants.NODE_STATS] == "not a dict"
 
     def test_normalize_node_data_not_dict(self):
         """Should skip nodes that are not dicts."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {
@@ -142,16 +144,16 @@ class TestNormalizeNodeStatsForDto:
             },
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
         # node-1 should be unchanged
-        assert result[DocpipeConstants.NODE_STATS]["node-1"] == "not a dict"
+        assert job_stats_data[DocpipeConstants.NODE_STATS]["node-1"] == "not a dict"
         # node-2 should be normalized
-        assert DocpipeConstants.NODE_ID in result[DocpipeConstants.NODE_STATS]["node-2"]
+        assert DocpipeConstants.NODE_ID in job_stats_data[DocpipeConstants.NODE_STATS]["node-2"]
 
     def test_normalize_node_with_both_id_and_node_id(self):
         """Should not modify node that has both id and node_id."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {
@@ -163,17 +165,17 @@ class TestNormalizeNodeStatsForDto:
             },
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
         # Should detect new format and not modify
-        node_data = result[DocpipeConstants.NODE_STATS]["node-1"]
+        node_data = job_stats_data[DocpipeConstants.NODE_STATS]["node-1"]
         assert DocpipeConstants.NODE_ID in node_data
         assert OperatorConstants.Misc.ID in node_data
         assert len(node_data) == 3
 
     def test_normalize_preserves_other_fields(self):
         """Should preserve all other fields in job_stats_data."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             "status": "COMPLETED",
@@ -187,18 +189,18 @@ class TestNormalizeNodeStatsForDto:
             },
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
         # All other fields should be preserved
-        assert result["job_id"] == "job-123"
-        assert result["job_run_id"] == "run-456"
-        assert result["status"] == "COMPLETED"
-        assert result["message"] == "Test message"
-        assert result["custom_field"] == "custom_value"
+        assert job_stats_data["job_id"] == "job-123"
+        assert job_stats_data["job_run_id"] == "run-456"
+        assert job_stats_data["status"] == "COMPLETED"
+        assert job_stats_data["message"] == "Test message"
+        assert job_stats_data["custom_field"] == "custom_value"
 
     def test_normalize_mixed_format_nodes(self):
         """Should handle mix of old and new format nodes."""
-        job_stats_data = {
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {
@@ -213,20 +215,20 @@ class TestNormalizeNodeStatsForDto:
             },
         }
 
-        result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
+        normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
         # First node detected as new format, so no normalization happens
         # This is by design - if first node is new format, assume all are
-        node1 = result[DocpipeConstants.NODE_STATS]["node-1"]
+        node1 = job_stats_data[DocpipeConstants.NODE_STATS]["node-1"]
         assert DocpipeConstants.NODE_ID in node1
 
         # node-2 won't be normalized because first node was new format
-        node2 = result[DocpipeConstants.NODE_STATS]["node-2"]
+        node2 = job_stats_data[DocpipeConstants.NODE_STATS]["node-2"]
         assert OperatorConstants.Misc.ID in node2
 
-    def test_normalize_returns_same_dict_reference(self):
-        """Should modify and return the same dict reference."""
-        job_stats_data = {
+    def test_normalize_returns_none(self):
+        """Function modifies in-place and returns None."""
+        job_stats_data: dict[str, Any] = {
             "job_id": "job-123",
             "job_run_id": "run-456",
             DocpipeConstants.NODE_STATS: {
@@ -239,5 +241,6 @@ class TestNormalizeNodeStatsForDto:
 
         result = normalize_node_stats_for_dto(job_stats_data=job_stats_data)
 
-        # Should return the same dict reference
-        assert result is job_stats_data
+        assert result is None
+        # Mutation happened in-place
+        assert DocpipeConstants.NODE_ID in job_stats_data[DocpipeConstants.NODE_STATS]["node-1"]
