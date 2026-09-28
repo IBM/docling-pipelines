@@ -184,6 +184,16 @@ artifacts = [
     "src/docpipe/api/bff/**/*",
 ]
 
+[tool.hatch.build.targets.wheel.force-include]
+# Bundle the documentation corpus so the installed MCP server has content to serve.
+# resolve_docs_root() in docs_mcp/utils.py detects this corpus via importlib.resources.
+"docs" = "docs_mcp/corpus/docs"
+"README.md" = "docs_mcp/corpus/README.md"
+"ARCHITECTURE.md" = "docs_mcp/corpus/ARCHITECTURE.md"
+"QUICKSTART.md" = "docs_mcp/corpus/QUICKSTART.md"
+"USER_GUIDE_PIPELINE_SETUP.md" = "docs_mcp/corpus/USER_GUIDE_PIPELINE_SETUP.md"
+"TROUBLESHOOTING.md" = "docs_mcp/corpus/TROUBLESHOOTING.md"
+
 [tool.hatch.build.hooks.custom]
 
 [tool.hatch.build]
