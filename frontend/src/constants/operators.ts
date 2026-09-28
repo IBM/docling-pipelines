@@ -48,7 +48,7 @@ export type OperatorCategoryType = typeof OperatorCategory[keyof typeof Operator
  */
 export const NodeOperator = {
   /** Data ingestion from various sources */
-  INGEST: 'ingest_local',
+  INGEST: 'ingest_source',
 
   /** Text and entity extraction using Docling */
   EXTRACT: 'extract_operator',

@@ -39,7 +39,7 @@ app.use('/api', router);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'datasift-bff' });
+  res.json({ status: 'ok', service: 'docling-pipelines-bff' });
 });
 
 // Error handling middleware

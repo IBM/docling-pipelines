@@ -65,12 +65,12 @@ All state is built once at startup and held in memory. The index is not updated 
 | `DOCPIPE_DOCS_ROOT` | Auto-detected | Override the documentation root directory. Useful in Docker or non-standard installs. |
 
 ```bash
-DOCPIPE_DOCS_ROOT=/path/to/docling-pipelines docling-pipelines-mcp
+DOCPIPE_DOCS_ROOT=/path/to/docling-pipelines docling-pipelines-docs-mcp
 ```
 
 ## Agent Registration
 
-The server is pre-registered in [`.bob/mcp.json`](../.bob/mcp.json) for use with IBM Bob and compatible agents:
+To register with IBM Bob or a compatible agent, add the following to your MCP configuration:
 
 ```json
 {

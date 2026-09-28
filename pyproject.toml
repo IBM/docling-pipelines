@@ -99,6 +99,7 @@ dependencies = [
     "unicodedataplus==16.0.0.post1",
     "urllib3==2.7.0",
     "uvicorn[standard]==0.40.0",
+    "mcp>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]
@@ -106,10 +107,6 @@ benchmark = [
     "matplotlib==3.11.0",
     "psutil==7.2.2",
     "scipy>=1.13.0,<1.19.0",
-]
-
-mcp = [
-    "mcp>=1.0,<2.0",
 ]
 
 dev = [
@@ -178,7 +175,7 @@ docling-pipelines = "docpipe.cli.docpipe_cli:main"
 docling-pipelines-docs-mcp = "docs_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/docpipe"]
+packages = ["src/docpipe", "docs_mcp"]
 # TODO: After adding npm to CI pipeline, change 'artifacts' to 'force-include' to ensure
 # frontend assets are always built and included (build will fail if static dir is missing)
 # force-include = { "src/docpipe/api/static" = "docpipe/api/static" }
