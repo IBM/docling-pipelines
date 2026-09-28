@@ -69,6 +69,45 @@ echo "Job run ID: $JOB_RUN_ID"
 curl -s "http://127.0.0.1:8080/api/v1/job_runs/${JOB_RUN_ID}" | python3 -m json.tool
 ```
 
+## Kafka POC: send a file event
+
+The `kafka-init` service creates both topics before `docling-pipelines` starts. List them with:
+
+```bash
+docker compose --env-file .env exec kafka /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 --list
+```
+
+In terminal 1, watch the input topic from `local-lab/`:
+
+```bash
+KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:9092 \
+SCHEMA_REGISTRY_URL=http://127.0.0.1:8081 \
+KAFKA_TOPIC=docpipe-poc \
+KAFKA_GROUP_ID=docpipe-poc-input-viewer \
+python kafka-schema-registry-poc/consumer.py
+```
+
+In terminal 2, watch the notification topic:
+
+```bash
+KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:9092 \
+SCHEMA_REGISTRY_URL=http://127.0.0.1:8081 \
+KAFKA_TOPIC=docpipe-poc-notifications \
+KAFKA_GROUP_ID=docpipe-poc-notification-viewer \
+python kafka-schema-registry-poc/consumer.py
+```
+
+In terminal 3, produce an input event:
+
+```bash
+python produce_file_event.py \
+  --event-type created \
+  --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
+  --flow-id "$FLOW_ID" \
+  --file-path "s3://docpipe-documents/pdfs/TR-INV_001_3_2.1.pdf"
+```
+
 ## Stop
 
 ```bash

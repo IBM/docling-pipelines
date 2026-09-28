@@ -78,8 +78,17 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     ports:
       - "9092:9092"
+
+  kafka-init:
+    image: apache/kafka:4.3.1
+    depends_on:
+      - kafka
+    volumes:
+      - ./scripts/kafka-init.sh:/kafka-init.sh:ro
+    entrypoint: ["/bin/sh", "/kafka-init.sh"]
 
   schema-registry:
     image: confluentinc/cp-schema-registry:8.2.4
@@ -116,12 +125,18 @@ services:
       - docling-pipelines-data:/data
       - ../src:/opt/app-root/src:ro
     depends_on:
-      - minio
-      - docling-serve
-      - ollama
-      - opensearch
-      - kafka
-      - schema-registry
+      minio:
+        condition: service_started
+      docling-serve:
+        condition: service_started
+      ollama:
+        condition: service_started
+      opensearch:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
 
 volumes:
   minio-data:

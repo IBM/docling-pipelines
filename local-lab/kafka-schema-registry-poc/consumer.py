@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 
@@ -15,7 +16,7 @@ SCHEMA_REGISTRY_URL = os.environ["SCHEMA_REGISTRY_URL"]
 
 _registry_client = SchemaRegistryClient({"url": SCHEMA_REGISTRY_URL})
 # Fetch the latest registered schema for the topic's value subject
-_registered_schema = _registry_client.get_latest_version("%s-value" % TOPIC)
+_registered_schema = _registry_client.get_latest_version(f"{TOPIC}-value")
 _deserializer = JSONDeserializer(_registered_schema.schema.schema_str, schema_registry_client=_registry_client)
 
 _running = True
@@ -32,11 +33,8 @@ signal.signal(signal.SIGTERM, _handle_shutdown)
 
 
 def handle_event(event: dict) -> None:
-    """Called for each valid event. Replace with pipeline trigger logic."""
-    print(
-        "[%s] event_type=%s connection_id=%s flow_id=%s file_path=%s"
-        % (event["event_timestamp"], event["event_type"], event["connection_id"], event["flow_id"], event["file_path"])
-    )
+    """Print the full event, including notification status when present."""
+    print(json.dumps(event, indent=2))
 
 
 def consume() -> None:
@@ -49,7 +47,7 @@ def consume() -> None:
         }
     )
     consumer.subscribe([TOPIC])
-    print("Listening on topic '%s' (group: %s) ..." % (TOPIC, GROUP_ID))
+    print(f"Listening on topic '{TOPIC}' (group: {GROUP_ID}) ...")
 
     try:
         while _running:
@@ -58,7 +56,7 @@ def consume() -> None:
                 continue
             if msg.error():
                 if msg.error().code() != KafkaError._PARTITION_EOF:
-                    print("Consumer error: %s" % msg.error())
+                    print(f"Consumer error: {msg.error()}")
                 continue
 
             handle_event(msg.value())
