@@ -24,3 +24,6 @@ for f in /seed/*.pdf; do
   seeded=$((seeded+1))
 done
 echo "Seeded $seeded PDF(s) into $MINIO_BUCKET/pdfs/."
+
+# Confirm the list operation used by S3 ingestion succeeds.
+mc ls "local/$MINIO_BUCKET/pdfs/"

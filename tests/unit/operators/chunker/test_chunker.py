@@ -1991,6 +1991,30 @@ class TestDoclingServeSplitText:
         assert docs[0].page_content == "First chunk."
         assert docs[1].page_content == "Second chunk."
 
+    def test_markdown_content_uses_markdown_filename(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {"chunks": [{"text": "First chunk."}]}
+        op._remote_chunking_client = mock_client
+
+        docs = op._docling_serve_split_text(content="# Heading", doc_name="original.pdf")
+
+        payload = mock_client.call_rest_json.call_args.kwargs["json_data"]
+        assert payload["sources"][0]["filename"] == "original.md"
+        assert docs[0].metadata["doc_name"] == "original.pdf"
+
+    def test_conversion_failure_is_reported(self):
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {
+            "chunks": [],
+            "documents": [{"status": "failure", "errors": [{"error_message": "Conversion failed"}]}],
+        }
+        op._remote_chunking_client = mock_client
+
+        with pytest.raises(DocpipeException, match="Conversion failed"):
+            op._docling_serve_split_text(content="# Heading", doc_name="original.pdf")
+
     def test_returns_empty_list_when_no_chunks(self):
         op = self._make_op()
         mock_client = MagicMock()

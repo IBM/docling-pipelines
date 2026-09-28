@@ -725,11 +725,12 @@ class ChunkerOperator(AbstractOperator):
         try:
             # Base64 encode the markdown content
             encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+            markdown_name = f"{Path(doc_name).stem}.md" if doc_name else DEFAULT_DOCUMENT_NAME
 
             # Prepare JSON payload for /v1/chunk/hybrid/source endpoint
             payload = {
                 "sources": [
-                    {"kind": "file", "base64_string": encoded_content, "filename": doc_name or DEFAULT_DOCUMENT_NAME}
+                    {"kind": "file", "base64_string": encoded_content, "filename": markdown_name}
                 ],
                 "convert_options": {"from_formats": ["md"], "to_formats": ["md"]},
                 "include_converted_doc": False,
@@ -775,6 +776,15 @@ class ChunkerOperator(AbstractOperator):
             chunks_data = response.get("chunks", [])
 
             if not chunks_data:
+                failed_documents = [
+                    document
+                    for document in response.get("documents", [])
+                    if document.get("status") == "failure"
+                ]
+                if failed_documents:
+                    errors = failed_documents[0].get("errors") or []
+                    reason = errors[0].get("error_message", "unknown error") if errors else "unknown error"
+                    raise DocpipeException(f"Docling-serve could not convert {markdown_name}: {reason}")
                 logger.warning(
                     f"Docling-serve returned no chunks for content of length {len(content)}",
                     extra=self.common_log_arguments,

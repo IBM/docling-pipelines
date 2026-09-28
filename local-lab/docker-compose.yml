@@ -2,7 +2,7 @@ name: local-lab
 
 services:
   minio:
-    image: quay.io/minio/aistor/minio:RELEASE.2026-09-19T17-05-25Z
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -14,7 +14,7 @@ services:
       - minio-data:/data
 
   minio-init:
-    image: quay.io/minio/aistor/mc:RELEASE.2026-09-19T15-24-59Z
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     depends_on:
       - minio
     environment:

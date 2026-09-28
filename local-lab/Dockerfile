@@ -7,27 +7,21 @@ RUN dnf install -y gcc gcc-c++ openldap-devel cyrus-sasl-devel openssl-devel && 
 
 WORKDIR /opt/app-root
 
-# hatch-vcs uses setuptools-scm; this image has no .git, so pretend a version.
-ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
-ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_DOCLING_PIPELINES=0.0.0
 ENV PYTHONPATH=/opt/app-root/src
 
-# Install dependencies first — src/ copied after so code changes don't bust this cache layer.
+# Install runtime dependencies without invoking the project's Hatch build hook.
 COPY pyproject.toml ./
-RUN touch README.md && \
-    mkdir -p ./src && \
-    uv pip install --no-cache .
+RUN uv pip install --no-cache -r pyproject.toml
 
-# Copy source and do a fast editable install to register the package
-COPY src ./src
-RUN uv pip install --no-cache -e .
-
-# Create non-root user and data directory (OpenShift-compatible: GID 0)
+# Create a non-root user and writable data directory (OpenShift-compatible: GID 0).
 RUN useradd -m -u 1000 docpipe && \
     usermod -a -G 0 docpipe && \
     mkdir -p /data && \
-    chown -R docpipe:root /opt/app-root /data && \
-    chmod -R g=u /opt/app-root /data
+    chown docpipe:root /data && \
+    chmod g=u /data
+
+# The local lab runs the API directly from src via PYTHONPATH.
+COPY --chown=docpipe:root src ./src
 
 USER docpipe
 ENV PATH=/opt/app-root/bin:$PATH
