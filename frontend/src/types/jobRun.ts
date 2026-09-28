@@ -89,6 +89,7 @@ export interface JobStats {
   end_time: number;
   duration: number;
   heartbeat_timestamp: number | null;
+  progress_timestamp: number;
   total_docs: number;
   processed_docs: number;
   completed_docs: number | null;
