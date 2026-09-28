@@ -55,17 +55,18 @@ Connection and index-specific parameters are configured inside the `provider_con
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `collection_name` | string | **Yes** | - | Name of the Milvus collection |
-| `auth_type` | string | No | "standalone" | Authentication type (standalone, cluster) |
-| `host` | string | Yes | - | Milvus server host |
+| `auth_type` | string | No | `"standalone"` | Authentication type: `lite` (Milvus Lite, embedded local — no Docker needed), `standalone`, `grpc`, `uri`, `token` |
+| `uri` | string | Conditional | - | Local `.db` path for `lite`; full pre-constructed URI for `uri` auth_type |
+| `host` | string | Conditional | - | Milvus server host (required for `standalone`, `grpc`, `token`) |
 | `port` | integer | No | 19530 | Milvus server port |
-| `username` | string | No | "root" | Username for authentication |
-| `password` | string | No | "Milvus" | Password for authentication |
-| `database` | string | No | "default" | Database name |
-| `secure` | boolean | No | false | Use secure connection |
-| `index_type` | string | No | "HNSW" | Index type (HNSW, IVF_FLAT, etc.) |
-| `metric_type` | string | No | "L2" | Similarity metric (L2, IP, COSINE) |
+| `username` | string | No | `"root"` | Username for authentication |
+| `password` | string | No | `"Milvus"` | Password/API key for authentication |
+| `database` | string | No | `"default"` | Database name (not used for `lite`) |
+| `secure` | boolean | No | false | Enable TLS/SSL (not used for `lite`) |
+| `index_type` | string | No | `"HNSW"` | Index type (HNSW, IVF_FLAT, etc.; only `FLAT` is supported for `lite`) |
+| `metric_type` | string | No | `"L2"` | Similarity metric (L2, IP, COSINE) |
 | `index_parameters` | object | No | {} | Custom index-specific parameters |
-| `add_sparse_vector` | boolean | No | false | Enable hybrid search with BM25 sparse vectors |
+| `add_sparse_vector` | boolean | No | false | Enable hybrid search with BM25 sparse vectors (not supported for `lite`) |
 
 ### Index Parameters
 
@@ -121,11 +122,11 @@ Configure multiple vector columns in `available_features`:
       "type": "vector"
     }
   },
-  "feature_mappings": {
-    "doc_id_hash": "pk",
-    "embeddings": "vector_embeddings",
-    "embeddings_alt": "vector_embeddings_alt"
-  }
+  "feature_mappings": [
+    {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+    {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+    {"feature_name": "embeddings_alt", "mapped_column_name": "vector_embeddings_alt"}
+  ]
 }
 ```
 
@@ -201,11 +202,11 @@ config = {
             "type": "vector"
         }
     },
-    "feature_mappings": {
-        "doc_id_hash": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings"
-    }
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}
+    ]
 }
 
 # Create sample data
@@ -223,6 +224,52 @@ result_tables, metadata = operator.transform(table)
 
 print(f"Indexed {metadata['processed_docs']} documents")
 ```
+
+### Example 1b: Milvus Lite (Container-Free Local)
+
+No Docker, Podman, or Kubernetes required. Data persists to a local `.db` file.
+
+```python
+config = {
+    "provider": "milvus",
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        "collection_name": "local_docs",
+        "auth_type": "lite",
+        "uri": "./data/milvus/local_docs.db",
+        "index_type": "FLAT",
+        "metric_type": "COSINE",
+        "batch_size": 100
+    },
+    "available_features": {
+        "doc_id_hash": {
+            "available_for_vector_db": True,
+            "mandatory_for_vector_db": True,
+            "type": "string",
+            "is_primary": True
+        },
+        "content": {
+            "available_for_vector_db": True,
+            "type": "string"
+        },
+        "embeddings": {
+            "available_for_vector_db": True,
+            "mandatory_for_vector_db": True,
+            "type": "vector"
+        }
+    },
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector"}
+    ]
+}
+
+operator = VectorDBOperator(config)
+result_tables, metadata = operator.transform(table)
+print(f"Indexed {metadata['processed_docs']} documents to local Milvus Lite store")
+```
+
+> **Note:** Set `enable_micro_batching: false` in `global_config` when using Milvus Lite in a flow — Lite holds a single-process file lock. Only `FLAT` index type is supported.
 
 ### Example 2: Multi-Model Embeddings
 
@@ -255,11 +302,11 @@ config = {
             "type": "vector"
         }
     },
-    "feature_mappings": {
-        "doc_id_hash": "pk",
-        "embeddings": "vector_embeddings",
-        "embeddings_alt": "vector_embeddings_alt"
-    }
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"},
+        {"feature_name": "embeddings_alt", "mapped_column_name": "vector_embeddings_alt"}
+    ]
 }
 
 # Data with two embedding models (different dimensions)
@@ -304,11 +351,11 @@ config = {
             "type": "vector"
         }
     },
-    "feature_mappings": {
-        "doc_id_hash": "pk",
-        "content": "text",
-        "embeddings": "vector_embeddings"
-    }
+    "feature_mappings": [
+        {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+        {"feature_name": "content", "mapped_column_name": "text"},
+        {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}
+    ]
 }
 ```
 
@@ -381,11 +428,11 @@ config = {
         "type": "vector"
       }
     },
-    "feature_mappings": {
-      "doc_id_hash": "pk",
-      "content": "text",
-      "embeddings": "vector_embeddings"
-    }
+    "feature_mappings": [
+      {"feature_name": "doc_id_hash", "mapped_column_name": "pk"},
+      {"feature_name": "content", "mapped_column_name": "text"},
+      {"feature_name": "embeddings", "mapped_column_name": "vector_embeddings"}
+    ]
   }
 }
 ```

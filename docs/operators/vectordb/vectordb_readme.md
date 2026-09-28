@@ -97,17 +97,18 @@ Supported providers: OpenSearch, Milvus.
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `collection_name` | string | **Yes** | — | Name of the Milvus collection |
-| `host` | string | No | `"localhost"` | Milvus host |
+| `auth_type` | string | No | `"standalone"` | Auth mode: `lite` (Milvus Lite, embedded local — no Docker needed), `standalone`, `grpc`, `uri`, `token` |
+| `uri` | string | Conditional | — | Local `.db` path for `lite`; pre-constructed URI for `uri` auth_type |
+| `host` | string | Conditional | `"localhost"` | Milvus host (required for `standalone`, `grpc`, `token`) |
 | `port` | integer | No | `19530` | Milvus port |
 | `username` | string | No | — | Authentication username |
 | `password` | string | No | — | Authentication password |
-| `database` | string | No | `"default"` | Database name |
-| `secure` | boolean | No | `false` | Enable SSL/TLS |
-| `auth_type` | string | No | `"standalone"` | Auth mode: `standalone`, `grpc`, `uri`, `token` |
-| `index_type` | string | No | `"HNSW"` | Index type |
+| `database` | string | No | `"default"` | Database name (not used for `lite`) |
+| `secure` | boolean | No | `false` | Enable SSL/TLS (not used for `lite`) |
+| `index_type` | string | No | `"HNSW"` | Index type (only `FLAT` is supported for `lite`) |
 | `metric_type` | string | No | `"L2"` | Distance metric: `L2`, `IP`, `COSINE` |
 | `batch_size` | integer | No | `100` | Documents indexed per batch |
-| `add_sparse_vector` | boolean | No | `false` | Enable BM25 sparse vector hybrid search |
+| `add_sparse_vector` | boolean | No | `false` | Enable BM25 sparse vector hybrid search (not supported for `lite`) |
 
 ---
 
@@ -227,7 +228,31 @@ chaining with downstream operators.
 }
 ```
 
-### Example 5 — Milvus (standalone)
+### Example 5 — Milvus Lite (container-free local)
+
+```json
+{
+  "type": "vectordb",
+  "name": "index_documents",
+  "config": {
+    "provider": "milvus",
+    "create_index": true,
+    "provider_config": {
+      "collection_name": "local_docs",
+      "auth_type": "lite",
+      "uri": "./data/milvus/local_docs.db",
+      "index_type": "FLAT",
+      "metric_type": "COSINE",
+      "batch_size": 100
+    }
+  },
+  "depends_on": ["embeddings"]
+}
+```
+
+> Set `enable_micro_batching: false` in `global_config` — Milvus Lite holds a single-process file lock. See [`sample_flows/vectordb/milvus_lite_integration.json`](../../sample_flows/vectordb/milvus_lite_integration.json) for a complete working flow.
+
+### Example 6 — Milvus (standalone)
 
 ```json
 {

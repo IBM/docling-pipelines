@@ -84,8 +84,6 @@ test_flows/
 frontend/node_modules/
 
 # Runtime-generated flow/project saves (UUID-named)
-
-# Runtime-generated flow/project saves (UUID-named)
 sample_projects/
 sample_flows/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*.json
 
@@ -96,5 +94,9 @@ frontend/.vite/
 frontend/bff/
 sonar/
 skills/
-frontend/node_modules/
 openspec/
+
+# Private execution-granularity benchmark inputs and generated artifacts
+benchmarks/
+benchmark_results/
+benchmarks/execution_granularity/study.local.json
