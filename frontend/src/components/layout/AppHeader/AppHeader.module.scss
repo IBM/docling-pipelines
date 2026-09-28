@@ -48,7 +48,9 @@
 }
 
 .themeButton {
-  /* Carbon HeaderGlobalAction component handles its own styling */
+  /* Carbon HeaderGlobalAction component handles its own styling.
+     The tooltip is pinned to the button's right edge via align="bottom-right"
+     on the component, preventing overflow at the far right of the viewport. */
 }
 
 // ── Notification bell ────────────────────────────────────────────────────────
