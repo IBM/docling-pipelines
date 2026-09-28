@@ -32,6 +32,13 @@ DEFAULT_PII_TO_COLUMN_MAPPING = {
     "IPAddress": "ip_address",
     "PhoneNumber": "phone_number",
     "SocialSecurityNumber": "ssn_details",
+    OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME: OperatorConstants.PIIHAP.PII_SEARCH_PERSON_NAME,
+    OperatorConstants.PIIHAP.PII_TYPE_DATE_OF_BIRTH: OperatorConstants.PIIHAP.PII_SEARCH_DATE_OF_BIRTH,
+    OperatorConstants.PIIHAP.PII_TYPE_ADDRESS: OperatorConstants.PIIHAP.PII_SEARCH_ADDRESS,
+    OperatorConstants.PIIHAP.PII_TYPE_PASSPORT_NUMBER: OperatorConstants.PIIHAP.PII_SEARCH_PASSPORT_NUMBER,
+    OperatorConstants.PIIHAP.PII_TYPE_DRIVER_LICENSE: OperatorConstants.PIIHAP.PII_SEARCH_DRIVER_LICENSE,
+    OperatorConstants.PIIHAP.PII_TYPE_NATIONAL_ID: OperatorConstants.PIIHAP.PII_SEARCH_NATIONAL_ID,
+    OperatorConstants.PIIHAP.PII_TYPE_MEDICAL_RECORD: OperatorConstants.PIIHAP.PII_SEARCH_MEDICAL_RECORD,
 }
 
 DEFAULT_PII_TYPES_OF_CONCERN = list(DEFAULT_PII_TO_COLUMN_MAPPING.keys())

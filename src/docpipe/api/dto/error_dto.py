@@ -57,6 +57,10 @@ ErrorCode = Literal[
     "operator_execution_failed",
     "operator_metadata_failed",
     "sql_filter_error",
+    # Custom Operator error codes
+    "custom_operator_not_found",
+    "custom_operator_already_exists",
+    "custom_operator_invalid_data",
     # Project error codes
     "project_not_found",
     "project_already_exists",

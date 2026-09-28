@@ -2312,7 +2312,8 @@ def test_streaming_pipeline_happy_path():
 
     # Every document has non-empty text content
     for row_content in result["doc_content"].to_pylist():
-        assert row_content and "text for" in row_content
+        assert row_content is not None
+        assert "text for" in row_content
 
     # Every entity column is valid JSON
     for row_entities in result["entities"].to_pylist():

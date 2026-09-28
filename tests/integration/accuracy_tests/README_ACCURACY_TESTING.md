@@ -767,7 +767,7 @@ pip install pydantic tenacity pytest pytest-cov
 export OPENSEARCH_HOST=localhost
 export OPENSEARCH_PORT=9200
 export OPENSEARCH_USERNAME=admin
-export OPENSEARCH_PASSWORD=
+export OPENSEARCH_PASSWORD=secret
 export OLLAMA_HOST=http://localhost:11434
 export OLLAMA_MODEL=granite4
 ```

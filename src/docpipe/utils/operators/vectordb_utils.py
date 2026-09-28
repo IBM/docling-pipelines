@@ -4,6 +4,7 @@ This module contains common functionality used across different VectorDB adapter
 (OpenSearch, Milvus, etc.) to avoid code duplication and ensure consistent behavior.
 """
 
+import hashlib
 import json
 from typing import Any, Generator
 
@@ -172,3 +173,44 @@ def detect_all_vector_dimensions(*, table: pa.Table, vector_columns: list[str]) 
             logger.warning(f"Could not detect dimension for column '{column_name}'")
 
     return dimension_mapping
+
+
+def generate_composite_pk(*, file_id: str, chunk_content: str) -> str:
+    """Generate a composite primary key from file identity and chunk content.
+
+    The key is unique per file regardless of content, preventing collisions
+    between different files with identical content.
+
+    Args:
+        file_id: The file identifier (e.g. file path from the id column).
+                 Hashed to handle special characters and length constraints.
+        chunk_content: The text content of the chunk. Hashed to produce a
+                       stable, fixed-length content fingerprint.
+
+    Returns:
+        Composite PK string in the format ``{file_hash}_{content_hash}``
+        where each hash is the full 128-character SHA3-512 hex digest
+        -- unique per (file, chunk content) pair.
+    """
+    file_hash = hashlib.sha3_512(file_id.encode()).hexdigest()
+    content_hash = hashlib.sha3_512(chunk_content.encode()).hexdigest()
+    return f"{file_hash}_{content_hash}"
+
+
+def generate_positional_pk(*, file_id: str, chunk_index: int) -> str:
+    """Generate a positional primary key from file identity and chunk index.
+
+    Decouples document identity from chunk content, allowing in-place upserts
+    when chunk content changes. Used by the OpenSearch adapter.
+
+    Args:
+        file_id: The file identifier (e.g. file path from the id column).
+                 Hashed to handle special characters and length constraints.
+        chunk_index: Zero-based position of the chunk within the document.
+
+    Returns:
+        PK string in the format ``{file_hash}_chunk_{chunk_index}``
+        -- stable across re-ingests regardless of content changes.
+    """
+    file_hash = hashlib.sha3_512(file_id.encode()).hexdigest()
+    return f"{file_hash}_chunk_{chunk_index}"

@@ -59,8 +59,16 @@ logger = get_logger()
 # instance, keyed by a stable MD5 hash of the format_options configuration so
 # that different pipeline configs (e.g. standard vs OCR-disabled) remain separate.
 _DOCLING_AVAILABLE = importlib.util.find_spec("docling") is not None
-if _DOCLING_AVAILABLE:
-    from docling.document_converter import DocumentConverter
+
+# Pre-instantiate DocLangDocDeserializer at module import time under Python's import lock.
+# DocLangDocDeserializer is stateless pure-Python/Pydantic code and completely thread-safe.
+_DOCLANG_DESERIALIZER: Any | None = None
+try:
+    from docling_core.transforms.deserializer.doclang import DocLangDocDeserializer
+
+    _DOCLANG_DESERIALIZER = DocLangDocDeserializer()
+except ImportError:
+    pass
 
 # Thread-local storage: each thread has its own dict[cache_key -> DocumentConverter]
 _thread_local_converters = threading.local()
@@ -98,7 +106,10 @@ def _get_or_create_converter(converter_config: dict | None) -> Any:
         RuntimeError: If docling is not installed.
     """
     if not _DOCLING_AVAILABLE:
-        raise RuntimeError("docling is not installed. Install with: pip install 'docling-pipelines-slim[extract]'")
+        msg = "docling is not installed. Install with: pip install 'docling-pipelines-slim[extract]'"
+        raise RuntimeError(msg)
+
+    from docling.document_converter import DocumentConverter
 
     cache_key = _converter_cache_key(converter_config)
 
@@ -193,19 +204,57 @@ def resolve_env_var(value: Any) -> Any:
             return os.getenv(env_var_name, default_value)
         resolved = os.getenv(env_var_name)
         if resolved is None:
-            raise ValueError(f"Environment variable {env_var_name} is not set")
+            msg = f"Environment variable {env_var_name} is not set"
+            raise ValueError(msg)
         return resolved
     if value.startswith("$"):
         env_var_name = value[1:]
         resolved = os.getenv(env_var_name)
         if resolved is None:
-            raise ValueError(f"Environment variable {env_var_name} is not set")
+            msg = f"Environment variable {env_var_name} is not set"
+            raise ValueError(msg)
         return resolved
     if value.isupper() and "_" in value:
         resolved = os.getenv(value)
         if resolved is not None:
             return resolved
     return value
+
+
+# Field names that indicate secret material — used by _to_docpipe() to auto-tag sensitive: true.
+SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "password",
+        "api_key",
+        "jwt_token",
+        "token",
+        "access_key",
+        "secret_key",
+        "client_id",
+        "client_secret",
+        "tenant_id",
+        "credentials",
+        "credentials_json",
+        "credentials_path",
+        "token_path",
+        "service_account_json_path",
+    }
+)
+
+
+def format_failed_docs_summary(*, failed_docs: list) -> str:
+    """Build a human-readable failure summary from a list of failed-doc dicts.
+
+    Each entry is expected to have keys: id, name, reason (all optional).
+    Returns a string like ``" Failures: [doc.pdf: reason; doc2.pdf: reason]"``
+    or an empty string when *failed_docs* is empty.
+    """
+    if not failed_docs:
+        return ""
+    reasons = "; ".join(
+        f"{d.get('name', d.get('id', 'unknown'))}: {d.get('reason', 'unknown error')}" for d in failed_docs
+    )
+    return f" Failures: [{reasons}]"
 
 
 class OperatorUtils:
@@ -848,7 +897,8 @@ class OperatorUtils:
 
         if len(new_names_ordered) != len(set(new_names_ordered)):
             dup = {name for name in new_names_ordered if new_names_ordered.count(name) > 1}
-            raise ValueError(f"After rename new column names would have duplicates: {dup}")
+            msg = f"After rename new column names would have duplicates: {dup}"
+            raise ValueError(msg)
         try:
             return input_table.rename_columns(new_names_ordered)
         except Exception as e:
@@ -1063,7 +1113,8 @@ class OperatorUtils:
             )
             binary_content = get_binary_content(doc_metadata=doc_metadata, global_config=global_config)
             if binary_content is None:
-                raise ValueError(f"Failed to fetch binary content for document {doc_name}")
+                msg = f"Failed to fetch binary content for document {doc_name}"
+                raise ValueError(msg)
 
         return {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}
 
@@ -1114,6 +1165,12 @@ class OperatorUtils:
 
         doc_tasks = []
         for row_idx in range(table.num_rows):
+            doc_name = (
+                table[OperatorConstants.Columns.NAME][row_idx].as_py()
+                if OperatorConstants.Columns.NAME in table.column_names
+                else f"document_{row_idx}"
+            )
+            doc_id = OperatorUtils._resolve_doc_id(table=table, row_idx=row_idx)
             try:
                 doc_tasks.append(
                     OperatorUtils._prepare_single_document(
@@ -1125,10 +1182,8 @@ class OperatorUtils:
                     )
                 )
             except Exception as e:
-                logger.error("Error preparing document at index %s: %s", row_idx, str(e))
-                doc_tasks.append(
-                    {"idx": row_idx, "doc_id": f"doc_{row_idx}", "doc_name": f"document_{row_idx}", "error": str(e)}
-                )
+                logger.error("Error preparing document '%s' at index %s: %s", doc_name, row_idx, str(e), exc_info=True)
+                doc_tasks.append({"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "error": str(e)})
         return doc_tasks
 
     @staticmethod
@@ -1249,6 +1304,14 @@ class OperatorUtils:
         if field_key and field_key in required_fields:
             docpipe[OperatorConstants.Config.REQUIRED] = True
 
+        # Sensitive field detection for secrets/credentials (Vault integration)
+        if field_key and (
+            field_key.lower() in SENSITIVE_FIELD_NAMES
+            or node.get("sensitive") is True
+            or (isinstance(node.get("json_schema_extra"), dict) and node["json_schema_extra"].get("sensitive") is True)
+        ):
+            docpipe[OperatorConstants.Config.SENSITIVE] = True
+
         if OperatorConstants.Config.PROPERTIES in node:
             child_required = set(node.get(OperatorConstants.Config.REQUIRED, []))
             docpipe[OperatorConstants.Config.PROPERTIES] = {
@@ -1258,6 +1321,13 @@ class OperatorUtils:
 
         if "enum" in node:
             docpipe[OperatorConstants.Config.VALID_VALUES] = node["enum"]
+
+        # allow_extra_keys is True unless the schema explicitly forbids extra properties
+        # (Pydantic extra="forbid" → additionalProperties: false).
+        # extra="ignore" produces no additionalProperties key at all, and extra="allow"
+        # produces additionalProperties: true — both should permit unknown keys.
+        if node.get("additionalProperties") is not False:
+            docpipe[OperatorConstants.Config.ALLOW_EXTRA_KEYS] = True
 
         return docpipe
 
@@ -1356,6 +1426,178 @@ class OperatorUtils:
         if b"ppt/" in content_sample:
             return ".pptx"
         return ".docx"  # generic ZIP-based Office fallback
+
+    # ------------------------------------------------------------------
+    # DocLang format helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def doclang_to_markdown(text: str) -> str:
+        """Convert DocLang XML to Markdown using the docling-native deserializer.
+
+        Passes *text* through ``DocLangDocDeserializer().deserialize_str()``
+        and returns the result of ``export_to_markdown()``.
+
+        Fallback behaviour (two levels):
+
+        1. **Import unavailable** — ``docling_core`` is part of the extraction
+           stack and is absent in slim installs without the ``[extract]`` extra.
+           When the import fails an ``ImportError`` is caught and a simple regex
+           tag strip is performed instead.  The result is plain text rather than
+           structured Markdown, which is acceptable for rule-based operators
+           (language detection, readability, quality scoring) but loses heading
+           and table structure.
+
+        2. **Deserialisation failure** — if ``docling_core`` is present but
+           cannot parse the content (malformed XML), the same regex fallback is
+           used.
+
+        Returns the input unchanged when it is not XML at all (i.e. already
+        Markdown or empty string).
+
+        Args:
+            text: Raw string that may be DocLang XML, Markdown, or empty.
+
+        Returns:
+            Markdown string with no XML tags, or the original string if the
+            input was not XML.
+        """
+        if not text or not text.lstrip().startswith("<"):
+            return text
+
+        import re
+
+        try:
+            deserializer = OperatorUtils.get_doclang_deserializer()
+            if deserializer is not None:
+                return deserializer.deserialize_str(text).export_to_markdown()
+            raise ImportError("docling_core is not available")
+        except ImportError:
+            logger.warning(
+                "docling_core is not available (slim install without [extract]); "
+                "falling back to regex tag strip for DocLang content"
+            )
+            return re.sub(r"<[^>]+>", "", text)
+        except Exception as e:
+            logger.warning("DocLang deserialisation failed: %s; falling back to regex tag strip", e)
+            return re.sub(r"<[^>]+>", "", text)
+
+    @staticmethod
+    def get_doclang_deserializer() -> Any | None:
+        """Get the module-level pre-instantiated DocLangDocDeserializer instance."""
+        return _DOCLANG_DESERIALIZER
+
+    @staticmethod
+    def get_markdown_content_col(
+        table: "pa.Table",
+        *,
+        col_name: str,
+        doc_format: str,
+    ) -> list[Any]:
+        """Return the document content as a list of markdown strings.
+
+        If ``content_markdown`` is present in *table*, its values are returned directly
+        without allocating a new table or deserializing DocLang XML.
+        Otherwise, if *doc_format* is ``"doclang"``, the column values are converted
+        from DocLang XML to markdown via :meth:`doclang_to_markdown`.
+        If *doc_format* is not ``"doclang"``, the column's raw values are returned as-is.
+
+        Args:
+            table: Input ``pa.Table``.
+            col_name: Name of the content column.
+            doc_format: Value of the ``doc_format`` config key.
+
+        Returns:
+            A list of document content strings in markdown/plain-text format.
+        """
+        markdown_col = OperatorConstants.Columns.CONTENT_MARKDOWN
+        if markdown_col in table.column_names:
+            return table[markdown_col].to_pylist()
+
+        if doc_format == OperatorConstants.DocFormat.DOCLANG and col_name in table.column_names:
+            return [OperatorUtils.doclang_to_markdown(v or "") for v in table[col_name].to_pylist()]
+
+        if col_name in table.column_names:
+            return table[col_name].to_pylist()
+
+        return []
+
+    @staticmethod
+    def strip_doclang_column(
+        table: "pa.Table",
+        *,
+        col_name: str,
+        doc_format: str,
+    ) -> "pa.Table":
+        """Return *table* with the named column stripped of DocLang XML tags.
+
+        A no-op when *doc_format* is not ``"doclang"`` or *col_name* is not
+        present in *table*. If ``content_markdown`` is already present in *table*
+        (e.g. from upstream extraction with Markdown in additional formats),
+        its array is reused directly to avoid deserializing DocLang XML.
+        Otherwise, every value in the column is passed through
+        :meth:`doclang_to_markdown` and the column is replaced in-place.
+
+        Operators that bulk-strip a content column before delegating to a base
+        class transform should call this method instead of inlining the
+        strip / ``set_column`` idiom.
+
+        Args:
+            table: Input ``pa.Table``.
+            col_name: Name of the column to strip.
+            doc_format: Value of the ``doc_format`` config key.
+
+        Returns:
+            The original table (unchanged object) when stripping is not needed,
+            or a new table with the named column replaced by plain-text values.
+        """
+        import pyarrow as pa
+
+        if doc_format != OperatorConstants.DocFormat.DOCLANG or col_name not in table.column_names:
+            return table
+
+        col_idx = table.schema.get_field_index(col_name)
+        markdown_col = OperatorConstants.Columns.CONTENT_MARKDOWN
+        if markdown_col in table.column_names and col_name != markdown_col:
+            return table.set_column(col_idx, col_name, table[markdown_col])
+
+        stripped = [OperatorUtils.doclang_to_markdown(v or "") for v in table[col_name].to_pylist()]
+        return table.set_column(col_idx, col_name, pa.array(stripped))
+
+    @staticmethod
+    def restore_doclang_column(
+        output_table: "pa.Table",
+        *,
+        original_table: "pa.Table",
+        col_name: str,
+        processing_table: "pa.Table",
+    ) -> "pa.Table":
+        """Restore the original column in *output_table* after DocLang stripping.
+
+        After an operator runs its logic on a *processing_table* (a stripped copy
+        produced by :meth:`strip_doclang_column`), the output table's content
+        column contains plain Markdown.  This method puts the original DocLang
+        column back so that downstream operators receive the content unchanged.
+
+        A no-op when ``processing_table is original_table`` (i.e. no stripping
+        was performed — :meth:`strip_doclang_column` returns the same object when
+        the format is not doclang).
+
+        Args:
+            output_table: Table returned by the operator's processing logic.
+            original_table: The unmodified input table passed to ``transform()``.
+            col_name: Name of the content column to restore.
+            processing_table: The stripped table that was passed to the processing
+                logic (returned by :meth:`strip_doclang_column`).
+
+        Returns:
+            *output_table* with the named column replaced by values from
+            *original_table*, or *output_table* unchanged if no stripping was done.
+        """
+        if processing_table is original_table or col_name not in output_table.column_names:
+            return output_table
+        col_idx = output_table.schema.get_field_index(col_name)
+        return output_table.set_column(col_idx, col_name, original_table[col_name])
 
     @staticmethod
     def _export_docling_formats(

@@ -1,4 +1,5 @@
 import os
+import threading
 from typing import ClassVar
 
 from docpipe.core.constants.constants import DocpipeConstants, EnvironmentVariables, OrchestratorType
@@ -14,6 +15,27 @@ class OperatorFactoryProvider:
     operator_factories: ClassVar[dict[str, "OperatorFactory"]] = {}
 
     @staticmethod
+    def _resolve_factory_key(
+        *, orchestrator: str, package_names: list[str] | None, enable_custom_operators: bool
+    ) -> tuple[str, list[str]]:
+        """Merge env packages into package_names and return the cache key and merged list."""
+        env_packages = os.getenv(EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS, "")
+        if env_packages:
+            if not isinstance(env_packages, str):
+                logger.warning(
+                    "DOCPIPE_CUSTOM_OPERATORS must be a string, got %s. Ignoring environment variable.",
+                    type(env_packages).__name__,
+                )
+            else:
+                env_package_list = [pkg.strip() for pkg in env_packages.split(",") if pkg.strip()]
+                package_names = (package_names or []) + env_package_list
+
+        merged = package_names or []
+        enable_flag = DocpipeConstants.FEATURE_ENABLED if enable_custom_operators else DocpipeConstants.FEATURE_DISABLED
+        key = f"{orchestrator}_{enable_flag}_{'_'.join(merged)}"
+        return key, merged
+
+    @staticmethod
     def get_operator_factory(
         *, orchestrator: str, package_names: list[str] | None = None, enable_custom_operators: bool = True
     ) -> "OperatorFactory":
@@ -21,30 +43,19 @@ class OperatorFactoryProvider:
         Get or create an operator factory with optional custom operator support.
 
         Parameters:
-        - orchestrator: Type of orchestrator (python, spark)
+        - orchestrator: Type of orchestrator (e.g., "python")
         - package_names: Optional list of custom operator package paths
         - enable_custom_operators: Whether to enable custom operators (default: from env or True)
 
         Returns:
             OperatorFactory instance
         """
-        # Check environment variable for custom operators
-        env_packages = os.getenv(EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS, "")
-        if env_packages:
-            # Validate that env_packages is a string to prevent .strip() errors
-            if not isinstance(env_packages, str):
-                logger.warning(
-                    f"DOCPIPE_CUSTOM_OPERATORS must be a string, got {type(env_packages).__name__}. "
-                    "Ignoring environment variable."
-                )
-            else:
-                env_package_list = [pkg.strip() for pkg in env_packages.split(",") if pkg.strip()]
-                package_names = (package_names or []) + env_package_list
-
-        # Create cache key including enable flag
-        enable_flag = DocpipeConstants.FEATURE_ENABLED if enable_custom_operators else DocpipeConstants.FEATURE_DISABLED
-        key = f"{orchestrator}_{enable_flag}_{'_'.join(package_names or [])}"
-        logger.debug(f"operator_factory_key:{key}")
+        key, package_names = OperatorFactoryProvider._resolve_factory_key(
+            orchestrator=orchestrator,
+            package_names=package_names,
+            enable_custom_operators=enable_custom_operators,
+        )
+        logger.debug("operator_factory_key:%s", key)
 
         if key in OperatorFactoryProvider.operator_factories:
             return OperatorFactoryProvider.operator_factories[key]
@@ -61,16 +72,19 @@ class OperatorFactoryProvider:
         Refreshes the operator factory by reloading custom operator classes dynamically.
 
         Parameters:
-        - orchestrator: Type of orchestrator (python, spark)
+        - orchestrator: Type of orchestrator (e.g., "python")
         - package_names: Optional list of custom operator package paths
         - enable_custom_operators: Whether to enable custom operators
 
         Returns:
             OperatorFactory instance
         """
-        enable_flag = DocpipeConstants.FEATURE_ENABLED if enable_custom_operators else DocpipeConstants.FEATURE_DISABLED
-        key = f"{orchestrator}_{enable_flag}_{'_'.join(package_names or [])}"
-        logger.info(f"Refreshing operator factory: {key}")
+        key, package_names = OperatorFactoryProvider._resolve_factory_key(
+            orchestrator=orchestrator,
+            package_names=package_names,
+            enable_custom_operators=enable_custom_operators,
+        )
+        logger.info("Refreshing operator factory: %s", key)
 
         if key in OperatorFactoryProvider.operator_factories:
             OperatorFactoryProvider.operator_factories[key].refresh_operators()
@@ -105,6 +119,7 @@ class OperatorFactory:
         self.orchestrator = orchestrator
         self.package_names = package_names or []
         self.operators: dict[str, type[AbstractOperator]] = {}
+        self._lock = threading.Lock()
 
         # Determine if custom operators are enabled
         # Priority: parameter > environment variable > default
@@ -327,20 +342,30 @@ class OperatorFactory:
 
         return should_override, new_priority, existing_priority
 
-    def refresh_operators(self):
+    def refresh_operators(self) -> None:
         """Refreshes custom operators (non-core packages) with priority resolution."""
         if not self.enable_custom_operators:
             logger.warning("Cannot refresh operators: custom operators are disabled")
             return
 
-        logger.info(f"Refreshing custom operators for: {self.orchestrator}")
+        with self._lock:
+            logger.info("Refreshing custom operators for: %s", self.orchestrator)
 
-        # Use CustomOperatorLoader to reload operators from packages with cache clearing
-        try:
-            self._load_custom_operators_from_packages(clear_cache=True)
-        except Exception as e:
-            logger.error(f"Failed to refresh custom operators: {e}")
-            raise
+            # Clean reset of the custom operator slice before reloading
+            custom_keys = [
+                short_name
+                for short_name, op_cls in self.operators.items()
+                if getattr(op_cls, DocpipeConstants.OWNER_ATTRIBUTE, None) == DocpipeConstants.OWNER_CUSTOM
+            ]
+            for short_name in custom_keys:
+                del self.operators[short_name]
+
+            # Use CustomOperatorLoader to reload operators from packages with cache clearing
+            try:
+                self._load_custom_operators_from_packages(clear_cache=True)
+            except Exception as e:
+                logger.error("Failed to refresh custom operators: %s", e)
+                raise
 
     def get_operator(self, *, operator_name: str) -> type[AbstractOperator] | None:
         """Get operator."""
@@ -351,12 +376,6 @@ def main():  # pragma: no cover
     """
     main entry point into the program; used for unit testing only
     """
-    factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.SPARK)
-    logger.info(f"Loaded {len(factory.operators)} operators")
-
-    for key, value in factory.operators.items():
-        print(f" short_name: {key} ==> class_name: {value.__name__}")
-
     factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
     logger.info(f"Loaded {len(factory.operators)} operators")
 

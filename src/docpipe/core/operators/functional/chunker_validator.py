@@ -136,6 +136,28 @@ class ChunkerValidator:
                     errors.append(f"Invalid input: chunk_overlap must not exceed {CHUNK_OVERLAP_MAX_SIZE}.")
 
     @staticmethod
+    def _validate_threshold_amount(
+        breakpoint_threshold_type: str,
+        breakpoint_threshold_amount: float,
+        errors: list[Any],
+    ) -> None:
+        """Validate breakpoint_threshold_amount based on the threshold type."""
+        from docpipe.core.operators.functional.chunker import BreakpointThresholdType
+
+        if breakpoint_threshold_type == BreakpointThresholdType.PERCENTILE.value:
+            if not (0 <= breakpoint_threshold_amount <= 100):
+                errors.append(
+                    f"Invalid breakpoint_threshold_amount for percentile: {breakpoint_threshold_amount}. "
+                    "Must be between 0 and 100."
+                )
+        elif breakpoint_threshold_type == BreakpointThresholdType.STANDARD_DEVIATION.value:
+            if breakpoint_threshold_amount < 0:
+                errors.append(
+                    f"Invalid breakpoint_threshold_amount for standard_deviation: {breakpoint_threshold_amount}. "
+                    "Must be non-negative."
+                )
+
+    @staticmethod
     def validate_semantic_chunker(
         breakpoint_threshold_type: str,
         breakpoint_threshold_amount: float | None,
@@ -153,11 +175,7 @@ class ChunkerValidator:
             should_validate_field_fn: Function to check if field should be validated
             errors: List to append validation errors to
         """
-        # Import constants to avoid circular dependency
-        from docpipe.core.operators.functional.chunker import (
-            VALID_BREAKPOINT_TYPES,
-            BreakpointThresholdType,
-        )
+        from docpipe.core.operators.functional.chunker import VALID_BREAKPOINT_TYPES
 
         # Validate semantic embeddings model is provided and not empty
         if semantic_embeddings_model is None or (
@@ -178,23 +196,7 @@ class ChunkerValidator:
             should_validate_field_fn(field_value=breakpoint_threshold_amount)
             and breakpoint_threshold_amount is not None
         ):
-            # Validate based on threshold type
-            is_percentile = breakpoint_threshold_type == BreakpointThresholdType.PERCENTILE.value
-            is_std_dev = breakpoint_threshold_type == BreakpointThresholdType.STANDARD_DEVIATION.value
-
-            if is_percentile:
-                is_percentile_invalid = not (0 <= breakpoint_threshold_amount <= 100)
-                if is_percentile_invalid:
-                    errors.append(
-                        f"Invalid breakpoint_threshold_amount for percentile: {breakpoint_threshold_amount}. "
-                        "Must be between 0 and 100."
-                    )
-            elif is_std_dev:
-                if breakpoint_threshold_amount < 0:
-                    errors.append(
-                        f"Invalid breakpoint_threshold_amount for standard_deviation: {breakpoint_threshold_amount}. "
-                        "Must be non-negative."
-                    )
+            ChunkerValidator._validate_threshold_amount(breakpoint_threshold_type, breakpoint_threshold_amount, errors)
 
     @staticmethod
     def validate_docling_chunker(

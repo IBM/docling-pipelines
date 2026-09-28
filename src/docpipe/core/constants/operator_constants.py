@@ -23,6 +23,7 @@ All constants must be accessed through their nested class structure:
     - OperatorConstants.Misc.* for miscellaneous constants
 """
 
+from enum import StrEnum
 from typing import Final
 
 
@@ -103,6 +104,7 @@ class OperatorConstants:
         SUMMARY: Final[str] = "summary"
 
         # Multi-format extraction columns
+        CONTENT_MARKDOWN: Final[str] = "content_markdown"
         CONTENT_HTML: Final[str] = "content_html"
         CONTENT_JSON: Final[str] = "content_json"
         CONTENT_TEXT: Final[str] = "content_text"
@@ -183,6 +185,7 @@ class OperatorConstants:
         """Configuration key constants."""
 
         # Core Configuration Keys
+        ALLOW_EXTRA_KEYS: Final[str] = "allow_extra_keys"
         API_KEY: Final[str] = "api_key"  # pragma: allowlist secret
         ATTRIBUTES: Final[str] = "attributes"
         BATCH_SIZE: Final[str] = "batch_size"
@@ -211,6 +214,7 @@ class OperatorConstants:
         PROVIDER_LITELLM: Final[str] = "litellm"
         PROVIDER_WATSONX: Final[str] = "watsonx"
         REQUIRED: Final[str] = "required"
+        SENSITIVE: Final[str] = "sensitive"
         USERNAME: Final[str] = "username"
 
         # Logging Configuration
@@ -658,8 +662,9 @@ class OperatorConstants:
         DOCLING_SERVE_DOCTAGS_CONTENT: Final[str] = "doctags_content"
         DOCLING_SERVE_DOCLANG_CONTENT: Final[str] = "doclang_content"
 
-        # Valid output formats list (markdown is always generated, so not in this list)
+        # Valid output formats list
         VALID_OUTPUT_FORMATS: Final[list[str]] = [
+            OUTPUT_FORMAT_MARKDOWN,
             OUTPUT_FORMAT_HTML,
             OUTPUT_FORMAT_JSON,
             OUTPUT_FORMAT_TEXT,
@@ -669,6 +674,7 @@ class OperatorConstants:
 
         # Mapping from format name to output column name
         FORMAT_COLUMN_MAPPING: Final[dict[str, str]] = {
+            OUTPUT_FORMAT_MARKDOWN: "content_markdown",
             OUTPUT_FORMAT_HTML: "content_html",
             OUTPUT_FORMAT_JSON: "content_json",
             OUTPUT_FORMAT_TEXT: "content_text",
@@ -810,14 +816,28 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         PII_TYPE_IP_ADDRESS: Final[str] = "IPAddress"
         PII_TYPE_EMAIL_ADDRESS: Final[str] = "EmailAddress"
         PII_TYPE_CREDIT_CARD_NUMBER: Final[str] = "CreditCardNumber"
+        PII_TYPE_PERSON_NAME: Final[str] = "PersonName"
+        PII_TYPE_DATE_OF_BIRTH: Final[str] = "DateOfBirth"
+        PII_TYPE_ADDRESS: Final[str] = "Address"
+        PII_TYPE_PASSPORT_NUMBER: Final[str] = "PassportNumber"
+        PII_TYPE_DRIVER_LICENSE: Final[str] = "DriverLicenseNumber"
+        PII_TYPE_NATIONAL_ID: Final[str] = "NationalID"
+        PII_TYPE_MEDICAL_RECORD: Final[str] = "MedicalRecordNumber"
 
         # Normalized search terms for feature name matching
-        PII_SEARCH_PHONE_NUMBER: Final[str] = "phonenumber"
-        PII_SEARCH_SSN: Final[str] = "ssn"
-        PII_SEARCH_BANK_ACCOUNT: Final[str] = "bankaccount"
-        PII_SEARCH_IP_ADDRESS: Final[str] = "ipaddress"
-        PII_SEARCH_EMAIL_ADDRESS: Final[str] = "emailaddress"
-        PII_SEARCH_CREDIT_CARD: Final[str] = "creditcard"
+        PII_SEARCH_PHONE_NUMBER: Final[str] = "phone_number"
+        PII_SEARCH_SSN: Final[str] = "ssn_details"
+        PII_SEARCH_BANK_ACCOUNT: Final[str] = "bank_account"
+        PII_SEARCH_IP_ADDRESS: Final[str] = "ip_address"
+        PII_SEARCH_EMAIL_ADDRESS: Final[str] = "email_address"
+        PII_SEARCH_CREDIT_CARD: Final[str] = "credit_card"
+        PII_SEARCH_PERSON_NAME: Final[str] = "person_name"
+        PII_SEARCH_DATE_OF_BIRTH: Final[str] = "date_of_birth"
+        PII_SEARCH_ADDRESS: Final[str] = "address"
+        PII_SEARCH_PASSPORT_NUMBER: Final[str] = "passport_number"
+        PII_SEARCH_DRIVER_LICENSE: Final[str] = "driver_license"
+        PII_SEARCH_NATIONAL_ID: Final[str] = "national_id"
+        PII_SEARCH_MEDICAL_RECORD: Final[str] = "medical_record"
 
     class Filtering:
         """Filtering constants."""
@@ -829,6 +849,10 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         FILTER_FEATURES_TO_DROP_KEY: Final[str] = "features_to_drop"
         FILTER_LOGICAL_OPERATOR_KEY: Final[str] = "logical_operator"
         INCLUDE_FILTER_KEY: Final[str] = "include_filter"
+
+        # DuckDB resource limits (sql_filter operator)
+        DUCKDB_MEMORY_LIMIT: Final[str] = "duckdb_memory_limit"
+        DUCKDB_THREADS: Final[str] = "duckdb_threads"
 
         # SQL Operations
         SQL_FILTER: Final[str] = "sql_filter"
@@ -907,6 +931,9 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         FIELD_TEXT_EXTRACTED: Final[str] = "Text Extracted"
         FIELD_ENTITIES_EXTRACTED: Final[str] = "Entities Extracted"
         FIELD_DOCS_CLASSIFIED: Final[str] = "Documents Classified"
+
+        # Numeric progress percentage (float 0-100) for programmatic UI consumption
+        PROGRESS_PERCENTAGE: Final[str] = "progress_percentage"
 
     class Storage:
         """Storage constants."""
@@ -1062,6 +1089,8 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
 
         # Standard Document Types
         PDF: Final[str] = "application/pdf"
+        HTML: Final[str] = "text/html"
+        PLAIN: Final[str] = "text/plain"
 
         # Google Workspace Document Types
         GOOGLE_APPS_PREFIX: Final[str] = "application/vnd.google-apps."
@@ -1159,3 +1188,32 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         DEFAULT_RESOLVE_INHERITANCE: Final[bool] = True
         DEFAULT_EXPAND_GROUPS: Final[bool] = True
         DEFAULT_NORMALIZE_IDENTITIES: Final[bool] = True
+
+    class DocFormat(StrEnum):
+        """Document format values for the ``doc_format`` global config key.
+
+        Being a :class:`~enum.StrEnum`, members compare equal to their string
+        counterparts (``DocFormat.MARKDOWN == "markdown"``), so existing
+        ``config.get(...)`` calls and equality checks work without change.
+        Iterating over the class yields all valid values, removing the need for
+        a separate ``VALID_VALUES`` list.
+        """
+
+        MARKDOWN = "markdown"
+        DOCLANG = "doclang"
+
+    # Config key for doc_format — kept outside the StrEnum so it is not an enum member
+    DOC_FORMAT_KEY: Final[str] = "doc_format"
+    DOC_FORMAT_DEFAULT: Final[str] = DocFormat.MARKDOWN
+
+    # Columns that cannot be dropped by any operator (e.g. SQLFilterOperator).
+    # Downstream operators depend on these being present in the pipeline table.
+    PROTECTED_PIPELINE_COLUMNS: frozenset = frozenset(
+        {
+            "id",
+            "content",
+            "pages_processed",
+            "allowed_users",
+            "chunked_content",
+        }
+    )

@@ -309,6 +309,14 @@ class DocpipeFlowManager:
             # Initialize the orchestrator (required for FlowValidator)
             temp_orchestrator.initialize(job_id=self.job_id, job_run_id=self.job_run_id)
 
+            # Establish session context so validators and operators read correct job/flow IDs
+            create_session_info(
+                job_id=self.job_id,
+                job_run_id=self.job_run_id,
+                orchestrator=temp_orchestrator,
+                flow_id=self.flow_id,
+            )
+
             validator = FlowValidator(orchestrator=temp_orchestrator)
 
             # Prepare validation parameters

@@ -266,7 +266,8 @@ class TestFlowUpdateTimestamp:
 
         # Assert
         assert flow.modified_on != original_modified
-        assert flow.modified_on is not None and original_modified is not None
+        assert flow.modified_on is not None
+        assert original_modified is not None
         assert flow.modified_on > original_modified
 
     def test_update_timestamp_does_not_change_created_on(self):
@@ -462,8 +463,10 @@ class TestFlowRoundTripConversion:
         restored_flow = Flow.from_dict(data=dict_data)
 
         # Assert - Compare timestamps (allowing for microsecond precision loss in ISO format)
-        assert restored_flow.created_on is not None and sample_flow_with_id.created_on is not None
-        assert restored_flow.modified_on is not None and sample_flow_with_id.modified_on is not None
+        assert restored_flow.created_on is not None
+        assert sample_flow_with_id.created_on is not None
+        assert restored_flow.modified_on is not None
+        assert sample_flow_with_id.modified_on is not None
         assert restored_flow.created_on.replace(microsecond=0) == sample_flow_with_id.created_on.replace(microsecond=0)
         assert restored_flow.modified_on.replace(microsecond=0) == sample_flow_with_id.modified_on.replace(
             microsecond=0

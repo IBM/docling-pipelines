@@ -46,7 +46,7 @@ The adapter creates one LangChain `RecursiveUrlLoader` per configured seed URL w
 - `exclude_dirs=<exclude_patterns or None>`
 - `timeout=<configured timeout>`
 
-Each crawled LangChain document is converted into a Docling Pipelines ingest document with:
+Each crawled LangChain document is converted into a Docpipe ingest document with:
 
 - SHA-256 document ID generated from the resolved page URL
 - document name from page title metadata, or URL path fallback

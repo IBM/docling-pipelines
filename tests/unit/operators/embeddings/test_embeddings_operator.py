@@ -156,15 +156,15 @@ class TestEmbeddingsOperatorInitialization:
 
     def test_init_with_invalid_provider(self):
         """Test initialization with invalid provider."""
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException
+
         config = {
             "provider": "invalid_provider",
             "model_id": "test-model",
         }
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(DocpipeException, match="Unsupported"):
             EmbeddingsOperator(config)
-
-        assert "unsupported" in str(exc_info.value).lower() or "invalid" in str(exc_info.value).lower()
 
     @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_get_required_features(self, mock_factory, litellm_config, mock_llm_adapter):
@@ -1251,7 +1251,7 @@ class TestEmbeddingsBuildChunkText:
         mock_factory.return_value = mock_llm_adapter
         _ = EmbeddingsOperator(litellm_config)
         chunk = {"chunk": "body text", "summary": "summary text"}
-        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk)
+        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk=chunk)
         assert result.startswith("abstract: summary text")
         assert "content: body text" in result
 
@@ -1260,14 +1260,21 @@ class TestEmbeddingsBuildChunkText:
         mock_factory.return_value = mock_llm_adapter
         _ = EmbeddingsOperator(litellm_config)
         chunk = {"chunk": "body text"}
-        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk)
+        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk=chunk)
         assert result == "body text"
 
     @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_empty_chunk_returns_empty_string(self, mock_factory, litellm_config, mock_llm_adapter):
         mock_factory.return_value = mock_llm_adapter
-        result = EmbeddingsOperator._build_chunk_text_for_embedding({"chunk": ""})
+        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk={"chunk": ""})
         assert result == ""
+
+    @patch("docpipe.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_build_chunk_text_preserves_content_as_is(self, mock_factory, litellm_config, mock_llm_adapter):
+        mock_factory.return_value = mock_llm_adapter
+        chunk = {"chunk": "Clean Content with <tag>"}
+        result = EmbeddingsOperator._build_chunk_text_for_embedding(chunk=chunk)
+        assert result == "Clean Content with <tag>"
 
 
 if __name__ == "__main__":

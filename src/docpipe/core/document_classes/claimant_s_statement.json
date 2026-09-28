@@ -87,7 +87,7 @@
         {
           "name": "beneficiary_ssn_or_tin",
           "examples": [
-            "xxx-xx-xxxx"
+            "XXX-XX-XXXX"
           ],
           "description": "The Social Security Number or Tax Identification Number of the beneficiary.",
           "extraction_instructions": ""

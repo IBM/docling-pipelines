@@ -148,7 +148,7 @@ class TestHandleMsgraphResolutionResult:
             )
 
     def test_guid_without_item_raises_when_no_fallback(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Could not resolve file ID"):
             handle_msgraph_resolution_result(
                 file_id="some-guid",
                 item_id=None,

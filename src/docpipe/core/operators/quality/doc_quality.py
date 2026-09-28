@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Any
 
@@ -16,12 +15,7 @@ DOC_CONTENT_COLUMN_KEY: str = "doc_content_column"
 TEXT_LANG_KEY: str = "text_lang"
 DEFAULT_TEXT_LANG: str = "en"
 BAD_WORD_FILEPATH_KEY: str = "bad_word_filepath"
-BASE_PATH: str = str(Path(__file__).parent)
 BAD_WORD_FILEPATH_VALUE: str = str(Path(__file__).parent / "en")
-if os.getenv("RUNTIME") == "CLOUD" and os.getenv("IS_SPARK_RUNTIME"):
-    BAD_WORD_FILEPATH_VALUE = BAD_WORD_FILEPATH_VALUE.replace(
-        "/docpipe_core.zip/docpipe_core/operators/language/readability", ""
-    )
 
 
 class DocQuality(DocQualityTransform, AbstractOperator):
@@ -37,14 +31,11 @@ class DocQuality(DocQualityTransform, AbstractOperator):
     owner = DocpipeConstants.OWNER_DOCPIPE
 
     def __init__(self, config: dict[str, Any]) -> None:
-        normalized_bad_word_filepath: str = BAD_WORD_FILEPATH_VALUE.replace(
-            "./docpipe.zip", "/docpipe/storage/job-assets"
-        )
-        config.update({BAD_WORD_FILEPATH_KEY: normalized_bad_word_filepath})
+        config.update({BAD_WORD_FILEPATH_KEY: BAD_WORD_FILEPATH_VALUE})
         super().__init__(config)
         self.doc_content_column: str = config.get(DOC_CONTENT_COLUMN_KEY, "content")
         self.text_lang: str = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
-        self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)
+        self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, BAD_WORD_FILEPATH_VALUE)
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -147,8 +138,21 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         In this case, the transform() from DocQualityTransform() foe each row in the content column
         generates document statistics and adds a column for each statistic.
         """
+        # Strip DocLang for quality scoring only — pass stripped content to super() so
+        # metrics are computed on plain text, then restore the original DocLang column in
+        # the output so downstream operators receive the content unchanged.
+        processing_table = OperatorUtils.strip_doclang_column(
+            table, col_name=self.doc_content_column, doc_format=self.doc_format
+        )
 
-        transformed_table: pa.Table = super().transform(table)[0][0]
+        transformed_table: pa.Table = super().transform(processing_table)[0][0]
+
+        transformed_table = OperatorUtils.restore_doclang_column(
+            transformed_table,
+            original_table=table,
+            col_name=self.doc_content_column,
+            processing_table=processing_table,
+        )
 
         total_docs: int = OperatorUtils.find_doc_count(table=table)
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)

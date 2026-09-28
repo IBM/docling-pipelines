@@ -374,11 +374,14 @@ class TestStaticMethods:
     def test_is_installed_returns_true_when_ollama_found(self):
         mock_result = Mock()
         mock_result.returncode = 0
-        with patch("subprocess.run", return_value=mock_result):
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/ollama"),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             assert OllamaClient.is_installed() is True
 
     def test_is_installed_returns_false_when_not_found(self):
-        with patch("subprocess.run", side_effect=FileNotFoundError):
+        with patch("shutil.which", return_value=None):
             assert OllamaClient.is_installed() is False
 
     def test_is_server_running_returns_true_when_list_succeeds(self):

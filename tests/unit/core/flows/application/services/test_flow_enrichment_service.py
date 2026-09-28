@@ -839,7 +839,7 @@ class TestBuildNodeFeatureMetadataVectorDB:
 
     def test_non_vectordb_nodes_have_no_vdb_keys(self):
         """Non-vectordb operators must never have VDB keys in their response."""
-        for op in ("ingest_source", "chunker", "sql_filter", "merge", "embeddings"):
+        for op in ("ingest_local", "chunker", "sql_filter", "merge", "embeddings"):
             nfr = _make_node_feature_result(
                 operator_config={"provider_config": {"host": "localhost"}},
             )
@@ -851,3 +851,194 @@ class TestBuildNodeFeatureMetadataVectorDB:
             )
             assert OperatorConstants.VectorDB.AVAILABLE_RESOURCES not in block, f"VDB key leaked into {op}"
             assert OperatorConstants.VectorDB.STORED_RESOURCE_METADATA not in block, f"VDB key leaked into {op}"
+
+
+# ---------------------------------------------------------------------------
+# Tests: _resolve_dag_secrets
+# ---------------------------------------------------------------------------
+
+
+class TestResolveDagSecrets:
+    """_resolve_dag_secrets resolves vault:// refs and ${ENV_VAR} placeholders in-place."""
+
+    def _call(self, dag_nodes: list[dict[str, Any]]) -> None:
+        """Invoke _resolve_dag_secrets with a synthetic DAG containing the given nodes."""
+        FlowEnrichmentService._resolve_dag_secrets(internal_dag={"dag": dag_nodes})
+
+    def test_expands_env_var_placeholder_in_string_value(self, monkeypatch: Any) -> None:
+        """${VAR} placeholders in string values are expanded from the environment."""
+        monkeypatch.setenv("OPENSEARCH_USERNAME", "admin")
+        node: dict[str, Any] = {"id": "n1", "config": {"username": "${OPENSEARCH_USERNAME}", "host": "localhost"}}
+        self._call([node])
+        assert node["config"]["username"] == "admin"
+        assert node["config"]["host"] == "localhost"
+
+    def test_expands_nested_env_var_placeholder(self, monkeypatch: Any) -> None:
+        """${VAR} placeholders nested inside sub-dicts are expanded."""
+        monkeypatch.setenv("OS_PASS", "s3cr3t")  # pragma: allowlist secret
+        node: dict[str, Any] = {
+            "id": "n1",
+            "config": {"provider_config": {"password": "${OS_PASS}"}},
+        }  # pragma: allowlist secret
+        self._call([node])
+        assert node["config"]["provider_config"]["password"] == "s3cr3t"  # pragma: allowlist secret
+
+    def test_unset_env_var_left_as_is(self, monkeypatch: Any) -> None:
+        """Unset ${VAR} placeholders are left unchanged — expandvars behaviour."""
+        monkeypatch.delenv("UNSET_VAR", raising=False)
+        node: dict[str, Any] = {"id": "n1", "config": {"key": "${UNSET_VAR}"}}
+        self._call([node])
+        assert node["config"]["key"] == "${UNSET_VAR}"
+
+    def test_vault_reference_resolved_when_provider_registered(self) -> None:
+        """vault:// credentials are resolved via resolve_value when provider is registered."""
+        node: dict[str, Any] = {
+            "id": "n1",
+            "config": {"credentials": "vault://hashicorp/docpipe/s3#creds"},
+        }  # pragma: allowlist secret
+
+        with (
+            patch("docpipe.integrations.secrets.secret_provider.has_vault_references", return_value=True),
+            patch(
+                "docpipe.integrations.secrets.secret_provider.resolve_value",
+                return_value={"credentials": {"access_key": "AK", "secret_key": "SK"}},  # pragma: allowlist secret
+            ) as mock_resolve,
+        ):
+            self._call([node])
+
+        mock_resolve.assert_called_once()
+        assert node["config"]["credentials"] == {"access_key": "AK", "secret_key": "SK"}  # pragma: allowlist secret
+
+    def test_vault_failure_keeps_original_config_and_does_not_raise(self) -> None:
+        """When vault resolution fails the original config is kept and no exception propagates."""
+        from docpipe.exceptions.docpipe_exceptions import ConfigurationError
+
+        node: dict[str, Any] = {
+            "id": "n1",
+            "name": "ingest",
+            "config": {"credentials": "vault://hashicorp/docpipe/s3#creds"},
+        }  # pragma: allowlist secret
+
+        with (
+            patch("docpipe.integrations.secrets.secret_provider.has_vault_references", return_value=True),
+            patch(
+                "docpipe.integrations.secrets.secret_provider.resolve_value",
+                side_effect=ConfigurationError("provider not registered"),
+            ),
+        ):
+            self._call([node])  # must not raise
+
+        assert node["config"]["credentials"] == "vault://hashicorp/docpipe/s3#creds"  # pragma: allowlist secret
+
+    def test_skips_nodes_with_non_dict_config(self) -> None:
+        """Nodes whose config is not a dict are skipped without error."""
+        node: dict[str, Any] = {"id": "n1", "config": None}
+        self._call([node])
+        assert node["config"] is None
+
+    def test_skips_nodes_with_no_config_key(self) -> None:
+        """Nodes with no config key are skipped without error."""
+        node: dict[str, Any] = {"id": "n1"}
+        self._call([node])
+        assert "config" not in node
+
+    def test_does_not_call_resolve_value_when_no_vault_refs(self) -> None:
+        """resolve_value is not called when no vault:// refs are present."""
+        node: dict[str, Any] = {"id": "n1", "config": {"host": "localhost", "port": 9200}}
+        with patch("docpipe.integrations.secrets.secret_provider.resolve_value") as mock_resolve:
+            self._call([node])
+        mock_resolve.assert_not_called()
+
+    def test_multiple_nodes_with_vault_refs_resolved_independently(self) -> None:
+        """Each node's config is resolved independently; failures in one do not affect others."""
+        nodes: list[dict[str, Any]] = [
+            {"id": "n1", "config": {"credentials": "vault://hashicorp/s3#creds"}},  # pragma: allowlist secret
+            {"id": "n2", "config": {"credentials": "vault://hashicorp/db#creds"}},  # pragma: allowlist secret
+        ]
+        resolved_values = [{"key": "val1"}, {"key": "val2"}]
+        call_count = 0
+
+        def side_effect(config: dict[str, Any]) -> dict[str, Any]:
+            nonlocal call_count
+            result: dict[str, Any] = {"credentials": resolved_values[call_count]}
+            call_count += 1
+            return result
+
+        with (
+            patch("docpipe.integrations.secrets.secret_provider.has_vault_references", return_value=True),
+            patch(
+                "docpipe.integrations.secrets.secret_provider.resolve_value",
+                side_effect=side_effect,
+            ),
+        ):
+            self._call(nodes)
+
+        assert nodes[0]["config"]["credentials"] == {"key": "val1"}
+        assert nodes[1]["config"]["credentials"] == {"key": "val2"}
+
+    def test_multiple_nodes_env_vars_resolved_independently(self, monkeypatch: Any) -> None:
+        """Each node's env-var placeholders are expanded independently."""
+        monkeypatch.setenv("HOST_A", "host-a")
+        monkeypatch.setenv("HOST_B", "host-b")
+        nodes: list[dict[str, Any]] = [
+            {"id": "n1", "config": {"host": "${HOST_A}"}},
+            {"id": "n2", "config": {"host": "${HOST_B}"}},
+        ]
+        self._call(nodes)
+        assert nodes[0]["config"]["host"] == "host-a"
+        assert nodes[1]["config"]["host"] == "host-b"
+
+    def test_empty_dag_does_not_raise(self) -> None:
+        """An empty DAG is handled without error."""
+        self._call([])
+
+
+# ---------------------------------------------------------------------------
+# Tests: enrich_flow_with_features — _resolve_dag_secrets wiring
+# ---------------------------------------------------------------------------
+
+
+class TestEnrichFlowWithFeaturesSecretWiring:
+    """Verify that _resolve_dag_secrets fires (step 2) before feature propagation.
+
+    enrich_flow_with_features must expand ${ENV_VAR} placeholders in node configs
+    *before* calling propagate_features_per_node, so that any operator making a
+    live connection during enrichment (e.g. VectorDB) receives resolved credentials.
+    """
+
+    def test_env_var_expanded_before_propagation(self, monkeypatch: Any) -> None:
+        """${VAR} in a node config is resolved before propagate_features_per_node is called."""
+        monkeypatch.setenv("TEST_HOST", "resolved-host")
+
+        captured_dag: dict[str, Any] = {}
+
+        def fake_propagate(*, flow_def: dict[str, Any], global_config: dict) -> dict:
+            # Capture the DAG state at the moment propagation is called.
+            import copy
+
+            captured_dag.update(copy.deepcopy(flow_def))
+            return {}
+
+        mock_validator = MagicMock()
+        mock_validator.propagate_features_per_node.side_effect = fake_propagate
+
+        with patch(
+            "docpipe.core.assets.flows.application.services.flow_enrichment_service.ValidationService"
+        ) as mock_vs_cls:
+            mock_vs = MagicMock()
+            mock_vs._convert_to_dag_flow.return_value = {
+                "dag": [{"id": "n1", "name": "vectordb", "config": {"host": "${TEST_HOST}"}}],
+                OperatorConstants.Config.GLOBAL_CONFIG: {},
+            }
+            mock_vs_cls.return_value = mock_vs
+            service = FlowEnrichmentService(validator_factory=lambda: mock_validator)
+
+        flow = _minimal_elyra_flow(("n1", "vectordb"))
+        service.enrich_flow_with_features(flow_definition=flow)
+
+        # The DAG seen by propagate_features_per_node must already have the resolved value.
+        node_config = captured_dag["dag"][0]["config"]
+        assert node_config["host"] == "resolved-host", (
+            f"Expected 'resolved-host' but propagator received '{node_config['host']}'; "
+            "_resolve_dag_secrets must run before propagate_features_per_node."
+        )

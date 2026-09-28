@@ -201,7 +201,8 @@ class FlowMapper:
                 else ("created_on" if domain.created_on is None else "modified_on"),
             )
 
-        # Convert flow operators to DTOs
+        # Operator configs are returned as-is — the authoring endpoint is used by the
+        # properties panel, so values must be editable and round-trip cleanly.
         flow_operators = [
             AuthoringOperatorDTO(
                 type=op.get("type", ""),

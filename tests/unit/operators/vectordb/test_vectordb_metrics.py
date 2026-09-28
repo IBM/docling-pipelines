@@ -9,6 +9,7 @@ import pytest
 
 from docpipe.core.constants.constants import Metrics
 from docpipe.core.operators.vectordb.vectordb_operator import VectorDBOperator
+from docpipe.utils.operators.vectordb_utils import generate_composite_pk
 
 
 class TestVectorDBMetrics:
@@ -23,6 +24,9 @@ class TestVectorDBMetrics:
         adapter.index_exists.return_value = True
         adapter.index_documents.return_value = (4, [])  # 4 items indexed, no failed chunks
         adapter.refresh_index.return_value = None
+        adapter.generate_chunk_pk.side_effect = lambda *, file_id, chunk_index, chunk_content: generate_composite_pk(
+            file_id=file_id, chunk_content=chunk_content
+        )
         return adapter
 
     @pytest.fixture
@@ -224,7 +228,7 @@ class TestVectorDBMetrics:
         # Compute the composite PK the operator will generate for the first chunk of doc1.
         # file_id = "doc1" (no 'id' column in the table, so falls back to doc_id_hash value).
         # chunk_content = "Chunk 1 of doc1" (chunked_content[0]["chunk"]).
-        chunk1_pk = VectorDBOperator.generate_composite_pk(file_id="doc1", chunk_content="Chunk 1 of doc1")
+        chunk1_pk = generate_composite_pk(file_id="doc1", chunk_content="Chunk 1 of doc1")
         # Mock adapter: 2 items indexed, 1 failed (first chunk of doc1)
         failed_item = {"index": {"_id": chunk1_pk, "error": {"reason": "Indexing error"}}}
         mock_adapter.index_documents.return_value = (2, [failed_item])

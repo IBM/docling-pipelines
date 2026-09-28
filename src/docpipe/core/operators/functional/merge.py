@@ -194,7 +194,7 @@ class MergeOperator(AbstractOperator):
                 )
             )
 
-    def validate(self, errors: list, warnings: list, available_features: list) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """Validate Merge operator configuration."""
         self._validate_input_links(errors=errors)
 

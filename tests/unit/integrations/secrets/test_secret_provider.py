@@ -185,3 +185,17 @@ class TestResolveValue:
 
         with pytest.raises(ExternalServiceError):
             resolve_value("vault://hashicorp/no/such/path#key")
+
+    def test_json_string_secret_parsed_to_dict(self):
+        provider = FakeProvider(secrets={"app/creds": {"data": '{"access_key": "abc", "secret_key": "xyz"}'}})
+        register_provider(name="hashicorp", provider=provider)
+
+        resolved = resolve_value("vault://hashicorp/app/creds#data")
+        assert resolved == {"access_key": "abc", "secret_key": "xyz"}
+
+    def test_invalid_json_string_secret_returned_as_raw_string(self):
+        provider = FakeProvider(secrets={"app/raw": {"data": "{invalid-json"}})
+        register_provider(name="hashicorp", provider=provider)
+
+        resolved = resolve_value("vault://hashicorp/app/raw#data")
+        assert resolved == "{invalid-json"

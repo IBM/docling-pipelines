@@ -9,6 +9,7 @@ supporting embeddings and chat completions across OpenAI, Anthropic, Cohere, etc
 """
 
 import os
+from typing import Any
 
 from docpipe.core.constants.constants import ServiceConstants
 from docpipe.exceptions.docpipe_exceptions import (
@@ -158,18 +159,21 @@ class LiteLLMLLMClient(BaseLLMClient):
         env_var = PROVIDER_ENV_VARS.get(provider, f"{provider.upper()}_API_KEY")
 
         if self.api_key is None:
-            raise ConfigurationError(
+            msg = (
                 f"API key required for {provider} provider.\n"
                 f"Please set {env_var} environment variable or pass api_key parameter.\n"
                 f"Example: export {env_var}=your-key-here"
             )
+            raise ConfigurationError(msg)
 
         # Security warning if API key is in parameter (flow config)
         if os.getenv(env_var) and os.getenv(env_var) != self.api_key:
             logger.warning(
-                f"API key provided via parameter for {provider}. "
-                f"For better security, use environment variable {env_var} instead. "
-                f"API keys in flow files may be committed to version control."
+                "API key provided via parameter for %s. "
+                "For better security, use environment variable %s instead. "
+                "API keys in flow files may be committed to version control.",
+                provider,
+                env_var,
             )
 
     def _set_provider_api_key(self, provider: str, api_key: str) -> None:
@@ -223,16 +227,16 @@ class LiteLLMLLMClient(BaseLLMClient):
             elif isinstance(response, dict) and "data" in response:
                 embeddings = response["data"][0]["embedding"]
             else:
-                raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
+                msg = f"Unexpected response format from LiteLLM: {type(response)}"
+                raise ExternalServiceError(msg)
 
             self._validate_embeddings_output(embeddings)
             return embeddings
 
         except Exception as e:
-            logger.error(f"Failed to generate embeddings with LiteLLM: {e}")
-            raise ExternalServiceError(
-                f"Failed to generate embeddings with LiteLLM model '{self.model_name}': {e}"
-            ) from e
+            logger.error("Failed to generate embeddings with LiteLLM: %s", e)
+            msg = f"Failed to generate embeddings with LiteLLM model '{self.model_name}': {e}"
+            raise ExternalServiceError(msg) from e
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
@@ -253,10 +257,12 @@ class LiteLLMLLMClient(BaseLLMClient):
             RuntimeError: If API call fails
         """
         if not texts or not isinstance(texts, list):
-            raise ConfigurationError("texts must be a non-empty list")
+            msg = "texts must be a non-empty list"
+            raise ConfigurationError(msg)
 
         if not all(isinstance(t, str) and t for t in texts):
-            raise ConfigurationError("all texts must be non-empty strings")
+            msg = "all texts must be non-empty strings"
+            raise ConfigurationError(msg)
 
         try:
             all_embeddings = []
@@ -280,7 +286,8 @@ class LiteLLMLLMClient(BaseLLMClient):
                 elif isinstance(response, dict) and "data" in response:
                     batch_embeddings = [item["embedding"] for item in response["data"]]
                 else:
-                    raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
+                    msg = f"Unexpected response format from LiteLLM: {type(response)}"
+                    raise ExternalServiceError(msg)
 
                 # Validate each embedding
                 for emb in batch_embeddings:
@@ -291,10 +298,29 @@ class LiteLLMLLMClient(BaseLLMClient):
             return all_embeddings
 
         except Exception as e:
-            logger.error(f"Failed to generate batch embeddings with LiteLLM: {e}")
-            raise ExternalServiceError(
-                f"Failed to generate batch embeddings with LiteLLM model '{self.model_name}': {e}"
-            ) from e
+            logger.error("Failed to generate batch embeddings with LiteLLM: %s", e)
+            msg = f"Failed to generate batch embeddings with LiteLLM model '{self.model_name}': {e}"
+            raise ExternalServiceError(msg) from e
+
+    @staticmethod
+    def _extract_streaming_content(response: Any) -> str:
+        """Accumulate content from a streamed LiteLLM response."""
+        accumulated = ""
+        for chunk in response:
+            if hasattr(chunk, "choices") and chunk.choices:
+                delta = chunk.choices[0].delta
+                if hasattr(delta, "content") and delta.content:
+                    accumulated += delta.content
+        return accumulated
+
+    @staticmethod
+    def _extract_non_streaming_content(response: Any) -> str:
+        """Extract content from a standard (non-streamed) LiteLLM response."""
+        if hasattr(response, "choices") and response.choices:
+            return response.choices[0].message.content
+        if isinstance(response, dict) and "choices" in response:
+            return response["choices"][0]["message"]["content"]
+        raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def chat(self, messages: list[dict[str, str]], **kwargs) -> str:
@@ -313,7 +339,8 @@ class LiteLLMLLMClient(BaseLLMClient):
             RuntimeError: If API call fails
         """
         if not messages or not isinstance(messages, list):
-            raise ConfigurationError("messages must be a non-empty list")
+            msg = "messages must be a non-empty list"
+            raise ConfigurationError(msg)
 
         try:
             # Merge constructor config with call-time parameters
@@ -333,34 +360,22 @@ class LiteLLMLLMClient(BaseLLMClient):
                 **combined_kwargs,
             )
 
-            if should_stream:
-                # Accumulate streamed chunks
-                accumulated_content = ""
-                for chunk in response:
-                    if hasattr(chunk, "choices") and chunk.choices:
-                        delta = chunk.choices[0].delta
-                        if hasattr(delta, "content") and delta.content:
-                            accumulated_content += delta.content
-                content = accumulated_content
-            else:
-                # Extract content from normal response
-                if hasattr(response, "choices") and response.choices:
-                    content = response.choices[0].message.content
-                elif isinstance(response, dict) and "choices" in response:
-                    content = response["choices"][0]["message"]["content"]
-                else:
-                    raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
+            content = (
+                self._extract_streaming_content(response)
+                if should_stream
+                else self._extract_non_streaming_content(response)
+            )
 
             if not content:
-                raise ExternalServiceError("Empty response from LiteLLM chat API")
+                msg = "Empty response from LiteLLM chat API"
+                raise ExternalServiceError(msg)
 
             return content
 
         except Exception as e:
-            logger.error(f"Failed to generate chat completion with LiteLLM: {e}")
-            raise ExternalServiceError(
-                f"Failed to generate chat completion with LiteLLM model '{self.model_name}': {e}"
-            ) from e
+            logger.error("Failed to generate chat completion with LiteLLM: %s", e)
+            msg = f"Failed to generate chat completion with LiteLLM model '{self.model_name}': {e}"
+            raise ExternalServiceError(msg) from e
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def generate(self, prompt: str, **kwargs) -> str:

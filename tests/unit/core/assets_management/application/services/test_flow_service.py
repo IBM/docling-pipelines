@@ -190,7 +190,7 @@ class TestFlowServiceUpdate:
     def test_update_flow_with_valid_data(self, mock_flow_repository, sample_flow_with_id):
         """Test updating a flow with valid data."""
         # Arrange
-        mock_flow_repository.exists.return_value = True
+        mock_flow_repository.find_by_id.return_value = sample_flow_with_id
         mock_flow_repository.update.return_value = sample_flow_with_id
         service = FlowService(repository=mock_flow_repository)
 
@@ -199,13 +199,13 @@ class TestFlowServiceUpdate:
 
         # Assert
         assert result == sample_flow_with_id
-        mock_flow_repository.exists.assert_called_once_with(asset_id="test-flow-id-123")
+        mock_flow_repository.find_by_id.assert_called_once_with(asset_id="test-flow-id-123")
         mock_flow_repository.update.assert_called_once()
 
     def test_update_flow_updates_timestamp(self, mock_flow_repository, sample_flow_with_id):
         """Test that update_flow updates the modified_on timestamp."""
         # Arrange
-        mock_flow_repository.exists.return_value = True
+        mock_flow_repository.find_by_id.return_value = sample_flow_with_id
         mock_flow_repository.save.return_value = sample_flow_with_id
         original_modified = sample_flow_with_id.modified_on
         service = FlowService(repository=mock_flow_repository)
@@ -231,7 +231,7 @@ class TestFlowServiceUpdate:
     def test_update_flow_with_nonexistent_id_raises_error(self, mock_flow_repository, sample_flow_with_id):
         """Test updating a non-existent flow raises FlowNotFoundException."""
         # Arrange
-        mock_flow_repository.exists.return_value = False
+        mock_flow_repository.find_by_id.return_value = None
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
@@ -251,6 +251,46 @@ class TestFlowServiceUpdate:
 
         # Verify save was never called
         mock_flow_repository.save.assert_not_called()
+
+    def test_update_flow_preserves_created_on_from_stored_flow(self, mock_flow_repository, sample_flow_with_id):
+        """Test that update_flow preserves created_on from the stored flow, not the incoming object.
+
+        Regression test: a full-replacement PUT was constructing a new Flow domain object
+        with created_on=None, which __post_init__ set to datetime.now(). The service
+        must restore created_on from the persisted record before saving.
+        """
+        original_created_on = datetime(2023, 6, 15, 10, 0, 0, tzinfo=UTC)
+
+        # Stored flow has the original created_on
+        stored_flow = sample_flow_with_id
+        stored_flow.created_on = original_created_on
+        stored_flow.created_by = "original_user"
+
+        # Incoming flow (simulating what the route builds from the request)
+        # has a fresh created_on from __post_init__
+        incoming_flow = Flow(
+            asset_id="test-flow-id-123",
+            name="Updated Name",
+            description="Updated description",
+            definition=sample_flow_with_id.definition,
+            tags=[],
+            container_kind="project",
+            container_id="some-container-id",
+            created_by="attacker",  # should be overwritten
+        )
+        # incoming_flow.created_on will be datetime.now() from __post_init__
+        assert incoming_flow.created_on != original_created_on
+
+        mock_flow_repository.exists.return_value = True
+        mock_flow_repository.find_by_id.return_value = stored_flow
+        mock_flow_repository.update.return_value = incoming_flow
+        service = FlowService(repository=mock_flow_repository)
+
+        service.update_flow(incoming_flow)
+
+        # created_on and created_by must be restored from the stored flow
+        assert incoming_flow.created_on == original_created_on
+        assert incoming_flow.created_by == "original_user"
 
 
 class TestFlowServicePartialUpdate:

@@ -319,7 +319,7 @@ class TestGetListFromMap(unittest.TestCase):
 
     def test_get_list_missing_key(self):
         """Test with missing key."""
-        obj: dict = {"other": []}
+        obj: dict[str, list] = {"other": []}
         result = get_list_from_map(obj, "items")
         self.assertEqual(result, [])
 
@@ -341,7 +341,7 @@ class TestGetMapFromMap(unittest.TestCase):
 
     def test_get_map_missing_key(self):
         """Test with missing key."""
-        obj: dict = {"other": {}}
+        obj: dict[str, dict] = {"other": {}}
         result = get_map_from_map(obj, "config")
         self.assertEqual(result, {})
 

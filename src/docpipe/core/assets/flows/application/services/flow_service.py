@@ -382,8 +382,15 @@ class FlowService(AssetService[Flow]):
             logger.error("Flow validation failed: %s", exc)
             raise FlowInvalidDataException(f"Invalid flow data: {exc!s}") from exc
 
-        if not self._repository.exists(asset_id=flow.flow_id):
+        # Fetch existing flow to verify existence and preserve immutable creation metadata
+        existing = self._repository.find_by_id(asset_id=flow.flow_id)
+        if existing is None:
             raise FlowNotFoundException(f"Flow {flow.flow_id} not found", flow_id=flow.flow_id)
+
+        # Preserve protected fields from the stored flow so a full-replacement PUT
+        # never overwrites created_on / created_by with the current timestamp.
+        flow.created_on = existing.created_on
+        flow.created_by = existing.created_by
 
         flow.update_timestamp()
 

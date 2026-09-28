@@ -28,6 +28,8 @@ from docpipe.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
 
+_DOCLING_PIPELINE_OPTIONS_MODULE = "docling.datamodel.pipeline_options"
+
 # Check if ASR dependencies are available using utility function
 _ASR_AVAILABLE = is_asr_available()
 if not _ASR_AVAILABLE:
@@ -120,6 +122,10 @@ class DoclingAdapter(TextExtractionPort):
         if self.gpu_device:
             self._gpu_converter = self._build_gpu_converter()
 
+        self._log_init_mode(config=config, ocr_block=ocr_block)
+
+    def _log_init_mode(self, *, config: dict[str, Any], ocr_block: Any) -> None:
+        """Log the active extraction mode chosen during adapter initialisation."""
         if self.use_vlm_pipeline:
             logger.info(
                 "Initialized DoclingAdapter with VLM enabled - preset: %s, engine: %s, additional formats: %s",
@@ -135,15 +141,14 @@ class DoclingAdapter(TextExtractionPort):
                 self.gpu_num_threads,
                 self.additional_formats,
             )
+
         if self.use_asr_pipeline:
-            logger.info(
-                "Initialized DoclingAdapter with ASR enabled - model: %s",
-                self.asr_model_name or "default",
-            )
+            logger.info("Initialized DoclingAdapter with ASR enabled - model: %s", self.asr_model_name or "default")
         elif config.get(OperatorConstants.Config.USE_ASR_PIPELINE, False) and not _ASR_AVAILABLE:
             logger.warning(
                 "ASR pipeline requested but dependencies not available. Install with: uv pip install -e '.[asr]'"
             )
+
         if ocr_block:
             logger.info(
                 "OCR config — enabled: %s, engine: %s, mode: %s",
@@ -151,6 +156,7 @@ class DoclingAdapter(TextExtractionPort):
                 self._ocr_engine,
                 self._ocr_mode,
             )
+
         if not self.use_vlm_pipeline and not self.use_asr_pipeline and not self.gpu_device:
             logger.info(
                 "Initialized DoclingAdapter with standard extraction, additional formats: %s", self.additional_formats
@@ -247,14 +253,14 @@ class DoclingAdapter(TextExtractionPort):
         import importlib
 
         _engine_imports: dict[str, tuple[str, str]] = {
-            "auto": ("docling.datamodel.pipeline_options", "OcrAutoOptions"),
-            "easyocr": ("docling.datamodel.pipeline_options", "EasyOcrOptions"),
-            "tesserocr": ("docling.datamodel.pipeline_options", "TesseractOcrOptions"),
-            "tesseract": ("docling.datamodel.pipeline_options", "TesseractCliOcrOptions"),
-            "rapidocr": ("docling.datamodel.pipeline_options", "RapidOcrOptions"),
-            "ocrmac": ("docling.datamodel.pipeline_options", "OcrMacOptions"),
-            "kserve_v2_ocr": ("docling.datamodel.pipeline_options", "KserveV2OcrOptions"),
-            "nemotron-ocr": ("docling.datamodel.pipeline_options", "NemotronOcrOptions"),
+            "auto": (_DOCLING_PIPELINE_OPTIONS_MODULE, "OcrAutoOptions"),
+            "easyocr": (_DOCLING_PIPELINE_OPTIONS_MODULE, "EasyOcrOptions"),
+            "tesserocr": (_DOCLING_PIPELINE_OPTIONS_MODULE, "TesseractOcrOptions"),
+            "tesseract": (_DOCLING_PIPELINE_OPTIONS_MODULE, "TesseractCliOcrOptions"),
+            "rapidocr": (_DOCLING_PIPELINE_OPTIONS_MODULE, "RapidOcrOptions"),
+            "ocrmac": (_DOCLING_PIPELINE_OPTIONS_MODULE, "OcrMacOptions"),
+            "kserve_v2_ocr": (_DOCLING_PIPELINE_OPTIONS_MODULE, "KserveV2OcrOptions"),
+            "nemotron-ocr": (_DOCLING_PIPELINE_OPTIONS_MODULE, "NemotronOcrOptions"),
         }
 
         entry = _engine_imports.get(self._ocr_engine)

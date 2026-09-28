@@ -20,9 +20,10 @@ and tag deduplication. Supports DAG and legacy Elyra formats.
 """
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from docpipe.utils.core.validation import (
     deduplicate_tags,
@@ -938,13 +939,141 @@ class BulkDeleteResponse(BaseModel):
     )
 
 
+class ValidationActionType(StrEnum):
+    """UI navigation action for a validation alert.
+
+    Defined at the API layer — core validation models have no knowledge of this.
+    Derived from ValidationErrorScope via _SCOPE_TO_ACTION_TYPE.
+    """
+
+    HIGHLIGHT = "highlight"
+    OPEN_PROPERTIES = "open_properties"
+    NONE = "none"
+
+
+class ValidationErrorScope(StrEnum):
+    """Domain-level classification of a validation error.
+
+    Defined at the API layer alongside ValidationActionType.
+    The core engine (FlowValidator, operators) has no knowledge of this —
+    it only produces message_code values. The API layer maps those to scope,
+    then scope to action_type, keeping the engine 100% UI-agnostic.
+
+    TOPOLOGY_WIRING  — structural / wiring errors: disconnected nodes, wrong
+                       operator ordering, cycles. The node exists on the canvas
+                       but is wired incorrectly.
+    NODE_CONFIG      — configuration errors inside a node's properties panel:
+                       missing or invalid parameter values.
+    FLOW_LEVEL       — errors that don't map to a single node: malformed flow
+                       JSON, missing DAG key, etc. No canvas target exists.
+    """
+
+    TOPOLOGY_WIRING = "topology_wiring"
+    NODE_CONFIG = "node_config"
+    FLOW_LEVEL = "flow_level"
+
+
+# Maps scope → UI action.  Only one place needs to change if the UI design evolves.
+_SCOPE_TO_ACTION_TYPE: dict[ValidationErrorScope, ValidationActionType] = {
+    ValidationErrorScope.TOPOLOGY_WIRING: ValidationActionType.HIGHLIGHT,
+    ValidationErrorScope.NODE_CONFIG: ValidationActionType.OPEN_PROPERTIES,
+    ValidationErrorScope.FLOW_LEVEL: ValidationActionType.NONE,
+}
+
+# Maps every known message_code to its domain scope.
+# Codes not listed here default to ValidationErrorScope.FLOW_LEVEL.
+_MESSAGE_CODE_TO_SCOPE: dict[str, ValidationErrorScope] = {
+    # --- topology / wiring errors ---
+    "DISJOINT_OPERATORS_DETECTED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "OPERATOR_NAME_REPEATED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "INGEST_OPERATOR_MISPLACED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "GENERATE_OUTPUT_MISSING": ValidationErrorScope.TOPOLOGY_WIRING,
+    "MULTIPLE_EXTRACTED_DETECTED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "MULTIPLE_ACL_OPERATORS": ValidationErrorScope.TOPOLOGY_WIRING,
+    "ACL_OPERATOR_NO_INPUT": ValidationErrorScope.TOPOLOGY_WIRING,
+    "ACL_MULTIPLE_PARENTS": ValidationErrorScope.TOPOLOGY_WIRING,
+    "ACL_OPERATOR_MISPLACED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "STORAGE_OUTPUT_REQUIRES_INGEST_SOURCE": ValidationErrorScope.TOPOLOGY_WIRING,
+    "CYCLIC_DEPENDENCY_DETECTED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "DAG_CYCLE_DETECTED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "OPERATOR_NOT_AVAILABLE": ValidationErrorScope.TOPOLOGY_WIRING,
+    "CHUNKER_OPERATOR_MISPLACED": ValidationErrorScope.TOPOLOGY_WIRING,
+    "CHUNKER_OPERATOR_MISSING": ValidationErrorScope.TOPOLOGY_WIRING,
+    "MISSING_FEATURES": ValidationErrorScope.TOPOLOGY_WIRING,
+    "MISSING_COLUMNS": ValidationErrorScope.TOPOLOGY_WIRING,
+    # --- node config / properties errors ---
+    "ACL_INVALID_PROVIDER": ValidationErrorScope.NODE_CONFIG,
+    "OPERATOR_VALIDATION_FAILED": ValidationErrorScope.NODE_CONFIG,
+    "RENAMING_MANDATORY_FEATURES": ValidationErrorScope.NODE_CONFIG,
+    "CHUNKER_INVALID_CHUNK_TYPE": ValidationErrorScope.NODE_CONFIG,
+    "CHUNKER_INVALID_CHUNK_SIZE_TYPE": ValidationErrorScope.NODE_CONFIG,
+    "CHUNKER_INVALID_CHUNK_OVERLAP_TYPE": ValidationErrorScope.NODE_CONFIG,
+    "CHUNK_OVERLAP_EXCEEDS_THRESHOLD": ValidationErrorScope.NODE_CONFIG,
+    "CHUNKER_INVALID_RETAIN_ORIGINAL_CONTENT_TYPE": ValidationErrorScope.NODE_CONFIG,
+    "DOCLING_SERVE_BASE_URL_REQUIRED": ValidationErrorScope.NODE_CONFIG,
+    "DOCLING_SERVE_TIMEOUT_INVALID": ValidationErrorScope.NODE_CONFIG,
+    "DOCLING_SERVE_POLL_INTERVAL_INVALID": ValidationErrorScope.NODE_CONFIG,
+    "DOCLING_SERVE_MAX_RETRIES_INVALID": ValidationErrorScope.NODE_CONFIG,
+    "DOCLING_SERVE_CHUNK_TYPE_MISMATCH": ValidationErrorScope.NODE_CONFIG,
+    "MERGE_INPUT_LINKS_INSUFFICIENT": ValidationErrorScope.NODE_CONFIG,
+    "MERGE_TYPE_NOT_PROVIDED": ValidationErrorScope.NODE_CONFIG,
+    "INVALID_MERGE_TYPE": ValidationErrorScope.NODE_CONFIG,
+    "MERGE_COLUMN_OPTION_NOT_PROVIDED": ValidationErrorScope.NODE_CONFIG,
+    "MERGE_INVALID_COLUMN_OPTION": ValidationErrorScope.NODE_CONFIG,
+    "SQL_FILTER_ID_DROP_ATTEMPTED": ValidationErrorScope.NODE_CONFIG,
+    "SQL_FILTER_CONTENT_DROP_ATTEMPTED": ValidationErrorScope.NODE_CONFIG,
+    "SQL_FILTER_PAGES_DROP": ValidationErrorScope.NODE_CONFIG,
+    "SQL_FILTER_INVALID_COLUMN": ValidationErrorScope.NODE_CONFIG,
+    # --- flow-level errors (no navigable node) ---
+    "PIPELINE_NOT_FOUND_ERROR": ValidationErrorScope.FLOW_LEVEL,
+    "DAG_PIPELINE_MISSING": ValidationErrorScope.FLOW_LEVEL,
+    "INVALID_FLOW_NODE_ID": ValidationErrorScope.FLOW_LEVEL,
+    "INVALID_FLOW_NODE_OPERATOR": ValidationErrorScope.FLOW_LEVEL,
+    "INVALID_FLOW_WRAPPER": ValidationErrorScope.FLOW_LEVEL,
+    "MISSING_NODE_ID": ValidationErrorScope.FLOW_LEVEL,
+    "MISSING_NODE_NAME": ValidationErrorScope.FLOW_LEVEL,
+    "MISSING_OPERATOR_NAME": ValidationErrorScope.FLOW_LEVEL,
+    "OPERATOR_CATEGORY_UNKNOWN": ValidationErrorScope.FLOW_LEVEL,
+}
+
+
+def get_validation_action_type(
+    message_code: str | None,
+    node_id: str | None = None,
+    operator: str | None = None,
+) -> ValidationActionType:
+    """Return the UI navigation action for a given validation message_code.
+
+    Resolution order:
+    1. Exact match in _MESSAGE_CODE_TO_SCOPE — handles all known topology,
+       config, and flow-level codes explicitly.
+    2. Heuristic fallback for unknown/future codes: if the alert is attached
+       to a specific node (node_id or operator present) it almost certainly
+       belongs to that node's property configuration → open_properties.
+    3. No node context at all → true flow-level error → none.
+    """
+    # 1. Exact match in explicit scope mapping.
+    if message_code and message_code in _MESSAGE_CODE_TO_SCOPE:
+        scope = _MESSAGE_CODE_TO_SCOPE[message_code]
+        return _SCOPE_TO_ACTION_TYPE[scope]
+
+    # 2. Node-scoped unknown/future code → treat as properties error.
+    if node_id or operator:
+        return ValidationActionType.OPEN_PROPERTIES
+
+    # 3. No node context → flow-level error.
+    return ValidationActionType.NONE
+
+
 class ValidationAlertDTO(BaseModel):
     """DTO for a single validation alert (error or warning).
 
     Represents issues found during flow validation such as missing features,
     invalid operator configurations, or incompatible operator sequences.
 
-    Matches the structure of ValidationAlert from docpipe_exceptions.py.
+    ``action_type`` is a UI-only navigation hint derived from ``message_code``
+    at the API boundary via ``get_validation_action_type()``.  It is never
+    present in core validation models (ValidationMessage, ValidationAlert).
     """
 
     code: str | None = Field(
@@ -985,31 +1114,52 @@ class ValidationAlertDTO(BaseModel):
         max_length=200,
         examples=["ExtractOperator", "Chunker"],
     )
+    action_type: ValidationActionType = Field(
+        default=ValidationActionType.NONE,
+        description=(
+            "UI navigation hint. Tells the frontend what action to take when the user "
+            "clicks this alert. 'highlight' — highlight the affected node on the canvas; "
+            "'open_properties' — open the node's properties panel; "
+            "'none' — no specific navigation action (flow-level errors)."
+        ),
+        examples=["highlight", "open_properties", "none"],
+    )
 
-    # Allow extra fields to match ValidationAlert's **kwargs behavior
     model_config = ConfigDict(
         extra="allow",
         json_schema_extra={
             "examples": [
                 {
+                    "code": "DISJOINT_OPERATORS_DETECTED",
+                    "message": "Flow contains disconnected operators.",
+                    "message_code": "DISJOINT_OPERATORS_DETECTED",
+                    "node_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "node_name": "Chunk Content",
+                    "operator": "chunker",
+                    "action_type": "highlight",
+                },
+                {
                     "code": "MISSING_REQUIRED_FEATURE",
                     "message": "Required feature 'content' not available for operator 'chunker'",
                     "message_code": "MISSING_REQUIRED_FEATURE",
-                    "node_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "node_name": "Chunk Content",
-                    "operator": "Chunker",
-                },
-                {
-                    "code": "INVALID_OPERATOR_CONFIG",
-                    "message": "Embeddings operator should come after chunker for better performance",
-                    "message_code": "SUBOPTIMAL_OPERATOR_SEQUENCE",
                     "node_id": "550e8400-e29b-41d4-a716-446655440001",
                     "node_name": "Generate Embeddings",
                     "operator": "EmbeddingsOperator",
+                    "action_type": "open_properties",
                 },
             ]
         },
     )
+
+    @model_validator(mode="after")
+    def derive_action_type(self) -> "ValidationAlertDTO":
+        if self.action_type == ValidationActionType.NONE:
+            self.action_type = get_validation_action_type(
+                message_code=self.message_code,
+                node_id=self.node_id,
+                operator=self.operator,
+            )
+        return self
 
 
 class FlowValidationResponse(BaseModel):

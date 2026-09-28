@@ -143,7 +143,7 @@ class TestFilesystemIncrementalMetadataStore:
 
         table = pq.read_table(parquet_path)
         assert table.num_rows == 2
-        assert set(table["doc_id"].to_pylist()) == {"doc-1", "doc-2"}
+        assert set(table["id"].to_pylist()) == {"doc-1", "doc-2"}
 
     def test_filesystem_schema_validation(self, *, store, sample_records, tmp_path):
         """Test that filesystem Parquet file has correct schema."""
@@ -152,7 +152,7 @@ class TestFilesystemIncrementalMetadataStore:
         parquet_path = tmp_path / "job-1" / "inc_update_metadata" / "inc_update_metadata.parquet"
         table = pq.read_table(parquet_path)
 
-        expected_fields = {"job_id", "doc_id", "name", "modified_time", "job_run_id", "deleted"}
+        expected_fields = {"job_id", "id", "name", "modified_time", "job_run_id", "deleted"}
         actual_fields = set(table.schema.names)
         assert actual_fields == expected_fields
 

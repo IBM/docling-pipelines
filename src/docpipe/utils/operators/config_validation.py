@@ -7,6 +7,44 @@ operator ATTRIBUTES structures to validate configurations.
 from docpipe.core.constants import AttributeDataTypes, OperatorConstants
 
 
+def _validate_provider_config_keys(
+    *,
+    provider_config: dict,
+    provider_schemas: dict,
+    active_provider: str,
+    full_path: str,
+    errors: list[str],
+) -> None:
+    """Validate keys in provider_config against the schema for the active provider.
+
+    For providers with ``allow_extra_keys: True`` in their schema, unknown keys are
+    silently skipped (e.g. litellm, which accepts **kwargs passthrough). For all
+    other providers, any key not declared in the provider schema's ``properties``
+    is flagged as an error.
+
+    Args:
+        provider_config: The provider_config dict from the operator config.
+        provider_schemas: The ``providers`` map from the attribute metadata.
+        active_provider: The provider name read from the sibling ``provider`` field.
+        full_path: Dot-separated config path used in error messages.
+        errors: List to append validation errors to.
+    """
+    schema = provider_schemas.get(active_provider)
+    if not schema or not isinstance(schema, dict):
+        return
+
+    known_keys = set(schema.get(OperatorConstants.Config.PROPERTIES, {}).keys())
+    allow_extra = schema.get(OperatorConstants.Config.ALLOW_EXTRA_KEYS, False)
+
+    if not allow_extra:
+        for key in provider_config:
+            if key not in known_keys:
+                errors.append(
+                    f"{full_path}: unknown key '{key}' for provider '{active_provider}'. "
+                    f"Valid keys: {sorted(known_keys)}"
+                )
+
+
 def validate_config_from_metadata(config: dict, attributes: dict, errors: list[str], path: str = "") -> None:
     """
     Generic validation function that introspects metadata ATTRIBUTES structure.
@@ -22,6 +60,8 @@ def validate_config_from_metadata(config: dict, attributes: dict, errors: list[s
     2. Checks if the attribute is marked as REQUIRED=True
     3. If required, validates the field exists in config
     4. For nested objects (TYPE="object" with PROPERTIES), recursively validates
+    5. For provider_config fields (TYPE="json" with PROVIDERS), validates keys
+       against the active provider's schema
     """
     for attr_key, attr_metadata in attributes.items():
         # Build the full path for error messages
@@ -55,3 +95,16 @@ def validate_config_from_metadata(config: dict, attributes: dict, errors: list[s
                 )
             elif is_required and not isinstance(attr_value, dict):
                 errors.append(f"{full_path} must be a dictionary")
+
+            # Validate provider_config keys against the active provider's schema
+            provider_schemas = attr_metadata.get(OperatorConstants.Config.PROVIDERS)
+            if provider_schemas and isinstance(attr_value, dict):
+                active_provider = config.get(OperatorConstants.Config.PROVIDER)
+                if active_provider:
+                    _validate_provider_config_keys(
+                        provider_config=attr_value,
+                        provider_schemas=provider_schemas,
+                        active_provider=active_provider,
+                        full_path=full_path,
+                        errors=errors,
+                    )

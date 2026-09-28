@@ -80,39 +80,28 @@ def get_binary_content(
         >>> metadata = {"path": "/path/to/file.pdf"}
         >>> content = get_binary_content(doc_metadata=metadata, global_config={})
     """
-    try:
-        # Check if ingest_source configuration exists
-        ingest_source = global_config.get(OperatorConstants.Config.INGEST_SOURCE)
+    # Check if ingest_source configuration exists
+    ingest_source = global_config.get(OperatorConstants.Config.INGEST_SOURCE)
 
-        doc_name = doc_metadata.get("name") or doc_metadata.get("source_id") or doc_metadata.get("path", "unknown")
+    doc_name = doc_metadata.get("name") or doc_metadata.get("source_id") or doc_metadata.get("path", "unknown")
+    logger.debug(
+        "get_binary_content called for '%s': ingest_source_present=%s",
+        doc_name,
+        ingest_source is not None,
+    )
+
+    if ingest_source:
         logger.debug(
-            "get_binary_content called for '%s': ingest_source_present=%s",
+            "Using cloud source adapter for '%s', provider=%s",
             doc_name,
-            ingest_source is not None,
+            ingest_source.get(OperatorConstants.Config.PROVIDER),
         )
-
-        if ingest_source:
-            logger.debug(
-                "Using cloud source adapter for '%s', provider=%s",
-                doc_name,
-                ingest_source.get(OperatorConstants.Config.PROVIDER),
-            )
-            return _fetch_from_cloud_source(
-                doc_metadata=doc_metadata,
-                ingest_source=ingest_source,
-            )
-        logger.debug("Using local filesystem for '%s'", doc_name)
-        return _read_from_local_file(doc_metadata=doc_metadata)
-
-    except Exception as e:
-        doc_name = doc_metadata.get("name") or doc_metadata.get("source_id") or doc_metadata.get("path", "unknown")
-        logger.error(
-            "Failed to fetch binary content for document '%s': %s",
-            doc_name,
-            e,
-            exc_info=True,
+        return _fetch_from_cloud_source(
+            doc_metadata=doc_metadata,
+            ingest_source=ingest_source,
         )
-        return None
+    logger.debug("Using local filesystem for '%s'", doc_name)
+    return _read_from_local_file(doc_metadata=doc_metadata)
 
 
 def get_adapter_for_provider(
@@ -196,8 +185,8 @@ def _fetch_from_cloud_source(
     from docpipe.core.operators.operator_utils import resolve_env_var
 
     provider = ingest_source.get(OperatorConstants.Config.PROVIDER)
-    connection_params = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
-    credentials = ingest_source.get(OperatorConstants.Config.CREDENTIALS, {})
+    connection_params = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS) or {}
+    credentials = ingest_source.get(OperatorConstants.Config.CREDENTIALS) or {}
 
     if not provider:
         logger.error("Missing '%s' in ingest_source configuration", OperatorConstants.Config.PROVIDER)
@@ -241,22 +230,19 @@ def _fetch_from_cloud_source(
         logger.error("No adapter registered for provider: %s", provider)
         return None
 
-    try:
-        # Reuse cached adapter instance so its internal auth caches (tokens, Drive
-        # services, Box clients) persist across all documents in a batch.
-        if provider not in _adapter_cache:
-            _adapter_cache[provider] = SourceAdapterFactory.create(provider)
-        adapter = _adapter_cache[provider]
+    # Reuse cached adapter instance so its internal auth caches (tokens, Drive
+    # services, Box clients) persist across all documents in a batch.
+    if provider not in _adapter_cache:
+        _adapter_cache[provider] = SourceAdapterFactory.create(provider)
+    adapter = _adapter_cache[provider]
 
-        # Call adapter's fetch_binary_content method with resolved credentials
-        return adapter.fetch_binary_content(
-            source_id=source_id,
-            connection_params=resolved_connection_params,
-            credentials=resolved_credentials,
-        )
-    except Exception as e:
-        logger.error("Failed to fetch binary content using %s adapter: %s", provider, e, exc_info=True)
-        return None
+    # Call adapter's fetch_binary_content method with resolved credentials.
+    # Let exceptions propagate so callers can record the real error reason.
+    return adapter.fetch_binary_content(
+        source_id=source_id,
+        connection_params=resolved_connection_params,
+        credentials=resolved_credentials,
+    )
 
 
 def _read_from_local_file(
@@ -281,29 +267,21 @@ def _read_from_local_file(
     file_path = doc_metadata.get("path") or doc_metadata.get("source") or doc_metadata.get("source_id")
 
     if not file_path:
-        logger.error("Document metadata missing 'path', 'source', or 'source_id' for local file reading")
-        return None
+        raise ValueError("Document metadata missing 'path', 'source', or 'source_id' for local file reading")
 
-    try:
-        # Parse file:// URLs to extract actual path
-        if isinstance(file_path, str) and file_path.startswith("file://"):
-            parsed = urlparse(file_path)
-            file_path = unquote(parsed.path)
+    # Parse file:// URLs to extract actual path
+    if isinstance(file_path, str) and file_path.startswith("file://"):
+        parsed = urlparse(file_path)
+        file_path = unquote(parsed.path)
 
-        path = Path(file_path)
+    path = Path(file_path)
 
-        if not path.exists():
-            logger.error("Local file not found: %s", file_path)
-            return None
+    if not path.exists():
+        raise FileNotFoundError(f"Local file not found: {file_path}")
 
-        if not path.is_file():
-            logger.error("Path is not a file: %s", file_path)
-            return None
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {file_path}")
 
-        # Read binary content
-        with Path(path).open("rb") as f:
-            return f.read()
-
-    except Exception as e:
-        logger.error("Failed to read local file '%s': %s", file_path, e, exc_info=True)
-        return None
+    # Read binary content — let OS errors (PermissionError, etc.) propagate
+    with Path(path).open("rb") as f:
+        return f.read()

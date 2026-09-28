@@ -76,6 +76,12 @@ CONTAINER_KIND_MAX_LENGTH = 50
 ACCOUNT_ID_MIN_LENGTH = 1
 ACCOUNT_ID_MAX_LENGTH = 256
 
+# Custom Operator Field Lengths
+OPERATOR_SHORT_NAME_MIN_LENGTH = 1
+OPERATOR_SHORT_NAME_MAX_LENGTH = 128
+OPERATOR_FILE_MIN_LENGTH = 1
+OPERATOR_FILE_MAX_LENGTH = 255
+
 # Document ID Lists
 DOCS_IDS_LISTS_MIN_LENGTH = 0
 DOCS_IDS_LISTS_MAX_LENGTH = 100000  # Max number of document IDs in lists
@@ -157,7 +163,7 @@ TOTAL_PAGES_DESC = "Total number of pages processed"
 PAGE_TYPE_STATS_DESC = "Page type statistics"
 
 # Execution Context Descriptions
-ORCHESTRATOR_DESC = "Orchestrator type used for execution (Python, Spark, etc.)"
+ORCHESTRATOR_DESC = "Orchestrator type used for execution (e.g., Python)"
 CONTAINER_TYPE_DESC = "Container type (PROJECT, SPACE, etc.)"
 CONTAINER_ID_DESC_JOB = "Container identifier"
 FLOW_ID_DESC_JOB = "Flow definition ID"

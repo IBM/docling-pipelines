@@ -55,7 +55,7 @@ The JWT config file should have this structure:
     "appAuth": {
       "publicKeyID": "your_key_id",
       "privateKey": "-----BEGIN ENCRYPTED PRIVATE KEY-----\n...\n-----END ENCRYPTED PRIVATE KEY-----\n",
-      "passphrase": "<your-private-key-passphrase>"
+      "passphrase": "your_passphrase"
     }
   },
   "enterpriseID": "your_enterprise_id"

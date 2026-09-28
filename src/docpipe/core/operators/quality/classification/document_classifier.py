@@ -106,7 +106,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
     """
 
     short_name: str = OperatorConstants.Misc.DOCUMENT_CLASSIFIER
-    category: OperatorCategory = OperatorCategory.Functional
+    category: OperatorCategory = OperatorCategory.Quality
     owner = DocpipeConstants.OWNER_DOCPIPE
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -471,7 +471,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         skipped_indices = set()  # Track indices skipped due to unsupported extensions
 
         if doc_column_exists:
-            # Use existing content column
+            # Use existing content column directly; LLM classifiers benefit from structured DocLang XML
             doc_contents = table.column(self.doc_column).to_pylist()
             # No extraction metadata available when content already exists
             doc_extraction_metadata = [None] * table.num_rows
@@ -805,6 +805,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Misc.NAME: "Document Types",
                     OperatorConstants.Config.DESCRIPTION: "List of document types or dictionary with descriptions",
                     OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: [],
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
                 OperatorConstants.Config.CONFIDENCE_THRESHOLD: {

@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -60,12 +60,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         from docpipe.cli.docpipe_cli import load_flow_definition
 
-        # Use a path relative to the repo root so it works regardless of cwd
-        repo_root = Path(__file__).parent.parent
-        filepath = str(repo_root / "sample_flows" / "quickstart" / "complete_pipeline_ollama.json")
-
-        if not Path(filepath).exists():
-            pytest.skip(f"Sample flow file not found: {filepath}")
+        filepath = "../../../sample_flows/quickstart/complete_pipeline_ollama.json"
 
         original_flow, flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None
@@ -86,59 +81,68 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         with self.assertRaises(FlowValidationException):
             run_command_line_executor(flow_def=invalid_flow_def)
 
-    def test_file_not_found_exception(self):
+    @patch("builtins.open")
+    def test_file_not_found_exception(self, mock_open):
         """
         Test handling of FileNotFoundError in load_flow_definition
         """
+        # Mock open to raise FileNotFoundError
+        mock_open.side_effect = FileNotFoundError("File not found")
+
+        # Use a non-existent file path
         file_path = "non_existent_file.json"
 
-        # load_flow_definition raises FileNotFoundError directly — verify it propagates
-        with pytest.raises(FileNotFoundError):
+        # Test with sys.exit patched to avoid test termination
+        with patch("sys.exit") as mock_exit:
             load_flow_definition(file_path=file_path)
+            # Verify that sys.exit was called with exit code 1
+            mock_exit.assert_called_once_with(1)
 
     def test_invalid_json_exception(self):
         """
         Test handling of invalid JSON in load_flow_definition
         """
-        import json
-
         # Create a temporary file with invalid JSON content
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_file:
             temp_file.write("{ This is not valid JSON }")
             temp_file_path = temp_file.name
 
         try:
-            # load_flow_definition raises JSONDecodeError directly — verify it propagates
-            with pytest.raises(json.JSONDecodeError):
+            # Test with sys.exit patched to avoid test termination
+            with patch("sys.exit") as mock_exit:
                 load_flow_definition(file_path=temp_file_path)
+                # Verify that sys.exit was called with exit code 1
+                mock_exit.assert_called_once_with(1)
         finally:
+            # Clean up the temporary file
             Path(temp_file_path).unlink()
 
-    def test_flow_execution_failure(self):
+    @patch("docpipe.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
+    def test_flow_execution_failure(self, mock_create_orchestrator):
         """
         Test handling of flow execution failure
         """
-        from docpipe.core.orchestration.flow_executor import FlowExecutor
+        # Create a mock orchestrator that raises an exception during execution
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.execute.side_effect = Exception("Flow execution failed")
+        mock_create_orchestrator.return_value = mock_orchestrator
 
-        # Create a simple flow definition with an unknown operator to force a validation error
+        # Create a simple flow definition
         flow_def = {
             "name": "test-flow-execution-failure",
             "dag": [
                 {
                     "id": "test-id",
                     "name": "test-operator",
-                    OperatorConstants.Misc.OPERATOR: "non_existent_operator_xyz",
+                    OperatorConstants.Misc.OPERATOR: "test-operator",
                     "config": {},
-                    "input_edges": [],
-                    "output_edges": [],
                 }
             ],
         }
 
-        # Patch FlowExecutor.execute to raise so the exception propagates out of run_command_line_executor
-        with patch.object(FlowExecutor, "execute", side_effect=Exception("Flow execution failed")):
-            with self.assertRaises(Exception):  # noqa: B017
-                run_command_line_executor(flow_def=flow_def)
+        # Test that the exception is propagated
+        with self.assertRaises(Exception):  # noqa: B017
+            run_command_line_executor(flow_def=flow_def)
 
     def test_merge_operator_flow(self):
         """
@@ -204,7 +208,7 @@ class TestSanitizeFlowNameForJobId:
     """
 
     @pytest.mark.parametrize(
-        "flow_name,expected",
+        ("flow_name", "expected"),
         [
             # Valid flow names - simple cases
             ("my-flow", "my-flow"),

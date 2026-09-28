@@ -209,11 +209,22 @@ class JobReportGenerator:
             )
             csv_content = generator.generate_csv_content()
 
+            if not csv_content:
+                logger.warning("Report generation skipped for job run %s - no document data available", job_run_id)
+                raise JobRunOperationFailedException(
+                    message="No document data found for this job run. The job may not have processed any documents.",
+                    job_run_id=job_run_id,
+                    operation="generate_report",
+                    status_code=422,
+                )
+
             # Save to file for future requests (pass content to avoid generating twice)
             generator.save_report_to_file(csv_content=csv_content)
 
             logger.info("On-demand report generated and saved for job run: %s", job_run_id)
 
+        except JobRunOperationFailedException:
+            raise
         except Exception as e:
             logger.error("Failed to generate report on-demand for %s: %s", job_run_id, e, exc_info=True)
             raise JobRunOperationFailedException(
@@ -270,15 +281,17 @@ class JobReportGenerator:
         Generate CSV content as a string.
 
         Returns:
-            CSV content as string
+            CSV content as string, or empty string if no document data was
+            found for this job run. Callers must check for an empty return
+            value and skip persisting to storage.
         """
         logger.debug("Generating CSV content")
 
         report_data = self.generate_report_data()
 
         if not report_data:
-            # Return empty CSV with headers
-            return ",".join(self.HEADERS) + "\n"
+            logger.warning("No document data found for this job run - skipping report generation")
+            return ""
 
         output = io.StringIO()
         writer = csv.DictWriter(output, fieldnames=self.HEADERS)
@@ -833,12 +846,12 @@ class JobReportGenerator:
         logger.info(f"Ingest data retrieved: {len(ingest_data)} documents")
 
         if not ingest_data:
-            error_msg = (
-                f"No documents found in ingest parquet file for node {ingest_node_id}. "
-                f"Ensure the flow completed successfully and generated parquet output files."
+            logger.warning(
+                "No documents found in ingest parquet file for node %s. "
+                "Ensure the flow completed successfully and generated parquet output files.",
+                ingest_node_id,
             )
-            logger.warning(error_msg)
-            raise ValueError(error_msg)
+            return all_docs
 
         # Initialize documents from parquet data
         for doc_id, row_data in ingest_data.items():

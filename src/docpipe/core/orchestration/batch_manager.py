@@ -66,6 +66,52 @@ class BatchManager:
             batch_size = int(batch_size)
         return batching_enabled, batch_size
 
+    def _batches_by_record_count(self, *, table: pa.Table, batch_size: int) -> list[BatchInfo]:
+        """Fallback: split table into fixed-size record-count chunks, skipping empty batches."""
+        batches = []
+        batch_num = 0
+        for batch in table.to_batches(max_chunksize=batch_size):
+            batch_table = pa.Table.from_batches([batch])
+            if batch_table.num_rows == 0:  # pragma: no cover
+                self.logger.debug(f"Skipping empty batch at position {batch_num}")
+                continue
+            batches.append(BatchInfo(batch_id=str(uuid.uuid4()), batch_num=batch_num, table=batch_table))
+            batch_num += 1
+        return batches
+
+    def _batches_by_round_robin(self, *, table: pa.Table, num_batches: int, num_rows: int) -> list[BatchInfo]:
+        """Round-robin distribution used when all file sizes are zero."""
+        result_batches = []
+        batch_num = 0
+        for batch_idx in range(num_batches):
+            indices = list(range(batch_idx, num_rows, num_batches))
+            if indices:
+                batch_table = table.take(indices)
+                if batch_table.num_rows == 0:  # pragma: no cover
+                    continue
+                result_batches.append(BatchInfo(batch_id=str(uuid.uuid4()), batch_num=batch_num, table=batch_table))
+                batch_num += 1
+        return result_batches
+
+    def _batches_from_assignments(
+        self, *, table: pa.Table, batch_assignments: Any, num_batches: int
+    ) -> list[BatchInfo]:
+        """Convert greedy bin-pack assignments into BatchInfo objects, skipping empty batches."""
+        import numpy as np
+
+        result_batches = []
+        batch_num = 0
+        for batch_idx in range(num_batches):
+            batch_indices: Any = np.nonzero(batch_assignments == batch_idx)[0]
+            if len(batch_indices) > 0:
+                batch_table = table.take(batch_indices.tolist())
+                if batch_table.num_rows == 0:  # pragma: no cover
+                    self.logger.debug(f"Skipping empty batch at index {batch_idx}")
+                    continue
+                result_batches.append(BatchInfo(batch_id=str(uuid.uuid4()), batch_num=batch_num, table=batch_table))
+                batch_num += 1
+        return result_batches
+
     def create_batches(self, *, table: pa.Table, batch_size: int) -> list[BatchInfo]:
         """
         Split a PyArrow table into batches based on file size for balanced workload distribution.
@@ -100,23 +146,7 @@ class BatchManager:
                 f"SIZE column not found in table. Falling back to record-count batching. "
                 f"Available columns: {table.column_names}"
             )
-            # Fallback to record-count batching with empty-batch filtering
-            batches = []
-            batch_num = 0
-            for batch in table.to_batches(max_chunksize=batch_size):
-                batch_table = pa.Table.from_batches([batch])
-
-                # Filter out empty batches
-                if batch_table.num_rows == 0:
-                    self.logger.debug(f"Skipping empty batch at position {batch_num}")
-                    continue
-
-                # Generate UUID batch_id for retained batch
-                batch_id = str(uuid.uuid4())
-                batches.append(BatchInfo(batch_id=batch_id, batch_num=batch_num, table=batch_table))
-                batch_num += 1
-
-            return batches
+            return self._batches_by_record_count(table=table, batch_size=batch_size)
 
         # Calculate number of batches based on batch_size
         num_batches = max(1, (num_rows + batch_size - 1) // batch_size)
@@ -133,20 +163,7 @@ class BatchManager:
         # Handle edge case: all files have zero size
         if total_size == 0:
             self.logger.warning("All files have zero size. Using simple round-robin distribution.")
-            # Simple round-robin: create batches directly using take() to preserve schema
-            result_batches = []
-            batch_num = 0
-            for batch_idx in range(num_batches):
-                indices = list(range(batch_idx, num_rows, num_batches))
-                if indices:
-                    batch_table = table.take(indices)
-                    # Filter out empty batches
-                    if batch_table.num_rows == 0:
-                        continue
-                    batch_id = str(uuid.uuid4())
-                    result_batches.append(BatchInfo(batch_id=batch_id, batch_num=batch_num, table=batch_table))
-                    batch_num += 1
-            return result_batches
+            return self._batches_by_round_robin(table=table, num_batches=num_batches, num_rows=num_rows)
 
         # Create index array and sort by size (largest first) for better bin-packing
         sorted_indices = np.argsort(-size_array)  # Negative for descending order
@@ -176,23 +193,7 @@ class BatchManager:
         )
 
         # Convert to BatchInfo objects using take() which preserves schema exactly
-        result_batches = []
-        batch_num = 0
-        for batch_idx in range(num_batches):
-            # Get indices for this batch (maintains original order)
-            batch_indices: Any = np.nonzero(batch_assignments == batch_idx)[0]
-            if len(batch_indices) > 0:
-                batch_table = table.take(batch_indices.tolist())
-                # Filter out empty batches
-                if batch_table.num_rows == 0:
-                    self.logger.debug(f"Skipping empty batch at index {batch_idx}")
-                    continue
-                # Generate UUID batch_id for retained batch
-                batch_id = str(uuid.uuid4())
-                result_batches.append(BatchInfo(batch_id=batch_id, batch_num=batch_num, table=batch_table))
-                batch_num += 1
-
-        return result_batches
+        return self._batches_from_assignments(table=table, batch_assignments=batch_assignments, num_batches=num_batches)
 
     def prepare_batches(
         self, *, ingested_table: pa.Table, global_config: dict, common_log_arguments: dict | None = None

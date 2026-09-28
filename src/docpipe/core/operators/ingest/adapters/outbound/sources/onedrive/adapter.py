@@ -115,7 +115,8 @@ class OneDriveSourceAdapter(DocumentSourcePort):
 
         file_id = extract_msgraph_file_id_from_url(file_path)
         if not file_id:
-            raise ValueError(f"Could not extract file ID from URL: {file_path}")
+            msg = f"Could not extract file ID from URL: {file_path}"
+            raise ValueError(msg)
         logger.info("Extracted file ID from URL: %s", file_id)
         item_id, actual_drive_id = resolve_msgraph_file_id_to_item_id(
             file_id=file_id,
@@ -205,7 +206,8 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             )
             return data.get(OperatorConstants.Columns.ID)
         except Exception as e:
-            raise ValueError(f"Folder path '{folder_path}' not found in drive '{drive_id}': {e!s}") from e
+            msg = f"Folder path '{folder_path}' not found in drive '{drive_id}': {e!s}"
+            raise ValueError(msg) from e
 
     async def fetch_documents(self, config: OneDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
@@ -269,11 +271,11 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 yield document
 
         except ImportError as e:
-            raise ImportError(
-                "Microsoft Graph dependencies not installed. Install with: pip install msal requests"
-            ) from e
+            msg = "Microsoft Graph dependencies not installed. Install with: pip install msal requests"
+            raise ImportError(msg) from e
         except Exception as e:
-            raise ValueError(f"Failed to fetch documents from OneDrive: {e!s}") from e
+            msg = f"Failed to fetch documents from OneDrive: {e!s}"
+            raise ValueError(msg) from e
 
     async def test_connection(self, config: BaseModel) -> tuple[bool, str]:
         """
@@ -343,15 +345,19 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             bytes | None: Binary content of the OneDrive file, or None if not found or error occurred
         """
         try:
-            # Extract required parameters and resolve environment variables
+            credentials = credentials or {}
+            connection_params = connection_params or {}
+            # Extract required parameters and resolve environment variables.
+            # Fall back to connection_params so callers that store credentials
+            # there (instead of the dedicated credentials block) work too.
             # IMPORTANT: Prioritize drive_id from credentials (document metadata) over connection_params
             # This is crucial for SharePoint URLs where the resolved drive_id may differ from config
             drive_id = resolve_env_var(credentials.get("drive_id")) or resolve_env_var(
                 connection_params.get("drive_id")
             )
-            client_id = resolve_env_var(credentials.get("client_id"))
-            client_secret = resolve_env_var(credentials.get("client_secret"))
-            tenant_id = resolve_env_var(credentials.get("tenant_id"))
+            client_id = resolve_env_var(credentials.get("client_id") or connection_params.get("client_id"))
+            client_secret = resolve_env_var(credentials.get("client_secret") or connection_params.get("client_secret"))
+            tenant_id = resolve_env_var(credentials.get("tenant_id") or connection_params.get("tenant_id"))
 
             if not all([drive_id, client_id, client_secret, tenant_id]):
                 logger.error("Missing required parameters for OneDrive binary content fetch")
@@ -450,10 +456,15 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         if included_extensions is None:
             included_extensions = []
 
+        # Credential fields fall back to connection_params so flows built from operator
+        # metadata (which places all fields under connection_params) work alongside
+        # legacy flows that use a separate credentials dict.
         config_params = {
-            "client_id": resolve_env_var(credentials.get("client_id", "")),
-            "client_secret": resolve_env_var(credentials.get("client_secret", "")),
-            "tenant_id": resolve_env_var(credentials.get("tenant_id", "")),
+            "client_id": resolve_env_var(credentials.get("client_id") or connection_params.get("client_id", "")),
+            "client_secret": resolve_env_var(
+                credentials.get("client_secret") or connection_params.get("client_secret", "")
+            ),
+            "tenant_id": resolve_env_var(credentials.get("tenant_id") or connection_params.get("tenant_id", "")),
             "drive_id": resolve_env_var(connection_params.get("drive_id", "")),
             "folder_path": resolve_env_var(connection_params.get("folder_path")),
             "recursive": connection_params.get("recursive", True),

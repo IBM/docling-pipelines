@@ -26,7 +26,7 @@ logger = get_logger()
 
 
 class PythonOperatorExecutor(AbstractOperatorExecutor):
-    """Pythonoperatorexecutor."""
+    """Python operator executor that runs operators directly within the Python runtime."""
 
     def __init__(
         self,
@@ -38,6 +38,16 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
     ):
+        """Initialise the executor and build the operator factory.
+
+        Args:
+            name: Logical name for this executor node.
+            operator: Short name of the operator to resolve and run.
+            params: Configuration dictionary passed to the operator.
+            job_stats_service: Optional service for recording job statistics.
+            enable_custom_operators: Whether to load externally registered operators.
+            custom_operator_packages: Optional list of package names to load custom operators from.
+        """
         super().__init__(
             name=name,
             operator=operator,
@@ -50,6 +60,10 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             package_names=custom_operator_packages,
             enable_custom_operators=enable_custom_operators,
         )
+        # Cached operator instance — constructed once on first call, reused within this executor.
+        # An executor lives exactly one node execution (created per node per batch), so caching
+        # here carries no cross-batch state and needs no thread-safety guard.
+        self._operator_instance: AbstractOperator | None = None
 
     def _execute_impl(self, tables: pa.Table | dict[str, pa.Table] | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -95,12 +109,15 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
                 result = op.transform(table=pa.table({}), tables=tables)
             else:
                 result = op.transform(tables)
-                if len(op.output_features_to_drop) > 0:
-                    result[0][0] = OperatorUtils.drop_features_from_table(op.output_features_to_drop, result[0][0])
-                if len(op.updated_features) > 0:
-                    result[0][0] = OperatorUtils.rename_features_and_save_original(
+
+            if len(op.output_features_to_drop) > 0:
+                for i in range(len(result[0])):
+                    result[0][i] = OperatorUtils.drop_features_from_table(op.output_features_to_drop, result[0][i])
+            if len(op.updated_features) > 0:
+                for i in range(len(result[0])):
+                    result[0][i] = OperatorUtils.rename_features_and_save_original(
                         updated_features=op.updated_features,
-                        input_features=result[0][0],
+                        input_features=result[0][i],
                     )
             metadata_copy = copy.deepcopy(result[1])
             # Handle empty documents after execution
@@ -144,6 +161,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             op._telemetry.end_span(span)
 
     def _handle_exception(self, *, op_logger, node_id, exception):
+        """Log the exception that occurred during operator transformation."""
         from docpipe.core.models.session_info import get_session_info
 
         # Log error with transaction id
@@ -153,26 +171,81 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             exc_info=True,
         )
 
+    @staticmethod
+    def _collect_vault_paths(obj: object, *, prefix: str = "") -> list[str]:
+        """Recursively collect JSON paths of vault references in an object."""
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference
+
+        if isinstance(obj, str) and is_vault_reference(obj):
+            return [prefix]
+        if isinstance(obj, dict):
+            found_dict: list[str] = []
+            for k, v in obj.items():
+                found_dict.extend(
+                    PythonOperatorExecutor._collect_vault_paths(v, prefix=f"{prefix}.{k}" if prefix else str(k))
+                )
+            return found_dict
+        if isinstance(obj, list):
+            found_list: list[str] = []
+            for i, item in enumerate(obj):
+                found_list.extend(PythonOperatorExecutor._collect_vault_paths(item, prefix=f"{prefix}[{i}]"))
+            return found_list
+        return []
+
+    def _resolve_operator_params(self) -> dict[str, Any]:
+        """Resolve any vault references in operator parameters."""
+        from docpipe.integrations.secrets.secret_provider import resolve_value
+
+        vault_paths = self._collect_vault_paths(self._params)
+        if not vault_paths:
+            return self._params
+
+        logger.info(
+            "Resolving vault references in operator '%s' config for paths: %s",
+            self._operator,
+            vault_paths,
+        )
+        resolved_params = resolve_value(self._params)
+        logger.info("Vault references resolved successfully for operator '%s'", self._operator)
+        return resolved_params
+
     def get_operator(self) -> AbstractOperator:
-        """Get operator."""
+        """Return this executor's operator, constructing it on first use.
+
+        The operator is built once and cached for the lifetime of this executor.
+        An executor is created per node per batch, so the cache is always
+        batch-scoped — no cross-batch state and no thread-safety concern.
+        """
+        if self._operator_instance is not None:
+            return self._operator_instance
+
         clazz = self.operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
             raise DocpipeException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")
-        from docpipe.integrations.secrets.secret_provider import is_vault_reference, resolve_value
 
-        vault_keys = (
-            [k for k, v in self._params.items() if is_vault_reference(v)] if isinstance(self._params, dict) else []
-        )
-        if vault_keys:
-            logger.info(
-                "Resolving vault references in operator '%s' config for keys: %s",
-                self._operator,
-                vault_keys,
-            )
-        resolved_params = resolve_value(self._params)
-        if vault_keys:
-            logger.info("Vault references resolved successfully for operator '%s'", self._operator)
-        return clazz(config=resolved_params)
+        resolved_params = self._resolve_operator_params()
+        self._operator_instance = clazz(config=resolved_params)
+        return self._operator_instance
+
+    def release(self) -> None:
+        """Release resources held by this executor's operator.
+
+        Called by the orchestrator once it has finished with the executor, so it
+        covers both the executed and the skipped path — a skipped operator has
+        still been constructed by ``get_operator()`` and may hold a model
+        reference (e.g. FastText).
+
+        The cached instance is dropped as well as cleaned, so a later
+        ``get_operator()`` rebuilds rather than returning a half-destroyed object.
+        Idempotent, and never raises.
+        """
+        op, self._operator_instance = self._operator_instance, None
+        if op is None or not hasattr(op, "cleanup"):
+            return
+        try:
+            op.cleanup()
+        except Exception:
+            logger.warning("operator cleanup failed for %s", self._operator, exc_info=True)
 
 
 # used for unit testing only

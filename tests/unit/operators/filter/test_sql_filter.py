@@ -403,6 +403,72 @@ def test_validate_rejects_drop_of_pages_processed_column():
     assert len(errors) > 0, "Expected a validation error for dropping 'pages_processed'"
 
 
+def test_validate_rejects_drop_of_allowed_users_column():
+    """Dropping the protected 'allowed_users' column should add a validation error."""
+    operator = make_operator(
+        {
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.ACL.ALLOWED_USERS_COLUMN],
+        }
+    )
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features = ["id", "name", "content", "score", "language", "word_count", "allowed_users"]
+    operator.validate(errors, warnings, available_features)
+
+    assert len(errors) > 0, "Expected a validation error for dropping 'allowed_users'"
+
+
+def test_validate_rejects_drop_of_chunked_content_column():
+    """Dropping the protected 'chunked_content' column should add a validation error."""
+    operator = make_operator(
+        {
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.CHUNKED_CONTENT],
+        }
+    )
+    errors: list[str] = []
+    warnings: list[str] = []
+    available_features = ["id", "name", "content", "score", "language", "word_count", "chunked_content"]
+    operator.validate(errors, warnings, available_features)
+
+    assert len(errors) > 0, "Expected a validation error for dropping 'chunked_content'"
+
+
+def test_transform_raises_on_drop_of_allowed_users_column():
+    """Attempting to drop the protected 'allowed_users' column at runtime raises DocpipeException."""
+    table = pa.table(
+        {
+            "id": ["1", "2"],
+            "name": ["doc_1.txt", "doc_2.txt"],
+            "content": ["Document content 1", "Document content 2"],
+            "score": [2.0, 4.0],
+            "allowed_users": [["user_a"], ["user_b"]],
+        }
+    )
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.ACL.ALLOWED_USERS_COLUMN]}
+    )
+    with pytest.raises(DocpipeException):
+        operator._dpk_transform(table=table, metadata={})
+
+
+def test_transform_raises_on_drop_of_chunked_content_column():
+    """Attempting to drop the protected 'chunked_content' column at runtime raises DocpipeException."""
+    table = pa.table(
+        {
+            "id": ["1", "2"],
+            "name": ["doc_1.txt", "doc_2.txt"],
+            "content": ["Document content 1", "Document content 2"],
+            "score": [2.0, 4.0],
+            "chunked_content": [None, None],
+        }
+    )
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.CHUNKED_CONTENT]}
+    )
+    with pytest.raises(DocpipeException):
+        operator._dpk_transform(table=table, metadata={})
+
+
 # ---------------------------------------------------------------------------
 # 9. Column not found
 # ---------------------------------------------------------------------------

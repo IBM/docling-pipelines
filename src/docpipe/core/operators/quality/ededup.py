@@ -74,7 +74,6 @@ class EdedupOperator(AbstractOperator):
         deduplication transform that identifies and removes identical documents in a dataset by comparing them
         hash-for-hash to ensure exact matching.
         """
-
         logger.info(
             ">> Running Exact Deduplication Operation on Pyarrow tables as ededup_input",
             extra=self.common_log_arguments,

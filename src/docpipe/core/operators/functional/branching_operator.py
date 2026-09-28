@@ -214,7 +214,7 @@ class BranchingOperator(AbstractOperator):
         metadata[Metrics.External.SKIPPED_DOCS] = skipped_docs
         metadata[Metrics.External.FAILED_DOCS] = failed_docs
 
-    def runner(self, table: pa.Table, spark_session: Any | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+    def runner(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """Runner."""
         log_memory_usage(
             operator_name=self.name,
