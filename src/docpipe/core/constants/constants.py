@@ -21,16 +21,21 @@ def _find_project_root() -> Path:
     Examples:
         Container: /opt/app-root/src/docpipe -> /opt/app-root
         Local: /path/to/project/src/docpipe -> /path/to/project
+        Library consumer: process cwd when docling-pipelines-config.yaml is present there
     """
     current = Path(__file__).resolve()
-    # Search upward for docpipe package structure
+    # 1. Walk up — works for standalone docpipe project
     for parent in [current, *list(current.parents)]:
         # Check if this directory has the docpipe package structure
         if (parent / "integrations").exists() and (parent / "storage").exists() and (parent / "core").exists():
             # Return two levels up: docpipe -> src -> project_root
             return parent.parent.parent
 
-    # Last resort: use fixed parent count
+    # 2. Library consumer case — check the process working directory
+    if (Path.cwd() / "docling-pipelines-config.yaml").exists():
+        return Path.cwd()
+
+    # 3. Last resort: use fixed parent count
     # constants.py -> constants -> core -> docpipe -> src -> project_root
     return Path(__file__).resolve().parents[5]
 
@@ -521,7 +526,6 @@ class OrchestratorType:
     """Orchestratortype."""
 
     PYTHON = "python"
-    SPARK = "spark"
 
 
 class DataSourceType:

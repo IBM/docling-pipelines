@@ -76,6 +76,18 @@ class ErrorFormatter:
         lines.extend(self._build_exception_header(exception=exception))
         lines.extend(self._build_message_block(message=str(exception), indent=" "))
 
+        # Display per-node failure detail attached by _enrich_exception_from_job_stats.
+        # This recovers the operator-level error message that Prefect's task boundary
+        # serialisation would otherwise drop from the exception chain.
+        node_failures: dict[str, str] = getattr(exception, "node_failures", {})
+        if node_failures:
+            lines.append(" Failed operators:")
+            lines.append(f" {self.CARD_SEPARATOR}")
+            for node_name, node_error in node_failures.items():
+                lines.append(f"  [{node_name}]")
+                lines.extend(self._build_message_block(message=node_error, indent="  "))
+            lines.append(f" {self.CARD_SEPARATOR}")
+
         if isinstance(exception, DocpipeException):
             context_lines = self._extract_exception_context(exception=exception)
             if context_lines:
@@ -127,10 +139,13 @@ class ErrorFormatter:
 
     def _extract_exception_context(self, *, exception: Exception) -> list[str]:
         """Extract contextual information from DocpipeException attributes."""
+        # Exclude 'node_failures' — it is rendered in its own 'Failed operators' block above.
         context = {
             field_name: value
             for field_name, value in vars(exception).items()
-            if field_name not in {"args"} and not field_name.startswith("_") and self._has_display_value(value)
+            if field_name not in {"args", "node_failures"}
+            and not field_name.startswith("_")
+            and self._has_display_value(value)
         }
         return self._build_details_block(details=context)
 

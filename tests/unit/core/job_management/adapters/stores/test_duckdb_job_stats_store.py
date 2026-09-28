@@ -709,3 +709,88 @@ class TestDuckDBJobStatsStoreEdgePaths:
         with patch.object(store.connection_manager, "get_connection", side_effect=RuntimeError("no connection")):
             with pytest.raises(JobStatsStoreWriteException):
                 store.bulk_store_node_stats(job_run_id="nonexistent", node_stats_list=node_stats)
+
+
+class TestGetFailedDocsForBatch:
+    """Tests for get_failed_docs_for_batch."""
+
+    def test_returns_failed_doc_ids_for_matching_batch(self, *, store, sample_job_stats):
+        """Returns failed doc IDs only from the requested batch."""
+        job_run_id = "run-001"
+        batch_id = "batch-aaa"
+        other_batch_id = "batch-bbb"
+
+        sample_job_stats.job_run_id = job_run_id
+        store.store_job_stats(sample_job_stats)
+
+        from docpipe.core.constants.constants import ExecutionStatus
+        from docpipe.core.job_management.domain.models import NodeStats
+
+        ns_match = NodeStats(
+            id="node-1",
+            name="n1",
+            node_status=ExecutionStatus.COMPLETED,
+            batch_id=batch_id,
+            batch_num=0,
+            failed_docs=["doc-a", "doc-b"],
+        )
+        ns_other = NodeStats(
+            id="node-2",
+            name="n2",
+            node_status=ExecutionStatus.COMPLETED,
+            batch_id=other_batch_id,
+            batch_num=1,
+            failed_docs=["doc-c"],
+        )
+        store.store_node_stats(job_run_id=job_run_id, node_stats=ns_match)
+        store.store_node_stats(job_run_id=job_run_id, node_stats=ns_other)
+
+        result = store.get_failed_docs_for_batch(job_run_id=job_run_id, batch_id=batch_id)
+
+        assert sorted(result) == ["doc-a", "doc-b"]
+
+    def test_returns_empty_when_no_failed_docs(self, *, store, sample_job_stats):
+        """Returns empty list when batch has no failed docs."""
+        job_run_id = "run-002"
+        batch_id = "batch-ccc"
+
+        sample_job_stats.job_run_id = job_run_id
+        store.store_job_stats(sample_job_stats)
+
+        from docpipe.core.constants.constants import ExecutionStatus
+        from docpipe.core.job_management.domain.models import NodeStats
+
+        ns = NodeStats(
+            id="node-3",
+            name="n3",
+            node_status=ExecutionStatus.COMPLETED,
+            batch_id=batch_id,
+            batch_num=0,
+            failed_docs=[],
+        )
+        store.store_node_stats(job_run_id=job_run_id, node_stats=ns)
+
+        result = store.get_failed_docs_for_batch(job_run_id=job_run_id, batch_id=batch_id)
+
+        assert result == []
+
+    def test_returns_empty_for_unknown_batch(self, *, store, sample_job_stats):
+        """Returns empty list when batch_id doesn't exist."""
+        job_run_id = "run-003"
+
+        sample_job_stats.job_run_id = job_run_id
+        store.store_job_stats(sample_job_stats)
+
+        result = store.get_failed_docs_for_batch(job_run_id=job_run_id, batch_id="nonexistent-batch")
+
+        assert result == []
+
+    def test_raises_on_store_error(self, *, store):
+        """Raises JobStatsStoreReadException when the underlying query fails."""
+        from unittest.mock import patch
+
+        from docpipe.exceptions.docpipe_exceptions import JobStatsStoreReadException
+
+        with patch.object(store, "get_node_stats", side_effect=RuntimeError("db error")):
+            with pytest.raises(JobStatsStoreReadException):
+                store.get_failed_docs_for_batch(job_run_id="any", batch_id="any")

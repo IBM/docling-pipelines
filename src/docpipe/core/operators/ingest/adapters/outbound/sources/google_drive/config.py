@@ -19,16 +19,22 @@ class GoogleDriveSourceConfig(BaseModel):
 
     # OAuth credentials (for user authentication)
     credentials_path: str | None = Field(
-        None, description="Path to Google OAuth credentials JSON file (for OAuth flow)"
+        None,
+        description="Path to Google OAuth credentials JSON file (for OAuth flow)",
+        json_schema_extra={"sensitive": True},
     )
 
     token_path: str | None = Field(
-        None, description="Path to store OAuth token. If None, uses credentials_path directory"
+        None,
+        description="Path to store OAuth token. If None, uses credentials_path directory",
+        json_schema_extra={"sensitive": True},
     )
 
     # Service Account credentials (for server-to-server authentication)
     service_account_json_path: str | None = Field(
-        None, description="Path to Google Service Account JSON file (alternative to OAuth)"
+        None,
+        description="Path to Google Service Account JSON file (alternative to OAuth)",
+        json_schema_extra={"sensitive": True},
     )
 
     # Drive configuration

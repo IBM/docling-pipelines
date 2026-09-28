@@ -1,0 +1,26 @@
+---
+# Kubernetes Service — docpipe
+#
+# Exposes the FastAPI container (port 8080) as a ClusterIP service within the
+# cluster. The BFF runs as a sidecar on localhost:3001 inside the pod and does
+# not need its own Service — only FastAPI is accessed externally.
+#
+# For external access add an Ingress resource or change type to LoadBalancer.
+#
+# Usage:
+#   kubectl apply -f docker/k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: docpipe
+  labels:
+    app: docpipe
+spec:
+  type: ClusterIP
+  selector:
+    app: docpipe
+  ports:
+    - name: http
+      port: 80
+      targetPort: http       # references the named port on the container (8080)
+      protocol: TCP

@@ -274,6 +274,39 @@ class DuckDBDocumentSetStorage(DocumentSetStorage):
             )
 
     @classmethod
+    def from_config(cls, *, config: dict[str, Any]) -> "DuckDBDocumentSetStorage":
+        """Create a DuckDBDocumentSetStorage from a config dict.
+
+        Validates config, creates the TableStoragePort, and returns a fully
+        initialised instance.
+
+        Args:
+            config: Must contain a non-empty ``database_path`` string.
+
+        Returns:
+            Configured DuckDBDocumentSetStorage instance.
+
+        Raises:
+            DocpipeException: If config is invalid or storage creation fails.
+        """
+        from docpipe.storage import StorageFactory
+
+        errors = cls.validate_config(config=config)
+        if errors:
+            raise DocpipeException(
+                "; ".join(errors),
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        database_path = config[OperatorConstants.DocumentSet.DATABASE_PATH]
+        table_storage = StorageFactory.create_table_storage(
+            storage_type=OperatorConstants.DocumentSet.ADAPTER_DUCKDB,
+            database_path=database_path,
+        )
+        return cls(table_storage=table_storage, database_path=database_path)
+
+    @classmethod
     def validate_config(cls, *, config: dict[str, Any]) -> list[str]:
         """Validate DuckDB storage configuration.
 

@@ -113,7 +113,6 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-
         # Configuration mapping: (attribute_name, config_key, default_value)
         config_mappings = [
             # Detection configuration
@@ -172,6 +171,13 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         for attr_name, config_key, default_value in config_mappings:
             setattr(self, attr_name, config.get(config_key, default_value))
 
+        # Coerce numeric fields — global_config merging can inject them as strings
+        self.batch_size = int(self.batch_size)
+        self.min_chunk_size = int(self.min_chunk_size)
+        self.max_chunk_size = int(self.max_chunk_size)
+        self.pii_threshold = float(self.pii_threshold)
+        self.hap_threshold = float(self.hap_threshold)
+
         # Read model_name directly from provider_config
         self.model_name = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}).get(
             OperatorConstants.Config.MODEL_ID, "granite4"
@@ -212,10 +218,11 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
                 required_keys = ["api_key", "url", "container_kind", "container_id"]
                 missing_keys = [key for key in required_keys if key not in service_config]
                 if missing_keys:
-                    raise ValueError(
+                    msg = (
                         f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
                         f"Missing: {', '.join(missing_keys)}"
                     )
+                    raise ValueError(msg)
                 # Add default timeout if not specified
                 service_config.setdefault("timeout", 300)
 
@@ -228,13 +235,16 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
             )
 
             logger.info(
-                f"Successfully initialized {self.provider} PII/HAP service",
+                "Successfully initialized %s PII/HAP service",
+                self.provider,
                 extra=self.common_log_arguments,
             )
             return service
         except ValueError as e:
             logger.error(
-                f"Failed to initialize PII/HAP service for provider '{self.provider}': {e}",
+                "Failed to initialize PII/HAP service for provider '%s': %s",
+                self.provider,
+                e,
                 extra=self.common_log_arguments,
             )
             raise
@@ -242,15 +252,17 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
     def _validate_config(self) -> None:
         """Validate configuration values to ensure they are within acceptable ranges."""
         if not 0 <= self.pii_threshold <= 1:
-            raise ValueError(f"pii_threshold must be between 0 and 1, got {self.pii_threshold}")
+            msg = f"pii_threshold must be between 0 and 1, got {self.pii_threshold}"
+            raise ValueError(msg)
         if not 0 <= self.hap_threshold <= 1:
-            raise ValueError(f"hap_threshold must be between 0 and 1, got {self.hap_threshold}")
+            msg = f"hap_threshold must be between 0 and 1, got {self.hap_threshold}"
+            raise ValueError(msg)
         if self.batch_size <= 0:
-            raise ValueError(f"batch_size must be positive, got {self.batch_size}")
+            msg = f"batch_size must be positive, got {self.batch_size}"
+            raise ValueError(msg)
         if self.min_chunk_size > self.max_chunk_size:
-            raise ValueError(
-                f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
-            )
+            msg = f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
+            raise ValueError(msg)
 
     @staticmethod
     def _get_piihap_provider_schemas() -> dict[str, Any]:
@@ -313,6 +325,48 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
                 "pii_ssn_details": {
                     OperatorConstants.Misc.NAME: "SSN Details Count",
                     OperatorConstants.Config.DESCRIPTION: "Number of SSNs found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_person_name": {
+                    OperatorConstants.Misc.NAME: "Person Name Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Person Names found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_date_of_birth": {
+                    OperatorConstants.Misc.NAME: "Date of Birth Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Dates of Birth found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_address": {
+                    OperatorConstants.Misc.NAME: "Address Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Addresses found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_passport_number": {
+                    OperatorConstants.Misc.NAME: "Passport Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Passport Numbers found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_driver_license": {
+                    OperatorConstants.Misc.NAME: "Driver License Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Driver License Numbers found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_national_id": {
+                    OperatorConstants.Misc.NAME: "National ID Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of National IDs found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_medical_record": {
+                    OperatorConstants.Misc.NAME: "Medical Record Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Medical Record Numbers found in document",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
@@ -568,6 +622,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         remove_row_idx: list[int] = []
         remove_row_id: list[str] = []
+        # LLM-based PII/HAP detection may benefit from structured DocLang XML; pass content as-is
         new_doc_content = table[self.doc_column].to_pylist()
         name_column = table[OperatorConstants.Misc.NAME].to_pylist()
         id_column = table[OperatorConstants.Columns.ID].to_pylist()

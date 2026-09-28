@@ -17,11 +17,13 @@ class SharePointSourceConfig(BaseModel):
     """
 
     # Azure AD App Registration credentials (app-only authentication)
-    client_id: str = Field(..., description="Azure AD application (client) ID")
+    client_id: str = Field(..., description="Azure AD application (client) ID", json_schema_extra={"sensitive": True})
 
-    client_secret: str = Field(..., description="Azure AD application client secret")
+    client_secret: str = Field(
+        ..., description="Azure AD application client secret", json_schema_extra={"sensitive": True}
+    )
 
-    tenant_id: str = Field(..., description="Azure AD tenant (directory) ID")
+    tenant_id: str = Field(..., description="Azure AD tenant (directory) ID", json_schema_extra={"sensitive": True})
 
     # SharePoint configuration
     document_library_id: str = Field(..., description="SharePoint document library ID (drive ID in Microsoft Graph)")

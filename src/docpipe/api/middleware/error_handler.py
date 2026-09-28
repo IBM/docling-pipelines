@@ -20,7 +20,7 @@ from docpipe.api.dto.error_dto import (
     TargetType,
 )
 from docpipe.core.constants.constants import DocpipeConstants
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import DOCLING_PIPELINES_DOCS_URL, DocpipeException
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +180,19 @@ def validation_exception_handler(request: Request, exc: RequestValidationError) 
     )
 
 
+def _resolve_exception_target(exc: DocpipeException) -> ErrorTarget | None:
+    """Resolve an ErrorTarget from well-known attributes on a DocpipeException."""
+    for attr, target_type in (
+        (DocpipeConstants.FLOW_ID, TargetType.PARAMETER),
+        (DocpipeConstants.FIELD_NAME, TargetType.FIELD),
+        (DocpipeConstants.FLOW_NAME, TargetType.FIELD),
+    ):
+        value = getattr(exc, attr, None)
+        if value:
+            return ErrorTarget(type=target_type, name=value)
+    return None
+
+
 def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONResponse:
     """Handle DocpipeException and convert to REST API standard format.
 
@@ -233,20 +246,14 @@ def docpipe_exception_handler(request: Request, exc: DocpipeException) -> JSONRe
         )
 
     # Extract target information if available (for flow-specific exceptions)
-    target = None
-    if hasattr(exc, DocpipeConstants.FLOW_ID) and getattr(exc, DocpipeConstants.FLOW_ID, None):
-        target = ErrorTarget(type=TargetType.PARAMETER, name=DocpipeConstants.FLOW_ID)
-    elif hasattr(exc, DocpipeConstants.FIELD_NAME) and getattr(exc, DocpipeConstants.FIELD_NAME, None):
-        target = ErrorTarget(type=TargetType.FIELD, name=getattr(exc, DocpipeConstants.FIELD_NAME))
-    elif hasattr(exc, DocpipeConstants.FLOW_NAME) and getattr(exc, DocpipeConstants.FLOW_NAME, None):
-        target = ErrorTarget(type=TargetType.FIELD, name=DocpipeConstants.FLOW_NAME)
+    target = _resolve_exception_target(exc)
 
     return create_error_response(
         status_code=exc.status_code,
         error_code=api_error_code,  # type: ignore[arg-type]
         message=str(exc),
         trace_id=trace_id,
-        more_info=exc.more_info,
+        more_info=exc.more_info if exc.more_info is not None else DOCLING_PIPELINES_DOCS_URL,
         target=target,
     )
 

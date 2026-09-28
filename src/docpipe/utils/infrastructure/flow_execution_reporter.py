@@ -89,12 +89,19 @@ class FlowExecutionReporter:
         failed_count = len(node_stats.failed_docs)
         skipped_count = len(node_stats.skipped_docs)
 
+        has_failures = failed_count > 0
+        log = logger.error if has_failures else logger.info
+
         logger.info("")
-        logger.info("=" * 80)
-        logger.info(f" {step_name} ({status})")
-        logger.info("=" * 80)
-        logger.info(
-            f" Duration: {duration_str} | Documents: {completed_count} processed, {failed_count} failed, {skipped_count} skipped"
+        log("=" * 80)
+        log(" %s (%s)", step_name, status)
+        log("=" * 80)
+        log(
+            " Duration: %s | Documents: %s processed, %s failed, %s skipped",
+            duration_str,
+            completed_count,
+            failed_count,
+            skipped_count,
         )
 
         # Print schema information if available
@@ -124,28 +131,8 @@ class FlowExecutionReporter:
             return "< 1s"
         return f"{float(time_taken):.2f}s"
 
-    def _print_schema_info(self, *, col_names: list[str], step_name: str) -> None:
-        """Print schema/column information in a user-friendly format.
-
-        Args:
-            col_names: List of column names in the table
-            step_name: Name of the operator step (for context)
-        """
-        if not col_names:
-            return
-
-        # Get new columns added by this operator
-        new_columns = self._get_new_columns(col_names=col_names)
-        # Get removed columns (columns that were in previous but not in current)
-        removed_columns = self._get_removed_columns(col_names=col_names)
-        existing_columns = [col for col in col_names if col not in new_columns]
-
-        total_cols = len(col_names)
-        new_cols_count = len(new_columns)
-        removed_cols_count = len(removed_columns)
-
-        logger.info("")
-        # Build the header message based on what changed
+    def _log_column_change_header(self, *, total_cols: int, new_cols_count: int, removed_cols_count: int) -> None:
+        """Log the Data Columns header line reflecting what changed."""
         if new_cols_count > 0 and removed_cols_count > 0:
             logger.info(
                 f" Data Columns: {total_cols} total ({new_cols_count} added, {removed_cols_count} removed by this operator)"
@@ -157,25 +144,41 @@ class FlowExecutionReporter:
         else:
             logger.info(f" Data Columns: {total_cols} total")
 
-        # Show new columns with appropriate formatting
+    def _print_schema_info(self, *, col_names: list[str], step_name: str) -> None:
+        """Print schema/column information in a user-friendly format.
+
+        Args:
+            col_names: List of column names in the table
+            step_name: Name of the operator step (for context)
+        """
+        if not col_names:
+            return
+
+        new_columns = self._get_new_columns(col_names=col_names)
+        removed_columns = self._get_removed_columns(col_names=col_names)
+        existing_columns = [col for col in col_names if col not in new_columns]
+
+        total_cols = len(col_names)
+        new_cols_count = len(new_columns)
+        removed_cols_count = len(removed_columns)
+
+        logger.info("")
+        self._log_column_change_header(
+            total_cols=total_cols, new_cols_count=new_cols_count, removed_cols_count=removed_cols_count
+        )
+
         if new_columns:
             logger.info(f"   Added ({new_cols_count}):")
             self._print_column_list(new_columns)
-
-            # Add spacing before removed/existing columns
             if removed_columns or existing_columns:
                 logger.info("")
 
-        # Show removed columns with appropriate formatting
         if removed_columns:
             logger.info(f"   Removed ({removed_cols_count}):")
             self._print_column_list(removed_columns)
-
-            # Add spacing before existing columns
             if existing_columns:
                 logger.info("")
 
-        # Show existing columns if any
         if existing_columns:
             logger.info(f"   Existing ({len(existing_columns)}): {', '.join(existing_columns[:10])}")
             if len(existing_columns) > 10:
@@ -456,19 +459,21 @@ class FlowExecutionReporter:
             display_name = field.replace("_", " ").title()
             self._format_dict_field(display_name, value)
 
+    def _print_nested_dict_field(self, *, display_name: str, value: dict) -> None:
+        """Print a dict field that contains nested dict values."""
+        logger.info(f"   {display_name}:")
+        for k, v in value.items():
+            if isinstance(v, dict):
+                logger.info(f"      {k}:")
+                for nested_k, nested_v in v.items():
+                    logger.info(f"         {nested_k}: {nested_v}")
+            else:
+                logger.info(f"      {k}: {v}")
+
     def _format_dict_field(self, display_name: str, value: dict) -> None:
         """Format and print a dictionary field."""
-        has_nested_dicts = any(isinstance(v, dict) for v in value.values())
-
-        if has_nested_dicts:
-            logger.info(f"   {display_name}:")
-            for k, v in value.items():
-                if isinstance(v, dict):
-                    logger.info(f"      {k}:")
-                    for nested_k, nested_v in v.items():
-                        logger.info(f"         {nested_k}: {nested_v}")
-                else:
-                    logger.info(f"      {k}: {v}")
+        if any(isinstance(v, dict) for v in value.values()):
+            self._print_nested_dict_field(display_name=display_name, value=value)
         elif len(value) <= 10:
             formatted = ", ".join(f"{k}={v}" for k, v in value.items())
             logger.info(f"   {display_name}: {formatted}")
@@ -503,27 +508,31 @@ class FlowExecutionReporter:
                 self._print_generic_list(field, value)
 
     def _print_failed_skipped_docs(self, field: str, docs: list) -> None:
-        """Print failed or skipped documents."""
+        """Print failed or skipped documents.
+
+        Failed docs are printed at ERROR level so they surface regardless of DS_LOG_LEVEL.
+        Skipped docs remain at INFO level.
+        """
         if not docs:
             return
 
-        logger.info("")
-        logger.info(f" {field.replace('_', ' ').upper()} ({len(docs)} items):")
-        for item in docs[:10]:
+        is_failed = field == "failed_docs"
+        log = logger.error if is_failed else logger.info
+
+        log("")
+        log(" %s (%d items):", field.replace("_", " ").upper(), len(docs))
+        for item in docs:
             if isinstance(item, dict):
                 doc_id = item.get("id", "unknown")
                 reason = item.get("reason", "")
-                display_name = self._lookup_doc_name_from_table(doc_id) or doc_id
+                display_name = self._lookup_doc_name_from_table(doc_id) or item.get("name") or doc_id
 
                 if reason:
-                    logger.info(f"   - {display_name}: {reason}")
+                    log("   - %s: %s", display_name, reason)
                 else:
-                    logger.info(f"   - {display_name}")
+                    log("   - %s", display_name)
             else:
-                logger.info(f"   - {item}")
-
-        if len(docs) > 10:
-            logger.info(f"   ... and {len(docs) - 10} more")
+                log("   - %s", item)
 
     def _print_generic_list(self, field: str, value: list) -> None:
         """Print generic list field."""
@@ -538,6 +547,50 @@ class FlowExecutionReporter:
         else:
             logger.info(f"   {display_name}: []")
 
+    def _extract_name_from_row(self, *, table: Any, idx: int, search_id: str) -> str | None:
+        """Extract a usable display name from a matched row.
+
+        Tries the name then path columns; returns the first non-empty value
+        that is not the document ID itself.
+
+        Args:
+            table: PyArrow table containing the row
+            idx: Row index to inspect
+            search_id: The document ID string (excluded from results)
+
+        Returns:
+            Display name if found, None otherwise
+        """
+        for col_name in [OperatorConstants.Columns.NAME, OperatorConstants.Columns.PATH]:
+            if col_name in table.column_names:
+                name_value = table.column(col_name)[idx].as_py()
+                if name_value and str(name_value) != search_id:
+                    return name_value
+        return None
+
+    def _find_doc_name_in_table(self, *, table: Any, doc_id: str) -> str | None:
+        """Search a single PyArrow table for a document name matching doc_id.
+
+        Args:
+            table: A PyArrow table to search
+            doc_id: Document ID to look up
+
+        Returns:
+            Document name/path if found, None otherwise
+        """
+        id_column = OperatorConstants.Columns.ID
+        if id_column not in table.column_names:
+            return None
+
+        search_id = str(doc_id)
+        id_col = table.column(id_column)
+        for idx in range(len(id_col)):
+            if str(id_col[idx].as_py()) == search_id:
+                # Found the row — delegate name extraction to helper
+                return self._extract_name_from_row(table=table, idx=idx, search_id=search_id)
+
+        return None
+
     def _lookup_doc_name_from_table(self, doc_id: str) -> str | None:
         """Look up document name from PyArrow table using document ID.
 
@@ -551,7 +604,6 @@ class FlowExecutionReporter:
             return None
 
         try:
-            # Try current tables first, then previous tables (for skipped docs)
             tables_to_search = []
             if self._current_tables:
                 tables_to_search.extend(self._current_tables)
@@ -561,34 +613,12 @@ class FlowExecutionReporter:
             if not tables_to_search:
                 return None
 
-            # Try each table in the list
             for table in tables_to_search:
                 if table is None:
                     continue
-
-                # Check if table has the 'id' column
-                id_column = OperatorConstants.Columns.ID
-                if id_column not in table.column_names:
-                    continue
-
-                # Look for the document ID by iterating through rows
-                id_col = table.column(id_column)
-                for idx in range(len(id_col)):
-                    # Convert both to string for comparison
-                    row_id = str(id_col[idx].as_py())
-                    search_id = str(doc_id)
-
-                    if row_id == search_id:
-                        # Found the document, now get its name
-                        # Try 'name' column first, then 'path'
-                        for col_name in ["name", "path"]:
-                            if col_name in table.column_names:
-                                name_value = table.column(col_name)[idx].as_py()
-                                if name_value and str(name_value) != search_id:
-                                    return name_value
-
-                        # If name/path same as ID, return None to use fallback
-                        return None
+                result = self._find_doc_name_in_table(table=table, doc_id=doc_id)
+                if result is not None:
+                    return result
 
             return None
         except Exception:
@@ -598,6 +628,9 @@ class FlowExecutionReporter:
     def print_flow_summary(self, *, job_stats: JobStats, dag_nodes: list[dict]) -> None:
         """Print final flow execution summary.
 
+        Uses logger.error when there are any failures so the summary is visible
+        regardless of DS_LOG_LEVEL.
+
         Args:
             job_stats: Complete job statistics
             dag_nodes: DAG node definitions in execution order
@@ -605,42 +638,47 @@ class FlowExecutionReporter:
         status = job_stats.status.value if job_stats.status else "UNKNOWN"
         duration = float(job_stats.duration) if job_stats.duration else 0.0
 
-        logger.info("")
-        logger.info("=" * 80)
-        logger.info(" FLOW EXECUTION SUMMARY")
-        logger.info("=" * 80)
-        logger.info(f" Status: {status}")
-        logger.info(f" Total Duration: {duration:.2f}s")
+        has_failures = job_stats.failed_docs > 0
+        log = logger.error if has_failures else logger.info
 
-        # Use total_docs as the authoritative count
         total_docs = job_stats.total_docs
         actually_completed = total_docs - job_stats.failed_docs - job_stats.skipped_docs
 
-        logger.info(
-            f" Documents: {actually_completed} completed, {job_stats.failed_docs} failed, {job_stats.skipped_docs} skipped (of {total_docs} total)"
+        log("")
+        log("=" * 80)
+        log(" FLOW EXECUTION SUMMARY")
+        log("=" * 80)
+        log(" Status: %s", status)
+        log(" Total Duration: %.2fs", duration)
+        log(
+            " Documents: %s completed, %s failed, %s skipped (of %s total)",
+            actually_completed,
+            job_stats.failed_docs,
+            job_stats.skipped_docs,
+            total_docs,
         )
 
-        # Print per-operator summary table in execution order
         if job_stats.node_stats:
-            self._print_operator_summary_table(job_stats.node_stats, dag_nodes)
+            self._print_operator_summary_table(job_stats.node_stats, dag_nodes, log=log)
 
-        logger.info("=" * 80)
-        logger.info("")
+        log("=" * 80)
+        log("")
 
-    def _print_operator_summary_table(self, node_stats: dict, dag_nodes: list[dict]) -> None:
+    def _print_operator_summary_table(self, node_stats: dict, dag_nodes: list[dict], *, log=None) -> None:
         """Print operator summary table in DAG execution order."""
-        logger.info("")
-        logger.info(" Operator Summary:")
-        logger.info(f" {'Operator':<30} {'Status':<20} {'Duration':<12} {'Docs':<10}")
-        logger.info(" " + "-" * 78)
+        if log is None:
+            log = logger.info
 
-        # Create position map from DAG order
+        log("")
+        log(" Operator Summary:")
+        log(" %-30s %-20s %-12s %-10s", "Operator", "Status", "Duration", "Docs")
+        log(" %s", "-" * 78)
+
         dag_order = [
             op_def.get(OperatorConstants.Columns.ID) for op_def in dag_nodes if op_def.get(OperatorConstants.Columns.ID)
         ]
         position_map = {node_id: idx for idx, node_id in enumerate(dag_order)}
 
-        # Sort nodes by DAG position
         sorted_nodes = sorted(node_stats.items(), key=lambda x: position_map.get(x[0], float("inf")))
 
         for node_id, stats in sorted_nodes:
@@ -648,11 +686,11 @@ class FlowExecutionReporter:
             status_str = stats.node_status
             duration_str = self._format_duration(stats.time_taken)
 
-            # Calculate document counts
             completed = len(stats.docs_completed)
             failed = len(stats.failed_docs)
             skipped = len(stats.skipped_docs)
             total = completed + failed + skipped
             docs_str = f"{completed}/{total}"
 
-            logger.info(f" {step_name:<30} {status_str:<20} {duration_str:<12} {docs_str:<10}")
+            row_log = logger.error if failed > 0 else log
+            row_log(" %-30s %-20s %-12s %-10s", step_name, status_str, duration_str, docs_str)

@@ -1,0 +1,126 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.canvasPage {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.canvasContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: $spacing-07;
+}
+
+.title {
+  /* Carbon uses default heading styles */
+}
+
+// ── Toolbar save area ─────────────────────────────────────────────────────
+.saveArea {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+  padding: 0 $spacing-02;
+}
+
+.lastSaved {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+  white-space: nowrap;
+}
+
+// InlineLoading while PUT is in-flight
+.savingSpinner {
+  min-width: 8rem;
+}
+
+// Status slot in the right toolbar (Saving / Validating / Last saved).
+// Must match Elyra's toolbar-jsx-item height (32px = $spacing-08) and use
+// white-space: nowrap so the text never wraps beneath the Save button.
+// No min-width — Carbon's InlineLoading has inline-size:100% and would
+// stretch to fill any explicit min-width, creating excess whitespace.
+.saveStatus {
+  display: inline-flex;
+  align-items: center;
+  height: $spacing-08;           // 32px — matches .toolbar-jsx-item height
+  padding: 0 $spacing-05;        // 16px horizontal breathing room on each side
+  white-space: nowrap;           // never allow the text to wrap to a new line
+
+  // Constrain InlineLoading to fit-content so it doesn't fill the container
+  :global(.cds--inline-loading) {
+    inline-size: auto;
+  }
+}
+
+// Panel toggle button in the right toolbar
+.panelToggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $spacing-08;            // 32px — matches toolbar button width
+  height: $spacing-08;           // 32px — matches toolbar button height
+  background: none;
+  border: none;
+  border-bottom: $spacing-01 solid transparent;  // reserve space; filled when active
+  cursor: pointer;
+  color: $icon-primary;
+  border-radius: 0;
+
+  &:hover:not(:disabled) {
+    background-color: $layer-hover-01;
+  }
+
+  &:disabled {
+    color: $icon-disabled;
+    cursor: not-allowed;
+  }
+}
+
+// Active state — panel is open: bottom border only, matching Elyra's selected-item style
+.panelToggleButtonActive {
+  border-bottom-color: $focus;
+}
+
+.subtitle {
+  margin-top: $spacing-05;
+  font-size: $spacing-05;
+  color: $text-secondary;
+}
+
+.buttonSection {
+  margin-top: $spacing-09;
+  display: flex;
+  gap: $spacing-05;
+  flex-wrap: wrap;
+}
+
+.canvasArea {
+  margin-top: $spacing-09;
+  padding: $spacing-09;
+  border: $spacing-01 dashed $border-subtle-01;
+  border-radius: $spacing-03;
+  text-align: center;
+}

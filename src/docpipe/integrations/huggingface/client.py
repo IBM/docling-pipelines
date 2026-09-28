@@ -254,6 +254,25 @@ class HuggingFaceLLMClient(BaseLLMClient):
 
         return embeddings_list
 
+    @staticmethod
+    def _parse_feature_extraction_response(response: Any) -> list[float]:
+        """
+        Normalise the raw response from ``client.feature_extraction`` into a
+        flat list of floats.
+
+        The HuggingFace client returns one of three shapes depending on the
+        model and SDK version:
+        - numpy array  → call ``.tolist()``, then unwrap outer list if nested
+        - nested list  → take ``response[0]``
+        - flat list    → use as-is
+        """
+        if hasattr(response, "tolist"):
+            embeddings = response.tolist()
+            return embeddings[0] if isinstance(embeddings[0], list) else embeddings
+        if isinstance(response, list):
+            return response[0] if isinstance(response[0], list) else response
+        raise ExternalServiceError(f"Unexpected response format from HuggingFace API: {type(response)}")
+
     def _generate_api_embeddings_batch(self, texts: list[str], batch_size: int) -> list[list[float]]:
         """
         Generate embeddings for multiple texts using HuggingFace Inference API.
@@ -281,21 +300,7 @@ class HuggingFaceLLMClient(BaseLLMClient):
             batch_embeddings = []
             for text in batch:
                 response = self.client.feature_extraction(text, model=self.model_name)
-
-                # Handle numpy array response
-                if hasattr(response, "tolist"):
-                    embeddings = response.tolist()
-                    if isinstance(embeddings[0], list):
-                        embeddings = embeddings[0]
-                # Handle list response
-                elif isinstance(response, list):
-                    if isinstance(response[0], list):
-                        embeddings = response[0]
-                    else:
-                        embeddings = response
-                else:
-                    raise ExternalServiceError(f"Unexpected response format from HuggingFace API: {type(response)}")
-
+                embeddings = self._parse_feature_extraction_response(response)
                 self._validate_embeddings_output(embeddings)
                 batch_embeddings.append(embeddings)
 
@@ -317,23 +322,7 @@ class HuggingFaceLLMClient(BaseLLMClient):
             raise ConfigurationError("API client not initialized")
 
         response = self.client.feature_extraction(text, model=self.model_name)
-
-        # Handle numpy array response
-        if hasattr(response, "tolist"):
-            embeddings = response.tolist()
-            if isinstance(embeddings[0], list):
-                embeddings = embeddings[0]
-        # Handle list response
-        elif isinstance(response, list):
-            if isinstance(response[0], list):
-                # Nested list format
-                embeddings = response[0]
-            else:
-                # Flat list format
-                embeddings = response
-        else:
-            raise ExternalServiceError(f"Unexpected response format from HuggingFace API: {type(response)}")
-
+        embeddings = self._parse_feature_extraction_response(response)
         self._validate_embeddings_output(embeddings)
         return embeddings
 

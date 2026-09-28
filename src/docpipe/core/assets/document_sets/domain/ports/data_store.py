@@ -117,6 +117,26 @@ class DocumentSetStorage(ABC):
 
     @classmethod
     @abstractmethod
+    def from_config(cls, *, config: dict[str, Any]) -> "DocumentSetStorage":
+        """Create an instance from a config dict.
+
+        The adapter is responsible for creating any required storage
+        dependencies (e.g. TableStoragePort). The factory calls this
+        and remains ignorant of constructor details.
+
+        Args:
+            config: Configuration dictionary (e.g. {"database_path": "..."}).
+
+        Returns:
+            A fully initialised DocumentSetStorage instance.
+
+        Raises:
+            DocpipeException: If the config is invalid or initialisation fails.
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
     def validate_config(cls, *, config: dict[str, Any]) -> list[str]:
         """Validate adapter configuration before instantiation.
 

@@ -221,6 +221,10 @@ class PIIHAPService:
                 temperature=0.0,
             )
 
+            # Empty response means the model found nothing to detect — treat as zero detections
+            if not raw_response or not raw_response.strip():
+                return PIIHAPDetectionResponse(detections=[], input_text=text)
+
             # Parse JSON response using reusable utility
             result_dict = parse_llm_json_response(
                 raw_response,

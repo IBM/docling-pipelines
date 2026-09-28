@@ -4,8 +4,13 @@ from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.dialects.postgresql import dialect as pg_dialect
 
-from docpipe.core.job_management.adapters.stores.postgres.dal.base_dao import BaseDAO
+from docpipe.core.job_management.adapters.stores.postgres.dal.base_dao import (
+    PG_MAX_BIND_PARAMS,
+    BaseDAO,
+)
+from docpipe.core.job_management.adapters.stores.postgres.models import NodeStatsModel
 from docpipe.exceptions.docpipe_exceptions import PostgresTransactionException
 
 
@@ -277,6 +282,109 @@ class TestUpsertWithConflict:
                 update_fields=["status"],
             )
         assert mock_session.execute.called
+
+
+class TestBulkUpsertWithConflict:
+    """Exercises the real statement builder against NodeStatsModel."""
+
+    CONFLICT_KEY: ClassVar[list[str]] = ["node_id", "job_run_id", "batch_id"]
+
+    @staticmethod
+    def make_rows(count, *, job_run_id="run-1", node_id=None):
+        return [
+            NodeStatsModel(
+                node_id=node_id or f"node-{i:036d}",
+                name="op",
+                batch_id=f"batch-{i}",
+                batch_num=i,
+                job_run_id=job_run_id,
+                node_status="PENDING",
+            )
+            for i in range(count)
+        ]
+
+    @staticmethod
+    def executed_statements(mock_session):
+        return [call.args[0] for call in mock_session.execute.call_args_list]
+
+    def run_upsert(self, rows):
+        mock_session = MagicMock()
+        dao = BaseDAO(model=NodeStatsModel, session_factory=lambda: mock_session)
+        dao.bulk_upsert_with_conflict(
+            objs=rows,
+            index_elements=self.CONFLICT_KEY,
+            update_fields=["node_status"],
+        )
+        return self.executed_statements(mock_session)
+
+    def test_empty_list_skips_session(self):
+        """No rows means no statement and no transaction."""
+        mock_session = MagicMock()
+        dao = BaseDAO(model=NodeStatsModel, session_factory=lambda: mock_session)
+
+        dao.bulk_upsert_with_conflict(objs=[], index_elements=self.CONFLICT_KEY, update_fields=["node_status"])
+
+        mock_session.execute.assert_not_called()
+
+    def test_small_input_uses_one_statement(self):
+        """Rows that fit in a single chunk produce a single INSERT."""
+        assert len(self.run_upsert(self.make_rows(10))) == 1
+
+    def test_large_input_is_chunked(self):
+        """5000 rows exceed the 1000-row page size, so several INSERTs are issued."""
+        statements = self.run_upsert(self.make_rows(5000))
+
+        assert len(statements) == 5
+
+    def test_every_chunk_stays_under_the_bind_parameter_limit(self):
+        """Regression: one INSERT holding every row blows the 65535 parameter cap."""
+        statements = self.run_upsert(self.make_rows(5000))
+
+        for stmt in statements:
+            compiled = stmt.compile(dialect=pg_dialect())
+            assert len(compiled.params) <= PG_MAX_BIND_PARAMS
+
+    def test_all_rows_survive_chunking(self):
+        """Chunking must not drop rows: every batch_id appears exactly once."""
+        statements = self.run_upsert(self.make_rows(5000))
+
+        batch_ids = [
+            value
+            for stmt in statements
+            for key, value in stmt.compile(dialect=pg_dialect()).params.items()
+            if key.startswith("batch_id_m")
+        ]
+
+        assert len(batch_ids) == 5000
+        assert len(set(batch_ids)) == 5000
+
+    def test_rows_sharing_a_conflict_key_are_collapsed(self):
+        """Postgres rejects the same conflict key twice in one ON CONFLICT statement."""
+        rows = self.make_rows(2)
+        rows[1].node_id = rows[0].node_id
+        rows[1].batch_id = rows[0].batch_id
+        rows[1].node_status = "SKIPPED"
+
+        statements = self.run_upsert(rows)
+
+        params = statements[0].compile(dialect=pg_dialect()).params
+        assert len(statements) == 1
+        assert params["node_status_m0"] == "SKIPPED"
+
+    def test_mixed_id_presence_raises(self):
+        """A row with an id beside one without cannot render a shared column list."""
+        rows = self.make_rows(2)
+        rows[0].id = 7
+
+        with pytest.raises(ValueError, match="all objects to either set id or leave it unset"):
+            self.run_upsert(rows)
+
+    def test_unset_ids_are_left_out_of_the_insert(self):
+        """An unset autoincrement id must come from the sequence, not a NULL bind."""
+        statements = self.run_upsert(self.make_rows(3))
+
+        params = statements[0].compile(dialect=pg_dialect()).params
+        assert not [key for key in params if key == "id" or key.startswith("id_m")]
 
 
 class TestAtomicIncrementFieldsClosures:

@@ -1,0 +1,186 @@
+/**
+ * @fileoverview RunSidePanel styles — tab container for Log Details and Node Summary.
+ * Lives inside rightLogsPanelContainer with sticky header and scrollable content.
+ * Uses Carbon Design tokens for theming and spacing.
+ */
+
+@use '@carbon/layout';
+@use '@carbon/react/scss/theme' as themes;
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/type' as type;
+
+/* Outer flex column — fills the rightLogsPanelContainer height */
+.tabsContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Header row: tabs + close button. flex-shrink:0 keeps it fixed at top of the
+   flex column — no sticky needed since the column is overflow:hidden at its
+   container and only .tabContent scrolls. */
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: calc(spacing.$spacing-01 / 4) solid themes.$border-subtle-01;
+  background-color: themes.$layer-01;
+  flex-shrink: 0;
+}
+
+/* Tab button row takes remaining space */
+.tabList {
+  display: flex;
+  flex: 1;
+}
+
+/* Individual tab button */
+.tabButton {
+  flex: 1;
+  padding: spacing.$spacing-04;
+  background: none;
+  border: none;
+  cursor: pointer;
+  @include type.type-style('body-compact-01');
+  color: themes.$text-secondary;
+  border-bottom: spacing.$spacing-01 solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: themes.$layer-hover;
+  }
+}
+
+/* Active tab: blue underline + bold */
+.activeTab {
+  color: themes.$text-primary;
+  border-bottom: spacing.$spacing-01 solid themes.$interactive;
+  font-weight: 600;
+}
+
+/* Scrollable content area — layer-01 (gray) so white log blocks stand out */
+.tabContent {
+  flex: 1;
+  overflow: auto;
+  padding-bottom: spacing.$spacing-09;
+  background-color: themes.$layer-01;
+}
+
+/* Shown when tab has no data yet */
+.emptyTabContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: themes.$text-secondary;
+  font-style: italic;
+}
+
+/* X button on panel header */
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: spacing.$spacing-03 spacing.$spacing-04;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: themes.$text-primary;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: themes.$layer-hover;
+  }
+
+  svg {
+    fill: themes.$icon-primary;
+  }
+}
+
+/* Icon-only button wrapper */
+.iconButtonWrapper {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: spacing.$spacing-07;
+  height: spacing.$spacing-07;
+
+  &:hover {
+    background-color: themes.$layer-hover-01;
+  }
+
+  &:focus {
+    outline: calc(spacing.$spacing-01 / 2) solid themes.$focus;
+    outline-offset: calc(spacing.$spacing-01 / 2);
+  }
+
+  svg {
+    fill: themes.$icon-primary;
+  }
+}
+
+/* Full log modal overlay */
+.fullLogModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: themes.$overlay;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.fullLogContent {
+  background-color: themes.$layer-01;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 #{spacing.$spacing-01} spacing.$spacing-07 themes.$shadow;
+}
+
+.fullLogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: spacing.$spacing-04 spacing.$spacing-05;
+  border-block-end: calc(spacing.$spacing-01 / 4) solid themes.$border-subtle-01;
+  background-color: themes.$layer-02;
+  flex-shrink: 0;
+
+  h4 {
+    margin: 0;
+    flex: 1;
+    @include type.type-style('heading-01');
+    color: themes.$text-primary;
+  }
+}
+
+/* CopyButton + close icon grouped at right of modal header */
+.fullLogHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: spacing.$spacing-02;
+}
+
+.fullLogText {
+  flex: 1;
+  margin: 0;
+  padding: spacing.$spacing-05;
+  @include type.type-style('code-01');
+  color: themes.$text-primary;
+  background-color: themes.$layer-01;
+  border: none;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

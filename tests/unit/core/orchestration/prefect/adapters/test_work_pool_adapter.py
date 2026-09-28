@@ -597,96 +597,6 @@ class TestBuildJobVariables:
 
 
 # ---------------------------------------------------------------------------
-# _classify_flow_run_result
-# ---------------------------------------------------------------------------
-
-
-class TestClassifyFlowRunResult:
-    def _fr(self, state=None) -> Mock:
-        fr = Mock()
-        fr.id = "fr-001"
-        fr.state = state
-        return fr
-
-    def test_exception_result_appends_failure(self):
-        adapter = _build_adapter()
-        failed: list[dict] = []
-        count = adapter._classify_flow_run_result(
-            batch_num=0,
-            flow_run=self._fr(),
-            result=ValueError("boom"),
-            completed_count=0,
-            failed_info=failed,
-            job_run_id="jr",
-        )
-        assert len(failed) == 1
-        assert count == 0
-
-    def _real_flow_run(self, state):  # type: ignore[return]
-        """Return a real FlowRun instance so isinstance(result, FlowRun) passes."""
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        return _FlowRun.model_construct(flow_id=uuid4(), state=state)
-
-    def test_completed_state_increments_count(self):
-        adapter = _build_adapter()
-        state = Mock()
-        state.is_completed.return_value = True
-        state.is_failed.return_value = False
-        state.is_crashed.return_value = False
-        state.is_cancelled.return_value = False
-        result = self._real_flow_run(state)
-        failed: list[dict] = []
-        count = adapter._classify_flow_run_result(
-            batch_num=0, flow_run=self._fr(state), result=result, completed_count=2, failed_info=failed, job_run_id="jr"
-        )
-        assert count == 3
-        assert failed == []
-
-    def test_failed_state_appends_failure(self):
-        adapter = _build_adapter()
-        state = Mock()
-        state.is_completed.return_value = False
-        state.is_failed.return_value = True
-        state.is_crashed.return_value = False
-        state.is_cancelled.return_value = False
-        state.message = "task failed"
-        result = self._real_flow_run(state)
-        failed: list[dict] = []
-        count = adapter._classify_flow_run_result(
-            batch_num=1, flow_run=self._fr(state), result=result, completed_count=0, failed_info=failed, job_run_id="jr"
-        )
-        assert len(failed) == 1
-        assert count == 0
-
-    def test_none_state_returns_count_unchanged(self):
-        adapter = _build_adapter()
-        # A plain non-FlowRun result triggers the early-return path — count stays the same
-        count = adapter._classify_flow_run_result(
-            batch_num=0,
-            flow_run=self._fr(),
-            result="not-a-flow-run",
-            completed_count=5,
-            failed_info=[],
-            job_run_id="jr",
-        )
-        assert count == 5
-
-    def test_cancelled_state_logs_warning(self):
-        adapter = _build_adapter()
-        state = Mock()
-        state.is_completed.return_value = False
-        state.is_failed.return_value = False
-        state.is_crashed.return_value = False
-        state.is_cancelled.return_value = True
-        result = self._real_flow_run(state)
-        adapter._classify_flow_run_result(
-            batch_num=0, flow_run=self._fr(state), result=result, completed_count=0, failed_info=[], job_run_id="jr"
-        )
-        adapter.prefect_engine.logger.warning.assert_called()
-
-
-# ---------------------------------------------------------------------------
 # execute_batches (public entry point)
 # ---------------------------------------------------------------------------
 
@@ -696,7 +606,7 @@ class TestExecuteBatches:
         adapter = _build_adapter()
         batch = _batch(0)
 
-        async_mock = AsyncMock()
+        async_mock = AsyncMock(return_value=([], 1))
         with (
             patch.object(adapter, "_execute_pipelined_batches_async", async_mock),
             patch.object(adapter, "_cleanup_batch_storage") as cleanup_mock,
@@ -709,91 +619,11 @@ class TestExecuteBatches:
     def test_logs_summary_on_success(self):
         adapter = _build_adapter()
         with (
-            patch.object(adapter, "_execute_pipelined_batches_async", AsyncMock()),
+            patch.object(adapter, "_execute_pipelined_batches_async", AsyncMock(return_value=([], 1))),
             patch.object(adapter, "_cleanup_batch_storage"),
         ):
             adapter.execute_batches(batches=[_batch()], op_flow=[], global_config={}, job_run_id="jr1")
         adapter.prefect_engine.logger.info.assert_called()
-
-
-# ---------------------------------------------------------------------------
-# _wait_for_flow_runs_async (async — happy path and failure path)
-# ---------------------------------------------------------------------------
-
-
-class TestWaitForFlowRunsAsync:
-    def _mock_flow_run(self):
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        fr = _FlowRun.model_construct(flow_id=uuid4())
-        fr.id = fr.flow_id
-        return fr
-
-    @pytest.mark.asyncio
-    async def test_happy_path_no_failures(self):
-        adapter = _build_adapter()
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        fr = self._mock_flow_run()
-        completed_state = Mock()
-        completed_state.is_completed.return_value = True
-        completed_state.is_failed.return_value = False
-        completed_state.is_crashed.return_value = False
-        completed_state.is_cancelled.return_value = False
-        completed_fr = _FlowRun.model_construct(flow_id=uuid4(), state=completed_state)
-        completed_fr.id = completed_fr.flow_id
-
-        with patch(
-            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run",
-            AsyncMock(return_value=completed_fr),
-        ):
-            # Should not raise
-            await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
-
-    @pytest.mark.asyncio
-    async def test_failure_raises_flow_execution_exception(self):
-        adapter = _build_adapter()
-        fr = self._mock_flow_run()
-
-        failed_state = Mock()
-        failed_state.is_completed.return_value = False
-        failed_state.is_failed.return_value = True
-        failed_state.is_crashed.return_value = False
-        failed_state.is_cancelled.return_value = False
-        failed_state.message = "worker crashed"
-
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        failed_fr = _FlowRun.model_construct(flow_id=uuid4(), state=failed_state)
-        failed_fr.id = failed_fr.flow_id
-
-        with (
-            patch(
-                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run",
-                AsyncMock(return_value=failed_fr),
-            ),
-            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
-        ):
-            with pytest.raises(FlowExecutionFailedException):
-                await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
-
-    @pytest.mark.asyncio
-    async def test_unexpected_exception_is_reraised(self):
-        """Non-Exception gather errors propagate as-is; Exception results become FlowExecutionFailedException."""
-        adapter = _build_adapter()
-        fr = self._mock_flow_run()
-
-        # wait_for_flow_run raising an Exception gets gathered as a result — ends up in failed_info
-        # and triggers FlowExecutionFailedException via _raise_failure
-        with (
-            patch(
-                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run",
-                AsyncMock(side_effect=RuntimeError("connection lost")),
-            ),
-            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
-        ):
-            with pytest.raises(FlowExecutionFailedException):
-                await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
 
 
 # ---------------------------------------------------------------------------
@@ -1160,78 +990,6 @@ class TestEnsureDeploymentExistsCreate:
 
 
 # ---------------------------------------------------------------------------
-# _wait_for_flow_runs (sync wrapper — line 601)
-# ---------------------------------------------------------------------------
-
-
-class TestWaitForFlowRunsSync:
-    def test_delegates_to_async_impl(self):
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        adapter = _build_adapter()
-        fr = _FlowRun.model_construct(flow_id=uuid4())
-        fr.id = fr.flow_id
-
-        with patch.object(adapter, "_wait_for_flow_runs_async", AsyncMock()):
-            adapter._wait_for_flow_runs(flow_runs=[fr], job_run_id="jr1")
-
-
-# ---------------------------------------------------------------------------
-# _classify_flow_run_result — crashed branch (lines 634-646)
-# ---------------------------------------------------------------------------
-
-
-class TestClassifyFlowRunResultCrashed:
-    def test_crashed_state_appends_failure(self):
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        adapter = _build_adapter()
-        state = Mock()
-        state.is_completed.return_value = False
-        state.is_failed.return_value = False
-        state.is_crashed.return_value = True
-        state.is_cancelled.return_value = False
-        state.message = "OOM"
-        _fid = uuid4()
-        result = _FlowRun.model_construct(flow_id=_fid, state=state)
-        result.id = _fid
-        fr = Mock()
-        fr.id = _fid
-        failed: list[dict] = []
-        count = adapter._classify_flow_run_result(
-            batch_num=3, flow_run=fr, result=result, completed_count=0, failed_info=failed, job_run_id="jr"
-        )
-        assert len(failed) == 1
-        assert "CRASHED" in failed[0]["message"] or failed[0]["message"] == "OOM"
-        assert count == 0
-
-
-# ---------------------------------------------------------------------------
-# _wait_for_flow_runs_async — outer except branch (lines 694-700)
-# ---------------------------------------------------------------------------
-
-
-class TestWaitForFlowRunsAsyncOuterExcept:
-    @pytest.mark.asyncio
-    async def test_non_flow_exception_logs_and_reraises(self):
-        """Covers lines 694-700: asyncio.gather itself raises (not return_exceptions path)."""
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        adapter = _build_adapter()
-        fr = _FlowRun.model_construct(flow_id=uuid4())
-        fr.id = fr.flow_id
-
-        with patch(
-            "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.gather",
-            AsyncMock(side_effect=MemoryError("OOM")),
-        ):
-            with pytest.raises(MemoryError):
-                await adapter._wait_for_flow_runs_async(flow_runs=[fr], job_run_id="jr1")
-
-        adapter.prefect_engine.logger.error.assert_called()
-
-
-# ---------------------------------------------------------------------------
 # _cancel_remaining_runs_async — no pending runs path (lines 762-765)
 # ---------------------------------------------------------------------------
 
@@ -1290,37 +1048,6 @@ class TestGetEffectiveJobManagementEnvConfigExists:
         from docpipe.core.constants import EnvironmentVariables
 
         assert EnvironmentVariables.DOCPIPE_CONFIG_PATH in result
-
-
-# ---------------------------------------------------------------------------
-# _classify_flow_run_result — no-op state branch (all state checks False → return unchanged)
-# ---------------------------------------------------------------------------
-
-
-class TestClassifyFlowRunResultNoOp:
-    def test_non_final_non_cancelled_state_is_noop(self):
-        """Covers the 647→652 branch: is_cancelled() is False, falls through to return."""
-        from prefect.client.schemas.objects import FlowRun as _FlowRun
-
-        adapter = _build_adapter()
-        # State that is NOT completed, NOT failed, NOT crashed, NOT cancelled
-        state = Mock()
-        state.is_completed.return_value = False
-        state.is_failed.return_value = False
-        state.is_crashed.return_value = False
-        state.is_cancelled.return_value = False
-        _fid = uuid4()
-        result = _FlowRun.model_construct(flow_id=_fid, state=state)
-        result.id = _fid
-        fr = Mock()
-        fr.id = _fid
-        failed: list[dict] = []
-        count = adapter._classify_flow_run_result(
-            batch_num=0, flow_run=fr, result=result, completed_count=7, failed_info=failed, job_run_id="jr"
-        )
-        # Count unchanged, nothing appended
-        assert count == 7
-        assert failed == []
 
 
 # ---------------------------------------------------------------------------
@@ -1402,13 +1129,11 @@ class TestBuildContainerEnvJobMgmtKeyConflict:
 
 class TestExecutePipelinedBatchesAsync:
     @pytest.mark.asyncio
-    async def test_batch_submission_failure_raises_flow_exception(self):
+    async def test_batch_submission_failure_returns_failed_info(self):
         """
-        run_deployment raises immediately → run_single_batch fails → failed_info populated →
-        FlowExecutionFailedException raised from line 409.
-
-        The bulk poller task (create_task) is replaced with a no-op coroutine so it
-        never enters its infinite while-True loop.
+        run_deployment raises → run_single_batch populates failed_info →
+        _execute_pipelined_batches_async returns (failed_info, completed_count) without raising.
+        execute_batches() is responsible for raising; this method just reports.
         """
         import asyncio as _asyncio
 
@@ -1425,8 +1150,7 @@ class TestExecutePipelinedBatchesAsync:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                # First create_task call is the bulk poller — replace with noop
-                coro.close()  # discard the real coroutine cleanly
+                coro.close()
                 return real_create_task(_noop_poller())
             return real_create_task(coro, **kwargs)
 
@@ -1442,7 +1166,400 @@ class TestExecutePipelinedBatchesAsync:
                 side_effect=fake_create_task,
             ),
         ):
+            mock_cancel = adapter._cancel_remaining_runs_async
+            failed_info, completed_count = await adapter._execute_pipelined_batches_async(
+                batches=[batch],
+                op_flow=[],
+                global_config={},
+                job_run_id="jr1",
+                continue_on_batch_failure=False,
+            )
+
+        assert len(failed_info) == 1
+        assert completed_count == 0
+        # Fail-fast abandons the remaining remote runs. Cancellation is fire-and-forget:
+        # the run moves to Cancelling and a worker kills it after the grace period.
+        mock_cancel.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_continue_mode_does_not_cancel_remaining_runs(self):
+        """
+        Continue mode lets every batch finish, so no remote run is cancelled.
+        Only fail-fast abandons the rest.
+        """
+        import asyncio as _asyncio
+
+        adapter = _build_adapter()
+
+        async def _noop_poller():
+            """Immediately returns so there is no infinite loop."""
+
+        real_create_task = _asyncio.create_task
+        call_count = 0
+
+        def fake_create_task(coro, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                coro.close()
+                return real_create_task(_noop_poller())
+            return real_create_task(coro, **kwargs)
+
+        with (
+            patch.object(adapter, "_transfer_batch", return_value={"type": "inline", "data": {}}),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment",
+                AsyncMock(side_effect=FlowExecutionFailedException("submit failed")),
+            ),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()) as mock_cancel,
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.create_task",
+                side_effect=fake_create_task,
+            ),
+        ):
+            failed_info, _ = await adapter._execute_pipelined_batches_async(
+                batches=[_batch(0)],
+                op_flow=[],
+                global_config={},
+                job_run_id="jr1",
+                continue_on_batch_failure=True,
+            )
+
+        assert len(failed_info) == 1
+        mock_cancel.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# execute_batches — fail-fast and continue-mode integration
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteBatchesFailFast:
+    def _build_failing_adapter(self):
+        """Adapter whose _execute_pipelined_batches_async returns one failure."""
+        adapter = _build_adapter()
+        adapter.prefect_engine.orchestrator = MagicMock()
+        adapter.prefect_engine.orchestrator.job_status = None
+        return adapter
+
+    def test_fail_fast_sets_failing_status_and_raises(self):
+        """execute_batches sets job_status=FAILING and raises when a batch fails."""
+        from docpipe.core.constants.constants import ExecutionStatus
+
+        adapter = self._build_failing_adapter()
+        failed_info = [{"batch_num": 0, "run_id": "r-0", "message": "boom"}]
+
+        with (
+            patch.object(
+                adapter,
+                "_execute_pipelined_batches_async",
+                AsyncMock(return_value=(failed_info, 0)),
+            ),
+            patch.object(adapter, "_cleanup_batch_storage"),
+        ):
             with pytest.raises(FlowExecutionFailedException):
-                await adapter._execute_pipelined_batches_async(
-                    batches=[batch], op_flow=[], global_config={}, job_run_id="jr1"
+                adapter.execute_batches(batches=[_batch(0)], op_flow=[], global_config={}, job_run_id="jr1")
+
+        assert adapter.prefect_engine.orchestrator.job_status == ExecutionStatus.FAILING
+
+    def test_continue_mode_partial_failure_does_not_raise(self):
+        """execute_batches does not raise for partial failure in continue mode."""
+        from docpipe.core.constants.constants import ExecutionStatus
+
+        adapter = self._build_failing_adapter()
+        adapter.prefect_engine.orchestrator.job_status = ExecutionStatus.RUNNING
+        failed_info = [{"batch_num": 1, "run_id": "r-1", "message": "one failed"}]
+
+        with (
+            patch.object(
+                adapter,
+                "_execute_pipelined_batches_async",
+                AsyncMock(return_value=(failed_info, 2)),
+            ),
+            patch.object(adapter, "_cleanup_batch_storage"),
+        ):
+            # Must not raise — 2 of 3 succeeded
+            adapter.execute_batches(
+                batches=[_batch(0), _batch(1), _batch(2)],
+                op_flow=[],
+                global_config={"continue_on_batch_failure": True},
+                job_run_id="jr1",
+            )
+
+        assert adapter.prefect_engine.orchestrator.job_status == ExecutionStatus.RUNNING
+
+    def test_continue_mode_all_failed_sets_failing_and_raises(self):
+        """execute_batches sets job_status=FAILING and raises when all batches fail in continue mode."""
+        from docpipe.core.constants.constants import ExecutionStatus
+
+        adapter = self._build_failing_adapter()
+        failed_info = [{"batch_num": i, "run_id": f"r-{i}", "message": "fail"} for i in range(3)]
+
+        with (
+            patch.object(
+                adapter,
+                "_execute_pipelined_batches_async",
+                AsyncMock(return_value=(failed_info, 0)),
+            ),
+            patch.object(adapter, "_cleanup_batch_storage"),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
+        ):
+            with pytest.raises(FlowExecutionFailedException):
+                adapter.execute_batches(
+                    batches=[_batch(0), _batch(1), _batch(2)],
+                    op_flow=[],
+                    global_config={"continue_on_batch_failure": True},
+                    job_run_id="jr1",
                 )
+
+        assert adapter.prefect_engine.orchestrator.job_status == ExecutionStatus.FAILING
+
+
+# ---------------------------------------------------------------------------
+# WorkPoolAdapter strategy name — no real server needed
+# ---------------------------------------------------------------------------
+
+
+class TestWorkPoolAdapterStrategyName:
+    """WorkPoolAdapter.get_strategy_name() returns the correct 'work-pool-*' string."""
+
+    def test_returns_work_pool_strategy_name(self):
+        """
+        get_strategy_name() must include 'work-pool'.
+
+        __init__ calls two network methods; both are stubbed so no real server
+        is required.
+          _validate_prefect_connection  (work_pool_adapter.py:746)
+          _ensure_deployment_exists     (work_pool_adapter.py:859)
+        """
+        from unittest.mock import MagicMock, patch
+
+        from docpipe.core.orchestration.prefect.adapters.work_pool_adapter import WorkPoolAdapter
+
+        with (
+            patch.object(WorkPoolAdapter, "_validate_prefect_connection", return_value=None),
+            patch.object(WorkPoolAdapter, "_ensure_deployment_exists", return_value=None),
+        ):
+            adapter = WorkPoolAdapter(
+                work_pool_config={
+                    "type": "process",
+                    "work_pool_name": "docpipe-test-pool",
+                    "deployment_name": "docpipe-batch-subflow",
+                },
+                prefect_engine=MagicMock(),
+                batch_manager=MagicMock(),
+            )
+
+        assert "work-pool" in adapter.get_strategy_name()
+
+
+# ---------------------------------------------------------------------------
+# _execute_pipelined_batches_async — non-completed final state branch
+# ---------------------------------------------------------------------------
+
+
+class TestExecutePipelinedBatchesAsyncNonCompletedState:
+    """
+    Cover the path where run_deployment returns a FlowRun, the bulk poller resolves
+    it as final, but the state is NOT completed (e.g. Failed).
+    Lines ~373-407 in work_pool_adapter.py.
+    """
+
+    @pytest.mark.asyncio
+    async def test_non_completed_flow_run_state_appends_to_failed_info(self):
+        """
+        A batch whose FlowRun ends in a non-completed final state (e.g. Failed)
+        should appear in failed_info and not increment completed_count.
+        """
+        import asyncio as _asyncio
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from prefect.client.schemas.objects import FlowRun, State
+
+        adapter = _build_adapter()
+
+        # FlowRun with final, non-completed state
+        mock_state = MagicMock(spec=State)
+        mock_state.is_completed.return_value = False
+        mock_state.is_final.return_value = True
+        mock_state.name = "Failed"
+        mock_state.message = "operator raised"
+        mock_state.type = MagicMock()
+        mock_state.type.value = "FAILED"
+
+        run_id = uuid.uuid4()
+        mock_flow_run = MagicMock(spec=FlowRun)
+        mock_flow_run.id = run_id
+        mock_flow_run.state = mock_state
+
+        # Patch asyncio.wait_for to return the non-completed flow run directly,
+        # bypassing the poller machinery.
+        real_create_task = _asyncio.create_task
+
+        async def fake_wait_for(fut, timeout):
+            return mock_flow_run
+
+        with (
+            patch.object(adapter, "_transfer_batch", return_value={"type": "inline", "data": {}}),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment",
+                AsyncMock(return_value=mock_flow_run),
+            ),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.wait_for",
+                side_effect=fake_wait_for,
+            ),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.create_task",
+                side_effect=lambda coro, **kw: real_create_task(coro, **kw),
+            ),
+        ):
+            failed_info, completed_count = await adapter._execute_pipelined_batches_async(
+                batches=[_batch(0)],
+                op_flow=[],
+                global_config={},
+                job_run_id="jr-nc-1",
+                continue_on_batch_failure=False,
+            )
+
+        assert len(failed_info) == 1, f"Expected 1 failure, got {failed_info}"
+        assert failed_info[0]["batch_num"] == 0
+        assert completed_count == 0
+
+    @pytest.mark.asyncio
+    async def test_non_completed_state_name_fallback_also_fails(self):
+        """
+        A batch whose FlowRun.state.name.lower() != 'completed' (secondary check)
+        also lands in failed_info.
+        """
+        import asyncio as _asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from prefect.client.schemas.objects import FlowRun, State
+
+        adapter = _build_adapter()
+
+        # Both is_completed and name fallback return non-completed
+        mock_state = MagicMock(spec=State)
+        mock_state.is_completed.return_value = False
+        mock_state.is_final.return_value = True
+        mock_state.name = "Crashed"
+        mock_state.message = "worker died"
+        mock_state.type = MagicMock()
+        mock_state.type.value = "CRASHED"
+
+        import uuid
+
+        run_id = uuid.uuid4()
+        mock_flow_run = MagicMock(spec=FlowRun)
+        mock_flow_run.id = run_id
+        mock_flow_run.state = mock_state
+
+        real_create_task = _asyncio.create_task
+
+        async def fake_wait_for(fut, timeout):
+            return mock_flow_run
+
+        with (
+            patch.object(adapter, "_transfer_batch", return_value={"type": "inline", "data": {}}),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment",
+                AsyncMock(return_value=mock_flow_run),
+            ),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.wait_for",
+                side_effect=fake_wait_for,
+            ),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.create_task",
+                side_effect=lambda coro, **kw: real_create_task(coro, **kw),
+            ),
+        ):
+            failed_info, completed_count = await adapter._execute_pipelined_batches_async(
+                batches=[_batch(0)],
+                op_flow=[],
+                global_config={},
+                job_run_id="jr-nc-2",
+                continue_on_batch_failure=False,
+            )
+
+        assert len(failed_info) == 1
+        assert completed_count == 0
+
+    @pytest.mark.asyncio
+    async def test_still_running_tasks_cancelled_after_fail_fast_break(self):
+        """
+        When fail-fast triggers and there are still-running tasks (after asyncio.as_completed
+        breaks early), those tasks are cancelled and awaited.
+        """
+        import asyncio as _asyncio
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from prefect.client.schemas.objects import FlowRun, State
+
+        adapter = _build_adapter()
+
+        # First batch: fails immediately
+        mock_fail_state = MagicMock(spec=State)
+        mock_fail_state.is_completed.return_value = False
+        mock_fail_state.is_final.return_value = True
+        mock_fail_state.name = "Failed"
+        mock_fail_state.message = "crash"
+        mock_fail_state.type = MagicMock()
+        mock_fail_state.type.value = "FAILED"
+
+        fail_run = MagicMock(spec=FlowRun)
+        fail_run.id = uuid.uuid4()
+        fail_run.state = mock_fail_state
+
+        # Second batch: would succeed but never gets polled (slow)
+        # In practice: submission raises so we never reach wait_for for batch 1
+        # We rely on run_deployment raising for batch 1 to trigger the Exception branch
+        # which causes a break + still_running cancellation.
+
+        call_count = {"n": 0}
+
+        async def fake_run_deployment(**kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise FlowExecutionFailedException("batch 0 exploded")
+            # batch 1 would succeed but we never get here in fail-fast mode
+            return fail_run
+
+        real_create_task = _asyncio.create_task
+        created_tasks = []
+
+        def tracking_create_task(coro, **kw):
+            t = real_create_task(coro, **kw)
+            created_tasks.append(t)
+            return t
+
+        with (
+            patch.object(adapter, "_transfer_batch", return_value={"type": "inline", "data": {}}),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment",
+                side_effect=fake_run_deployment,
+            ),
+            patch.object(adapter, "_cancel_remaining_runs_async", AsyncMock()),
+            patch(
+                "docpipe.core.orchestration.prefect.adapters.work_pool_adapter.asyncio.create_task",
+                side_effect=tracking_create_task,
+            ),
+        ):
+            failed_info, _completed_count = await adapter._execute_pipelined_batches_async(
+                batches=[_batch(0), _batch(1)],
+                op_flow=[],
+                global_config={},
+                job_run_id="jr-cancel-1",
+                continue_on_batch_failure=False,
+            )
+
+        # At least the poller + one batch task were created
+        assert len(created_tasks) >= 2
+        # One failure should be recorded for batch 0
+        assert len(failed_info) == 1
+        assert failed_info[0]["batch_num"] == 0

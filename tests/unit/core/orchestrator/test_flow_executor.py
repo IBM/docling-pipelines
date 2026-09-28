@@ -1,8 +1,5 @@
 """Unit tests for flow_executor module."""
 
-import json
-import tempfile
-from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
@@ -18,39 +15,22 @@ class TestFlowExecutor:
     """Test FlowExecutor class."""
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
-    def test_init_with_flow_def_file(self, mock_session):
-        """Test initialization with flow definition file."""
-        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
-
-        flow_data = {"flow": {"name": "Test Flow", "description": "Test Description", "dag": []}}
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(flow_data, f)
-            temp_path = f.name
-
-        try:
-            executor = FlowExecutor(flow_def_file=temp_path)
-
-            assert executor.flow_def["name"] == "Test Flow"
-            assert executor.flow_def["description"] == "Test Description"
-        finally:
-            Path(temp_path).unlink()
-
-    @patch("docpipe.core.orchestration.flow_executor.get_session_info")
     def test_init_with_flow_def_dict(self, mock_session):
-        """Test initialization with flow definition dict."""
+        """Test initialization with a compiled flow definition dict."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
 
         flow_def = {
             "name": "Direct Flow",
             "description": "Direct Description",
-            "dag": [],
+            "dag": [{"id": "node1"}],
         }
 
         executor = FlowExecutor(flow_def=flow_def)
 
         assert executor.flow_def["name"] == "Direct Flow"
         assert executor.flow_def["description"] == "Direct Description"
+        dag = executor.flow_def.get("dag")
+        assert isinstance(dag, list)
 
     @patch("docpipe.core.orchestration.flow_executor.get_session_info")
     def test_init_with_orchestrator(self, mock_session):

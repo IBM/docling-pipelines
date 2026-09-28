@@ -17,7 +17,7 @@ from docpipe.core.assets.document_sets import adapters  # noqa: F401
 from docpipe.core.assets.document_sets.application.services.document_set_service import DocumentSetService
 from docpipe.core.assets.document_sets.domain.models.document_set import DocumentSet
 from docpipe.core.assets.document_sets.factories import DataStoreFactory
-from docpipe.core.constants.constants import DocpipeConstants, ExecutionStatus, Metrics
+from docpipe.core.constants.constants import AttributeDataTypes, DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.exceptions.docpipe_exceptions import (
@@ -114,43 +114,59 @@ class DocumentSetOperator(AbstractOperator):
     def get_metadata() -> dict[str, Any]:
         """Return operator metadata for flow validation and documentation."""
         return {
+            OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: (DocumentSetOperator.is_available()),
             OperatorConstants.Misc.CATEGORY: DocumentSetOperator.category.value,
             OperatorConstants.Misc.LABEL: "Document Set",
             OperatorConstants.Config.DESCRIPTION: (
                 "Stores PyArrow table data in a document set with metadata tracking"
             ),
-            OperatorConstants.Config.PARAMETERS: {
-                "document_set_name": {
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.DocumentSet.DOCUMENT_SET_NAME: {
+                    OperatorConstants.Misc.NAME: "Document Set Name",
+                    OperatorConstants.Config.DESCRIPTION: "Unique name for the document set",
                     OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Config.DESCRIPTION: "Name of the document set",
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.DESCRIPTION: {
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Misc.NAME: "Description",
+                    OperatorConstants.Config.DESCRIPTION: "Description of the document set",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DESCRIPTION: ("Description of the document set"),
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Metadata.METADATA: {
-                    OperatorConstants.Misc.TYPE: "object",
+                    OperatorConstants.Misc.NAME: "Metadata",
+                    OperatorConstants.Config.DESCRIPTION: "Additional metadata payload stored with the document set",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DESCRIPTION: "Additional metadata as JSON",
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
-                "document_set_id": {
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.DocumentSet.DOCUMENT_SET_ID: {
+                    OperatorConstants.Misc.NAME: "Document Set ID",
+                    OperatorConstants.Config.DESCRIPTION: "Existing document set UUID for update flows",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DESCRIPTION: ("Existing document set ID for updates"),
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                "data_backend": {
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.DocumentSet.DATA_BACKEND: {
+                    OperatorConstants.Misc.NAME: "Data Backend",
+                    OperatorConstants.Config.DESCRIPTION: "Data store backend for PyArrow table data",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "duckdb",
-                    OperatorConstants.Config.DESCRIPTION: ("Data store backend (default: duckdb)"),
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.DocumentSet.ADAPTER_DUCKDB,
+                    OperatorConstants.Config.VALID_VALUES: [
+                        OperatorConstants.DocumentSet.ADAPTER_DUCKDB,
+                        OperatorConstants.DocumentSet.ADAPTER_FILESYSTEM,
+                    ],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                "database_path": {
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.DocumentSet.DATABASE_PATH: {
+                    OperatorConstants.Misc.NAME: "Database Path",
+                    OperatorConstants.Config.DESCRIPTION: "Database file path used by DuckDB-backed adapters",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DESCRIPTION: ("Database path (default: from constants)"),
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },
         }

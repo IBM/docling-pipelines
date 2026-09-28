@@ -295,9 +295,11 @@ class OpenSearchBatchProcessor:
             prepared_doc = self.prepare_document(row_data=doc)
 
             action: dict[str, Any] = {
+                "_op_type": "update",
                 "_index": self.index_name,
                 "_id": doc_id,
-                "_source": prepared_doc,
+                "doc": prepared_doc,
+                "doc_as_upsert": True,
             }
 
             # Check batch size
@@ -407,29 +409,33 @@ class OpenSearchBatchProcessor:
             return 0
 
     def get_chunk_ids_for_documents(self, *, doc_ids: list[str]) -> dict[str, set[str]]:
-        """Return all existing chunk PKs grouped by doc ID.
+        """Return all existing chunk PKs grouped by file ID.
 
-        Searches the index for every document whose stored doc_id_hash field
-        matches any of the supplied doc IDs and returns their OpenSearch ``_id``
-        values (chunk PKs) grouped by parent doc ID.
+        Searches the index for every document whose stored ``id`` field
+        matches any of the supplied file IDs and returns their OpenSearch
+        ``_id`` values (chunk PKs) grouped by the original file ID.
 
-        The stored field name for doc_id_hash is resolved from feature_mappings
-        so user-overridden field names are handled correctly.
+        The stored field name for the ``id`` feature is resolved from
+        feature_mappings so user-overridden field names are handled correctly.
+        Because positional PKs are stable across content changes, re-ingesting
+        a modified document produces the same chunk ``_id`` values — OpenSearch
+        upserts them in place and stale chunks (e.g. from a document that
+        shrank) are deleted before re-insertion.
 
         Args:
-            doc_ids: List of doc_id_hash values to look up.
+            doc_ids: List of file IDs (``id`` column values) to look up.
 
         Returns:
-            Mapping of doc_id -> set of chunk PKs. Doc IDs with no indexed
+            Mapping of file_id -> set of chunk PKs. File IDs with no indexed
             chunks are omitted from the result.
         """
         if not doc_ids:
             return {}
 
-        # Resolve the stored field name via _mapping_dict (built from feature_mappings at init).
-        doc_id_field: str = self._mapping_dict.get(
-            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
-            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+        # Resolve the stored field name for the 'id' feature via feature_mappings.
+        id_field: str = self._mapping_dict.get(
+            OperatorConstants.Misc.ID,
+            OperatorConstants.Misc.ID,
         )
 
         # Page size for search_after pagination. Keeps each request small while
@@ -439,8 +445,8 @@ class OpenSearchBatchProcessor:
         try:
             result: dict[str, set[str]] = {}
             query: dict[str, Any] = {
-                "query": {"terms": {doc_id_field: doc_ids}},
-                "_source": [doc_id_field],
+                "query": {"terms": {id_field: doc_ids}},
+                "_source": [id_field],
                 "size": page_size,
                 "sort": [{"_id": "asc"}],
             }
@@ -451,9 +457,9 @@ class OpenSearchBatchProcessor:
 
                 for hit in hits:
                     chunk_pk: str = hit["_id"]
-                    parent_doc_id: str | None = hit.get("_source", {}).get(doc_id_field)
-                    if parent_doc_id:
-                        result.setdefault(parent_doc_id, set()).add(chunk_pk)
+                    file_id: str | None = hit.get("_source", {}).get(id_field)
+                    if file_id:
+                        result.setdefault(file_id, set()).add(chunk_pk)
 
                 # A page smaller than page_size (including empty) means no more results
                 if len(hits) < page_size:
@@ -465,5 +471,5 @@ class OpenSearchBatchProcessor:
             return result
 
         except Exception as e:
-            logger.error("Error querying PKs by doc IDs: %s", e)
+            logger.error("Error querying PKs by file IDs: %s", e)
             return {}

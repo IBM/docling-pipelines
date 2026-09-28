@@ -20,6 +20,19 @@ class MetadataAggregator:
 
     """
 
+    _NUMERIC_STRATEGIES: tuple = (
+        AggregationStrategy.SUM,
+        AggregationStrategy.AVERAGE,
+        AggregationStrategy.WEIGHTED_AVERAGE,
+        AggregationStrategy.MIN,
+        AggregationStrategy.MAX,
+    )
+    _COLLECTION_STRATEGIES: tuple = (
+        AggregationStrategy.CONCAT,
+        AggregationStrategy.MERGE_DICT,
+        AggregationStrategy.DEEP_MERGE,
+    )
+
     def __init__(self) -> None:
         """Initialize MetadataAggregator with default strategies."""
         self.strategies: dict[str, AggregationStrategy] = DEFAULT_STRATEGIES.copy()
@@ -131,6 +144,63 @@ class MetadataAggregator:
 
         return result
 
+    def _apply_numeric_strategy(self, *, values: list[Any], strategy: AggregationStrategy) -> Any:
+        """Apply SUM / AVERAGE / WEIGHTED_AVERAGE / MIN / MAX strategies."""
+        numeric = [v for v in values if isinstance(v, (int, float))]
+        if strategy == AggregationStrategy.SUM:
+            return sum(numeric)
+        if strategy == AggregationStrategy.MIN:
+            return min(numeric)
+        if strategy == AggregationStrategy.MAX:
+            return max(numeric)
+        # AVERAGE and WEIGHTED_AVERAGE
+        return sum(numeric) / len(numeric) if numeric else 0
+
+    @staticmethod
+    def _apply_concat(values: list[Any]) -> list[Any]:
+        result: list[Any] = []
+        for value in values:
+            if isinstance(value, list):
+                result.extend(value)
+            elif value is not None:
+                result.append(value)
+        return result
+
+    @staticmethod
+    def _apply_merge_dict(values: list[Any]) -> dict:
+        result: dict = {}
+        for value in values:
+            if isinstance(value, dict):
+                result.update(value)
+        return result
+
+    def _apply_deep_merge(self, values: list[Any]) -> dict:
+        result: dict = {}
+        for value in values:
+            if isinstance(value, dict):
+                result = self._deep_merge(dict1=result, dict2=value)
+        return result
+
+    def _apply_collection_strategy(self, *, values: list[Any], strategy: AggregationStrategy) -> Any:
+        """Apply CONCAT / MERGE_DICT / DEEP_MERGE strategies."""
+        if strategy == AggregationStrategy.CONCAT:
+            return self._apply_concat(values)
+        if strategy == AggregationStrategy.MERGE_DICT:
+            return self._apply_merge_dict(values)
+        # DEEP_MERGE
+        return self._apply_deep_merge(values)
+
+    @staticmethod
+    def _apply_last_completed(values: list[Any]) -> Any:
+        for value in reversed(values):
+            if value:
+                return value
+        return values[-1] if values else None
+
+    def _apply_custom_strategy(self, *, field_name: str, values: list[Any]) -> Any:
+        custom_func = self.custom_functions.get(field_name)
+        return custom_func(values) if custom_func else values[-1]
+
     def _apply_strategy(self, *, field_name: str, values: list[Any], strategy: AggregationStrategy) -> Any:
         """
         Apply aggregation strategy to a list of values.
@@ -139,48 +209,14 @@ class MetadataAggregator:
         if not values:
             return None
 
-        if strategy == AggregationStrategy.SUM:
-            return sum(value for value in values if isinstance(value, (int, float)))
+        if strategy in self._NUMERIC_STRATEGIES:
+            return self._apply_numeric_strategy(values=values, strategy=strategy)
 
-        if strategy == AggregationStrategy.AVERAGE:
-            numeric_values = [value for value in values if isinstance(value, (int, float))]
-            return sum(numeric_values) / len(numeric_values) if numeric_values else 0
-
-        if strategy == AggregationStrategy.WEIGHTED_AVERAGE:
-            numeric_values = [value for value in values if isinstance(value, (int, float))]
-            return sum(numeric_values) / len(numeric_values) if numeric_values else 0
-
-        if strategy == AggregationStrategy.MIN:
-            return min(value for value in values if isinstance(value, (int, float)))
-
-        if strategy == AggregationStrategy.MAX:
-            return max(value for value in values if isinstance(value, (int, float)))
+        if strategy in self._COLLECTION_STRATEGIES:
+            return self._apply_collection_strategy(values=values, strategy=strategy)
 
         if strategy == AggregationStrategy.UNION:
             return self._apply_union_strategy(values=values)
-
-        if strategy == AggregationStrategy.CONCAT:
-            result_list = []
-            for value in values:
-                if isinstance(value, list):
-                    result_list.extend(value)
-                elif value is not None:
-                    result_list.append(value)
-            return result_list
-
-        if strategy == AggregationStrategy.MERGE_DICT:
-            result_dict = {}
-            for value in values:
-                if isinstance(value, dict):
-                    result_dict.update(value)
-            return result_dict
-
-        if strategy == AggregationStrategy.DEEP_MERGE:
-            result_dict = {}
-            for value in values:
-                if isinstance(value, dict):
-                    result_dict = self._deep_merge(dict1=result_dict, dict2=value)
-            return result_dict
 
         if strategy == AggregationStrategy.FIRST:
             return values[0]
@@ -189,10 +225,7 @@ class MetadataAggregator:
             return values[-1]
 
         if strategy == AggregationStrategy.LAST_COMPLETED:
-            for value in reversed(values):
-                if value:
-                    return value
-            return values[-1] if values else None
+            return self._apply_last_completed(values)
 
         if strategy == AggregationStrategy.PRIORITY_STATUS:
             status_priority = {
@@ -207,10 +240,7 @@ class MetadataAggregator:
             return max(values, key=lambda status: status_priority.get(str(status).upper(), 0))
 
         if strategy == AggregationStrategy.CUSTOM:
-            custom_func = self.custom_functions.get(field_name)
-            if custom_func:
-                return custom_func(values)
-            return values[-1]
+            return self._apply_custom_strategy(field_name=field_name, values=values)
 
         return values[-1]
 

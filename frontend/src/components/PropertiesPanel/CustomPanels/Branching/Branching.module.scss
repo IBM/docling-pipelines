@@ -1,0 +1,25 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/theme' as *;
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-04;
+}
+
+.helperText {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+  margin: 0;
+}
+
+.emptyState {
+  padding: $spacing-05;
+
+  p {
+    @include type.type-style('body-short-01');
+    color: $text-secondary;
+    margin: 0;
+  }
+}

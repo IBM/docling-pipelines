@@ -593,9 +593,12 @@ class TestDoclingServeAdditionalFormats:
         text_content = result_table[OperatorConstants.Columns.CONTENT_TEXT][0].as_py()
         json_content = result_table[OperatorConstants.Columns.CONTENT_JSON][0].as_py()
 
-        assert html_content is not None and len(html_content) > 0, "HTML content should not be empty"
-        assert text_content is not None and len(text_content) > 0, "Text content should not be empty"
-        assert json_content is not None and len(json_content) > 0, "JSON content should not be empty"
+        assert html_content is not None
+        assert len(html_content) > 0, "HTML content should not be empty"
+        assert text_content is not None
+        assert len(text_content) > 0, "Text content should not be empty"
+        assert json_content is not None
+        assert len(json_content) > 0, "JSON content should not be empty"
 
     def test_docling_serve_doclang_format(self, sample_pdf_path: Path):
         """
@@ -691,4 +694,5 @@ class TestDoclingServeAdditionalFormats:
 
         # Verify markdown content is present
         content = result_table["content"][0].as_py()
-        assert content is not None and len(content) > 0, "Markdown content should not be empty"
+        assert content is not None
+        assert len(content) > 0, "Markdown content should not be empty"

@@ -15,6 +15,7 @@ Examples:
     vault://hashicorp/opensearch/credentials#username
 """
 
+import json
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -132,6 +133,24 @@ def parse_reference(value: str) -> SecretReference | None:
     )
 
 
+def parse_vault_reference(ref: str) -> tuple[str, str, str | None]:
+    """Parse a vault:// URI into (provider_name, secret_path, secret_key).
+
+    Args:
+        ref: The vault reference string.
+
+    Returns:
+        Tuple of (provider_name, path, optional_key).
+
+    Raises:
+        ValueError: If the string is not a valid vault reference.
+    """
+    parsed = parse_reference(ref)
+    if parsed is None:
+        raise ValueError(f"Invalid vault reference: '{ref}'")
+    return parsed.provider, parsed.path, parsed.key
+
+
 def is_vault_reference(value: Any) -> bool:
     """Check if a value is a vault:// reference string.
 
@@ -142,6 +161,61 @@ def is_vault_reference(value: Any) -> bool:
         True if the value is a string starting with 'vault://'.
     """
     return isinstance(value, str) and value.startswith("vault://")
+
+
+def has_vault_references(value: Any) -> bool:
+    """Return True if *value* contains any vault:// reference, anywhere in its structure.
+
+    This is a fast detection pass — it returns as soon as it finds one reference
+    without rebuilding any data.  Used to short-circuit ``resolve_value`` when the
+    config contains no vault references at all, which is the common case.
+
+    Args:
+        value: A string, dict, list, or any other value.
+
+    Returns:
+        True if any string in the structure starts with ``vault://``.
+    """
+    if isinstance(value, str):
+        return value.startswith("vault://")
+    if isinstance(value, dict):
+        return any(has_vault_references(v) for v in value.values())
+    if isinstance(value, list):
+        return any(has_vault_references(item) for item in value)
+    return False
+
+
+def _parse_secret_json_if_applicable(secret: Any) -> Any:
+    """Parse JSON string back to native Python object if secret is JSON-formatted."""
+    if isinstance(secret, str):
+        stripped = secret.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                return json.loads(stripped)
+            except json.JSONDecodeError:
+                pass
+    return secret
+
+
+def _resolve_string_vault_ref(*, ref_string: str) -> Any:
+    """Resolve a single vault reference string if applicable, or return it unchanged."""
+    ref = parse_reference(ref_string)
+    if ref is None:
+        return ref_string
+
+    provider = _providers.get(ref.provider)
+    if provider is None:
+        raise ConfigurationError(
+            f"Secret provider '{ref.provider}' not registered. "
+            "Vault initialization failed at startup — check logs for details. "
+            "Common causes: VAULT_ROLE_ID/VAULT_SECRET_ID not set, "
+            "or Vault unreachable at VAULT_ADDR. "
+            "Enable debug logging with DS_LOG_LEVEL=DEBUG for full detail."
+        )
+
+    logger.debug("Resolving vault reference: provider=%s, path=%s, key=%s", ref.provider, ref.path, ref.key)
+    secret = provider.get_secret(path=ref.path, key=ref.key)
+    return _parse_secret_json_if_applicable(secret)
 
 
 def resolve_value(value: Any) -> Any:
@@ -164,22 +238,7 @@ def resolve_value(value: Any) -> Any:
             cannot be retrieved from the backend.
     """
     if isinstance(value, str):
-        ref = parse_reference(value)
-        if ref is None:
-            return value
-
-        provider = _providers.get(ref.provider)
-        if provider is None:
-            raise ConfigurationError(
-                f"Secret provider '{ref.provider}' not registered. "
-                "Vault initialization failed at startup — check logs for details. "
-                "Common causes: VAULT_ROLE_ID/VAULT_SECRET_ID not set, "
-                "or Vault unreachable at VAULT_ADDR. "
-                "Enable debug logging with DS_LOG_LEVEL=DEBUG for full detail."
-            )
-
-        logger.debug("Resolving vault reference: provider=%s, path=%s, key=%s", ref.provider, ref.path, ref.key)
-        return provider.get_secret(path=ref.path, key=ref.key)
+        return _resolve_string_vault_ref(ref_string=value)
 
     if isinstance(value, dict):
         return {k: resolve_value(v) for k, v in value.items()}

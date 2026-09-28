@@ -1,0 +1,9 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.centeredContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: $spacing-13;
+  width: 100%;
+}

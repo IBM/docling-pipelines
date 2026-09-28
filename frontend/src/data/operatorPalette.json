@@ -1,0 +1,840 @@
+{
+  "version": "3.0",
+  "categories": [
+    {
+      "id": "ingest",
+      "label": "Ingest",
+      "description": "Data ingestion operators",
+      "node_types": [
+        {
+          "id": "ingest_source",
+          "type": "execution_node",
+          "op": "ingest_source",
+          "outputs": [
+            {
+              "id": "ingest_source_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Ingest data",
+              "description": "Ingest documents from local and remote storage sources"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "extract",
+      "label": "Extract",
+      "description": "Text and entity extraction operators",
+      "node_types": [
+        {
+          "id": "extract_operator",
+          "type": "execution_node",
+          "op": "extract_operator",
+          "inputs": [
+            {
+              "id": "extract_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "extract_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Extract Content",
+              "description": "Extract text and entities from documents using Docling"
+            }
+          }
+        },
+        {
+          "id": "acl_operator",
+          "type": "execution_node",
+          "op": "acl_operator",
+          "inputs": [
+            {
+              "id": "acl_operator_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "acl_operator_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "ACL Extraction",
+              "description": "Extract access control lists from documents using provider credentials from the upstream Ingest node"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "label": "Quality",
+      "description": "Data quality and filtering operators",
+      "node_types": [
+        {
+          "id": "ededup",
+          "type": "execution_node",
+          "op": "ededup",
+          "inputs": [
+            {
+              "id": "ededup_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "ededup_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "De-duplicator",
+              "description": "Exact deduplication operator that removes duplicate documents based on content hash"
+            }
+          }
+        },
+        {
+          "id": "redaction",
+          "type": "execution_node",
+          "op": "redaction",
+          "inputs": [
+            {
+              "id": "redaction_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": { "min": 1, "max": 1 },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "redaction_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": { "min": 1, "max": 1 },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Redaction",
+              "description": "Redact text matching a regex pattern from document content"
+            }
+          }
+        },
+        {
+          "id": "readability",
+          "type": "execution_node",
+          "op": "readability",
+          "inputs": [
+            {
+              "id": "readability_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": { "min": 1, "max": 1 },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "readability_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": { "min": 1, "max": 1 },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Readability",
+              "description": "Compute readability scores for document content (Flesch-Kincaid, Gunning Fog, SMOG, and more)"
+            }
+          }
+        },
+        {
+          "id": "ml_enrichment",
+          "type": "execution_node",
+          "op": "ml_enrichment",
+          "inputs": [
+            {
+              "id": "ml_enrichment_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "ml_enrichment_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "ML Text Enrichment",
+              "description": "Computes text quality and statistical features for document content"
+            }
+          }
+        },
+        {
+          "id": "lang_detect",
+          "type": "execution_node",
+          "op": "lang_detect",
+          "inputs": [
+            {
+              "id": "lang_detect_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "lang_detect_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Language Annotator",
+              "description": "Detect the language of each document and annotate with language name and confidence score"
+            }
+          }
+        },
+        {
+          "id": "doc_quality",
+          "type": "execution_node",
+          "op": "doc_quality",
+          "inputs": [
+            {
+              "id": "doc_quality_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "doc_quality_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Document Quality",
+              "description": "Compute text quality metrics for each document"
+            }
+          }
+        },
+        {
+          "id": "sql_filter",
+          "type": "execution_node",
+          "op": "sql_filter",
+          "inputs": [
+            {
+              "id": "sql_filter_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "sql_filter_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Annotation filter",
+              "description": "Filter documents based on added annotations to streamline processing and ensure relevant content is ingested into the language model."
+            }
+          }
+        },
+        {
+          "id": "pii_and_hap",
+          "type": "execution_node",
+          "op": "pii_and_hap",
+          "inputs": [
+            {
+              "id": "pii_and_hap_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "pii_and_hap_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "PII and HAP Annotator",
+              "description": "Detect and optionally redact Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "functional",
+      "label": "Functional",
+      "description": "Data transformation operators",
+      "node_types": [
+        {
+          "id": "chunker",
+          "type": "execution_node",
+          "op": "chunker",
+          "inputs": [
+            {
+              "id": "chunker_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "chunker_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Chunking",
+              "description": "Split text into smaller chunks for processing"
+            }
+          }
+        },
+        {
+          "id": "embeddings",
+          "type": "execution_node",
+          "op": "embeddings",
+          "inputs": [
+            {
+              "id": "embeddings_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "embeddings_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Embeddings",
+              "description": "Create vector embeddings using Ollama or LiteLLM"
+            }
+          }
+        },
+        {
+          "id": "document_classifier",
+          "type": "execution_node",
+          "op": "document_classifier",
+          "inputs": [
+            {
+              "id": "document_classifier_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "document_classifier_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Document Classifier",
+              "description": "Classify documents into predefined types using LLM (litellm or watsonx providers)"
+            }
+          }
+        },
+        {
+          "id": "entity_curation",
+          "type": "execution_node",
+          "op": "entity_curation",
+          "inputs": [
+            {
+              "id": "entity_curation_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "entity_curation_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Entity Curation",
+              "description": "Transform extracted entities into structured, curated data using document class schemas"
+            }
+          }
+        },
+        {
+          "id": "noop",
+          "type": "execution_node",
+          "op": "noop",
+          "inputs": [
+            {
+              "id": "noop_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "noop_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "No-op",
+              "description": "Pass-through operator for testing and debugging"
+            }
+          }
+        },
+        {
+          "id": "branching",
+          "type": "execution_node",
+          "op": "branching",
+          "inputs": [
+            {
+              "id": "branching_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "branching_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": -1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Branching",
+              "description": "Branch the flow into multiple streams based on conditions you define"
+            }
+          }
+        },
+        {
+          "id": "merge",
+          "type": "execution_node",
+          "op": "merge",
+          "inputs": [
+            {
+              "id": "merge_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": -1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "merge_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Merging",
+              "description": "Merge two or more branched streams back into a single stream"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "vectordb",
+      "label": "Vector DB",
+      "description": "Vector database storage operators",
+      "node_types": [
+        {
+          "id": "vectordb",
+          "type": "execution_node",
+          "op": "vectordb",
+          "inputs": [
+            {
+              "id": "vectordb_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "vectordb_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Vector DB",
+              "description": "Store vectors in vector database (OpenSearch, Milvus, etc.)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "label": "Storage",
+      "description": "Data storage and persistence operators",
+      "node_types": [
+        {
+          "id": "document_set",
+          "type": "execution_node",
+          "op": "document_set",
+          "inputs": [
+            {
+              "id": "document_set_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "document_set_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Document Set",
+              "description": "Store and manage document sets"
+            }
+          }
+        },
+        {
+          "id": "storage_output",
+          "type": "execution_node",
+          "op": "storage_output",
+          "inputs": [
+            {
+              "id": "storage_output_inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "storage_output_outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 1,
+                    "max": 1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ],
+          "app_data": {
+            "ui_data": {
+              "label": "Storage Output",
+              "description": "Write pipeline documents to a storage destination"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

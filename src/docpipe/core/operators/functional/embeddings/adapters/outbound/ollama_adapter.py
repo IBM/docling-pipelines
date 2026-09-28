@@ -84,7 +84,8 @@ class OllamaLLMAdapter(LLMServicePort):
         embeddings = self.client.generate_embeddings(text)
 
         if not embeddings or not isinstance(embeddings, list):
-            raise ValueError(f"Invalid embeddings from Ollama model '{self.model_name}': {embeddings}")
+            msg = f"Invalid embeddings from Ollama model '{self.model_name}': {embeddings}"
+            raise ValueError(msg)
 
         return embeddings
 
@@ -105,7 +106,8 @@ class OllamaLLMAdapter(LLMServicePort):
         # Validate all embeddings
         for i, embeddings in enumerate(embeddings_list):
             if not embeddings or not isinstance(embeddings, list):
-                raise ValueError(f"Invalid embeddings from Ollama model '{self.model_name}' at index {i}: {embeddings}")
+                msg = f"Invalid embeddings from Ollama model '{self.model_name}' at index {i}: {embeddings}"
+                raise ValueError(msg)
 
         return embeddings_list
 
@@ -135,34 +137,35 @@ class OllamaLLMAdapter(LLMServicePort):
         test_text = "dimension detection"
 
         try:
-            logger.debug(f"Detecting embedding dimension for Ollama model '{self.model_name}'")
+            logger.debug("Detecting embedding dimension for Ollama model '%s'", self.model_name)
 
             # Generate test embedding
             result = self.client.generate_embeddings(test_text)
 
             if not result or not isinstance(result, list):
-                raise RuntimeError(f"Invalid embedding result from Ollama model '{self.model_name}': {result}")
+                msg = f"Invalid embedding result from Ollama model '{self.model_name}': {result}"
+                raise RuntimeError(msg)
 
             dimension = len(result)
-            logger.info(f"Detected embedding dimension for Ollama model '{self.model_name}': {dimension}")
+            logger.info("Detected embedding dimension for Ollama model '%s': %d", self.model_name, dimension)
 
             return dimension
 
         except Exception as e:
             error_msg = f"Failed to detect embedding dimension for Ollama model '{self.model_name}': {e}"
-            logger.error(error_msg)
+            logger.error("Failed to detect embedding dimension for Ollama model '%s': %s", self.model_name, e)
 
             # Provide helpful error messages
             if "connection" in str(e).lower():
-                raise ExternalServiceError(
+                msg = (
                     f"{error_msg}\n"
                     f"Ensure Ollama server is running: ollama serve\n"
                     f"Check server status: curl {ServiceConstants.DEFAULT_OLLAMA_HOST}/api/tags"
-                ) from e
+                )
+                raise ExternalServiceError(msg) from e
             if "not found" in str(e).lower():
-                raise ExternalServiceError(
-                    f"{error_msg}\nModel may not be available. Pull it with: ollama pull {self.model_name}"
-                ) from e
+                msg = f"{error_msg}\nModel may not be available. Pull it with: ollama pull {self.model_name}"
+                raise ExternalServiceError(msg) from e
             raise RuntimeError(error_msg) from e
 
     def get_embedding_dimension(self) -> int | None:

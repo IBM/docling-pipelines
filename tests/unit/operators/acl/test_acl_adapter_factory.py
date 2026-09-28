@@ -100,10 +100,8 @@ class TestACLAdapterFactoryRegistration:
         class InvalidAdapter:
             """Not a subclass of ACLExtractionPort."""
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="must implement ACLExtractionPort"):
             ACLAdapterFactory.register_adapter(provider="test_provider", adapter_class=InvalidAdapter)
-
-        assert "must implement ACLExtractionPort" in str(exc_info.value)
 
 
 class TestACLAdapterFactoryDecorator:

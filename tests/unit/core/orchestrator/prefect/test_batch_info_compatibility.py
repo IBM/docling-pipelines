@@ -148,11 +148,12 @@ class TestBatchInfoCompatibility:
             return {"type": "inline", "data": {}}
 
         # Mock the entire async execution to prevent real Prefect calls
-        async def mock_execute_async(*, batches, op_flow, global_config, job_run_id):
+        async def mock_execute_async(*, batches, op_flow, global_config, job_run_id, continue_on_batch_failure=False):
             # This simulates what the real method does: accesses BatchInfo attributes
             for batch_info in batches:
                 # Access BatchInfo attributes (this is what we're testing)
                 mock_transfer_impl(batch_table=batch_info.table, batch_num=batch_info.batch_num, job_run_id=job_run_id)
+            return [], len(batches)  # (failed_info, completed_count)
 
         with patch.object(adapter, "_transfer_batch", side_effect=mock_transfer_impl):
             with patch.object(adapter, "_execute_pipelined_batches_async", side_effect=mock_execute_async):

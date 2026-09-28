@@ -4,6 +4,7 @@
 - **Package**: `docpipe` | source root: `src/` | Python `>=3.12,<3.13`
 - **Install**: `uv pip install -e .[dev]` | activate: `source .venv/bin/activate`
 - **Key external dep**: `data_processing` comes from `data-prep-toolkit-transforms` (DPK); `AbstractTableTransform` is its base class for all operators
+- **Lockfile**: Any change to `[project.dependencies]`, `[project.optional-dependencies]`, or `[tool.uv].override-dependencies` in `pyproject.toml` **must** be followed by `uv lock` to regenerate `uv.lock`, then `uv pip install -e ".[dev]"` to sync the venv. Commit both `pyproject.toml` and `uv.lock` together.
 
 ## Entrypoints
 CLI::src/docpipe/cli/docpipe_cli.py::main → `docling-pipelines --flow-file <path>`

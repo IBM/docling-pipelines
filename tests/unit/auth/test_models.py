@@ -17,7 +17,7 @@ class TestLoginRequest:
 
     def test_login_request_valid(self):
         """Test creating valid login request."""
-        pwd = os.environ.get("TEST_USER_PASSWORD", "test-model-pass")
+        pwd = os.environ.get("TEST_PASSWORD", "testpass")
         request = LoginRequest(username="testuser", password=pwd)
 
         assert request.username == "testuser"
@@ -26,7 +26,7 @@ class TestLoginRequest:
     def test_login_request_missing_username(self):
         """Test login request without username raises error."""
         with pytest.raises(ValidationError):
-            LoginRequest(password=os.environ.get("TEST_USER_PASSWORD", "test-model-pass"))
+            LoginRequest(password=os.environ.get("TEST_PASSWORD", "testpass"))
 
     def test_login_request_missing_password(self):
         """Test login request without password raises error."""

@@ -269,6 +269,8 @@ def test_document_classifier_get_metadata_watsonx(monkeypatch):
     # Check attributes
     attributes = metadata["attributes"]
     assert "provider" in attributes, "Attributes should include 'provider'"
+    assert "document_types" in attributes, "Attributes should include 'document_types'"
+    assert attributes["document_types"].get("default") == [], "document_types attribute should have default: []"
     # model_id is nested inside each provider schema under provider_config.providers.<provider>.properties
     assert "provider_config" in attributes, "Attributes should include 'provider_config'"
     assert "providers" in attributes["provider_config"], "provider_config should have 'providers'"

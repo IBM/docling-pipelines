@@ -1,0 +1,110 @@
+/*
+ * Licensed Materials - Property of IBM
+ * © Copyright IBM Corp. 2024, 2026.
+ */
+
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type' as *;
+
+.topNotificationBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-03 $spacing-05;
+  // Use CSS custom property so background adapts to both light and dark Carbon themes.
+  // The Sass token $notification-background-error is not forwarded through
+  // @carbon/react/scss/theme; var(--cds-*) is the only reliable cross-theme approach.
+  background-color: var(--cds-notification-background-error, #fff1f1);
+  border-left: $spacing-02 solid $support-error;
+  min-height: $spacing-09;
+}
+
+.warningBar {
+  background-color: var(--cds-notification-background-warning, #fcf4d6);
+  border-left-color: $support-warning;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: $spacing-03;
+  flex: 1;
+  min-width: 0;
+}
+
+.errorIcon {
+  color: $support-error;
+  flex-shrink: 0;
+}
+
+.warningIcon {
+  color: $support-warning;
+  flex-shrink: 0;
+}
+
+.title {
+  @include type-style('body-compact-01');
+  font-weight: 600;
+  color: $text-primary;
+  white-space: nowrap;
+  margin-right: $spacing-02;
+}
+
+.message {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-05;
+  flex-shrink: 0;
+  margin-left: $spacing-05;
+}
+
+.viewLink {
+  @include type-style('body-compact-01');
+  background: none;
+  border: none;
+  color: $link-primary;
+  cursor: pointer;
+  font-weight: 400;
+  padding: 0;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    color: $link-primary-hover;
+  }
+
+  &:focus {
+    outline: $spacing-01 solid $focus;
+    outline-offset: $spacing-01;
+  }
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: $spacing-02;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $icon-primary;
+  border-radius: $spacing-02;
+
+  &:hover {
+    background-color: $layer-hover-01;
+  }
+
+  &:focus {
+    outline: $spacing-01 solid $focus;
+    outline-offset: $spacing-01;
+  }
+}

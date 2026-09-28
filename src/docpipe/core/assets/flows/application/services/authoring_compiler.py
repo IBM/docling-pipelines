@@ -69,7 +69,7 @@ class AuthoringCompiler:
         # Construct runtime flow
         runtime_flow: dict[str, Any] = {
             DocpipeConstants.NAME: authoring_flow.flow_name,
-            DocpipeConstants.FLOW_ID: str(uuid4()),
+            DocpipeConstants.FLOW_ID: authoring_flow.flow_id or str(uuid4()),
             DocpipeConstants.DESCRIPTION: authoring_flow.description or "",
             DocpipeConstants.STORAGE: DocpipeConstants.STORAGE_IN_MEMORY,
             DocpipeConstants.EXECUTE_TYPE: DocpipeConstants.LOCAL,

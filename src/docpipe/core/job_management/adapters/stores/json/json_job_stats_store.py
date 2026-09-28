@@ -178,6 +178,34 @@ class JsonJobStatsStore(JobStatsStore):
                 message=f"Failed to read JSON file {path}: {e}", job_run_id=None, operation="read_json"
             ) from e
 
+    def _read_job_stats_unlocked(self, *, job_run_id: str) -> "JobStats | None":
+        """Read job stats from disk without acquiring the file lock.
+
+        Must only be called from within a block that already holds the job-stats
+        file lock for ``job_run_id``.
+        """
+        path = self._get_job_stats_path(job_run_id=job_run_id)
+        data = self._read_json(path=path)
+        if data is None:
+            return None
+        try:
+            return JobStats(**data)
+        except Exception as e:
+            logger.error("Failed to parse job stats from %s: %s", path, e)
+            raise JobStatsStoreReadException(
+                message=f"Failed to parse job stats: {e}", job_run_id=job_run_id, operation="get_job_stats"
+            ) from e
+
+    def _write_job_stats_unlocked(self, *, job_stats: "JobStats") -> None:
+        """Write job stats to disk without acquiring the file lock.
+
+        Must only be called from within a block that already holds the job-stats
+        file lock for ``job_stats.job_run_id``.
+        """
+        path = self._get_job_stats_path(job_run_id=job_stats.job_run_id)
+        data = job_stats.model_dump(exclude={"node_stats", "batch_node_stats"})
+        self._atomic_write_json(path=path, data=data)
+
     def store_job_stats(self, job_stats: JobStats) -> None:
         """
         Store job-level statistics with file-level locking.
@@ -197,13 +225,8 @@ class JsonJobStatsStore(JobStatsStore):
 
         try:
             with lock.acquire(timeout=self._lock_timeout):
-                path = self._get_job_stats_path(job_run_id=job_run_id)
-
-                # Convert to dict, excluding nested node_stats
-                data = job_stats.model_dump(exclude={"node_stats", "batch_node_stats"})
-
-                self._atomic_write_json(path=path, data=data)
-                logger.debug(f"Stored job stats: job_run_id={job_run_id}")
+                self._write_job_stats_unlocked(job_stats=job_stats)
+                logger.debug("Stored job stats: job_run_id=%s", job_run_id)
         except Timeout as e:
             raise JobStatsStoreWriteException(
                 message=f"Failed to acquire lock for job stats write: timeout={self._lock_timeout}s",
@@ -211,7 +234,7 @@ class JsonJobStatsStore(JobStatsStore):
                 operation="store_job_stats",
             ) from e
         except Exception as e:
-            logger.error(f"Failed to store job stats: {e}")
+            logger.error("Failed to store job stats: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to store job stats: {e}", job_run_id=job_run_id, operation="store_job_stats"
             ) from e
@@ -231,20 +254,7 @@ class JsonJobStatsStore(JobStatsStore):
 
         try:
             with lock.acquire(timeout=self._lock_timeout):
-                path = self._get_job_stats_path(job_run_id=job_run_id)
-                data = self._read_json(path=path)
-
-                if data is None:
-                    return None
-
-                try:
-                    # Reconstruct JobStats from JSON
-                    return JobStats(**data)
-                except Exception as e:
-                    logger.error(f"Failed to parse job stats from {path}: {e}")
-                    raise JobStatsStoreReadException(
-                        message=f"Failed to parse job stats: {e}", job_run_id=job_run_id, operation="get_job_stats"
-                    ) from e
+                return self._read_job_stats_unlocked(job_run_id=job_run_id)
         except Timeout as e:
             raise JobStatsStoreReadException(
                 message=f"Failed to acquire lock for job stats read: timeout={self._lock_timeout}s",
@@ -390,6 +400,25 @@ class JsonJobStatsStore(JobStatsStore):
                 operation="get_batch_node_stats",
             ) from e
 
+    def get_failed_docs_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """Retrieve failed document IDs for all nodes in a single batch."""
+        try:
+            all_records = self.get_node_stats(job_run_id=job_run_id)
+            failed_doc_ids: list[str] = []
+            for record in all_records:
+                if getattr(record, "batch_id", None) != batch_id:
+                    continue
+                failed_docs = getattr(record, "failed_docs", None)
+                if failed_docs:
+                    failed_doc_ids.extend(failed_docs)
+            return failed_doc_ids
+        except Exception as e:
+            raise JobStatsStoreReadException(
+                message=f"Failed to get failed docs for batch: {e}",
+                job_run_id=job_run_id,
+                operation="get_failed_docs_for_batch",
+            ) from e
+
     def try_store_node_stats(self, *, job_run_id: str, node_stats: NodeStats, lock_timeout: float) -> bool:
         """Store node statistics with a caller-supplied lock timeout.
 
@@ -505,9 +534,10 @@ class JsonJobStatsStore(JobStatsStore):
 
         try:
             with lock.acquire(timeout=self._lock_timeout):
-                job_stats = self.get_job_stats(job_run_id)
+                # Use unlocked helpers — the lock is already held by this frame.
+                job_stats = self._read_job_stats_unlocked(job_run_id=job_run_id)
                 if not job_stats:
-                    logger.warning(f"Job stats not found for atomic update: {job_run_id}")
+                    logger.warning("Job stats not found for atomic update: %s", job_run_id)
                     return
 
                 # Apply increments
@@ -528,9 +558,9 @@ class JsonJobStatsStore(JobStatsStore):
                             current_dict.update(merge_dict)
                             setattr(job_stats, field_name, current_dict)
 
-                # Write back atomically
-                self.store_job_stats(job_stats)
-                logger.debug(f"Atomic update applied: job_run_id={job_run_id}")
+                # Write back atomically — still inside the lock.
+                self._write_job_stats_unlocked(job_stats=job_stats)
+                logger.debug("Atomic update applied: job_run_id=%s", job_run_id)
         except Timeout as e:
             raise JobStatsStoreAtomicUpdateException(
                 message=f"Failed to acquire lock for atomic update: timeout={self._lock_timeout}s",
@@ -637,6 +667,51 @@ class JsonJobStatsStore(JobStatsStore):
 
         return [d.name for d in self._base_dir.iterdir() if d.is_dir() and (d / "job_stats.json").exists()]
 
+    def _read_job_stats_if_match(
+        self,
+        *,
+        job_dir: Path,
+        job_id: str | None,
+        job_ids_set: set[str] | None,
+        status: ExecutionStatus | str | None,
+    ) -> JobStats | None:
+        """
+        Read, parse, and filter a single job run directory under a file lock.
+        Returns the JobStats if the entry exists and passes all filters, None otherwise.
+        """
+        job_stats_path = job_dir / "job_stats.json"
+        if not job_stats_path.exists():
+            return None
+
+        job_run_id = job_dir.name
+        lock_path = self._get_job_stats_lock_path(job_run_id=job_run_id)
+        lock = FileLock(str(lock_path), timeout=self._lock_timeout)
+
+        try:
+            with lock.acquire(timeout=self._lock_timeout):
+                data = self._read_json(path=job_stats_path)
+                if not data:
+                    return None
+
+                try:
+                    job_stats = JobStats(**data)
+
+                    # Apply filters
+                    if job_id and job_stats.job_id != job_id:
+                        return None
+                    if job_ids_set and job_stats.job_id not in job_ids_set:
+                        return None
+                    if status and job_stats.status != status:
+                        return None
+
+                    return job_stats
+                except Exception as e:
+                    logger.warning(f"Failed to parse job stats from {job_stats_path}: {e}")
+                    return None
+        except Timeout:
+            logger.warning(f"Timeout acquiring lock for job stats read: {job_run_id}")
+            return None
+
     def list_job_runs(
         self,
         job_id: str | None = None,
@@ -656,52 +731,24 @@ class JsonJobStatsStore(JobStatsStore):
         Returns:
             List of JobStats matching filters (sorted by start_time desc)
         """
-        result: list[JobStats] = []
-
         if not self._base_dir.exists():
-            return result
+            return []
 
         job_ids_set = set(job_ids) if job_ids else None
 
         try:
-            # Iterate through all job run directories
+            result: list[JobStats] = []
             for job_dir in self._base_dir.iterdir():
                 if not job_dir.is_dir():
                     continue
-
-                job_stats_path = job_dir / "job_stats.json"
-                if not job_stats_path.exists():
-                    continue
-
-                # Read job stats with lock
-                job_run_id = job_dir.name
-                lock_path = self._get_job_stats_lock_path(job_run_id=job_run_id)
-                lock = FileLock(str(lock_path), timeout=self._lock_timeout)
-
-                try:
-                    with lock.acquire(timeout=self._lock_timeout):
-                        data = self._read_json(path=job_stats_path)
-                        if not data:
-                            continue
-
-                        try:
-                            job_stats = JobStats(**data)
-
-                            # Apply filters
-                            if job_id and job_stats.job_id != job_id:
-                                continue
-                            if job_ids_set and job_stats.job_id not in job_ids_set:
-                                continue
-                            if status and job_stats.status != status:
-                                continue
-
-                            result.append(job_stats)
-                        except Exception as e:
-                            logger.warning(f"Failed to parse job stats from {job_stats_path}: {e}")
-                            continue
-                except Timeout:
-                    logger.warning(f"Timeout acquiring lock for job stats read: {job_run_id}")
-                    continue
+                job_stats = self._read_job_stats_if_match(
+                    job_dir=job_dir,
+                    job_id=job_id,
+                    job_ids_set=job_ids_set,
+                    status=status,
+                )
+                if job_stats is not None:
+                    result.append(job_stats)
 
             # Sort by start_time descending (most recent first)
             result.sort(key=lambda x: x.start_time or 0, reverse=True)

@@ -1,0 +1,129 @@
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// Root container — no fixed width/height; CommonProperties (rightFlyout) controls sizing
+.commonPropertiesPanelContainer {
+  user-select: text;
+}
+
+// Header row: operator icon + operator type label
+.commonPropertiesPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: $spacing-03;
+  padding-left: $spacing-05;
+  color: $text-primary;
+}
+
+// Editable display label row
+.displayLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: $spacing-05;
+
+  // The display label reads as plain editable text — no field chrome.
+  // background-color must beat the global .right-flyout-panel input override
+  // in ElyraCanvas.module.scss (which forces $field-02 for contrast on all inputs).
+  // Using $layer-01 (white in g10) to match the panel background exactly.
+  :global(.cds--text-input) {
+    @include type.type-style('body-compact-02');
+    font-weight: 600;
+    color: $text-secondary;
+    background-color: $layer-01 !important;
+    border-bottom: 0;
+    padding-left: 0;
+  }
+}
+
+// Operator description text below the display label
+.nodeDescription {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+  padding-left: $spacing-05;
+  margin-bottom: $spacing-03;
+}
+
+// Operator type label in the header
+.nodeLabel {
+  @include type.type-style('body-short-01');
+  margin: 0;
+  color: $text-primary;
+}
+
+// Operator icon sizing
+.nodeIcon {
+  display: flex;
+  align-items: center;
+
+  svg {
+    width: $spacing-05;
+  }
+}
+
+// Generic tab panel body padding
+.tabContent {
+  padding: $spacing-05;
+}
+
+// Muted placeholder text inside configuration tab
+.configurationLabel {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+}
+
+// Root wrapper — stacked fields
+.commonPropertiesPanelBody {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06;
+}
+
+// Indented sub-section inside an accordion item
+.subSection {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05;
+  padding-left: $spacing-05;
+  border-left: 2px solid $border-subtle-01;
+  margin-top: $spacing-03;
+  margin-bottom: $spacing-03;
+}
+
+// Each field: label row + input
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02;
+}
+
+// Stacked fields inside an AccordionItem
+.accordionContent {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06;
+}
+
+// Descriptive subtitle at the top of an AccordionItem
+.accordionDescription {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+  margin: 0;
+  padding-bottom: $spacing-02;
+}
+
+// Label row — holds DefinitionTooltip (description shows on hover, not below input)
+.labelWithTooltip {
+  display: flex;
+  @include type.type-style('label-01');
+  align-items: center;
+  margin-bottom: $spacing-03;
+}
+
+// Side-by-side layout for toggle pair
+.toggleRow {
+  display: flex;
+  gap: $spacing-07;
+  align-items: flex-start;
+}

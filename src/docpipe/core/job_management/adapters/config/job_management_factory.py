@@ -147,6 +147,23 @@ class JobManagementFactory:
 
         self.config[DocpipeConfigKeys.STORAGE_INITIALIZED] = True
 
+    def _resolve_filesystem_base_dir(self) -> str | None:
+        """
+        Resolve the filesystem base directory for worker env propagation.
+        Returns:
+            Resolved absolute path string, or None if not configured.
+        """
+        base_dir_override = os.getenv(ENV_JOB_STATS_BASE_DIR_KEY)
+        if base_dir_override:
+            return base_dir_override
+
+        configured_base_dir = self.config.get(DocpipeConfigKeys.BASE_DIR)
+        if configured_base_dir:
+            configured_path = Path(configured_base_dir)
+            return str(configured_path if configured_path.is_absolute() else configured_path.resolve())
+
+        return None
+
     def resolve_worker_env(self) -> dict[str, str]:
         """
         Resolve environment variables that need to be propagated to workers.
@@ -160,21 +177,7 @@ class JobManagementFactory:
         }
 
         if self.storage_backend == StorageBackend.FILESYSTEM:
-            # Re-resolve base_dir as start_tracking_job does
-            base_dir_override = os.getenv(ENV_JOB_STATS_BASE_DIR_KEY)
-            configured_base_dir = self.config.get(DocpipeConfigKeys.BASE_DIR)
-            resolved_base_dir = None
-
-            if base_dir_override:
-                resolved_base_dir = base_dir_override
-            elif configured_base_dir:
-                configured_base_dir_path = Path(configured_base_dir)
-                resolved_base_dir = str(
-                    configured_base_dir_path
-                    if configured_base_dir_path.is_absolute()
-                    else configured_base_dir_path.resolve()
-                )
-
+            resolved_base_dir = self._resolve_filesystem_base_dir()
             if resolved_base_dir:
                 env[EnvironmentVariables.DOCPIPE_JOB_STATS_BASE_DIR] = resolved_base_dir
 

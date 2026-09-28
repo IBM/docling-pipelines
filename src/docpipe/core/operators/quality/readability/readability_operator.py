@@ -181,16 +181,13 @@ class ReadabilityOperator(AbstractOperator):
 
         return scores
 
-    def _process_all_rows(self, *, content_column: pa.Array) -> dict[str, list[float]]:
-        """Process all rows and build score columns"""
+    def _process_all_rows(self, *, content_list: list[Any]) -> dict[str, list[float]]:
+        """Process all rows and build score columns."""
         score_columns: dict[str, list[float]] = {score: [] for score in self.score_list}
-
-        content_list = content_column.to_pylist()
 
         for text in content_list:
             text = text if text is not None else ""
             scores = self._calculate_scores_for_text(text=text)
-
             for score in self.score_list:
                 score_columns[score].append(scores[score])
 
@@ -198,14 +195,17 @@ class ReadabilityOperator(AbstractOperator):
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform function for readability scores - calculates only requested metrics"""
-        # Get the content column
         if self.contents_column_name not in table.column_names:
             raise ValueError(f"Content column '{self.contents_column_name}' not found in table")
 
-        content_column = table.column(self.contents_column_name)
+        # Retrieve markdown content for scoring — reuses content_markdown if present
+        # or strips DocLang tags without allocating a temporary table.
+        content_list = OperatorUtils.get_markdown_content_col(
+            table=table, col_name=self.contents_column_name, doc_format=self.doc_format
+        )
 
         # Calculate readability scores for each document
-        score_columns = self._process_all_rows(content_column=content_column)
+        score_columns = self._process_all_rows(content_list=content_list)
 
         # Create new columns for each score
         new_columns = []
@@ -215,7 +215,7 @@ class ReadabilityOperator(AbstractOperator):
             new_columns.append(pa.array(score_columns[score], type=pa.float64()))
             new_fields.append(pa.field(score, pa.float64()))
 
-        # Combine original table with new score columns
+        # Append score columns onto the original table (preserves DocLang in doc_column)
         transformed_table = table.append_column(new_fields[0], new_columns[0])
         for i in range(1, len(new_fields)):
             transformed_table = transformed_table.append_column(new_fields[i], new_columns[i])

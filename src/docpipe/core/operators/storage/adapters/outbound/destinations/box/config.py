@@ -1,6 +1,7 @@
 """Configuration model for the Box destination adapter."""
 
 import os
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator
@@ -52,8 +53,6 @@ class BoxDestinationConfig(BaseModel):
     @classmethod
     def expand_credentials_path(cls, v: str) -> str:
         """Expand environment variables and user home directory in the credentials path."""
-        from pathlib import Path
-
         resolved = os.path.expandvars(v)
         return str(Path(resolved).expanduser())
 

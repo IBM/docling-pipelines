@@ -1,5 +1,9 @@
+"""Performance measurement and memory management utilities."""
+
+import ctypes
 import gc
 import os
+import sys
 
 import psutil
 import pyarrow as pa
@@ -56,6 +60,75 @@ def get_process_memory_mb() -> dict[str, float]:
         "total_mb": total_mb,
         "used_percent": used_percent,
     }
+
+
+def reclaim_memory(*, context: str) -> None:
+    """Return freed memory to the operating system, then log what came back.
+
+    Python frees objects, but the allocator keeps the pages for reuse.  Nothing
+    in a flow asks for them back, so resident memory ratchets up across flows
+    and only drops when the process restarts.
+
+    release_unused covers the PyArrow pool.  malloc_trim covers glibc and is
+    Linux-only — there is no libc.so.6 on macOS, which returns pages anyway.
+    Both are best-effort; failures are logged, never raised.
+
+    Parameters
+    ----------
+    context : str
+        Short label naming the call site, so the log lines can be told apart
+        when this runs more than once per flow.
+    """
+
+    def _rss() -> float | None:
+        """Return current RSS in MiB, or None if unavailable."""
+        try:
+            return get_process_memory_mb()["rss_mb"]
+        except Exception:
+            return None
+
+    rss_before = _rss()
+    gc.collect()
+
+    released, trimmed = False, False
+    try:
+        pa.default_memory_pool().release_unused()
+        released = True
+    except Exception:
+        logger.warning("PyArrow release_unused failed (%s)", context, exc_info=True)
+
+    # glibc only.  macOS and musl have no libc.so.6, and macOS returns freed pages
+    # on its own, so skipping there is correct rather than a failure worth warning
+    # about.  A real failure on Linux still warns.
+    if sys.platform.startswith("linux"):
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(ctypes.c_size_t(0))
+            trimmed = True
+        except Exception:
+            logger.warning("malloc_trim failed (%s)", context, exc_info=True)
+    else:
+        logger.debug("malloc_trim skipped on %s (%s)", sys.platform, context)
+
+    rss_after = _rss()
+    if rss_before is not None and rss_after is not None:
+        logger.info(
+            "Memory reclaim [%s]: RSS %.1f -> %.1f MiB (recovered %.1f MiB), release_unused=%s malloc_trim=%s",
+            context,
+            rss_before,
+            rss_after,
+            rss_before - rss_after,
+            released,
+            trimmed,
+            extra={DocpipeConstants.TRACK_PERF: "true"},
+        )
+    else:
+        logger.info(
+            "Memory reclaim [%s]: release_unused=%s malloc_trim=%s (RSS unavailable)",
+            context,
+            released,
+            trimmed,
+            extra={DocpipeConstants.TRACK_PERF: "true"},
+        )
 
 
 def log_memory_usage(

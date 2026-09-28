@@ -50,7 +50,7 @@ def create_sample_data(num_docs=5, vector_dim=128):
     )
 
 
-def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
+def _test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
     """Test a specific engine configuration"""
     print(f"Testing: {engine} + {algorithm} + {space_type}")
 
@@ -144,7 +144,7 @@ def test_all_engines():
     # Test FAISS with both algorithms
     for algo in [OpenSearchAlgorithmTypes.HNSW, OpenSearchAlgorithmTypes.IVF]:
         for space in [VectorSimilarityTypes.L2, VectorSimilarityTypes.COSINE]:
-            success, msg = test_engine(OpenSearchEngineTypes.FAISS, algo, space)
+            success, msg = _test_engine(OpenSearchEngineTypes.FAISS, algo, space)
             results.append((f"FAISS + {algo} + {space}", success, msg))
 
     # Test Lucene with HNSW
@@ -153,12 +153,12 @@ def test_all_engines():
         VectorSimilarityTypes.COSINE,
         VectorSimilarityTypes.INNER_PRODUCT,
     ]:
-        success, msg = test_engine(OpenSearchEngineTypes.LUCENE, OpenSearchAlgorithmTypes.HNSW, space)
+        success, msg = _test_engine(OpenSearchEngineTypes.LUCENE, OpenSearchAlgorithmTypes.HNSW, space)
         results.append((f"Lucene + HNSW + {space}", success, msg))
 
     # Test nmslib with HNSW
     for space in [VectorSimilarityTypes.L2, VectorSimilarityTypes.COSINE]:
-        success, msg = test_engine(OpenSearchEngineTypes.NMSLIB, OpenSearchAlgorithmTypes.HNSW, space)
+        success, msg = _test_engine(OpenSearchEngineTypes.NMSLIB, OpenSearchAlgorithmTypes.HNSW, space)
         results.append((f"nmslib + HNSW + {space}", success, msg))
 
     # Print results

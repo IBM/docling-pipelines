@@ -1,10 +1,12 @@
+"""Exponential-backoff retry decorator with pluggable retry logic."""
+
 # (C) Copyright IBM Corp. 2025.
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #  http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -16,6 +18,36 @@ from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
+
+_DEFAULT_ERROR_MESSAGE = "Retry logic misconfigured or no error message provided"
+
+
+def _parse_retry_result(retry_result: object) -> tuple[bool, str]:
+    """Parse the return value of a retry_logic callable.
+
+    Returns (should_retry, error_message). Logs and disables retries when
+    retry_result is not a valid (bool, str) tuple.
+    """
+    if not (isinstance(retry_result, tuple) and len(retry_result) == 2):
+        logger.error("retry_logic must return a tuple (bool, str). Disabling retries.")
+        return False, _DEFAULT_ERROR_MESSAGE
+
+    should_retry, err_msg = retry_result
+    if not isinstance(err_msg, str):
+        logger.error("retry_logic second element must be a string. Using default error message.")
+        return should_retry, _DEFAULT_ERROR_MESSAGE
+
+    return should_retry, err_msg
+
+
+def _raise_on_exhaustion(*, max_retries: int, exception: Exception | None, error_message: str) -> None:
+    """Raise the appropriate exception when retries are exhausted."""
+    if exception:
+        logger.error("Failed after %d attempts: %s", max_retries, exception)
+        raise exception
+    raise DocpipeException(
+        f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}"
+    )
 
 
 def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60, retry_logic=None):
@@ -50,38 +82,27 @@ def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60,
                     exception = e
 
                 should_retry = False
-                error_message = "Retry logic misconfigured or no error message provided"
+                error_message = _DEFAULT_ERROR_MESSAGE
                 if retry_logic:
                     retry_result = retry_logic(result=result, exception=exception)
-                    if isinstance(retry_result, tuple) and len(retry_result) == 2:
-                        should_retry, err_msg = retry_result
-                        if isinstance(err_msg, str):
-                            error_message = err_msg
-                        else:
-                            logger.error("retry_logic second element must be a string. Using default error message.")
-                    else:
-                        logger.error("retry_logic must return a tuple (bool, str). Disabling retries.")
+                    should_retry, error_message = _parse_retry_result(retry_result)
 
-                if should_retry:
-                    retry_count += 1
-
-                    if retry_count >= max_retries:
-                        if exception:
-                            logger.error(f"Failed after {max_retries} attempts: {exception!s}")
-                            raise exception
-                        # This is a special case where, should_retry is True but no exception occurred, and retry_count reaches max_retries
-                        raise DocpipeException(
-                            f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}"
-                        )
-
-                    logger.info(f"Operation failed on attempt {retry_count}. Retrying in {delay:.2f} seconds...")
-                    time.sleep(delay)
-
-                    delay = min(delay * 2, max_delay)
-                else:
+                if not should_retry:
                     if exception:
                         raise exception
                     return result
+
+                retry_count += 1
+                if retry_count >= max_retries:
+                    _raise_on_exhaustion(
+                        max_retries=max_retries,
+                        exception=exception,
+                        error_message=error_message,
+                    )
+
+                logger.info("Operation failed on attempt %d. Retrying in %.2f seconds...", retry_count, delay)
+                time.sleep(delay)
+                delay = min(delay * 2, max_delay)
 
         if retry_logic is None:
             logger.warning("No retry logic provided. Function will not retry on failure.")

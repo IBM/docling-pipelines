@@ -72,19 +72,22 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         service_account_path = None
         try:
             if config.service_account_json_path is None:
-                raise ValueError("Service account JSON path is None")
+                msg = "Service account JSON path is None"
+                raise ValueError(msg)
             service_account_path = Path(config.service_account_json_path)
             if not service_account_path.exists():
-                raise FileNotFoundError(f"Service account file not found: {service_account_path}")
+                msg = f"Service account file not found: {service_account_path}"
+                raise FileNotFoundError(msg)
             if not service_account_path.is_file():
-                raise ValueError(f"Service account path is not a file: {service_account_path}")
+                msg = f"Service account path is not a file: {service_account_path}"
+                raise ValueError(msg)
             return ServiceAccountCredentials.from_service_account_file(str(service_account_path), scopes=config.scopes)
         except PermissionError as e:
-            raise PermissionError(
-                f"Permission denied accessing service account file: {service_account_path}. Original error: {e}"
-            ) from e
+            msg = f"Permission denied accessing service account file: {service_account_path}. Original error: {e}"
+            raise PermissionError(msg) from e
         except Exception as e:
-            raise ValueError(f"Failed to load service account credentials from {service_account_path}: {e}") from e
+            msg = f"Failed to load service account credentials from {service_account_path}: {e}"
+            raise ValueError(msg) from e
 
     @staticmethod
     def _refresh_or_run_oauth_flow(
@@ -100,20 +103,24 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         if not creds:
             try:
                 if not credentials_path.exists():
-                    raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
+                    msg = f"Credentials file not found: {credentials_path}"
+                    raise FileNotFoundError(msg)
                 if not credentials_path.is_file():
-                    raise ValueError(f"Credentials path is not a file: {credentials_path}")
+                    msg = f"Credentials path is not a file: {credentials_path}"
+                    raise ValueError(msg)
                 flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes=scopes)
                 creds = flow.run_local_server(port=0)
             except PermissionError as e:
-                raise PermissionError(
+                msg = (
                     f"Permission denied accessing credentials file: {credentials_path}. "
-                    f"On macOS, you may need to grant Terminal/Python access to the file location in "
-                    f"System Preferences > Security & Privacy > Files and Folders. "
+                    "On macOS, you may need to grant Terminal/Python access to the file location in "
+                    "System Preferences > Security & Privacy > Files and Folders. "
                     f"Original error: {e}"
-                ) from e
+                )
+                raise PermissionError(msg) from e
             except Exception as e:
-                raise ValueError(f"Failed to load credentials from {credentials_path}: {e}") from e
+                msg = f"Failed to load credentials from {credentials_path}: {e}"
+                raise ValueError(msg) from e
 
         token_path.parent.mkdir(parents=True, exist_ok=True)
         with Path(token_path).open("w") as token:
@@ -133,7 +140,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             return self._load_service_account_credentials(config)
 
         if config.credentials_path is None:
-            raise ValueError("OAuth credentials path is None")
+            msg = "OAuth credentials path is None"
+            raise ValueError(msg)
 
         token_path = Path(config.get_token_path())
         credentials_path = Path(config.credentials_path)
@@ -325,9 +333,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         try:
             from googleapiclient.discovery import build
         except ImportError:
-            raise ImportError(
-                "Google API client not installed. Install with: pip install google-api-python-client"
-            ) from None
+            msg = "Google API client not installed. Install with: pip install google-api-python-client"
+            raise ImportError(msg) from None
 
         cache_key = self._credentials_cache_key(config)
         if cache_key not in self._service_cache:
@@ -468,11 +475,11 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 yield document
                 fetched_count += 1
         except ImportError as e:
-            raise ImportError(
-                "Google API client not installed. Install with: pip install google-api-python-client"
-            ) from e
+            msg = "Google API client not installed. Install with: pip install google-api-python-client"
+            raise ImportError(msg) from e
         except Exception as e:
-            raise ValueError(f"Failed to fetch documents from Google Drive: {e!s}") from e
+            msg = f"Failed to fetch documents from Google Drive: {e!s}"
+            raise ValueError(msg) from e
 
     async def test_connection(self, config: GoogleDriveSourceConfig) -> tuple[bool, str]:
         """
@@ -635,23 +642,33 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        # Build config dict with either OAuth or Service Account credentials
+        # Build config dict with either OAuth or Service Account credentials.
+        # Credential fields fall back to connection_params so flows built from operator
+        # metadata (which places all fields under connection_params) work alongside
+        # legacy flows that use a separate credentials dict.
         config_dict = {
             "folder_id": resolve_env_var(connection_params.get("folder_id")),
             "recursive": connection_params.get("recursive", False),
             "file_extensions": included_extensions or [],
             "exclude_patterns": [],
-            "scopes": credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"]),
+            "scopes": credentials.get(
+                "scopes", connection_params.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"])
+            ),
         }
 
-        # Add OAuth credentials if provided
-        if "credentials_path" in credentials:
-            config_dict["credentials_path"] = resolve_env_var(credentials.get("credentials_path"))
-            config_dict["token_path"] = resolve_env_var(credentials.get("token_path"))
+        # Add OAuth credentials if provided — check credentials dict first, then connection_params
+        credentials_path = credentials.get("credentials_path") or connection_params.get("credentials_path")
+        token_path = credentials.get("token_path") or connection_params.get("token_path")
+        if credentials_path:
+            config_dict["credentials_path"] = resolve_env_var(credentials_path)
+            config_dict["token_path"] = resolve_env_var(token_path)
 
-        # Add Service Account credentials if provided
-        if "service_account_json_path" in credentials:
-            config_dict["service_account_json_path"] = resolve_env_var(credentials.get("service_account_json_path"))
+        # Add Service Account credentials if provided — check credentials dict first, then connection_params
+        service_account_json_path = credentials.get("service_account_json_path") or connection_params.get(
+            "service_account_json_path"
+        )
+        if service_account_json_path:
+            config_dict["service_account_json_path"] = resolve_env_var(service_account_json_path)
 
         # Add optional fields only if they exist
         if "drive_id" in connection_params:

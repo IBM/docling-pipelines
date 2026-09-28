@@ -352,11 +352,15 @@ class SharePointSourceAdapter(DocumentSourcePort):
             bytes | None: Binary content of the SharePoint file, or None if not found or error occurred
         """
         try:
-            # Extract required parameters and resolve environment variables
+            credentials = credentials or {}
+            connection_params = connection_params or {}
+            # Extract required parameters and resolve environment variables.
+            # Fall back to connection_params so callers that store credentials
+            # there (instead of the dedicated credentials block) work too.
             document_library_id = resolve_env_var(connection_params.get("document_library_id"))
-            client_id = resolve_env_var(credentials.get("client_id"))
-            client_secret = resolve_env_var(credentials.get("client_secret"))
-            tenant_id = resolve_env_var(credentials.get("tenant_id"))
+            client_id = resolve_env_var(credentials.get("client_id") or connection_params.get("client_id"))
+            client_secret = resolve_env_var(credentials.get("client_secret") or connection_params.get("client_secret"))
+            tenant_id = resolve_env_var(credentials.get("tenant_id") or connection_params.get("tenant_id"))
 
             if not all([document_library_id, client_id, client_secret, tenant_id]):
                 logger.error("Missing required parameters for SharePoint binary content fetch")
@@ -457,10 +461,15 @@ class SharePointSourceAdapter(DocumentSourcePort):
         if included_extensions is None:
             included_extensions = []
 
+        # Credential fields fall back to connection_params so flows built from operator
+        # metadata (which places all fields under connection_params) work alongside
+        # legacy flows that use a separate credentials dict.
         config_params = {
-            "client_id": resolve_env_var(credentials.get("client_id", "")),
-            "client_secret": resolve_env_var(credentials.get("client_secret", "")),
-            "tenant_id": resolve_env_var(credentials.get("tenant_id", "")),
+            "client_id": resolve_env_var(credentials.get("client_id") or connection_params.get("client_id", "")),
+            "client_secret": resolve_env_var(
+                credentials.get("client_secret") or connection_params.get("client_secret", "")
+            ),
+            "tenant_id": resolve_env_var(credentials.get("tenant_id") or connection_params.get("tenant_id", "")),
             "document_library_id": resolve_env_var(connection_params.get("document_library_id", "")),
             "folder_path": resolve_env_var(connection_params.get("folder_path")),
             "recursive": connection_params.get("recursive", True),

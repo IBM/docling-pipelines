@@ -1,0 +1,204 @@
+/**
+ * @fileoverview RunStatusTopPanel styles — top execution statistics panel.
+ * Renders inside Elyra's .top-panel as topPanelContent.
+ * Uses Carbon Design tokens for color, spacing, and typography.
+ */
+
+@use '@carbon/layout';
+@use '@carbon/react/scss/theme' as themes;
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/type' as type;
+
+/* Override Elyra's top-panel border */
+:global(.top-panel) {
+  border-bottom: none !important;
+}
+
+/* Top panel content wrapper */
+.topPanelContent {
+  background-color: themes.$layer-01;
+  padding: spacing.$spacing-05;
+  color: themes.$text-secondary;
+  @include type.type-style('label-02');
+}
+
+.runDetailsTopRowDiv {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+/* Top-right icon cluster (minimize + close) */
+.topPanelRightIcons {
+  display: flex;
+  gap: spacing.$spacing-04;
+}
+
+.topPanelIconButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Flex row: stat sections horizontally arranged */
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.sectionColumns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: spacing.$spacing-09;
+  flex-grow: 1;
+}
+
+/* Individual named section (e.g. "Duration", "Status") */
+.sectionGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionHeader {
+  font-weight: 600;
+  margin-bottom: spacing.$spacing-03;
+  text-align: left;
+}
+
+/* Vertical divider line between sections */
+.runDetailsDividerLine {
+  align-self: stretch;
+  width: spacing.$spacing-01;
+  min-height: layout.$spacing-07;
+  background: themes.$border-subtle-01;
+}
+
+/* Node count grid: row of status counts */
+.statusGroupRow {
+  display: flex;
+  justify-content: space-between;
+  gap: spacing.$spacing-07;
+}
+
+.statusItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: 300; /* light */
+  text-align: center;
+
+  p {
+    margin: 0;
+  }
+}
+
+/* Icon + label inline (e.g. ✓ 3 Completed) */
+.statusLabelRow {
+  display: flex;
+  align-items: center;
+  font-weight: 300;
+  gap: spacing.$spacing-02;
+}
+
+/* Progress bar section */
+.progressDiv {
+  margin-top: spacing.$spacing-05;
+}
+
+.progressSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progressAction {
+  :global(.cds--btn--secondary) {
+    background-color: themes.$background-inverse;
+    color: themes.$text-inverse;
+    border-color: themes.$background-inverse;
+
+    &:hover {
+      background-color: themes.$background-inverse;
+      opacity: 0.9;
+    }
+
+    &:disabled {
+      background-color: themes.$layer-02;
+      color: themes.$text-disabled;
+      border-color: transparent;
+      opacity: 0.5;
+    }
+  }
+}
+
+/* Status text (left of bar) */
+.progressStatus {
+  text-align: left;
+  @include type.type-style('label-02');
+}
+
+/* Minimized status text variant */
+.progressStatusMinimize {
+  margin-bottom: spacing.$spacing-03;
+  text-align: left;
+  @include type.type-style('label-02');
+}
+
+/* Track (grey background) */
+.progressBar {
+  position: relative;
+  flex-grow: 1;
+  height: spacing.$spacing-02;
+  background-color: themes.$background-selected;
+  margin-left: spacing.$spacing-03;
+  margin-right: spacing.$spacing-03;
+}
+
+/* Fill layers — set width via inline style: width: `${pct}%` */
+.progressRunning {
+  height: 100%;
+  background-color: themes.$background-brand;
+}
+
+.progressCompleted {
+  height: 100%;
+  background-color: themes.$support-success;
+}
+
+.progressWarning {
+  height: 100%;
+  background-color: themes.$support-warning;
+}
+
+.progressFailed {
+  height: 100%;
+  background-color: themes.$support-error;
+}
+
+.progressCanceled {
+  height: 100%;
+  background-color: themes.$background-selected;
+}
+
+/* Thin separator between top panel sections — styled for <hr> element */
+.borderSolid {
+  height: calc(spacing.$spacing-01 / 2);
+  background: themes.$border-subtle-01;
+  margin: spacing.$spacing-01;
+  border: none;
+}
+
+/* Icon fill colors for node status indicators */
+.checkmarkFilled {
+  fill: themes.$support-success;
+}
+
+.errorFilled {
+  fill: themes.$support-error;
+}
+
+.warningAltFilled {
+  fill: themes.$support-warning;
+}

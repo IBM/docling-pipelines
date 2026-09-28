@@ -11,7 +11,6 @@ maintainers = [
     { name = "Paul Baby", email = "paulbaby@ibm.com" },
     { name = "Docling Pipeline Team", email = "docling_pipeline_team-dg@ibm.com"},
 ]
-
 dependencies = [
     "accelerate==1.13.0",
     "aiohttp==3.14.3",
@@ -55,7 +54,6 @@ dependencies = [
     "mlx==0.32.2; sys_platform == 'darwin'",
     "msal==1.37.0",
     "nltk==3.10.3",
-    "numpy>=2.0.0,<3.0.0",
     "o365==2.1.9",
     "ollama==0.6.1",
     "openai==2.33.0",
@@ -83,6 +81,7 @@ dependencies = [
     "python-dotenv==1.2.2",
     "python-jose[cryptography]==3.5.0",
     "python-ldap==3.4.5",
+    "python-multipart==0.0.32",
     "pyyaml==6.0.3",
     "requests==2.33.0",
     "sentence-transformers==5.4.1",
@@ -100,6 +99,7 @@ dependencies = [
     "unicodedataplus==16.0.0.post1",
     "urllib3==2.7.0",
     "uvicorn[standard]==0.40.0",
+    "mcp>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]
@@ -143,7 +143,9 @@ telemetry = [
     "opentelemetry-sdk==1.41.1",
 ]
 
-rapidocr = []
+rapidocr = [
+    "docling[rapidocr]==2.127.0",
+]
 
 easyocr = [
     "docling[easyocr]==2.127.0",
@@ -170,10 +172,29 @@ Source = "https://github.com/IBM/docling-pipelines"
 [project.scripts]
 docling-pipelines-api = "docpipe.api.main:run"
 docling-pipelines = "docpipe.cli.docpipe_cli:main"
+docling-pipelines-docs-mcp = "docs_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/docpipe"]
+packages = ["src/docpipe", "docs_mcp"]
+# TODO: After adding npm to CI pipeline, change 'artifacts' to 'force-include' to ensure
+# frontend assets are always built and included (build will fail if static dir is missing)
+# force-include = { "src/docpipe/api/static" = "docpipe/api/static" }
+artifacts = [
+    "src/docpipe/api/static/**/*",
+    "src/docpipe/api/bff/**/*",
+]
 
+[tool.hatch.build.targets.wheel.force-include]
+# Bundle the documentation corpus so the installed MCP server has content to serve.
+# resolve_docs_root() in docs_mcp/utils.py detects this corpus via importlib.resources.
+"docs" = "docs_mcp/corpus/docs"
+"README.md" = "docs_mcp/corpus/README.md"
+"ARCHITECTURE.md" = "docs_mcp/corpus/ARCHITECTURE.md"
+"QUICKSTART.md" = "docs_mcp/corpus/QUICKSTART.md"
+"USER_GUIDE_PIPELINE_SETUP.md" = "docs_mcp/corpus/USER_GUIDE_PIPELINE_SETUP.md"
+"TROUBLESHOOTING.md" = "docs_mcp/corpus/TROUBLESHOOTING.md"
+
+[tool.hatch.build.hooks.custom]
 
 [tool.hatch.build]
 exclude = [
@@ -191,9 +212,6 @@ exclude = [
     "__pycache__/"
 ]
 
-[tool.hatch.version]
-source = "vcs"
-
 [tool.uv]
 override-dependencies = [
     # CVE-2026-59939: Security fix for httplib2 vulnerability (transitive via google-auth-httplib2).
@@ -202,6 +220,7 @@ override-dependencies = [
     "h2==4.4.1",
     # Dependabot: jupyterlab >= 4.6.0, <= 4.6.1 — XSS and enforcement bypass (transitive via jupyter).
     "jupyterlab==4.6.2",
+    "numpy>=2.0.0,<3.0.0",
     # Pin rapidocr to 3.9.0 within docling-slim's >=3.8,<4.0 constraint.
     "rapidocr==3.9.0",
     # CVE-2026-49476, CVE-2026-49477: Security fix for soupsieve vulnerability (transitive via beautifulsoup4).
@@ -321,10 +340,15 @@ module = [
     "re2",
     "re2.*",
     "opentelemetry",
-    "opentelemetry.*"
+    "opentelemetry.*",
+    "mcp",
+    "mcp.*"
 ]
 ignore_missing_imports = true
 follow_imports = "silent"
+
+[tool.hatch.version]
+source = "vcs"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

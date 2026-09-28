@@ -1,0 +1,1 @@
+export { VectorDBFeatureMappingTable } from './VectorDBFeatureMappingTable';

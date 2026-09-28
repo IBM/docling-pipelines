@@ -182,3 +182,102 @@ class TestAggregationStrategies:
         result = aggregator.aggregate_metadata(metadata_list=metadata_list)
 
         assert result["custom_field"] == "value3"
+
+
+class TestNewHelperMethods:
+    def setup_method(self):
+        self.agg = MetadataAggregator()
+
+    # --- _apply_numeric_strategy ---
+
+    def test_numeric_sum(self):
+        assert self.agg._apply_numeric_strategy(values=[1, 2, 3], strategy=AggregationStrategy.SUM) == 6
+
+    def test_numeric_min(self):
+        assert self.agg._apply_numeric_strategy(values=[3, 1, 2], strategy=AggregationStrategy.MIN) == 1
+
+    def test_numeric_max(self):
+        assert self.agg._apply_numeric_strategy(values=[3, 1, 2], strategy=AggregationStrategy.MAX) == 3
+
+    def test_numeric_average(self):
+        assert self.agg._apply_numeric_strategy(values=[10, 20], strategy=AggregationStrategy.AVERAGE) == 15.0
+
+    def test_numeric_weighted_average(self):
+        assert self.agg._apply_numeric_strategy(values=[10, 20], strategy=AggregationStrategy.WEIGHTED_AVERAGE) == 15.0
+
+    def test_numeric_average_empty_returns_zero(self):
+        assert self.agg._apply_numeric_strategy(values=["a", "b"], strategy=AggregationStrategy.AVERAGE) == 0
+
+    # --- _apply_concat ---
+
+    def test_concat_flattens_lists(self):
+        result = self.agg._apply_concat([["a", "b"], ["c"]])
+        assert result == ["a", "b", "c"]
+
+    def test_concat_appends_scalar(self):
+        result = self.agg._apply_concat(["x", "y"])
+        assert result == ["x", "y"]
+
+    # --- _apply_merge_dict ---
+
+    def test_merge_dict_merges(self):
+        result = self.agg._apply_merge_dict([{"a": 1}, {"b": 2}])
+        assert result == {"a": 1, "b": 2}
+
+    def test_merge_dict_skips_non_dicts(self):
+        result = self.agg._apply_merge_dict([{"a": 1}, "not-a-dict"])
+        assert result == {"a": 1}
+
+    # --- _apply_deep_merge (instance method) ---
+
+    def test_apply_deep_merge_sums_nested(self):
+        result = self.agg._apply_deep_merge([{"x": 1}, {"x": 2}])
+        assert result == {"x": 3}
+
+    def test_apply_deep_merge_skips_non_dicts(self):
+        result = self.agg._apply_deep_merge([{"x": 1}, "bad"])
+        assert result == {"x": 1}
+
+    # --- _apply_collection_strategy ---
+
+    def test_collection_strategy_concat(self):
+        result = self.agg._apply_collection_strategy(values=[["a"], ["b"]], strategy=AggregationStrategy.CONCAT)
+        assert result == ["a", "b"]
+
+    def test_collection_strategy_merge_dict(self):
+        result = self.agg._apply_collection_strategy(
+            values=[{"k": 1}, {"v": 2}], strategy=AggregationStrategy.MERGE_DICT
+        )
+        assert result == {"k": 1, "v": 2}
+
+    def test_collection_strategy_deep_merge(self):
+        result = self.agg._apply_collection_strategy(
+            values=[{"n": 1}, {"n": 2}], strategy=AggregationStrategy.DEEP_MERGE
+        )
+        assert result == {"n": 3}
+
+    # --- _apply_last_completed ---
+
+    def test_last_completed_returns_last_truthy(self):
+        assert self.agg._apply_last_completed(["", None, "done", "last"]) == "last"
+
+    def test_last_completed_falls_back_to_last_when_all_falsy(self):
+        assert self.agg._apply_last_completed(["", None, 0]) == 0
+
+    def test_last_completed_empty_list_returns_none(self):
+        assert self.agg._apply_last_completed([]) is None
+
+    # --- _apply_custom_strategy ---
+
+    def test_custom_strategy_calls_registered_function(self):
+        self.agg.register_strategy(
+            field_path="my_field",
+            strategy=AggregationStrategy.CUSTOM,
+            custom_function=lambda vals: sum(vals),
+        )
+        result = self.agg._apply_custom_strategy(field_name="my_field", values=[1, 2, 3])
+        assert result == 6
+
+    def test_custom_strategy_falls_back_to_last_when_not_registered(self):
+        result = self.agg._apply_custom_strategy(field_name="unregistered", values=["a", "b", "c"])
+        assert result == "c"

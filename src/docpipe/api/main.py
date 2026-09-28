@@ -10,14 +10,21 @@ This module configures the FastAPI application with:
 
 import logging
 import os
+import shutil
+import subprocess  # nosec B404
 import sys
+import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Any, cast
 
+import httpx
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from docpipe.api.api_router import api_router
@@ -59,17 +66,132 @@ configure_third_party_loggers(log_level=log_level, handler=_handler)
 
 logger = logging.getLogger(__name__)
 
+# Hop-by-hop headers must not be forwarded by a proxy — they are connection-level
+# and meaningful only between two adjacent nodes. Forwarding them intact causes
+# content-length / transfer-encoding mismatches and broken chunked responses.
+_HOP_BY_HOP_HEADERS: frozenset[str] = frozenset(
+    {
+        "connection",
+        "content-length",  # httpx recomputes from actual body; forwarding causes duplicate header
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+    }
+)
+
+
+def _wait_for_bff(*, bff_url: str, retries: int = 20, delay: float = 0.2) -> bool:
+    """Poll the BFF /health endpoint until it responds with a 2xx status.
+
+    Args:
+        bff_url: Base URL of the BFF server (e.g. http://localhost:3001).
+        retries: Maximum number of attempts before giving up.
+        delay: Seconds to wait between attempts.
+
+    Returns:
+        True if the BFF became healthy within the retry budget, False otherwise.
+    """
+    for _ in range(retries):
+        try:
+            response = httpx.get(f"{bff_url}/health", timeout=0.5)
+            if 200 <= response.status_code < 300:
+                return True
+        except httpx.TransportError:
+            pass
+        time.sleep(delay)
+    return False
+
+
+def _start_bff() -> tuple[subprocess.Popen | None, str]:
+    """Start the bundled BFF (Node/Express) sidecar.
+
+    The BFF bundle is shipped inside the wheel at docpipe/api/bff/server.cjs.
+    It only requires `node` — no npm or node_modules needed at runtime.
+    No-op if node is not available or the bundle is missing (e.g. wheel built without npm).
+    No-op if BFF_URL is already set in the environment (e.g. injected by a pod spec or
+    docker-compose), which means the BFF is already running as a separate container.
+
+    Returns:
+        A (process, bff_url) tuple. Both are empty/None when the sidecar is not started.
+        The caller falls back to the BFF_URL environment variable when the returned URL
+        is empty (e.g. external BFF pre-configured via docker-compose or k8s env injection).
+    """
+    if os.getenv("BFF_URL"):
+        logger.info("BFF_URL already set — skipping sidecar start (external BFF assumed)")
+        return None, ""
+
+    bff_bundle = Path(__file__).parent / "bff" / "server.cjs"
+    if not bff_bundle.exists():
+        logger.warning("BFF not started: bff/server.cjs not found in wheel")
+        return None, ""
+    node_bin = shutil.which("node")
+    if not node_bin:
+        logger.warning("BFF not started: node not found in PATH")
+        return None, ""
+
+    bff_port = int(os.getenv("BFF_PORT", "3001"))
+    fastapi_port = int(os.getenv("FASTAPI_PORT", "8080"))
+    env = {
+        **os.environ,
+        "BACKEND_API_URL": f"http://localhost:{fastapi_port}",
+        "BFF_PORT": str(bff_port),
+    }
+    logger.info("Starting BFF sidecar on port %d...", bff_port)
+    # Inherit parent stdout/stderr (stdout=None, stderr=None is the default, stated
+    # explicitly for clarity). Using subprocess.PIPE without a reader thread would
+    # fill the OS pipe buffer (~64 KB) and deadlock the child process under load.
+    process = subprocess.Popen(  # nosec B603
+        [node_bin, str(bff_bundle)],
+        env=env,
+        stdout=None,
+        stderr=None,
+    )
+    bff_url = f"http://localhost:{bff_port}"
+    if not _wait_for_bff(bff_url=bff_url):
+        logger.warning("BFF sidecar did not become healthy within startup budget — continuing anyway")
+    logger.info("BFF sidecar started (pid=%d)", process.pid)
+    return process, bff_url
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan."""
-    del app
     get_default_factory().initialize_storage()
     # Register secret providers (no-op when secrets.vault.enabled=false in config)
     from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
 
     initialize_secret_providers()
+    bff_process, started_bff_url = _start_bff()
+    # Shared AsyncClient — reused across all proxy_to_bff requests so the
+    # connection pool is maintained and TCP overhead is paid once, not per request.
+    # Use the URL returned by the sidecar, or fall back to a pre-configured external
+    # BFF_URL (set by docker-compose / k8s env injection before the process starts).
+    bff_url = (started_bff_url or os.getenv("BFF_URL", "")).rstrip("/")
+    app.state.bff_client = httpx.AsyncClient(timeout=30.0, base_url=bff_url) if bff_url else None
+
+    # Wire custom operators catalog path into DOCPIPE_CUSTOM_OPERATORS for pipeline runtime discovery
+    from docpipe.utils.infrastructure.filesystem import get_data_path
+
+    custom_operators_dir = get_data_path(sub_dir="/custom_operators")
+    existing_custom_ops = os.getenv(EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS, "")
+    custom_op_paths = [p for p in existing_custom_ops.split(",") if p.strip()]
+    if custom_operators_dir not in custom_op_paths:
+        custom_op_paths.append(custom_operators_dir)
+        os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = ",".join(custom_op_paths)
+
     yield
+    if app.state.bff_client is not None:
+        await app.state.bff_client.aclose()
+    if bff_process:
+        logger.info("Shutting down BFF sidecar...")
+        bff_process.terminate()
+        # Do not call bff_process.wait() — it is a synchronous blocking call
+        # inside an async context and would stall the uvicorn event loop during
+        # shutdown. SIGTERM is sufficient; the OS reaps the child after it exits.
 
 
 app = FastAPI(
@@ -276,6 +398,117 @@ async def protected_route(current_user: Annotated[User, Depends(get_current_user
 app.include_router(oauth2_router)
 app.add_middleware(PayloadValidationMiddleware)
 app.include_router(api_router)
+
+
+# BFF proxy: forward /api/* to the BFF server.
+# BFF_URL is set by _start_bff() in lifespan — read dynamically inside the handler.
+# /api/v1/* is matched by api_router above and never reaches this route.
+@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], operation_id="proxy_to_bff")
+async def proxy_to_bff(path: str, request: Request):
+    """Proxy /api/* requests to the BFF server when BFF_URL is set.
+
+    Uses the shared AsyncClient from app.state so the connection pool is reused
+    across requests. Falls back to a 404 when no BFF client is available.
+    """
+    client: httpx.AsyncClient | None = request.app.state.bff_client
+    if client is None:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # Build target path + query string.
+    target = f"/api/{path}"
+    params = str(request.url.query)
+    if params:
+        target = f"{target}?{params}"
+
+    # Forward all inbound headers except hop-by-hop and host (host is rewritten
+    # by httpx to match the BFF base_url).
+    # Preserve X-Transaction-ID so the full request chain is traceable end-to-end.
+    forward_headers = {
+        k: v for k, v in request.headers.items() if k.lower() not in _HOP_BY_HOP_HEADERS and k.lower() != "host"
+    }
+
+    try:
+        response = await client.request(
+            method=request.method,
+            url=target,
+            headers=forward_headers,
+            content=request.stream(),  # stream body chunk-by-chunk — avoids OOM on large payloads
+        )
+    except httpx.ConnectError as exc:
+        raise HTTPException(status_code=503, detail="BFF unavailable") from exc
+    except httpx.TimeoutException as exc:
+        raise HTTPException(status_code=504, detail="BFF request timed out") from exc
+
+    # Strip hop-by-hop headers from the upstream response before forwarding to
+    # the client — they are meaningless outside the BFF→FastAPI connection.
+    response_headers = {k: v for k, v in response.headers.items() if k.lower() not in _HOP_BY_HOP_HEADERS}
+    return Response(
+        content=response.content,
+        status_code=response.status_code,
+        headers=response_headers,
+    )
+
+
+def mount_ui_routes(target_app: FastAPI, ui_static_dir: Path) -> None:
+    """Register /ui static file and SPA fallback routes on the given app.
+
+    No-op (with a warning) when ui_static_dir does not exist — e.g. in
+    environments where the frontend has not been built. Extracted as a
+    standalone function so it can be exercised in tests against a
+    temporary directory, independent of the real build output.
+    """
+    if not ui_static_dir.exists():
+        logger.warning("Frontend static directory not found at %s. UI will not be available.", ui_static_dir)
+        return
+
+    # Mount assets directory for CSS/JS files
+    assets_dir = ui_static_dir / "assets"
+    if assets_dir.exists():
+        target_app.mount("/ui/assets", StaticFiles(directory=assets_dir), name="ui-assets")
+
+    # Resolve once at mount time so serve_ui does not pay the syscall cost on
+    # every request. All path safety checks are performed against this resolved root.
+    _safe_root = ui_static_dir.resolve()
+
+    # Serve index.html for root /ui path
+    @target_app.get("/ui")
+    async def serve_ui_root():
+        """Serve the SPA index.html for the /ui root path."""
+        return FileResponse(_safe_root / "index.html")
+
+    # Catch-all route for client-side routing (must be last)
+    @target_app.get("/ui/{full_path:path}")
+    async def serve_ui(full_path: str):
+        """Serve static assets by path or fall back to index.html for SPA routes.
+
+        Path traversal protection:
+        - resolved_path.is_relative_to() blocks all "../.." escape attempts.
+        - An additional symlink check ensures a symlink inside the static dir
+          cannot point outside the root (defence-in-depth for volume mounts).
+        """
+        if "." in full_path.split("/")[-1]:
+            # Resolve expands all ".." components to an absolute path.
+            file_path = (_safe_root / full_path).resolve()
+            # Guard 1: the resolved path must remain inside the static root.
+            if not file_path.is_relative_to(_safe_root):
+                raise HTTPException(status_code=400, detail="Invalid path")
+            # Guard 2: if the raw path is a symlink, its target must also be
+            # inside the root — prevents symlink-escape attacks on volume mounts.
+            raw_path = _safe_root / full_path
+            if raw_path.is_symlink() and not raw_path.resolve().is_relative_to(_safe_root):
+                raise HTTPException(status_code=400, detail="Invalid path")
+            if file_path.exists() and file_path.is_file():
+                return FileResponse(file_path)
+            raise HTTPException(status_code=404, detail="Asset not found")
+        # Extension-less paths are client-side routes — serve the SPA shell.
+        return FileResponse(_safe_root / "index.html")
+
+    logger.info("Frontend static files mounted from %s", ui_static_dir)
+
+
+# Mount static files for React frontend
+static_dir = Path(__file__).parent / "static"
+mount_ui_routes(app, static_dir)
 
 
 def run() -> None:

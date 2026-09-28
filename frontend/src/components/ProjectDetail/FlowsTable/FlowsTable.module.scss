@@ -1,0 +1,84 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.tableWrapper { background-color: $layer-01; }
+
+// ── Toolbar ───────────────────────────────────────────────────────────────────
+// Left section: Status label + dropdown in normal flow
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  padding-left: $spacing-05;
+}
+
+.statusLabel {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+  white-space: nowrap;
+  padding: 0 $spacing-03;
+}
+
+.statusDropdown {
+  width: 160px;
+
+  :global(.cds--dropdown) {
+    border-bottom: none;
+  }
+}
+
+.newFlowButton { flex-shrink: 0; }
+
+// ── Name cell ─────────────────────────────────────────────────────────────────
+.nameLink,
+.runLink {
+  @include type-style('body-compact-01');
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 0;
+  padding: 0;
+  color: $link-primary;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+    color: $link-primary-hover;
+  }
+}
+
+// ── Needs review cell ─────────────────────────────────────────────────────────
+// Shows each non-zero count + icon inline:  1 🔴  3 ⚠️  1 🌙
+.needsReviewCell {
+  display: flex;
+  align-items: center;
+  gap: $spacing-04;
+}
+
+.needsReviewItem {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+  @include type-style('body-compact-01');
+  color: $text-primary;
+}
+
+.needsReviewNone {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+}
+
+// Icon colours
+.iconError   { color: $support-error;   }
+.iconWarning { color: $support-warning; }
+.iconRunning { color: $support-info;    }
+
+// ── Tags cell ─────────────────────────────────────────────────────────────────
+.tagsCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-02;
+  align-items: center;
+}

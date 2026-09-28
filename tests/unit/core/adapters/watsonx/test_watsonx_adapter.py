@@ -216,7 +216,7 @@ class TestWatsonXInferenceAdapter:
         assert adapter.model_name == "test-model"
 
     @pytest.mark.parametrize(
-        "messages,expected_call_count",
+        ("messages", "expected_call_count"),
         [
             ([{"role": "user", "content": "Hi"}], 1),
             ([{"role": "system", "content": "System"}, {"role": "user", "content": "User"}], 1),
@@ -233,7 +233,7 @@ class TestWatsonXInferenceAdapter:
         mock_watsonx_client.chat.assert_called_with(messages=messages)
 
     @pytest.mark.parametrize(
-        "prompt,expected_call_count",
+        ("prompt", "expected_call_count"),
         [
             ("Short prompt", 1),
             ("A" * 1000, 1),  # Long prompt

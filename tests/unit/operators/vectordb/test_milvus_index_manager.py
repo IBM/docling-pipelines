@@ -822,7 +822,7 @@ class TestMapFeatureTypeToDtype:
         return MilvusIndexManager(client=mock_client, collection_name="c")
 
     @pytest.mark.parametrize(
-        "feature_type,expected",
+        ("feature_type", "expected"),
         [
             ("text", "VARCHAR"),
             ("string", "VARCHAR"),

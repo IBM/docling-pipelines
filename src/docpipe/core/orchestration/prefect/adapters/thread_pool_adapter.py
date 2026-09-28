@@ -5,9 +5,11 @@ This adapter wraps the existing PrefectEngine batch execution logic,
 maintaining backward compatibility while following the strategy pattern.
 """
 
+from docpipe.core.constants.constants import ExecutionStatus
 from docpipe.core.orchestration.batch_manager import BatchInfo
 from docpipe.core.orchestration.prefect.domain.models import ExecutionStrategyType
 from docpipe.core.orchestration.prefect.ports.batch_execution_port import BatchExecutionPort
+from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 
 class ThreadPoolAdapter(BatchExecutionPort):
@@ -52,7 +54,7 @@ class ThreadPoolAdapter(BatchExecutionPort):
         1. batch_outer_flow_impl() - Submits batches as Prefect tasks
         2. _wait_for_sub_flows() - Waits for completion with fail-fast
 
-        The implementation is unchanged from the current PrefectEngine code.
+        The failure raise happens here, after the outer flow returns — see below.
         """
         self.prefect_engine.logger.info(
             f"Executing {len(batches)} batches using ThreadPool strategy", extra={"job_run_id": job_run_id}
@@ -72,6 +74,17 @@ class ThreadPoolAdapter(BatchExecutionPort):
         batch_outer_flow.with_options(flow_run_name=flow_name)(
             op_flow=op_flow, batches=batches, global_config=global_config
         )
+
+        # Raise here, not inside _wait_for_sub_flows. By this point the flow has
+        # returned and ThreadPoolTaskRunner.__exit__ has already run, so raising
+        # cannot strand live batch threads in executor.shutdown(wait=True).
+        #
+        # The CLI and DocpipeFlowManager have no other way to see the failure.
+        # The API path reads job stats instead and ignores this exception.
+        # Only raise when FAILING — a partial continue-mode failure must not raise,
+        # or the API path overwrites COMPLETED_WITH_ERRORS with FAILED.
+        if self.prefect_engine.orchestrator.job_status == ExecutionStatus.FAILING:
+            raise FlowExecutionFailedException(self.prefect_engine.orchestrator.message or "Batch execution failed")
 
         self.prefect_engine.logger.info("All batches completed successfully", extra={"job_run_id": job_run_id})
 

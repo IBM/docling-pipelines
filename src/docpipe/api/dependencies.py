@@ -25,6 +25,7 @@ from docpipe.core.assets.document_sets.factories import DataStoreFactory
 from docpipe.core.assets.flows.application.services import FlowService
 from docpipe.core.assets.flows.domain.models.flow import Flow
 from docpipe.core.constants.constants import DocpipeConstants
+from docpipe.core.custom_operators.service import CustomOperatorService
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.core.job_management.application.services import JobManagementService
 from docpipe.core.job_management.domain.ports import JobStatsService
@@ -235,3 +236,12 @@ def get_document_library_service(
         DocumentLibraryService: Service instance with injected repository
     """
     return DocumentLibraryService(repository=repository)
+
+
+def get_custom_operator_service() -> CustomOperatorService:
+    """Dependency provider for custom operator service.
+
+    Returns:
+        CustomOperatorService instance
+    """
+    return CustomOperatorService()

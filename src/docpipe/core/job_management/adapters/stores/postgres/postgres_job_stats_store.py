@@ -254,6 +254,29 @@ class PostgresJobStatsStore(JobStatsStore):
                 message=f"Failed to get batch node stats: {e}", job_run_id=job_run_id, operation="get_batch_node_stats"
             ) from e
 
+    def get_failed_docs_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """
+        Retrieve failed document IDs for all nodes in a single batch.
+
+        SQL-scoped: only rows matching job_run_id + batch_id are fetched —
+        no full-job aggregation, no Python-side filter.
+        """
+        try:
+            db_models = self._node_stats_dal.get_failed_docs_for_batch(job_run_id=job_run_id, batch_id=batch_id)
+            failed_doc_ids: list[str] = []
+            for db_model in db_models:
+                failed_docs = getattr(db_model, "failed_docs", None)
+                if failed_docs:
+                    failed_doc_ids.extend(failed_docs)
+            return failed_doc_ids
+        except Exception as e:
+            logger.error("Failed to get failed docs for batch: %s", e)
+            raise JobStatsStoreReadException(
+                message=f"Failed to get failed docs for batch: {e}",
+                job_run_id=job_run_id,
+                operation="get_failed_docs_for_batch",
+            ) from e
+
     def bulk_store_node_stats(self, *, job_run_id: str, node_stats_list: list[NodeStats]) -> None:
         """
         Bulk store multiple node statistics (micro-batching).

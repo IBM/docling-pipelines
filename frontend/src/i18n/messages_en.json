@@ -1,0 +1,8 @@
+{
+  "src.components.cards.FlowsCard.emptySubtitle": "Recent flows will be listed here.",
+  "src.components.cards.FlowsCard.emptyTitle": "No recent flows",
+  "src.components.cards.FlowsCard.loadError": "Failed to load flows.",
+  "src.components.cards.FlowsCard.loading": "Loading flows...",
+  "src.components.cards.FlowsCard.refreshDescription": "Refresh flows",
+  "src.components.cards.FlowsCard.title": "Flows"
+}

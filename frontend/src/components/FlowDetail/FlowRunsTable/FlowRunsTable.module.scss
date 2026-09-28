@@ -1,0 +1,59 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.iconRun       { color: $support-success; }
+.iconProgress  { color: $support-info;    }
+.iconWarning   { color: $support-warning; }
+.iconFailed    { color: $support-error;   }
+.iconCancelled { color: $text-disabled;   }
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  padding-left: $spacing-05;
+}
+
+.statusLabel {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+  white-space: nowrap;
+  align-self: center;
+  padding: 0 $spacing-03;
+}
+
+.statusDropdown {
+  width: 160px;
+
+  // Remove Carbon's default bottom border on the dropdown trigger button
+  :global(.cds--dropdown) {
+    border-bottom: none;
+  }
+}
+
+.tableWrapper {
+  background-color: $background;
+}
+
+.startTimeLink {
+  @include type-style('body-compact-01');
+  color: $link-primary;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+    color: $link-primary-hover;
+  }
+}
+
+.statusCell {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+}
+
+.overflowCell { text-align: right; }

@@ -1,0 +1,35 @@
+{
+  "parameters": [
+    { "id": "text_extraction.provider" },
+    { "id": "text_extraction.provider_config" },
+    { "id": "text_extraction.doc_column" },
+    { "id": "entity_extraction.provider" },
+    { "id": "entity_extraction.provider_config" },
+    { "id": "entity_extraction.expand_extracted_data" },
+    { "id": "entity_extraction.custom_schema" },
+    { "id": "max_workers" },
+    { "id": "use_processes" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "extract_operator_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "text_extraction.provider" },
+      { "parameter_ref": "text_extraction.provider_config" },
+      { "parameter_ref": "text_extraction.doc_column" },
+      { "parameter_ref": "entity_extraction.provider" },
+      { "parameter_ref": "entity_extraction.provider_config" },
+      { "parameter_ref": "entity_extraction.expand_extracted_data" },
+      { "parameter_ref": "entity_extraction.custom_schema" },
+      { "parameter_ref": "max_workers" },
+      { "parameter_ref": "use_processes" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

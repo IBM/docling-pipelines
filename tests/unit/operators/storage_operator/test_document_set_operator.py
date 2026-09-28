@@ -9,8 +9,6 @@ Tests cover:
 - Pass-through behavior
 """
 
-import uuid
-
 import pyarrow as pa
 import pytest
 
@@ -25,9 +23,10 @@ from docpipe.exceptions.docpipe_exceptions import (
 
 @pytest.fixture
 def basic_config():
-    """Basic configuration for DocumentSetOperator with a unique name per test."""
+    """Basic configuration for DocumentSetOperator."""
+    # database_path removed - operator always uses default
     return {
-        "document_set_name": f"Test Documents {uuid.uuid4().hex[:8]}",
+        "document_set_name": "Test Documents",
         "description": "Test description",
         "metadata": {"source": "test"},
     }
@@ -57,22 +56,22 @@ class TestOperatorMetadata:
 
         assert metadata["category"] == OperatorCategory.Storage.value
         assert "description" in metadata
-        assert "parameters" in metadata
+        assert "attributes" in metadata
 
-    def test_operator_parameters(self, basic_config):
-        """Test operator parameters definition."""
+    def test_operator_attributes(self, basic_config):
+        """Test operator attributes definition."""
         operator = DocumentSetOperator(basic_config)
         metadata = operator.get_metadata()
 
-        params = metadata["parameters"]
-        assert "document_set_name" in params
-        assert params["document_set_name"]["required"] is True
-        # database_path removed - always uses default
-        assert "description" in params
-        assert "metadata" in params
-        assert "document_set_id" in params
-        # metadata_backend removed - uses global_config.storage_type
-        assert "data_backend" in params
+        attrs = metadata["attributes"]
+        assert "document_set_name" in attrs
+        assert attrs["document_set_name"]["required"] is True
+        assert "description" in attrs
+        assert "metadata" in attrs
+        assert "document_set_id" in attrs
+        assert "data_backend" in attrs
+        assert "database_path" in attrs
+        assert attrs["data_backend"]["valid_values"] == ["duckdb", "filesystem"]
 
     def test_operator_category(self, basic_config):
         """Test operator category is Storage."""
@@ -116,7 +115,7 @@ class TestTransformCreateNew:
         _result_tables, metadata = operator.transform(sample_table)
 
         assert "document_set_id" in metadata
-        assert metadata["document_set_name"] == basic_config["document_set_name"]
+        assert metadata["document_set_name"] == "Test Documents"
 
     def test_transform_empty_table(self, basic_config):
         """Test transforming empty table."""
@@ -165,7 +164,6 @@ class TestTransformUpdateExisting:
         assert metadata2["document_set_id"] == doc_set_id
 
 
-@pytest.mark.usefixtures("cleanup_test_document_sets")
 class TestTransformWithSoftDeletes:
     """Test soft-delete handling - DEPRECATED: Feature removed."""
 
@@ -224,7 +222,6 @@ class TestTransformInvalidName:
             DocumentSetOperator(config)
 
 
-@pytest.mark.usefixtures("cleanup_test_document_sets")
 class TestOperatorPassThrough:
     """Test that original table is returned unchanged."""
 
@@ -262,7 +259,7 @@ class TestOperatorInitialization:
         """Test initialization with valid configuration."""
         operator = DocumentSetOperator(basic_config)
 
-        assert operator.document_set_name == basic_config["document_set_name"]
+        assert operator.document_set_name == "Test Documents"
         assert operator.description == "Test description"
         assert operator.metadata_config == {"source": "test"}
         # retain_deleted_docs removed - no longer part of operator
@@ -295,11 +292,10 @@ class TestOperatorInitialization:
 
         # Verify operator is properly initialized
         # service attribute removed - services created on-demand in transform()
-        assert operator.document_set_name == basic_config["document_set_name"]
+        assert operator.document_set_name == "Test Documents"
         assert operator.database_path is not None
 
 
-@pytest.mark.usefixtures("cleanup_test_document_sets")
 class TestOperatorMetadataOutput:
     """Test metadata output from transform."""
 
@@ -370,7 +366,7 @@ class TestOperatorWithDifferentSchemas:
 
     def test_transform_with_minimal_schema(self):
         """Test transform with minimal schema (only id and required columns)."""
-        config = {"document_set_name": f"Minimal Schema Test {uuid.uuid4().hex[:8]}"}
+        config = {"document_set_name": "Minimal Schema Test"}
         operator = DocumentSetOperator(config)
 
         # Include size and pages_processed to match expected schema for metrics
@@ -390,7 +386,7 @@ class TestOperatorWithDifferentSchemas:
 
     def test_transform_with_extended_schema(self):
         """Test transform with extended schema."""
-        config = {"document_set_name": f"Extended Schema Test {uuid.uuid4().hex[:8]}"}
+        config = {"document_set_name": "Extended Schema Test"}
         operator = DocumentSetOperator(config)
 
         extended_table = pa.table(
@@ -449,7 +445,7 @@ class TestOperatorMultipleTransforms:
 
     def test_multiple_transforms_update_existing(self):
         """Test that multiple transforms update existing documents."""
-        config = {"document_set_name": f"Update Test {uuid.uuid4().hex[:8]}"}
+        config = {"document_set_name": "Update Test"}
         operator = DocumentSetOperator(config)
 
         # First batch

@@ -317,7 +317,7 @@ class TestEdgeCases:
     def test_get_logger_with_invalid_level_string(self):
         """Test getting logger with invalid level string raises ValueError."""
         # Invalid level should raise ValueError from logging.getLevelName
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unknown level"):
             get_logger(level="INVALID_LEVEL")
 
     def test_get_logger_multiple_calls_same_name(self):

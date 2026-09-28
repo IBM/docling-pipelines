@@ -3,8 +3,9 @@
 This factory enables automatic registration of data store adapters through decorators,
 following the same pattern as VectorStoreFactory.
 
-Note: Data store adapters use TableStorage from the storage layer for all database operations.
-The factory creates storage instances via StorageFactory and injects them into adapters.
+Note: Adapter construction details (e.g. storage dependencies, constructor arguments)
+are encapsulated in each adapter's from_config() classmethod. The factory only handles
+registration, config validation, and delegation.
 """
 
 from typing import Any, ClassVar, cast
@@ -15,7 +16,6 @@ from docpipe.core.assets.document_sets.domain.ports.data_store import (
 from docpipe.core.assets.document_sets.domain.types import DataStoreConfig
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
-from docpipe.storage import StorageFactory
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -70,6 +70,7 @@ class DataStoreFactory:
         def decorator(
             adapter_class: type[DocumentSetStorage],
         ) -> type[DocumentSetStorage]:
+            """Register the adapter class and return it unchanged."""
             if name in cls._adapters:
                 logger.warning("Adapter '%s' is already registered. Overwriting.", name)
 
@@ -87,17 +88,17 @@ class DataStoreFactory:
 
     @classmethod
     def create(cls, *, adapter_name: str, config: DataStoreConfig) -> DocumentSetStorage:
-        """Create a data store adapter instance with dependency injection.
+        """Create a data store adapter instance.
 
-        This method creates the appropriate storage instance via StorageFactory
-        and injects it into the adapter, following the dependency injection pattern.
+        Validates the config and delegates construction to the adapter's
+        ``from_config()`` classmethod.
 
         Args:
             adapter_name: Name of the adapter to create (e.g., "duckdb")
-            config: Configuration parameters including database_path
+            config: Configuration parameters passed through to the adapter's from_config()
 
         Returns:
-            Initialized adapter instance with injected storage
+            Initialized adapter instance
 
         Raises:
             DocpipeException: If adapter_name is not registered or configuration is invalid
@@ -125,20 +126,7 @@ class DataStoreFactory:
             )
 
         try:
-            # Create storage instance via StorageFactory (dependency injection)
-            storage_type = adapter_name  # e.g., "duckdb" -> DuckDB storage
-            table_storage = StorageFactory.create_table_storage(storage_type=storage_type, **config_dict)
-
-            # database_path is guaranteed present by validate_config(); raise if somehow missing
-            database_path = config_dict.get("database_path")
-            if not database_path:
-                raise DocpipeException(
-                    message=f"'database_path' is required but missing in config for adapter '{adapter_name}'",
-                    status_code=500,
-                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
-                )
-
-            return adapter_class(table_storage=table_storage, database_path=database_path)
+            return adapter_class.from_config(config=config_dict)
         except DocpipeException:
             raise
         except Exception as e:

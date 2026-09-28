@@ -76,28 +76,32 @@ class WatsonXClient(BaseLLMClient):
 
         # Validate required configuration
         if not self.api_key:
-            raise ConfigurationError(
+            msg = (
                 "WATSONX_API_KEY environment variable is required. "
                 "Set it to your IBM Cloud API key. "
                 "For security, API keys must not be passed as parameters."
             )
+            raise ConfigurationError(msg)
 
         if not self.container_id:
-            raise ConfigurationError(
+            msg = (
                 "WATSONX_CONTAINER_ID environment variable is required. "
                 "Set it to your watsonx project or space ID. "
                 "For security, container IDs must not be passed as parameters."
             )
+            raise ConfigurationError(msg)
 
         if not self.api_base:
-            raise ConfigurationError(
+            msg = (
                 "api_base is required for WatsonX. "
                 "Set via api_base parameter or WATSONX_API_BASE_URL environment variable. "
                 "Example: https://us-south.ml.cloud.ibm.com"
             )
+            raise ConfigurationError(msg)
 
         if self.container_kind not in ("project", "space"):
-            raise ConfigurationError(f"container_kind must be 'project' or 'space', got: {self.container_kind}")
+            msg = f"container_kind must be 'project' or 'space', got: {self.container_kind}"
+            raise ConfigurationError(msg)
 
         self.timeout = timeout
 
@@ -136,7 +140,8 @@ class WatsonXClient(BaseLLMClient):
             return self._token_manager.get_token()
         except Exception as exc:
             logger.error("Failed to get IAM access token: %s", exc)
-            raise ExternalServiceError(f"Failed to authenticate with watsonx.ai: {exc}") from exc
+            msg = f"Failed to authenticate with watsonx.ai: {exc}"
+            raise ExternalServiceError(msg) from exc
 
     def _get_rest_client(self) -> RestClient:
         """
@@ -165,7 +170,8 @@ class WatsonXClient(BaseLLMClient):
             ExternalServiceError: If API call fails
         """
         if not messages or not isinstance(messages, list):
-            raise ConfigurationError("messages must be a non-empty list")
+            err_msg = "messages must be a non-empty list"
+            raise ConfigurationError(err_msg)
 
         try:
             # Convert messages to WatsonX format
@@ -215,13 +221,15 @@ class WatsonXClient(BaseLLMClient):
             # Extract response
             choices = result.get("choices", [])
             if not choices:
-                raise ExternalServiceError("No choices in WatsonX API response")
+                err_msg = "No choices in WatsonX API response"
+                raise ExternalServiceError(err_msg)
 
             message = choices[0].get("message", {})
             content = message.get("content", "")
 
             if not content:
-                raise ExternalServiceError("Empty content in WatsonX API response")
+                err_msg = "Empty content in WatsonX API response"
+                raise ExternalServiceError(err_msg)
 
             logger.debug("WatsonX chat completed successfully")
             return content
@@ -233,7 +241,8 @@ class WatsonXClient(BaseLLMClient):
 
         except Exception as exc:
             logger.error("Unexpected error in WatsonX chat: %s", exc)
-            raise ExternalServiceError(f"WatsonX chat failed with model '{self.model_name}': {exc}") from exc
+            err_msg = f"WatsonX chat failed with model '{self.model_name}': {exc}"
+            raise ExternalServiceError(err_msg) from exc
 
     def generate(self, prompt: str, **kwargs: Any) -> str:
         """
@@ -259,9 +268,8 @@ class WatsonXClient(BaseLLMClient):
         Raises:
             NotImplementedError: Always raised as embeddings are not supported
         """
-        raise NotImplementedError(
-            "WatsonX client does not support embeddings. Use sentence-transformers or other embedding models."
-        )
+        msg = "WatsonX client does not support embeddings. Use sentence-transformers or other embedding models."
+        raise NotImplementedError(msg)
 
     def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
         """
@@ -270,9 +278,8 @@ class WatsonXClient(BaseLLMClient):
         Raises:
             NotImplementedError: Always raised as embeddings are not supported
         """
-        raise NotImplementedError(
-            "WatsonX client does not support embeddings. Use sentence-transformers or other embedding models."
-        )
+        msg = "WatsonX client does not support embeddings. Use sentence-transformers or other embedding models."
+        raise NotImplementedError(msg)
 
     @staticmethod
     def get_embedding_dimension(model_name: str) -> int:
@@ -300,10 +307,11 @@ class WatsonXClient(BaseLLMClient):
         Raises:
             NotImplementedError: Always raised as token limits are not tracked
         """
-        raise NotImplementedError(
+        msg = (
             "WatsonX client does not track model token limits. "
             "Token limits vary by model and should be managed by the WatsonX API."
         )
+        raise NotImplementedError(msg)
 
     def validate_configuration(self) -> None:
         """
@@ -315,13 +323,17 @@ class WatsonXClient(BaseLLMClient):
         super().validate_configuration()
 
         if not self.api_key:
-            raise ConfigurationError("WATSONX_API_KEY environment variable is required")
+            msg = "WATSONX_API_KEY environment variable is required"
+            raise ConfigurationError(msg)
 
         if not self.container_id:
-            raise ConfigurationError("WATSONX_CONTAINER_ID environment variable is required")
+            msg = "WATSONX_CONTAINER_ID environment variable is required"
+            raise ConfigurationError(msg)
 
         if not self.api_base:
-            raise ConfigurationError("api_base is required for WatsonX")
+            msg = "api_base is required for WatsonX"
+            raise ConfigurationError(msg)
 
         if self.container_kind not in ("project", "space"):
-            raise ConfigurationError(f"container_kind must be 'project' or 'space', got: {self.container_kind}")
+            msg = f"container_kind must be 'project' or 'space', got: {self.container_kind}"
+            raise ConfigurationError(msg)
