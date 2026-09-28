@@ -184,8 +184,6 @@ packages = ["src/docpipe", "docs_mcp"]
 artifacts = [
     "src/docpipe/api/static/**/*",
     "src/docpipe/api/bff/**/*",
-    "src/docpipe/integrations/kafka/file_event_schema.json",
-    "src/docpipe/integrations/kafka/file_event_status_schema.json",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
