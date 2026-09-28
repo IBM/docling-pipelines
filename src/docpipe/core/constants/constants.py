@@ -321,6 +321,8 @@ class EnvironmentVariables:
     DOCPIPE_CONFIG_PATH = "DOCPIPE_CONFIG_PATH"
     SCHEMA_REGISTRY_URL = "SCHEMA_REGISTRY_URL"
     KAFKA_TOPIC = "KAFKA_TOPIC"
+    KAFKA_GROUP_ID = "KAFKA_GROUP_ID"
+    KAFKA_BOOTSTRAP_SERVERS = "KAFKA_BOOTSTRAP_SERVERS"
 
     # Secret Provider Control
     DOCPIPE_VAULT_ENABLED = "DOCPIPE_VAULT_ENABLED"  # "true" enables, "false" disables — overrides YAML config
