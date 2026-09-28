@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docling Pipelines — Event and Batch Entry Paths</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #183248;
+      --muted: #526a7c;
+      --paper: #f3f7f9;
+      --card: #fff;
+      --line: #c9d7e2;
+      --event: #087d87;
+      --flow: #315fa7;
+      --binding: #bb4144;
+      --status: #72559d;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 1710px; margin: 0 auto; padding: 40px 28px 54px; }
+    .eyebrow { color: var(--event); font-size: 12px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { margin: 7px 0 8px; font-size: clamp(28px, 3.1vw, 45px); line-height: 1.1; letter-spacing: -.035em; }
+    .subtitle { max-width: 1050px; margin: 0; color: var(--muted); font-size: 16px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 22px 0 18px; color: var(--muted); font-size: 13px; }
+    .legend span { display: inline-flex; align-items: center; gap: 8px; }
+    .swatch { width: 13px; height: 13px; border-radius: 3px; }
+    .swatch.event { background: var(--event); }
+    .swatch.flow { background: var(--flow); }
+    .swatch.binding { background: var(--binding); }
+    .swatch.status { background: var(--status); }
+    .swatch.batch { border: 2px dashed #697f91; }
+    .canvas { overflow-x: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--card); padding: 15px; box-shadow: 0 18px 45px rgba(24, 55, 75, .06); }
+    svg { display: block; width: 100%; min-width: 1500px; height: auto; font-family: inherit; }
+    svg .pod { fill: #eaf1f6; stroke: #7895aa; stroke-width: 2; stroke-dasharray: 9 7; }
+    svg .api { fill: #fff; stroke: #667f93; stroke-width: 2.5; }
+    svg .topic, svg .consumer { fill: #e7f5f5; stroke: var(--event); stroke-width: 2.5; }
+    svg .batch { fill: #f8fafb; stroke: #8299a9; stroke-width: 2.5; stroke-dasharray: 8 6; }
+    svg .binding { fill: #fff0ef; stroke: var(--binding); stroke-width: 2.5; }
+    svg .notification { fill: #f2edfa; stroke: var(--status); stroke-width: 2.5; }
+    svg .existing { fill: #f9fbff; stroke: var(--flow); stroke-width: 2.5; stroke-dasharray: 9 6; }
+    svg .stage { fill: #eaf0fb; stroke: var(--flow); stroke-width: 2; }
+    svg .event-route { fill: none; stroke: var(--event); stroke-width: 3; }
+    svg .binding-route { fill: none; stroke: var(--binding); stroke-width: 3; }
+    svg .status-route { fill: none; stroke: var(--status); stroke-width: 3; }
+    svg .batch-route { fill: none; stroke: #667f93; stroke-width: 3; stroke-dasharray: 8 6; }
+    svg .flow-route { fill: none; stroke: var(--flow); stroke-width: 2.5; }
+    svg .title { fill: var(--ink); font-size: 25px; font-weight: 750; }
+    svg .box-title { fill: var(--ink); font-size: 21px; font-weight: 750; }
+    svg .stage-title { fill: #254f91; font-size: 17px; font-weight: 750; }
+    svg .label { fill: var(--muted); font-size: 15px; }
+    svg .small { fill: var(--muted); font-size: 13px; }
+    svg .kicker { fill: var(--event); font-size: 12px; font-weight: 800; letter-spacing: 1.2px; }
+    svg .red-kicker { fill: var(--binding); font-size: 12px; font-weight: 800; letter-spacing: 1.2px; }
+    svg .status-kicker { fill: var(--status); font-size: 12px; font-weight: 800; letter-spacing: 1.2px; }
+    svg .flow-kicker { fill: var(--flow); font-size: 13px; font-weight: 800; letter-spacing: 1px; }
+    svg .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+    .notes article { border: 1px solid var(--line); border-radius: 11px; background: #f8fafb; padding: 14px 16px; }
+    .notes strong { display: block; margin-bottom: 3px; font-size: 13px; }
+    .notes p { margin: 0; color: var(--muted); font-size: 12px; }
+    code { overflow-wrap: anywhere; font: .94em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .sources { margin-top: 17px; color: var(--muted); font-size: 12px; }
+    .sources a { color: #17618a; }
+    @media (max-width: 760px) { main { padding: 26px 14px 40px; } .notes { grid-template-columns: 1fr; } }
+    @media print { body { background: #fff; } main { max-width: none; padding: 8px; } .canvas { box-shadow: none; overflow: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Local lab · High-level design</div>
+      <h1>Event streaming beside the existing API path</h1>
+      <p class="subtitle">Both inputs start outside the pod on the left. The Kafka route binds the event to the flow and publishes a received notification; the batch route enters the existing document flow.</p>
+    </header>
+    <div class="legend" aria-label="Diagram legend">
+      <span><i class="swatch event" aria-hidden="true"></i>Kafka route</span>
+      <span><i class="swatch binding" aria-hidden="true"></i>Event-to-flow binding</span>
+      <span><i class="swatch status" aria-hidden="true"></i>Received notification</span>
+      <span><i class="swatch flow" aria-hidden="true"></i>Existing document flow</span>
+      <span><i class="swatch batch" aria-hidden="true"></i>Batch API route</span>
+    </div>
+    <section class="canvas" aria-label="Docling Pipelines high-level architecture">
+      <svg viewBox="0 0 1900 840" role="img" aria-labelledby="diagram-title diagram-description">
+        <title id="diagram-title">Kafka and batch paths into the Docling Pipelines pod</title>
+        <desc id="diagram-description">A Kafka topic on the left points to a small consumer at the top of the pod. The consumer arrow lands directly on a red event-to-flow binding box inside the API, then the consumer publishes a received notification to the notification topic outside the pod on the right after the API creates the job run. A separate batch request on the left points directly to the blue existing document flow box. Consumer and API boxes share a left edge. The flow contains ingest, extract, chunk, embed, and vector store stages.</desc>
+        <defs>
+          <marker id="event-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#087d87"/></marker>
+          <marker id="binding-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#bb4144"/></marker>
+          <marker id="status-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#72559d"/></marker>
+          <marker id="batch-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#667f93"/></marker>
+          <marker id="flow-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#315fa7"/></marker>
+        </defs>
+
+        <!-- Boundaries and boxes -->
+        <rect class="pod" x="270" y="55" width="1290" height="750" rx="24"/>
+        <text class="kicker" x="310" y="96">POD BOUNDARY</text>
+        <text class="title" x="310" y="130">Docling Pipelines pod</text>
+        <rect class="topic" x="25" y="175" width="190" height="115" rx="15"/>
+        <rect class="consumer" x="315" y="170" width="320" height="125" rx="15"/>
+        <rect class="batch" x="25" y="650" width="190" height="110" rx="15"/>
+        <rect class="api" x="315" y="345" width="1200" height="425" rx="18"/>
+        <rect class="binding" x="345" y="440" width="260" height="110" rx="12"/>
+        <rect class="existing" x="345" y="615" width="1130" height="125" rx="14"/>
+        <rect class="notification" x="1640" y="175" width="220" height="115" rx="15"/>
+
+        <!-- Exact landing routes: Kafka to consumer, consumer to binding, batch to existing flow -->
+        <path class="event-route" d="M 215 232.5 H 315" marker-end="url(#event-tip)"/>
+        <path class="event-route" d="M 475 295 V 440" marker-end="url(#event-tip)"/>
+        <path class="status-route" d="M 635 232.5 H 1640" marker-end="url(#status-tip)"/>
+        <path class="batch-route" d="M 215 705 H 345" marker-end="url(#batch-tip)"/>
+        <path class="binding-route" d="M 475 550 V 675" marker-end="url(#binding-tip)"/>
+
+        <!-- Entry labels -->
+        <text class="kicker" x="45" y="203">OUTSIDE POD</text>
+        <text class="box-title" x="45" y="235">Kafka topic</text>
+        <text class="small mono" x="45" y="261">docpipe-poc</text>
+        <text class="kicker" x="340" y="198">NEW COMPONENT</text>
+        <text class="box-title" x="340" y="231">Consumer</text>
+        <text class="label" x="340" y="262">Reads created / modified events</text>
+        <text class="small" x="500" y="325">Calls job-run API</text>
+        <text class="status-kicker" x="900" y="215">AFTER JOB RUN CREATED: RECEIVED + JOB RUN ID</text>
+        <text class="kicker" x="45" y="678">OUTSIDE POD</text>
+        <text class="box-title" x="45" y="708">Batch API</text>
+        <text class="small" x="45" y="735">Existing request path</text>
+
+        <!-- API and event binding -->
+        <text class="title" x="655" y="388">Docling Pipelines API</text>
+        <text class="label mono" x="655" y="412">POST /api/v1/job_runs</text>
+        <text class="red-kicker" x="365" y="466">KAFKA RUNS ONLY</text>
+        <text class="box-title" x="365" y="497">Bind event to flow</text>
+        <text class="small mono" x="365" y="523">file_path → source_path</text>
+        <text class="small" x="640" y="495">Flow ID selects the saved flow.</text>
+        <text class="small" x="640" y="517">S3 ingest selects one exact MinIO object.</text>
+        <text class="status-kicker" x="1660" y="203">OUTSIDE POD</text>
+        <text class="box-title" x="1660" y="232">Notification topic</text>
+        <text class="small mono" x="1660" y="258">docpipe-poc-</text>
+        <text class="small mono" x="1660" y="276">notifications</text>
+
+        <!-- Existing flow boundary and its five stages -->
+        <text class="flow-kicker" x="665" y="640">EXISTING DOCUMENT FLOW</text>
+        <rect class="stage" x="365" y="675" width="190" height="49" rx="9"/>
+        <rect class="stage" x="590" y="675" width="190" height="49" rx="9"/>
+        <rect class="stage" x="815" y="675" width="190" height="49" rx="9"/>
+        <rect class="stage" x="1040" y="675" width="190" height="49" rx="9"/>
+        <rect class="stage" x="1265" y="675" width="190" height="49" rx="9"/>
+        <path class="flow-route" d="M 555 699.5 H 590" marker-end="url(#flow-tip)"/>
+        <path class="flow-route" d="M 780 699.5 H 815" marker-end="url(#flow-tip)"/>
+        <path class="flow-route" d="M 1005 699.5 H 1040" marker-end="url(#flow-tip)"/>
+        <path class="flow-route" d="M 1230 699.5 H 1265" marker-end="url(#flow-tip)"/>
+        <text class="stage-title" x="387" y="706">Ingest</text>
+        <text class="stage-title" x="612" y="706">Extract</text>
+        <text class="stage-title" x="837" y="706">Chunk</text>
+        <text class="stage-title" x="1062" y="706">Embed</text>
+        <text class="stage-title" x="1287" y="706">Vector store</text>
+      </svg>
+      <div class="notes">
+        <article><strong>Shared API</strong><p>The consumer and ordinary batch clients call the same job-run API. The consumer and API are separate components inside one pod.</p></article>
+        <article><strong>Event binding</strong><p>For Kafka runs, <code>flow_id</code> picks the saved flow and <code>file_path</code> is injected as ingest <code>source_path</code>.</p></article>
+        <article><strong>Received notification</strong><p>After the API creates the run, the consumer publishes <code>received</code> with its job run ID. Query <code>GET /api/v1/job_runs/{job_run_id}</code> for completion.</p></article>
+      </div>
+    </section>
+    <p class="sources">Based on <a href="flow.json">flow.json</a>, <a href="docker-compose.yml">docker-compose.yml</a>, and the <a href="../src/docpipe/integrations/kafka/consumer.py">Kafka consumer</a>. The nested Kafka POCs are preliminary studies.</p>
+  </main>
+</body>
+</html>

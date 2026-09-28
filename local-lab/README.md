@@ -1,5 +1,7 @@
 # Local lab
 
+See the [high-level design diagram](HIGH_LEVEL_DESIGN.html) for the Kafka event path and document-processing flow.
+
 ## Setup
 
 ```bash
