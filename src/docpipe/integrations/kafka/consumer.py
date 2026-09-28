@@ -3,6 +3,7 @@
 import os
 from threading import Event, Thread
 
+import httpx
 from confluent_kafka import DeserializingConsumer, KafkaError
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.json_schema import JSONDeserializer
@@ -68,4 +69,40 @@ class KafkaFileEventConsumer:
             event["flow_id"],
             event["file_path"],
         )
-        self._notification_producer.publish_status(event=event, status="received")
+        if event["event_type"] not in {"created", "modified"}:
+            self._notification_producer.publish_status(event=event, status="skipped", reason="Event type is not supported")
+            return
+
+        api_url = os.getenv("DOCPIPE_API_URL", "http://127.0.0.1:8080").rstrip("/")
+        request_body = {
+            "entity": {
+                "job": {
+                    "asset_ref": event["flow_id"],
+                    "asset_ref_type": "ibm_udp_flow",
+                    "name": event["flow_id"],
+                },
+                "job_run": {
+                    "configuration": {
+                        "event_streaming": True,
+                        "file_path": event["file_path"],
+                        "metadata": {
+                            "event_id": event["event_id"],
+                            "event_type": event["event_type"],
+                            "event_timestamp": event["event_timestamp"],
+                            "connection_id": event["connection_id"],
+                        },
+                    }
+                },
+            }
+        }
+        try:
+            response = httpx.post(f"{api_url}/api/v1/job_runs", json=request_body, timeout=30)
+            response.raise_for_status()
+            job_run_id = response.json()["job_run_id"]
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            logger.error("Could not create job run for event %s: %s", event["event_id"], exc)
+            self._notification_producer.publish_status(event=event, status="failed", reason=str(exc))
+            return
+
+        logger.info("Created job run %s for event %s", job_run_id, event["event_id"])
+        self._notification_producer.publish_status(event=event, status="received", reason=f"job_run_id={job_run_id}")

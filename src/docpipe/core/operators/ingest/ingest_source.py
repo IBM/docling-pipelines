@@ -353,6 +353,7 @@ class IngestSourceOperator(AbstractOperator):
         super().__init__(config)
         self.provider: str = config.get(PROVIDER_KEY, "").lower()
         self.connection_params: dict[str, Any] = config.get(CONNECTION_PARAMS_KEY) or {}
+        self.source_path: str | None = config.get("source_path")
         self.credentials: dict[str, Any] = config.get(CREDENTIALS_KEY) or {}
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
 
@@ -742,6 +743,8 @@ class IngestSourceOperator(AbstractOperator):
             included_extensions=self.included_extensions,
             max_files=self.max_files,
         )
+        if self.source_path is not None:
+            config = adapter.select_source(config=config, source_path=self.source_path)
 
         # Return both adapter and config to avoid creating adapter twice
         return adapter, config

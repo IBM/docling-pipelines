@@ -100,12 +100,20 @@ python kafka-schema-registry-poc/consumer.py
 
 In terminal 3, produce an input event:
 
+Pass the object key within the flow's configured S3 bucket, without the `s3://` bucket prefix.
+
 ```bash
 python produce_file_event.py \
   --event-type created \
   --connection-id a1b2c3d4-1234-5678-abcd-ef0123456789 \
   --flow-id "$FLOW_ID" \
-  --file-path "s3://docpipe-documents/pdfs/TR-INV_001_3_2.1.pdf"
+  --file-path "pdfs/TR-INV_001_3_2.1.pdf"
+```
+
+The notification in terminal 2 has status `received` and a `job_run_id` in its `reason` field. Use that ID to check the run:
+
+```bash
+curl -s "http://127.0.0.1:8080/api/v1/job_runs/<job_run_id>" | python3 -m json.tool
 ```
 
 ## Stop
