@@ -16,7 +16,11 @@ from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import Milv
 from docpipe.core.operators.vectordb.adapters.outbound.milvus.index_manager import MilvusIndexManager
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.utils.infrastructure.logging import get_logger
-from docpipe.utils.operators.vectordb_utils import detect_all_vector_dimensions, detect_vector_dimension
+from docpipe.utils.operators.vectordb_utils import (
+    detect_all_vector_dimensions,
+    detect_vector_dimension,
+    generate_composite_pk,
+)
 
 logger = get_logger(__name__)
 
@@ -297,3 +301,22 @@ class MilvusAdapter(VectorStorePort):
             Mapping of doc_id -> set of chunk PKs.
         """
         return self.batch_processor.get_chunk_ids_for_documents(doc_ids=doc_ids)
+
+    def generate_chunk_pk(self, *, file_id: str, chunk_index: int, chunk_content: str) -> str:
+        """Generate a content-hash composite primary key for this chunk.
+
+        Older versions of Milvus do not support native upsert, so modified records
+        must be deleted and re-inserted. By tying the PK to chunk content, any change
+        to a chunk's text produces a new PK, which causes the stale record to be deleted
+        during the cleanup pass and a fresh record to be inserted — effectively an upsert
+        without requiring server-side upsert support.
+
+        Args:
+            file_id: The file identifier.
+            chunk_index: Zero-based position of the chunk (unused by this strategy).
+            chunk_content: The text content of the chunk.
+
+        Returns:
+            Composite PK string in the format ``{file_hash}_{content_hash}``.
+        """
+        return generate_composite_pk(file_id=file_id, chunk_content=chunk_content)

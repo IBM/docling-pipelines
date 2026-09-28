@@ -262,8 +262,16 @@ class BoxSourceAdapter(DocumentSourcePort):
         max_files: int | None = None,
     ) -> BoxSourceConfig:
         """Build Box configuration from operator parameters."""
+        # Credential field falls back to connection_params so flows built from operator
+        # metadata (which places all fields under connection_params) work alongside
+        # legacy flows that use a separate credentials dict.
+        # Accepts both "credentials_path" (metadata key) and "credentials_json_path" (legacy key).
         config_dict = {
-            "credentials_path": credentials.get("credentials_json_path"),
+            "credentials_path": (
+                credentials.get("credentials_json_path")
+                or credentials.get("credentials_path")
+                or connection_params.get("credentials_path")
+            ),
             "folder_id": connection_params.get("folder_id", "0"),
             "recursive": connection_params.get("recursive", True),
             "file_extensions": included_extensions or [],
@@ -301,6 +309,8 @@ class BoxSourceAdapter(DocumentSourcePort):
             bytes | None: Binary content of the Box file, or None if not found or error occurred
         """
         try:
+            credentials = credentials or {}
+            connection_params = connection_params or {}
             # Extract file ID from URL if needed
             # Box URLs are in format: https://app.box.com/file/{file_id}
             file_id = source_id
@@ -313,8 +323,12 @@ class BoxSourceAdapter(DocumentSourcePort):
                     logger.error(f"Could not extract file ID from Box URL: {source_id}")
                     return None
 
-            # Build minimal config just for authentication
-            credentials_path = credentials.get("credentials_json_path")
+            # Build minimal config just for authentication.
+            # Fall back to connection_params so callers that store credentials
+            # there (instead of the dedicated credentials block) work too.
+            credentials_path = credentials.get("credentials_json_path") or connection_params.get(
+                "credentials_json_path"
+            )
             if not credentials_path:
                 logger.error("Missing 'credentials_json_path' in credentials")
                 return None

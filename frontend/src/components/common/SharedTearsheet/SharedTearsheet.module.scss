@@ -1,0 +1,20 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.modalContainer {
+  inline-size: min(1100px, 92vw);
+}
+
+.headerSection {
+  border-bottom: 1px solid $border-subtle-01;
+}
+
+.modalBody {
+  padding-inline: 0;
+  padding-top: $spacing-06;
+}
+
+.content {
+  padding-inline: $spacing-05;
+  padding-bottom: $spacing-05;
+}

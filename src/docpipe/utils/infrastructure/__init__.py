@@ -13,6 +13,7 @@ from .performance import (
     get_process_memory_mb,
     get_pyarrow_table_size_mb,
     log_elapsed_time,
+    reclaim_memory,
 )
 from .retry import retry_with_exponential_backoff, should_retry_on_result
 from .telemetry_service import TelemetryConfig, get_telemetry_service
@@ -29,6 +30,7 @@ __all__ = [
     "get_telemetry_service",
     "log_elapsed_time",
     "process_batches_in_parallel",
+    "reclaim_memory",
     "retry_with_exponential_backoff",
     "run_with_session_info",
     "setup_logging",

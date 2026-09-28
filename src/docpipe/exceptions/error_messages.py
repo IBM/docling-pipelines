@@ -67,7 +67,7 @@ class ValidationCodeMessages(StrEnum):
 
     INGEST_OPERATOR_MISPLACED = """The first operator in the flow must be an "Ingest data" operator"""
 
-    GENERATE_OUTPUT_MISSING = """The last operator is not a "Generate Output" operator"""
+    GENERATE_OUTPUT_MISSING = """The last operator should be a "Vector DB" or "Storage" operator"""
 
     MULTIPLE_EXTRACTED_DETECTED = """Multiple extract operators detected. Ensure they are used correctly"""
 
@@ -86,6 +86,10 @@ class ValidationCodeMessages(StrEnum):
     SQL_FILTER_CONTENT_DROP_ATTEMPTED = """Content column drop was attempted"""
 
     SQL_FILTER_PAGES_DROP = """Pages Processed column drop was attempted"""
+
+    SQL_FILTER_ALLOWED_USERS_DROP_ATTEMPTED = """allowed_users column drop was attempted"""
+
+    SQL_FILTER_CHUNKED_CONTENT_DROP_ATTEMPTED = """chunked_content column drop was attempted"""
 
     SQL_FILTER_INVALID_COLUMN = """Invalid column name. Please ensure the filter_criteria has correct column names"""
 

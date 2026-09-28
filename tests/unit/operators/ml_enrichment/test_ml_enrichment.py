@@ -493,7 +493,7 @@ Numbers: 1234567890""",
         assert "content" in error_msg
 
     def test_validate_missing_lang_column(self, sample_config):
-        """Test validation when language column is missing (should warn, not error)"""
+        """Test validation when language column is missing (should error, not warn)"""
         operator = MLEnrichmentOperator(sample_config)
 
         errors: list[str] = []
@@ -502,10 +502,10 @@ Numbers: 1234567890""",
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
-        assert len(errors) == 0
-        assert len(warnings) == 1
-        assert "lang_name" in warnings[0]
-        assert "not found" in warnings[0]
+        assert len(errors) == 1
+        assert len(warnings) == 0
+        error_msg = str(errors[0]) if hasattr(errors[0], "message") else errors[0]
+        assert "lang_name" in error_msg
 
     def test_validate_output_column_conflict(self, sample_config):
         """Test validation when output columns already exist"""
@@ -537,12 +537,13 @@ Numbers: 1234567890""",
         # May have warnings about output columns, but no errors
 
     def test_get_required_features_returns_doc_column(self):
-        """Test that get_required_features returns the document column"""
+        """Test that get_required_features returns the document column and language column"""
         required = MLEnrichmentOperator.get_required_features()
 
         assert isinstance(required, list)
-        assert len(required) == 1
+        assert len(required) == 2
         assert OperatorConstants.Columns.DOC_COLUMN_DEFAULT in required
+        assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in required
 
     # ------------------------------------------------------------------
     # Validation-phase short-circuit (validating_flow=True)
@@ -550,14 +551,15 @@ Numbers: 1234567890""",
 
     def test_validate_skips_field_checks_when_validating_flow(self, sample_config):
         """When validating_flow=True, should_validate_field returns False and
-        both the lang-column and output-conflict checks are skipped."""
+        the output-conflict checks are skipped."""
         sample_config[DocpipeConstants.VALIDATING_FLOW] = True
         operator = MLEnrichmentOperator(sample_config)
 
         errors: list[str] = []
         warnings: list[str] = []
-        # Missing lang column and pre-existing output column — neither should warn
-        available_features = ["content"]
+        # Missing lang column would now error because it is required.
+        # But pre-existing output column should not warn when validating flow.
+        available_features = ["content", "lang_name", "ml_num_words"]
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 

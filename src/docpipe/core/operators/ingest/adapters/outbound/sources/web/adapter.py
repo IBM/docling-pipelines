@@ -3,19 +3,26 @@
 from typing import Any, AsyncGenerator
 
 import httpx
-import requests
 from langchain_community.document_loaders import RecursiveUrlLoader
 from pydantic import BaseModel
 
+from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from docpipe.core.operators.ingest.adapters.outbound.sources.web.config import WebPageSourceConfig
 from docpipe.core.operators.ingest.domain.models import Document
 from docpipe.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException, ExternalServiceError
+from docpipe.integrations.rest_client import RestClient, RestClientConfig, RestMethod
 from docpipe.utils.core.docpipe_utils import generate_hex_digest
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
+
+_CONTENT_TYPE_TO_EXTENSION: dict[str, str] = {
+    OperatorConstants.MimeTypes.PDF: OperatorConstants.FileExtensions.EXT_PDF,
+    OperatorConstants.MimeTypes.HTML: OperatorConstants.FileExtensions.EXT_HTML,
+    OperatorConstants.MimeTypes.PLAIN: OperatorConstants.FileExtensions.EXT_TXT,
+}
 
 
 @register_source_adapter
@@ -39,6 +46,41 @@ class WebPageSourceAdapter(DocumentSourcePort):
     - Built-in error handling for failed requests
     - Simpler than manual web scraping implementation
     """
+
+    def __init__(self) -> None:
+        self._rest_client = RestClient(
+            config=RestClientConfig(retry_max_attempts=1),
+        )
+        self._download_client = RestClient(
+            config=RestClientConfig(),
+        )
+
+    def _detect_extension(self, *, url: str, timeout: int) -> tuple[str, str]:
+        """Issue a HEAD request to detect the file extension and MIME type from the Content-Type header.
+
+        Returns a (extension, content_type) tuple.
+        Falls back to ('.html', 'text/html') on any error or unrecognised content type so that
+        RecursiveUrlLoader can still process the document.
+        """
+        _default = (OperatorConstants.FileExtensions.EXT_HTML, OperatorConstants.MimeTypes.HTML)
+        try:
+            response = self._rest_client.call_rest(
+                method=RestMethod.HEAD,
+                url=url,
+                expected_status_codes=[200, 405],
+                timeout=timeout,
+            )
+            if response.status_code == 405:
+                return _default
+            content_type = response.headers.get("Content-Type", OperatorConstants.MimeTypes.HTML).split(";")[0].strip()
+            extension = _CONTENT_TYPE_TO_EXTENSION.get(content_type, OperatorConstants.FileExtensions.EXT_HTML)
+            # If content_type was not in the map, normalise it to the HTML fallback too
+            resolved_content_type = (
+                content_type if content_type in _CONTENT_TYPE_TO_EXTENSION else OperatorConstants.MimeTypes.HTML
+            )
+            return extension, resolved_content_type
+        except Exception:
+            return _default
 
     # Metadata for connector discovery
     SOURCE_NAME = "web"
@@ -98,6 +140,9 @@ class WebPageSourceAdapter(DocumentSourcePort):
                         # Store HTML content as bytes for consistency with other adapters
                         content = lc_doc.page_content.encode("utf-8")
 
+                        # Detect extension and MIME type via HEAD request
+                        extension, content_type = self._detect_extension(url=source_url, timeout=config.timeout)
+
                         # Create domain document
                         document = Document(
                             id=doc_id,
@@ -105,8 +150,9 @@ class WebPageSourceAdapter(DocumentSourcePort):
                             content=content,
                             source_url=source_url,
                             modified_time=None,  # Web pages don't have reliable modified time
+                            extension=extension,
                             metadata={
-                                "content_type": "text/html",
+                                "content_type": content_type,
                                 "file_size": len(content),
                                 "depth": metadata.get("depth", 0),
                                 "url": source_url,
@@ -212,26 +258,18 @@ class WebPageSourceAdapter(DocumentSourcePort):
         try:
             logger.info(f"Downloading binary content from URL: {source_id}")
 
-            # Download content via HTTP GET
-            response = requests.get(
-                source_id,
+            response = self._download_client.call_rest(
+                method=RestMethod.GET,
+                url=source_id,
                 timeout=timeout,
-                allow_redirects=True,
             )
-            response.raise_for_status()
 
             content = response.content
             logger.info(f"Successfully downloaded {len(content)} bytes from {source_id}")
             return content
 
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout downloading from {source_id} after {timeout}s")
-            return None
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"Connection error downloading from {source_id}: {e}")
-            return None
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error downloading from {source_id}: {e}")
+        except ExternalServiceError as e:
+            logger.error(f"Failed to download from {source_id}: {e}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error downloading from {source_id}: {e}", exc_info=True)

@@ -28,6 +28,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         flow_def = {
             "name": "test-basic-flow",
+            "global_config": {"force_ingest": True},
             "dag": [
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9500",

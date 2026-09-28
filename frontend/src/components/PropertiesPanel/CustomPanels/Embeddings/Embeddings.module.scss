@@ -1,0 +1,12 @@
+.modelDropdown {
+  width: 100%;
+  min-width: 0;
+
+  :global(.cds--list-box__wrapper),
+  :global(.cds--list-box),
+  :global(.cds--dropdown),
+  :global(.cds--list-box__field) {
+    width: 100%;
+    max-width: 100%;
+  }
+}

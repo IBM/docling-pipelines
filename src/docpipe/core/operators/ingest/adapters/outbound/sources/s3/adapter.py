@@ -236,9 +236,14 @@ class S3SourceAdapter(DocumentSourcePort):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        # Extract required parameters
-        access_key = resolve_env_var(credentials.get("access_key"))
-        secret_key = resolve_env_var(value=credentials.get("secret_key"))
+        # Extract required parameters — credential fields fall back to connection_params
+        # so flows built from operator metadata (which places all fields under connection_params)
+        # work alongside legacy flows that use a separate credentials dict.
+        # Guard against None being passed explicitly (e.g. from UI sending null).
+        credentials = credentials or {}
+        connection_params = connection_params or {}
+        access_key = resolve_env_var(credentials.get("access_key") or connection_params.get("access_key"))
+        secret_key = resolve_env_var(credentials.get("secret_key") or connection_params.get("secret_key"))
         bucket = resolve_env_var(value=connection_params.get("bucket"))
         prefix = resolve_env_var(value=connection_params.get("prefix", ""))
 
@@ -530,9 +535,10 @@ class S3SourceAdapter(DocumentSourcePort):
             bytes | None: Binary content of the S3 object, or None if not found or error occurred
         """
         try:
-            # Resolve environment variables in credentials
-            access_key = resolve_env_var(credentials.get("access_key"))
-            secret_key = resolve_env_var(credentials.get("secret_key"))
+            # Resolve environment variables in credentials, falling back to
+            # connection_params so callers that store credentials there work too.
+            access_key = resolve_env_var(credentials.get("access_key") or connection_params.get("access_key"))
+            secret_key = resolve_env_var(credentials.get("secret_key") or connection_params.get("secret_key"))
 
             if not access_key or not secret_key:
                 logger.error("Missing S3 credentials for fetching %s", source_id)

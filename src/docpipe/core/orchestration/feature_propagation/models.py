@@ -27,6 +27,7 @@ class FeatureMetadata(BaseModel):
         description="Whether a vector DB operator must have a mapping for this feature to write correctly",
     )
     type: str = Field(default="string", description="Data type of the feature")
+    is_primary: bool = Field(default=False, description="Whether this feature is the primary key for vector DB storage")
 
 
 class OutputFeaturesToDrop:
@@ -226,6 +227,7 @@ class FeaturePropagationResult:
         available_for_vector_db: bool = False,
         mandatory_for_vector_db: bool = False,
         type: str = "string",
+        is_primary: bool = False,
     ) -> None:
         """Add a feature with full metadata.
 
@@ -238,16 +240,19 @@ class FeaturePropagationResult:
             available_for_vector_db: Whether feature can be stored in vector DB
             mandatory_for_vector_db: Whether a VectorDB operator must map this feature
             type: Data type of the feature
+            is_primary: Whether this feature is the primary key for vector DB storage
         """
+        resolved_tags = tags or []
         self.feature_metadata[feature_name] = FeatureMetadata(
             name=feature_name,
             description=description,
             node_id=node_id,
-            tags=tags or [],
+            tags=resolved_tags,
             available_for_filter=available_for_filter,
             available_for_vector_db=available_for_vector_db,
             mandatory_for_vector_db=mandatory_for_vector_db,
             type=type,
+            is_primary=is_primary or ("primary" in resolved_tags),
         )
 
     def get_mandatory_features(self) -> list[str]:

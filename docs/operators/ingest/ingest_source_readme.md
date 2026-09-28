@@ -180,7 +180,7 @@ node_config = {
         'recursive': False  # Optional: include subfolders
     },
     'credentials': {
-        'credentials_path': '/path/to/client_secret.json',
+        'credentials_json_path': '/path/to/client_secret.json',
         'token_path': '/path/to/token.json',  # Optional
         'scopes': ['https://www.googleapis.com/auth/drive.readonly']  # Optional
     }

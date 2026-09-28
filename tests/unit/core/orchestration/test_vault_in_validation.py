@@ -1,0 +1,130 @@
+"""Unit tests for vault reference handling during flow validation."""
+
+import pytest
+
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+from docpipe.integrations.secrets.secret_provider import (
+    SecretProvider,
+    clear_providers,
+    parse_vault_reference,
+    register_provider,
+)
+
+
+class DummyMockSecretProvider(SecretProvider):
+    """Mock secret provider for tests."""
+
+    def authenticate(self) -> None:
+        """Mock authenticate."""
+
+    def is_available(self) -> bool:
+        """Mock is_available."""
+        return True
+
+    def get_secret(self, *, path: str, key: str | None = None) -> str:
+        """Return dummy secret."""
+        return "resolved_secret_val"
+
+
+def test_parse_vault_reference_success() -> None:
+    """Test parse_vault_reference parses valid URIs."""
+    provider, path, key = parse_vault_reference("vault://hashicorp/secret/data/db#password")
+    assert provider == "hashicorp"
+    assert path == "secret/data/db"
+    assert key == "password"
+
+    provider2, path2, key2 = parse_vault_reference("vault://custom-provider/keys/api")
+    assert provider2 == "custom-provider"
+    assert path2 == "keys/api"
+    assert key2 is None
+
+
+def test_parse_vault_reference_invalid() -> None:
+    """Test parse_vault_reference raises ValueError on invalid URIs."""
+    with pytest.raises(ValueError, match="Invalid vault reference"):
+        parse_vault_reference("http://localhost:8080/secret")
+
+
+def test_sanitize_vault_refs_for_validation() -> None:
+    """Test dry-run sanitization of vault references."""
+    config = {
+        "api_key": "vault://hashicorp/llm/openai#key",  # pragma: allowlist secret
+        "credentials": "vault://hashicorp/s3/creds#json",
+        "nested": {
+            "token": "vault://hashicorp/milvus#token",
+            "normal_val": "hello",
+        },
+        "list_val": ["vault://hashicorp/item1#k", "plain"],
+    }
+    sanitized = FlowValidator._sanitize_vault_refs_for_validation(config)
+    assert sanitized["api_key"] == "__vault_placeholder__"  # pragma: allowlist secret
+    assert sanitized["credentials"] == {"__vault_mock__": True}
+    assert sanitized["nested"]["token"] == "__vault_placeholder__"
+    assert sanitized["nested"]["normal_val"] == "hello"
+    assert sanitized["list_val"] == ["__vault_placeholder__", "plain"]
+
+
+def test_validate_vault_references_alert() -> None:
+    """Test _validate_vault_references warns when provider is unregistered and errors on malformed URI."""
+    clear_providers()
+    validator = FlowValidator.__new__(FlowValidator)
+    validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+
+    dag = [
+        {
+            OperatorConstants.Columns.NAME: "ingest",
+            OperatorConstants.Misc.OPERATOR: "ingest_source",
+            OperatorConstants.Config.CONFIG: {
+                "credentials": "vault://unregistered_prov/creds#json",
+            },
+        }
+    ]
+
+    validator._validate_vault_references(dag=dag, validate_results=validate_results)
+    assert len(validate_results.warnings) == 1
+    assert "references vault provider 'unregistered_prov'" in validate_results.warnings[0].message
+
+    # Register provider and test no warnings
+    register_provider(name="unregistered_prov", provider=DummyMockSecretProvider())
+    validate_results_clean = ValidateStepResults(available_features={}, errors=[], warnings=[])
+    validator._validate_vault_references(dag=dag, validate_results=validate_results_clean)
+    assert len(validate_results_clean.warnings) == 0
+    clear_providers()
+
+
+def test_collect_vault_refs() -> None:
+    """Test _collect_vault_refs extracts all vault reference URIs with their object paths."""
+    config = {
+        "api_key": "vault://hashicorp/llm/openai#key",  # pragma: allowlist secret
+        "nested": {
+            "token": "vault://provider1/auth#tok",  # pragma: allowlist secret
+            "plain": "value",
+        },
+        "list_items": [
+            "plain_entry",
+            "vault://provider2/list#item",
+        ],
+        "plain_number": 42,
+    }
+    refs = FlowValidator._collect_vault_refs(config)
+    assert ("api_key", "vault://hashicorp/llm/openai#key") in refs  # pragma: allowlist secret
+    assert ("nested.token", "vault://provider1/auth#tok") in refs  # pragma: allowlist secret
+    assert ("list_items[1]", "vault://provider2/list#item") in refs
+    assert len(refs) == 3
+
+
+def test_validate_single_vault_ref_malformed() -> None:
+    """Test _validate_single_vault_ref produces error alert on malformed URI."""
+    validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+    op_def = {OperatorConstants.Columns.NAME: "node_1"}
+
+    FlowValidator._validate_single_vault_ref(
+        path="credentials",
+        ref="vault://",
+        op_def=op_def,
+        validate_results=validate_results,
+    )
+    assert len(validate_results.errors) == 1
+    assert "malformed vault URI" in validate_results.errors[0].message
+    assert len(validate_results.warnings) == 0

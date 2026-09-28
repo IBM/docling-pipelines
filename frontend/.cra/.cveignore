@@ -1,0 +1,7 @@
+[
+  {
+    "cve": "CVE-2026-93749",
+    "alwaysOmit": true,
+    "comment": "source-map-js@1.2.1: build-time devDependency only (sass compiler, vite/postcss). Not present in production bundle. No patched version available upstream. Re-evaluate once source-map-js publishes a fix."
+  }
+]

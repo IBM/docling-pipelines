@@ -121,6 +121,25 @@ class JobStatsStore(ABC):
         ...
 
     @abstractmethod
+    def get_failed_docs_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """
+        Retrieve failed document IDs for all nodes in a single batch.
+
+        Scoped to one batch_id — proportional to one batch, not the whole job.
+
+        Args:
+            job_run_id: Job run identifier
+            batch_id: Batch identifier to scope the query
+
+        Returns:
+            Flat list of failed document IDs for that batch
+
+        Raises:
+            JobStatsStoreReadException: If read operation fails
+        """
+        ...
+
+    @abstractmethod
     def bulk_store_node_stats(self, *, job_run_id: str, node_stats_list: list[NodeStats]) -> None:
         """
         Bulk store multiple node statistics (micro-batching).

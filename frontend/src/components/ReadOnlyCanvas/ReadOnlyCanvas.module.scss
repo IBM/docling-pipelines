@@ -1,0 +1,135 @@
+/**
+ * @fileoverview ReadOnlyCanvas styles — layout shell for read-only pipeline view.
+ * Flex row: CommonCanvas left, rightLogsPanelContainer right.
+ * Uses Carbon Design tokens for consistent sizing and theming.
+ */
+
+@use '@carbon/layout';
+@use '@carbon/react/scss/theme' as themes;
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/type' as type;
+
+/* Fills the overflow:hidden canvasContainer — no page scroll possible */
+.readOnlyCanvasContainer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ElyraCanvas fills the full readOnlyCanvasContainer */
+.canvasWrapper {
+  position: absolute;
+  inset: 0;
+}
+
+/* Absolutely positioned over the canvas, flush to the right.
+   top/bottom anchor to readOnlyCanvasContainer (position:absolute inset:0),
+   so no 100vh arithmetic is needed — the container IS the viewport slice. */
+.rightLogsPanelContainer {
+  position: absolute;
+  /* Offset below the Elyra toolbar (≈ 40px) + top-panel height (≈ layout.$spacing-13 × 1.4) */
+  top: calc(layout.$spacing-13 * 1.4 + layout.$spacing-03);
+  right: 0;
+  bottom: 0;
+  /* 3 × layout.$spacing-13 ≈ 384px */
+  width: calc(layout.$spacing-13 * 3);
+  background-color: themes.$layer-01;
+  border-left: 1px solid themes.$border-subtle-01;
+  /* NO overflow here — only .tabContent inside RunSidePanel scrolls */
+  overflow: hidden;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -#{spacing.$spacing-01} 0 spacing.$spacing-03 themes.$shadow;
+}
+
+/* ── Toolbar slots (rendered inside Elyra's toolbar JSX prop) ─────────────── */
+
+/* Back button in read-only toolbar */
+.toolbarBackButtonParent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 45vw;
+  margin-left: spacing.$spacing-05;
+}
+
+.toolbarBackButtonChildDiv {
+  flex: 1;
+  display: flex;
+  cursor: pointer;
+}
+
+.toolbarBackButtonDisabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.toolbarBackButtonChildSpan {
+  text-align: center;
+  margin-left: spacing.$spacing-03;
+  line-height: 1.1rem;
+}
+
+/* "Read Only" pill badge in toolbar */
+.toolbarReadonlyParent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toolbarReadonlyChildDiv {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+/* Applied to Carbon SVG icons on node decorations */
+.checkmarkFilled {
+  fill: themes.$support-success;
+  margin-right: spacing.$spacing-02;
+}
+
+.errorFilled {
+  fill: themes.$support-error;
+  margin-right: spacing.$spacing-02;
+}
+
+.warningAltFilled {
+  fill: themes.$support-warning;
+  margin-right: spacing.$spacing-02;
+}
+
+/* InlineLoading on a running node */
+.nodeLevelSpinner {
+  min-block-size: auto;
+}
+
+/* Icon is invisible until the d3-node-group is hovered */
+.hoverVisibleIcon {
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  z-index: 100;
+}
+
+:global(.d3-node-group:hover) .hoverVisibleIcon {
+  opacity: 1;
+}
+
+.openPanelIcon {
+  fill: themes.$interactive;
+  cursor: pointer;
+
+  &:hover {
+    fill: themes.$interactive;
+    opacity: 0.8;
+  }
+}
+
+:global(.d3-node-group:hover) .openPanelIcon {
+  background-color: themes.$layer-01;
+  border-radius: 50%;
+  padding: calc(spacing.$spacing-01 / 2);
+  box-shadow: 0 calc(spacing.$spacing-01 / 2) spacing.$spacing-03 themes.$shadow;
+}

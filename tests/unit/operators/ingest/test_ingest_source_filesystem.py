@@ -81,7 +81,8 @@ class TestIngestSourceOperatorOutput:
         assert "path" in table.column_names
         for idx in range(table.num_rows):
             path_val = table["path"][idx].as_py()
-            assert path_val is not None and len(path_val) > 0
+            assert path_val is not None
+            assert len(path_val) > 0
 
     def test_transform_empty_result_returns_schema_table(self, tmp_path):
         """Test transform with a directory of unsupported files returns empty schema table."""
@@ -130,6 +131,6 @@ def test_table_output_basic():
 
 
 if __name__ == "__main__":
-    import pytest as _pytest
+    import pytest
 
-    _pytest.main([__file__, "-v"])
+    pytest.main([__file__, "-v"])

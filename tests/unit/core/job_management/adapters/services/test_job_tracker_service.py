@@ -503,6 +503,20 @@ class TestStartTrackingJob:
         assert job_stats.status == ExecutionStatus.RUNNING
         assert job_stats.start_time is not None
 
+    def test_start_tracking_job_custom_initial_status(self, *, job_tracker_service, mock_store):
+        """start_tracking_job stores the given initial_status when provided."""
+        job_tracker_service.start_tracking_job(
+            job_id=JOB_ID,
+            job_run_id=JOB_RUN_ID,
+            flow_name="test_flow",
+            initial_status=ExecutionStatus.QUEUED,
+        )
+
+        call_args = mock_store.store_job_stats.call_args
+        job_stats = call_args[0][0]
+
+        assert job_stats.status == ExecutionStatus.QUEUED
+
     def test_start_tracking_job_default_user(self, *, job_tracker_service, mock_store):
         """Start tracking with no user_id uses default."""
         job_tracker_service.start_tracking_job(job_id=JOB_ID, job_run_id=JOB_RUN_ID, flow_name="test_flow")

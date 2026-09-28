@@ -1,0 +1,90 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// Outer wrapper — white background, no extra padding
+.tableWrapper {
+  background-color: $background;
+}
+
+// Toolbar row — search expands to fill space, right side has refresh + new project
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: $spacing-08; // 40px — Carbon $spacing-08; Figma: 1058 Fill × 40 Hug
+  border-bottom: 1px solid $border-subtle-01;
+
+  // Let the search fill remaining space on the left
+  :global(.cds--search) {
+    flex: 1;
+    height: $spacing-08; // 40px
+
+    input {
+      height: $spacing-08; // 40px
+      border-bottom: none;
+    }
+  }
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+// Renew icon button — ghost, $spacing-09 × $spacing-09 (48px)
+.refreshButton {
+  width: $spacing-09;  // 48px
+  height: $spacing-09; // 48px
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// "New project +" primary button — 158px wide, $spacing-09 tall (Figma spec)
+// 158px has no Carbon token equivalent — kept as px (Figma design spec value)
+.newProjectButton {
+  white-space: nowrap;
+  min-inline-size: 158px !important; // Figma spec — no Carbon token maps to 158px
+  block-size: $spacing-09 !important; // 48px — Carbon large button height
+}
+
+// Name cell — link style, clickable
+.nameLink {
+  @include type-style('body-compact-01');
+  color: $link-primary;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+    color: $link-primary-hover;
+  }
+}
+
+// Tags cell — flex row wrapping chips
+.tagsCell {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: $spacing-02;
+}
+
+// "+N more" overflow tag badge
+.tagsOverflow {
+  @include type-style('label-01');
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 $spacing-03;
+  height: 1.25rem;    // 20px — matches Carbon Tag sm height; no spacing token for this
+  border-radius: 0.75rem; // pill shape — no Carbon token; matches Carbon Tag border-radius
+  background-color: $layer-02;
+  color: $text-secondary;
+  white-space: nowrap;
+  flex-shrink: 0;
+}

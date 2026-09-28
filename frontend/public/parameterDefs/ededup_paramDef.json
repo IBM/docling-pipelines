@@ -1,0 +1,13 @@
+{
+  "parameters": [
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

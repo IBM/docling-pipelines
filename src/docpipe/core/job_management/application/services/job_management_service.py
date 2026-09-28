@@ -164,6 +164,7 @@ class JobManagementService:
             flow_name=flow_name,
             user_id=user_id,
             metadata=metadata or {},
+            initial_status=ExecutionStatus.QUEUED,
         )
 
         # Detect format and transform to Internal DAG format for execution
@@ -327,6 +328,15 @@ class JobManagementService:
                 and DocpipeConstants.ENABLE_MICRO_BATCHING not in flow_config
             ):
                 params[DocpipeConstants.ENABLE_MICRO_BATCHING] = True
+
+            if self.job_run_manager and job_run_id:
+                try:
+                    self.job_run_manager.update_job_run_status(
+                        job_run_id=job_run_id,
+                        status=ExecutionStatus.STARTING.value,
+                    )
+                except Exception as exc:
+                    logger.warning("Failed to update job run status to STARTING: %s", exc)
 
             flow_executor.execute(orchestrator=orchestrator, params=params)
             logger.info(f"Completed async flow execution for job_run_id={job_run_id}")

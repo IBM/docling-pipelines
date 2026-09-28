@@ -115,8 +115,8 @@ class S3DestinationConfig(BaseModel):
     class Config:
         json_schema_extra: ClassVar[dict] = {
             "example": {
-                "access_key": "AK....",  # pragma: allowlist secret
-                "secret_key": "wJa....",  # pragma: allowlist secret
+                "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
                 "bucket": "my-export-bucket",
                 "key_prefix": "exports/documents/",
                 "endpoint_url": None,

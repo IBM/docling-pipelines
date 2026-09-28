@@ -1,0 +1,46 @@
+/**
+ * Styles for Elyra canvas link decorations (pill labels and add-condition icon).
+ */
+
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/theme' as themes;
+
+// ── Named-link pill ──────────────────────────────────────────────────────────
+
+.linkPill {
+  display: inline-flex;
+  align-items: center;
+  padding: spacing.$spacing-02 spacing.$spacing-05;
+  border-radius: spacing.$spacing-09;
+  background-color: themes.$layer-01;
+  border: 2px solid themes.$interactive;
+  @include type.type-style('label-01');
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 7.5rem;
+  color: themes.$text-primary;
+  cursor: pointer;
+}
+
+.linkPillReadOnly {
+  cursor: default;
+}
+
+// ── Add-condition icon ───────────────────────────────────────────────────────
+
+// AddFilled has two SVG paths:
+//   - outer circle  → filled blue (covers the canvas link line behind it)
+//   - inner-path    → the + symbol, must be white so it contrasts the circle
+// Without the inner-path override both paths would be the same colour and the
+// + would be invisible. Matches docling-pipelines-ui's .linkConditionIconColor exactly.
+.addConditionIcon {
+  fill: themes.$interactive;
+  cursor: pointer;
+  display: block;
+
+  path[data-icon-path='inner-path'] {
+    fill: themes.$background !important;
+  }
+}

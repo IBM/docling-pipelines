@@ -1,0 +1,29 @@
+{
+  "parameters": [
+    { "id": "document_set_name" },
+    { "id": "description" },
+    { "id": "metadata" },
+    { "id": "document_set_id" },
+    { "id": "database_path" },
+    { "id": "data_backend" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "document_set_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "document_set_name" },
+      { "parameter_ref": "description" },
+      { "parameter_ref": "metadata" },
+      { "parameter_ref": "document_set_id" },
+      { "parameter_ref": "database_path" },
+      { "parameter_ref": "data_backend" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

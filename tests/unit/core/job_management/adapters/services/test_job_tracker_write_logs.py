@@ -247,7 +247,7 @@ class TestWriteJobLogsErrorHandling:
         original = OSError("disk full")
 
         with patch("pathlib.Path.open", side_effect=original):
-            with pytest.raises(OSError) as exc_info:
+            with pytest.raises(OSError, match="Failed to write job logs") as exc_info:
                 service.write_job_logs(job_stats=job_stats, job_log_path=log_path)
 
         assert exc_info.value.__cause__ is original

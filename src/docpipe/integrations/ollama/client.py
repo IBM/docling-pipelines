@@ -433,6 +433,73 @@ class OllamaClient(BaseLLMClient):
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             ) from exc
 
+    def _generate_single_embedding(self, *, client: Any, index: int, text: str) -> tuple[int, list[float]]:
+        """Generate embedding for a single text using the provided Ollama client.
+
+        Args:
+            client: An instantiated ollama.Client
+            index: Original index of the text in the batch (used to preserve order)
+            text: The text to embed
+
+        Returns:
+            Tuple of (original index, embedding vector)
+
+        Raises:
+            DocpipeException: If the response is unexpected or empty
+        """
+        embedding_response = client.embeddings(model=self.model_name, prompt=text)
+
+        if isinstance(embedding_response, dict):
+            embedding = embedding_response.get("embedding")
+        elif hasattr(embedding_response, "embedding"):
+            embedding = embedding_response.embedding
+        else:
+            raise DocpipeException(
+                message=f"Unexpected response type: {type(embedding_response).__name__}",
+                status_code=500,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            )
+
+        if not isinstance(embedding, list) or not embedding:
+            raise DocpipeException(
+                message="Empty or missing embedding in response",
+                status_code=500,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            )
+
+        return index, embedding
+
+    def _collect_batch_results(
+        self,
+        *,
+        futures: dict,
+        all_embeddings: list,
+        executor: Any,
+        lock: Any,
+    ) -> None:
+        """Collect results from completed futures into all_embeddings, raising on first failure.
+
+        Args:
+            futures: Dict mapping futures to their original indices
+            all_embeddings: Pre-allocated list to write results into (mutated in place)
+            executor: The ThreadPoolExecutor (used to cancel remaining futures on error)
+            lock: Threading lock protecting all_embeddings writes
+        """
+        from concurrent.futures import as_completed
+
+        for future in as_completed(futures):
+            try:
+                index, embedding = future.result()
+                with lock:
+                    all_embeddings[index] = embedding
+            except Exception as e:
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise DocpipeException(
+                    message=f"Batch embedding generation failed: {e}",
+                    status_code=500,
+                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                ) from e
+
     def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """
         Generate embeddings for multiple texts using concurrent requests.
@@ -452,6 +519,9 @@ class OllamaClient(BaseLLMClient):
         Raises:
             DocpipeException: If embedding generation fails
         """
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
         from docpipe.exceptions.docpipe_exceptions import ConfigurationError
 
         if not texts or not isinstance(texts, list):
@@ -465,69 +535,20 @@ class OllamaClient(BaseLLMClient):
         except ImportError as exc:
             raise ImportError(f"ollama package not installed: {exc}") from exc
 
-        # Use ThreadPoolExecutor for concurrent requests
-        import threading
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        # Create client with trust_env=False to avoid proxy issues
         client = ollama.Client(host=self.host, trust_env=False)
-
-        # Limit concurrency to avoid overwhelming Ollama server
-        max_workers = self.max_concurrent_requests
-        all_embeddings: list[list[float] | None] = [None] * len(texts)  # Pre-allocate list
+        all_embeddings: list[list[float] | None] = [None] * len(texts)
         lock = threading.Lock()
 
-        def generate_single(index: int, text: str) -> tuple[int, list[float]]:
-            """Generate embedding for a single text."""
-            try:
-                embedding_response = client.embeddings(model=self.model_name, prompt=text)
-
-                # Handle both dict and EmbeddingsResponse object types
-                if isinstance(embedding_response, dict):
-                    embedding = embedding_response.get("embedding")
-                elif hasattr(embedding_response, "embedding"):
-                    embedding = embedding_response.embedding
-                else:
-                    raise DocpipeException(
-                        message=f"Unexpected response type: {type(embedding_response).__name__}",
-                        status_code=500,
-                        error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                    )
-
-                if not isinstance(embedding, list) or not embedding:
-                    raise DocpipeException(
-                        message="Empty or missing embedding in response",
-                        status_code=500,
-                        error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                    )
-
-                return index, embedding
-
-            except Exception as e:
-                logger.error(f"Failed to generate embedding for text at index {index}: {e}")
-                raise
-
         try:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit all tasks
-                futures = {executor.submit(generate_single, i, text): i for i, text in enumerate(texts)}
+            with ThreadPoolExecutor(max_workers=self.max_concurrent_requests) as executor:
+                futures = {
+                    executor.submit(self._generate_single_embedding, client=client, index=i, text=text): i
+                    for i, text in enumerate(texts)
+                }
+                self._collect_batch_results(
+                    futures=futures, all_embeddings=all_embeddings, executor=executor, lock=lock
+                )
 
-                # Collect results as they complete
-                for future in as_completed(futures):
-                    try:
-                        index, embedding = future.result()
-                        with lock:
-                            all_embeddings[index] = embedding
-                    except Exception as e:
-                        # Re-raise the first error encountered
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        raise DocpipeException(
-                            message=f"Batch embedding generation failed: {e}",
-                            status_code=500,
-                            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                        ) from e
-
-            # Verify all embeddings were generated
             if None in all_embeddings:
                 raise DocpipeException(
                     message="Some embeddings failed to generate",
@@ -535,11 +556,10 @@ class OllamaClient(BaseLLMClient):
                     error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                 )
 
-            # Type cast: after None check, we know all elements are list[float]
             return all_embeddings  # type: ignore[return-value]
 
         except (ConnectionError, TimeoutError) as exc:
-            logger.error(f"Connection failed during batch embedding generation: {exc}")
+            logger.error("Connection failed during batch embedding generation: %s", exc)
             raise DocpipeException(
                 message=f"Failed to connect to Ollama server: {exc}",
                 status_code=503,
@@ -566,10 +586,14 @@ class OllamaClient(BaseLLMClient):
         Returns:
             bool: True if Ollama is installed, False otherwise
         """
+        import shutil
         import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with a fixed command, not with user input
 
+        ollama_path = shutil.which("ollama")
+        if ollama_path is None:
+            return False
         try:
-            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)  # nosec B603 B607 — fixed command array, no user input interpolated
+            result = subprocess.run([ollama_path, "--version"], capture_output=True, text=True, timeout=5)  # nosec B603
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
             return False
@@ -610,18 +634,21 @@ class OllamaClient(BaseLLMClient):
             bool: True if server started successfully, False otherwise
         """
         import platform
+        import shutil
         import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with fixed command arrays, not with user input
         import time
 
         try:
             system = platform.system()
+            # Resolve absolute path to avoid B607 (partial executable path)
+            ollama_path = shutil.which("ollama") or "ollama"
 
             if system == "Windows":
                 # Windows: Start in background using START command
                 # CREATE_NEW_PROCESS_GROUP is Windows-specific
                 creation_flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
                 subprocess.Popen(  # nosec B603 B607 — fixed command array, no user input interpolated
-                    ["cmd", "/c", "start", "/B", "ollama", "serve"],
+                    ["cmd", "/c", "start", "/B", ollama_path, "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     creationflags=creation_flags,
@@ -629,7 +656,7 @@ class OllamaClient(BaseLLMClient):
             else:
                 # macOS/Linux: Start in background using nohup
                 subprocess.Popen(  # nosec B603 B607 — fixed command array, no user input interpolated
-                    ["nohup", "ollama", "serve"],
+                    ["nohup", ollama_path, "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     preexec_fn=lambda: None,
@@ -709,15 +736,18 @@ class OllamaClient(BaseLLMClient):
         Returns:
             bool: True if model pulled successfully, False otherwise
         """
+        import shutil
         import subprocess  # nosec B404 — subprocess is used only to invoke the ollama CLI with a fixed command, not with user input
 
         try:
             if show_progress:
                 logger.info(f"Pulling model '{model_name}'... (this may take several minutes)")
 
+            # Resolve absolute path to avoid B607 (partial executable path)
+            ollama_path = shutil.which("ollama") or "ollama"
             # Use subprocess to show real-time progress
             process = subprocess.Popen(  # nosec B603 B607 — fixed command array, model_name is an internal config value not from untrusted user input
-                ["ollama", "pull", model_name],
+                [ollama_path, "pull", model_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,

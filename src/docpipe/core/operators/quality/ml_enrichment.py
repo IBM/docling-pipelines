@@ -109,7 +109,10 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
     @staticmethod
     def get_required_features() -> list[str]:
         """Return list of required input features."""
-        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+        return [
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY,
+        ]
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
@@ -120,13 +123,15 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
             warnings: List to append validation warnings
             available_features: List of available input features
         """
-        # Parent class already validates required features (doc_column)
-        super().validate(errors, warnings, available_features)
+        # Map configured custom columns to default names so parent class validates them correctly
+        mapped_features = list(available_features)
+        if self.doc_column in available_features:
+            mapped_features.append(OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        if self.lang_column and self.lang_column in available_features:
+            mapped_features.append(OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY)
 
-        # Validate language column if specified (optional, so only warn)
-        if self.should_validate_field(field_value=self.lang_column):
-            if self.lang_column and self.lang_column not in available_features:
-                warnings.append(f"Language column '{self.lang_column}' not found, may affect results")
+        # Call parent validation
+        super().validate(errors, warnings, mapped_features)
 
         # Check for output column conflicts
         if self.should_validate_field(field_value=self.output_column_prefix):
@@ -218,70 +223,85 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
         Returns:
             Tuple of (list of output tables, metadata dictionary)
         """
-        logger.info(
-            f"Running ML Enrichment on table with {table.num_rows} rows",
-            extra=self.common_log_arguments,
-        )
+        logger.info("Running ML Enrichment on table with %s rows", table.num_rows, extra=self.common_log_arguments)
 
-        # Create docpipe metadata
         total_docs: int = OperatorUtils.find_doc_count(table=table)
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
 
-        # Handle empty table edge case
         if table.num_rows == 0:
-            logger.info(
-                "Empty table provided, returning as-is",
-                extra=self.common_log_arguments,
-            )
+            logger.info("Empty table provided, returning as-is", extra=self.common_log_arguments)
             return [table], metadata
 
-        # Call parent transform (EnrichmentTransform)
-        output_tables, _metadata = super().transform(table=table, file_name=file_name or "")
-
-        # Check for enrichment errors and record failed documents
-        if output_tables and self.error_column_name and self.error_column_name in output_tables[0].column_names:
-            error_column = output_tables[0][self.error_column_name]
-            id_column = output_tables[0][OperatorConstants.Columns.ID]
-            name_column = output_tables[0][OperatorConstants.Columns.NAME]
-
-            for idx in range(output_tables[0].num_rows):
-                error = error_column[idx].as_py()
-                if error:  # If there's an error message
-                    doc_id = id_column[idx].as_py()
-                    doc_name = name_column[idx].as_py()
-                    self.record_failed_document(
-                        metadata=metadata,
-                        doc_id=str(doc_id),
-                        doc_name=str(doc_name),
-                        reason=f"ML Enrichment error: {error}",
-                    )
-                    metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS.value
-
-        # Update metadata with processing results
-        processed_docs = total_docs - metadata[Metrics.External.FAILED_DOCS_COUNT]
-        metadata[Metrics.External.PROCESSED_DOCS] = processed_docs
-        metadata[Metrics.External.PROCESSED_ROWS] = output_tables[0].num_rows if output_tables else 0
-
-        # Add enrichment-specific metadata
-        num_features_added = (
-            len([col for col in output_tables[0].column_names if col not in table.column_names]) if output_tables else 0
+        output_tables = self._run_enrichment(table=table, file_name=file_name)
+        self._record_enrichment_errors(output_tables=output_tables, metadata=metadata)
+        self._build_enrichment_metadata(
+            output_tables=output_tables, input_table=table, total_docs=total_docs, metadata=metadata
         )
 
-        metadata[FEATURES_ADDED_KEY] = num_features_added
-        metadata[ENRICHMENT_COLUMNS_KEY] = (
-            [col for col in output_tables[0].column_names if col not in table.column_names] if output_tables else []
-        )
-
-        # Log completion status
         if metadata.get(Metrics.External.FAILED_DOCS_COUNT, 0) > 0:
             logger.warning(
-                f"ML Enrichment completed with {metadata[Metrics.External.FAILED_DOCS_COUNT]} failed documents",
+                "ML Enrichment completed with %s failed documents",
+                metadata[Metrics.External.FAILED_DOCS_COUNT],
                 extra=self.common_log_arguments,
             )
         else:
-            logger.info(
-                "ML Enrichment completed successfully",
-                extra=self.common_log_arguments,
-            )
+            logger.info("ML Enrichment completed successfully", extra=self.common_log_arguments)
 
         return output_tables, metadata
+
+    def _run_enrichment(self, *, table: pa.Table, file_name: str | None) -> list[pa.Table]:
+        """Strip DocLang for enrichment, call parent transform, restore original column."""
+        doc_col = self.config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        processing_table = OperatorUtils.strip_doclang_column(table, col_name=doc_col, doc_format=self.doc_format)
+
+        output_tables, _metadata = super().transform(table=processing_table, file_name=file_name or "")
+
+        return [
+            OperatorUtils.restore_doclang_column(
+                t,
+                original_table=table,
+                col_name=doc_col,
+                processing_table=processing_table,
+            )
+            for t in output_tables
+        ]
+
+    def _record_enrichment_errors(self, *, output_tables: list[pa.Table], metadata: dict[str, Any]) -> None:
+        """Scan the error column (if present) and record any per-document failures."""
+        if not (output_tables and self.error_column_name and self.error_column_name in output_tables[0].column_names):
+            return
+
+        error_column = output_tables[0][self.error_column_name]
+        id_column = output_tables[0][OperatorConstants.Columns.ID]
+        name_column = output_tables[0][OperatorConstants.Columns.NAME]
+
+        for idx in range(output_tables[0].num_rows):
+            error = error_column[idx].as_py()
+            if error:
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=str(id_column[idx].as_py()),
+                    doc_name=str(name_column[idx].as_py()),
+                    reason=f"ML Enrichment error: {error}",
+                )
+                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS.value
+
+    def _build_enrichment_metadata(
+        self,
+        *,
+        output_tables: list[pa.Table],
+        input_table: pa.Table,
+        total_docs: int,
+        metadata: dict[str, Any],
+    ) -> None:
+        """Populate counts and enrichment-specific keys on *metadata*."""
+        metadata[Metrics.External.PROCESSED_DOCS] = total_docs - metadata[Metrics.External.FAILED_DOCS_COUNT]
+        metadata[Metrics.External.PROCESSED_ROWS] = output_tables[0].num_rows if output_tables else 0
+
+        new_columns = (
+            [col for col in output_tables[0].column_names if col not in input_table.column_names]
+            if output_tables
+            else []
+        )
+        metadata[FEATURES_ADDED_KEY] = len(new_columns)
+        metadata[ENRICHMENT_COLUMNS_KEY] = new_columns

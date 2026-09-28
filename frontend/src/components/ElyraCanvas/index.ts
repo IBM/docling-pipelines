@@ -1,0 +1,1 @@
+export { ElyraCanvas } from './ElyraCanvas';

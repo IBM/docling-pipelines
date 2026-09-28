@@ -2,7 +2,6 @@
 Generic Vector Database Operator
 """
 
-import hashlib
 from typing import Any
 
 import pyarrow as pa
@@ -20,6 +19,7 @@ from docpipe.utils.core.memmap_file_utils import (
     yield_embeddings_from_memmap_file,
 )
 from docpipe.utils.infrastructure.logging import get_logger
+from docpipe.utils.operators.config_validation import validate_config_from_metadata
 
 logger = get_logger()
 
@@ -167,6 +167,10 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         """
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
 
+        metadata = self.get_metadata()
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
+
         # Validate that every mandatory_for_vector_db feature has a feature mapping.
         # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
         # will fail at runtime if a mandatory feature has no mapped column.
@@ -204,22 +208,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
         Important: If ANY chunk of a document fails to index, the entire document is marked as failed.
         """
-        # Count unique documents (not chunks) for accurate documents_in_scope
-        # Also build mapping from doc_id_hash to original id for failure tracking
-        unique_doc_ids: set[str] = set()
-        doc_hash_to_id: dict[str, str] = {}
-        id_column = OperatorConstants.Misc.ID
-
-        if self.doc_id_column and self.doc_id_column in table.column_names:
-            for idx in range(table.num_rows):
-                doc_hash = table[self.doc_id_column][idx].as_py()
-                if doc_hash:
-                    unique_doc_ids.add(str(doc_hash))
-                    # Build mapping from doc_id_hash to original id
-                    if id_column in table.column_names:
-                        original_id = table[id_column][idx].as_py()
-                        if original_id:
-                            doc_hash_to_id[str(doc_hash)] = str(original_id)
+        unique_doc_ids, doc_hash_to_id, doc_hash_to_name, file_ids = self._build_doc_id_mappings(table=table)
         total_unique_docs = len(unique_doc_ids) if unique_doc_ids else table.num_rows
 
         # Initialize metadata
@@ -235,6 +224,8 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 table=table,
                 unique_doc_ids=unique_doc_ids,
                 doc_hash_to_id=doc_hash_to_id,
+                doc_hash_to_name=doc_hash_to_name,
+                file_ids=file_ids,
                 metadata=metadata,
             )
         finally:
@@ -249,11 +240,11 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         table: pa.Table,
         unique_doc_ids: set[str],
         doc_hash_to_id: dict[str, str],
+        doc_hash_to_name: dict[str, str],
+        file_ids: set[str],
         metadata: dict[str, Any],
     ) -> tuple[list[pa.Table], dict[str, Any]]:
         """Core transform logic. Called by transform(); adapter.close() is guaranteed by the caller."""
-        id_column = OperatorConstants.Misc.ID
-
         # Validate required doc_id column
         if self.doc_id_column not in table.column_names:
             missing_doc_id_msg: str = f"Required column '{self.doc_id_column}' not found in table"
@@ -261,6 +252,128 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return [table], metadata
 
+        vector_columns, dimension_mapping = self._resolve_vector_dimensions(table=table, metadata=metadata)
+        if dimension_mapping is None:
+            return [table], metadata
+
+        # Create index if needed
+        if self.create_index:
+            index_ok = self._ensure_index_ready(
+                dimension_mapping=dimension_mapping,
+                unique_doc_ids=unique_doc_ids,
+                doc_hash_to_id=doc_hash_to_id,
+                doc_hash_to_name=doc_hash_to_name,
+                metadata=metadata,
+            )
+            if not index_ok:
+                return [table], metadata
+
+        documents, chunk_id_to_doc_id = self._prepare_documents(
+            table=table,
+            vector_columns=vector_columns,
+            doc_hash_to_id=doc_hash_to_id,
+            metadata=metadata,
+        )
+
+        self._cleanup_stale_pks(
+            documents=documents,
+            chunk_id_to_doc_id=chunk_id_to_doc_id,
+            doc_hash_to_id=doc_hash_to_id,
+            file_ids=file_ids,
+        )
+
+        ok = self._index_and_record_results(
+            table=table,
+            documents=documents,
+            chunk_id_to_doc_id=chunk_id_to_doc_id,
+            doc_hash_to_id=doc_hash_to_id,
+            doc_hash_to_name=doc_hash_to_name,
+            metadata=metadata,
+        )
+        if not ok:
+            return [table], metadata
+
+        try:
+            self.adapter.refresh_index()
+        except Exception as e:
+            logger.warning("Failed to refresh index: %s", e, extra=self.common_log_arguments)
+
+        return [table], metadata
+
+    # ------------------------------------------------------------------
+    # Private helpers — each covers one logical phase of transform()
+    # ------------------------------------------------------------------
+
+    def _build_doc_id_mappings(self, *, table: pa.Table) -> tuple[set[str], dict[str, str], dict[str, str], set[str]]:
+        """Build unique doc-ID sets and hash→id/name mappings from the table."""
+        # Count unique documents (not chunks) for accurate documents_in_scope.
+        # Also build mappings between doc_id_hash and the raw id column value
+        # (file_id). Both are needed: unique_doc_ids drives document-level
+        # iteration; file_ids drives stale-PK lookup (both adapters are keyed
+        # by file_id so the query and the new-PK set use the same key space).
+        unique_doc_ids: set[str] = set()
+        doc_hash_to_id: dict[str, str] = {}
+        doc_hash_to_name: dict[str, str] = {}
+        file_ids: set[str] = set()
+        id_column = OperatorConstants.Misc.ID
+
+        if self.doc_id_column and self.doc_id_column in table.column_names:
+            has_name_col = "name" in table.column_names
+            has_id_col = id_column in table.column_names
+            for idx in range(table.num_rows):
+                doc_hash = table[self.doc_id_column][idx].as_py()
+                if doc_hash:
+                    self._process_doc_id_row(
+                        table=table,
+                        idx=idx,
+                        doc_hash=str(doc_hash),
+                        id_column=id_column,
+                        has_id_col=has_id_col,
+                        has_name_col=has_name_col,
+                        unique_doc_ids=unique_doc_ids,
+                        doc_hash_to_id=doc_hash_to_id,
+                        doc_hash_to_name=doc_hash_to_name,
+                        file_ids=file_ids,
+                    )
+
+        return unique_doc_ids, doc_hash_to_id, doc_hash_to_name, file_ids
+
+    def _process_doc_id_row(
+        self,
+        *,
+        table: pa.Table,
+        idx: int,
+        doc_hash: str,
+        id_column: str,
+        has_id_col: bool,
+        has_name_col: bool,
+        unique_doc_ids: set[str],
+        doc_hash_to_id: dict[str, str],
+        doc_hash_to_name: dict[str, str],
+        file_ids: set[str],
+    ) -> None:
+        """Register one row's doc_id_hash, original id, and name into the mapping dicts."""
+        unique_doc_ids.add(doc_hash)
+        # Build mapping from doc_id_hash to original id and name
+        if has_id_col:
+            original_id = table[id_column][idx].as_py()
+            if original_id:
+                doc_hash_to_id[doc_hash] = str(original_id)
+                file_ids.add(str(original_id))
+        if has_name_col:
+            name_val = table["name"][idx].as_py()
+            if name_val:
+                doc_hash_to_name[doc_hash] = str(name_val)
+
+    def _resolve_vector_dimensions(
+        self, *, table: pa.Table, metadata: dict[str, Any]
+    ) -> tuple[list[str], dict[str, int] | None]:
+        """Identify vector columns and auto-detect their dimensions.
+
+        Returns (vector_columns, dimension_mapping).
+        Returns (vector_columns, None) and sets NODE_STATUS=FAILED when detection
+        is required but fails so the caller can short-circuit.
+        """
         # Identify all DENSE vector columns from available_features
         vector_columns = [
             col_name
@@ -273,65 +386,165 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             # Sparse mode: dense embeddings are optional
             if not vector_columns:
                 logger.info("Pure sparse vector mode: no dense embeddings, using BM25 only")
-                dimension_mapping = {}  # No dense vectors to detect
-            else:
-                # Dual mode: detect dimensions for dense vectors
-                dimension_mapping = self.adapter.detect_all_vector_dimensions(table, vector_columns=vector_columns)
-                logger.info(
-                    f"Sparse + dense mode: detected dimensions for {len(vector_columns)} column(s): {dimension_mapping}",
-                    extra=self.common_log_arguments,
-                )
-        else:
-            # Dense-only mode: at least one dense vector column required
-            if not vector_columns:
-                error_msg = "No vector columns found in available_features. Cannot proceed without embeddings."
-                logger.error(error_msg, extra=self.common_log_arguments)
-                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
-                return [table], metadata
-
+                return vector_columns, {}  # No dense vectors to detect
+            # Dual mode: detect dimensions for dense vectors
+            dimension_mapping = self.adapter.detect_all_vector_dimensions(table, vector_columns=vector_columns)
             logger.info(
-                f"Detecting dimensions for {len(vector_columns)} vector column(s): {vector_columns}",
+                f"Sparse + dense mode: detected dimensions for {len(vector_columns)} column(s): {dimension_mapping}",
                 extra=self.common_log_arguments,
             )
+            return vector_columns, dimension_mapping
+        # Dense-only mode: at least one dense vector column required
+        if not vector_columns:
+            error_msg = "No vector columns found in available_features. Cannot proceed without embeddings."
+            logger.error(error_msg, extra=self.common_log_arguments)
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+            return vector_columns, None
 
-            # Auto-detect dimensions for all vector columns
-            dimension_mapping = self.adapter.detect_all_vector_dimensions(table, vector_columns=vector_columns)
+        logger.info(
+            f"Detecting dimensions for {len(vector_columns)} vector column(s): {vector_columns}",
+            extra=self.common_log_arguments,
+        )
 
-            if not dimension_mapping:
-                error_msg = f"Failed to auto-detect dimensions for vector columns: {vector_columns}"
-                logger.error(error_msg, extra=self.common_log_arguments)
-                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
-                return [table], metadata
+        # Auto-detect dimensions for all vector columns
+        dimension_mapping = self.adapter.detect_all_vector_dimensions(table, vector_columns=vector_columns)
 
-            logger.info(f"Auto-detected dimensions: {dimension_mapping}", extra=self.common_log_arguments)
+        if not dimension_mapping:
+            error_msg = f"Failed to auto-detect dimensions for vector columns: {vector_columns}"
+            logger.error(error_msg, extra=self.common_log_arguments)
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+            return vector_columns, None
 
-        # Create index if needed
-        if self.create_index:
-            try:
-                if self.adapter.index_exists():
-                    logger.info(
-                        "Resource already exists, validating schema",
-                        extra=self.common_log_arguments,
-                    )
-                    self.adapter.validate_existing_schema(dimension_mapping=dimension_mapping)
-                else:
-                    self.adapter.create_index(dimension_mapping=dimension_mapping)
-            except Exception as e:
-                logger.error(f"Failed to create or validate index: {e!s}", extra=self.common_log_arguments)
-                # Mark all unique documents as failed when index creation fails
-                # Use original document IDs (from 'id' column) for consistency
-                for doc_hash in unique_doc_ids:
-                    original_id = doc_hash_to_id.get(doc_hash, doc_hash)
-                    self.record_failed_document(
-                        metadata=metadata,
-                        doc_id=original_id,
-                        doc_name=original_id,
-                        reason=f"Failed to create index: {e!s}",
-                    )
-                metadata[Metrics.External.PROCESSED_DOCS] = 0
-                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
-                return [table], metadata
+        logger.info(f"Auto-detected dimensions: {dimension_mapping}", extra=self.common_log_arguments)
+        return vector_columns, dimension_mapping
 
+    def _ensure_index_ready(
+        self,
+        *,
+        dimension_mapping: dict[str, int],
+        unique_doc_ids: set[str],
+        doc_hash_to_id: dict[str, str],
+        doc_hash_to_name: dict[str, str],
+        metadata: dict[str, Any],
+    ) -> bool:
+        """Create or validate the index. Returns False (and updates metadata) on failure."""
+        try:
+            if self.adapter.index_exists():
+                logger.info("Resource already exists, validating schema", extra=self.common_log_arguments)
+                self.adapter.validate_existing_schema(dimension_mapping=dimension_mapping)
+            else:
+                self.adapter.create_index(dimension_mapping=dimension_mapping)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create or validate index: {e!s}", extra=self.common_log_arguments)
+            # Mark all unique documents as failed when index creation fails
+            # Use original document IDs (from 'id' column) for consistency
+            for doc_hash in unique_doc_ids:
+                original_id = doc_hash_to_id.get(doc_hash, doc_hash)
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=original_id,
+                    doc_name=doc_hash_to_name.get(doc_hash, original_id),
+                    reason=f"Failed to create index: {e!s}",
+                )
+            metadata[Metrics.External.PROCESSED_DOCS] = 0
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+            return False
+
+    def _prepare_file_based_chunks(
+        self,
+        *,
+        row_data: dict[str, Any],
+        doc_id: str,
+        chunks_filepath: str,
+        vector_column_generators: dict[str, Any],
+        id_column: str,
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """Stream chunks and embeddings from memory-mapped files for one document."""
+        # Parse chunk data (it's a JSON string)
+        import json
+
+        result: list[tuple[str, dict[str, Any]]] = []
+        chunks_gen = yield_chunks_from_file(chunks_filepath)
+        # Create list of (column_name, generator) tuples for zip
+        vec_col_names = list(vector_column_generators.keys())
+        vec_gens = [vector_column_generators[col] for col in vec_col_names]
+
+        # Zip all generators together with chunks
+        for chunk_idx, chunk_and_embeddings in enumerate(zip(chunks_gen, *vec_gens, strict=True)):
+            chunk_row_data: dict[str, Any] = row_data.copy()
+            # First element is chunk_data, rest are embeddings
+            chunk_data = chunk_and_embeddings[0]
+            chunk_embeddings = chunk_and_embeddings[1:]
+
+            # Add embeddings from all vector columns
+            for vec_col, chunk_embedding in zip(vec_col_names, chunk_embeddings, strict=True):
+                chunk_row_data[vec_col] = chunk_embedding.tolist()
+
+            chunk_dict = json.loads(chunk_data) if isinstance(chunk_data, str) else chunk_data
+            chunk_text: str = chunk_dict.get(OperatorConstants.Columns.CHUNK, "")
+            if chunk_text:
+                # Update the content column with chunk text instead of full document
+                chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
+
+            file_id: str = str(row_data.get(id_column, doc_id))
+            chunk_pk: str = self.adapter.generate_chunk_pk(
+                file_id=file_id, chunk_index=chunk_idx, chunk_content=chunk_text
+            )
+            result.append((chunk_pk, chunk_row_data))
+
+        return result
+
+    def _prepare_memory_based_chunks(
+        self,
+        *,
+        row_data: dict[str, Any],
+        doc_id: str,
+        num_chunks: int,
+        vector_column_data: dict[str, Any],
+        id_column: str,
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """Build chunk documents from in-memory chunk lists for one document."""
+        result: list[tuple[str, dict[str, Any]]] = []
+        chunked_content_list: list[dict[str, Any]] = row_data.get(OperatorConstants.Columns.CHUNKED_CONTENT, [])
+
+        for chunk_idx in range(num_chunks):
+            chunk_row_data: dict[str, Any] = row_data.copy()
+
+            # Add embeddings from all vector columns
+            for vec_col, embeddings_list in vector_column_data.items():
+                if chunk_idx < len(embeddings_list):
+                    chunk_row_data[vec_col] = embeddings_list[chunk_idx]
+
+            # Replace content field with chunk-specific text
+            chunk_text = ""
+            if chunk_idx < len(chunked_content_list):
+                chunk_text = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
+                if chunk_text:
+                    # Update the content column with chunk text instead of full document
+                    chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
+
+            file_id: str = str(row_data.get(id_column, doc_id))
+            chunk_pk: str = self.adapter.generate_chunk_pk(
+                file_id=file_id, chunk_index=chunk_idx, chunk_content=chunk_text
+            )
+            result.append((chunk_pk, chunk_row_data))
+
+        return result
+
+    def _prepare_documents(
+        self,
+        *,
+        table: pa.Table,
+        vector_columns: list[str],
+        doc_hash_to_id: dict[str, str],
+        metadata: dict[str, Any],
+    ) -> tuple[list[tuple[str, dict[str, Any]]], dict[str, str]]:
+        """Iterate table rows and build (chunk_pk, row_data) pairs for bulk indexing.
+
+        Returns (documents, chunk_id_to_doc_id).
+        """
+        id_column = OperatorConstants.Misc.ID
         # Prepare documents for bulk indexing
         documents: list[tuple[str, dict[str, Any]]] = []
         # Map chunk IDs back to original document IDs for failure tracking
@@ -362,146 +575,19 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
                 doc_id: str = str(row_doc_id)
 
-                # Check if we have chunked content
-                chunked_content_value: Any = row_data.get(OperatorConstants.Columns.CHUNKED_CONTENT)
-
-                # Determine if chunked based on chunked_content structure
-                is_chunked: bool = False
-                chunks_filepath: str | None = None
-
-                if (
-                    isinstance(chunked_content_value, dict)
-                    and DocpipeConstants.CHUNKS_MEMMAP_FILE in chunked_content_value
-                ):
-                    # File references for chunks
-                    chunks_filepath = chunked_content_value[DocpipeConstants.CHUNKS_MEMMAP_FILE]
-                    is_chunked = True
-                    logger.debug(
-                        f"Detected file references for chunked data - chunks: {chunks_filepath}",
-                        extra=self.common_log_arguments,
-                    )
-                elif isinstance(chunked_content_value, list) and len(chunked_content_value) > 0:
-                    # In-memory chunks
-                    is_chunked = True
-                    logger.debug(
-                        f"Detected in-memory chunked content with {len(chunked_content_value)} chunks for doc {doc_id}",
-                        extra=self.common_log_arguments,
-                    )
-
-                if is_chunked:
-                    # Collect embeddings data for all vector columns
-                    vector_column_data: dict[str, Any] = {}
-                    vector_column_filepaths: dict[str, str] = {}
-                    vector_column_generators: dict[str, Any] = {}
-                    num_chunks: int | None = None
-
-                    for vec_col in vector_columns:
-                        embeddings_value: Any = row_data.get(vec_col)
-
-                        if embeddings_value is None:
-                            continue
-
-                        # Check if file reference
-                        if (
-                            isinstance(embeddings_value, dict)
-                            and DocpipeConstants.EMBEDDINGS_MEMMAP_FILE in embeddings_value
-                        ):
-                            embeddings_filepath = embeddings_value[DocpipeConstants.EMBEDDINGS_MEMMAP_FILE]
-                            vector_column_filepaths[vec_col] = embeddings_filepath
-                            # Get dimension and create generator
-                            dim = read_embedding_metadata(embeddings_filepath)
-                            vector_column_generators[vec_col] = yield_embeddings_from_memmap_file(
-                                embeddings_filepath, dim
-                            )
-                        elif isinstance(embeddings_value, list) and len(embeddings_value) > 0:
-                            # In-memory embeddings
-                            vector_column_data[vec_col] = embeddings_value
-                            # Validate chunk count consistency
-                            if num_chunks is None:
-                                num_chunks = len(embeddings_value)
-                            elif num_chunks != len(embeddings_value):
-                                raise ValueError(
-                                    f"Inconsistent chunk counts for doc {doc_id}: "
-                                    f"expected {num_chunks}, got {len(embeddings_value)} for column {vec_col}"
-                                )
-
-                    # Process chunks
-                    if chunks_filepath and vector_column_filepaths:
-                        # File-based streaming for memory efficiency
-                        logger.debug(
-                            f"Using yield for streaming {len(vector_column_filepaths)} vector columns from files",
-                            extra=self.common_log_arguments,
-                        )
-                        chunks_gen = yield_chunks_from_file(chunks_filepath)
-
-                        # Create list of (column_name, generator) tuples for zip
-                        vec_col_names = list(vector_column_generators.keys())
-                        vec_gens = [vector_column_generators[col] for col in vec_col_names]
-
-                        # Zip all generators together with chunks
-                        for _chunk_idx, chunk_and_embeddings in enumerate(zip(chunks_gen, *vec_gens, strict=True)):
-                            chunk_row_data: dict[str, Any] = row_data.copy()
-
-                            # First element is chunk_data, rest are embeddings
-                            chunk_data = chunk_and_embeddings[0]
-                            chunk_embeddings = chunk_and_embeddings[1:]
-
-                            # Add embeddings from all vector columns
-                            for vec_col, chunk_embedding in zip(vec_col_names, chunk_embeddings, strict=True):
-                                chunk_row_data[vec_col] = chunk_embedding.tolist()
-
-                            # Parse chunk data (it's a JSON string)
-                            import json
-
-                            chunk_dict = json.loads(chunk_data) if isinstance(chunk_data, str) else chunk_data
-                            chunk_text: str = chunk_dict.get(OperatorConstants.Columns.CHUNK, "")
-                            if chunk_text:
-                                # Update the content column with chunk text instead of full document
-                                chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
-
-                            file_id: str = str(row_data.get(id_column, doc_id))
-                            chunk_doc_id: str = VectorDBOperator.generate_composite_pk(
-                                file_id=file_id, chunk_content=chunk_text
-                            )
-                            documents.append((chunk_doc_id, chunk_row_data))
-                            # Track mapping from chunk ID to original document ID
-                            chunk_id_to_doc_id[chunk_doc_id] = doc_id
-                    else:
-                        # In-memory processing
-                        chunked_content_list: list[dict[str, Any]] = row_data.get(
-                            OperatorConstants.Columns.CHUNKED_CONTENT, []
-                        )
-
-                        # Determine number of chunks from chunked_content or in-memory embeddings
-                        if num_chunks is None:
-                            num_chunks = len(chunked_content_list)
-
-                        for chunk_idx in range(num_chunks):
-                            chunk_row_data = row_data.copy()
-
-                            # Add embeddings from all vector columns
-                            for vec_col, embeddings_list in vector_column_data.items():
-                                if chunk_idx < len(embeddings_list):
-                                    chunk_row_data[vec_col] = embeddings_list[chunk_idx]
-
-                            # Replace content field with chunk-specific text
-                            chunk_text = ""
-                            if chunk_idx < len(chunked_content_list):
-                                chunk_text = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
-                                if chunk_text:
-                                    # Update the content column with chunk text instead of full document
-                                    chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
-
-                            file_id = str(row_data.get(id_column, doc_id))
-                            chunk_doc_id = VectorDBOperator.generate_composite_pk(
-                                file_id=file_id, chunk_content=chunk_text
-                            )
-                            documents.append((chunk_doc_id, chunk_row_data))
-                            # Track mapping from chunk ID to original document ID
-                            chunk_id_to_doc_id[chunk_doc_id] = doc_id
-                else:
-                    # Non-chunked document - process as-is with all vector columns
+                chunks = self._extract_chunks_for_row(
+                    row_data=row_data,
+                    doc_id=doc_id,
+                    vector_columns=vector_columns,
+                    id_column=id_column,
+                )
+                if chunks is None:
+                    # Non-chunked: index the row directly
                     documents.append((doc_id, row_data))
+                else:
+                    for chunk_pk, chunk_row_data in chunks:
+                        documents.append((chunk_pk, chunk_row_data))
+                        chunk_id_to_doc_id[chunk_pk] = doc_id
 
             except Exception as e:
                 logger.error(
@@ -511,47 +597,193 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 self.record_failed_document(
                     metadata=metadata,
                     doc_id=f"row_{idx}",
-                    doc_name=f"row_{idx}",
+                    doc_name=row_data.get("name") or f"row_{idx}",
                     reason=str(e),
                 )
 
+        return documents, chunk_id_to_doc_id
+
+    def _extract_chunks_for_row(
+        self,
+        *,
+        row_data: dict[str, Any],
+        doc_id: str,
+        vector_columns: list[str],
+        id_column: str,
+    ) -> list[tuple[str, dict[str, Any]]] | None:
+        """Return chunk list for a chunked row, or None if the row is not chunked."""
+        # Check if we have chunked content
+        chunked_content_value: Any = row_data.get(OperatorConstants.Columns.CHUNKED_CONTENT)
+
+        # Determine if chunked based on chunked_content structure
+        is_chunked: bool = False
+        chunks_filepath: str | None = None
+
+        if isinstance(chunked_content_value, dict) and DocpipeConstants.CHUNKS_MEMMAP_FILE in chunked_content_value:
+            # File references for chunks
+            chunks_filepath = chunked_content_value[DocpipeConstants.CHUNKS_MEMMAP_FILE]
+            is_chunked = True
+            logger.debug(
+                f"Detected file references for chunked data - chunks: {chunks_filepath}",
+                extra=self.common_log_arguments,
+            )
+        elif isinstance(chunked_content_value, list) and len(chunked_content_value) > 0:
+            # In-memory chunks
+            is_chunked = True
+            logger.debug(
+                f"Detected in-memory chunked content with {len(chunked_content_value)} chunks for doc {doc_id}",
+                extra=self.common_log_arguments,
+            )
+
+        if not is_chunked:
+            return None
+
+        # Collect embeddings data for all vector columns
+        vector_column_data: dict[str, Any] = {}
+        vector_column_filepaths: dict[str, str] = {}
+        vector_column_generators: dict[str, Any] = {}
+        num_chunks: int | None = None
+
+        for vec_col in vector_columns:
+            embeddings_value: Any = row_data.get(vec_col)
+
+            if embeddings_value is None:
+                continue
+
+            num_chunks = self._collect_embedding_for_column(
+                vec_col=vec_col,
+                embeddings_value=embeddings_value,
+                doc_id=doc_id,
+                num_chunks=num_chunks,
+                vector_column_data=vector_column_data,
+                vector_column_filepaths=vector_column_filepaths,
+                vector_column_generators=vector_column_generators,
+            )
+
+        # Process chunks
+        if chunks_filepath and vector_column_filepaths:
+            # File-based streaming for memory efficiency
+            logger.debug(
+                f"Using yield for streaming {len(vector_column_filepaths)} vector columns from files",
+                extra=self.common_log_arguments,
+            )
+            return self._prepare_file_based_chunks(
+                row_data=row_data,
+                doc_id=doc_id,
+                chunks_filepath=chunks_filepath,
+                vector_column_generators=vector_column_generators,
+                id_column=id_column,
+            )
+
+        # In-memory processing
+        chunked_content_list: list[dict[str, Any]] = row_data.get(OperatorConstants.Columns.CHUNKED_CONTENT, [])
+        # Determine number of chunks from chunked_content or in-memory embeddings
+        if num_chunks is None:
+            num_chunks = len(chunked_content_list)
+        return self._prepare_memory_based_chunks(
+            row_data=row_data,
+            doc_id=doc_id,
+            num_chunks=num_chunks,
+            vector_column_data=vector_column_data,
+            id_column=id_column,
+        )
+
+    def _collect_embedding_for_column(
+        self,
+        *,
+        vec_col: str,
+        embeddings_value: Any,
+        doc_id: str,
+        num_chunks: int | None,
+        vector_column_data: dict[str, Any],
+        vector_column_filepaths: dict[str, str],
+        vector_column_generators: dict[str, Any],
+    ) -> int | None:
+        """Classify one embedding value as file-based or in-memory and register it.
+
+        Returns the updated num_chunks value.
+        """
+        # Check if file reference
+        if isinstance(embeddings_value, dict) and DocpipeConstants.EMBEDDINGS_MEMMAP_FILE in embeddings_value:
+            embeddings_filepath = embeddings_value[DocpipeConstants.EMBEDDINGS_MEMMAP_FILE]
+            vector_column_filepaths[vec_col] = embeddings_filepath
+            # Get dimension and create generator
+            dim = read_embedding_metadata(embeddings_filepath)
+            vector_column_generators[vec_col] = yield_embeddings_from_memmap_file(embeddings_filepath, dim)
+        elif isinstance(embeddings_value, list) and len(embeddings_value) > 0:
+            # In-memory embeddings
+            vector_column_data[vec_col] = embeddings_value
+            # Validate chunk count consistency
+            if num_chunks is None:
+                num_chunks = len(embeddings_value)
+            elif num_chunks != len(embeddings_value):
+                raise ValueError(
+                    f"Inconsistent chunk counts for doc {doc_id}: "
+                    f"expected {num_chunks}, got {len(embeddings_value)} for column {vec_col}"
+                )
+        return num_chunks
+
+    def _cleanup_stale_pks(
+        self,
+        *,
+        documents: list[tuple[str, dict[str, Any]]],
+        chunk_id_to_doc_id: dict[str, str],
+        doc_hash_to_id: dict[str, str],
+        file_ids: set[str],
+    ) -> None:
+        """Delete stale chunk PKs from a previous run before inserting the new set."""
+        if not (documents and file_ids):
+            return
         # Stale PK cleanup — delete chunks from previous runs that are no longer present
         # in this run's document set. This covers both legacy-format PKs and genuinely
         # stale chunks from updated documents. The set difference handles all cases uniformly.
-        if documents and unique_doc_ids:
-            try:
-                # Build the set of new PKs per doc from the prepared documents list
-                new_pks_by_doc: dict[str, set[str]] = {}
-                for chunk_pk, _ in documents:
-                    parent_doc = chunk_id_to_doc_id.get(chunk_pk, chunk_pk)
-                    new_pks_by_doc.setdefault(parent_doc, set()).add(chunk_pk)
+        try:
+            # Build the set of new PKs per file_id from the prepared documents list.
+            # chunk_id_to_doc_id maps chunk_pk -> doc_id_hash; doc_hash_to_id maps
+            # doc_id_hash -> file_id. Both adapters key their results by file_id,
+            # so new_pks_by_file must use the same key space.
+            new_pks_by_file: dict[str, set[str]] = {}
+            for chunk_pk, _ in documents:
+                parent_doc_hash = chunk_id_to_doc_id.get(chunk_pk, chunk_pk)
+                parent_file_id = doc_hash_to_id.get(parent_doc_hash, parent_doc_hash)
+                new_pks_by_file.setdefault(parent_file_id, set()).add(chunk_pk)
 
-                # Query existing PKs from the store for all docs in this batch
-                existing_pks_by_doc: dict[str, set[str]] = self.adapter.get_chunk_ids_for_documents(
-                    list(unique_doc_ids)
-                )
+            # Query existing PKs from the store for all files in this batch.
+            # Both adapters accept file_ids and return results keyed by file_id.
+            existing_pks_by_file: dict[str, set[str]] = self.adapter.get_chunk_ids_for_documents(list(file_ids))
 
-                # Compute stale PKs = existing - new (per document)
-                stale_pks: list[str] = []
-                for doc_id_key, existing_pks in existing_pks_by_doc.items():
-                    new_pks = new_pks_by_doc.get(doc_id_key, set())
-                    stale_pks.extend(existing_pks - new_pks)
+            # Compute stale PKs = existing - new (per file_id)
+            stale_pks: list[str] = []
+            for file_id_key, existing_pks in existing_pks_by_file.items():
+                new_pks = new_pks_by_file.get(file_id_key, set())
+                stale_pks.extend(existing_pks - new_pks)
 
-                if stale_pks:
-                    logger.info(
-                        "Deleting %s stale chunk(s) before insert",
-                        len(stale_pks),
-                        extra=self.common_log_arguments,
-                    )
-                    self.adapter.delete_documents_by_ids(stale_pks)
-
-            except Exception as e:
-                logger.warning(
-                    "Stale PK cleanup failed (insert will proceed): %s",
-                    e,
+            if stale_pks:
+                logger.info(
+                    "Deleting %s stale chunk(s) before insert",
+                    len(stale_pks),
                     extra=self.common_log_arguments,
                 )
+                self.adapter.delete_documents_by_ids(stale_pks)
 
+        except Exception as e:
+            logger.warning(
+                "Stale PK cleanup failed (insert will proceed): %s",
+                e,
+                extra=self.common_log_arguments,
+            )
+
+    def _index_and_record_results(
+        self,
+        *,
+        table: pa.Table,
+        documents: list[tuple[str, dict[str, Any]]],
+        chunk_id_to_doc_id: dict[str, str],
+        doc_hash_to_id: dict[str, str],
+        doc_hash_to_name: dict[str, str],
+        metadata: dict[str, Any],
+    ) -> bool:
+        """Index documents and populate chunk/document-level metrics. Returns False on total failure."""
         # Index documents using adapter
         try:
             success_count, failed_chunks = self.adapter.index_documents(documents)
@@ -595,7 +827,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 self.record_failed_document(
                     metadata=metadata,
                     doc_id=doc_id,
-                    doc_name=doc_id,  # We don't have doc_name at this point
+                    doc_name=doc_hash_to_name.get(doc_id, doc_id),
                     reason="One or more chunks failed to index",
                 )
 
@@ -609,6 +841,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 f"{chunks_indexed}/{total_chunks_to_index} chunks indexed successfully",
                 extra=self.common_log_arguments,
             )
+            return True
 
         except Exception as e:
             logger.error(f"Failed to index documents: {e!s}", extra=self.common_log_arguments)
@@ -624,20 +857,12 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 self.record_failed_document(
                     metadata=metadata,
                     doc_id=original_id,
-                    doc_name=original_id,
+                    doc_name=doc_hash_to_name.get(doc_hash, original_id),
                     reason=f"Indexing operation failed: {e!s}",
                 )
             metadata[Metrics.External.PROCESSED_DOCS] = 0
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
-            return [table], metadata
-
-        # Refresh index
-        try:
-            self.adapter.refresh_index()
-        except Exception as e:
-            logger.warning(f"Failed to refresh index: {e!s}", extra=self.common_log_arguments)
-
-        return [table], metadata
+            return False
 
     def query_by_doc_names(self, doc_names: list[str], fields: list[str] | None = None) -> list[dict[str, Any]]:
         """
@@ -668,28 +893,6 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
     def get_document_count(self) -> int:
         """Get total document count in the index."""
         return int(self.adapter.get_document_count())
-
-    @staticmethod
-    def generate_composite_pk(*, file_id: str, chunk_content: str) -> str:
-        """Generate a composite primary key from file identity and chunk content.
-
-        The key is unique per file regardless of content, preventing collisions
-        between different files with identical content.
-
-        Args:
-            file_id: The file identifier (e.g. file path from the id column).
-                     Hashed to handle special characters and length constraints.
-            chunk_content: The text content of the chunk. Hashed to produce a
-                           stable, fixed-length content fingerprint.
-
-        Returns:
-            Composite PK string in the format ``{file_hash}_{content_hash}``
-            where each hash is the full 128-character SHA3-512 hex digest
-            -- unique per (file, chunk content) pair.
-        """
-        file_hash = hashlib.sha3_512(file_id.encode()).hexdigest()
-        content_hash = hashlib.sha3_512(chunk_content.encode()).hexdigest()
-        return f"{file_hash}_{content_hash}"
 
     @staticmethod
     def _get_vectordb_provider_schemas() -> dict[str, Any]:

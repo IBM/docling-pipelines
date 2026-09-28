@@ -322,14 +322,14 @@ def test_validation_errors(flow_service):
     from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
 
     # Empty name - raises AssetInvalidDataException from Flow.validate()
+    flow1 = Flow(name="", description="Test", definition={"doc_type": "pipeline", "pipelines": []})
     with pytest.raises(AssetInvalidDataException):
-        flow = Flow(name="", description="Test", definition={"doc_type": "pipeline", "pipelines": []})
-        flow_service.create_flow(flow=flow)
+        flow_service.create_flow(flow=flow1)
 
     # Empty definition - raises AssetInvalidDataException from Flow.validate()
+    flow2 = Flow(name="Test", description="Test", definition={})
     with pytest.raises(AssetInvalidDataException):
-        flow = Flow(name="Test", description="Test", definition={})
-        flow_service.create_flow(flow=flow)
+        flow_service.create_flow(flow=flow2)
 
     # Invalid skip/limit - raises FlowInvalidDataException from service layer
     with pytest.raises(FlowInvalidDataException):

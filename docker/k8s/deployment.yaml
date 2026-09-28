@@ -1,0 +1,179 @@
+---
+# Kubernetes Deployment — docpipe + BFF sidecar
+#
+# The BFF (Node/Express) runs as a sidecar container inside the same pod so that
+# FastAPI can reach it via localhost:3001 without any cluster-internal DNS hop.
+# BFF_URL is set to http://localhost:3001, which means _start_bff() in main.py
+# will detect the env var and skip the Popen sidecar path entirely.
+#
+# Usage:
+#   kubectl apply -f docker/k8s/pvc.yaml        # create PVC first
+#   kubectl apply -f docker/k8s/deployment.yaml
+#   kubectl apply -f docker/k8s/service.yaml
+#
+# Image build (run from repo root):
+#   docker build -f docker/Dockerfile    -t docling-pipelines:latest .
+#   docker build -f docker/Dockerfile.bff -t docling-pipelines-bff:latest .
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docpipe
+  labels:
+    app: docpipe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docpipe
+  template:
+    metadata:
+      labels:
+        app: docpipe
+    spec:
+      # ── Pod-level security context ──────────────────────────────────────────
+      # runAsUser: 1000 matches the docpipe user created in the Dockerfile
+      # (useradd -m -u 1000 docpipe). All image files are chowned to 1000:0.
+      # Setting this to 1001 here would mean the process owns nothing in the
+      # image and every file access would fail with Permission denied.
+      #
+      # readOnlyRootFilesystem is NOT set at pod level because the FastAPI
+      # container writes to /opt/app-root/src/data (DuckDB, job stats) and
+      # /opt/app-root/src/logs at runtime. It is set at container level on the
+      # BFF only, which is stateless and has no filesystem writes.
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+
+      containers:
+
+        # ── FastAPI application ──────────────────────────────────────────────
+        - name: fastapi
+          image: docling-pipelines:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            # Tell FastAPI where the BFF sidecar is listening.
+            # _start_bff() will skip Popen because this is already set.
+            - name: BFF_URL
+              value: "http://localhost:3001"
+            - name: FASTAPI_PORT
+              value: "8080"
+            - name: PYTHONPATH
+              value: /opt/app-root/src
+            # Wire up backing services via ConfigMap / Secrets in production.
+            # The values below match the docker-compose defaults for reference.
+            - name: OLLAMA_HOST
+              value: "http://ollama:11434"
+            - name: OPENSEARCH_HOST
+              value: "opensearch"
+            - name: OPENSEARCH_PORT
+              value: "9200"
+          volumeMounts:
+            # FastAPI writes DuckDB files (job_stats.duckdb, document_sets.duckdb)
+            # and job stats here at runtime. Backed by the docpipe-data PVC so data
+            # survives pod restarts. See docker/k8s/pvc.yaml.
+            - name: data
+              mountPath: /opt/app-root/src/data
+            # Log files written by the Python logger land here.
+            - name: logs
+              mountPath: /opt/app-root/src/logs
+            # Python and uvicorn need a writable /tmp for temp files.
+            - name: tmp
+              mountPath: /tmp
+          # startupProbe gates liveness/readiness until FastAPI is up.
+          # Allows up to 5 min (30 × 10s) for slow cold starts before
+          # liveness kicks in — prevents restart loops during model loading.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+
+        # ── BFF sidecar (Node/Express) ───────────────────────────────────────
+        - name: bff
+          image: docling-pipelines-bff:latest
+          imagePullPolicy: IfNotPresent
+          # The BFF is stateless — it holds no local state and writes nothing
+          # to disk. readOnlyRootFilesystem: true is safe here and hardens the
+          # attack surface of the sidecar without affecting FastAPI.
+          securityContext:
+            runAsUser: 1001
+            readOnlyRootFilesystem: true
+          ports:
+            - name: bff-http
+              containerPort: 3001
+              protocol: TCP
+          env:
+            # BFF proxies API calls to FastAPI on localhost (same pod).
+            - name: BACKEND_API_URL
+              value: "http://localhost:8080"
+            - name: BFF_PORT
+              value: "3001"
+          # startupProbe prevents readiness/liveness from firing before Node is
+          # ready. Without it, early readinessProbe failures restart the sidecar
+          # before liveness ever activates — causing a restart loop on cold nodes.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            failureThreshold: 15
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+      # ── Volumes ─────────────────────────────────────────────────────────────
+      # data   — PVC-backed so DuckDB files (job stats, document sets) survive
+      #          pod restarts. A 1 Gi claim is sufficient for most deployments;
+      #          tune storageClassName to match your cluster's provisioner.
+      # logs   — emptyDir: log files are ephemeral; ship them with a sidecar or
+      #          container logging driver instead of persisting them here.
+      # tmp    — emptyDir: uvicorn/Python temp files are always ephemeral.
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: docpipe-data
+        - name: logs
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

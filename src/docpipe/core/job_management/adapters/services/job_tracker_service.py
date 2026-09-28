@@ -61,6 +61,7 @@ class JobTrackerService(JobStatsService):
         flow_name: str,
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        initial_status: ExecutionStatus = ExecutionStatus.RUNNING,
     ) -> None:
         """
         Start tracking a new job run with initial statistics.
@@ -71,6 +72,10 @@ class JobTrackerService(JobStatsService):
             flow_name: Name of the flow being executed (stored in flow_id field)
             user_id: Optional user identifier
             metadata: Optional metadata dictionary (not used - JobStats has no metadata field)
+            initial_status: Initial status for the job stats record.
+                Defaults to ExecutionStatus.RUNNING for backward compatibility.
+                Pass ExecutionStatus.QUEUED when called from the HTTP thread
+                before the background thread has started.
 
         Raises:
             ValueError: If job_run_id already exists
@@ -80,7 +85,7 @@ class JobTrackerService(JobStatsService):
             job_run_id=job_run_id,
             flow_id=flow_name,  # Store flow_name in flow_id field
             user_id=user_id,
-            status=ExecutionStatus.RUNNING,
+            status=initial_status,
             start_time=round(datetime.now(tz=UTC).timestamp()),
             node_stats={},
             batch_node_stats={},
@@ -142,6 +147,15 @@ class JobTrackerService(JobStatsService):
 
         return job_stats
 
+    def get_failed_doc_ids_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """
+        Collect failed document IDs scoped to a single batch.
+
+        Delegates to the store's SQL-scoped query so only rows for this
+        batch_id are fetched — O(1 batch) instead of O(N batches).
+        """
+        return self.job_stats_store.get_failed_docs_for_batch(job_run_id=job_run_id, batch_id=batch_id)
+
     @staticmethod
     def normalize_execution_status(status: str | ExecutionStatus) -> ExecutionStatus:
         """
@@ -155,7 +169,8 @@ class JobTrackerService(JobStatsService):
 
         normalized_status = status.strip()
         if not normalized_status:
-            raise ValueError("Invalid status: empty value")
+            msg = "Invalid status: empty value"
+            raise ValueError(msg)
 
         try:
             return ExecutionStatus(normalized_status)
@@ -167,7 +182,8 @@ class JobTrackerService(JobStatsService):
         try:
             return ExecutionStatus[normalized_key]
         except KeyError as exc:
-            raise ValueError(f"Invalid status: {status}") from exc
+            msg = f"Invalid status: {status}"
+            raise ValueError(msg) from exc
 
     def end_job(self, *, job_run_id: str, status: str, job_run_stats: dict[str, Any] | None = None) -> None:
         """
@@ -300,7 +316,8 @@ class JobTrackerService(JobStatsService):
             job_run_id=job_run_id, node_id=node_id, batch_id=batch_id
         )
         if existing_node is None:
-            raise ValueError(f"Node execution was not started: node_id={node_id}")
+            msg = f"Node execution was not started: node_id={node_id}"
+            raise ValueError(msg)
 
         start_time: int = existing_node.start_time
         total_docs: list[str] = existing_node.total_docs or []
@@ -384,7 +401,8 @@ class JobTrackerService(JobStatsService):
             ValueError: If both exception and error are None
         """
         if exception is None and error is None:
-            raise ValueError("Either exception or error must be provided")
+            msg = "Either exception or error must be provided"
+            raise ValueError(msg)
 
         # Get existing start state
         existing_node: NodeStats | None = self.job_stats_store.get_node_stats_by_batch_and_node(
@@ -690,7 +708,8 @@ class JobTrackerService(JobStatsService):
         elif isinstance(node_stats, dict):
             incoming_dict = node_stats.copy()
         else:
-            raise ValueError(f"Invalid node_stats type: {type(node_stats)}")
+            msg = f"Invalid node_stats type: {type(node_stats)}"
+            raise ValueError(msg)
 
         # Merge existing and incoming stats
         merged_dict = self._merge_node_stats(
@@ -1251,8 +1270,9 @@ class JobTrackerService(JobStatsService):
 
             logger.info(f"Wrote job logs to: {job_log_path}")
         except Exception as e:
-            logger.error(f"Failed to write job logs to {job_log_path}: {e}")
-            raise OSError(f"Failed to write job logs: {e}") from e
+            logger.error("Failed to write job logs to %s: %s", job_log_path, e)
+            msg = f"Failed to write job logs: {e}"
+            raise OSError(msg) from e
 
     def list_job_runs(
         self,
@@ -1494,21 +1514,31 @@ class JobTrackerService(JobStatsService):
         return metadata_items
 
     @staticmethod
-    def _format_node_log_string(*, node_id: str, node_stat: Any) -> str:
+    def _unpack_node_stat(*, node_stat: Any) -> tuple[str, float, list, Any, Any, str]:
+        """Extract fields from a node_stat regardless of whether it is a dict or an object."""
         if isinstance(node_stat, dict):
-            name = node_stat.get("name", "Unknown")
-            time_taken = node_stat.get("time_taken", 0) or 0
-            col_names = node_stat.get("col_names", []) or []
-            node_metadata = node_stat.get(OperatorConstants.Metadata.NODE_METADATA)
-            node_status = node_stat.get("node_status", "Completed")
-            error = node_stat.get("error", "")
-        else:
-            name = getattr(node_stat, "name", "Unknown")
-            time_taken = getattr(node_stat, "time_taken", 0) or 0
-            col_names = getattr(node_stat, "col_names", []) or []
-            node_metadata = getattr(node_stat, OperatorConstants.Metadata.NODE_METADATA, None)
-            node_status = getattr(node_stat, "node_status", "Completed")
-            error = getattr(node_stat, "error", "")
+            return (
+                node_stat.get("name", "Unknown"),
+                node_stat.get("time_taken", 0) or 0,
+                node_stat.get("col_names", []) or [],
+                node_stat.get(OperatorConstants.Metadata.NODE_METADATA),
+                node_stat.get("node_status", "Completed"),
+                node_stat.get("error", ""),
+            )
+        return (
+            getattr(node_stat, "name", "Unknown"),
+            getattr(node_stat, "time_taken", 0) or 0,
+            getattr(node_stat, "col_names", []) or [],
+            getattr(node_stat, OperatorConstants.Metadata.NODE_METADATA, None),
+            getattr(node_stat, "node_status", "Completed"),
+            getattr(node_stat, "error", ""),
+        )
+
+    @staticmethod
+    def _format_node_log_string(*, node_id: str, node_stat: Any) -> str:
+        name, time_taken, col_names, node_metadata, node_status, error = JobTrackerService._unpack_node_stat(
+            node_stat=node_stat
+        )
 
         # Handle ExecutionStatus enum vs string
         terminal_states_values = frozenset(state.value for state in TERMINAL_NODE_STATES)
@@ -1577,13 +1607,15 @@ class JobTrackerService(JobStatsService):
             IOError: If bulk operation fails
         """
         if len(batch_ids) != len(batch_nums):
-            raise ValueError(f"batch_ids and batch_nums must have same length: {len(batch_ids)} != {len(batch_nums)}")
+            msg = f"batch_ids and batch_nums must have same length: {len(batch_ids)} != {len(batch_nums)}"
+            raise ValueError(msg)
 
         if len(downstream_node_ids) != len(downstream_node_names):
-            raise ValueError(
+            msg = (
                 f"downstream_node_ids and downstream_node_names must have same length: "
                 f"{len(downstream_node_ids)} != {len(downstream_node_names)}"
             )
+            raise ValueError(msg)
 
         # Create pending node stats for all batch/node combinations
         pending_stats_list = []

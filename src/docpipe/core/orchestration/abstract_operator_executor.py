@@ -136,6 +136,13 @@ class AbstractOperatorExecutor:
                 copied[k] = v  # shallow copy — keep original reference
         return copied
 
+    def release(self) -> None:
+        """Release resources held by this executor's operator.
+
+        Default is a no-op.  Subclasses that construct and cache an operator
+        override this to run the operator's ``cleanup()``.  Must never raise.
+        """
+
     @abstractmethod
     def get_operator(self) -> AbstractOperator:
         # The concrete class implements the method by returning the operator for the corresponding orchestrator.

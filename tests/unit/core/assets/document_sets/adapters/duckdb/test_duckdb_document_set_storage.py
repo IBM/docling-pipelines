@@ -2,10 +2,10 @@
 
 All storage interactions are mocked — no real DuckDB or disk I/O.
 Tests verify observable behaviour of store(), delete(), get_metrics(),
-exists(), load(), health_check(), and validate_config().
+exists(), load(), health_check(), validate_config(), and from_config().
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
@@ -258,3 +258,40 @@ class TestValidateConfig:
     def test_empty_database_path_returns_error(self):
         errors = DuckDBDocumentSetStorage.validate_config(config={"database_path": ""})
         assert len(errors) == 1
+
+
+# ---------------------------------------------------------------------------
+# from_config()
+# ---------------------------------------------------------------------------
+
+
+class TestFromConfig:
+    def test_from_config_returns_instance(self):
+        """from_config() returns a DuckDBDocumentSetStorage instance."""
+        mock_storage = MagicMock()
+        with patch(
+            "docpipe.storage.StorageFactory.create_table_storage",
+            return_value=mock_storage,
+        ):
+            instance = DuckDBDocumentSetStorage.from_config(config={"database_path": _DB_PATH})
+        assert isinstance(instance, DuckDBDocumentSetStorage)
+
+    def test_from_config_sets_database_path(self):
+        """from_config() sets _database_path from config."""
+        mock_storage = MagicMock()
+        with patch(
+            "docpipe.storage.StorageFactory.create_table_storage",
+            return_value=mock_storage,
+        ):
+            instance = DuckDBDocumentSetStorage.from_config(config={"database_path": _DB_PATH})
+        assert instance._database_path == _DB_PATH
+
+    def test_from_config_raises_on_missing_database_path(self):
+        """from_config() raises DocpipeException when database_path is absent."""
+        with pytest.raises(DocpipeException, match="database_path"):
+            DuckDBDocumentSetStorage.from_config(config={})
+
+    def test_from_config_raises_on_empty_database_path(self):
+        """from_config() raises DocpipeException when database_path is empty."""
+        with pytest.raises(DocpipeException, match="database_path"):
+            DuckDBDocumentSetStorage.from_config(config={"database_path": ""})

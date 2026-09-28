@@ -13,7 +13,7 @@ class LLMProviderConfig(BaseModel):
     DocumentClassifierOperator.
     """
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     model_id: str | None = Field(
         default=None,

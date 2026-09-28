@@ -1,0 +1,21 @@
+{
+  "parameters": [
+    { "id": "redaction_regex" },
+    { "id": "redaction_masking_character" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "redaction_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "redaction_regex" },
+      { "parameter_ref": "redaction_masking_character" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

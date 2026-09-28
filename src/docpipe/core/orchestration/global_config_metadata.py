@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from docpipe.core.constants import DocpipeConstants
+from docpipe.core.constants.operator_constants import OperatorConstants
 
 EXECUTION_CONTROL = "Execution Control"
 INCREMENTAL_PROCESSING = "Incremental Processing"
@@ -175,6 +176,20 @@ class GlobalConfigMetadata:
             required=False,
             default=DocpipeConstants.MEMMAP_THRESHOLD_DEFAULT,
             description="Threshold in MB after which persistent storage is used for chunks and embeddings, threshold value should be greater than 1",
+            category=EXECUTION_CONTROL,
+        ),
+        OperatorConstants.DOC_FORMAT_KEY: GlobalConfigParam(
+            name="Document format",
+            type="string",
+            required=False,
+            default=OperatorConstants.DOC_FORMAT_DEFAULT,
+            description=(
+                "Primary document format used throughout the pipeline. "
+                "Controls how operators process text content in doc_column. "
+                "Valid values: 'markdown' (default), 'doclang'. "
+                "When set to 'doclang', quality and functional operators automatically "
+                "strip DocLang XML tags before text processing."
+            ),
             category=EXECUTION_CONTROL,
         ),
     }

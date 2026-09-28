@@ -344,7 +344,7 @@ class TestBatchCreation:
         assert len(batches) >= 2
 
     def test_create_batches_action_structure(self, mock_client):
-        """Test batch action structure"""
+        """Test batch action structure uses native upsert format."""
         # Define features so documents aren't filtered out
         features = {"content": {"available_for_vector_db": True, "type": "string"}}
         mappings = [{"feature_name": "content", "mapped_column_name": "content"}]
@@ -361,9 +361,48 @@ class TestBatchCreation:
         batches = processor.create_batches(documents)
 
         action = batches[0][0]
+        assert action["_op_type"] == "update"
         assert action["_index"] == "test_index"
         assert action["_id"] == "doc1"
-        assert action["_source"] == {"content": "test"}
+        assert action["doc"] == {"content": "test"}
+        assert action["doc_as_upsert"] is True
+        assert "_source" not in action
+
+    def test_create_batches_uses_update_op_type(self, mock_client):
+        """All actions produced by create_batches must have _op_type 'update'."""
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+        )
+        documents = [("doc1", {"content": "a"}), ("doc2", {"content": "b"})]
+        batches = processor.create_batches(documents)
+        for batch in batches:
+            for action in batch:
+                assert action["_op_type"] == "update"
+
+    def test_create_batches_doc_as_upsert_is_true(self, mock_client):
+        """All actions must carry doc_as_upsert=True."""
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+        )
+        documents = [("doc1", {"content": "a"}), ("doc2", {"content": "b"})]
+        batches = processor.create_batches(documents)
+        for batch in batches:
+            for action in batch:
+                assert action["doc_as_upsert"] is True
+
+    def test_create_batches_no_source_key(self, mock_client):
+        """The legacy '_source' key must be absent from all upsert actions."""
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+        )
+        documents = [("doc1", {"content": "a"})]
+        batches = processor.create_batches(documents)
+        for batch in batches:
+            for action in batch:
+                assert "_source" not in action
 
     def test_create_batches_empty_documents(self, mock_client):
         """Test creating batches with empty document list"""
@@ -868,7 +907,14 @@ class TestDocumentCount:
 
 
 class TestQueryPksByDocIds:
-    """Tests for OpenSearchBatchProcessor.get_chunk_ids_for_documents()."""
+    """Tests for OpenSearchBatchProcessor.get_chunk_ids_for_documents().
+
+    The method issues a ``terms`` query against the stored ``id`` field (the raw
+    file ID, resolved through feature_mappings), collects ``_id`` values from each
+    hit, and returns the result keyed by the same file_id that was passed in.
+    This aligns with both the Milvus adapter (prefix-scan keyed by file_id) and
+    the operator's ``new_pks_by_file`` dict — ensuring the set difference is correct.
+    """
 
     def test_returns_empty_dict_for_empty_input(self, mock_client) -> None:
         """Empty doc_ids list must return {} without calling the client."""
@@ -877,29 +923,80 @@ class TestQueryPksByDocIds:
         assert result == {}
         mock_client.search.assert_not_called()
 
-    def test_returns_pks_grouped_by_doc_id(self, mock_client) -> None:
-        """Hits must be grouped by their doc_id_hash source field value."""
+    def test_returns_pks_grouped_by_file_id(self, mock_client) -> None:
+        """Hits must be grouped by their stored id field value (the file_id)."""
+        file_id_a = "e59b1248c0d408e98689ccdc4cb98db5"
+        file_id_b = "d8cb09ffbbf9414d7e7de6e069d750ad"
         mock_client.search.return_value = {
             "hits": {
                 "hits": [
-                    {"_id": "pk_a1", "sort": ["pk_a1"], "_source": {"doc_id_hash": "doc_a"}},
-                    {"_id": "pk_a2", "sort": ["pk_a2"], "_source": {"doc_id_hash": "doc_a"}},
-                    {"_id": "pk_b1", "sort": ["pk_b1"], "_source": {"doc_id_hash": "doc_b"}},
+                    {"_id": "pk_a1", "sort": ["pk_a1"], "_source": {"id": file_id_a}},
+                    {"_id": "pk_a2", "sort": ["pk_a2"], "_source": {"id": file_id_a}},
+                    {"_id": "pk_b1", "sort": ["pk_b1"], "_source": {"id": file_id_b}},
                 ]
             }
         }
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
-            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+            feature_mappings=[{"feature_name": "id", "mapped_column_name": "id"}],
         )
-        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a", "doc_b"])
-        assert result == {"doc_a": {"pk_a1", "pk_a2"}, "doc_b": {"pk_b1"}}
+        result = processor.get_chunk_ids_for_documents(doc_ids=[file_id_a, file_id_b])
+        assert result == {file_id_a: {"pk_a1", "pk_a2"}, file_id_b: {"pk_b1"}}
+
+    def test_reconstructs_chunk_pks_from_positional_ids(self, mock_client) -> None:
+        """Positional ``_id`` values must be captured verbatim and keyed by file_id.
+
+        Verifies end-to-end: given a file_id, the method returns the stored positional
+        chunk PKs under that same key so the operator can compute the stale-PK set diff.
+        """
+        import hashlib
+
+        file_id = "e59b1248c0d408e98689ccdc4cb98db5"
+        file_hash = hashlib.sha3_512(file_id.encode()).hexdigest()
+        pk0 = f"{file_hash}_chunk_0"
+        pk1 = f"{file_hash}_chunk_1"
+
+        mock_client.search.return_value = {
+            "hits": {
+                "hits": [
+                    {"_id": pk0, "sort": [pk0], "_source": {"document_id": file_id}},
+                    {"_id": pk1, "sort": [pk1], "_source": {"document_id": file_id}},
+                ]
+            }
+        }
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+            feature_mappings=[{"feature_name": "id", "mapped_column_name": "document_id"}],
+        )
+        result = processor.get_chunk_ids_for_documents(doc_ids=[file_id])
+
+        # Result must be keyed by the file_id that was passed in
+        assert result == {file_id: {pk0, pk1}}
+
+    def test_issues_terms_query_on_id_field(self, mock_client) -> None:
+        """The query must use a terms filter on the stored id field."""
+        file_id = "e59b1248c0d408e98689ccdc4cb98db5"
+        mock_client.search.return_value = {"hits": {"hits": []}}
+
+        processor = OpenSearchBatchProcessor(
+            client=mock_client,
+            index_name="test_index",
+            feature_mappings=[{"feature_name": "id", "mapped_column_name": "document_id"}],
+        )
+        processor.get_chunk_ids_for_documents(doc_ids=[file_id])
+
+        query_body = mock_client.search.call_args[1]["body"]
+        assert "terms" in query_body["query"]
+        assert "document_id" in query_body["query"]["terms"]
+        assert file_id in query_body["query"]["terms"]["document_id"]
 
     def test_paginates_until_partial_page(self, mock_client) -> None:
         """When the first page is exactly 1000 hits a second request must be made."""
-        page1_hits = [{"_id": f"pk_{i}", "sort": [f"pk_{i}"], "_source": {"doc_id_hash": "doc_a"}} for i in range(1000)]
-        page2_hits = [{"_id": "pk_last", "sort": ["pk_last"], "_source": {"doc_id_hash": "doc_a"}}]
+        file_id = "e59b1248c0d408e98689ccdc4cb98db5"
+        page1_hits = [{"_id": f"pk_{i}", "sort": [f"pk_{i}"], "_source": {"document_id": file_id}} for i in range(1000)]
+        page2_hits = [{"_id": "pk_last", "sort": ["pk_last"], "_source": {"document_id": file_id}}]
         mock_client.search.side_effect = [
             {"hits": {"hits": page1_hits}},
             {"hits": {"hits": page2_hits}},
@@ -907,48 +1004,51 @@ class TestQueryPksByDocIds:
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
-            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+            feature_mappings=[{"feature_name": "id", "mapped_column_name": "document_id"}],
         )
-        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
-        assert len(result["doc_a"]) == 1001
+        result = processor.get_chunk_ids_for_documents(doc_ids=[file_id])
+        assert len(result[file_id]) == 1001
         assert mock_client.search.call_count == 2
 
     def test_stops_on_empty_page(self, mock_client) -> None:
         """An empty page terminates pagination and returns an empty result."""
+        file_id = "e59b1248c0d408e98689ccdc4cb98db5"
         mock_client.search.return_value = {"hits": {"hits": []}}
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
-            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+            feature_mappings=[{"feature_name": "id", "mapped_column_name": "document_id"}],
         )
-        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        result = processor.get_chunk_ids_for_documents(doc_ids=[file_id])
         assert result == {}
         assert mock_client.search.call_count == 1
 
-    def test_uses_feature_mapping_for_field_name(self, mock_client) -> None:
-        """An overridden feature mapping must be used as the query field."""
+    def test_uses_feature_mapping_for_id_field_name(self, mock_client) -> None:
+        """An overridden feature mapping for 'id' must be used as the query field."""
+        file_id = "e59b1248c0d408e98689ccdc4cb98db5"
         mock_client.search.return_value = {
-            "hits": {"hits": [{"_id": "pk1", "sort": ["pk1"], "_source": {"document_id": "doc_a"}}]}
+            "hits": {"hits": [{"_id": "pk1", "sort": ["pk1"], "_source": {"file_ref": file_id}}]}
         }
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
-            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "document_id"}],
+            feature_mappings=[{"feature_name": "id", "mapped_column_name": "file_ref"}],
         )
-        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
-        assert result == {"doc_a": {"pk1"}}
+        result = processor.get_chunk_ids_for_documents(doc_ids=[file_id])
+        assert result == {file_id: {"pk1"}}
         query_body = mock_client.search.call_args[1]["body"]
-        assert "document_id" in query_body["query"]["terms"]
+        assert "file_ref" in query_body["query"]["terms"]
 
     def test_returns_empty_dict_on_exception(self, mock_client) -> None:
         """A client exception must be swallowed and return {}."""
+        file_id = "e59b1248c0d408e98689ccdc4cb98db5"
         mock_client.search.side_effect = Exception("connection refused")
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
-            feature_mappings=[{"feature_name": "doc_id_hash", "mapped_column_name": "doc_id_hash"}],
+            feature_mappings=[{"feature_name": "id", "mapped_column_name": "document_id"}],
         )
-        result = processor.get_chunk_ids_for_documents(doc_ids=["doc_a"])
+        result = processor.get_chunk_ids_for_documents(doc_ids=[file_id])
         assert result == {}
 
 

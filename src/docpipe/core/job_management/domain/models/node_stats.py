@@ -16,6 +16,7 @@ class NodeStatsFields:
     """Field names for NodeStats domain model and database columns."""
 
     NODE_ID = "node_id"  # DB column name — keep as "node_id"
+    JOB_RUN_ID = "job_run_id"
     NAME = "name"
     NODE_STATUS = "node_status"
     ERROR = "error"

@@ -1,13 +1,73 @@
 """Flow execution utilities for node mapping, logging, and validation."""
 
 import json
+from collections import defaultdict, deque
 from pathlib import Path
 
 from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.exceptions.docpipe_exceptions import ErrorCode, ValidationAlert
+from docpipe.exceptions.docpipe_exceptions import ErrorCode, FlowValidationException, ValidationAlert
 from docpipe.exceptions.error_messages import ValidationMessage
 from docpipe.utils.infrastructure.filesystem import get_data_path
+
+
+def sort_dag_topologically(*, dag: list[dict]) -> list[dict]:
+    """Sort DAG nodes in topological order using Kahn's algorithm.
+
+    Builds the sort from ``output_edges`` so no additional adjacency structure
+    is required from the caller. Nodes that do not appear in any edge list
+    (isolated nodes) are included with in-degree zero and processed first.
+
+    Args:
+        dag: List of node dicts, each containing an ``"id"`` key and an
+            optional ``"output_edges"`` list of ``{"node_id_ref": "<id>"}``
+            dicts. Order of the input list is irrelevant.
+
+    Returns:
+        New list of the same node dicts in valid topological order.
+
+    Raises:
+        FlowValidationException: If the graph contains a cycle.
+    """
+    by_id = {node["id"]: node for node in dag}
+
+    # Build adjacency list from output_edges; initialise every node so isolated
+    # nodes (no edges at all) are still included with in-degree zero.
+    adjacency: dict[str, list[str]] = defaultdict(list)
+    for node in dag:
+        adjacency[node["id"]]  # ensure every node is present even with no edges
+        for edge in node.get(DocpipeConstants.OUTPUT_EDGES, []):
+            adjacency[node["id"]].append(edge[DocpipeConstants.NODE_ID_REF])
+
+    in_degree: dict[str, int] = defaultdict(int)
+    for node_id in adjacency:
+        in_degree[node_id]  # initialise
+        for child_id in adjacency[node_id]:
+            in_degree[child_id] += 1
+
+    queue: deque[str] = deque(nid for nid, deg in in_degree.items() if deg == 0)
+    topo_order: list[dict] = []
+
+    while queue:
+        node_id = queue.popleft()
+        topo_order.append(by_id[node_id])
+        for child_id in adjacency[node_id]:
+            in_degree[child_id] -= 1
+            if in_degree[child_id] == 0:
+                queue.append(child_id)
+
+    if len(topo_order) != len(in_degree):
+        raise FlowValidationException(
+            errors=[
+                ValidationAlert(
+                    code=ErrorCode.FLOW_VALIDATION_FAILED.value,
+                    message="DAG contains a cycle; topological sort not possible",
+                    message_code="DAG_CYCLE_DETECTED",
+                )
+            ]
+        )
+
+    return topo_order
 
 
 def create_node_id_to_index_map(*, flow_def: dict) -> dict:
@@ -110,5 +170,6 @@ __all__ = [
     "construct_deleted_rows_table_path",
     "create_log_folders",
     "create_node_id_to_index_map",
+    "sort_dag_topologically",
     "write_job_logs",
 ]

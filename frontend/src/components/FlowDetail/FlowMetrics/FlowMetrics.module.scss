@@ -1,0 +1,48 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.metricsSection {
+  margin-bottom: $spacing-05;
+}
+
+.metricsTitle {
+  @include type-style('body-compact-01');
+  font-weight: 600;
+  color: $text-primary;
+  margin: 0 0 $spacing-04 0;
+}
+
+.metricsTiles {
+  display: flex;
+  gap: $spacing-04;
+  flex-wrap: wrap;
+}
+
+.metricTile {
+  background-color: $layer-01;
+  padding: $spacing-05 $spacing-06;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+}
+
+.metricValue {
+  display: flex;
+  align-items: center;
+  gap: $spacing-03;
+  @include type-style('heading-03');
+  color: $text-primary;
+}
+
+.metricLabel {
+  @include type-style('body-compact-01');
+  color: $text-secondary;
+}
+
+.iconRun       { color: $support-success; }
+.iconProgress  { color: $support-info;    }
+.iconWarning   { color: $support-warning; }
+.iconFailed    { color: $support-error;   }
+.iconCancelled { color: $text-disabled;   }

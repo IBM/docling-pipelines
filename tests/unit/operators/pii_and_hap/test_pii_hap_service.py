@@ -229,7 +229,7 @@ class TestPIIHAPService:
 
     def test_detect_pii_hap_missing_input(self, watsonx_service):
         """Test detection fails with missing input."""
-        payload = {}
+        payload: dict[str, str] = {}
 
         with pytest.raises(ValueError, match="Input text cannot be empty"):
             watsonx_service.detect_pii_hap(payload=payload)
@@ -277,7 +277,7 @@ class TestPIIHAPService:
         assert litellm_service.use_specialized_api is False
 
     @pytest.mark.parametrize(
-        "provider,expected_api_flag",
+        ("provider", "expected_api_flag"),
         [
             ("watsonx", True),
             ("litellm", False),

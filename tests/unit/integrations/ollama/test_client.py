@@ -1,10 +1,23 @@
-"""Tests for Ollama client."""
+# Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import Mock, patch
+"""
+Unit tests for OllamaClient.
+"""
+
+import json
+import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+# Pre-mock the ollama package so the import never touches a real server.
+if "ollama" not in sys.modules:
+    _mock_ollama_module = MagicMock()
+    sys.modules["ollama"] = _mock_ollama_module
+    sys.modules["ollama._types"] = MagicMock()
+
+from docpipe.exceptions.docpipe_exceptions import ConfigurationError, DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.integrations.ollama.client import (
     DEFAULT_TOKEN_LIMIT,
@@ -13,425 +26,903 @@ from docpipe.integrations.ollama.client import (
     OllamaClient,
 )
 
-pytestmark = pytest.mark.requires_ollama
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_client(
+    *,
+    model_name: str = "granite4",
+    mode: InteractionMode = InteractionMode.GENERATE,
+    system_prompt: str | None = None,
+    validate_model: bool = False,
+    max_concurrent_requests: int = 4,
+) -> OllamaClient:
+    """Build an OllamaClient with model validation disabled by default."""
+    return OllamaClient(
+        model_name=model_name,
+        host="http://localhost:11434",
+        mode=mode,
+        system_prompt=system_prompt,
+        validate_model=validate_model,
+        max_concurrent_requests=max_concurrent_requests,
+    )
+
+
+def _make_list_response(model_names: list[str]):
+    """Build a mock ollama ListResponse with .models attribute."""
+    response = MagicMock()
+    response.models = [_model_obj(name) for name in model_names]
+    return response
+
+
+def _model_obj(name: str):
+    m = MagicMock()
+    m.model = name
+    return m
+
+
+# ---------------------------------------------------------------------------
+# InteractionMode
+# ---------------------------------------------------------------------------
 
 
 class TestInteractionMode:
-    """Test InteractionMode enum."""
-
-    def test_interaction_mode_values(self):
-        """Test that InteractionMode has expected values."""
+    def test_enum_values(self):
         assert InteractionMode.GENERATE.value == "generate"
         assert InteractionMode.CHAT.value == "chat"
         assert InteractionMode.EMBEDDINGS.value == "embeddings"
 
-    def test_interaction_mode_from_string(self):
-        """Test creating InteractionMode from string."""
-        assert InteractionMode("generate") == InteractionMode.GENERATE
-        assert InteractionMode("chat") == InteractionMode.CHAT
-        assert InteractionMode("embeddings") == InteractionMode.EMBEDDINGS
 
-
-class TestOllamaModelTokenLimits:
-    """Test Ollama model token limits constants."""
-
-    def test_token_limits_exist(self):
-        """Test that token limits dictionary exists and has expected models."""
-        assert isinstance(OLLAMA_MODEL_TOKEN_LIMITS, dict)
-        assert "llama2" in OLLAMA_MODEL_TOKEN_LIMITS
-        assert "llama3" in OLLAMA_MODEL_TOKEN_LIMITS
-        assert "granite4" in OLLAMA_MODEL_TOKEN_LIMITS
-
-    def test_token_limit_values(self):
-        """Test specific token limit values."""
-        assert OLLAMA_MODEL_TOKEN_LIMITS["llama2"] == 4096
-        assert OLLAMA_MODEL_TOKEN_LIMITS["llama3.1"] == 128000
-        assert OLLAMA_MODEL_TOKEN_LIMITS["granite4"] == 131072
-
-    def test_default_token_limit(self):
-        """Test default token limit constant."""
-        assert DEFAULT_TOKEN_LIMIT == 4096
+# ---------------------------------------------------------------------------
+# __init__
+# ---------------------------------------------------------------------------
 
 
 class TestOllamaClientInit:
-    """Test OllamaClient initialization."""
-
-    @patch("docpipe.integrations.ollama.client.OllamaClient._validate_model")
-    def test_init_with_defaults(self, mock_validate):
-        """Test initialization with default parameters."""
-        client = OllamaClient(validate_model=False)
-
+    def test_defaults_without_validation(self):
+        client = _make_client()
         assert client.model_name == "granite4"
+        assert client.host == "http://localhost:11434"
         assert client.mode == InteractionMode.GENERATE
         assert client.system_prompt is None
         assert client.timeout is None
-        mock_validate.assert_not_called()
+        assert client.max_concurrent_requests == 4
 
-    @patch("docpipe.integrations.ollama.client.OllamaClient._validate_model")
-    def test_init_with_custom_params(self, mock_validate):
-        """Test initialization with custom parameters."""
+    def test_mode_accepts_string(self):
         client = OllamaClient(
             model_name="llama3",
-            host="http://custom:11434",
-            mode=InteractionMode.CHAT,
-            system_prompt="You are a helpful assistant",
-            timeout=30.0,
-            max_concurrent_requests=16,
+            host="http://localhost:11434",
+            mode="chat",
             validate_model=False,
         )
-
-        assert client.model_name == "llama3"
-        assert client.host == "http://custom:11434"
-        assert client.mode == InteractionMode.CHAT
-        assert client.system_prompt == "You are a helpful assistant"
-        assert client.timeout == 30.0
-        assert client.max_concurrent_requests == 16
-
-    @patch("docpipe.integrations.ollama.client.OllamaClient._validate_model")
-    def test_init_with_string_mode(self, mock_validate):
-        """Test initialization with mode as string."""
-        client = OllamaClient(mode=InteractionMode("chat"), validate_model=False)
-
         assert client.mode == InteractionMode.CHAT
 
-    @patch("docpipe.integrations.ollama.client.OllamaClient._validate_model")
-    def test_init_calls_validate_when_enabled(self, mock_validate):
-        """Test that validation is called when validate_model=True."""
-        _ = OllamaClient(validate_model=True)
+    def test_validate_model_called_when_enabled(self):
+        with patch.object(OllamaClient, "_validate_model") as mock_validate:
+            OllamaClient(
+                model_name="llama3",
+                host="http://localhost:11434",
+                validate_model=True,
+            )
+            mock_validate.assert_called_once()
 
-        mock_validate.assert_called_once()
+    def test_validate_model_skipped_when_disabled(self):
+        with patch.object(OllamaClient, "_validate_model") as mock_validate:
+            _make_client(validate_model=False)
+            mock_validate.assert_not_called()
+
+    def test_host_defaults_to_service_constant_when_none(self):
+        from docpipe.core.constants.constants import ServiceConstants
+
+        client = OllamaClient(model_name="granite4", validate_model=False)
+        assert client.host == ServiceConstants.DEFAULT_OLLAMA_HOST
 
 
-class TestOllamaClientValidateModel:
-    """Test OllamaClient._validate_model method."""
+# ---------------------------------------------------------------------------
+# _validate_model
+# ---------------------------------------------------------------------------
 
-    def test_validate_model_import_error(self):
-        """Test validation when ollama package is not installed."""
-        with patch("docpipe.integrations.ollama.client.OllamaClient._validate_model") as mock_validate:
-            mock_validate.side_effect = ImportError("ollama package not installed")
 
-            with pytest.raises(ImportError) as exc_info:
-                OllamaClient(validate_model=True)
+class TestValidateModel:
+    def _client_skip_validate(self) -> OllamaClient:
+        return _make_client(validate_model=False)
 
-            assert "ollama package not installed" in str(exc_info.value)
+    def test_model_found_does_not_raise(self):
+        client = self._client_skip_validate()
+        mock_response = _make_list_response(["granite4", "llama3"])
 
-    def test_validate_model_success(self):
-        """Test successful model validation."""
-        with patch("ollama.Client") as mock_client_class:
-            # Mock the ollama client and response
-            mock_client = Mock()
-            mock_model = Mock()
-            mock_model.model = "granite4:latest"
-            mock_response = Mock()
-            mock_response.models = [mock_model]
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = mock_response
+            client._validate_model()  # should not raise
 
-            mock_client.list.return_value = mock_response
-            mock_client_class.return_value = mock_client
+    def test_model_not_found_raises_docpipe_exception(self):
+        client = self._client_skip_validate()
+        mock_response = _make_list_response(["llama3"])
 
-            # Should not raise
-            client = OllamaClient(model_name="granite4", validate_model=True)
-            assert client.model_name == "granite4"
-
-    def test_validate_model_not_found(self):
-        """Test validation when model is not available."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_model = Mock()
-            mock_model.model = "llama3:latest"
-            mock_response = Mock()
-            mock_response.models = [mock_model]
-
-            mock_client.list.return_value = mock_response
-            mock_client_class.return_value = mock_client
-
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = mock_response
             with pytest.raises(DocpipeException) as exc_info:
-                OllamaClient(model_name="nonexistent", validate_model=True)
+                client._validate_model()
+        assert exc_info.value.error_code == ErrorCode.OLLAMA_MODEL_NOT_FOUND
 
-            assert exc_info.value.error_code == ErrorCode.OLLAMA_MODEL_NOT_FOUND
-            assert "not available" in str(exc_info.value)
-
-    def test_validate_model_connection_error(self):
-        """Test validation when connection fails."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.list.side_effect = ConnectionError("Connection refused")
-            mock_client_class.return_value = mock_client
-
+    @pytest.mark.parametrize("exc", [ConnectionError("refused"), TimeoutError("timed out")])
+    def test_network_error_raises_connection_failed(self, exc):
+        client = self._client_skip_validate()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.side_effect = exc
             with pytest.raises(DocpipeException) as exc_info:
-                OllamaClient(model_name="granite4", validate_model=True)
+                client._validate_model()
+        assert exc_info.value.error_code == ErrorCode.OLLAMA_CONNECTION_FAILED
 
-            assert exc_info.value.error_code == ErrorCode.OLLAMA_CONNECTION_FAILED
-            assert "Failed to connect" in str(exc_info.value)
+    def test_generic_exception_logs_warning_and_continues(self):
+        client = self._client_skip_validate()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.side_effect = RuntimeError("unexpected failure")
+            client._validate_model()  # should not raise
 
-    def test_validate_model_dict_response(self):
-        """Test validation with dict response format."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_response = {
-                "models": [
-                    {"model": "granite4:latest"},
-                    {"model": "llama3:latest"},
-                ]
-            }
-            mock_client.list.return_value = mock_response
-            mock_client_class.return_value = mock_client
+    def test_dict_response_format_is_handled(self):
+        client = self._client_skip_validate()
+        model_obj = MagicMock()
+        model_obj.model = "granite4"
+        dict_response = {"models": [model_obj]}
 
-            client = OllamaClient(model_name="granite4", validate_model=True)
-            assert client.model_name == "granite4"
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = dict_response
+            client._validate_model()  # should not raise
 
-    def test_validate_model_with_tag(self):
-        """Test validation with model:tag format."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_model = Mock()
-            mock_model.model = "granite4:latest"
-            mock_response = Mock()
-            mock_response.models = [mock_model]
+    def test_model_with_tag_matches_base(self):
+        client = OllamaClient(
+            model_name="granite4:latest",
+            host="http://localhost:11434",
+            validate_model=False,
+        )
+        mock_response = _make_list_response(["granite4"])
 
-            mock_client.list.return_value = mock_response
-            mock_client_class.return_value = mock_client
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = mock_response
+            client._validate_model()  # should not raise
 
-            client = OllamaClient(model_name="granite4:custom", validate_model=True)
-            assert client.model_name == "granite4:custom"
+    def test_empty_model_list_raises(self):
+        client = self._client_skip_validate()
+        mock_response = _make_list_response([])
 
-
-class TestOllamaClientRun:
-    """Test OllamaClient.run method."""
-
-    def test_run_generate_mode_dict_response(self):
-        """Test run in GENERATE mode with dict response."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.generate.return_value = {"response": "Generated text"}
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(mode=InteractionMode.GENERATE, validate_model=False)
-            result = client.run(prompt="Test prompt")
-
-            assert result == "Generated text"
-            mock_client.generate.assert_called_once_with(model="granite4", prompt="Test prompt")
-
-    def test_run_generate_mode_object_response(self):
-        """Test run in GENERATE mode with GenerateResponse object."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_response = Mock()
-            mock_response.response = "Generated text"
-            mock_client.generate.return_value = mock_response
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(mode=InteractionMode.GENERATE, validate_model=False)
-            result = client.run(prompt="Test prompt")
-
-            assert result == "Generated text"
-
-    def test_run_chat_mode_dict_response(self):
-        """Test run in CHAT mode with dict response."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.chat.return_value = {"message": {"content": "Chat response"}}
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(mode=InteractionMode.CHAT, validate_model=False)
-            result = client.run(prompt="Test prompt")
-
-            assert result == "Chat response"
-            mock_client.chat.assert_called_once()
-
-    def test_run_chat_mode_with_system_prompt(self):
-        """Test run in CHAT mode with system prompt."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.chat.return_value = {"message": {"content": "Chat response"}}
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(mode=InteractionMode.CHAT, system_prompt="You are helpful", validate_model=False)
-            result = client.run(prompt="Test prompt")
-
-            assert result == "Chat response"
-            call_args = mock_client.chat.call_args
-            messages = call_args[1]["messages"]
-            assert len(messages) == 2
-            assert messages[0]["role"] == "system"
-            assert messages[0]["content"] == "You are helpful"
-            assert messages[1]["role"] == "user"
-
-    def test_run_chat_mode_object_response(self):
-        """Test run in CHAT mode with ChatResponse object."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_message = Mock()
-            mock_message.content = "Chat response"
-            mock_response = Mock()
-            mock_response.message = mock_message
-            mock_client.chat.return_value = mock_response
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(mode=InteractionMode.CHAT, validate_model=False)
-            result = client.run(prompt="Test prompt")
-
-            assert result == "Chat response"
-
-    def test_run_connection_error(self):
-        """Test run with connection error."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.generate.side_effect = ConnectionError("Connection failed")
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(validate_model=False)
-
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = mock_response
             with pytest.raises(DocpipeException) as exc_info:
-                client.run(prompt="Test")
+                client._validate_model()
+        assert exc_info.value.error_code == ErrorCode.OLLAMA_MODEL_NOT_FOUND
 
-            assert exc_info.value.error_code == ErrorCode.OLLAMA_CONNECTION_FAILED
+    def test_response_with_no_models_attribute(self):
+        client = self._client_skip_validate()
 
-    def test_run_model_not_found_error(self):
-        """Test run with model not found error."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.generate.side_effect = ValueError("Model not found")
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(validate_model=False)
-
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = object()  # no .models, not dict
             with pytest.raises(DocpipeException) as exc_info:
-                client.run(prompt="Test")
+                client._validate_model()
+        assert exc_info.value.error_code == ErrorCode.OLLAMA_MODEL_NOT_FOUND
 
-            assert exc_info.value.error_code == ErrorCode.OLLAMA_MODEL_NOT_FOUND
 
-    def test_run_import_error(self):
-        """Test run when ollama package is not available."""
-        # Mock the import at the function level
-        with patch.dict("sys.modules", {"ollama": None}):
-            client = OllamaClient(validate_model=False)
+# ---------------------------------------------------------------------------
+# run — GENERATE mode
+# ---------------------------------------------------------------------------
 
-            with pytest.raises(ImportError) as exc_info:
-                client.run(prompt="Test")
 
-            assert "ollama package not installed" in str(exc_info.value)
+class TestRunGenerate:
+    def _client(self) -> OllamaClient:
+        return _make_client(mode=InteractionMode.GENERATE)
 
-    def test_run_empty_response(self):
-        """Test run with empty response."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.generate.return_value = {"response": ""}
-            mock_client_class.return_value = mock_client
+    def test_returns_string_from_generate_response_object(self):
+        client = self._client()
+        mock_response = MagicMock()
+        mock_response.response = "hello world"
 
-            client = OllamaClient(validate_model=False)
-            result = client.run(prompt="Test")
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.generate.return_value = mock_response
+            result = client.run(prompt="test")
+        assert result == "hello world"
 
-            assert result == ""
+    def test_returns_string_from_dict_response(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.generate.return_value = {"response": "dict answer"}
+            result = client.run(prompt="test")
+        assert result == "dict answer"
 
-    def test_run_unexpected_response_format(self):
-        """Test run with unexpected response format."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.generate.return_value = "unexpected string"
-            mock_client_class.return_value = mock_client
+    def test_returns_empty_string_for_unexpected_response_type(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.generate.return_value = 42  # unexpected
+            result = client.run(prompt="test")
+        assert result == ""
 
-            client = OllamaClient(validate_model=False)
-            result = client.run(prompt="Test")
-
-            assert result == ""
-
-    def test_run_chat_mode_dict_message(self):
-        """Test run in CHAT mode with dict message in response object."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_response = Mock()
-            mock_response.message = {"content": "Chat response"}
-            mock_client.chat.return_value = mock_response
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(mode=InteractionMode.CHAT, validate_model=False)
-            result = client.run(prompt="Test")
-
-            assert result == "Chat response"
-
-    def test_run_timeout_error(self):
-        """Test run with timeout error."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.generate.side_effect = TimeoutError("Request timeout")
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(validate_model=False)
-
+    @pytest.mark.parametrize("exc", [ConnectionError("refused"), TimeoutError("timed out")])
+    def test_network_error_raises_connection_failed(self, exc):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.generate.side_effect = exc
             with pytest.raises(DocpipeException) as exc_info:
-                client.run(prompt="Test")
+                client.run(prompt="test")
+        assert exc_info.value.error_code == ErrorCode.OLLAMA_CONNECTION_FAILED
 
-            assert exc_info.value.error_code == ErrorCode.OLLAMA_CONNECTION_FAILED
+    def test_value_error_raises_docpipe_exception(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.generate.side_effect = ValueError("bad model")
+            with pytest.raises(DocpipeException) as exc_info:
+                client.run(prompt="test")
+        assert exc_info.value.error_code == ErrorCode.OLLAMA_MODEL_NOT_FOUND
 
-    def test_run_generic_exception(self):
-        """Test run with generic exception."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.generate.side_effect = RuntimeError("Unexpected error")
-            mock_client_class.return_value = mock_client
-
-            client = OllamaClient(validate_model=False)
-
+    def test_generic_exception_is_reraised(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.generate.side_effect = RuntimeError("unexpected failure")
             with pytest.raises(RuntimeError):
-                client.run(prompt="Test")
+                client.run(prompt="test")
 
 
-class TestOllamaClientEdgeCases:
-    """Test edge cases and error handling."""
+# ---------------------------------------------------------------------------
+# run — CHAT mode
+# ---------------------------------------------------------------------------
 
-    def test_validate_model_empty_model_list(self):
-        """Test validation with empty model list."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_response = Mock()
-            mock_response.models = []
-            mock_client.list.return_value = mock_response
-            mock_client_class.return_value = mock_client
 
+class TestRunChat:
+    def _client(self, system_prompt: str | None = None) -> OllamaClient:
+        return _make_client(mode=InteractionMode.CHAT, system_prompt=system_prompt)
+
+    def test_returns_content_from_chat_response_object(self):
+        client = self._client()
+        mock_resp = MagicMock(spec=[])
+        msg = MagicMock(spec=[])
+        msg.content = "chat answer"
+        mock_resp.message = msg
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.chat.return_value = mock_resp
+            result = client.run(prompt="hello")
+        assert result == "chat answer"
+
+    def test_returns_content_from_dict_response(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.chat.return_value = {"message": {"content": "dict chat answer"}}
+            result = client.run(prompt="hello")
+        assert result == "dict chat answer"
+
+    def test_system_prompt_is_included_in_messages(self):
+        client = self._client(system_prompt="You are helpful.")
+        mock_resp = MagicMock()
+        mock_resp.message = MagicMock()
+        mock_resp.message.content = "ok"
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.chat.return_value = mock_resp
+            client.run(prompt="hello")
+            call_kwargs = mock_client.return_value.chat.call_args
+            messages = call_kwargs[1]["messages"]
+
+        system_msgs = [m for m in messages if m["role"] == "system"]
+        assert len(system_msgs) == 1
+        assert system_msgs[0]["content"] == "You are helpful."
+
+    def test_dict_message_content_is_extracted(self):
+        client = self._client()
+        mock_resp = MagicMock(spec=[])
+        mock_resp.message = {"content": "from dict message"}
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.chat.return_value = mock_resp
+            result = client.run(prompt="hello")
+        assert result == "from dict message"
+
+    def test_fallback_empty_string_for_unexpected_response(self):
+        client = self._client()
+        mock_resp = MagicMock(spec=[])  # no .message attribute
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.chat.return_value = mock_resp
+            result = client.run(prompt="hello")
+        assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# _parse_json_response
+# ---------------------------------------------------------------------------
+
+
+class TestParseJsonResponse:
+    def _client(self) -> OllamaClient:
+        return _make_client()
+
+    def test_returns_none_for_empty_string(self):
+        assert self._client()._parse_json_response("") is None
+
+    def test_returns_none_for_whitespace(self):
+        assert self._client()._parse_json_response("   ") is None
+
+    def test_direct_json_parse(self):
+        result = self._client()._parse_json_response('{"key": "value"}')
+        assert result == {"key": "value"}
+
+    def test_json_in_markdown_code_block(self):
+        raw = '```json\n{"detections": []}\n```'
+        result = self._client()._parse_json_response(raw)
+        assert result == {"detections": []}
+
+    def test_json_in_markdown_code_block_without_language_tag(self):
+        raw = '```\n{"detections": [1]}\n```'
+        result = self._client()._parse_json_response(raw)
+        assert result == {"detections": [1]}
+
+    def test_json_embedded_in_text(self):
+        raw = 'Here is your answer: {"items": [1, 2, 3]} done.'
+        result = self._client()._parse_json_response(raw)
+        assert result == {"items": [1, 2, 3]}
+
+    def test_json_array_wrapped_in_detections(self):
+        raw = '["foo", "bar"]'
+        result = self._client()._parse_json_response(raw)
+        assert result == ["foo", "bar"]
+
+    def test_returns_none_for_plain_text(self):
+        result = self._client()._parse_json_response("This is just plain text with no JSON.")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# run_json
+# ---------------------------------------------------------------------------
+
+
+class TestRunJson:
+    def _client(self) -> OllamaClient:
+        return _make_client()
+
+    def test_returns_parsed_dict_on_first_attempt(self):
+        client = self._client()
+        with patch.object(client, "run", return_value='{"detections": []}'):
+            result = client.run_json(prompt="detect entities")
+        assert result == {"detections": []}
+
+    def test_retries_and_succeeds_on_second_attempt(self):
+        client = self._client()
+        calls = iter(["not json", '{"ok": true}'])
+        with patch.object(client, "run", side_effect=calls):
+            result = client.run_json(prompt="test", retries=2)
+        assert result == {"ok": True}
+
+    def test_raises_json_decode_error_after_all_retries(self):
+        client = self._client()
+        with patch.object(client, "run", return_value="still not json"):
+            with pytest.raises(json.JSONDecodeError):
+                client.run_json(prompt="test", retries=3)
+
+    def test_emphasis_added_after_first_failure(self):
+        client = self._client()
+        prompts_seen: list[str] = []
+
+        def capture_run(*, prompt: str) -> str:
+            prompts_seen.append(prompt)
+            return "not json"
+
+        with patch.object(client, "run", side_effect=capture_run):
+            with pytest.raises(json.JSONDecodeError):
+                client.run_json(prompt="base prompt", retries=3)
+
+        # After first failure, subsequent prompts should contain the emphasis
+        assert "IMPORTANT" in prompts_seen[1]
+        # Emphasis is added only once
+        assert prompts_seen[1] == prompts_seen[2]
+
+
+# ---------------------------------------------------------------------------
+# generate_embeddings
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateEmbeddings:
+    def _client(self) -> OllamaClient:
+        return _make_client()
+
+    def test_returns_embedding_from_response_object(self):
+        client = self._client()
+        mock_resp = MagicMock(spec=[])
+        mock_resp.embedding = [0.1, 0.2, 0.3]
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.embeddings.return_value = mock_resp
+            result = client.generate_embeddings("hello")
+        assert result == [0.1, 0.2, 0.3]
+
+    def test_returns_embedding_from_dict_response(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.embeddings.return_value = {"embedding": [0.4, 0.5]}
+            result = client.generate_embeddings("hello")
+        assert result == [0.4, 0.5]
+
+    @pytest.mark.parametrize("bad_input", ["", None])
+    def test_raises_configuration_error_for_invalid_text(self, bad_input):
+        client = self._client()
+        with pytest.raises(ConfigurationError):
+            client.generate_embeddings(bad_input)  # type: ignore[arg-type]
+
+    def test_raises_docpipe_exception_for_unexpected_response_type(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.embeddings.return_value = 42  # unexpected
             with pytest.raises(DocpipeException) as exc_info:
-                OllamaClient(model_name="granite4", validate_model=True)
+                client.generate_embeddings("text")
+        assert exc_info.value.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
 
-            assert "not available" in str(exc_info.value)
+    def test_raises_docpipe_exception_for_empty_embedding(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.embeddings.return_value = {"embedding": []}
+            with pytest.raises(DocpipeException) as exc_info:
+                client.generate_embeddings("text")
+        assert exc_info.value.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
 
-    def test_validate_model_unexpected_response(self):
-        """Test validation with unexpected response format."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            # Return unexpected format that will cause exception in validation
-            mock_client.list.side_effect = Exception("Unexpected error")
-            mock_client_class.return_value = mock_client
+    def test_connection_error_raises_docpipe_exception(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.embeddings.side_effect = ConnectionError("refused")
+            with pytest.raises(DocpipeException) as exc_info:
+                client.generate_embeddings("text")
+        assert exc_info.value.error_code == ErrorCode.OLLAMA_CONNECTION_FAILED
 
-            # Should not raise during init, just log warning
-            # The _validate_model catches generic exceptions and logs them
-            client = OllamaClient(model_name="granite4", validate_model=True)
-            assert client.model_name == "granite4"
+    def test_value_error_raises_docpipe_exception(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.embeddings.side_effect = ValueError("bad")
+            with pytest.raises(DocpipeException) as exc_info:
+                client.generate_embeddings("text")
+        assert exc_info.value.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
 
-    def test_run_none_response_content(self):
-        """Test run when response content is None."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_response = Mock()
-            mock_response.response = None
-            mock_client.generate.return_value = mock_response
-            mock_client_class.return_value = mock_client
+    def test_unexpected_exception_wrapped_in_docpipe_exception(self):
+        client = self._client()
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.embeddings.side_effect = RuntimeError("unexpected failure")
+            with pytest.raises(DocpipeException) as exc_info:
+                client.generate_embeddings("text")
+        assert exc_info.value.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
 
-            client = OllamaClient(validate_model=False)
-            result = client.run(prompt="Test")
 
-            assert result == ""
+# ---------------------------------------------------------------------------
+# _generate_single_embedding
+# ---------------------------------------------------------------------------
 
-    def test_run_chat_none_content(self):
-        """Test run in CHAT mode when content is None."""
-        with patch("ollama.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_message = Mock()
-            mock_message.content = None
-            mock_response = Mock()
-            mock_response.message = mock_message
-            mock_client.chat.return_value = mock_response
-            mock_client_class.return_value = mock_client
 
-            client = OllamaClient(mode=InteractionMode.CHAT, validate_model=False)
-            result = client.run(prompt="Test")
+class TestGenerateSingleEmbedding:
+    def _client(self) -> OllamaClient:
+        return _make_client()
 
-            assert result == ""
+    def test_returns_index_and_embedding_from_response_object(self):
+        client = self._client()
+        mock_resp = MagicMock(spec=[])
+        mock_resp.embedding = [1.0, 2.0]
+        mock_client = MagicMock()
+        mock_client.embeddings.return_value = mock_resp
+
+        idx, emb = client._generate_single_embedding(client=mock_client, index=3, text="hi")
+        assert idx == 3
+        assert emb == [1.0, 2.0]
+
+    def test_returns_index_and_embedding_from_dict(self):
+        client = self._client()
+        mock_client = MagicMock()
+        mock_client.embeddings.return_value = {"embedding": [0.9]}
+
+        idx, emb = client._generate_single_embedding(client=mock_client, index=0, text="hi")
+        assert idx == 0
+        assert emb == [0.9]
+
+    def test_raises_for_unexpected_response_type(self):
+        client = self._client()
+        mock_client = MagicMock()
+        mock_client.embeddings.return_value = "string response"
+
+        with pytest.raises(DocpipeException) as exc_info:
+            client._generate_single_embedding(client=mock_client, index=0, text="hi")
+        assert exc_info.value.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
+
+    def test_raises_for_empty_embedding(self):
+        client = self._client()
+        mock_client = MagicMock()
+        mock_client.embeddings.return_value = {"embedding": []}
+
+        with pytest.raises(DocpipeException) as exc_info:
+            client._generate_single_embedding(client=mock_client, index=0, text="hi")
+        assert exc_info.value.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
+
+
+# ---------------------------------------------------------------------------
+# generate_embeddings_batch
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateEmbeddingsBatch:
+    def _client(self) -> OllamaClient:
+        return _make_client()
+
+    def test_returns_list_of_embeddings(self):
+        client = self._client()
+        embeddings = [[0.1, 0.2], [0.3, 0.4]]
+
+        def fake_single(*, client, index, text):
+            return index, embeddings[index]
+
+        with patch("ollama.Client"):
+            with patch.object(client, "_generate_single_embedding", side_effect=fake_single):
+                result = client.generate_embeddings_batch(["text0", "text1"])
+
+        assert result == embeddings
+
+    def test_raises_configuration_error_for_empty_list(self):
+        client = self._client()
+        with pytest.raises(ConfigurationError):
+            client.generate_embeddings_batch([])
+
+    def test_raises_configuration_error_for_non_list(self):
+        client = self._client()
+        with pytest.raises(ConfigurationError):
+            client.generate_embeddings_batch("not a list")  # type: ignore[arg-type]
+
+    def test_raises_configuration_error_for_empty_strings_in_list(self):
+        client = self._client()
+        with pytest.raises(ConfigurationError):
+            client.generate_embeddings_batch(["valid", ""])
+
+    def test_connection_error_from_client_construction_propagates(self):
+        client = self._client()
+        import sys
+
+        mock_ollama = sys.modules["ollama"]
+        original_client = mock_ollama.Client  # type: ignore[attr-defined]
+        try:
+            mock_ollama.Client = MagicMock(side_effect=ConnectionError("refused"))  # type: ignore[attr-defined]
+            with pytest.raises(ConnectionError):
+                client.generate_embeddings_batch(["text"])
+        finally:
+            mock_ollama.Client = original_client  # type: ignore[attr-defined]
+
+    def test_docpipe_exception_from_worker_is_reraised(self):
+        client = self._client()
+
+        def fail_single(*, client, index, text):
+            raise DocpipeException("embedding failed", error_code=ErrorCode.EXTERNAL_SERVICE_ERROR)
+
+        with patch("ollama.Client"):
+            with patch.object(client, "_generate_single_embedding", side_effect=fail_single):
+                with pytest.raises(DocpipeException) as exc_info:
+                    client.generate_embeddings_batch(["text"])
+        assert exc_info.value.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
+
+
+# ---------------------------------------------------------------------------
+# is_installed
+# ---------------------------------------------------------------------------
+
+
+class TestIsInstalled:
+    def test_returns_true_when_ollama_in_path_and_version_exits_zero(self):
+        with patch("shutil.which", return_value="/usr/bin/ollama"):
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            with patch("subprocess.run", return_value=mock_result):
+                assert OllamaClient.is_installed() is True
+
+    def test_returns_false_when_ollama_not_in_path(self):
+        with patch("shutil.which", return_value=None):
+            assert OllamaClient.is_installed() is False
+
+    def test_returns_false_when_version_command_returns_nonzero(self):
+        with patch("shutil.which", return_value="/usr/bin/ollama"):
+            mock_result = MagicMock()
+            mock_result.returncode = 1
+            with patch("subprocess.run", return_value=mock_result):
+                assert OllamaClient.is_installed() is False
+
+    def test_returns_false_on_subprocess_exception(self):
+        with patch("shutil.which", return_value="/usr/bin/ollama"):
+            with patch("subprocess.run", side_effect=Exception("error")):
+                assert OllamaClient.is_installed() is False
+
+
+# ---------------------------------------------------------------------------
+# is_server_running
+# ---------------------------------------------------------------------------
+
+
+class TestIsServerRunning:
+    def test_returns_true_when_list_succeeds(self):
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = MagicMock()
+            assert OllamaClient.is_server_running() is True
+
+    def test_returns_false_when_exception_raised(self):
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.side_effect = ConnectionError("refused")
+            assert OllamaClient.is_server_running() is False
+
+    def test_uses_provided_host(self):
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = MagicMock()
+            OllamaClient.is_server_running(host="http://custom:11434")
+            mock_client.assert_called_once_with(host="http://custom:11434", trust_env=False)
+
+    def test_uses_default_host_when_none(self):
+        from docpipe.core.constants.constants import ServiceConstants
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = MagicMock()
+            OllamaClient.is_server_running(host=None)
+            mock_client.assert_called_once_with(host=ServiceConstants.DEFAULT_OLLAMA_HOST, trust_env=False)
+
+
+# ---------------------------------------------------------------------------
+# is_model_available
+# ---------------------------------------------------------------------------
+
+
+class TestIsModelAvailable:
+    def test_returns_true_when_model_in_list_as_object(self):
+        mock_model = MagicMock()
+        mock_model.model = "llama3"
+        mock_models_resp = MagicMock()
+        mock_models_resp.models = [mock_model]
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = mock_models_resp
+            assert OllamaClient.is_model_available("llama3") is True
+
+    def test_returns_true_when_model_in_list_as_dict(self):
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = {"models": [{"name": "llama3"}]}
+            # dict format: uses "name" key
+            assert OllamaClient.is_model_available("llama3") is True
+
+    def test_returns_false_when_model_not_in_list(self):
+        mock_model = MagicMock()
+        mock_model.model = "llama2"
+        mock_models_resp = MagicMock()
+        mock_models_resp.models = [mock_model]
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = mock_models_resp
+            assert OllamaClient.is_model_available("granite4") is False
+
+    def test_returns_false_on_exception(self):
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.side_effect = Exception("error")
+            assert OllamaClient.is_model_available("llama3") is False
+
+    @pytest.mark.parametrize(
+        ("server_name", "query_name"),
+        [
+            ("llama3:latest", "llama3"),
+            ("llama3.2:latest", "llama3.2"),
+            ("granite4:latest", "granite4"),
+        ],
+    )
+    def test_returns_true_for_versioned_model_tag(self, server_name, query_name):
+        mock_model = MagicMock()
+        mock_model.model = server_name
+        mock_models_resp = MagicMock()
+        mock_models_resp.models = [mock_model]
+
+        with patch("ollama.Client") as mock_client:
+            mock_client.return_value.list.return_value = mock_models_resp
+            assert OllamaClient.is_model_available(query_name) is True
+
+
+# ---------------------------------------------------------------------------
+# get_model_token_limit
+# ---------------------------------------------------------------------------
+
+
+class TestGetModelTokenLimit:
+    def test_known_model_returns_correct_limit(self):
+        assert OllamaClient.get_model_token_limit("llama3") == 8192
+        assert OllamaClient.get_model_token_limit("granite4") == 131072
+
+    def test_unknown_model_returns_default(self):
+        assert OllamaClient.get_model_token_limit("unknown-model") == DEFAULT_TOKEN_LIMIT
+
+    def test_model_with_tag_uses_base_name(self):
+        # "llama3:latest" → base "llama3" → 8192
+        assert OllamaClient.get_model_token_limit("llama3:latest") == 8192
+
+    def test_all_known_models_have_entries(self):
+        for model_name, expected_limit in OLLAMA_MODEL_TOKEN_LIMITS.items():
+            if ":" not in model_name:
+                assert OllamaClient.get_model_token_limit(model_name) == expected_limit
+
+
+# ---------------------------------------------------------------------------
+# get_embedding_dimension
+# ---------------------------------------------------------------------------
+
+
+class TestGetEmbeddingDimension:
+    def test_always_returns_zero(self):
+        assert OllamaClient.get_embedding_dimension("granite4") == 0
+        assert OllamaClient.get_embedding_dimension("llama3") == 0
+        assert OllamaClient.get_embedding_dimension("unknown") == 0
+
+
+# ---------------------------------------------------------------------------
+# generate (delegates to run)
+# ---------------------------------------------------------------------------
+
+
+class TestGenerate:
+    def test_delegates_to_run(self):
+        client = _make_client()
+        with patch.object(client, "run", return_value="generated text") as mock_run:
+            result = client.generate("my prompt")
+        mock_run.assert_called_once_with(prompt="my prompt")
+        assert result == "generated text"
+
+
+# ---------------------------------------------------------------------------
+# chat method
+# ---------------------------------------------------------------------------
+
+
+class TestChatMethod:
+    def test_switches_mode_to_chat_and_restores(self):
+        client = _make_client(mode=InteractionMode.GENERATE)
+
+        with patch.object(client, "run", return_value="chat reply"):
+            result = client.chat([{"role": "user", "content": "hello"}])
+
+        assert result == "chat reply"
+        # Mode should be restored after the call
+        assert client.mode == InteractionMode.GENERATE
+
+    def test_system_messages_are_skipped(self):
+        client = _make_client()
+        captured_prompts: list[str] = []
+
+        def capture_run(*, prompt: str) -> str:
+            captured_prompts.append(prompt)
+            return "ok"
+
+        with patch.object(client, "run", side_effect=capture_run):
+            client.chat(
+                [
+                    {"role": "system", "content": "be helpful"},
+                    {"role": "user", "content": "tell me something"},
+                ]
+            )
+
+        assert captured_prompts[0] == "tell me something"
+
+    def test_multiple_user_messages_joined(self):
+        client = _make_client()
+        captured_prompts: list[str] = []
+
+        def capture_run(*, prompt: str) -> str:
+            captured_prompts.append(prompt)
+            return "ok"
+
+        with patch.object(client, "run", side_effect=capture_run):
+            client.chat(
+                [
+                    {"role": "user", "content": "part1"},
+                    {"role": "user", "content": "part2"},
+                ]
+            )
+
+        assert captured_prompts[0] == "part1\npart2"
+
+    def test_mode_restored_even_on_exception(self):
+        client = _make_client(mode=InteractionMode.GENERATE)
+
+        with patch.object(client, "run", side_effect=RuntimeError("unexpected failure")):
+            with pytest.raises(RuntimeError):
+                client.chat([{"role": "user", "content": "hi"}])
+
+        assert client.mode == InteractionMode.GENERATE
+
+
+# ---------------------------------------------------------------------------
+# _ensure_server_running
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureServerRunning:
+    def test_returns_true_when_server_already_running(self):
+        with patch.object(OllamaClient, "is_server_running", return_value=True):
+            ok, msg = OllamaClient._ensure_server_running(auto_start=False)
+        assert ok is True
+        assert msg == ""
+
+    def test_returns_false_when_not_running_and_auto_start_disabled(self):
+        with patch.object(OllamaClient, "is_server_running", return_value=False):
+            ok, msg = OllamaClient._ensure_server_running(auto_start=False)
+        assert ok is False
+        assert "not running" in msg
+
+    def test_auto_starts_server_when_not_running(self):
+        with patch.object(OllamaClient, "is_server_running", return_value=False):
+            with patch.object(OllamaClient, "start_server", return_value=True):
+                ok, msg = OllamaClient._ensure_server_running(auto_start=True)
+        assert ok is True
+        assert msg == ""
+
+    def test_returns_false_when_auto_start_fails(self):
+        with patch.object(OllamaClient, "is_server_running", return_value=False):
+            with patch.object(OllamaClient, "start_server", return_value=False):
+                ok, msg = OllamaClient._ensure_server_running(auto_start=True)
+        assert ok is False
+        assert "Failed" in msg
+
+
+# ---------------------------------------------------------------------------
+# _ensure_model_available
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureModelAvailable:
+    def test_returns_true_when_model_already_available(self):
+        with patch.object(OllamaClient, "is_model_available", return_value=True):
+            ok, _msg = OllamaClient._ensure_model_available("llama3", auto_pull=False)
+        assert ok is True
+
+    def test_returns_false_when_model_unavailable_and_auto_pull_disabled(self):
+        with patch.object(OllamaClient, "is_model_available", return_value=False):
+            ok, msg = OllamaClient._ensure_model_available("llama3", auto_pull=False)
+        assert ok is False
+        assert "llama3" in msg
+
+    def test_auto_pulls_when_model_unavailable(self):
+        with patch.object(OllamaClient, "is_model_available", return_value=False):
+            with patch.object(OllamaClient, "pull_model", return_value=True):
+                ok, _msg = OllamaClient._ensure_model_available("llama3", auto_pull=True)
+        assert ok is True
+
+    def test_returns_false_when_auto_pull_fails(self):
+        with patch.object(OllamaClient, "is_model_available", return_value=False):
+            with patch.object(OllamaClient, "pull_model", return_value=False):
+                ok, msg = OllamaClient._ensure_model_available("llama3", auto_pull=True)
+        assert ok is False
+        assert "Failed" in msg
+
+
+# ---------------------------------------------------------------------------
+# ensure_ready
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureReady:
+    def test_returns_false_when_not_installed(self):
+        with patch.object(OllamaClient, "is_installed", return_value=False):
+            ok, msg = OllamaClient.ensure_ready("llama3")
+        assert ok is False
+        assert "not installed" in msg.lower()
+
+    def test_returns_false_when_server_not_ready(self):
+        with patch.object(OllamaClient, "is_installed", return_value=True):
+            with patch.object(OllamaClient, "_ensure_server_running", return_value=(False, "server error")):
+                ok, msg = OllamaClient.ensure_ready("llama3", auto_start=False)
+        assert ok is False
+        assert msg == "server error"
+
+    def test_returns_false_when_model_not_available(self):
+        with patch.object(OllamaClient, "is_installed", return_value=True):
+            with patch.object(OllamaClient, "_ensure_server_running", return_value=(True, "")):
+                with patch.object(OllamaClient, "_ensure_model_available", return_value=(False, "model error")):
+                    ok, msg = OllamaClient.ensure_ready("llama3", auto_pull=False)
+        assert ok is False
+        assert msg == "model error"
+
+    def test_returns_true_when_everything_ready(self):
+        with patch.object(OllamaClient, "is_installed", return_value=True):
+            with patch.object(OllamaClient, "_ensure_server_running", return_value=(True, "")):
+                with patch.object(OllamaClient, "_ensure_model_available", return_value=(True, "")):
+                    ok, msg = OllamaClient.ensure_ready("llama3")
+        assert ok is True
+        assert "llama3" in msg

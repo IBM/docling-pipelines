@@ -1,0 +1,20 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.pageContainer {
+  padding: $spacing-07;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: calc(100vh - $spacing-09 - $spacing-10); // viewport height minus header and breadcrumb
+}
+
+// Full-bleed variant — strips Carbon Content default padding so child zones control their own layout.
+// !important needed because Carbon's .cds--content sets padding with higher specificity.
+.fullBleed {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  // height: 100% ensures children using flex:1 stretch to fill .pageContent
+  // (min-height alone doesn't establish a containing block for percentage heights)
+  height: 100%;
+}

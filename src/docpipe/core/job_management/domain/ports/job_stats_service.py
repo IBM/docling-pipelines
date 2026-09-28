@@ -42,12 +42,12 @@ class JobStatsService(ABC):
         flow_name: str,
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        initial_status: ExecutionStatus = ExecutionStatus.RUNNING,
     ) -> "JobStats":
         """
         Start tracking a new job run with initial statistics.
 
         Called by orchestrator when job execution begins.
-        Creates initial JobStats with status=PENDING.
 
         Args:
             job_id: Unique job identifier
@@ -55,9 +55,13 @@ class JobStatsService(ABC):
             flow_name: Name of the flow being executed
             user_id: Optional user identifier
             metadata: Optional metadata dictionary
+            initial_status: Initial status for the job stats record.
+                Defaults to ExecutionStatus.RUNNING for backward compatibility.
+                Pass ExecutionStatus.QUEUED when called from the HTTP thread
+                before the background thread has started.
 
         Returns:
-            JobStats with initial state (status=PENDING)
+            JobStats with the given initial_status
 
         Raises:
             JobRunAlreadyExistsException: If job_run_id already exists
@@ -641,5 +645,22 @@ class JobStatsService(ABC):
 
         Returns:
             True if partial batch failure detected, False otherwise
+        """
+        ...
+
+    @abstractmethod
+    def get_failed_doc_ids_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """
+        Collect failed document IDs scoped to a single batch.
+
+        Queries only the node stats rows for the given batch_id, avoiding
+        O(N²) growth where N is the number of completed batches.
+
+        Args:
+            job_run_id: Job run identifier
+            batch_id: Batch identifier to scope the query
+
+        Returns:
+            List of failed document IDs for that batch (may be empty)
         """
         ...

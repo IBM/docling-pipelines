@@ -80,6 +80,33 @@ def generate_job_id_from_flow_name(*, flow_name: str) -> str:
     return job_id
 
 
+def _enrich_exception_from_job_stats(*, exception: Exception, job_run_id: str) -> None:
+    """Attach per-node error detail from the job stats store to the exception.
+
+    Prefect serialises exceptions across task boundaries, which drops the
+    __cause__ chain and loses the operator-level failure message.  The job
+    stats store records the real error string in NodeStats.error before that
+    boundary is crossed, so we read it back here and attach it as
+    a ``node_failures`` attribute so the CLI summary box can display it.
+    """
+    try:
+        from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
+
+        factory = get_default_factory()
+        store = factory.create_job_stats_store()
+        node_stats_list = store.get_node_stats(job_run_id=job_run_id)
+
+        failed_nodes = [ns for ns in (node_stats_list or []) if getattr(ns, "node_status", None) == "Failed"]
+        if not failed_nodes:
+            return
+
+        node_failures = {ns.name: ns.error for ns in failed_nodes if getattr(ns, "error", None)}
+        if node_failures:
+            exception.node_failures = node_failures  # type: ignore[attr-defined]
+    except Exception:  # nosec B110 — best-effort enrichment, never block the raise
+        pass
+
+
 def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = None) -> None:
     """Run command line executor."""
     from docpipe.core.constants.constants import DocpipeConstants
@@ -124,7 +151,11 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
     )
 
     session_info: SessionInfo = create_session_info(
-        cli_mode=True, job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
+        cli_mode=True,
+        job_id=job_id,
+        job_run_id=job_run_id,
+        orchestrator=orchestrator,
+        flow_id=flow_def.get(DocpipeConstants.FLOW_ID, job_id),
     )
     set_session_info(session_info)
 
@@ -134,8 +165,15 @@ def run_command_line_executor(flow_def: dict, original_flow_json: dict | None = 
     orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
     logger.info(">>> Starting flow execution")
-    executor.execute(orchestrator=orchestrator, params=params)
-    telemetry.shutdown()
+    try:
+        executor.execute(orchestrator=orchestrator, params=params)
+    except Exception as exc:
+        # Attempt to enrich the exception message with per-node error detail
+        # stored in the job stats before Prefect's task boundary erased it.
+        _enrich_exception_from_job_stats(exception=exc, job_run_id=job_run_id)
+        raise
+    finally:
+        telemetry.shutdown()
     logger.info(">>> Completed flow execution")
 
 
@@ -188,6 +226,7 @@ def validate_flow_definition(flow_file: str) -> bool:
     Returns:
         True if validation succeeds, False otherwise
     """
+    from docpipe.core.constants.constants import DocpipeConstants
     from docpipe.core.models.session_info import create_session_info
     from docpipe.core.orchestration.flow_validator import FlowValidator
     from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
@@ -211,7 +250,7 @@ def validate_flow_definition(flow_file: str) -> bool:
             job_id=validation_job_id,
             job_run_id=validation_job_run_id,
             orchestrator=orchestrator,
-            flow_id="validation_flow",
+            flow_id=flow_def.get(DocpipeConstants.FLOW_ID, validation_job_id),
         )
 
         orchestrator.initialize(job_id=validation_job_id, job_run_id=validation_job_run_id)
@@ -257,6 +296,126 @@ def validate_flow_definition(flow_file: str) -> bool:
     except Exception:
         logger.exception("Validation failed with unexpected error")
         return False
+
+
+def _handle_subcommands(*, args: argparse.Namespace, parser: argparse.ArgumentParser) -> bool:
+    """Handle subcommands and fast-exit flags. Returns True if the caller should return immediately."""
+    if args.command == "validate-flow":
+        success = validate_flow_definition(flow_file=args.flow_file)
+        sys.exit(0 if success else 1)
+
+    if args.command == "list-global-config":
+        from docpipe.utils.global_config.display import list_global_config
+
+        print(list_global_config(category=args.category, verbose=args.verbose))
+        return True
+
+    if args.list_operators:
+        from docpipe.utils.operators.display import list_operators
+
+        print(
+            list_operators(
+                verbose=args.verbose,
+                summary_only=not args.verbose,  # Default: summary table, Verbose: detailed view
+            )
+        )
+        return True
+
+    if args.list_global_config:
+        from docpipe.utils.global_config.display import list_global_config
+
+        print(list_global_config(verbose=args.verbose, category=args.category))
+        return True
+
+    if not args.flow_file:
+        parser.error("--flow-file is required unless using a subcommand or --list-operators or --list-global-config")
+
+    if args.validate:
+        success = validate_flow_definition(flow_file=args.flow_file)
+        sys.exit(0 if success else 1)
+
+    return False
+
+
+def _load_flow_or_exit(*, flow_file: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load and compile the flow definition, or exit with code 1 on any error."""
+    from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
+
+    logger.info("Loading flow definition from %s", flow_file)
+    try:
+        return load_flow_definition(file_path=flow_file)
+    except FileNotFoundError:
+        cwd = Path.cwd()
+        abs_path = Path(flow_file).resolve()
+        logger.error("Flow definition file not found")
+        logger.error("  Searched for: %s", abs_path)
+        logger.error("  Current directory: %s", cwd)
+        logger.error("Suggestions:")
+        logger.error("  - Check if the file path is correct")
+        logger.error("  - Verify the file exists in the specified location")
+        logger.error("  - Use absolute path or path relative to: %s", cwd)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        logger.error("Invalid JSON in flow definition file")
+        logger.error("  File: %s", flow_file)
+        logger.error("  Line %d, Column %d: %s", e.lineno, e.colno, e.msg)
+        logger.error("Suggestions:")
+        logger.error("  - Validate JSON syntax using: python -m json.tool %s", flow_file)
+        logger.error("  - Check for missing commas, brackets, or quotes")
+        logger.error("  - Use a JSON validator: https://jsonlint.com/")
+        sys.exit(1)
+    except FlowInvalidDataException as e:
+        logger.error("Flow validation failed")
+        logger.error("  File: %s", flow_file)
+        logger.error("%s", str(e))
+        logger.error("Suggestions:")
+        logger.error("  - Review the authoring format documentation")
+        logger.error("  - Check operator names and dependencies")
+        logger.error("  - Ensure all required fields are present")
+        logger.error("  - Verify operator types are valid")
+        sys.exit(1)
+    except KeyError as e:
+        logger.error("Missing required field in flow")
+        logger.error("  File: %s", flow_file)
+        logger.error("  Missing field: %s", str(e))
+        logger.error("Suggestions:")
+        logger.error("  - Ensure 'flow_name' field is present")
+        logger.error("  - Ensure 'flow' array is present with operators")
+        logger.error("  - Check that all operators have required fields (type, name)")
+        sys.exit(1)
+    except Exception as e:
+        logger.error("Failed to compile flow")
+        logger.error("  File: %s", flow_file)
+        logger.error("  Error: %s", str(e))
+        logger.exception("Compilation error details:")
+        sys.exit(1)
+
+
+def _execute_flow_or_exit(*, flow_def: dict[str, Any], original_flow_json: dict[str, Any]) -> None:
+    """Execute the flow, formatting any exception and exiting with code 1 on failure."""
+    try:
+        run_command_line_executor(flow_def=flow_def, original_flow_json=original_flow_json)
+        logger.info("Execution completed")
+    except Exception as e:
+        from docpipe.exceptions.docpipe_exceptions import DocpipeException, FlowValidationException
+        from docpipe.utils.infrastructure.error_formatter import (
+            format_docpipe_exception,
+            format_generic_exception,
+            format_validation_exception,
+        )
+
+        if isinstance(e, DocpipeException):
+            flow_name = flow_def.get("name")
+            if isinstance(e, FlowValidationException) and flow_name:
+                formatted_error = format_validation_exception(exception=e, flow_name=flow_name)
+            else:
+                formatted_error = format_docpipe_exception(exception=e)
+            logger.error(formatted_error)
+        else:
+            formatted_error = format_generic_exception(exception=e)
+            logger.error(formatted_error)
+            logger.debug("Full stack trace:", exc_info=True)
+        sys.exit(1)
 
 
 def main() -> None:  # pragma: no cover
@@ -364,149 +523,16 @@ Examples:
     global logger
     logger = get_logger()
 
-    # -------------------------
-    # subcommand: validate-flow
-    # -------------------------
-    if args.command == "validate-flow":
-        success = validate_flow_definition(flow_file=args.flow_file)
-        sys.exit(0 if success else 1)
-
-    # -------------------------
-    # subcommand: list-global-config
-    # -------------------------
-    if args.command == "list-global-config":
-        from docpipe.utils.global_config.display import list_global_config
-
-        print(list_global_config(category=args.category, verbose=args.verbose))
+    if _handle_subcommands(args=args, parser=parser):
         return
 
-    # -------------------------
-    # list operators (fast exit path)
-    # -------------------------
-    if args.list_operators:
-        from docpipe.utils.operators.display import list_operators
-
-        print(
-            list_operators(
-                verbose=args.verbose,
-                summary_only=not args.verbose,  # Default: summary table, Verbose: detailed view
-            )
-        )
-        return
-
-    # -------------------------
-    # list global config (fast exit path)
-    # -------------------------
-    if args.list_global_config:
-        from docpipe.utils.global_config.display import list_global_config
-
-        print(
-            list_global_config(
-                verbose=args.verbose,
-                category=args.category,
-            )
-        )
-        return
-
-    # -------------------------
-    # validation or execution requires flow file
-    # -------------------------
-    if not args.flow_file:
-        parser.error("--flow-file is required unless using a subcommand or --list-operators or --list-global-config")
-
-    # -------------------------
-    # validation mode
-    # -------------------------
-    if args.validate:
-        success = validate_flow_definition(flow_file=args.flow_file)
-        sys.exit(0 if success else 1)
-
-    # -------------------------
-    # execution mode
-    # -------------------------
-    from docpipe.exceptions.docpipe_exceptions import FlowInvalidDataException
-
-    logger.info("Loading flow definition from %s", args.flow_file)
-
-    try:
-        original_flow_json, flow_def = load_flow_definition(file_path=args.flow_file)
-    except FileNotFoundError:
-        cwd = Path.cwd()
-        abs_path = Path(args.flow_file).resolve()
-        logger.error("Flow definition file not found")
-        logger.error("  Searched for: %s", abs_path)
-        logger.error("  Current directory: %s", cwd)
-        logger.error("Suggestions:")
-        logger.error("  - Check if the file path is correct")
-        logger.error("  - Verify the file exists in the specified location")
-        logger.error("  - Use absolute path or path relative to: %s", cwd)
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error("Invalid JSON in flow definition file")
-        logger.error("  File: %s", args.flow_file)
-        logger.error("  Line %d, Column %d: %s", e.lineno, e.colno, e.msg)
-        logger.error("Suggestions:")
-        logger.error("  - Validate JSON syntax using: python -m json.tool %s", args.flow_file)
-        logger.error("  - Check for missing commas, brackets, or quotes")
-        logger.error("  - Use a JSON validator: https://jsonlint.com/")
-        sys.exit(1)
-    except FlowInvalidDataException as e:
-        logger.error("Flow validation failed")
-        logger.error("  File: %s", args.flow_file)
-        logger.error("%s", str(e))
-        logger.error("Suggestions:")
-        logger.error("  - Review the authoring format documentation")
-        logger.error("  - Check operator names and dependencies")
-        logger.error("  - Ensure all required fields are present")
-        logger.error("  - Verify operator types are valid")
-        sys.exit(1)
-    except KeyError as e:
-        logger.error("Missing required field in flow")
-        logger.error("  File: %s", args.flow_file)
-        logger.error("  Missing field: %s", str(e))
-        logger.error("Suggestions:")
-        logger.error("  - Ensure 'flow_name' field is present")
-        logger.error("  - Ensure 'flow' array is present with operators")
-        logger.error("  - Check that all operators have required fields (type, name)")
-        sys.exit(1)
-    except Exception as e:
-        logger.error("Failed to compile flow")
-        logger.error("  File: %s", args.flow_file)
-        logger.error("  Error: %s", str(e))
-        logger.exception("Compilation error details:")
-        sys.exit(1)
+    original_flow_json, flow_def = _load_flow_or_exit(flow_file=args.flow_file)
 
     logger.info("Loaded flow definition from %s", args.flow_file)
     logger.info("Flow name: %s", flow_def.get("name", "Unnamed flow"))
     logger.info("Number of operators: %d", len(flow_def.get("dag", [])))
 
-    try:
-        run_command_line_executor(flow_def=flow_def, original_flow_json=original_flow_json)
-        logger.info("Execution completed")
-    except Exception as e:
-        from docpipe.exceptions.docpipe_exceptions import DocpipeException, FlowValidationException
-        from docpipe.utils.infrastructure.error_formatter import (
-            format_docpipe_exception,
-            format_generic_exception,
-            format_validation_exception,
-        )
-
-        # Format DocpipeException types with user-friendly display
-        if isinstance(e, DocpipeException):
-            flow_name = flow_def.get("name")
-            # Special handling for validation exceptions to include flow name
-            if isinstance(e, FlowValidationException) and flow_name:
-                formatted_error = format_validation_exception(exception=e, flow_name=flow_name)
-            else:
-                formatted_error = format_docpipe_exception(exception=e)
-            logger.error(formatted_error)
-        else:
-            # For non-Docpipe exceptions, format with card-based display
-            formatted_error = format_generic_exception(exception=e)
-            logger.error(formatted_error)
-            # Log full stack trace at debug level
-            logger.debug("Full stack trace:", exc_info=True)
-        sys.exit(1)
+    _execute_flow_or_exit(flow_def=flow_def, original_flow_json=original_flow_json)
 
 
 if __name__ == "__main__":  # pragma: no cover

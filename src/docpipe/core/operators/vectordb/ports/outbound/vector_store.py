@@ -183,3 +183,19 @@ class VectorStorePort(ABC):
             store for that document. Doc IDs with no indexed chunks are omitted.
         """
         ...
+
+    @abstractmethod
+    def generate_chunk_pk(self, *, file_id: str, chunk_index: int, chunk_content: str) -> str:
+        """Generate a stable primary key for a chunk of this document.
+
+        Adapters choose the strategy: positional (OpenSearch) or content-hash (Milvus).
+
+        Args:
+            file_id: The file identifier (e.g. file path from the id column).
+            chunk_index: Zero-based position of the chunk within the document.
+            chunk_content: The text content of the chunk.
+
+        Returns:
+            A stable string primary key for the chunk.
+        """
+        ...

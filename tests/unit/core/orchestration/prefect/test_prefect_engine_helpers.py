@@ -142,14 +142,14 @@ class TestCollectFailedDocIds:
 
     def test_no_job_stats_service_returns_empty(self):
         engine = self._make_engine(job_stats_service=None)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
     def test_no_job_stats_returns_empty(self):
         mock_service = Mock()
         mock_service.get_job.return_value = None
         engine = self._make_engine(job_stats_service=mock_service)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
     def test_job_stats_no_node_stats_returns_empty(self):
@@ -158,7 +158,7 @@ class TestCollectFailedDocIds:
         mock_job.node_stats = None
         mock_service.get_job.return_value = mock_job
         engine = self._make_engine(job_stats_service=mock_service)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
     def test_collects_failed_docs_from_object(self):
@@ -169,7 +169,7 @@ class TestCollectFailedDocIds:
         mock_job.node_stats = {"node-1": node_stat}
         mock_service.get_job.return_value = mock_job
         engine = self._make_engine(job_stats_service=mock_service)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert "doc1" in result
         assert "doc2" in result
 
@@ -180,7 +180,7 @@ class TestCollectFailedDocIds:
         mock_job.node_stats = {"node-1": node_stat}
         mock_service.get_job.return_value = mock_job
         engine = self._make_engine(job_stats_service=mock_service)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert "doc3" in result
         assert "doc4" in result
 
@@ -191,7 +191,7 @@ class TestCollectFailedDocIds:
         mock_job.node_stats = {"node-1": node_stat}
         mock_service.get_job.return_value = mock_job
         engine = self._make_engine(job_stats_service=mock_service)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
     def test_dict_node_stat_no_failed_docs_skipped(self):
@@ -201,7 +201,7 @@ class TestCollectFailedDocIds:
         mock_job.node_stats = {"node-1": node_stat}
         mock_service.get_job.return_value = mock_job
         engine = self._make_engine(job_stats_service=mock_service)
-        result = engine._collect_failed_doc_ids()
+        result = engine._collect_failed_doc_ids(batch_id=None)
         assert result == []
 
 

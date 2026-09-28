@@ -418,6 +418,25 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                 message=f"Failed to get node stats: {e}", job_run_id=job_run_id, operation="get_node_stats"
             ) from e
 
+    def get_failed_docs_for_batch(self, *, job_run_id: str, batch_id: str) -> list[str]:
+        """Retrieve failed document IDs for all nodes in a single batch."""
+        try:
+            all_records = self.get_node_stats(job_run_id=job_run_id)
+            failed_doc_ids: list[str] = []
+            for record in all_records:
+                if getattr(record, "batch_id", None) != batch_id:
+                    continue
+                failed_docs = getattr(record, "failed_docs", None)
+                if failed_docs:
+                    failed_doc_ids.extend(failed_docs)
+            return failed_doc_ids
+        except Exception as e:
+            raise JobStatsStoreReadException(
+                message=f"Failed to get failed docs for batch: {e}",
+                job_run_id=job_run_id,
+                operation="get_failed_docs_for_batch",
+            ) from e
+
     def get_batch_node_stats(self, *, job_run_id: str) -> dict[str, dict[str, NodeStats]]:
         """
         Retrieve batch-level node statistics for micro-batching.

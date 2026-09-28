@@ -1,0 +1,43 @@
+@use '@carbon/react/scss/spacing' as *;
+
+// Centres the NotFoundEmptyState (and any other inline empty state) within
+// the table container, matching the visual weight of the table rows above.
+.emptyStateWrapper {
+  display: flex;
+  justify-content: center;
+  padding: $spacing-09 $spacing-05;
+}
+
+// Horizontal scroll wrapper — contains only the <Table>, not the toolbar or pagination.
+// overflow-y: visible declared but browser computes it as auto (CSS spec:
+// overflow-y cannot be visible when overflow-x is auto). Vertical clipping
+// is handled by the containing .contentZone, not this element.
+.tableScrollX {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
+}
+
+// Applied to <Table> itself so it expands to its natural column widths.
+.scrollableTable {
+  min-width: max-content;
+  table-layout: auto !important;
+
+  th {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: $spacing-09;
+    max-width: $spacing-13;
+  }
+
+  td {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: $spacing-09;
+    max-width: $spacing-13;
+    vertical-align: middle;
+  }
+}

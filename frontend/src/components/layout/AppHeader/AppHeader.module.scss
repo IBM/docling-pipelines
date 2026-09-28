@@ -1,0 +1,84 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type' as *;
+
+.header {
+  // Force header to always be a single row — never wrap or clip nav items.
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow: visible;
+}
+
+.headerName {
+  cursor: pointer;
+  // Prevent the product name from shrinking so it never disappears.
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+// Carbon hides HeaderNavigation below ~1056 px by default.
+// Override to always show it as a flex row.
+:global(.cds--header__nav),
+:global(.bx--header__nav) {
+  display: flex !important;
+  align-items: center;
+  overflow: visible;
+}
+
+:global(.cds--header__menu-bar),
+:global(.bx--header__menu-bar) {
+  display: flex !important;
+  flex-wrap: nowrap;
+}
+
+.globalActions {
+  // Push global actions to the far right and keep them from shrinking.
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.globalActionSeparator {
+  width: $spacing-01;
+  height: $spacing-08;
+  margin: auto 0;
+  background-color: $border-subtle-01;
+}
+
+.themeButton {
+  /* Carbon HeaderGlobalAction component handles its own styling */
+}
+
+// ── Notification bell ────────────────────────────────────────────────────────
+// Wrapper provides a stacking context for the absolute-positioned badge.
+.bellWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.bellButton {
+  /* Carbon HeaderGlobalAction handles its own styling */
+}
+
+// Red unread-count badge overlaid on the top-right corner of the bell icon.
+.badge {
+  position: absolute;
+  top: $spacing-02;
+  right: $spacing-02;
+  min-width: $spacing-05;
+  height: $spacing-05;
+  border-radius: $spacing-03;
+  background-color: $support-error;
+  color: $text-on-color;
+  @include type-style('label-01');
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 $spacing-01;
+  pointer-events: none;
+  line-height: 1;
+}

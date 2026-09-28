@@ -234,7 +234,7 @@ async def list_oauth2_providers():
                         "authorize_url": f"/auth/oauth2/authorize?provider={provider_name}",
                     }
                 )
-        except Exception:  # nosec B112 - intentional: skip providers that fail config lookup
+        except Exception:  # nosec B112
             continue
 
     return {"providers": providers}

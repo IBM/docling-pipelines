@@ -44,7 +44,7 @@ uv pip install msal requests
 1. Go to [Azure Portal](https://portal.azure.com/)
 2. Navigate to **Azure Active Directory** > **App registrations**
 3. Click **New registration**:
-   - Name: "Docling Pipelines SharePoint Connector"
+   - Name: "Docpipe SharePoint Connector"
    - Supported account types: "Accounts in this organizational directory only"
    - Click **Register**
 4. Note the **Application (client) ID** and **Directory (tenant) ID**

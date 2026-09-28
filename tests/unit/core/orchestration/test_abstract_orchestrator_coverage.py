@@ -22,9 +22,10 @@ importlib.util.find_spec = _safe_find_spec
 import pyarrow as pa
 import pytest
 
-from docpipe.core.constants.constants import ExecutionStatus
+from docpipe.core.constants.constants import ExecutionStatus, Metrics
 from docpipe.core.operators.abstract_operator import OperatorCategory
-from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrator
+from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrator, ExecuteStepResults
+from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 
 class ConcreteOrchestrator(AbstractOrchestrator):
@@ -56,7 +57,7 @@ class TestGetIngestSummaryMessage:
         mock_table = MagicMock()
         mock_table.num_rows = 1
         result = orchestrator._get_ingest_summary_message(
-            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_source"}
+            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_local"}
         )
         assert result is None
 
@@ -64,7 +65,7 @@ class TestGetIngestSummaryMessage:
         mock_table = MagicMock()
         mock_table.num_rows = 0
         result = orchestrator._get_ingest_summary_message(
-            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_source"}
+            output_table=mock_table, deleted_docs_count=0, operator={"operator": "ingest_local"}
         )
         assert result == "No documents are ingested."
 
@@ -72,7 +73,7 @@ class TestGetIngestSummaryMessage:
         mock_table = MagicMock()
         mock_table.num_rows = 0
         result = orchestrator._get_ingest_summary_message(
-            output_table=mock_table, deleted_docs_count=3, operator={"operator": "ingest_source"}
+            output_table=mock_table, deleted_docs_count=3, operator={"operator": "ingest_local"}
         )
         assert "3 documents were removed" in result
 
@@ -203,6 +204,11 @@ class TestHandleNodeFailure:
         )
         assert orchestrator.job_status == ExecutionStatus.RUNNING
 
+    def test_does_not_record_failure_without_batch_number(self, orchestrator):
+        orchestrator._record_batch_failure(global_config={})
+
+        assert not orchestrator.has_batch_failed(batch_num=None)
+
 
 class TestExecuteStepFastPath:
     def test_returns_empty_result_when_failing(self, orchestrator):
@@ -252,6 +258,82 @@ class TestMarkPendingBatchesAsSkipped:
         svc.mark_pending_batches_as_skipped.assert_called_once()
 
 
+class TestResolveLinkResults:
+    def test_returns_prev_results_when_metadata_not_dict(self, orchestrator):
+        prev = ExecuteStepResults(data_accesses=[], tables=[], internal_metadata="not-a-dict")
+        res = orchestrator._resolve_link_results(link_id="branch_a", prev_results=prev)
+        assert res is prev
+
+    def test_raises_when_branches_missing_or_not_dict(self, orchestrator):
+        prev = ExecuteStepResults(data_accesses=[], tables=[], internal_metadata={})
+        with pytest.raises(FlowExecutionFailedException, match="Expected branches metadata as a dict"):
+            orchestrator._resolve_link_results(link_id="branch_a", prev_results=prev)
+
+    def test_raises_when_tables_count_mismatches_branches(self, orchestrator):
+        prev = ExecuteStepResults(
+            data_accesses=[MagicMock()],
+            tables=[MagicMock()],
+            internal_metadata={Metrics.Internal.BRANCHES: {"b1": {}, "b2": {}}},
+        )
+        with pytest.raises(FlowExecutionFailedException, match="do not match branches"):
+            orchestrator._resolve_link_results(link_id="b1", prev_results=prev)
+
+    def test_raises_when_result_index_missing(self, orchestrator):
+        prev = ExecuteStepResults(
+            data_accesses=[MagicMock()],
+            tables=[MagicMock()],
+            internal_metadata={Metrics.Internal.BRANCHES: {"b1": {}}},
+        )
+        with pytest.raises(FlowExecutionFailedException, match="Result index not found for link_id b1"):
+            orchestrator._resolve_link_results(link_id="b1", prev_results=prev)
+
+    def test_returns_resolved_step_results_for_link(self, orchestrator):
+        mock_da1, mock_da2 = MagicMock(), MagicMock()
+        mock_t1, mock_t2 = MagicMock(), MagicMock()
+        b_info = {"result_index": 1, "custom_key": "val"}
+        prev = ExecuteStepResults(
+            data_accesses=[mock_da1, mock_da2],
+            tables=[mock_t1, mock_t2],
+            internal_metadata={Metrics.Internal.BRANCHES: {"b1": {"result_index": 0}, "b2": b_info}},
+        )
+        res = orchestrator._resolve_link_results(link_id="b2", prev_results=prev)
+        assert res.tables == [mock_t2]
+        assert res.data_accesses == [mock_da2]
+        assert res.internal_metadata == b_info
+
+
+class TestHandleSkippedTask:
+    def test_handle_skipped_task_canceling_reason(self, orchestrator):
+        orchestrator.flow_execution_event_handler = MagicMock()
+        orchestrator.job_status = ExecutionStatus.CANCELING
+        op_def = {"id": "n1", "name": "Extract", "operator": "extract_operator"}
+
+        orchestrator._handle_skipped_task(op_def=op_def, global_config={})
+        orchestrator.flow_execution_event_handler.after_node_skipped.assert_called_once()
+        _, kwargs = orchestrator.flow_execution_event_handler.after_node_skipped.call_args
+        assert "cancellation requested" in kwargs["reason"]
+
+    def test_handle_skipped_task_failing_reason(self, orchestrator):
+        orchestrator.flow_execution_event_handler = MagicMock()
+        orchestrator.job_status = ExecutionStatus.FAILING
+        op_def = {"id": "n1", "name": "Extract", "operator": "extract_operator"}
+
+        orchestrator._handle_skipped_task(op_def=op_def, global_config={})
+        orchestrator.flow_execution_event_handler.after_node_skipped.assert_called_once()
+        _, kwargs = orchestrator.flow_execution_event_handler.after_node_skipped.call_args
+        assert "cannot proceed due to failure" in kwargs["reason"]
+
+    def test_handle_skipped_task_no_data_reason(self, orchestrator):
+        orchestrator.flow_execution_event_handler = MagicMock()
+        orchestrator.job_status = ExecutionStatus.RUNNING
+        op_def = {"id": "n1", "name": "Extract", "operator": "extract_operator"}
+
+        orchestrator._handle_skipped_task(op_def=op_def, global_config={})
+        orchestrator.flow_execution_event_handler.after_node_skipped.assert_called_once()
+        _, kwargs = orchestrator.flow_execution_event_handler.after_node_skipped.call_args
+        assert "no data received" in kwargs["reason"]
+
+
 class TestInnerTaskSkipPaths:
     def test_prev_results_none_records_skipped_and_returns_none(self, orchestrator):
         orchestrator.flow_execution_event_handler = MagicMock()
@@ -293,9 +375,103 @@ class TestInnerTaskSkipPaths:
         )
         assert result is None
 
+    def test_inner_task_with_link_id_resolves_link_and_executes(self, orchestrator):
+        orchestrator.flow_execution_event_handler = MagicMock()
+        orchestrator._execute_step = MagicMock(return_value="executed_result")
+
+        b_info = {"result_index": 0}
+        prev = ExecuteStepResults(
+            data_accesses=[MagicMock()],
+            tables=[MagicMock()],
+            internal_metadata={Metrics.Internal.BRANCHES: {"b1": b_info}},
+        )
+        op_def = {"id": "n1", "name": "Chunk", "operator": "chunker"}
+
+        result = orchestrator._inner_task(
+            op_def=op_def,
+            global_config={},
+            prev_results=prev,
+            session_info=MagicMock(),
+            deleted_docs_count=0,
+            link_id="b1",
+        )
+        assert result == "executed_result"
+        orchestrator._execute_step.assert_called_once()
+
+    def test_inner_task_handles_node_failure_on_exception(self, orchestrator):
+        orchestrator.flow_execution_event_handler = MagicMock()
+        orchestrator._handle_node_failure = MagicMock()
+        orchestrator._execute_step = MagicMock(side_effect=RuntimeError("Node exploded"))
+
+        op_def = {"id": "n1", "name": "Chunk", "operator": "chunker"}
+        result = orchestrator._inner_task(
+            op_def=op_def,
+            global_config={},
+            prev_results=MagicMock(spec=ExecuteStepResults, internal_metadata={}),
+            session_info=MagicMock(),
+            deleted_docs_count=0,
+        )
+        assert result is None
+        orchestrator._handle_node_failure.assert_called_once()
+
 
 class TestFinalizeDagFlow:
     def test_calls_after_flow_execution_complete(self, orchestrator):
         orchestrator.flow_execution_event_handler = MagicMock()
         orchestrator._finalize_dag_flow(op_flow=[], global_config={})
         orchestrator.flow_execution_event_handler.after_flow_execution_complete.assert_called_once()
+
+
+class TestSyncCancellationStatus:
+    def test_noop_when_no_job_stats_service(self, orchestrator):
+        orchestrator.job_stats_service = None
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.RUNNING
+
+    def test_noop_when_no_job_run_id(self, orchestrator):
+        orchestrator.job_run_id = None
+        orchestrator.job_stats_service = MagicMock()
+        orchestrator._sync_cancellation_status()
+        orchestrator.job_stats_service.get_job_run_stats.assert_not_called()
+
+    def test_short_circuits_when_already_canceling(self, orchestrator):
+        orchestrator.job_status = ExecutionStatus.CANCELING
+        svc = MagicMock()
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        svc.get_job_run_stats.assert_not_called()
+
+    def test_short_circuits_when_already_terminal(self, orchestrator):
+        orchestrator.job_status = ExecutionStatus.COMPLETED
+        svc = MagicMock()
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        svc.get_job_run_stats.assert_not_called()
+
+    def test_sets_canceling_when_store_returns_canceling(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.return_value = MagicMock(status=ExecutionStatus.CANCELING)
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.CANCELING
+
+    def test_does_not_change_status_when_store_returns_running(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.return_value = MagicMock(status=ExecutionStatus.RUNNING)
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.RUNNING
+
+    def test_does_not_change_status_when_store_returns_none(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.return_value = None
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()
+        assert orchestrator.job_status == ExecutionStatus.RUNNING
+
+    def test_swallows_exception_and_continues(self, orchestrator):
+        svc = MagicMock()
+        svc.get_job_run_stats.side_effect = RuntimeError("db gone")
+        orchestrator.job_stats_service = svc
+        orchestrator._sync_cancellation_status()  # must not raise
+        assert orchestrator.job_status == ExecutionStatus.RUNNING

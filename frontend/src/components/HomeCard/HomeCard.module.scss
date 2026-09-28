@@ -1,0 +1,188 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+
+%cardBase {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: $layer-01;
+
+  @include breakpoint-down('md') {
+    flex: none;
+    width: 100%;
+  }
+}
+
+// Equal-width card (Runs / Flows)
+.card {
+  @extend %cardBase;
+  flex: 1;
+}
+
+// Double-width card (Projects)
+.cardWide {
+  @extend %cardBase;
+  flex: 2;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  height: $spacing-09; // 48px
+  flex-shrink: 0;
+  border-bottom: 1px solid $border-subtle-01;
+  background-color: $layer-01;
+}
+
+.cardTitle {
+  @include type-style('heading-02');
+  flex: 1;
+  padding: 0 $spacing-05;
+}
+
+.cardHeaderAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: $spacing-09;
+  height: $spacing-09;
+  flex-shrink: 0;
+
+  // Fill the full 48×48px slot — Carbon ghost icon-only button defaults smaller
+  :global(.cds--btn--ghost.cds--btn--icon-only) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: $spacing-09;
+    height: $spacing-09;
+    min-block-size: $spacing-09;
+    padding-block: 0;
+    padding-inline: 0;
+    margin: 0;
+  }
+}
+
+.cardBody {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background-color: $layer-01;
+}
+
+// Wraps the empty state. min-height keeps the card tall enough to
+// show the NoDataEmptyState illustration when there is no real data.
+.emptyStateWrapper {
+  min-height: 382px; // 430px card - 48px header
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: $spacing-05;
+
+  @include breakpoint-down('md') {
+    min-height: unset;
+  }
+}
+
+// Wraps the item list + "View all" when real data is available.
+.itemContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+// ── Item list (rendered when real data is available) ─────────────────────
+
+.itemList {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.itemRow {
+  // Carbon ghost Button overrides — scoped to the generated cds--btn class
+  &:global(.cds--btn) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-04;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-block-size: unset;
+    padding: $spacing-03 $spacing-04;
+    border-bottom: 1px solid $border-subtle-01;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    border-radius: 0;
+    color: $text-primary;
+    text-align: left;
+  }
+
+  &:global(.cds--btn):last-child {
+    border-bottom: none;
+  }
+
+  &:global(.cds--btn):hover {
+    background-color: $layer-hover-01;
+    color: $text-primary;
+  }
+}
+
+.itemName {
+  @include type-style('body-01'); // 14px / 400 / 20px line-height / 0.16px tracking
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: $text-primary;
+}
+
+.itemMeta {
+  @include type-style('body-01'); // 14px / 400 / 20px line-height / 0.16px tracking
+  flex-shrink: 0;
+  color: $text-secondary;
+  white-space: nowrap;
+}
+
+.itemLoading {
+  width: 100%;
+  padding: $spacing-04;
+  color: $text-secondary;
+  @include type-style('body-compact-01');
+}
+
+.itemError {
+  width: 100%;
+  padding: $spacing-04;
+  color: $support-error;
+  @include type-style('body-compact-01');
+}
+
+.viewAll {
+  // Reset Carbon ghost button defaults to match the full-width link-row style
+  &:global(.cds--btn) {
+    display: flex;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-block-size: unset;
+    padding: $spacing-04 $spacing-05;
+    @include type-style('body-01');
+    color: $link-primary;
+    background: transparent;
+    border: none;
+    border-top: 1px solid $border-subtle-01;
+    border-radius: 0;
+    justify-content: flex-start;
+    margin-block-start: auto; // pins to bottom when list is short
+
+    &:hover {
+      color: $link-primary-hover;
+      background-color: $layer-hover-01;
+      text-decoration: underline;
+    }
+  }
+}

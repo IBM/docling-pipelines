@@ -1,5 +1,7 @@
 """Unit tests for document set factories."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 import docpipe.core.assets.document_sets.adapters.duckdb  # noqa: F401
@@ -171,3 +173,18 @@ class TestDataStoreFactory:
             DataStoreFactory.get_adapter_info(adapter_name="unknown")
 
         assert exc_info.value.status_code == 400
+
+    def test_create_delegates_to_from_config(self):
+        """DataStoreFactory.create() delegates construction to adapter_class.from_config()."""
+        mock_instance = MagicMock()
+        with patch(
+            "docpipe.core.assets.document_sets.adapters.duckdb.data_store.DuckDBDocumentSetStorage.from_config",
+            return_value=mock_instance,
+        ) as mock_from_config:
+            result = DataStoreFactory.create(
+                adapter_name="duckdb",
+                config={"database_path": "/tmp/test.duckdb"},
+            )
+
+        mock_from_config.assert_called_once_with(config={"database_path": "/tmp/test.duckdb"})
+        assert result is mock_instance

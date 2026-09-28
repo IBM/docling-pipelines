@@ -455,10 +455,8 @@ class TestLanguageDetectionErrorHandling:
             "language_provider": "nonexistent_provider",
         }
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="Unknown language detection adapter"):
             LanguageDetect(config)
-
-        assert "Unknown language detection adapter" in str(exc_info.value)
 
     def test_adapter_initialization_error_includes_available_providers(self):
         """Test that initialization error message includes available providers"""

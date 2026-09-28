@@ -26,6 +26,15 @@ from docpipe.core.operators.quality.pii_and_hap.domain.models import (
 from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
     PIIAndHAPAnnotator,
 )
+from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_helper import (
+    DEFAULT_PII_TYPES_OF_CONCERN,
+    METADATA_HAP_FIELD_NAME,
+    GuardRailsPIIAndHAPExtractor,
+    get_detected_field,
+    get_fields_to_redact,
+    initialize_table_columns,
+    update_table,
+)
 
 
 def mock_detect_pii_hap(payload: dict):
@@ -120,6 +129,97 @@ def mock_detect_pii_hap(payload: dict):
             }
         )
 
+    # Check for PersonName
+    if "John Smith" in text:
+        detections.append(
+            {
+                "detection": OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME,
+                "detection_type": "pii",
+                "start": text.find("John Smith"),
+                "end": text.find("John Smith") + len("John Smith"),
+                "score": 0.8,
+                "text": "John Smith",
+            }
+        )
+
+    # Check for Address
+    if "42 Maple Street, Springfield" in text:
+        detections.append(
+            {
+                "detection": OperatorConstants.PIIHAP.PII_TYPE_ADDRESS,
+                "detection_type": "pii",
+                "start": text.find("42 Maple Street, Springfield"),
+                "end": text.find("42 Maple Street, Springfield") + len("42 Maple Street, Springfield"),
+                "score": 0.8,
+                "text": "42 Maple Street, Springfield",
+            }
+        )
+
+    # Check for DateOfBirth
+    if "1990-01-15" in text:
+        detections.append(
+            {
+                "detection": OperatorConstants.PIIHAP.PII_TYPE_DATE_OF_BIRTH,
+                "detection_type": "pii",
+                "start": text.find("1990-01-15"),
+                "end": text.find("1990-01-15") + len("1990-01-15"),
+                "score": 0.8,
+                "text": "1990-01-15",
+            }
+        )
+
+    # Check for PassportNumber
+    if "A12345678" in text:  # pragma: allowlist secret
+        detections.append(
+            {
+                "detection": OperatorConstants.PIIHAP.PII_TYPE_PASSPORT_NUMBER,
+                "detection_type": "pii",
+                "start": text.find("A12345678"),  # pragma: allowlist secret
+                "end": text.find("A12345678") + len("A12345678"),  # pragma: allowlist secret
+                "score": 0.8,
+                "text": "A12345678",  # pragma: allowlist secret
+            }
+        )
+
+    # Check for DriverLicenseNumber
+    if "DL-987654321" in text:
+        detections.append(
+            {
+                "detection": OperatorConstants.PIIHAP.PII_TYPE_DRIVER_LICENSE,
+                "detection_type": "pii",
+                "start": text.find("DL-987654321"),
+                "end": text.find("DL-987654321") + len("DL-987654321"),
+                "score": 0.8,
+                "text": "DL-987654321",
+            }
+        )
+
+    # Check for NationalID
+    if "NAT-11223344" in text:
+        detections.append(
+            {
+                "detection": OperatorConstants.PIIHAP.PII_TYPE_NATIONAL_ID,
+                "detection_type": "pii",
+                "start": text.find("NAT-11223344"),
+                "end": text.find("NAT-11223344") + len("NAT-11223344"),
+                "score": 0.8,
+                "text": "NAT-11223344",
+            }
+        )
+
+    # Check for MedicalRecordNumber
+    if "MRN-55443322" in text:
+        detections.append(
+            {
+                "detection": OperatorConstants.PIIHAP.PII_TYPE_MEDICAL_RECORD,
+                "detection_type": "pii",
+                "start": text.find("MRN-55443322"),
+                "end": text.find("MRN-55443322") + len("MRN-55443322"),
+                "score": 0.8,
+                "text": "MRN-55443322",
+            }
+        )
+
     # Check for HAP content
     normalized_text = text.replace("\u2019", "'")
     if "shouldn't even be allowed to speak" in normalized_text or "fool" in text.lower():
@@ -187,10 +287,11 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
             "Your email is support@ibm.com! 5340904586541378 Only the next instance of email will be processed. test@ibm.com. Your SSN is 123-45-6789. Contact me at 123-456-7890",
             "Subject: Assistance 127.0.0.1 adityars@ibm.com with credit card update [213254000]",
             "People like you shouldn't even be allowed to speak. Honestly, anyone who believes in [religion] or follows [ethnicity] is a fool.",
+            "Contact John Smith, born 1990-01-15, living at 42 Maple Street, Springfield. Passport: A12345678, DL: DL-987654321, NatID: NAT-11223344, MRN: MRN-55443322.",
         ]
     )
-    ids = [1, 2, 3]
-    names = ["file1", "file2", "file3"]
+    ids = [1, 2, 3, 4]
+    names = ["file1", "file2", "file3", "file4"]
     col_names = ["id", "content", "name"]
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
@@ -206,14 +307,21 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
         "IPAddress": 1,
         "PhoneNumber": 1,
         "SocialSecurityNumber": 1,
-        "documents_in_scope": 3,
-        "processed_docs": 3,
+        "PersonName": 1,
+        "DateOfBirth": 1,
+        "Address": 1,
+        "PassportNumber": 1,
+        "DriverLicenseNumber": 1,
+        "NationalID": 1,
+        "MedicalRecordNumber": 1,
+        "documents_in_scope": 4,
+        "processed_docs": 4,
         "failed_docs_count": 0,
         "failed_docs": [],
         "skipped_docs_count": 0,
         "skipped_docs": [],
         "node_status": "Completed",
-        "processed_rows": 3,
+        "processed_rows": 4,
     }
     assert metadata == expected_metadata, f"Expected {expected_metadata}, but got {metadata}"
 
@@ -223,13 +331,20 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
 
     # 6. Verify PII and HAP counts per document
     errors = []
-    expected_pii_bank_account = [0, 0, 0]
-    expected_pii_credit_card = [1, 0, 0]
-    expected_pii_email_address = [2, 1, 0]
-    expected_pii_ip_address = [0, 1, 0]
-    expected_pii_phone_number = [1, 0, 0]
-    expected_pii_ssn_details = [1, 0, 0]
-    expected_hap = [0, 0, 1]
+    expected_pii_bank_account = [0, 0, 0, 0]
+    expected_pii_credit_card = [1, 0, 0, 0]
+    expected_pii_email_address = [2, 1, 0, 0]
+    expected_pii_ip_address = [0, 1, 0, 0]
+    expected_pii_phone_number = [1, 0, 0, 0]
+    expected_pii_ssn_details = [1, 0, 0, 0]
+    expected_pii_person_name = [0, 0, 0, 1]
+    expected_pii_date_of_birth = [0, 0, 0, 1]
+    expected_pii_address = [0, 0, 0, 1]
+    expected_pii_passport_number = [0, 0, 0, 1]
+    expected_pii_driver_license = [0, 0, 0, 1]
+    expected_pii_national_id = [0, 0, 0, 1]
+    expected_pii_medical_record = [0, 0, 0, 1]
+    expected_hap = [0, 0, 1, 0]
 
     if expected_pii_bank_account != table["pii_bank_account"].to_pandas().to_list():
         errors.append("Bank Account PII error:" + str(table["pii_bank_account"].to_pandas().to_list()))
@@ -243,6 +358,20 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
         errors.append("Phone Number PII Error:" + str(table["pii_phone_number"].to_pandas().to_list()))
     if expected_pii_ssn_details != table["pii_ssn_details"].to_pandas().to_list():
         errors.append("SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list()))
+    if expected_pii_person_name != table["pii_person_name"].to_pandas().to_list():
+        errors.append("Person Name PII Error:" + str(table["pii_person_name"].to_pandas().to_list()))
+    if expected_pii_date_of_birth != table["pii_date_of_birth"].to_pandas().to_list():
+        errors.append("Date of Birth PII Error:" + str(table["pii_date_of_birth"].to_pandas().to_list()))
+    if expected_pii_address != table["pii_address"].to_pandas().to_list():
+        errors.append("Address PII Error:" + str(table["pii_address"].to_pandas().to_list()))
+    if expected_pii_passport_number != table["pii_passport_number"].to_pandas().to_list():
+        errors.append("Passport Number PII Error:" + str(table["pii_passport_number"].to_pandas().to_list()))
+    if expected_pii_driver_license != table["pii_driver_license"].to_pandas().to_list():
+        errors.append("Driver License PII Error:" + str(table["pii_driver_license"].to_pandas().to_list()))
+    if expected_pii_national_id != table["pii_national_id"].to_pandas().to_list():
+        errors.append("National ID PII Error:" + str(table["pii_national_id"].to_pandas().to_list()))
+    if expected_pii_medical_record != table["pii_medical_record"].to_pandas().to_list():
+        errors.append("Medical Record PII Error:" + str(table["pii_medical_record"].to_pandas().to_list()))
     if expected_hap != table["hap"].to_pandas().to_list():
         errors.append("HAP Error:" + str(table["hap"].to_pandas().to_list()))
 
@@ -274,10 +403,11 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
         [
             "Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is 123-45-6789. Contact me at 123-456-7890",
             "Subject: Assistance  adityars@ibm.com with credit card update [213254000]",
+            "Contact John Smith at 42 Maple Street, Springfield.",
         ]
     )
-    names = ["file1", "file2"]
-    ids = [1, 2]
+    names = ["file1", "file2", "file3"]
+    ids = [1, 2, 3]
     col_names = ["id", "content", "name"]
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
@@ -293,14 +423,21 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
         "IPAddress": 0,
         "PhoneNumber": 1,
         "SocialSecurityNumber": 1,
-        "documents_in_scope": 2,
-        "processed_docs": 2,
+        "PersonName": 1,
+        "DateOfBirth": 0,
+        "Address": 1,
+        "PassportNumber": 0,
+        "DriverLicenseNumber": 0,
+        "NationalID": 0,
+        "MedicalRecordNumber": 0,
+        "documents_in_scope": 3,
+        "processed_docs": 3,
         "failed_docs_count": 0,
         "failed_docs": [],
         "skipped_docs_count": 0,
         "skipped_docs": [],
         "node_status": "Completed",
-        "processed_rows": 2,
+        "processed_rows": 3,
     }
     assert metadata == expected_metadata, f"Expected {expected_metadata}, but got {metadata}"
 
@@ -308,13 +445,15 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
     table = table_list[0]
 
     # Expected counts per document
-    expected_pii_bank_account = [0, 0]
-    expected_pii_credit_card = [0, 0]
-    expected_pii_email_address = [2, 1]
-    expected_pii_ip_address = [0, 0]
-    expected_pii_phone_number = [1, 0]
-    expected_pii_ssn_details = [1, 0]
-    expected_hap = [0, 0]
+    expected_pii_bank_account = [0, 0, 0]
+    expected_pii_credit_card = [0, 0, 0]
+    expected_pii_email_address = [2, 1, 0]
+    expected_pii_ip_address = [0, 0, 0]
+    expected_pii_phone_number = [1, 0, 0]
+    expected_pii_ssn_details = [1, 0, 0]
+    expected_pii_person_name = [0, 0, 1]
+    expected_pii_address = [0, 0, 1]
+    expected_hap = [0, 0, 0]
 
     errors = []
     if expected_pii_bank_account != table["pii_bank_account"].to_pandas().to_list():
@@ -329,6 +468,10 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
         errors.append("Phone Number PII Error:" + str(table["pii_phone_number"].to_pandas().to_list()))
     if expected_pii_ssn_details != table["pii_ssn_details"].to_pandas().to_list():
         errors.append("SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list()))
+    if expected_pii_person_name != table["pii_person_name"].to_pandas().to_list():
+        errors.append("Person Name PII Error:" + str(table["pii_person_name"].to_pandas().to_list()))
+    if expected_pii_address != table["pii_address"].to_pandas().to_list():
+        errors.append("Address PII Error:" + str(table["pii_address"].to_pandas().to_list()))
     if expected_hap != table["hap"].to_pandas().to_list():
         errors.append("HAP Error:" + str(table["hap"].to_pandas().to_list()))
 
@@ -376,6 +519,24 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
             "text": "adityars@ibm.com",
         }
     ]
+    expected_person_name_doc3 = [
+        {
+            "start": 8,
+            "end": 18,
+            "detection": OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME,
+            "score": 0.8,
+            "text": "John Smith",
+        }
+    ]
+    expected_address_doc3 = [
+        {
+            "start": 22,
+            "end": 50,
+            "detection": OperatorConstants.PIIHAP.PII_TYPE_ADDRESS,
+            "score": 0.8,
+            "text": "42 Maple Street, Springfield",
+        }
+    ]
 
     if expected_email_id_doc1 != table["pii_email_address_info"][0].as_py():
         errors.append("Doc1: Email Id PII Error")
@@ -385,6 +546,10 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
         errors.append("Doc1:SSN PII Error")
     if expected_email_id_doc2 != table["pii_email_address_info"][1].as_py():
         errors.append("Doc2: Email Id PII Error")
+    if expected_person_name_doc3 != table["pii_person_name_info"][2].as_py():
+        errors.append("Doc3: Person Name PII Error")
+    if expected_address_doc3 != table["pii_address_info"][2].as_py():
+        errors.append("Doc3: Address PII Error")
 
     assert not errors, f"Errors: {', '.join(errors)}"
 
@@ -412,10 +577,11 @@ def test_pii_extraction_with_redaction(mock_pii_hap_service):
         [
             "Your email is support@ibm.com! Only the next instance of email will be processed. test@ibm.com. Your SSN is 123-45-6789.",
             "Subject: Assistance adityars@ibm.com with credit card update",
+            "Contact John Smith at 42 Maple Street, Springfield.",
         ]
     )
-    names = ["file1", "file2"]
-    ids = [1, 2]
+    names = ["file1", "file2", "file3"]
+    ids = [1, 2, 3]
     col_names = ["id", "content", "name"]
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
@@ -425,12 +591,17 @@ def test_pii_extraction_with_redaction(mock_pii_hap_service):
     # 4. Verify the content has been redacted
     table = table_list[0]
     redacted_content = table["content"][0].as_py()
+    redacted_content_doc3 = table["content"][2].as_py()
 
     # Verify that PII has been replaced with redaction character
     assert "support@ibm.com" not in redacted_content, "Email should be redacted"
     assert "test@ibm.com" not in redacted_content, "Email should be redacted"
     assert "123-45-6789" not in redacted_content, "SSN should be redacted"
     assert "*" in redacted_content, "Redaction character should be present"
+
+    assert "John Smith" not in redacted_content_doc3, "PersonName should be redacted"
+    assert "42 Maple Street, Springfield" not in redacted_content_doc3, "Address should be redacted"
+    assert "*" in redacted_content_doc3, "Redaction character should be present"
 
 
 def test_hap_extraction_with_redaction(mock_pii_hap_service):
@@ -671,7 +842,7 @@ def test_config_validation_invalid_chunk_sizes():
 
 
 @pytest.mark.parametrize(
-    "config_override,expected_attr,expected_value",
+    ("config_override", "expected_attr", "expected_value"),
     [
         # PII threshold edge cases
         ({"pii_threshold": 0.0}, "pii_threshold", 0.0),
@@ -775,6 +946,166 @@ def test_expected_redactions_membership_check(mock_pii_hap_service):
 
     # Verify case-insensitive (all stored as lowercase)
     assert "PII" not in operator.expected_redactions, "Uppercase 'PII' should not match (stored as lowercase)"
+
+
+def test_get_metadata_features_include_all_supported_types():
+    """get_metadata() FEATURES dict must contain a counter entry for each supported type."""
+    from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_helper import DEFAULT_PII_TO_COLUMN_MAPPING
+
+    features = PIIAndHAPAnnotator.get_metadata()[OperatorConstants.Config.FEATURES]
+    for col in DEFAULT_PII_TO_COLUMN_MAPPING.values():
+        assert f"pii_{col}" in features, f"Feature key 'pii_{col}' missing from get_metadata() FEATURES"
+
+
+def test_helper_get_fields_to_redact():
+    """Test get_fields_to_redact helper function."""
+    fields = get_fields_to_redact(
+        expected_redactions=[OperatorConstants.PIIHAP.PII_FIELD_NAME, OperatorConstants.PIIHAP.HAP_FIELD_NAME],
+        pii_list=[OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME],
+    )
+    assert fields == [OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME, METADATA_HAP_FIELD_NAME]
+
+    fields_default = get_fields_to_redact(
+        expected_redactions=[OperatorConstants.PIIHAP.PII_FIELD_NAME],
+        pii_list=[],
+    )
+    assert fields_default == DEFAULT_PII_TYPES_OF_CONCERN
+
+
+def test_helper_get_detected_field_exact_and_partial_and_empty():
+    """Test get_detected_field with exact match, partial match, and empty input."""
+    fields = [
+        OperatorConstants.PIIHAP.PII_TYPE_SOCIAL_SECURITY_NUMBER,
+        OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME,
+    ]
+
+    # Exact match
+    assert get_detected_field({"detection": OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME}, fields) == (
+        OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME
+    )
+
+    # Partial match
+    assert (
+        get_detected_field(
+            {"detection": "NationalNumber.SocialSecurityNumber.US"},
+            fields,
+        )
+        == OperatorConstants.PIIHAP.PII_TYPE_SOCIAL_SECURITY_NUMBER
+    )
+
+    # Empty / no match / missing detection
+    assert get_detected_field({"detection": "UnknownType"}, fields) == ""
+    assert get_detected_field({}, fields) == ""
+
+
+def test_helper_initialize_table_columns_and_update_table():
+    """Test table column initialization and update_table helper."""
+    metadata: dict = {}
+    fields_to_redact = [
+        METADATA_HAP_FIELD_NAME,
+        OperatorConstants.PIIHAP.PII_TYPE_PERSON_NAME,
+        "UnknownFieldWithoutColumnMapping",
+    ]
+
+    columns = initialize_table_columns(
+        metadata=metadata,
+        fields_to_redact=fields_to_redact,
+        display_pii=True,
+    )
+
+    assert OperatorConstants.PIIHAP.HAP_FIELD_NAME in columns
+    assert "pii_person_name_column" in columns
+    assert "pii_person_name_info_column" in columns
+    assert "UnknownFieldWithoutColumnMapping" not in columns
+
+    # Test update_table
+    columns[OperatorConstants.PIIHAP.HAP_FIELD_NAME].append(1)
+    columns["pii_person_name_column"].append(1)
+    columns["pii_person_name_info_column"].append(["John Doe"])
+
+    base_table = pa.Table.from_arrays([pa.array(["Sample doc"])], names=["content"])
+    updated = update_table(
+        table=base_table,
+        table_columns=columns,
+        fields_to_redact=fields_to_redact,
+        display_pii=True,
+    )
+
+    assert OperatorConstants.PIIHAP.HAP_FIELD_NAME in updated.column_names
+    assert "pii_person_name" in updated.column_names
+    assert "pii_person_name_info" in updated.column_names
+
+
+def test_helper_guardrails_extractor_single_redaction_variants():
+    """Test single redaction variants on GuardRailsPIIAndHAPExtractor."""
+    extractor = GuardRailsPIIAndHAPExtractor(
+        {
+            OperatorConstants.PIIHAP.REDACTION_CHARACTER_KEY: "*",
+            OperatorConstants.PIIHAP.HAP_REDACTION_CHARACTER_KEY: "#",
+        }
+    )
+
+    # 1. Invalid redaction character fallback
+    extractor_invalid = GuardRailsPIIAndHAPExtractor(
+        {
+            OperatorConstants.PIIHAP.REDACTION_CHARACTER_KEY: "invalid_multichar",
+            OperatorConstants.PIIHAP.HAP_REDACTION_CHARACTER_KEY: "invalid_multichar",
+        }
+    )
+    content = "Hello John Doe"
+    item = {"start": 6, "end": 14, "text": "John Doe"}
+    redacted = extractor_invalid.redact(content, item, "pii")
+    assert redacted == "Hello ********"
+
+    # 2. Text fallback redaction when start/end missing
+    content2 = "Hello John Doe and goodbye John Doe"
+    item2 = {"text": "John Doe"}
+    redacted2 = extractor.redact(content2, item2, "pii")
+    assert redacted2 == "Hello ******** and goodbye ********"
+
+    # 3. Missing both start/end and text
+    item3 = {"detection": "PersonName"}
+    unchanged = extractor.redact(content2, item3, "pii")
+    assert unchanged == content2
+
+    # 4. PyArrow scalar content
+    pa_scalar = pa.scalar("Hello Jane")
+    item4 = {"start": 6, "end": 10, "text": "Jane"}
+    assert extractor.redact(pa_scalar, item4, "pii") == "Hello ****"
+
+
+def test_helper_guardrails_extractor_redact_batch():
+    """Test batch redaction with overlapping and text-only detections."""
+    extractor = GuardRailsPIIAndHAPExtractor(
+        {
+            OperatorConstants.PIIHAP.REDACTION_CHARACTER_KEY: "*",
+            OperatorConstants.PIIHAP.HAP_REDACTION_CHARACTER_KEY: "#",
+        }
+    )
+
+    # Empty detections
+    assert extractor.redact_batch("Hello world", [], []) == "Hello world"
+
+    # Overlapping and non-overlapping detections with start/end
+    content = "User Alice and Bob are toxic hate remarks"
+    detections = [
+        {"start": 5, "end": 10, "text": "Alice"},  # PII
+        {"start": 8, "end": 18, "text": "e and Bob "},  # Overlapping PII
+        {"start": 23, "end": 28, "text": "toxic"},  # HAP
+    ]
+    detected_types = ["pii", "pii", METADATA_HAP_FIELD_NAME]
+
+    redacted = extractor.redact_batch(content, detections, detected_types)
+    # Alice (5..10) merged with (8..18) -> (5..18) 13 chars of '*'
+    assert redacted == "User ************* are ##### hate remarks"
+
+    # Detections without start/end positions (text search fallback in batch)
+    content_text_only = "Contact Alice at Alice office"
+    text_detections = [
+        {"text": "Alice"},
+    ]
+    redacted_text = extractor.redact_batch(content_text_only, text_detections, ["pii"])
+    assert redacted_text == "Contact ***** at ***** office"
 
 
 if __name__ == "__main__":

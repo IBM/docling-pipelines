@@ -527,7 +527,7 @@ class ChunkerOperator(AbstractOperator):
         """Get required features."""
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
-    def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """Validate."""
         super().validate(errors, warnings, available_features)
 
@@ -1027,7 +1027,39 @@ class ChunkerOperator(AbstractOperator):
                 raise DocpipeException(f"Failed to initialize Docling HybridChunker: {e!s}") from e
         return self._docling_chunker
 
-    def _create_docling_document_from_markdown(self, markdown_content: str, doc_name: str | None = None):
+    @staticmethod
+    def _create_docling_document_from_doclang(*, doclang_content: str, doc_name: str | None = None):
+        """
+        Create a DoclingDocument by deserializing DocLang XML content.
+
+        Uses DocLangDocDeserializer to parse DocLang XML into a DoclingDocument.
+        If deserialization fails or docling_core is unavailable, falls back to
+        converting DocLang to Markdown and building via MarkdownDocumentBackend.
+
+        Args:
+            doclang_content: DocLang XML text content
+            doc_name: Document name used as filename hint
+
+        Returns:
+            DoclingDocument instance with full structural metadata
+        """
+        try:
+            deserializer = OperatorUtils.get_doclang_deserializer()
+            if deserializer is not None:
+                return deserializer.deserialize_str(doclang_content)
+            raise ImportError("docling_core is not available")
+        except Exception as e:
+            logger.warning(
+                "Direct DocLang deserialization failed: %s; falling back to Markdown document backend for hybrid chunking",
+                e,
+            )
+            markdown_content = OperatorUtils.doclang_to_markdown(doclang_content)
+            return ChunkerOperator._create_docling_document_from_markdown(
+                markdown_content=markdown_content, doc_name=doc_name
+            )
+
+    @staticmethod
+    def _create_docling_document_from_markdown(*, markdown_content: str, doc_name: str | None = None):
         """
         Create a structure-preserving DoclingDocument from markdown content.
 
@@ -1060,7 +1092,25 @@ class ChunkerOperator(AbstractOperator):
         backend = MarkdownDocumentBackend(in_doc=in_doc, path_or_stream=stream)
         return backend.convert()
 
-    def _docling_split_text(self, content: str, doc_name: str | None = None) -> list[Document]:
+    @staticmethod
+    def _prepare_text_for_splitting(*, content: str, doc_format: str) -> str:
+        """
+        Prepare text for plain-text splitters (simple and semantic).
+
+        Converts DocLang XML to Markdown when doc_format is DOCLANG.
+
+        Args:
+            content: Raw text or DocLang XML string.
+            doc_format: Format mode from configuration.
+
+        Returns:
+            Clean text/markdown string suitable for splitting.
+        """
+        if doc_format == OperatorConstants.DocFormat.DOCLANG:
+            return OperatorUtils.doclang_to_markdown(content)
+        return content
+
+    def _docling_split_text(self, *, content: str, doc_name: str | None = None) -> list[Document]:
         """
         Perform Docling-based chunking using HybridChunker.
 
@@ -1086,8 +1136,11 @@ class ChunkerOperator(AbstractOperator):
             # Get the Docling chunker instance
             chunker = self._get_docling_chunker()
 
-            # Create DoclingDocument from markdown content
-            docling_doc = self._create_docling_document_from_markdown(content, doc_name)
+            # Create DoclingDocument from DocLang or markdown content based on doc_format
+            if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+                docling_doc = self._create_docling_document_from_doclang(doclang_content=content, doc_name=doc_name)
+            else:
+                docling_doc = self._create_docling_document_from_markdown(markdown_content=content, doc_name=doc_name)
 
             # Chunk the document
             chunk_iter = chunker.chunk(dl_doc=docling_doc)
@@ -1107,7 +1160,8 @@ class ChunkerOperator(AbstractOperator):
                 docs.append(doc)
 
             logger.debug(
-                f"Docling chunking created {len(docs)} chunks",
+                "Docling chunking created %s chunks",
+                len(docs),
                 extra=self.common_log_arguments,
             )
 
@@ -1115,7 +1169,8 @@ class ChunkerOperator(AbstractOperator):
 
         except Exception as e:
             logger.error(
-                f"Error in Docling chunking: {e!s}",
+                "Error in Docling chunking: %s",
+                e,
                 extra=self.common_log_arguments,
             )
             raise DocpipeException(f"Docling chunking failed: {e!s}") from e
@@ -1140,20 +1195,23 @@ class ChunkerOperator(AbstractOperator):
         Note:
             This method is called internally by transform() and should not be called directly.
         """
-        # Check if remote chunking provider is enabled (takes precedence)
-        if self.provider == OperatorConstants.Processing.PROVIDER_DOCLING_SERVE:
-            return self._docling_serve_split_text(content=content, doc_name=doc_name)
-
+        # For hybrid chunking, raw content (XML or MD) is parsed into DoclingDocument
         chunk_type: str = self.chunk_type.lower()
+        if (
+            chunk_type == ChunkType.HYBRID.value
+            and self.provider != OperatorConstants.Processing.PROVIDER_DOCLING_SERVE
+        ):
+            return self._docling_split_text(content=content, doc_name=doc_name)
 
+        # For plain-text splitters (simple, semantic, docling-serve), prepare text once
+        prepared_text = self._prepare_text_for_splitting(content=content, doc_format=self.doc_format)
+
+        if self.provider == OperatorConstants.Processing.PROVIDER_DOCLING_SERVE:
+            return self._docling_serve_split_text(content=prepared_text, doc_name=doc_name)
         if chunk_type == ChunkType.SIMPLE.value:
-            return self._simple_split_text(content)
+            return self._simple_split_text(prepared_text)
         if chunk_type == ChunkType.SEMANTIC.value:
-            return self._semantic_split_text(content)
-        if chunk_type == ChunkType.HYBRID.value:
-            # For hybrid chunking, we need the doc_name from context
-            # We'll extract it in the transform method
-            return self._docling_split_text(content)
+            return self._semantic_split_text(prepared_text)
         raise DocpipeException(f"Invalid chunk type: {self.chunk_type}")
 
     def _initialize_summarization(self, metadata: dict[str, Any]) -> bool:
@@ -1218,6 +1276,44 @@ class ChunkerOperator(AbstractOperator):
             ).value
             return False
 
+    @staticmethod
+    def _build_chunk_dicts(*, chunks: list) -> list[dict[str, Any]]:
+        """Convert a list of Document chunks into the serialisable dict format."""
+        chunked_content: list[dict[str, Any]] = []
+        for chunk_seq, chunk in enumerate(chunks):
+            chunked_content.append(
+                {
+                    OperatorConstants.Columns.CHUNK: chunk.page_content,
+                    OperatorConstants.Columns.CHUNK_SEQUENCE_NUMBER: chunk_seq,
+                    OperatorConstants.Processing.START_INDEX: chunk.metadata.get(
+                        OperatorConstants.Processing.START_INDEX, 0
+                    )
+                    if chunk.metadata
+                    else 0,
+                }
+            )
+        return chunked_content
+
+    def _apply_summarization(
+        self, *, doc: dict[str, Any], chunked_content: list[dict[str, Any]], metadata: dict[str, Any]
+    ) -> None:
+        """Generate summaries for chunked content when summarisation is enabled, logging warnings on failure."""
+        if not (self.enable_summarization and chunked_content and self._summarization_service):
+            return
+        try:
+            self._summarization_service.generate_summary_for_chunked_content(chunked_content=chunked_content)
+        except Exception as e:
+            logger.warning(
+                f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
+                extra=self.common_log_arguments,
+            )
+            metadata[Metrics.External.PROCESSING_MESSAGE] = "Failed to generate summary for some or all documents"
+            current_status = metadata[Metrics.External.NODE_STATUS]
+            metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
+                ExecutionStatus.COMPLETED_WITH_WARNINGS,
+            ).value
+
     def _process_single_document(
         self, doc: dict[str, Any], idx: int, metadata: dict[str, Any]
     ) -> tuple[list[dict[str, Any]] | None, bool]:
@@ -1257,7 +1353,8 @@ class ChunkerOperator(AbstractOperator):
                 raise DocpipeException(
                     f"The column '{self.doc_column}' exists but contains empty or whitespace-only content."
                 )
-            chunks: list[Document] = self._split_text(content=content)
+            doc_name = str(doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID, "")))
+            chunks: list[Document] = self._split_text(content=content, doc_name=doc_name)
         except Exception as exc:
             logger.error(
                 f"An error occurred while creating chunking for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} : \n {exc!s}",
@@ -1277,35 +1374,8 @@ class ChunkerOperator(AbstractOperator):
             ).value
             return None, True
 
-        chunked_content: list[dict[str, Any]] = []
-        for chunk_seq, chunk in enumerate(chunks):
-            chunked_content.append(
-                {
-                    OperatorConstants.Columns.CHUNK: chunk.page_content,
-                    OperatorConstants.Columns.CHUNK_SEQUENCE_NUMBER: chunk_seq,
-                    OperatorConstants.Processing.START_INDEX: chunk.metadata.get(
-                        OperatorConstants.Processing.START_INDEX, 0
-                    )
-                    if chunk.metadata
-                    else 0,
-                }
-            )
-
-        if self.enable_summarization and chunked_content and self._summarization_service:
-            try:
-                self._summarization_service.generate_summary_for_chunked_content(chunked_content=chunked_content)
-            except Exception as e:
-                logger.warning(
-                    f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
-                    extra=self.common_log_arguments,
-                )
-                metadata[Metrics.External.PROCESSING_MESSAGE] = "Failed to generate summary for some or all documents"
-                current_status = metadata[Metrics.External.NODE_STATUS]
-                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                    current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
-                    ExecutionStatus.COMPLETED_WITH_WARNINGS,
-                ).value
-
+        chunked_content = self._build_chunk_dicts(chunks=chunks)
+        self._apply_summarization(doc=doc, chunked_content=chunked_content, metadata=metadata)
         return chunked_content, False
 
     def _finalize_table(

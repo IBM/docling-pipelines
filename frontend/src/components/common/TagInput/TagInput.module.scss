@@ -1,0 +1,22 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+// Mirrors Carbon TextInput label styling
+.label {
+  @include type-style('label-01');
+  color: $text-secondary;
+  margin-bottom: $spacing-03;
+}
+
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-02;
+  margin-bottom: $spacing-03;
+}

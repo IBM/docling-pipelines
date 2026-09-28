@@ -22,6 +22,24 @@ class OperatorValidator:
     """
 
     @staticmethod
+    def _validate_required_methods(*, cls: type, errors: list[str]) -> None:
+        """Validate that required methods are defined directly on the class and are callable."""
+        for method_name in ["transform"]:
+            if method_name not in cls.__dict__:
+                errors.append(f"{cls.__name__} must implement '{method_name}' method")
+            elif not callable(getattr(cls, method_name)):
+                errors.append(f"{cls.__name__}.{method_name} must be callable")
+
+    @staticmethod
+    def _validate_optional_methods(*, cls: type, errors: list[str]) -> None:
+        """Validate that optional inherited methods (get_metadata, get_required_features) are callable."""
+        for method_name in ["get_metadata", "get_required_features"]:
+            if not hasattr(cls, method_name):
+                errors.append(f"{cls.__name__} must have '{method_name}' method")
+            elif not callable(getattr(cls, method_name)):
+                errors.append(f"{cls.__name__}.{method_name} must be callable")
+
+    @staticmethod
     def validate_operator_class(*, cls: type, operator_info: OperatorInfo) -> ValidationResult:
         """Validate operator class structure and interface.
 
@@ -35,12 +53,10 @@ class OperatorValidator:
         errors: list[str] = []
         warnings: list[str] = []
 
-        # Check if it's a class
         if not inspect.isclass(cls):
             errors.append(f"{operator_info.name} is not a class")
             return ValidationResult(valid=False, errors=errors, warnings=warnings)
 
-        # Check inheritance from AbstractOperator
         if not issubclass(cls, AbstractOperator):
             errors.append(f"{cls.__name__} must inherit from AbstractOperator")
 
@@ -61,25 +77,9 @@ class OperatorValidator:
                 f"Custom operators should set owner='{DocpipeConstants.OWNER_CUSTOM}'"
             )
 
-        # Check required methods - must be defined in the class itself, not just inherited
-        required_methods = ["transform"]
-        for method_name in required_methods:
-            # Check if method exists in the class's own __dict__ (not inherited)
-            if method_name not in cls.__dict__:
-                errors.append(f"{cls.__name__} must implement '{method_name}' method")
-            elif not callable(getattr(cls, method_name)):
-                errors.append(f"{cls.__name__}.{method_name} must be callable")
+        OperatorValidator._validate_required_methods(cls=cls, errors=errors)
+        OperatorValidator._validate_optional_methods(cls=cls, errors=errors)
 
-        # get_metadata and get_required_features have default implementations in AbstractOperator,
-        # so we only check they are callable (can be inherited)
-        optional_methods = ["get_metadata", "get_required_features"]
-        for method_name in optional_methods:
-            if not hasattr(cls, method_name):
-                errors.append(f"{cls.__name__} must have '{method_name}' method")
-            elif not callable(getattr(cls, method_name)):
-                errors.append(f"{cls.__name__}.{method_name} must be callable")
-
-        # Warnings for optional but recommended attributes
         if not hasattr(cls, "__doc__") or not cls.__doc__:
             warnings.append(f"{cls.__name__} should have a docstring")
 

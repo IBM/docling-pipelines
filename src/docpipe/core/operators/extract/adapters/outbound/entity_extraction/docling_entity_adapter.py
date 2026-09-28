@@ -69,43 +69,54 @@ class DoclingEntityAdapter(EntityExtractionPort):
         for param in ["doc_column", "output_column"]:
             value = config.get(param)
             if value is not None and not isinstance(value, str):
-                raise ValueError(f"DoclingEntityAdapter '{param}' must be a string")
+                msg = f"DoclingEntityAdapter '{param}' must be a string"
+                raise ValueError(msg)
 
         # Validate vlm_pipeline if present
         vlm_pipeline = config.get(DoclingClientConfigConstants.VLM_PIPELINE)
         if vlm_pipeline is not None:
             if not isinstance(vlm_pipeline, dict):
-                raise ValueError(f"'{DoclingClientConfigConstants.VLM_PIPELINE}' must be a dictionary")
+                msg = f"'{DoclingClientConfigConstants.VLM_PIPELINE}' must be a dictionary"
+                raise ValueError(msg)
 
             model_type = vlm_pipeline.get(DoclingClientConfigConstants.MODEL_TYPE)
             if model_type is not None:
                 if not isinstance(model_type, str):
-                    raise ValueError(
-                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.MODEL_TYPE}' must be a string"
-                    )
+                    msg = f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.MODEL_TYPE}' must be a string"
+                    raise ValueError(msg)
                 if model_type != DoclingClientConfigConstants.MODEL_TYPE_INLINE:
-                    raise ValueError(
-                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.MODEL_TYPE}' must be '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'. Note: API model is not supported by DocumentExtractor."
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.MODEL_TYPE}'"
+                        f" must be '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'."
+                        " Note: API model is not supported by DocumentExtractor."
                     )
+                    raise ValueError(msg)
 
                 # Validate inline model config
                 inline_config = vlm_pipeline.get(DoclingClientConfigConstants.INLINE_MODEL)
                 if inline_config is None:
-                    raise ValueError(
-                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}' is required when model_type is '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'"
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}'"
+                        f" is required when model_type is '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'"
                     )
+                    raise ValueError(msg)
                 if not isinstance(inline_config, dict):
-                    raise ValueError(
-                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}' must be a dictionary"
-                    )
+                    msg = f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}' must be a dictionary"
+                    raise ValueError(msg)
                 if DoclingClientConfigConstants.REPO_ID not in inline_config:
-                    raise ValueError(
-                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}.{DoclingClientConfigConstants.REPO_ID}' is required"
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}"
+                        f".{DoclingClientConfigConstants.INLINE_MODEL}"
+                        f".{DoclingClientConfigConstants.REPO_ID}' is required"
                     )
+                    raise ValueError(msg)
                 if not isinstance(inline_config[DoclingClientConfigConstants.REPO_ID], str):
-                    raise ValueError(
-                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}.{DoclingClientConfigConstants.REPO_ID}' must be a string"
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}"
+                        f".{DoclingClientConfigConstants.INLINE_MODEL}"
+                        f".{DoclingClientConfigConstants.REPO_ID}' must be a string"
                     )
+                    raise ValueError(msg)
 
         super().validate(config=config)
 
@@ -244,10 +255,12 @@ class DoclingEntityAdapter(EntityExtractionPort):
         except ImportError as e:
             logger.error("Failed to import Docling VLM classes. Install with: pip install docling[vlm]")
             logger.error("Error: %s", e)
-            raise ValueError("Docling VLM dependencies not available") from e
+            msg = "Docling VLM dependencies not available"
+            raise ValueError(msg) from e
         except Exception as e:
             logger.error("Failed to build VLM extraction options: %s", e)
-            raise ValueError(f"Invalid VLM configuration: {e}") from e
+            msg = f"Invalid VLM configuration: {e}"
+            raise ValueError(msg) from e
 
     def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform documents by extracting entities using Docling.

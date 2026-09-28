@@ -8,10 +8,23 @@ from docpipe.core.orchestration.global_config_metadata import (
     GlobalConfigParam,
 )
 from docpipe.utils.global_config.display import (
+    _empty_summary_message,
     display_global_config_summary,
     format_global_config_details,
     list_global_config,
 )
+
+
+class TestPrivateHelpers:
+    def test_format_details_empty_params_no_filter(self):
+        """format_global_config_details with no params and no filter hits line 52."""
+        result = format_global_config_details({})
+        assert result == "\nNo global configuration parameters found"
+
+    def test_empty_summary_message_no_filter(self):
+        """_empty_summary_message with no filter hits line 78."""
+        result = _empty_summary_message(category_filter=None)
+        assert result == "\nNo global configuration parameters found"
 
 
 class TestFormatGlobalConfigDetails:

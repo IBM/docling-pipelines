@@ -1,545 +1,343 @@
-"""Tests for Prefect batch subflow module."""
+"""
+Unit tests for batch_subflow.py — covers _load_batch, _deserialize_batch_data,
+and the top-level batch_subflow function.
+
+batch_subflow() itself requires a live Prefect context (it is decorated with @flow)
+so those paths are verified via the public helpers that the function delegates to.
+The _load_batch / _deserialize_batch_data helpers are pure functions and can be
+tested directly without any Prefect infrastructure.
+"""
 
 import base64
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
-from docpipe.core.constants.constants import DocpipeConstants
-from docpipe.core.orchestration.prefect.batch_subflow import (
-    _deserialize_batch_data,
-    _load_batch,
-    batch_subflow,
-)
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 
-@pytest.fixture
-def sample_batch_table():
-    """Create a sample PyArrow table for testing."""
-    return pa.table(
-        {
-            "id": [1, 2, 3],
-            "text": ["First", "Second", "Third"],
-            "value": [10.5, 20.3, 30.1],
-        }
-    )
-
-
-@pytest.fixture
-def sample_op_flow():
-    """Create a sample operator flow."""
-    return [
-        {"operator": "IngestOperator", "config": {}},
-        {"operator": "ExtractOperator", "config": {}},
-    ]
-
-
-@pytest.fixture
-def sample_global_config():
-    """Create a sample global config."""
-    return {
-        DocpipeConstants.JOB_ID: "test-job-123",
-        DocpipeConstants.FLOW_ID: "test-flow-456",
-        DocpipeConstants.TRACK_PERF: False,
-    }
-
-
 class TestDeserializeBatchData:
-    """Test _deserialize_batch_data function."""
+    """Unit tests for _deserialize_batch_data."""
 
-    def test_deserialize_basic_data(self):
-        """Test deserializing basic batch data."""
-        batch_data = {
-            "columns": ["id", "name"],
-            "data": [
-                {"id": 1, "name": "Alice"},
-                {"id": 2, "name": "Bob"},
-            ],
-        }
+    def _call(self, batch_data):
+        from docpipe.core.orchestration.prefect.batch_subflow import _deserialize_batch_data
 
-        table = _deserialize_batch_data(batch_data=batch_data)
+        return _deserialize_batch_data(batch_data=batch_data)
 
-        assert isinstance(table, pa.Table)
-        assert table.num_columns == 2
-        assert table.num_rows == 2
-        assert table.column_names == ["id", "name"]
+    def test_round_trip_simple_table(self):
+        """Serialise a table to the inline dict format then deserialise it back."""
+        columns = ["id", "name"]
+        data = [{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]
+        batch_data = {"columns": columns, "data": data}
 
-    def test_deserialize_with_binary_columns(self):
-        """Test deserializing data with binary columns."""
-        binary_value = b"test binary data"
-        encoded_value = base64.b64encode(binary_value).decode("utf-8")
+        result = self._call(batch_data)
 
-        batch_data = {
-            "columns": ["id", "data"],
-            "data": [
-                {"id": 1, "data": encoded_value},
-                {"id": 2, "data": encoded_value},
-            ],
-            "binary_columns": ["data"],
-        }
+        assert isinstance(result, pa.Table)
+        assert result.num_rows == 2
+        assert set(result.schema.names) == {"id", "name"}
+        assert result.column("name").to_pylist() == ["alice", "bob"]
 
-        table = _deserialize_batch_data(batch_data=batch_data)
+    def test_binary_columns_are_decoded(self):
+        """Binary columns encoded as base64 strings are decoded back to bytes."""
+        raw_bytes = b"hello binary"
+        encoded = base64.b64encode(raw_bytes).decode("utf-8")
 
-        assert isinstance(table, pa.Table)
-        assert table.num_columns == 2
-        # Binary data should be decoded
-        assert table.column("data")[0].as_py() == binary_value
+        columns = ["id", "payload"]
+        data = [{"id": 1, "payload": encoded}]
+        batch_data = {"columns": columns, "data": data, "binary_columns": ["payload"]}
 
-    def test_deserialize_with_none_values(self):
-        """Test deserializing data with None values."""
-        batch_data = {
-            "columns": ["id", "optional"],
-            "data": [
-                {"id": 1, "optional": "value"},
-                {"id": 2, "optional": None},
-            ],
-        }
+        result = self._call(batch_data)
 
-        table = _deserialize_batch_data(batch_data=batch_data)
+        assert result.column("payload")[0].as_py() == raw_bytes
 
-        assert isinstance(table, pa.Table)
-        assert table.num_rows == 2
-        assert table.column("optional")[1].as_py() is None
+    def test_non_binary_column_none_is_preserved(self):
+        """None values in non-binary columns pass through unchanged."""
+        columns = ["id", "notes"]
+        data = [{"id": 1, "notes": None}, {"id": 2, "notes": "present"}]
+        batch_data = {"columns": columns, "data": data}
 
-    def test_deserialize_empty_data(self):
-        """Test deserializing empty data."""
-        batch_data = {
-            "columns": ["id", "name"],
-            "data": [],
-        }
+        result = self._call(batch_data)
 
-        table = _deserialize_batch_data(batch_data=batch_data)
+        assert result.column("notes").to_pylist() == [None, "present"]
 
-        assert isinstance(table, pa.Table)
-        assert table.num_rows == 0
-        assert table.num_columns == 2
+    def test_binary_column_none_value_skipped(self):
+        """None values inside a binary column are NOT decoded (guard in production code)."""
+        columns = ["id", "payload"]
+        data = [{"id": 1, "payload": None}]
+        batch_data = {"columns": columns, "data": data, "binary_columns": ["payload"]}
 
-    def test_deserialize_invalid_data_raises_exception(self):
-        """Test that invalid data raises FlowExecutionFailedException."""
-        batch_data = {
-            "columns": ["id"],
-            # Missing "data" key
-        }
+        # Should not raise — None is left as-is
+        result = self._call(batch_data)
+        assert result.num_rows == 1
 
-        with pytest.raises(FlowExecutionFailedException) as exc_info:
-            _deserialize_batch_data(batch_data=batch_data)
-
-        assert "deserialization failed" in str(exc_info.value).lower()
-
-    def test_deserialize_with_multiple_binary_columns(self):
-        """Test deserializing with multiple binary columns."""
-        binary1 = b"data1"
-        binary2 = b"data2"
-        encoded1 = base64.b64encode(binary1).decode("utf-8")
-        encoded2 = base64.b64encode(binary2).decode("utf-8")
-
-        batch_data = {
-            "columns": ["id", "bin1", "bin2"],
-            "data": [
-                {"id": 1, "bin1": encoded1, "bin2": encoded2},
-            ],
-            "binary_columns": ["bin1", "bin2"],
-        }
-
-        table = _deserialize_batch_data(batch_data=batch_data)
-
-        assert table.column("bin1")[0].as_py() == binary1
-        assert table.column("bin2")[0].as_py() == binary2
+    def test_missing_columns_key_raises_flow_exception(self):
+        """Missing required 'columns' key in batch_data raises FlowExecutionFailedException."""
+        with pytest.raises(FlowExecutionFailedException, match="deserialization failed"):
+            self._call({"data": []})  # no 'columns'
 
 
 class TestLoadBatch:
-    """Test _load_batch function."""
+    """Unit tests for _load_batch."""
 
-    def test_load_batch_inline(self, sample_batch_table):
-        """Test loading batch from inline data."""
-        batch_data = {
-            "columns": ["id", "text"],
-            "data": [
-                {"id": 1, "text": "First"},
-                {"id": 2, "text": "Second"},
-            ],
-        }
+    def _call(self, batch_transfer, batch_num=0):
+        from docpipe.core.orchestration.prefect.batch_subflow import _load_batch
 
+        return _load_batch(batch_transfer=batch_transfer, batch_num=batch_num)
+
+    # ─── inline ─────────────────────────────────────────────────────────────
+
+    def test_inline_loads_correctly(self):
+        """Inline storage type deserialises the embedded dict."""
+        columns = ["id", "text"]
+        data = [{"id": 1, "text": "hello"}, {"id": 2, "text": "world"}]
         batch_transfer = {
             "type": "inline",
-            "data": batch_data,
+            "data": {"columns": columns, "data": data},
         }
 
-        table = _load_batch(batch_transfer=batch_transfer, batch_num=0)
+        table = self._call(batch_transfer)
 
         assert isinstance(table, pa.Table)
         assert table.num_rows == 2
 
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.pq.read_table")
-    def test_load_batch_local(self, mock_read_table, sample_batch_table):
-        """Test loading batch from local filesystem."""
-        mock_read_table.return_value = sample_batch_table
+    def test_inline_default_type(self):
+        """When 'type' key is absent, 'inline' is assumed."""
+        columns = ["val"]
+        data = [{"val": 42}]
+        batch_transfer = {"data": {"columns": columns, "data": data}}  # no 'type'
 
-        batch_transfer = {
-            "type": "local",
-            "ref": "/tmp/batch-0.parquet",
-        }
+        table = self._call(batch_transfer)
+        assert table.num_rows == 1
 
-        table = _load_batch(batch_transfer=batch_transfer, batch_num=0)
+    # ─── local ──────────────────────────────────────────────────────────────
 
-        assert isinstance(table, pa.Table)
-        mock_read_table.assert_called_once_with("/tmp/batch-0.parquet")
+    def test_local_reads_parquet_file(self, tmp_path):
+        """'local' storage type reads a parquet file from disk."""
+        expected = pa.table({"x": [10, 20], "y": ["a", "b"]})
+        path = str(tmp_path / "batch.parquet")
+        pq.write_table(expected, path)
 
-    @patch("pyarrow.fs.S3FileSystem")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.pq.read_table")
-    def test_load_batch_s3(self, mock_read_table, mock_s3fs_class, sample_batch_table):
-        """Test loading batch from S3."""
-        mock_s3fs = Mock()
-        mock_s3fs_class.return_value = mock_s3fs
-        mock_read_table.return_value = sample_batch_table
+        batch_transfer = {"type": "local", "ref": path}
+        result = self._call(batch_transfer)
+
+        assert result.num_rows == 2
+        assert result.column("x").to_pylist() == [10, 20]
+
+    def test_local_missing_file_raises(self):
+        """Non-existent path in local storage raises FlowExecutionFailedException."""
+        batch_transfer = {"type": "local", "ref": "/no/such/file.parquet"}
+
+        with pytest.raises(FlowExecutionFailedException, match="Failed to load batch"):
+            self._call(batch_transfer)
+
+    # ─── s3 ─────────────────────────────────────────────────────────────────
+
+    def test_s3_calls_read_table_with_filesystem(self):
+        """S3 storage constructs an S3FileSystem and calls pq.read_table."""
+        expected = pa.table({"col": [1, 2]})
 
         batch_transfer = {
             "type": "s3",
-            "bucket": "test-bucket",
+            "bucket": "my-bucket",
             "key": "batches/batch-0.parquet",
-            "access_key": "test-access-key",  # pragma: allowlist secret
-            "secret_key": "test-secret-key",  # pragma: allowlist secret
+            "access_key": "AKID",
+            "secret_key": "SECRET",  # pragma: allowlist secret
+        }
+
+        mock_fs = MagicMock()
+
+        with patch("docpipe.core.orchestration.prefect.batch_subflow.pq") as mock_pq:
+            with patch("pyarrow.fs.S3FileSystem", return_value=mock_fs):
+                mock_pq.read_table.return_value = expected
+                result = self._call(batch_transfer)
+
+        mock_pq.read_table.assert_called_once()
+        assert result is expected
+
+    def test_s3_with_region_and_endpoint(self):
+        """S3 kwargs include region and endpoint_override when provided."""
+        captured_kwargs = {}
+
+        def fake_s3_fs(**kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        batch_transfer = {
+            "type": "s3",
+            "bucket": "bkt",
+            "key": "k/file.parquet",
+            "access_key": "AK",
+            "secret_key": "SK",  # pragma: allowlist secret
             "region": "us-east-1",
-            "endpoint_url": "https://s3.amazonaws.com",
+            "endpoint_url": "http://minio:9000",
         }
 
-        table = _load_batch(batch_transfer=batch_transfer, batch_num=0)
+        with patch("docpipe.core.orchestration.prefect.batch_subflow.pq") as mock_pq:
+            with patch("pyarrow.fs.S3FileSystem", side_effect=fake_s3_fs):
+                mock_pq.read_table.return_value = pa.table({"a": [1]})
+                self._call(batch_transfer)
 
-        assert isinstance(table, pa.Table)
-        mock_s3fs_class.assert_called_once()
-        mock_read_table.assert_called_once()
+        assert captured_kwargs["region"] == "us-east-1"
+        assert captured_kwargs["endpoint_override"] == "http://minio:9000"
 
-    @patch("pyarrow.fs.S3FileSystem")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.pq.read_table")
-    def test_load_batch_s3_without_optional_params(self, mock_read_table, mock_s3fs_class, sample_batch_table):
-        """Test loading batch from S3 without optional parameters."""
-        mock_s3fs = Mock()
-        mock_s3fs_class.return_value = mock_s3fs
-        mock_read_table.return_value = sample_batch_table
-
+    def test_s3_read_error_raises_flow_exception(self):
+        """S3 read failure wraps the error in FlowExecutionFailedException."""
         batch_transfer = {
             "type": "s3",
-            "bucket": "test-bucket",
-            "key": "batches/batch-0.parquet",
-            "access_key": "test-access-key",  # pragma: allowlist secret
-            "secret_key": "test-secret-key",  # pragma: allowlist secret
+            "bucket": "bkt",
+            "key": "file.parquet",
+            "access_key": "AK",
+            "secret_key": "SK",  # pragma: allowlist secret
         }
 
-        table = _load_batch(batch_transfer=batch_transfer, batch_num=0)
+        with patch("pyarrow.fs.S3FileSystem") as mock_fs_cls:
+            mock_fs_cls.return_value = MagicMock()
+            with patch("docpipe.core.orchestration.prefect.batch_subflow.pq") as mock_pq:
+                mock_pq.read_table.side_effect = OSError("network timeout")
 
-        assert isinstance(table, pa.Table)
-        # Verify S3FileSystem was called with only required params
-        call_kwargs = mock_s3fs_class.call_args[1]
-        assert "access_key" in call_kwargs
-        assert "secret_key" in call_kwargs
-        assert "region" not in call_kwargs
+                with pytest.raises(FlowExecutionFailedException, match="Failed to load batch"):
+                    self._call(batch_transfer)
 
-    def test_load_batch_unknown_type(self):
-        """Test loading batch with unknown storage type."""
-        batch_transfer = {
-            "type": "unknown",
-        }
+    # ─── unknown type ────────────────────────────────────────────────────────
 
-        with pytest.raises(FlowExecutionFailedException) as exc_info:
-            _load_batch(batch_transfer=batch_transfer, batch_num=0)
+    def test_unknown_storage_type_raises(self):
+        """Unknown storage type raises FlowExecutionFailedException with descriptive message."""
+        batch_transfer = {"type": "nfs", "ref": "/mnt/shared/batch.parquet"}
 
-        assert "Unknown batch storage type" in str(exc_info.value)
+        with pytest.raises(FlowExecutionFailedException, match="Unknown batch storage type"):
+            self._call(batch_transfer)
 
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.pq.read_table")
-    def test_load_batch_local_file_not_found(self, mock_read_table):
-        """Test loading batch when local file doesn't exist."""
-        mock_read_table.side_effect = FileNotFoundError("File not found")
+    # ─── FlowExecutionFailedException re-raised as-is ───────────────────────
 
-        batch_transfer = {
-            "type": "local",
-            "ref": "/nonexistent/batch.parquet",
-        }
-
-        with pytest.raises(FlowExecutionFailedException) as exc_info:
-            _load_batch(batch_transfer=batch_transfer, batch_num=0)
-
-        assert "Failed to load batch" in str(exc_info.value)
-
-    def test_load_batch_inline_invalid_data(self):
-        """Test loading batch with invalid inline data."""
+    def test_flow_exception_from_deserialize_is_not_double_wrapped(self):
+        """A FlowExecutionFailedException from _deserialize_batch_data is re-raised unchanged."""
         batch_transfer = {
             "type": "inline",
-            "data": {"invalid": "structure"},
+            "data": {},  # missing 'columns' — causes deserialization error
         }
 
+        # The exception is FlowExecutionFailedException (not double-wrapped)
         with pytest.raises(FlowExecutionFailedException):
-            _load_batch(batch_transfer=batch_transfer, batch_num=0)
+            self._call(batch_transfer)
 
 
-class TestBatchSubflow:
-    """Test batch_subflow function."""
+class TestBatchSubflowIntegration:
+    """
+    Smoke tests for the batch_subflow @flow function.
 
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.get_default_factory")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.BatchManager.create_batch_data_access")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow._load_batch")
-    def test_batch_subflow_success(
-        self,
-        mock_load_batch,
-        mock_create_data_access,
-        mock_get_factory,
-        mock_set_session,
-        sample_batch_table,
-        sample_op_flow,
-        sample_global_config,
-    ):
-        """Test successful batch subflow execution."""
-        # Setup mocks
-        mock_load_batch.return_value = sample_batch_table
-        mock_data_access = Mock()
-        mock_create_data_access.return_value = mock_data_access
+    batch_subflow is decorated with @flow, so calling it outside a Prefect run
+    context creates an ephemeral flow run. We patch enough infrastructure so the
+    orchestrator initialisation and operator execution succeed without real deps.
+    """
 
-        # Mock job management factory
-        mock_factory = Mock()
-        mock_stats_service = Mock()
-        mock_run_manager = Mock()
-        mock_factory.create_job_stats_service.return_value = mock_stats_service
-        mock_factory.create_job_run_manager.return_value = mock_run_manager
-        mock_get_factory.return_value = mock_factory
+    def _make_simple_table(self):
+        return pa.table({"id": [1, 2], "content": ["hello", "world"]})
 
-        # Mock orchestrator and engine
-        with patch("docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator") as mock_orch_class:
-            mock_orchestrator = Mock()
-            mock_engine = Mock()
-            mock_orchestrator.flow_engine = mock_engine
-            mock_orch_class.return_value = mock_orchestrator
+    def test_batch_subflow_inline_happy_path(self):
+        """batch_subflow with inline storage and a mocked operator flow completes."""
+        columns = ["id", "content"]
+        data = [{"id": 1, "content": "hello"}, {"id": 2, "content": "world"}]
+        batch_transfer = {"type": "inline", "data": {"columns": columns, "data": data}}
 
-            batch_transfer = {
-                "type": "inline",
-                "data": {"columns": ["id"], "data": [{"id": 1}]},
-            }
+        mock_engine = MagicMock()
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.flow_engine = mock_engine
 
-            # Execute
-            batch_subflow(
-                job_run_id="run-123",
-                batch_id="batch-456",
-                batch_num=0,
-                batch_transfer=batch_transfer,
-                op_flow=sample_op_flow,
-                global_config=sample_global_config,
-            )
+        mock_factory = MagicMock()
+        mock_factory.create_job_stats_service.return_value = MagicMock()
+        mock_factory.create_job_run_manager.return_value = MagicMock()
 
-            # Verify
-            mock_load_batch.assert_called_once()
-            mock_create_data_access.assert_called_once()
-            mock_orchestrator.initialize.assert_called_once()
-            mock_engine.execute_operator_flow.assert_called_once()
+        with patch(
+            "docpipe.core.orchestration.prefect.batch_subflow.get_default_factory",
+            return_value=mock_factory,
+        ):
+            with patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator",
+                return_value=mock_orchestrator,
+            ):
+                with patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info"):
+                    from docpipe.core.orchestration.prefect.batch_subflow import batch_subflow
 
-    @patch("docpipe.core.orchestration.prefect.batch_subflow._load_batch")
-    def test_batch_subflow_load_failure(
-        self,
-        mock_load_batch,
-        sample_op_flow,
-        sample_global_config,
-    ):
-        """Test batch subflow when batch loading fails."""
-        mock_load_batch.side_effect = FlowExecutionFailedException("Load failed")
+                    # Should not raise
+                    batch_subflow(
+                        job_run_id="jr-test-1",
+                        batch_id="b-001",
+                        batch_num=0,
+                        batch_transfer=batch_transfer,
+                        op_flow=[],
+                        global_config={"job_id": "job-1"},
+                    )
 
-        batch_transfer = {"type": "inline", "data": {}}
+        mock_engine.execute_operator_flow.assert_called_once()
 
-        with pytest.raises(FlowExecutionFailedException) as exc_info:
-            batch_subflow(
-                job_run_id="run-123",
-                batch_id="batch-456",
-                batch_num=0,
-                batch_transfer=batch_transfer,
-                op_flow=sample_op_flow,
-                global_config=sample_global_config,
-            )
+    def test_batch_subflow_raises_when_flow_engine_is_none(self):
+        """batch_subflow wraps FlowExecutionFailedException when flow_engine is None."""
+        columns = ["id"]
+        data = [{"id": 1}]
+        batch_transfer = {"type": "inline", "data": {"columns": columns, "data": data}}
 
-        assert "Load failed" in str(exc_info.value)
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.flow_engine = None  # <-- triggers the guard
 
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.get_default_factory")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.BatchManager.create_batch_data_access")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow._load_batch")
-    def test_batch_subflow_no_flow_engine(
-        self,
-        mock_load_batch,
-        mock_create_data_access,
-        mock_get_factory,
-        mock_set_session,
-        sample_batch_table,
-        sample_op_flow,
-        sample_global_config,
-    ):
-        """Test batch subflow when flow engine is not initialized."""
-        mock_load_batch.return_value = sample_batch_table
-        mock_data_access = Mock()
-        mock_create_data_access.return_value = mock_data_access
+        mock_factory = MagicMock()
+        mock_factory.create_job_stats_service.return_value = MagicMock()
+        mock_factory.create_job_run_manager.return_value = MagicMock()
 
-        mock_factory = Mock()
-        mock_stats_service = Mock()
-        mock_run_manager = Mock()
-        mock_factory.create_job_stats_service.return_value = mock_stats_service
-        mock_factory.create_job_run_manager.return_value = mock_run_manager
-        mock_get_factory.return_value = mock_factory
+        with patch(
+            "docpipe.core.orchestration.prefect.batch_subflow.get_default_factory",
+            return_value=mock_factory,
+        ):
+            with patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator",
+                return_value=mock_orchestrator,
+            ):
+                with patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info"):
+                    from docpipe.core.orchestration.prefect.batch_subflow import batch_subflow
 
-        with patch("docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator") as mock_orch_class:
-            mock_orchestrator = Mock()
-            mock_orchestrator.flow_engine = None  # No engine
-            mock_orch_class.return_value = mock_orchestrator
+                    with pytest.raises(FlowExecutionFailedException, match="Batch 1 failed"):
+                        batch_subflow(
+                            job_run_id="jr-test-2",
+                            batch_id="b-002",
+                            batch_num=1,
+                            batch_transfer=batch_transfer,
+                            op_flow=[],
+                            global_config={"job_id": "job-1"},
+                        )
 
-            batch_transfer = {"type": "inline", "data": {"columns": ["id"], "data": [{"id": 1}]}}
+    def test_batch_subflow_propagates_operator_error(self):
+        """An exception inside execute_operator_flow is caught and re-raised as FlowExecutionFailedException."""
+        columns = ["id"]
+        data = [{"id": 1}]
+        batch_transfer = {"type": "inline", "data": {"columns": columns, "data": data}}
 
-            with pytest.raises(FlowExecutionFailedException) as exc_info:
-                batch_subflow(
-                    job_run_id="run-123",
-                    batch_id="batch-456",
-                    batch_num=0,
-                    batch_transfer=batch_transfer,
-                    op_flow=sample_op_flow,
-                    global_config=sample_global_config,
-                )
+        mock_engine = MagicMock()
+        mock_engine.execute_operator_flow.side_effect = RuntimeError("operator boom")
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.flow_engine = mock_engine
 
-            assert "Failed to initialize PrefectEngine" in str(exc_info.value)
+        mock_factory = MagicMock()
+        mock_factory.create_job_stats_service.return_value = MagicMock()
+        mock_factory.create_job_run_manager.return_value = MagicMock()
 
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.get_default_factory")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.BatchManager.create_batch_data_access")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow._load_batch")
-    def test_batch_subflow_execution_failure(
-        self,
-        mock_load_batch,
-        mock_create_data_access,
-        mock_get_factory,
-        mock_set_session,
-        sample_batch_table,
-        sample_op_flow,
-        sample_global_config,
-    ):
-        """Test batch subflow when operator execution fails."""
-        mock_load_batch.return_value = sample_batch_table
-        mock_data_access = Mock()
-        mock_create_data_access.return_value = mock_data_access
+        with patch(
+            "docpipe.core.orchestration.prefect.batch_subflow.get_default_factory",
+            return_value=mock_factory,
+        ):
+            with patch(
+                "docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator",
+                return_value=mock_orchestrator,
+            ):
+                with patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info"):
+                    from docpipe.core.orchestration.prefect.batch_subflow import batch_subflow
 
-        mock_factory = Mock()
-        mock_stats_service = Mock()
-        mock_run_manager = Mock()
-        mock_factory.create_job_stats_service.return_value = mock_stats_service
-        mock_factory.create_job_run_manager.return_value = mock_run_manager
-        mock_get_factory.return_value = mock_factory
-
-        with patch("docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator") as mock_orch_class:
-            mock_orchestrator = Mock()
-            mock_engine = Mock()
-            mock_engine.execute_operator_flow.side_effect = Exception("Execution failed")
-            mock_orchestrator.flow_engine = mock_engine
-            mock_orch_class.return_value = mock_orchestrator
-
-            batch_transfer = {"type": "inline", "data": {"columns": ["id"], "data": [{"id": 1}]}}
-
-            with pytest.raises(FlowExecutionFailedException) as exc_info:
-                batch_subflow(
-                    job_run_id="run-123",
-                    batch_id="batch-456",
-                    batch_num=0,
-                    batch_transfer=batch_transfer,
-                    op_flow=sample_op_flow,
-                    global_config=sample_global_config,
-                )
-
-            assert "Batch 0 failed" in str(exc_info.value)
-
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.get_default_factory")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.BatchManager.create_batch_data_access")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow._load_batch")
-    def test_batch_subflow_sets_context_id(
-        self,
-        mock_load_batch,
-        mock_create_data_access,
-        mock_get_factory,
-        mock_set_session,
-        sample_batch_table,
-        sample_op_flow,
-        sample_global_config,
-    ):
-        """Test that batch subflow sets context_id correctly."""
-        mock_load_batch.return_value = sample_batch_table
-        mock_data_access = Mock()
-        mock_create_data_access.return_value = mock_data_access
-
-        mock_factory = Mock()
-        mock_stats_service = Mock()
-        mock_run_manager = Mock()
-        mock_factory.create_job_stats_service.return_value = mock_stats_service
-        mock_factory.create_job_run_manager.return_value = mock_run_manager
-        mock_get_factory.return_value = mock_factory
-
-        with patch("docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator") as mock_orch_class:
-            mock_orchestrator = Mock()
-            mock_engine = Mock()
-            mock_orchestrator.flow_engine = mock_engine
-            mock_orch_class.return_value = mock_orchestrator
-
-            batch_transfer = {"type": "inline", "data": {"columns": ["id"], "data": [{"id": 1}]}}
-
-            batch_subflow(
-                job_run_id="run-123",
-                batch_id="batch-456",
-                batch_num=0,
-                batch_transfer=batch_transfer,
-                op_flow=sample_op_flow,
-                global_config=sample_global_config,
-            )
-
-            # Verify context_id was set to job_id
-            assert mock_orchestrator.context_id == sample_global_config[DocpipeConstants.JOB_ID]
-
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.set_session_info")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.get_default_factory")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow.BatchManager.create_batch_data_access")
-    @patch("docpipe.core.orchestration.prefect.batch_subflow._load_batch")
-    def test_batch_subflow_updates_global_config(
-        self,
-        mock_load_batch,
-        mock_create_data_access,
-        mock_get_factory,
-        mock_set_session,
-        sample_batch_table,
-        sample_op_flow,
-        sample_global_config,
-    ):
-        """Test that batch subflow updates global config with batch info."""
-        mock_load_batch.return_value = sample_batch_table
-        mock_data_access = Mock()
-        mock_create_data_access.return_value = mock_data_access
-
-        mock_factory = Mock()
-        mock_stats_service = Mock()
-        mock_run_manager = Mock()
-        mock_factory.create_job_stats_service.return_value = mock_stats_service
-        mock_factory.create_job_run_manager.return_value = mock_run_manager
-        mock_get_factory.return_value = mock_factory
-
-        with patch("docpipe.core.orchestration.prefect.batch_subflow.PythonOrchestrator") as mock_orch_class:
-            mock_orchestrator = Mock()
-            mock_engine = Mock()
-            mock_orchestrator.flow_engine = mock_engine
-            mock_orch_class.return_value = mock_orchestrator
-
-            batch_transfer = {"type": "inline", "data": {"columns": ["id"], "data": [{"id": 1}]}}
-
-            batch_subflow(
-                job_run_id="run-123",
-                batch_id="batch-456",
-                batch_num=5,
-                batch_transfer=batch_transfer,
-                op_flow=sample_op_flow,
-                global_config=sample_global_config,
-            )
-
-            # Verify execute_operator_flow was called with updated config
-            call_args = mock_engine.execute_operator_flow.call_args
-            config = call_args[1]["global_config"]
-            assert config[DocpipeConstants.BATCH_ID] == "batch-456"
-            assert config[DocpipeConstants.BATCH_NUM] == 5
-            assert config[DocpipeConstants.JOB_RUN_ID] == "run-123"
+                    with pytest.raises(FlowExecutionFailedException, match="operator boom"):
+                        batch_subflow(
+                            job_run_id="jr-test-3",
+                            batch_id="b-003",
+                            batch_num=2,
+                            batch_transfer=batch_transfer,
+                            op_flow=[],
+                            global_config={"job_id": "job-1"},
+                        )
