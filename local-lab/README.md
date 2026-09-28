@@ -3,7 +3,7 @@
 From the repo root.
 
 ```bash
-colima start --cpu 8 --memory 16 --disk 100
+colima start
 uv sync --extra dev
 source .venv/bin/activate
 cd local-lab

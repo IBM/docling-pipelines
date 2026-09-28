@@ -2,7 +2,7 @@ name: local-lab
 
 services:
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: quay.io/minio/aistor/minio:RELEASE.2026-09-19T17-05-25Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -14,7 +14,7 @@ services:
       - minio-data:/data
 
   minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: quay.io/minio/aistor/mc:RELEASE.2026-09-19T15-24-59Z
     depends_on:
       - minio
     environment:
@@ -27,7 +27,7 @@ services:
     entrypoint: ["/bin/sh", "/minio-init.sh"]
 
   docling-serve:
-    image: ghcr.io/docling-project/docling-serve-cpu:v1.33.0
+    image: ghcr.io/docling-project/docling-serve-cpu:v1.35.0
     environment:
       DOCLING_SERVE_ENABLE_UI: "1"
     ports:
