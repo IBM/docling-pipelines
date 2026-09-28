@@ -333,7 +333,9 @@ module = [
     "re2",
     "re2.*",
     "opentelemetry",
-    "opentelemetry.*"
+    "opentelemetry.*",
+    "mcp",
+    "mcp.*"
 ]
 ignore_missing_imports = true
 follow_imports = "silent"
