@@ -1,5 +1,5 @@
 /**
- * @fileoverview Type-safe Redux selector hook for the Datasift application.
+ * @fileoverview Type-safe Redux selector hook for the Docling Pipelines application.
  * Provides a typed version of useSelector with RootState type.
  */
 

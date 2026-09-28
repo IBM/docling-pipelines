@@ -1,7 +1,7 @@
 /**
  * @fileoverview Right side panel for ReadOnlyCanvas showing job run logs and node details.
  * Contains two tabs: Log Details (accordion of node logs) and Node Summary (node metadata).
- * Mirrors datasift-ui panel behaviour:
+ * Mirrors docling-pipelines-ui panel behaviour:
  *  - Log Details tab disabled when no node_sequence
  *  - Node Summary tab hidden for failed runs with empty node_sequence
  *  - "Show detailed log" modal includes CopyButton
@@ -44,7 +44,7 @@ export function RunSidePanel({
 
   const { node_sequence, job_stats } = executionLogs;
 
-  // Log Details is disabled when there are no per-node logs (mirrors datasift-ui)
+  // Log Details is disabled when there are no per-node logs (mirrors docling-pipelines-ui)
   const hasNodeSequence = node_sequence && node_sequence.length > 0;
   const isFailedNoSequence =
     !hasNodeSequence && job_stats?.status?.toLowerCase() === JOB_RUN_STATUS.FAILED.toLowerCase();
@@ -140,7 +140,7 @@ export function RunSidePanel({
         )}
       </div>
 
-      {/* "Show detailed log" modal — mirrors datasift-ui modal with CopyButton */}
+      {/* "Show detailed log" modal — mirrors docling-pipelines-ui modal with CopyButton */}
       {showFullLog && (
         <div className={styles.fullLogModal}>
           <div className={styles.fullLogContent}>

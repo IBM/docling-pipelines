@@ -1,7 +1,7 @@
 /**
  * @fileoverview Node summary component displaying node metadata and execution details.
  * Shows node label, operator type, status badge, execution time, and metadata table.
- * Mirrors datasift-ui NodeSummary:
+ * Mirrors docling-pipelines-ui NodeSummary:
  *  - DocumentExport icon in header
  *  - Carbon DataTable with Name/Value column headers
  *  - node_status key filtered from metadata rows (already in badge)
@@ -75,7 +75,7 @@ const FILTERED_METADATA_KEYS = new Set(['node_status', 'node_id', 'nodeId', 'id'
 
 /**
  * Convert snake_case / lower_case keys to Title Case with spaces.
- * Mirrors datasift-ui formatColumnHeader():
+ * Mirrors docling-pipelines-ui formatColumnHeader():
  *   "documents_in_scope" → "Documents In Scope"
  *   "failed_docs_count"  → "Failed Docs Count"
  */
@@ -88,7 +88,7 @@ function formatColumnHeader(key: string): string {
 
 /**
  * Format a numeric value for display.
- * Mirrors datasift-ui formatNumericValue().
+ * Mirrors docling-pipelines-ui formatNumericValue().
  */
 function formatNumericValue(value: number): string {
   if (!Number.isInteger(value) && Math.abs(value) < CELL_VALUE_FLOAT_THRESHOLD) {
@@ -99,7 +99,7 @@ function formatNumericValue(value: number): string {
 
 /**
  * Truncate a long string with an ellipsis and wrap in a Carbon Tooltip so the
- * full value is visible on hover. Mirrors datasift-ui truncateWithTooltip().
+ * full value is visible on hover. Mirrors docling-pipelines-ui truncateWithTooltip().
  */
 function truncateWithTooltip(text: string): React.ReactNode {
   if (text.length <= CELL_VALUE_MAX_LENGTH) { return text; }
@@ -113,7 +113,7 @@ function truncateWithTooltip(text: string): React.ReactNode {
 
 /**
  * Format a cell value for display.
- * Mirrors datasift-ui formatCellValue():
+ * Mirrors docling-pipelines-ui formatCellValue():
  *  - Arrays/objects → JSON string, truncated with tooltip if > 100 chars
  *  - Floats (non-integer, < 1000) → 4 decimal places
  *  - Long strings → truncated with tooltip at 100 chars
@@ -160,7 +160,7 @@ function downloadDocs(docs: DocItem[], filename: string): void {
 
 /**
  * Compute the CSS class for the status badge by stripping spaces only (preserve PascalCase).
- * Mirrors datasift-ui: styles[`status${nodeStatus.replaceAll(/\s+/g, '')}`]
+ * Mirrors docling-pipelines-ui: styles[`status${nodeStatus.replaceAll(/\s+/g, '')}`]
  */
 function getStatusClass(nodeStatus: string): string {
   const key = `status${nodeStatus.replace(/\s+/g, '')}`;
@@ -379,7 +379,7 @@ export function NodeSummary({
 
   return (
     <div className={styles.nodeSummaryContainer}>
-      {/* Header: DocumentExport icon + node name + status badge — mirrors datasift-ui */}
+      {/* Header: DocumentExport icon + node name + status badge — mirrors docling-pipelines-ui */}
       <div className={styles.nodeSummaryHeader}>
         <div className={styles.titleRow}>
           <DocumentExport className={styles.nodeIcon} />

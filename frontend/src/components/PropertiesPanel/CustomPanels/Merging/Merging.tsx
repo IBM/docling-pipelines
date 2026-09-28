@@ -2,7 +2,7 @@
  * @file Merging.tsx
  *
  * Configuration panel body for the `merge` operator node.
- * Preview tearsheet matches datasift-ui exactly:
+ * Preview tearsheet matches docling-pipelines-ui exactly:
  *   - Fixed-width table boxes (spacing-13 * 2.7 ≈ 259px)
  *   - Absolute-positioned SVG overlay with identical coordinates (x=400, 600, 630→800)
  *   - Same circle geometry (stacked for rows, Venn for column joins)
@@ -35,7 +35,7 @@ import { enrichFlowFeatures } from '@/services/api';
 import styles from './Merging.module.scss';
 
 // ---------------------------------------------------------------------------
-// Constants  (match datasift-ui canvas-constants.ts)
+// Constants  (match docling-pipelines-ui canvas-constants.ts)
 // ---------------------------------------------------------------------------
 
 const MERGE_TYPE = {
@@ -48,7 +48,7 @@ const COLUMN_OPTION = {
   FULL_OUTER: 'full_outer',
 } as const;
 
-// Matches datasift-ui PREVIEW_TYPES
+// Matches docling-pipelines-ui PREVIEW_TYPES
 const PREVIEW_TYPE = {
   MERGE_ROWS:  'MergeRowsPreview',
   INNER_JOIN:  'InnerJoinPreview',
@@ -60,7 +60,7 @@ type ColumnOption = typeof COLUMN_OPTION[keyof typeof COLUMN_OPTION];
 type PreviewType  = typeof PREVIEW_TYPE[keyof typeof PREVIEW_TYPE];
 
 // ---------------------------------------------------------------------------
-// Sample data (matches datasift-ui PREVIEW_NUMS / message strings)
+// Sample data (matches docling-pipelines-ui PREVIEW_NUMS / message strings)
 // ---------------------------------------------------------------------------
 
 const D = {
@@ -76,7 +76,7 @@ const D = {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-// Cell with optional warning icon — matches datasift-ui CellContent
+// Cell with optional warning icon — matches docling-pipelines-ui CellContent
 function CellContent({ content, showWarning = false }: { content: string; showWarning?: boolean }): React.JSX.Element {
   if (showWarning) {
     return (
@@ -90,7 +90,7 @@ function CellContent({ content, showWarning = false }: { content: string; showWa
 }
 
 // Table row with per-cell class names and optional warning indexes
-// matches datasift-ui TableRowWithCells
+// matches docling-pipelines-ui TableRowWithCells
 function TableRowWithCells({
   rowData,
   rowKey,
@@ -115,7 +115,7 @@ function TableRowWithCells({
   );
 }
 
-// Branch input table — matches datasift-ui PreviewTable
+// Branch input table — matches docling-pipelines-ui PreviewTable
 function PreviewTable({
   title,
   headers,
@@ -157,7 +157,7 @@ function PreviewTable({
   );
 }
 
-// Merged output table — matches datasift-ui MergedTablePreview exactly
+// Merged output table — matches docling-pipelines-ui MergedTablePreview exactly
 function MergedTablePreview({ previewType }: { previewType: PreviewType }): React.JSX.Element {
   const headers = previewType === PREVIEW_TYPE.MERGE_ROWS
     ? ['Doc ID', 'Name', 'Author', 'Language', 'Quality']
@@ -224,7 +224,7 @@ function MergedTablePreview({ previewType }: { previewType: PreviewType }): Reac
 }
 
 // ---------------------------------------------------------------------------
-// DiagramSvg — matches datasift-ui DiagramSvg exactly
+// DiagramSvg — matches docling-pipelines-ui DiagramSvg exactly
 // Coordinates are calibrated against fixed table widths:
 //   tableBox width  ≈ 6rem * 2.7 = 259px  (left tables column)
 //   gap             ≈ 2.5rem = 40px        (mergePreviewLayout gap)
@@ -236,7 +236,7 @@ function MergedTablePreview({ previewType }: { previewType: PreviewType }): Reac
 type DiagramSvgProps = { previewType: PreviewType };
 
 function DiagramSvg({ previewType }: DiagramSvgProps): React.JSX.Element {
-  // Circle fill colours — mirrors datasift-ui getCircleFills()
+  // Circle fill colours — mirrors docling-pipelines-ui getCircleFills()
   const TRANSPARENT = 'transparent';
   const LIGHT_BLUE   = 'var(--merging-blue-light)';
   const LIGHT_PURPLE = 'var(--merging-purple-light)';
@@ -361,28 +361,28 @@ export function MergingPanelBody({ controller }: MergingPanelBodyProps): React.J
 
   const [mergeType,    setMergeType]    = useState<MergeType>(rawMergeType    ?? MERGE_TYPE.ROWS);
   const [columnOption, setColumnOption] = useState<ColumnOption>(rawColumnOption ?? COLUMN_OPTION.INNER_JOIN);
-  // datasift-ui initialises previewType to INNER_JOIN regardless of stored value
+  // docling-pipelines-ui initialises previewType to INNER_JOIN regardless of stored value
   const [previewType,  setPreviewType]  = useState<PreviewType>(PREVIEW_TYPE.INNER_JOIN);
   const [isTearsheetOpen, setIsTearsheetOpen] = useState(false);
 
-  // Mirrors datasift-ui: every panel uses useEffect(() => () => { controller.setSaveButtonDisable(...) }, []).
+  // Mirrors docling-pipelines-ui: every panel uses useEffect(() => () => { controller.setSaveButtonDisable(...) }, []).
   // The cleanup (return value) runs on unmount — this resets Save state when the panel closes/switches nodes.
   // On the NEXT open, Elyra remounts the panel fresh and the cycle repeats.
   // For the merge node there are no required params so Save is always enabled.
   useEffect(() => () => { controller.setSaveButtonDisable(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track previous values so we only fire enrichment when something actually changed
-  // (mirrors datasift-ui's previousMergeType / previousColumnOptionValue pattern)
+  // (mirrors docling-pipelines-ui's previousMergeType / previousColumnOptionValue pattern)
   const prevMergeTypeRef    = useRef<MergeType>(mergeType);
   const prevColumnOptionRef = useRef<ColumnOption>(columnOption);
 
   // Local cache of the per-node available_features returned by the last enrichment call.
-  // Updated whenever merge_type or column_option changes — mirrors datasift-ui's
+  // Updated whenever merge_type or column_option changes — mirrors docling-pipelines-ui's
   // getSelectOptionsForOperators useEffect which refreshes feature buckets on each toggle.
   const [enrichedMergeNode, setEnrichedMergeNode] = useState<Record<string, unknown> | null>(null);
 
   // Call enrichFlowFeatures whenever merge_type or column_option changes —
-  // mirrors datasift-ui's getSelectOptionsForOperators useEffect.
+  // mirrors docling-pipelines-ui's getSelectOptionsForOperators useEffect.
   // This keeps available_features / output_features buckets fresh after
   // every radio / dropdown interaction without a full panel reload.
   useEffect(() => {
@@ -560,7 +560,7 @@ export function MergingPanelBody({ controller }: MergingPanelBodyProps): React.J
         )}
       </div>
 
-      {/* ── Preview button — matches datasift-ui selectButton / selectButtonWrapper */}
+      {/* ── Preview button — matches docling-pipelines-ui selectButton / selectButtonWrapper */}
       <div className={styles.mergePreviewSection}>
         <div className={styles.selectButtonWrapper}>
           <Button
@@ -575,7 +575,7 @@ export function MergingPanelBody({ controller }: MergingPanelBodyProps): React.J
         </div>
       </div>
 
-      {/* ── Preview tearsheet — matches datasift-ui layout exactly */}
+      {/* ── Preview tearsheet — matches docling-pipelines-ui layout exactly */}
       { }
       <Tearsheet
         open={isTearsheetOpen}
@@ -611,12 +611,12 @@ export function MergingPanelBody({ controller }: MergingPanelBodyProps): React.J
             The preview uses sample data to illustrate the merge behaviour. Actual results depend on your data.
           </p>
 
-          {/* Diagram wrapper — matches datasift-ui .diagramWrapper exactly */}
+          {/* Diagram wrapper — matches docling-pipelines-ui .diagramWrapper exactly */}
           <div className={styles.diagramWrapper}>
-            {/* Absolute SVG overlay — same coordinates as datasift-ui DiagramSvg */}
+            {/* Absolute SVG overlay — same coordinates as docling-pipelines-ui DiagramSvg */}
             <DiagramSvg previewType={previewType} />
 
-            {/* Table layout — matches datasift-ui .mergePreviewLayout */}
+            {/* Table layout — matches docling-pipelines-ui .mergePreviewLayout */}
             <div className={styles.mergePreviewLayout}>
               {/* Left column: two branch tables stacked */}
               <div className={styles.inputTables}>

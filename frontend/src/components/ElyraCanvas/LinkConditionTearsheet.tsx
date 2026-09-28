@@ -196,7 +196,7 @@ export function LinkConditionTearsheet({
     if (activeTab === TAB_SIMPLE) {
       if (conditions.length === 0) {
         // No conditions set — allow save only if link name changed
-        // (matches datasift-ui: `return !isLinkNameChanged && !trimmedLinkName`)
+        // (matches docling-pipelines-ui: `return !isLinkNameChanged && !trimmedLinkName`)
         return !isLinkNameChanged;
       }
 

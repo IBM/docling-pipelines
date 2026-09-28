@@ -1,7 +1,7 @@
 /**
  * Ingest operator configuration panel body.
  * Reads and writes values directly via the Elyra property controller —
- * the same pattern used in datasift-ui custom panels.
+ * the same pattern used in docling-pipelines-ui custom panels.
  *
  * controller.getPropertyValue({ name: PARAM_ID })  → current value
  * controller.updatePropertyValue({ name: PARAM_ID }, value) → write on change

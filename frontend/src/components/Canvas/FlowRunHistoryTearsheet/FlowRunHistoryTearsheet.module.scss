@@ -2,12 +2,12 @@
 @use '@carbon/react/scss/type' as type;
 @use '@carbon/react/scss/theme' as *;
 
-// Mirrors datasift-ui FlowRunHistoryTearsheet.scss
+// Mirrors docling-pipelines-ui FlowRunHistoryTearsheet.scss
 .tearsheetContent {
   padding: spacing.$spacing-07;
 }
 
-// Clickable timestamp link — matches datasift-ui Link style
+// Clickable timestamp link — matches docling-pipelines-ui Link style
 .timestampLink {
   @include type.type-style('body-compact-01');
   color: $link-primary;

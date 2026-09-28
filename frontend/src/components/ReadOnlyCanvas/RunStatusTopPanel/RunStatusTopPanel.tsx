@@ -49,7 +49,7 @@ function computeNodeCounts(jobStats: JobStats) {
  */
 /**
  * Derive progress bar fill class from the top-level run status.
- * Mirrors datasift-ui getProgressClassName(progressStatus) exactly —
+ * Mirrors docling-pipelines-ui getProgressClassName(progressStatus) exactly —
  * the bar colour is driven by the job's overall status, never by node counts.
  */
 function getProgressFillClass(status: string): string {
@@ -182,7 +182,7 @@ export function RunStatusTopPanel({
                 <div className={progressFillClass} style={{ width: `${nodeCounts.progress}%` }} />
               </div>
               <div className={styles.progressAction}>
-                {/* Single button — mirrors datasift-ui: isRunning drives label+handler,
+                {/* Single button — mirrors docling-pipelines-ui: isRunning drives label+handler,
                     isStopDisabled only controls the disabled attribute.
                     "Run Again" only appears once isRunning=false, which happens after
                     the final 5-second confirmation poll completes. */}

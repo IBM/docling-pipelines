@@ -1,6 +1,6 @@
-# Datasift Frontend
+# Docling Pipelines Frontend
 
-A React + TypeScript frontend application built with Vite and IBM Carbon Design System for the Datasift project.
+A React + TypeScript frontend application built with Vite and IBM Carbon Design System for the Docling Pipelines project.
 
 ## Prerequisites
 
@@ -675,4 +675,4 @@ When contributing to this frontend application:
 
 ## License
 
-This project is part of the Datasift opensource project.
+This project is part of the Docling Pipelines open-source project.

@@ -57,7 +57,7 @@ export function BranchingPanelBody({ controller }: BranchingPanelBodyProps): Rea
     const linkConditions = (params?.['link_conditions'] as Array<Record<string, unknown>> | undefined) ?? [];
 
     return linkConditions
-      .filter((lc) => (lc['link_name'] as string | undefined)?.trim()) // only show named links (matches datasift-ui)
+      .filter((lc) => (lc['link_name'] as string | undefined)?.trim()) // only show named links (matches docling-pipelines-ui)
       .map((lc) => {
         const targetNode = nodes.find((n) => n['id'] === (lc['target_node_id'] as string));
         const targetParams = targetNode?.['parameters'] as Record<string, unknown> | undefined;

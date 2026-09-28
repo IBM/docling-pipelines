@@ -183,7 +183,7 @@
   gap: spacing.$spacing-02;
 }
 
-/* Styled as a link, matching datasift-ui .docCountLink */
+/* Styled as a link, matching docling-pipelines-ui .docCountLink */
 .docCountLink {
   @include type.type-style('body-compact-01');
   color: themes.$link-primary;

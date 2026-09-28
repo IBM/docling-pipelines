@@ -34,7 +34,7 @@
 //   - outer circle  → filled blue (covers the canvas link line behind it)
 //   - inner-path    → the + symbol, must be white so it contrasts the circle
 // Without the inner-path override both paths would be the same colour and the
-// + would be invisible. Matches datasift-ui's .linkConditionIconColor exactly.
+// + would be invisible. Matches docling-pipelines-ui's .linkConditionIconColor exactly.
 .addConditionIcon {
   fill: themes.$interactive;
   cursor: pointer;

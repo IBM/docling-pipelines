@@ -3,7 +3,7 @@
 @use '@carbon/react/scss/theme' as themes;
 @use '@carbon/colors' as colors;
 
-// CSS custom properties — match datasift-ui MergingOperatorPanel.scss
+// CSS custom properties — match docling-pipelines-ui MergingOperatorPanel.scss
 :root {
   --merging-blue-light:   #{colors.$blue-20};
   --merging-purple-light: #{colors.$purple-20};
@@ -49,7 +49,7 @@
   margin: 0;
 }
 
-// ── Radio buttons — matches datasift-ui .radioButtonGroup / .radioOption ─
+// ── Radio buttons — matches docling-pipelines-ui .radioButtonGroup / .radioOption ─
 .radioButtonGroup {
   display: flex;
   flex-direction: column;
@@ -64,7 +64,7 @@
   }
 }
 
-// ── Combine columns sub-section — matches datasift-ui .combineColumnsContent
+// ── Combine columns sub-section — matches docling-pipelines-ui .combineColumnsContent
 .combineColumnsContent {
   position: relative;
   margin-left: 0;
@@ -88,7 +88,7 @@
   }
 }
 
-// ── Preview button — matches datasift-ui .mergePreviewSection / .selectButtonWrapper
+// ── Preview button — matches docling-pipelines-ui .mergePreviewSection / .selectButtonWrapper
 .mergePreviewSection {
   margin-top: spacing.$spacing-09;
 }
@@ -126,12 +126,12 @@
   }
 }
 
-// ── Tearsheet wrapper — matches datasift-ui .tearsheetTableWrapper ───────
+// ── Tearsheet wrapper — matches docling-pipelines-ui .tearsheetTableWrapper ───────
 .tearsheetTableWrapper {
   padding: spacing.$spacing-05 spacing.$spacing-09;
 }
 
-// ── Preview type dropdown — matches datasift-ui .previewSelectContainer / .fullWidthSelect
+// ── Preview type dropdown — matches docling-pipelines-ui .previewSelectContainer / .fullWidthSelect
 .previewSelectContainer {
   width: 50%;
   position: relative;
@@ -141,7 +141,7 @@
   width: 100%;
 }
 
-// ── Note / disclaimer text — matches datasift-ui exactly ─────────────────
+// ── Note / disclaimer text — matches docling-pipelines-ui exactly ─────────────────
 .noteText {
   @include type.type-style('body-compact-01');
   font-style: italic;
@@ -161,18 +161,18 @@
   margin-left: 0;
 }
 
-// ── Diagram wrapper — matches datasift-ui .diagramWrapper exactly ─────────
+// ── Diagram wrapper — matches docling-pipelines-ui .diagramWrapper exactly ─────────
 // The SVG uses position:absolute and fills this container.
 // Fixed min-height ensures the SVG coordinates (y=120, y=350) land correctly.
 .diagramWrapper {
   position: relative;
   padding: spacing.$spacing-09 0;
-  min-height: spacing.$spacing-13 * 2; // ~192px — same as datasift-ui
+  min-height: spacing.$spacing-13 * 2; // ~192px — same as docling-pipelines-ui
   transform: scale(1);
   transform-origin: top left;
 }
 
-// ── SVG overlay — matches datasift-ui .connectorSvg ──────────────────────
+// ── SVG overlay — matches docling-pipelines-ui .connectorSvg ──────────────────────
 .connectorSvg {
   position: absolute;
   top: 0;
@@ -184,14 +184,14 @@
   overflow: visible;
 }
 
-// SVG stroke style — matches datasift-ui .svgLine
+// SVG stroke style — matches docling-pipelines-ui .svgLine
 .svgLine {
   stroke: var(--merging-gray);
   stroke-width: spacing.$spacing-01;
   fill: none;
 }
 
-// ── Table layout — matches datasift-ui .mergePreviewLayout ───────────────
+// ── Table layout — matches docling-pipelines-ui .mergePreviewLayout ───────────────
 .mergePreviewLayout {
   display: flex;
   justify-content: flex-start;
@@ -218,16 +218,16 @@
 
 // Right column: merged output table
 .mergedTableContainer {
-  margin-left: 2 * spacing.$spacing-13; // matches datasift-ui
+  margin-left: 2 * spacing.$spacing-13; // matches docling-pipelines-ui
   margin-top: -1 * spacing.$spacing-10;
   z-index: 2;
 }
 
-// ── Table boxes — match datasift-ui fixed widths ──────────────────────────
+// ── Table boxes — match docling-pipelines-ui fixed widths ──────────────────────────
 .tableBox {
   padding: spacing.$spacing-05;
   border-radius: spacing.$spacing-01;
-  width: spacing.$spacing-13 * 2.7; // ≈259px — datasift-ui branch1Table width
+  width: spacing.$spacing-13 * 2.7; // ≈259px — docling-pipelines-ui branch1Table width
   z-index: 2;
 
   h5 {
@@ -250,7 +250,7 @@
   width: spacing.$spacing-13 * 4.5;
 }
 
-// ── Row colour coding — match datasift-ui exactly ─────────────────────────
+// ── Row colour coding — match docling-pipelines-ui exactly ─────────────────────────
 .branch1Row {
   background-color: var(--merging-blue-light);
 }
@@ -259,7 +259,7 @@
   background-color: var(--merging-purple-light);
 }
 
-// ── Warning icon — matches datasift-ui .warningIcon ───────────────────────
+// ── Warning icon — matches docling-pipelines-ui .warningIcon ───────────────────────
 .warningIcon {
   margin-right: spacing.$spacing-01;
   vertical-align: middle;

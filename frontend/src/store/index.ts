@@ -1,5 +1,5 @@
 /**
- * @fileoverview Redux store configuration for the Datasift application.
+ * @fileoverview Redux store configuration for the Docling Pipelines application.
  * Configures the central Redux store with all state slices and exports type-safe types.
  */
 

@@ -8,7 +8,7 @@ import type { ThemeType } from '../types/theme';
 /**
  * Storage key for theme preference
  */
-export const THEME_STORAGE_KEY = 'datasift-theme';
+export const THEME_STORAGE_KEY = 'docling-pipelines-theme';
 
 /**
  * Default theme

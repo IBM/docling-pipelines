@@ -130,14 +130,14 @@
       --cds-field-01: #{$field-02};
     }
 
-    // Right flyout: fixed width matching datasift-ui
+    // Right flyout: fixed width matching docling-pipelines-ui
     .right-flyout-panel:not(:empty) {
       width: 28.9375rem;
     }
 
     // Override Elyra's calc(100% - 65px - 4rem) so the scrollable content
     // area fills the full viewport — this pushes Save/Cancel flush to the
-    // bottom with no blank strip. Matches datasift-ui canvasNodes.scss.
+    // bottom with no blank strip. Matches docling-pipelines-ui canvasNodes.scss.
     .properties-custom-container {
       height: 100vh !important;
     }

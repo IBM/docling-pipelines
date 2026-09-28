@@ -1,6 +1,6 @@
-# Contributing to Datasift Frontend
+# Contributing to Docling Pipelines Frontend
 
-This document outlines the coding standards, best practices, and conventions for contributing to the Datasift frontend application.
+This document outlines the coding standards, best practices, and conventions for contributing to the Docling Pipelines frontend application.
 
 ## Table of Contents
 
