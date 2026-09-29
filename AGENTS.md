@@ -201,17 +201,18 @@ Never import an `adapters/` class from `domain/` or `application/`. Domain ports
         ├── Does it need the class itself (cls) or class-level state?
         │   ├── Yes → @classmethod  (def foo(cls, ...))
         │   └── No → @staticmethod  (def foo(...))  ← default for pure helpers
-        └── Could it be a module-level function instead?
-            └── If it has no logical coupling to the class → prefer module-level
+        └── Is it useful outside this class AND has no coupling to class internals?
+            └── Yes → module-level function; No → @staticmethod (keep it on the class)
     ```
 
     **Concrete rules:**
     - Every pure helper (formula, hash, type-mapping, formatting, graph utility) that takes only plain arguments → `@staticmethod`
+    - Private helpers (`_` prefix) that don't read `self` → `@staticmethod` on the class; do NOT promote to module-level just because they're pure — keep them where they logically belong
     - Factory/constructor alternatives that use `cls` → `@classmethod`
     - `transform()`, `__init__`, lifecycle hooks, anything reading `self.*` → instance method
     - Never add `self` to a method signature just to satisfy a linter or to match surrounding style
 
-    **Known hot-path offenders to fix on sight** (called per-document or per-column):
+    **Known hot-path offenders to fix on sight** (called per-document or per-column; fix by method name, not line number — lines shift):
 
     | File | Methods |
     |---|---|
@@ -220,12 +221,15 @@ Never import an `adapters/` class from `domain/` or `application/`. Domain ports
     | `storage/duck_db/duckdb_table_storage.py` | `_pyarrow_to_duckdb_type` |
     | `core/job_management/application/services/report_generator.py` | `_get_timestamp_from_modified_time`, `_create_doc_entry` |
     | `core/orchestration/flow_validator.py` | `_get_parent_results`, `_feature_metadata_to_dict`, `_get_required_node_fields`, `_traverse_dag`, `_build_reverse_graph`, `_find_terminal_node`, `_find_all_terminal_nodes`, `_validate_isolated_nodes`, `_validate_storage_output_operator_placement`, `_build_graph`, `_make_undirected_graph`, `_find_connected_components`, `create_validation_alerts`, `get_duplicate_node_names`, `_evaluate_node_validation_skip` |
-    | `core/assets/flows/application/services/authoring_compiler.py` | methods at L83, L94, L179, L212, L240, L273 |
-    | `utils/infrastructure/flow_execution_reporter.py` | methods at L65, L121, L134, L263, L278, L360, L440, L462, L487, L537, L550 |
-    | `core/job_management/application/aggregation/aggregator.py` | methods at L147, L247 |
-    | `core/incremental_metadata/application/services/incremental_update_service.py` | methods at L230, L272, L387, L420 |
+    | `core/assets/flows/application/services/authoring_compiler.py` | any method that does not read `self` (grep: `def [a-z].*self` → confirm no `self\.` in body) |
+    | `utils/infrastructure/flow_execution_reporter.py` | same grep pattern as above |
+    | `core/job_management/application/aggregation/aggregator.py` | same grep pattern as above |
+    | `core/incremental_metadata/application/services/incremental_update_service.py` | same grep pattern as above |
 
-    **Important exception — `ReadabilityMetrics`:** `count_syllables` and `count_syllables_in_text` are legitimate instance methods (they read `self.dic`). All other formula methods in that class should be `@staticmethod`.
+    **Legitimate instance methods — do not touch:**
+    - `ReadabilityMetrics.count_syllables`, `count_syllables_in_text` — read `self.dic` (Pyphen instance)
+    - All `domain/ports/` ABC methods — `self` is required for the implementor contract
+    - All `__init__`, `transform()`, lifecycle hooks
 
 ## Environment Variables
 
