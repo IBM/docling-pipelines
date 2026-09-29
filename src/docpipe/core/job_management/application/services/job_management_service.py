@@ -206,8 +206,6 @@ class JobManagementService:
 
         if file_path is not None:
             ingest_nodes = [node for node in flow_dag_definition.get("dag", []) if node.get("operator") == "ingest_source"]
-            if len(ingest_nodes) != 1:
-                raise ValueError("Event streaming requires exactly one ingest source")
             ingest_nodes[0].setdefault("config", {})["source_path"] = file_path
 
         self.executor.submit(

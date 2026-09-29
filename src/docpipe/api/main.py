@@ -190,18 +190,19 @@ async def lifespan(app: FastAPI):
         os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = ",".join(custom_op_paths)
 
     kafka_consumer.start()
+
     try:
         yield
     finally:
         kafka_consumer.stop()
-        if app.state.bff_client is not None:
-            await app.state.bff_client.aclose()
-        if bff_process:
-            logger.info("Shutting down BFF sidecar...")
-            bff_process.terminate()
-            # Do not call bff_process.wait() — it is a synchronous blocking call
-            # inside an async context and would stall the uvicorn event loop during
-            # shutdown. SIGTERM is sufficient; the OS reaps the child after it exits.
+    if app.state.bff_client is not None:
+        await app.state.bff_client.aclose()
+    if bff_process:
+        logger.info("Shutting down BFF sidecar...")
+        bff_process.terminate()
+        # Do not call bff_process.wait() — it is a synchronous blocking call
+        # inside an async context and would stall the uvicorn event loop during
+        # shutdown. SIGTERM is sufficient; the OS reaps the child after it exits.
 
 
 app = FastAPI(

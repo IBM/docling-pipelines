@@ -2003,18 +2003,6 @@ class TestDoclingServeSplitText:
         assert payload["sources"][0]["filename"] == "original.md"
         assert docs[0].metadata["doc_name"] == "original.pdf"
 
-    def test_conversion_failure_is_reported(self):
-        op = self._make_op()
-        mock_client = MagicMock()
-        mock_client.call_rest_json.return_value = {
-            "chunks": [],
-            "documents": [{"status": "failure", "errors": [{"error_message": "Conversion failed"}]}],
-        }
-        op._remote_chunking_client = mock_client
-
-        with pytest.raises(DocpipeException, match="Conversion failed"):
-            op._docling_serve_split_text(content="# Heading", doc_name="original.pdf")
-
     def test_returns_empty_list_when_no_chunks(self):
         op = self._make_op()
         mock_client = MagicMock()

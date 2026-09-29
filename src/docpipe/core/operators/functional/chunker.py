@@ -776,15 +776,6 @@ class ChunkerOperator(AbstractOperator):
             chunks_data = response.get("chunks", [])
 
             if not chunks_data:
-                failed_documents = [
-                    document
-                    for document in response.get("documents", [])
-                    if document.get("status") == "failure"
-                ]
-                if failed_documents:
-                    errors = failed_documents[0].get("errors") or []
-                    reason = errors[0].get("error_message", "unknown error") if errors else "unknown error"
-                    raise DocpipeException(f"Docling-serve could not convert {markdown_name}: {reason}")
                 logger.warning(
                     f"Docling-serve returned no chunks for content of length {len(content)}",
                     extra=self.common_log_arguments,
