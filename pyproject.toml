@@ -24,7 +24,7 @@ dependencies = [
     "data-prep-toolkit-transforms==1.1.8",
     "datatrove==0.10.0",
     "datefinder==1.0.0",
-    "docling[rapidocr]==2.127.0",
+    "docling[rapidocr]==2.130.0",
     "dropbox==12.2.1",
     "duckdb==1.3.2",
     "fastapi==0.141.1",
@@ -94,7 +94,7 @@ dependencies = [
     "tenacity==8.3.0",
     "toml==0.10.2",
     "torch==2.13.0",
-    "transformers>=5.17.0,<5.18.0",
+    "transformers>=5.17,<5.18",
     "unicategories==0.1.2",
     "unicodedataplus==16.0.0.post1",
     "urllib3==2.7.0",
@@ -144,23 +144,23 @@ telemetry = [
 ]
 
 rapidocr = [
-    "docling[rapidocr]==2.127.0",
+    "docling[rapidocr]==2.130.0",
 ]
 
 easyocr = [
-    "docling[easyocr]==2.127.0",
+    "docling[easyocr]==2.130.0",
 ]
 
 ocrmac = [
-    "docling[ocrmac]==2.127.0",
+    "docling[ocrmac]==2.130.0",
 ]
 
 tesserocr = [
-    "docling[tesserocr]==2.127.0",
+    "docling[tesserocr]==2.130.0",
 ]
 
 vlm_asr = [
-    "docling[vlm,asr]==2.127.0",
+    "docling[vlm,asr]==2.130.0",
 ]
 
 [project.urls]
