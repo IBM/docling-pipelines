@@ -1174,7 +1174,6 @@ class TestDoclingServeAdapterV2Response:
         formats = result[OperatorConstants.Metadata.METADATA]["formats"]
         assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
 
-
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
     def test_doclang_format_from_global_config_only_triggers_doclang_request(self, mock_get, mock_client_class):
@@ -1216,7 +1215,6 @@ class TestDoclingServeAdapterV2Response:
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == doclang_xml
         formats = result[OperatorConstants.Metadata.METADATA]["formats"]
         assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
-
 
 
 # ---------------------------------------------------------------------------
