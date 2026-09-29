@@ -30,10 +30,6 @@ class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
     SOURCE_DESCRIPTION: str | None = None  # Brief description
     SOURCE_VERSION: str = "1.0.0"  # Semantic version
 
-    def select_source(self, *, config: SourceConfig, source_path: str) -> SourceConfig:
-        """Return a config scoped to one event source. Adapters define locator semantics."""
-        raise NotImplementedError(f"{self.SOURCE_NAME} does not support event source selection")
-
     @abstractmethod
     async def fetch_documents(self, config: Any) -> AsyncGenerator[Document, None]:
         """

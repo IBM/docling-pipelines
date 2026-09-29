@@ -58,10 +58,6 @@ class S3SourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from Amazon S3 or S3-compatible storage"
     SOURCE_VERSION = "1.0.0"
 
-    def select_source(self, *, config: S3SourceConfig, source_path: str) -> S3SourceConfig:
-        """Use the event path as the exact S3 object key for this run."""
-        return config.model_copy(update={"object_key": source_path})
-
     def __init__(self):
         """Initialize adapter with cached AWS account ID and reusable S3 clients."""
         self._cached_account_id: str | None = None
@@ -350,11 +346,10 @@ class S3SourceAdapter(DocumentSourcePort):
         Yields:
             S3 object metadata dictionaries (filtered)
         """
-        listing_prefix = config.object_key or config.prefix
-        logger.info(f"Listing S3 objects from bucket '{config.bucket}' with prefix '{listing_prefix}'")
+        logger.info(f"Listing S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
 
         paginator = s3_client.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=config.bucket, Prefix=listing_prefix)
+        pages = paginator.paginate(Bucket=config.bucket, Prefix=config.prefix)
 
         total_listed = 0
         total_yielded = 0
@@ -395,8 +390,6 @@ class S3SourceAdapter(DocumentSourcePort):
             True if object should be skipped, False otherwise
         """
         key = obj["Key"]
-        if config.object_key is not None and key != config.object_key:
-            return True
         size = obj.get("Size", 0)
 
         # Skip directory markers (keys ending with /)

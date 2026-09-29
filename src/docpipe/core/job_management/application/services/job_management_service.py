@@ -205,8 +205,10 @@ class JobManagementService:
             raise FlowInvalidDataException(message=f"Flow {flow_id} has unknown format.", field_name="definition")
 
         if file_path is not None:
-            ingest_nodes = [node for node in flow_dag_definition.get("dag", []) if node.get("operator") == "ingest_source"]
-            ingest_nodes[0].setdefault("config", {})["source_path"] = file_path
+            ingest_nodes = [
+                node for node in flow_dag_definition.get("dag", []) if node.get("operator") == "ingest_source"
+            ]
+            ingest_nodes[0].setdefault("config", {}).setdefault("connection_params", {})["prefix"] = file_path
 
         self.executor.submit(
             self._execute_flow_async,

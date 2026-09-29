@@ -150,6 +150,26 @@ class TestJobManagementService:
         assert submit_args[5][DocpipeConstants.JOB_ID] == "job-123"
         mock_from_dict.assert_called_once_with(data=flow.definition)
 
+    @patch("docpipe.core.assets.flows.domain.models.authoring_flow.AuthoringFlow.from_dict")
+    @patch("docpipe.core.assets.flows.application.services.authoring_compiler.AuthoringCompiler.compile")
+    @patch("docpipe.core.job_management.application.services.job_management_service.get_session_info")
+    def test_event_file_path_overrides_runtime_ingest_prefix(self, mock_get_session_info, mock_compile, mock_from_dict):
+        flow = Mock(job_id="job-123", definition={DocpipeConstants.FLOW_NAME: "Flow", "flow": []})
+        self.flow_service.get_flow.return_value = flow
+        self.job_run_manager.create_job_run.return_value = {
+            DocpipeConstants.JOB_ID: "job-123",
+            DocpipeConstants.JOB_RUN_ID: "run-123",
+        }
+        ingest_config = {"provider": "s3", "connection_params": {"bucket": "documents", "prefix": "pdfs/"}}
+        mock_compile.return_value = {"dag": [{"operator": "ingest_source", "config": ingest_config}]}
+        mock_get_session_info.return_value = Mock()
+
+        self.service._create_job_run(flow_id="flow-1", flow_name="Flow", flow_config={}, file_path="pdfs/report.pdf")
+
+        submitted_dag = self.executor.submit.call_args.args[4]
+        assert submitted_dag["dag"][0]["config"]["connection_params"]["prefix"] == "pdfs/report.pdf"
+        mock_from_dict.assert_called_once_with(data=flow.definition)
+
     @patch("docpipe.utils.orchestration.elyra_converter.ElyraConverter.transform_elyra_to_internal")
     @patch("docpipe.core.job_management.application.services.job_management_service.get_session_info")
     def test_create_job_run_transforms_elyra_flow(self, mock_get_session_info, mock_transform):

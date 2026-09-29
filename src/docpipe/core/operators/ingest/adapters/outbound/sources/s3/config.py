@@ -32,7 +32,6 @@ class S3SourceConfig(BaseModel):
         "",
         description="S3 key prefix to filter objects. Use 'documents/reports/' for directory or 'documents/report.pdf' for exact file",
     )
-    object_key: str | None = Field(None, description="Exact object key selected for an event run")
 
     # S3-compatible storage configuration (optional)
     endpoint_url: str | None = Field(
