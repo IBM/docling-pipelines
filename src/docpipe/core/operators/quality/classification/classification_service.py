@@ -14,6 +14,7 @@ from docpipe.core.operators.quality.classification.domain.models import (
     ClassificationResponse,
     build_classification_prompt,
 )
+from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
 from docpipe.core.ports.llm_inference_port import LLMInferencePort
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
 from docpipe.exceptions.error_codes import ErrorCode
@@ -29,11 +30,14 @@ class ClassificationService:
     This service replaces the port/adapter architecture with direct usage of
     LLMAdapterFactory, similar to how the test file uses it.
 
-    Supports watsonx and litellm providers.
+    Supports watsonx and litellm providers, or any pre-built ``LLMInferencePort``
+    adapter injected via ``llm_adapter``.
 
     Attributes:
         llm_adapter: LLM inference adapter instance
-        provider_name: Provider name ('watsonx' or 'litellm')
+        document_class_provider: Provider for resolving document class metadata
+        provider_name: Provider name ('watsonx' or 'litellm'), empty string when
+            a pre-built adapter is injected
         model_id: Model identifier
         temperature: Temperature for LLM generation
         max_tokens: Maximum tokens for LLM response
@@ -43,28 +47,74 @@ class ClassificationService:
         self,
         *,
         model_id: str | None = None,
-        provider_name: str,
+        provider_name: str | None = None,
         provider_config: dict[str, Any] | None = None,
         temperature: float = 0.0,
         max_tokens: int = 500,
+        llm_adapter: LLMInferencePort | None = None,
+        document_class_provider: DocumentClassProvider | None = None,
     ) -> None:
         """Initialize classification service.
 
+        At least one of ``llm_adapter`` or ``provider_name`` must be supplied:
+
+        * When ``llm_adapter`` is given it is used directly and the factory is
+          **not** called.  ``model_id`` and ``provider_name`` are then optional
+          (they are stored only for informational purposes via ``get_model_info``).
+        * When only ``provider_name`` is given the existing
+          ``LLMAdapterFactory`` path is used (requires ``model_id``).
+
         Args:
-            model_id: Model identifier for the provider (required)
-            provider_name: Provider name ('watsonx' or 'litellm')
-            provider_config: Provider-specific configuration dictionary
-            temperature: Temperature for LLM generation (default: 0.0)
-            max_tokens: Maximum tokens for LLM response (default: 500)
+            model_id: Model identifier for the provider.  Required when
+                ``llm_adapter`` is not provided.
+            provider_name: Provider name ('watsonx' or 'litellm').  Required
+                when ``llm_adapter`` is not provided.
+            provider_config: Provider-specific configuration dictionary.
+            temperature: Temperature for LLM generation (default: 0.0).
+            max_tokens: Maximum tokens for LLM response (default: 500).
+            llm_adapter: Pre-built ``LLMInferencePort`` instance.  When
+                supplied, ``model_id`` / ``provider_name`` / ``provider_config``
+                are ignored for adapter construction.
+            document_class_provider: Provider for resolving document class
+                metadata (types, schemas, Docling templates).  Defaults to
+                ``StaticDocumentClassProvider`` which reads from local JSON files.
 
         Raises:
-            DocpipeException: If model_id is missing, provider is unsupported,
-                or adapter initialization fails
+            DocpipeException: If neither ``llm_adapter`` nor a valid
+                ``provider_name`` + ``model_id`` pair is supplied, or if
+                adapter initialisation fails.
         """
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.provider_config = provider_config or {}
+        self.document_class_provider: DocumentClassProvider = (
+            document_class_provider if document_class_provider is not None else StaticDocumentClassProvider()
+        )
+
+        if llm_adapter is not None:
+            # Fast path: caller supplies a ready-made adapter (e.g. ModelGatewayLLMAdapter).
+            # Skip factory instantiation and validation entirely.
+            self.llm_adapter: LLMInferencePort = llm_adapter
+            self.model_id = model_id or ""
+            self.provider_name = provider_name or ""
+            logger.info(
+                "Initialized ClassificationService with injected adapter=%s, temperature=%s, max_tokens=%s",
+                type(llm_adapter).__name__,
+                temperature,
+                max_tokens,
+            )
+            return
+
+        # Factory path: build adapter from provider_name + model_id.
         if not model_id:
             raise DocpipeException(
                 error_code=ErrorCode.INVALID_CONFIGURATION,
                 message=f"{OperatorConstants.Config.MODEL_ID} is required for classification service",
+            )
+        if not provider_name:
+            raise DocpipeException(
+                error_code=ErrorCode.INVALID_CONFIGURATION,
+                message=f"{OperatorConstants.Config.PROVIDER} is required when llm_adapter is not provided",
             )
 
         provider_name = provider_name.lower()
@@ -81,13 +131,10 @@ class ClassificationService:
 
         self.model_id = model_id
         self.provider_name = provider_name
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.provider_config = provider_config or {}
 
         # Create LLM inference adapter using factory
         try:
-            self.llm_adapter: LLMInferencePort = LLMAdapterFactory.create_inference_adapter(
+            self.llm_adapter = LLMAdapterFactory.create_inference_adapter(
                 provider=provider_name,
                 model_id=model_id,
                 provider_config=self.provider_config,

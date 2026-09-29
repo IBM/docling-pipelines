@@ -600,9 +600,9 @@ def test_adapter_prepare_document_tasks_empty_document_types(adapter):
 
 @pytest.mark.unit
 def test_adapter_load_schema_templates(adapter):
-    """_load_schema_templates populates schema_templates via DocumentClassUtils."""
+    """_load_schema_templates populates schema_templates via the document_class_provider."""
     with patch(
-        "docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter.DocumentClassUtils.generate_docling_templates_for_types",
+        "docpipe.utils.document_class_utils.DocumentClassUtils.generate_docling_templates_for_types",
         return_value={"invoice": {"fields": []}},
     ):
         schema_templates: dict = {}
@@ -682,7 +682,7 @@ def test_service_prepare_document_tasks_merges_document_type(adapter):
 
 @pytest.mark.unit
 def test_service_load_schema_templates(adapter):
-    """Service._load_schema_templates delegates to DocumentClassUtils."""
+    """Service._load_schema_templates delegates via the document_class_provider."""
     from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
         DoclingEntityExtractionService,
     )
@@ -693,7 +693,7 @@ def test_service_load_schema_templates(adapter):
     )
 
     with patch(
-        "docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter.DocumentClassUtils.generate_docling_templates_for_types",
+        "docpipe.utils.document_class_utils.DocumentClassUtils.generate_docling_templates_for_types",
         return_value={"invoice": {"fields": []}},
     ):
         schema_templates: dict = {}

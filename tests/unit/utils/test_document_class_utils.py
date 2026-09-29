@@ -781,3 +781,77 @@ class TestGetDocumentTypesMissingLines:
 
         # Error per file is caught; result is empty but no exception raised
         assert result == {}
+
+
+# ── StaticDocumentClassProvider ──────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestStaticDocumentClassProvider:
+    """Tests for StaticDocumentClassProvider: ABC subclassing and delegation."""
+
+    def test_satisfies_document_class_provider_protocol(self):
+        """StaticDocumentClassProvider must be a subclass of DocumentClassProvider."""
+        from docpipe.core.ports.document_class_provider import (
+            DocumentClassProvider,
+            StaticDocumentClassProvider,
+        )
+
+        provider = StaticDocumentClassProvider()
+        assert isinstance(provider, DocumentClassProvider)
+
+    def test_get_document_types_delegates_to_utils(self):
+        """get_document_types() returns what DocumentClassUtils.get_document_types() returns."""
+        from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+        fake_types = {"invoice": "A business invoice", "receipt": "A payment receipt"}
+
+        with patch(
+            "docpipe.utils.document_class_utils.DocumentClassUtils.get_document_types",
+            return_value=fake_types,
+        ):
+            result = StaticDocumentClassProvider().get_document_types()
+
+        assert result == fake_types
+
+    def test_get_schema_templates_delegates_to_utils(self):
+        """get_schema_templates() delegates to DocumentClassUtils.get_schema_templates()."""
+        from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+        fake_schemas = {"invoice": {"document_type": "invoice", "fields": []}}
+
+        with patch(
+            "docpipe.utils.document_class_utils.DocumentClassUtils.get_schema_templates",
+            return_value=fake_schemas,
+        ) as mock_util:
+            result = StaticDocumentClassProvider().get_schema_templates(["invoice"])
+
+        mock_util.assert_called_once_with(["invoice"])
+        assert result == fake_schemas
+
+    def test_generate_docling_templates_delegates_to_utils(self):
+        """generate_docling_templates_for_types() delegates to DocumentClassUtils."""
+        from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+        fake_templates = {"invoice": {"invoice_number": "string", "total": "float"}}
+
+        with patch(
+            "docpipe.utils.document_class_utils.DocumentClassUtils.generate_docling_templates_for_types",
+            return_value=fake_templates,
+        ) as mock_util:
+            result = StaticDocumentClassProvider().generate_docling_templates_for_types(["invoice"])
+
+        mock_util.assert_called_once_with(["invoice"], include_nested=True)
+        assert result == fake_templates
+
+    def test_generate_docling_templates_forwards_include_nested_false(self):
+        """include_nested=False is forwarded to DocumentClassUtils."""
+        from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+        with patch(
+            "docpipe.utils.document_class_utils.DocumentClassUtils.generate_docling_templates_for_types",
+            return_value={},
+        ) as mock_util:
+            StaticDocumentClassProvider().generate_docling_templates_for_types(["invoice"], include_nested=False)
+
+        mock_util.assert_called_once_with(["invoice"], include_nested=False)

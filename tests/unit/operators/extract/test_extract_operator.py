@@ -3115,3 +3115,95 @@ def test_extract_operator_valid_max_workers_passed_through() -> None:
             }
         )
         assert mock_create.call_args.kwargs["max_workers"] == 8
+
+
+# ── DocumentClassProvider injection ──────────────────────────────────────────
+
+
+def _make_operator_with_entity_extraction(
+    *,
+    document_class_provider=None,
+) -> "ExtractOperator":
+    """Build an ExtractOperator with entity extraction enabled, mocking both factories."""
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
+    from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+    config = {
+        "text_extraction": {"provider": "docling_library", "doc_column": "doc_content"},
+        "entity_extraction": {"provider": "litellm", "provider_config": {"model_id": "test"}},
+    }
+
+    mock_text_adapter = MagicMock()
+    mock_text_adapter.max_workers = 4
+    mock_text_adapter.additional_formats = []
+    mock_text_adapter.global_config = {}
+
+    mock_entity_adapter = MagicMock()
+    mock_entity_adapter.ADAPTER_DISPLAY_NAME = "LiteLLM"
+    mock_entity_adapter.document_class_provider = StaticDocumentClassProvider()
+
+    with (
+        patch(
+            "docpipe.core.operators.extract.extract_operator.TextExtractionAdapterFactory.create_adapter",
+            return_value=mock_text_adapter,
+        ),
+        patch(
+            "docpipe.core.operators.extract.extract_operator.EntityExtractionAdapterFactory.create_adapter",
+            return_value=mock_entity_adapter,
+        ),
+    ):
+        return ExtractOperator(config=config, document_class_provider=document_class_provider)
+
+
+@pytest.mark.unit
+def test_extract_operator_defaults_to_static_provider() -> None:
+    """ExtractOperator uses StaticDocumentClassProvider when no provider is injected."""
+    from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+    op = _make_operator({"text_extraction": {"provider": "docling_library"}})
+
+    assert isinstance(op._document_class_provider, StaticDocumentClassProvider)
+
+
+@pytest.mark.unit
+def test_extract_operator_stores_injected_provider() -> None:
+    """An injected document_class_provider is stored as _document_class_provider."""
+    from docpipe.core.ports.document_class_provider import DocumentClassProvider
+
+    custom_provider = MagicMock(spec=DocumentClassProvider)
+    op = _make_operator_with_entity_extraction(document_class_provider=custom_provider)
+
+    assert op._document_class_provider is custom_provider
+
+
+@pytest.mark.unit
+def test_extract_operator_propagates_provider_to_entity_adapter() -> None:
+    """The injected provider is set on the entity adapter after factory creation."""
+    from docpipe.core.ports.document_class_provider import DocumentClassProvider
+
+    custom_provider = MagicMock(spec=DocumentClassProvider)
+    op = _make_operator_with_entity_extraction(document_class_provider=custom_provider)
+
+    assert op.entity_adapter is not None
+    assert op.entity_adapter.document_class_provider is custom_provider
+
+
+@pytest.mark.unit
+def test_extract_operator_default_provider_propagated_to_entity_adapter() -> None:
+    """When no provider is given, StaticDocumentClassProvider is set on the entity adapter."""
+    from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+    op = _make_operator_with_entity_extraction()
+
+    assert isinstance(op.entity_adapter.document_class_provider, StaticDocumentClassProvider)
+
+
+@pytest.mark.unit
+def test_extract_operator_provider_not_set_when_no_entity_adapter() -> None:
+    """Text-only operator still stores _document_class_provider; entity_adapter is None."""
+    from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+    op = _make_operator({"text_extraction": {"provider": "docling_library"}})
+
+    assert isinstance(op._document_class_provider, StaticDocumentClassProvider)
+    assert op.entity_adapter is None
