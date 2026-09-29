@@ -15,6 +15,8 @@ from typing import Any
 
 import pyarrow as pa
 
+# Import adapters package to trigger self-registration with PIIAndHAPDetectionFactory
+import docpipe.core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
 from docpipe.core.constants.constants import (
     AttributeDataTypes,
     DocpipeConstants,
@@ -23,6 +25,9 @@ from docpipe.core.constants.constants import (
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_and_hap_detection_factory import (
+    PIIAndHAPDetectionFactory,
+)
 from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_helper import (
     DEFAULT_HAP_THRESHOLD_VALUE,
     DEFAULT_PII_THRESHOLD_VALUE,
@@ -200,47 +205,31 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         }
 
     def _initialize_pii_hap_service(self) -> PIIHAPService:
-        """Initialize the PII/HAP detection service using common infrastructure.
+        """Initialize the PII/HAP detection service.
+
+        Calls ``PIIAndHAPDetectionFactory`` to resolve the provider, then injects
+        the resulting adapter into ``PIIHAPService``.
 
         Returns:
-            PIIHAPService: Initialized detection service
+            PIIHAPService: Initialized detection service.
 
         Raises:
-            ValueError: If the service cannot be initialized
+            ValueError: If the provider is not registered or configuration is invalid.
         """
         try:
-            # Extract provider-specific config from provider_config dictionary
-            service_config: dict[str, Any] = dict(self.provider_config)
-
-            # Add provider-specific configuration
-            if self.provider == PROVIDER_WATSONX:
-                # Validate required WatsonX parameters
-                required_keys = ["api_key", "url", "container_kind", "container_id"]
-                missing_keys = [key for key in required_keys if key not in service_config]
-                if missing_keys:
-                    msg = (
-                        f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
-                        f"Missing: {', '.join(missing_keys)}"
-                    )
-                    raise ValueError(msg)
-                # Add default timeout if not specified
-                service_config.setdefault("timeout", 300)
-
-            # Create service using common infrastructure
-            # Validation happens automatically in PIIHAPService.__init__
-            service = PIIHAPService(
-                provider=self.provider,
+            adapter = PIIAndHAPDetectionFactory.create(
+                self.provider,
                 model_id=self.model_name,
-                provider_config=service_config,
+                provider_config=dict(self.provider_config),
             )
-
+            service = PIIHAPService(adapter=adapter)
             logger.info(
                 "Successfully initialized %s PII/HAP service",
                 self.provider,
                 extra=self.common_log_arguments,
             )
             return service
-        except ValueError as e:
+        except Exception as e:
             logger.error(
                 "Failed to initialize PII/HAP service for provider '%s': %s",
                 self.provider,
@@ -268,17 +257,30 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
     def _get_piihap_provider_schemas() -> dict[str, Any]:
         """Return per-provider JSON Schema dicts for the provider_config field.
 
-        Add a new entry here when registering a new PII/HAP provider.
+        Imports ``ADAPTER_NAME`` and the config schema class directly from each
+        adapter module so the dict key is always the adapter's own source of truth —
+        no separate constant to keep in sync.
         """
         from docpipe.core.operators.operator_utils import OperatorUtils
-        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.litellm.config import (
+            ADAPTER_NAME as LITELLM_ADAPTER_NAME,
+        )
+        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.litellm.config import (
+            LiteLLMPIIAndHAPConfig,
+        )
+        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.watsonx.config import (
+            ADAPTER_NAME as WATSONX_ADAPTER_NAME,
+        )
+        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.watsonx.config import (
+            WatsonxPIIAndHAPConfig,
+        )
 
         return {
-            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
-                schema=LLMProviderConfig.model_json_schema()
+            LITELLM_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(
+                schema=LiteLLMPIIAndHAPConfig.model_json_schema()
             ),
-            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
-                schema=WatsonxProviderConfig.model_json_schema()
+            WATSONX_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(
+                schema=WatsonxPIIAndHAPConfig.model_json_schema()
             ),
         }
 
