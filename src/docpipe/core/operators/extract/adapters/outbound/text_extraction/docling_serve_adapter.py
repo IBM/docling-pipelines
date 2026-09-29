@@ -122,9 +122,11 @@ class DoclingServeAdapter(TextExtractionPort):
             "pdf_backend": docling_serve_config.get("pdf_backend", "dlparse_v2"),
         }
 
-        # Include doclang if doc_format is doclang
+        # Include doclang if doc_format is doclang.
+        # Read from self.global_config (set by the base class from the same config dict) so
+        # that doc_format injected by ExtractOperator into global_config is always visible here.
         formats_to_request = list(self.additional_formats)
-        doc_format = config.get(OperatorConstants.DOC_FORMAT_KEY)
+        doc_format = self.global_config.get(OperatorConstants.DOC_FORMAT_KEY)
         if doc_format == OperatorConstants.DocFormat.DOCLANG and "doclang" not in formats_to_request:
             formats_to_request.append("doclang")
 

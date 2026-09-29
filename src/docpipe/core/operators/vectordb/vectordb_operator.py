@@ -492,7 +492,10 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 chunk_text = ""
 
             if chunk_text:
-                # Update the content column with chunk text instead of full document
+                # Strip DocLang XML if present before indexing. ChunkerOperator normally produces
+                # plain text, but external chunkers or custom pipelines may not — strip defensively.
+                if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+                    chunk_text = OperatorUtils.doclang_to_markdown(chunk_text)
                 chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
             file_id: str = str(row_data.get(id_column, doc_id))
@@ -524,7 +527,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 if chunk_idx < len(embeddings_list):
                     chunk_row_data[vec_col] = embeddings_list[chunk_idx]
 
-            # Replace content field with chunk-specific text and extract chunk metadata
+            # Replace content field with chunk-specific text and extract chunk metadata.
             chunk_text = ""
             if chunk_idx < len(chunked_content_list):
                 chunk_item = chunked_content_list[chunk_idx]
@@ -534,7 +537,10 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                             chunk_row_data[k] = v
                     chunk_text = chunk_item.get(OperatorConstants.Columns.CHUNK, "")
                 if chunk_text:
-                    # Update the content column with chunk text instead of full document
+                    # Strip DocLang XML if present before indexing. ChunkerOperator normally produces
+                    # plain text, but external chunkers or custom pipelines may not — strip defensively.
+                    if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+                        chunk_text = OperatorUtils.doclang_to_markdown(chunk_text)
                     chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
             file_id: str = str(row_data.get(id_column, doc_id))
