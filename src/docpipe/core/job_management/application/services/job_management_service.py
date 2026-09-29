@@ -110,6 +110,21 @@ class JobManagementService:
             user_id = job_run_config_model.user_id
             metadata = dict(job_run_config_model.metadata)
 
+        event_streaming = flow_config.pop("event_streaming", False)
+        file_path = flow_config.pop("file_path", None)
+        if event_streaming and not file_path:
+            raise ValueError("file_path is required for an event streaming job run")
+
+        if event_streaming:
+            return self._create_job_run(
+                flow_id=flow_id,
+                flow_name=flow_name,
+                flow_config=flow_config,
+                user_id=user_id,
+                metadata=metadata,
+                file_path=file_path,
+            )
+
         return self._create_job_run(
             flow_id=flow_id, flow_name=flow_name, flow_config=flow_config, user_id=user_id, metadata=metadata
         )
@@ -122,6 +137,7 @@ class JobManagementService:
         flow_config: dict[str, Any],
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        file_path: str | None = None,
     ) -> dict[str, Any]:
         """
         Create and start a new job run.
@@ -187,6 +203,12 @@ class JobManagementService:
         else:
             # Unknown format
             raise FlowInvalidDataException(message=f"Flow {flow_id} has unknown format.", field_name="definition")
+
+        if file_path is not None:
+            ingest_nodes = [
+                node for node in flow_dag_definition.get("dag", []) if node.get("operator") == "ingest_source"
+            ]
+            ingest_nodes[0].setdefault("config", {}).setdefault("connection_params", {})["prefix"] = file_path
 
         self.executor.submit(
             self._execute_flow_async,
