@@ -223,10 +223,12 @@ When `display_pii: true`, additional `*_info` columns are added for each PII typ
 
 ### Detection paths
 
-The operator implements two internal detection paths through a shared service layer:
+The operator uses a decorator-based adapter registry. Each provider adapter self-registers with `PIIAndHAPDetectionFactory` via `@register_pii_and_hap_detection_adapter` and fully encapsulates its own detection path behind the unified `PIIAndHAPDetectionPort.detect()` interface:
 
-1. **WatsonX path**: Uses the native `/ml/v1/text/detection` API — optimised for PII/HAP
-2. **LiteLLM path**: Prompt-based detection via chat completion — supports 100+ providers
+1. **WatsonX** (`WatsonxPIIAndHAPAdapter`): Uses the native `/ml/v1/text/detection` API — optimised for PII/HAP, no prompt engineering required.
+2. **LiteLLM** (`LiteLLMPIIAndHAPAdapter`): Prompt-based detection via chat completion — supports 100+ providers including Ollama.
+
+Adding a new provider is a single-file change: create the adapter module, decorate it with `@register_pii_and_hap_detection_adapter`, and it is automatically discoverable.
 
 ### Migration from legacy Ollama provider
 
