@@ -44,6 +44,7 @@ export default defineConfig(() => ({
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     css: false,
+    pool: 'threads',
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@components': path.resolve(__dirname, './src/components'),

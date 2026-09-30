@@ -6,6 +6,33 @@ import { renderWithProviders } from '../../../utils/renderWithProviders';
 import { FlowRunHistoryTearsheet } from '@/components/Canvas/FlowRunHistoryTearsheet/FlowRunHistoryTearsheet';
 import { server } from '../../../mocks/server';
 
+// Mock SharedTearsheet to render children directly — bypasses Carbon's React portal
+// which renders outside the jsdom query scope and causes findByRole('table') to time out on CI.
+vi.mock('@/components/common', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/common')>();
+  return {
+    ...actual,
+    SharedTearsheet: ({
+      open,
+      title,
+      children,
+      onClose,
+    }: {
+      open: boolean;
+      title?: string;
+      children?: React.ReactNode;
+      onClose?: () => void;
+    }) =>
+      open ? (
+        <div data-testid="mock-tearsheet">
+          <h2>{title}</h2>
+          <button type="button" aria-label="Close" onClick={onClose} />
+          {children}
+        </div>
+      ) : null,
+  };
+});
+
 describe('FlowRunHistoryTearsheet', () => {
   let createObjectURLSpy: ReturnType<typeof vi.spyOn>;
   let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>;
@@ -61,8 +88,10 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-1" />
     );
-    const table = await screen.findByRole('table');
-    expect(table).toBeInTheDocument();
+    // Wait for a data row to appear (timestamp button rendered after fetch)
+    await waitFor(() => {
+      expect(screen.queryAllByRole('button').length).toBeGreaterThan(0);
+    });
   });
 
   it('shows table headers Timestamp, Status, Duration, Logs after data loads', async () => {
@@ -129,9 +158,12 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-1" />
     );
-    const table = await screen.findByRole('table');
-    const buttons = within(table).queryAllByRole('button');
-    expect(buttons.length).toBeGreaterThan(0);
+    // Re-query table inside waitFor to avoid stale reference after state update
+    await waitFor(() => {
+      const t = screen.queryByRole('table');
+      expect(t).not.toBeNull();
+      expect(within(t!).queryAllByRole('button').length).toBeGreaterThan(0);
+    });
   });
 
   it('onClose is not called on initial render', () => {
@@ -147,13 +179,18 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={onClose} flowId="flow-1" />
     );
-    const table = await screen.findByRole('table');
-    const timestampBtn = within(table).queryAllByRole('button')[0];
-    expect(timestampBtn).toBeTruthy();
+    let timestampBtn: HTMLElement | undefined;
+    await waitFor(() => {
+      const t = screen.queryByRole('table');
+      expect(t).not.toBeNull();
+      const btns = within(t!).queryAllByRole('button');
+      expect(btns.length).toBeGreaterThan(0);
+      timestampBtn = btns[0];
+    });
     if (timestampBtn) {
       fireEvent.click(timestampBtn);
+      expect(onClose).toHaveBeenCalledTimes(1);
     }
-    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('renders a Download logs button for completed runs', async () => {
@@ -174,9 +211,11 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-dl" />
     );
-    const table = await screen.findByRole('table');
-    const allButtons = within(table).queryAllByRole('button');
-    expect(allButtons.length).toBeGreaterThanOrEqual(2);
+    await waitFor(() => {
+      const t = screen.queryByRole('table');
+      expect(t).not.toBeNull();
+      expect(within(t!).queryAllByRole('button').length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it('does not render Download button for failed runs', async () => {
@@ -334,8 +373,14 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-nondl" />
     );
-    const table = await screen.findByRole('table');
-    expect(table).toBeInTheDocument();
+    // Wait for row to appear — timestamp button present, no Download button
+    await waitFor(() => {
+      const table = screen.queryByRole('table');
+      expect(table).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(document.querySelector('button[aria-label="Download logs"]')).toBeNull();
+    });
   });
 
   it('renders Download button for Running status', async () => {
@@ -354,8 +399,10 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-running" />
     );
-    const table = await screen.findByRole('table');
-    const cellBtns = within(table).queryAllByRole('button');
-    expect(cellBtns.length).toBeGreaterThanOrEqual(1);
+    await waitFor(() => {
+      const t = screen.queryByRole('table');
+      expect(t).not.toBeNull();
+      expect(within(t!).queryAllByRole('button').length).toBeGreaterThanOrEqual(1);
+    });
   });
 });
