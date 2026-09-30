@@ -1283,7 +1283,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 #### PIIAndHAPAnnotator
 
-**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using Large Language Models.
+**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using LLM-based detection, with optional redaction.
 
 **Category:** Quality
 
@@ -1291,23 +1291,60 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 **Class:** `core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator`
 
-| Parameter                  | Type         | Required    | Default                                                                                                 | Description                                                                                                                      |
-| -------------------------- | ------------ | ----------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `provider`                 | string       | No          | `litellm`                                                                                               | LLM provider (`ollama`, `watsonx`, `litellm`)                                                                                    |
-| `provider_config`          | object       | No          | `{"api_base":"http://localhost:11434/v1","api_key":"<any-string-works-for-ollama-no-need-of-api-key>"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. |
-| `provider_config.model_id` | string       | Conditional | `openai/granite3.1-dense:8b`                                                                            | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm)                                             |
-| `doc_column`               | string       | No          | `content`                                                                                               | Input text column                                                                                                                |
-| `pii_types`                | list[string] | No          | all types                                                                                               | PII types to detect                                                                                                              |
-| `hap_types`                | list[string] | No          | all types                                                                                               | HAP types to detect                                                                                                              |
-| `output_column_prefix`     | string       | No          | `pii_hap_`                                                                                              | Prefix for output columns                                                                                                        |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `provider` | string | No | `litellm` | Detection provider: `litellm` or `watsonx` |
+| `provider_config` | object | No | `{}` | Provider-specific configuration (see below) |
+| `doc_column` | string | No | `content` | Input text column |
+| `expected_redactions` | list | No | `["pii","hap"]` | Detection types to run: any subset of `["pii","hap"]` |
+| `pii_list` | list | No | all 13 types | PII types to detect |
+| `redaction` | boolean | No | `false` | Replace detected PII spans with `redaction_character` |
+| `redaction_character` | string | No | `*` | Masking character for PII redaction |
+| `hap_redaction` | boolean | No | `false` | Replace detected HAP spans with `hap_redaction_character` |
+| `hap_redaction_character` | string | No | `*` | Masking character for HAP redaction |
+| `pii_threshold` | float | No | `0.5` | Confidence threshold for PII detection (0.0–1.0) |
+| `hap_threshold` | float | No | `0.8` | Confidence threshold for HAP detection (0.0–1.0) |
+| `display_pii` | boolean | No | `false` | Add extra columns with detected PII values (**testing only**) |
+
+**`provider_config` — LiteLLM:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `model_id` | string | Yes | Model ID with provider prefix (e.g. `openai/granite4` for Ollama) |
+| `api_base` | string | No | API endpoint URL (e.g. `http://localhost:11434/v1` for Ollama) |
+| `api_key` | string | No | Authentication key |
+
+**`provider_config` — WatsonX:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `model_id` | string | Yes | WatsonX model identifier |
+| `api_key` | string | Yes | IBM Cloud API key |
+| `url` | string | Yes | WatsonX endpoint URL |
+| `container_kind` | string | Yes | `"project"` or `"space"` |
+| `container_id` | string | Yes | Project or space UUID |
+| `timeout` | integer | No | Request timeout in seconds (default: `300`) |
 
 **Output Schema:**
 
-- `{prefix}pii_detected` (bool)
-- `{prefix}hap_detected` (bool)
-- `{prefix}pii_types` (list)
-- `{prefix}hap_types` (list)
-- Optional confidence and reasoning columns
+| Column | Type | Description |
+| --- | --- | --- |
+| `pii_bank_account` | int64 | Count of bank account numbers detected |
+| `pii_credit_card` | int64 | Count of credit card numbers detected |
+| `pii_email_address` | int64 | Count of email addresses detected |
+| `pii_ip_address` | int64 | Count of IP addresses detected |
+| `pii_phone_number` | int64 | Count of phone numbers detected |
+| `pii_ssn_details` | int64 | Count of Social Security Numbers detected |
+| `pii_person_name` | int64 | Count of person names detected |
+| `pii_date_of_birth` | int64 | Count of dates of birth detected |
+| `pii_address` | int64 | Count of physical addresses detected |
+| `pii_passport_number` | int64 | Count of passport numbers detected |
+| `pii_driver_license` | int64 | Count of driver's license numbers detected |
+| `pii_national_id` | int64 | Count of national identity numbers detected |
+| `pii_medical_record` | int64 | Count of medical record numbers detected |
+| `hap` | int64 | Count of HAP instances detected |
+
+When `display_pii: true`, additional `*_info` columns are appended for each PII type. **Never enable in production.**
 
 **See Also:** [PII and HAP Documentation](../operators/quality/pii_and_hap_readme.md)
 

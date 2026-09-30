@@ -95,9 +95,9 @@ Click **Run** in the canvas toolbar. The pipeline is submitted to the backend as
 
 Click the **Flow run history** button in the toolbar to see all past runs for this flow with their status and duration.
 
-#### About this flow
+#### About flow
 
-Click **About this flow** in the toolbar to view and edit the flow name and description without leaving the canvas.
+Click **About flow** in the toolbar to view and edit the flow name and description without leaving the canvas.
 
 ---
 

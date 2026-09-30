@@ -21,7 +21,7 @@ import {
   LANGUAGE_DETECT_ATTR as ATTR,
   LANGUAGE_DETECT_LABEL as LABEL,
   LANGUAGE_DETECT_PROVIDER_ITEMS as PROVIDER_ITEMS,
-} from '../../../../constants/PropertiesPanels/languageDetectConstants';
+} from './constants';
 import common from '../../CommonPropertiesPanel.module.scss';
 
 interface LanguageDetectPanelBodyProps {

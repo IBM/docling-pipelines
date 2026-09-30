@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button } from '@carbon/react';
 import { Download } from '@carbon/icons-react';
+import { NoDataEmptyState } from '@carbon/ibm-products';
 import { useNavigate } from 'react-router-dom';
 import { SharedDataTable, SharedTearsheet } from '@/components/common';
 import {
@@ -17,6 +18,7 @@ import { StatusIcon, STATUS_LABELS } from '@/components/FlowDetail';
 import type { RunStatus } from '@/components/FlowDetail';
 import { getJobRunStatusLabel } from '@/constants/jobRunStatus';
 import { formatEpochToDisplay, formatElapsedTime } from '@/utils/dateTimeUtils';
+import { useTheme } from '@/hooks';
 import styles from './FlowRunHistoryTearsheet.module.scss';
 
 export interface FlowRunHistoryTearsheetProps {
@@ -79,6 +81,7 @@ export function FlowRunHistoryTearsheet({
   projectId = '',
 }: FlowRunHistoryTearsheetProps): React.JSX.Element {
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
   const [rawItems, setRawItems] = useState<JobRunListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -145,6 +148,16 @@ export function FlowRunHistoryTearsheet({
     };
   });
 
+  const emptyState = (
+    <NoDataEmptyState
+      illustrationTheme={isDarkMode ? 'dark' : 'light'}
+      illustrationPosition="top"
+      size="sm"
+      title="No runs yet"
+      subtitle="Run this flow to see execution history here."
+    />
+  );
+
   return (
     <SharedTearsheet
       open={open}
@@ -157,6 +170,7 @@ export function FlowRunHistoryTearsheet({
           headers={FLOW_RUN_HISTORY_HEADERS}
           rows={rows}
           loading={loading}
+          emptyState={emptyState}
         />
       </div>
     </SharedTearsheet>
