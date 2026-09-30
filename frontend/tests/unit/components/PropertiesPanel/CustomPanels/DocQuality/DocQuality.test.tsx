@@ -1,54 +1,40 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { DocQualityPanelBody } from '@/components/PropertiesPanel/CustomPanels/DocQuality/DocQuality';
 
-function makeController(overrides: Record<string, unknown> = {}) {
+function makeController() {
   return {
-    getAppData: vi.fn(() => ({ operatorMetadata: {} })),
-    getPropertyValue: vi.fn(() => undefined),
-    updatePropertyValue: vi.fn(),
-    ...overrides,
+    getAppData: () => ({ operatorMetadata: {} }),
+    getPropertyValue: () => undefined,
+    updatePropertyValue: () => undefined,
   };
 }
 
 describe('DocQualityPanelBody', () => {
-  it('renders the Language text input', () => {
-    const controller = makeController();
-    render(<DocQualityPanelBody controller={controller} />);
-    expect(document.getElementById('text_lang')).not.toBeNull();
+  it('renders without crashing', () => {
+    const { container } = render(<DocQualityPanelBody controller={makeController()} />);
+    expect(container).toBeInTheDocument();
   });
 
-  it('defaults to "en" when no value stored', () => {
-    const controller = makeController();
-    render(<DocQualityPanelBody controller={controller} />);
-    const input = document.getElementById('text_lang') as HTMLInputElement;
-    expect(input.value).toBe('en');
+  it('renders the "No configuration required" inline notification', () => {
+    render(<DocQualityPanelBody controller={makeController()} />);
+    expect(screen.getByText(/No configuration required/i)).toBeInTheDocument();
   });
 
-  it('uses the stored value from controller', () => {
-    const controller = makeController({
-      getPropertyValue: vi.fn((prop: { name: string }) =>
-        prop.name === 'text_lang' ? 'fr' : undefined
-      ),
-    });
-    render(<DocQualityPanelBody controller={controller} />);
-    const input = document.getElementById('text_lang') as HTMLInputElement;
-    expect(input.value).toBe('fr');
+  it('renders the notification subtitle', () => {
+    render(<DocQualityPanelBody controller={makeController()} />);
+    expect(
+      screen.getByText(/automatically computes document quality metrics/i)
+    ).toBeInTheDocument();
   });
 
-  it('calls updatePropertyValue when typing', () => {
-    const update = vi.fn();
-    const controller = makeController({ updatePropertyValue: update });
-    render(<DocQualityPanelBody controller={controller} />);
-    const input = document.getElementById('text_lang') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'de' } });
-    expect(update).toHaveBeenCalledWith({ name: 'text_lang' }, 'de');
+  it('renders with null controller', () => {
+    const { container } = render(<DocQualityPanelBody controller={null} />);
+    expect(container).toBeInTheDocument();
   });
 
-  it('renders Language label via RequiredParamTooltip', () => {
-    const controller = makeController();
-    render(<DocQualityPanelBody controller={controller} />);
-    const labels = screen.getAllByText('Language');
-    expect(labels.length).toBeGreaterThan(0);
+  it('does not render a text_lang input', () => {
+    render(<DocQualityPanelBody controller={makeController()} />);
+    expect(document.getElementById('text_lang')).toBeNull();
   });
 });

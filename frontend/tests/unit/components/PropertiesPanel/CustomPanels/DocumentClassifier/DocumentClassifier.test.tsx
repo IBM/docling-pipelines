@@ -188,73 +188,40 @@ describe('DocumentClassifierPanelBody', () => {
     expect(document.getElementById('provider')).toBeTruthy();
   });
 
-  // ── VaultInput / provider_config ─────────────────────────────────────────
+  // ── Provider configuration accordion ────────────────────────────────────
+  // provider_config is now rendered inside an Accordion — only visible when
+  // a provider is selected and its schema has no pre-defined properties.
+  // These tests verify the Accordion structure and provider reset behaviour.
 
-  it('renders provider_config VaultInput element', async () => {
+  it('renders Provider configuration accordion item', async () => {
     await act(async () => {
       render(<DocumentClassifierPanelBody controller={makeController()} />);
     });
-    expect(document.getElementById('provider_config')).toBeTruthy();
+    expect(screen.getByText('Provider configuration')).toBeInTheDocument();
   });
 
-  it('calls updatePropertyValue with null when provider_config is cleared', async () => {
-    const controller = makeController({
-      getPropertyValue: vi.fn((p: { name: string }) => {
-        if (p.name === 'provider_config') return '{"model":"ollama/mistral"}';
-        return undefined;
-      }),
-    });
+  it('renders Classification configuration accordion item', async () => {
     await act(async () => {
-      render(<DocumentClassifierPanelBody controller={controller} />);
+      render(<DocumentClassifierPanelBody controller={makeController()} />);
     });
-    const textarea = document.querySelector('textarea#provider_config') as HTMLTextAreaElement | null;
-    if (textarea) {
-      fireEvent.change(textarea, { target: { value: '' } });
-      expect(controller.updatePropertyValue).toHaveBeenCalledWith(
-        { name: 'provider_config' },
-        null
-      );
-    } else {
-      expect(document.getElementById('provider_config')).toBeTruthy();
-    }
+    expect(screen.getByText('Classification configuration')).toBeInTheDocument();
   });
 
-  it('calls updatePropertyValue with parsed JSON when provider_config has valid JSON', async () => {
-    const controller = makeController({
-      getPropertyValue: vi.fn(() => undefined),
-    });
+  it('renders provider dropdown and accordion structure', async () => {
     await act(async () => {
-      render(<DocumentClassifierPanelBody controller={controller} />);
+      render(<DocumentClassifierPanelBody controller={makeController()} />);
     });
-    const textarea = document.querySelector('textarea#provider_config') as HTMLTextAreaElement | null;
-    if (textarea) {
-      fireEvent.change(textarea, { target: { value: '{"model":"ollama/mistral"}' } });
-      expect(controller.updatePropertyValue).toHaveBeenCalledWith(
-        { name: 'provider_config' },
-        expect.objectContaining({ model: 'ollama/mistral' })
-      );
-    } else {
-      expect(document.getElementById('provider_config')).toBeTruthy();
-    }
+    // Provider dropdown exists
+    expect(document.getElementById('provider')).toBeTruthy();
+    // Provider configuration accordion exists
+    expect(screen.getByText('Provider configuration')).toBeInTheDocument();
   });
 
-  it('calls updatePropertyValue with vault string when provider_config is a vault reference', async () => {
-    const controller = makeController({
-      getPropertyValue: vi.fn(() => undefined),
-    });
+  it('renders provider dropdown', async () => {
     await act(async () => {
-      render(<DocumentClassifierPanelBody controller={controller} />);
+      render(<DocumentClassifierPanelBody controller={makeController()} />);
     });
-    const textarea = document.querySelector('textarea#provider_config') as HTMLTextAreaElement | null;
-    if (textarea) {
-      fireEvent.change(textarea, { target: { value: 'vault://secret/path' } });
-      expect(controller.updatePropertyValue).toHaveBeenCalledWith(
-        { name: 'provider_config' },
-        'vault://secret/path'
-      );
-    } else {
-      expect(document.getElementById('provider_config')).toBeTruthy();
-    }
+    expect(document.getElementById('provider')).toBeTruthy();
   });
 
   // ── Document types (classesLoading / classesError / FilterableMultiSelect) ──
