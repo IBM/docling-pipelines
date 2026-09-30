@@ -12,6 +12,7 @@ overrides = [
     { name = "httplib2", specifier = ">=0.32.0" },
     { name = "jupyterlab", specifier = "==4.6.2" },
     { name = "numpy", specifier = ">=2.0.0,<3.0.0" },
+    { name = "oauthlib", specifier = "==4.0.0" },
     { name = "rapidocr", specifier = "==3.9.0" },
     { name = "soupsieve", specifier = ">=2.8.4" },
 ]
@@ -1179,14 +1180,14 @@ wheels = [
 
 [[package]]
 name = "docling"
-version = "2.127.0"
+version = "2.130.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docling-slim", extra = ["standard"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4f/4c/4d0c0fb578869b0dbe71bc81dd5eb44d888ee4cb49ebbb0b438f13c2a950/docling-2.127.0.tar.gz", hash = "sha256:b30995b6619e9ad343af43968124c1bf637b23ed56c9fb9ea81782be058da675", size = 9091, upload-time = "2026-09-14T08:59:25.135Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/ff/9d68bae90e8ca663aa2e8b5ca9e25db50ad8bfd2a6852450b94de55be623/docling-2.130.0.tar.gz", hash = "sha256:f713849d7136511dff1079aeb7eed53bd68c20637c933a69728dbc8564340881", size = 9090, upload-time = "2026-09-22T15:38:15.518Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/d1/2ccf40b58524e759c3ccabf736789864442b918b5b04331f8c6ade662b78/docling-2.127.0-py3-none-any.whl", hash = "sha256:53e97becc63a38fc4253d6d2a698844e32280d618098115f58901b751dd11337", size = 5227, upload-time = "2026-09-14T08:59:23.958Z" },
+    { url = "https://files.pythonhosted.org/packages/16/35/422c785d51ddc42a4ba3aa07ac636dd8f593d794578d7017b533496307c3/docling-2.130.0-py3-none-any.whl", hash = "sha256:86f2052018a93c48810efecbd7a9ecb801dd407602c85c49a1006f252a7151ca", size = 5229, upload-time = "2026-09-22T15:38:13.986Z" },
 ]
 
 [package.optional-dependencies]
@@ -1401,6 +1402,9 @@ dev = [
 easyocr = [
     { name = "docling", extra = ["easyocr"] },
 ]
+lineage = [
+    { name = "openlineage-python" },
+]
 notebooks = [
     { name = "ipykernel" },
     { name = "jupyter" },
@@ -1456,12 +1460,12 @@ requires-dist = [
     { name = "datatrove", specifier = "==0.10.0" },
     { name = "datefinder", specifier = "==1.0.0" },
     { name = "detect-secrets", marker = "extra == 'dev'", specifier = "==1.5.0" },
-    { name = "docling", extras = ["asr", "vlm"], marker = "extra == 'vlm-asr'", specifier = "==2.127.0" },
-    { name = "docling", extras = ["easyocr"], marker = "extra == 'easyocr'", specifier = "==2.127.0" },
-    { name = "docling", extras = ["ocrmac"], marker = "extra == 'ocrmac'", specifier = "==2.127.0" },
-    { name = "docling", extras = ["rapidocr"], specifier = "==2.127.0" },
-    { name = "docling", extras = ["rapidocr"], marker = "extra == 'rapidocr'", specifier = "==2.127.0" },
-    { name = "docling", extras = ["tesserocr"], marker = "extra == 'tesserocr'", specifier = "==2.127.0" },
+    { name = "docling", extras = ["asr", "vlm"], marker = "extra == 'vlm-asr'", specifier = "==2.130.0" },
+    { name = "docling", extras = ["easyocr"], marker = "extra == 'easyocr'", specifier = "==2.130.0" },
+    { name = "docling", extras = ["ocrmac"], marker = "extra == 'ocrmac'", specifier = "==2.130.0" },
+    { name = "docling", extras = ["rapidocr"], specifier = "==2.130.0" },
+    { name = "docling", extras = ["rapidocr"], marker = "extra == 'rapidocr'", specifier = "==2.130.0" },
+    { name = "docling", extras = ["tesserocr"], marker = "extra == 'tesserocr'", specifier = "==2.130.0" },
     { name = "dropbox", specifier = "==12.2.1" },
     { name = "duckdb", specifier = "==1.3.2" },
     { name = "faker", marker = "extra == 'dev'", specifier = "==40.8.0" },
@@ -1507,6 +1511,7 @@ requires-dist = [
     { name = "o365", specifier = "==2.1.9" },
     { name = "ollama", specifier = "==0.6.1" },
     { name = "openai", specifier = "==2.33.0" },
+    { name = "openlineage-python", marker = "extra == 'lineage'", specifier = "==1.52.0" },
     { name = "opensearch-py", specifier = "==3.1.0" },
     { name = "opentelemetry-api", marker = "extra == 'telemetry'", specifier = "==1.41.1" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'telemetry'", specifier = "==1.41.1" },
@@ -1528,7 +1533,7 @@ requires-dist = [
     { name = "pygments", specifier = "==2.20.0" },
     { name = "pyiceberg", extras = ["glue"], specifier = "==0.9.1" },
     { name = "pyiceberg-core", specifier = "==0.7.0" },
-    { name = "pyjwt", specifier = "==2.13.0" },
+    { name = "pyjwt", specifier = "==2.14.0" },
     { name = "pymilvus", specifier = "==2.6.13" },
     { name = "pyopenssl", specifier = "==26.4.0" },
     { name = "pypdf", specifier = "==6.16.1" },
@@ -1558,13 +1563,13 @@ requires-dist = [
     { name = "tenacity", specifier = "==8.3.0" },
     { name = "toml", specifier = "==0.10.2" },
     { name = "torch", specifier = "==2.13.0" },
-    { name = "transformers", specifier = ">=5.17.0,<5.18.0" },
+    { name = "transformers", specifier = ">=5.17,<5.18" },
     { name = "unicategories", specifier = "==0.1.2" },
     { name = "unicodedataplus", specifier = "==16.0.0.post1" },
     { name = "urllib3", specifier = "==2.7.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.40.0" },
 ]
-provides-extras = ["benchmark", "dev", "easyocr", "notebooks", "ocrmac", "rapidocr", "telemetry", "tesserocr", "vlm-asr"]
+provides-extras = ["benchmark", "dev", "easyocr", "lineage", "notebooks", "ocrmac", "rapidocr", "telemetry", "tesserocr", "vlm-asr"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1580,7 +1585,7 @@ dev = [
 
 [[package]]
 name = "docling-slim"
-version = "2.127.0"
+version = "2.130.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -1593,9 +1598,9 @@ dependencies = [
     { name = "requests" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/e1/cd31f78c82a3a7cfc52238c5ab7e03ab3e1fa3e834c77639f3093d308e1d/docling_slim-2.127.0.tar.gz", hash = "sha256:c1d7c793c8528eb97112274e6c5609c9a5afa7966ae4c3f29806b22f1f23925c", size = 679966, upload-time = "2026-09-14T08:58:05.681Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/d5/4db4fd7e756d40db15b07ad072294548b0f508fb35fdd3496fa191223822/docling_slim-2.130.0.tar.gz", hash = "sha256:d45b467d322cd15f03fcc1e792bd4a52aa2dc075dfee229b13ae43a8603f82a6", size = 708768, upload-time = "2026-09-22T15:36:53.243Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/b9/ef355818fd08b01b50d22e01980321c2336d50384da97bed2a6353656835/docling_slim-2.127.0-py3-none-any.whl", hash = "sha256:aee124e7ada544d8f2776d2e39aaa14a6c38d8252ae8db530bda2b4afe0c0fa2", size = 844545, upload-time = "2026-09-14T08:58:03.684Z" },
+    { url = "https://files.pythonhosted.org/packages/db/57/9e21add9ec842b314d4d193db8c4186354b872529ef3a17f8aeedbd0c515/docling_slim-2.130.0-py3-none-any.whl", hash = "sha256:913043ee069eb4f107d47ebfca8bdbfbfd7ec84160a7193b7260777e3adbea19", size = 876695, upload-time = "2026-09-22T15:36:51.06Z" },
 ]
 
 [package.optional-dependencies]
@@ -1622,9 +1627,12 @@ format-audio = [
 ]
 models-vlm-inline = [
     { name = "accelerate" },
+    { name = "einops" },
     { name = "mlx-vlm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "open-clip-torch" },
     { name = "peft" },
     { name = "qwen-vl-utils" },
+    { name = "timm" },
     { name = "transformers" },
 ]
 standard = [
@@ -1727,6 +1735,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/25/ca/8de7744cb3bc966c85430ca2d0fcaeea872507c6a4cf6e007f7fe269ed9d/ecdsa-0.19.2.tar.gz", hash = "sha256:62635b0ac1ca2e027f82122b5b81cb706edc38cd91c63dda28e4f3455a2bf930", size = 202432, upload-time = "2026-03-26T09:58:17.675Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/51/79/119091c98e2bf49e24ed9f3ae69f816d715d2904aefa6a2baa039a2ba0b0/ecdsa-0.19.2-py2.py3-none-any.whl", hash = "sha256:840f5dc5e375c68f36c1a7a5b9caad28f95daa65185c9253c0c08dd952bb7399", size = 150818, upload-time = "2026-03-26T09:58:15.808Z" },
+]
+
+[[package]]
+name = "einops"
+version = "0.8.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/77/850bef8d72ffb9219f0b1aac23fbc1bf7d038ee6ea666f331fa273031aa2/einops-0.8.2.tar.gz", hash = "sha256:609da665570e5e265e27283aab09e7f279ade90c4f01bcfca111f3d3e13f2827", size = 56261, upload-time = "2026-01-26T04:13:17.638Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/09/f8d8f8f31e4483c10a906437b4ce31bdf3d6d417b73fe33f1a8b59e34228/einops-0.8.2-py3-none-any.whl", hash = "sha256:54058201ac7087911181bfec4af6091bb59380360f069276601256a76af08193", size = 65638, upload-time = "2026-01-26T04:13:18.546Z" },
 ]
 
 [[package]]
@@ -4163,11 +4180,11 @@ wheels = [
 
 [[package]]
 name = "oauthlib"
-version = "3.3.1"
+version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/19930f824ffeb0ad4372da4812c50edbd1434f678c90c2733e1188edfc63/oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9", size = 185918, upload-time = "2025-06-19T22:48:08.269Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7a/d8/a1bcc8ba112a627f8ffbdc212a78ce18d3ac07e91a5ca65d27918eee25a1/oauthlib-4.0.0.tar.gz", hash = "sha256:efb274799819440f95b4ab3b818869f1ce9ae26c5beacba0201d1a1b76b54f86", size = 187232, upload-time = "2026-09-28T06:01:18.77Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/9c/92789c596b8df838baa98fa71844d84283302f7604ed565dafe5a6b5041a/oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1", size = 160065, upload-time = "2025-06-19T22:48:06.508Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/f4/78229a1066068ca14fc60fb26cf7381cabe4382261392b90e5f9552722d4/oauthlib-4.0.0-py3-none-any.whl", hash = "sha256:624c28c13a0a59cabf9747dfa52af63be3e512a7f2714df16e91b5b3a145e6cd", size = 159715, upload-time = "2026-09-28T06:01:17.008Z" },
 ]
 
 [[package]]
@@ -4235,6 +4252,25 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/34/35/e7f862dbacbc99fadd9b14a614e49c99bf0f35fd9927a82f096e3de33531/onnxruntime-1.30.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:fa688e7891a6aa206636fe7372e27ee75fd17713289f6b4fc7b190e0a7de9328", size = 23585654, upload-time = "2026-09-10T16:31:26.65Z" },
     { url = "https://files.pythonhosted.org/packages/a6/13/0f1699f6de549c9324bc9112a2a85b14c517904cd11b562a654643b755a1/onnxruntime-1.30.0-cp312-cp312-win_amd64.whl", hash = "sha256:f3501472571f1b1eee50e017851e7929f5ea37312d2d8c2494a19e8fc58b4a38", size = 14311470, upload-time = "2026-09-10T16:31:31.273Z" },
     { url = "https://files.pythonhosted.org/packages/a2/17/02b13e5f51461f0453b18ab854e2d0bc1b6ec353241b05a2ee6b79e35d87/onnxruntime-1.30.0-cp312-cp312-win_arm64.whl", hash = "sha256:dc4c706f1935ebb62356e6a095b047859badd854482c40560888e95c328ed262", size = 14175072, upload-time = "2026-09-10T16:31:34.541Z" },
+]
+
+[[package]]
+name = "open-clip-torch"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ftfy" },
+    { name = "huggingface-hub" },
+    { name = "regex" },
+    { name = "safetensors" },
+    { name = "timm" },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/1f/2bc9795047fa2c1ad2567ef78ce6dfc9a7b763fa534acee09a94da2a5b8f/open_clip_torch-3.3.0.tar.gz", hash = "sha256:904b1a9f909df8281bb3de60ab95491cd2994a509177ea4f9d6292a84fe24d6d", size = 1503380, upload-time = "2026-02-27T00:32:46.74Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/b5/41c315ccd94ca332ead3e832e83eee343ab245005c3e43d9d3e75eae34eb/open_clip_torch-3.3.0-py3-none-any.whl", hash = "sha256:c549ad5ed6bfc119cc11105033c0a2b9d7a2a4afeb40a58a09aab3da1a0043ce", size = 1547268, upload-time = "2026-02-27T00:32:44.902Z" },
 ]
 
 [[package]]
@@ -4307,6 +4343,22 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/21/f6ef335f6e65724aa78b8d792b48d40a48c381715f1e62f5a5049e09d07e/opencv_python_headless-5.0.0.93-cp37-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:ed709fdf9aa0bd1f2ed8549e71d19449b03a675bb581eb292285f6861953be37", size = 61204038, upload-time = "2026-07-02T06:56:41.823Z" },
     { url = "https://files.pythonhosted.org/packages/d0/8f/b8756467ea991449a293797f6b3fa80fcfdd29598a0a60d1cd5715b96e61/opencv_python_headless-5.0.0.93-cp37-abi3-win32.whl", hash = "sha256:c6bcd96b185975ea240d22cfdb15a1f6d080cc95264cfbe2621f21bb144d89b9", size = 35411237, upload-time = "2026-07-02T05:50:12.901Z" },
     { url = "https://files.pythonhosted.org/packages/b8/88/763b967f7efd7226b82c9fae16d560cba049b1f0c036647e65c610fd636e/opencv_python_headless-5.0.0.93-cp37-abi3-win_amd64.whl", hash = "sha256:829717b6a95554f273e49e357cee3b3a2a26b6f4842fbc1bed2b45bdd8f87e0e", size = 43825962, upload-time = "2026-07-02T05:50:09.627Z" },
+]
+
+[[package]]
+name = "openlineage-python"
+version = "1.52.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "httpx" },
+    { name = "packaging" },
+    { name = "python-dateutil" },
+    { name = "pyyaml" },
+    { name = "requests" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/77/2f5b471c93c8c89f8777a18e0a05abd8dd14abf76f71bcd57f5e3c90d8e5/openlineage_python-1.52.0-py3-none-any.whl", hash = "sha256:e1bd73b3066021eecf69cc5c3571f6fd7e253768ea941f2c76f18969ea0ecb20", size = 116447, upload-time = "2026-07-23T14:40:32.073Z" },
 ]
 
 [[package]]
@@ -5214,11 +5266,11 @@ wheels = [
 
 [[package]]
 name = "pyjwt"
-version = "2.13.0"
+version = "2.14.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3b/81/58d0ac84e1ef3a3843791d6954d94c0b33d526c75eeb1efbce9d0a4c4077/pyjwt-2.13.0.tar.gz", hash = "sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423", size = 107515, upload-time = "2026-05-21T19:54:36.618Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/c3/8a3b59c25070cc61dc517fbdfa5dc0904670c96f605cc69759dc09166b99/pyjwt-2.14.0.tar.gz", hash = "sha256:77283c83fb56ecf566a886c757a714bc83668e38156de2cce8263302f42e0b86", size = 113177, upload-time = "2026-09-11T13:11:54.638Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl", hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728", size = 31274, upload-time = "2026-05-21T19:54:35.362Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/97/672cb32ce0dfea44b740cb7b4f97038463b9cf7c0ead1aacf595572851d6/pyjwt-2.14.0-py3-none-any.whl", hash = "sha256:ad0cef71c756a56e74863c2919cf0985f72decbcfcb550ee2f422e7c62b5eedc", size = 32896, upload-time = "2026-09-11T13:11:53.409Z" },
 ]
 
 [package.optional-dependencies]
@@ -6606,6 +6658,22 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d4/9c/7035b0bcfaa68d1ee4803fc5be5214ad865669b05bd20e7105ae8a18afc6/tiktoken-0.14.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:b950248272f1b303dc32986396e2dccfa10cf6d1e83ec8f0bba1776660305482", size = 1250635, upload-time = "2026-08-17T19:48:54.392Z" },
     { url = "https://files.pythonhosted.org/packages/bc/1d/69cabf18bed7f4366da076735816abce0d4db3fae491ae338a6612128777/tiktoken-0.14.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:3de75343041a1c57333b1e707ac8a9769738241d7d6a55d39e12cf84548337c6", size = 1316085, upload-time = "2026-08-17T19:48:55.525Z" },
     { url = "https://files.pythonhosted.org/packages/bd/bd/a2e884fb1402cba5be08836590320012b2d8ada0e2eef9911a64df4bcd2d/tiktoken-0.14.0-cp312-cp312-win_amd64.whl", hash = "sha256:087538c080e5ff421abd3a0785ed63c5111d06af98e6cd0d374dbe5969147ca3", size = 941208, upload-time = "2026-08-17T19:48:56.938Z" },
+]
+
+[[package]]
+name = "timm"
+version = "1.0.30"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "pyyaml" },
+    { name = "safetensors" },
+    { name = "torch" },
+    { name = "torchvision" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/ab/49041213990e48edcb6013463b18ef86d8d3c5d6ac5b408802c480443025/timm-1.0.30.tar.gz", hash = "sha256:1444a3af7e17fdba5440ac2bcf6e4b728da96dd62289ed9e1bcba31a545f5935", size = 2534738, upload-time = "2026-09-22T20:46:13.9Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/85/b897716d0fa016af23b11e6526f5ef76d2013e8bc36b9c7ce15d9200e456/timm-1.0.30-py3-none-any.whl", hash = "sha256:c8e27adf6801a2fdfb570dbbdd171f2f084756eefc673df8cfaab06bd14864f3", size = 2668917, upload-time = "2026-09-22T20:46:12.11Z" },
 ]
 
 [[package]]

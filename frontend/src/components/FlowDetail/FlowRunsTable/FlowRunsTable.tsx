@@ -159,20 +159,6 @@ export function FlowRunsTable({
 
   return (
     <div className={styles.tableWrapper}>
-      <div className={styles.toolbarLeft}>
-        <span className={styles.statusLabel}>Status</span>
-        <Dropdown
-          id="run-status-filter"
-          label="All"
-          titleText=""
-          hideLabel
-          items={STATUS_OPTIONS}
-          itemToString={(item) => item?.label ?? ''}
-          selectedItem={STATUS_OPTIONS.find((o) => o.id === statusFilter) ?? STATUS_OPTIONS[0]}
-          onChange={({ selectedItem }) => { setStatusFilter(selectedItem?.id ?? 'all'); }}
-          className={styles.statusDropdown}
-        />
-      </div>
       <SharedDataTable
         headers={TABLE_HEADERS}
         rows={filteredRows}
@@ -195,6 +181,22 @@ export function FlowRunsTable({
           }
           return sortDirection === 'ASC' ? valA - valB : valB - valA;
         }}
+        renderToolbarLeft={() => (
+          <div className={styles.toolbarLeft}>
+            <span className={styles.statusLabel}>Status</span>
+            <Dropdown
+              id="run-status-filter"
+              label="All"
+              titleText=""
+              hideLabel
+              items={STATUS_OPTIONS}
+              itemToString={(item) => item?.label ?? ''}
+              selectedItem={STATUS_OPTIONS.find((o) => o.id === statusFilter) ?? STATUS_OPTIONS[0]}
+              onChange={({ selectedItem }) => { setStatusFilter(selectedItem?.id ?? 'all'); }}
+              className={styles.statusDropdown}
+            />
+          </div>
+        )}
         renderToolbarActions={() => (
           <Button
             kind="ghost"

@@ -618,7 +618,7 @@ nvidia-nvtx==13.0.85 ; (platform_machine == 'aarch64' and sys_platform == 'linux
     # via cuda-toolkit
 o365==2.1.9
     # via docling-pipelines
-oauthlib==3.3.1
+oauthlib==4.0.0
     # via requests-oauthlib
 olefile==0.47
     # via python-oxmsg
@@ -805,7 +805,7 @@ pyiceberg==0.9.1
     # via docling-pipelines
 pyiceberg-core==0.7.0
     # via docling-pipelines
-pyjwt==2.13.0
+pyjwt==2.14.0
     # via
     #   docling-pipelines
     #   mcp

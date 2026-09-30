@@ -72,7 +72,7 @@ dependencies = [
     "pygments==2.20.0",
     "pyiceberg-core==0.7.0",
     "pyiceberg[glue]==0.9.1",
-    "pyjwt==2.13.0",
+    "pyjwt==2.14.0",
     "milvus-lite==3.2.1",
     "pymilvus==2.6.13",
     "pyopenssl==26.4.0",
@@ -217,6 +217,8 @@ exclude = [
 
 [tool.uv]
 override-dependencies = [
+    # Dependabot: bump oauthlib to 4.0.0 (transitive via requests-oauthlib).
+    "oauthlib==4.0.0",
     # CVE-2026-59939: Security fix for httplib2 vulnerability (transitive via google-auth-httplib2).
     "httplib2>=0.32.0",
     # Dependabot: h2 <= 4.4.0 — duplicate Host header request smuggling (transitive via httpx).

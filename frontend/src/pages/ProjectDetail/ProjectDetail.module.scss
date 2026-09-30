@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: $layer-01;
+  background-color: $background;
 }
 
 .headerZone {
@@ -91,7 +91,7 @@
 
 // ── Content zone — fills remaining viewport height and owns the scroll ──
 .contentZone {
-  background-color: $layer-01;
+  background-color: $background;
   flex: 1;
   min-height: 0;
   overflow-y: auto;

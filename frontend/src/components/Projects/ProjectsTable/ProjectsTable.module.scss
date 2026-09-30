@@ -2,29 +2,19 @@
 @use '@carbon/react/scss/type' as *;
 @use '@carbon/react/scss/theme' as *;
 
-// Outer wrapper — white background, no extra padding
+// Outer wrapper — white background; sits on the grey $background content zone
 .tableWrapper {
-  background-color: $background;
+  background-color: $layer-01;
 }
 
-// Toolbar row — search expands to fill space, right side has refresh + new project
+// The .toolbar class is retained for future use but the search is rendered
+// through SharedDataTable's Carbon TableToolbar — no manual overrides needed.
 .toolbar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: $spacing-08; // 40px — Carbon $spacing-08; Figma: 1058 Fill × 40 Hug
+  height: $spacing-08;
   border-bottom: 1px solid $border-subtle-01;
-
-  // Let the search fill remaining space on the left
-  :global(.cds--search) {
-    flex: 1;
-    height: $spacing-08; // 40px
-
-    input {
-      height: $spacing-08; // 40px
-      border-bottom: none;
-    }
-  }
 }
 
 .toolbarActions {
