@@ -13,7 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-MIN_COVERAGE=80
+MIN_COVERAGE=60
 LCOV_FILE="frontend/coverage/lcov.info"
 
 if [ ! -f "${LCOV_FILE}" ]; then

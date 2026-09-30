@@ -24,16 +24,16 @@ The per-PR gate (`scripts/check_pr_coverage.sh`) additionally checks every newly
 
 ### Frontend (TypeScript / React)
 
-| Metric | Threshold |
-|---|---|
-| Lines | 80% |
-| Statements | 80% |
-| Functions | 80% |
-| Branches | 75% |
+| Metric | Global Threshold | Per-file PR gate |
+|---|---|---|
+| Lines | 80% | 60% |
+| Statements | 80% | — |
+| Functions | 80% | — |
+| Branches | 75% | — |
 
-Global thresholds are **not** set in `vite.config.ts` — enforcing them across the full app while the suite is being built would always fail. Instead, coverage is enforced **per newly committed file** via the PR gate script.
+**Global thresholds** are enforced in `vite.config.ts` — the overall app must maintain 80% lines/statements/functions and 75% branches at all times.
 
-The per-PR gate (`scripts/check_pr_coverage_frontend.sh`) checks every newly committed `frontend/src/**/*.{ts,tsx}` file individually against 80% line coverage, using the `lcov.info` report produced by `npm run test:coverage`.
+**Per-PR gate** (`scripts/check_pr_coverage_frontend.sh`) checks every newly committed or modified `frontend/src/**/*.{ts,tsx}` file individually against **60% line coverage**, using the `lcov.info` report produced by `npm run test:coverage`. This allows PRs to touch complex components without being blocked, while still requiring meaningful coverage on new code.
 
 Run locally with:
 

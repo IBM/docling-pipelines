@@ -67,10 +67,15 @@ export default defineConfig(() => ({
         'src/data/**',
         'src/lib/sampleFlowNodes.json',
       ],
-      // Global thresholds are not enforced here — coverage for the full app
-      // would always fail until 100% of source files have tests.
-      // Per-file 80% line coverage is enforced per-PR via
+      // Global thresholds enforce overall app health.
+      // Per-file 60% line coverage is enforced per-PR via
       // scripts/check_pr_coverage_frontend.sh (reads lcov.info from this run).
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 80,
+        branches: 75,
+      },
     },
   },
 }))
