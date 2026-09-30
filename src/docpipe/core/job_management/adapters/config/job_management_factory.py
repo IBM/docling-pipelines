@@ -377,49 +377,79 @@ class JobManagementFactory:
             logger.warning(f"Empty configuration file: {config_path}, using defaults")
             return cls()
 
-        # Extract global_storage configuration (shared defaults)
         global_storage_config = yaml_config.get(DocpipeConfigKeys.GLOBAL_STORAGE, {})
-
-        # Extract job_management specific configuration
         job_mgmt_config = yaml_config.get(DocpipeConfigKeys.JOB_MANAGEMENT, {})
         framework_config = job_mgmt_config.get(DocpipeConfigKeys.FRAMEWORK, {}) or {}
         store_config = job_mgmt_config.get(DocpipeConfigKeys.STORE, {}) or {}
 
-        # Determine storage backend with precedence: service-specific > global_storage > defaults
-        # First check service-specific config
-        storage_str = store_config.get(DocpipeConfigKeys.TYPE)
-        if not storage_str:
-            storage_str = job_mgmt_config.get(DocpipeConfigKeys.STORAGE_BACKEND)
-        # Fall back to global_storage if no service-specific config
-        if not storage_str and global_storage_config:
-            storage_str = global_storage_config.get(DocpipeConfigKeys.TYPE)
-        # Final fallback to default
-        if not storage_str:
-            storage_str = StorageBackend.IN_MEMORY.value
+        storage_backend = cls._resolve_storage_backend(store_config, job_mgmt_config, global_storage_config)
+        framework_type = cls._resolve_framework_type(framework_config, job_mgmt_config)
+        merged_config = cls._merge_config_dict(global_storage_config, job_mgmt_config, store_config, framework_config)
 
+        config_source = (
+            "service-specific"
+            if store_config.get(DocpipeConfigKeys.TYPE)
+            else ("global_storage" if global_storage_config else "defaults")
+        )
+        logger.info(
+            "Loaded job management configuration from %s: storage=%s (source: %s), framework=%s",
+            config_path,
+            storage_backend,
+            config_source,
+            framework_type,
+        )
+
+        return cls(storage_backend=storage_backend, framework_type=framework_type, config=merged_config)
+
+    @classmethod
+    def _resolve_storage_backend(
+        cls,
+        store_config: dict[str, Any],
+        job_mgmt_config: dict[str, Any],
+        global_storage_config: dict[str, Any],
+    ) -> StorageBackend:
+        """Determine storage backend with precedence: service-specific > global_storage > defaults."""
+        storage_str = (
+            store_config.get(DocpipeConfigKeys.TYPE)
+            or job_mgmt_config.get(DocpipeConfigKeys.STORAGE_BACKEND)
+            or (global_storage_config.get(DocpipeConfigKeys.TYPE) if global_storage_config else None)
+            or StorageBackend.IN_MEMORY.value
+        )
         try:
-            storage_backend = StorageBackend(storage_str)
+            return StorageBackend(storage_str)
         except ValueError:
-            # Fail fast on invalid backend
             supported = [e.value for e in StorageBackend]
             raise ValueError(
                 f"Invalid storage backend '{storage_str}' for job management. Supported backends: {supported}"
             ) from None
 
+    @classmethod
+    def _resolve_framework_type(
+        cls,
+        framework_config: dict[str, Any],
+        job_mgmt_config: dict[str, Any],
+    ) -> FrameworkType:
+        """Determine framework type from config."""
         framework_str = framework_config.get(
             DocpipeConfigKeys.TYPE,
             job_mgmt_config.get(DocpipeConfigKeys.FRAMEWORK_TYPE, FrameworkType.DEFAULT.value),
         )
         try:
-            framework_type = FrameworkType(framework_str)
+            return FrameworkType(framework_str)
         except ValueError as e:
-            raise ValueError(
-                f"Invalid framework type: {framework_str}. Supported: {[e.value for e in FrameworkType]}"
-            ) from e
+            supported = [e.value for e in FrameworkType]
+            raise ValueError(f"Invalid framework type: {framework_str}. Supported: {supported}") from e
 
-        # Merge configuration with precedence: service-specific > global_storage > defaults
+    @classmethod
+    def _merge_config_dict(
+        cls,
+        global_storage_config: dict[str, Any],
+        job_mgmt_config: dict[str, Any],
+        store_config: dict[str, Any],
+        framework_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Merge configuration with precedence: service-specific > global_storage > defaults."""
         merged_config: dict[str, Any] = {}
-
         if global_storage_config:
             merged_config.update(global_storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
             if DocpipeConfigKeys.POSTGRES in global_storage_config:
@@ -433,18 +463,7 @@ class JobManagementFactory:
 
         merged_config.update(job_mgmt_config.get(DocpipeConfigKeys.FRAMEWORK_CONFIG, {}) or {})
         merged_config.update(framework_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
-
-        config_source = (
-            "service-specific"
-            if store_config.get(DocpipeConfigKeys.TYPE)
-            else ("global_storage" if global_storage_config else "defaults")
-        )
-        logger.info(
-            f"Loaded job management configuration from {config_path}: "
-            f"storage={storage_backend} (source: {config_source}), framework={framework_type}"
-        )
-
-        return cls(storage_backend=storage_backend, framework_type=framework_type, config=merged_config)
+        return merged_config
 
     @classmethod
     def from_environment(cls) -> "JobManagementFactory":
