@@ -217,6 +217,8 @@ exclude = [
 
 [tool.uv]
 override-dependencies = [
+    # Dependabot: bump oauthlib to 4.0.0 (transitive via requests-oauthlib).
+    "oauthlib==4.0.0",
     # CVE-2026-59939: Security fix for httplib2 vulnerability (transitive via google-auth-httplib2).
     "httplib2>=0.32.0",
     # Dependabot: h2 <= 4.4.0 — duplicate Host header request smuggling (transitive via httpx).
