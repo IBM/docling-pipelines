@@ -94,6 +94,12 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             OperatorConstants.VectorDB.ADD_SPARSE_VECTOR, OperatorConstants.VectorDB.ADD_SPARSE_VECTOR_DEFAULT
         )
 
+        # Deferred validation errors: missing resource name (index_name / collection_name)
+        # is caught here so validate() can surface a clean user-facing message instead of
+        # the chained "Failed to initialize ... Failed to create ..." runtime error.
+        self._init_validation_errors: list[str] = []
+        self.adapter: VectorStorePort = None  # type: ignore[assignment]
+
         # Initialize adapter using factory
         try:
             # provider_config carries all provider-specific parameters including the
@@ -143,7 +149,12 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             if schema_template_path:
                 adapter_config[SCHEMA_TEMPLATE_PATH_KEY] = schema_template_path
 
-            self.adapter: VectorStorePort = VectorStoreFactory.create(self.provider, **adapter_config)
+            self.adapter = VectorStoreFactory.create(self.provider, **adapter_config)
+        except ValueError as e:
+            # A ValueError from the adapter means a required config key (index_name /
+            # collection_name) is missing. Defer to validate() so the message reaches
+            # the UI as a clean validation error rather than a chained runtime exception.
+            self._init_validation_errors.append(str(e))
         except Exception as e:
             raise DocpipeException(
                 message=f"Failed to initialize vector database adapter '{self.provider}': {e!s}",
@@ -171,10 +182,30 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
+        # Surface deferred init errors (missing index_name / collection_name) as clean
+        # user-facing messages instead of the chained adapter runtime exception.
+        provider_config: dict = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        if self._init_validation_errors:
+            resource_name_key = (
+                OperatorConstants.VectorDB.INDEX_NAME
+                if self.provider == "opensearch"
+                else OperatorConstants.VectorDB.COLLECTION_NAME
+            )
+            resource_label = "index name" if self.provider == "opensearch" else "collection name"
+            if not provider_config.get(resource_name_key):
+                errors.append(f"The {resource_label} is not provided.")
+        else:
+            # Validate feature_mappings only when the adapter initialised successfully
+            # (resource name was present) and features are available to map — no point
+            # reporting mappings missing when there are no upstream features yet, or when
+            # the resource name itself is the blocker.
+            feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
+            op_available_features_check: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+            if not feature_mappings and op_available_features_check:
+                errors.append("The mappings from features to the resource columns is not provided.")
+
         # Validate that every mandatory_for_vector_db feature has a feature mapping.
-        # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
-        # will fail at runtime if a mandatory feature has no mapped column.
-        feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
+        feature_mappings = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
         op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         if feature_mappings and op_available_features:
             mapped_feature_names: set[str] = {
