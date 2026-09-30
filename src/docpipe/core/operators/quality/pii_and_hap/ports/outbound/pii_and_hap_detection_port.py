@@ -9,6 +9,8 @@ Defines the contract that all provider-specific PII/HAP detection adapters must 
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pydantic import BaseModel
+
 from docpipe.core.operators.quality.pii_and_hap.domain.models import PIIHAPDetectionResponse
 
 
@@ -16,7 +18,7 @@ class PIIAndHAPDetectionPort(ABC):
     """Unified interface for PII and HAP detection across all providers.
 
     Each provider adapter implements this port and fully encapsulates its own
-    execution path behind the two abstract methods below.
+    execution path behind the abstract methods below.
 
     Class attributes:
         ADAPTER_NAME: Unique identifier used for factory registration (e.g. 'watsonx').
@@ -26,20 +28,33 @@ class PIIAndHAPDetectionPort(ABC):
     ADAPTER_NAME: str
     ADAPTER_DISPLAY_NAME: str
 
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter.
+
+        Used by ``PIIAndHAPAnnotator._get_piihap_provider_schemas()`` to build
+        the operator metadata schema without hard-coding adapter names.
+        """
+        ...
+
     @abstractmethod
     def detect(self, *, payload: dict[str, Any]) -> PIIHAPDetectionResponse:
         """Detect PII and HAP in the text carried by payload.
 
+        The caller (``PIIHAPService``) guarantees that ``payload["input"]`` is a
+        non-empty string before this method is called.  Adapters must not
+        duplicate that guard.
+
         Args:
             payload: Detection request payload containing:
-                - input: Text to analyse
+                - input: Non-empty text to analyse
                 - detectors: Dict of detector configurations (e.g. pii, hap thresholds)
 
         Returns:
             PIIHAPDetectionResponse containing the list of detections.
 
         Raises:
-            ValueError: If the payload is invalid (e.g. empty input).
             DocpipeException: If detection fails at the provider level.
         """
         ...

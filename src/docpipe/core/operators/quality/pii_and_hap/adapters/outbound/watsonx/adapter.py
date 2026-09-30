@@ -5,13 +5,18 @@
 
 from typing import Any
 
+from pydantic import BaseModel
+
 from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from docpipe.core.constants.constants import LLMConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_and_hap_detection_factory import (
     register_pii_and_hap_detection_adapter,
 )
-from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.watsonx.config import ADAPTER_NAME
+from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.watsonx.config import (
+    ADAPTER_NAME,
+    WatsonxPIIAndHAPConfig,
+)
 from docpipe.core.operators.quality.pii_and_hap.domain.models import (
     PIIHAPDetectionResponse,
     convert_detection_dicts_to_results,
@@ -52,6 +57,11 @@ class WatsonxPIIAndHAPAdapter(PIIAndHAPDetectionPort):
         )
         logger.info("Initialised WatsonxPIIAndHAPAdapter")
 
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        return WatsonxPIIAndHAPConfig
+
     def validate(self) -> dict[str, Any]:
         """Validate WatsonX credentials and configuration.
 
@@ -75,18 +85,15 @@ class WatsonxPIIAndHAPAdapter(PIIAndHAPDetectionPort):
 
         Args:
             payload: Dict with ``input`` (str) and ``detectors`` (dict).
+                ``input`` is guaranteed non-empty by the calling service.
 
         Returns:
             PIIHAPDetectionResponse with all detected items.
 
         Raises:
-            ValueError: If ``input`` is empty.
             DocpipeException: If the WatsonX API call fails.
         """
         text = payload.get(OperatorConstants.PIIHAP.INPUT_FIELD, "")
-        if not text:
-            raise ValueError("Input text cannot be empty")
-
         detectors = payload.get("detectors")
         result_dict = self._adapter.detect(text=text, detectors=detectors)
 

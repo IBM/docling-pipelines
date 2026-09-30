@@ -38,7 +38,7 @@ class PIIHAPService:
         Raises:
             DocpipeException: If adapter validation fails.
         """
-        self.adapter = adapter
+        self._adapter = adapter
         self._validate_adapter()
 
     def _validate_adapter(self) -> None:
@@ -47,7 +47,7 @@ class PIIHAPService:
         Raises:
             DocpipeException: If validation reports errors.
         """
-        result = self.adapter.validate()
+        result = self._adapter.validate()
 
         for warning in result.get(LLMConstants.ValidationKeys.WARNINGS, []):
             logger.warning("Adapter validation warning: %s", warning)
@@ -79,7 +79,7 @@ class PIIHAPService:
             raise ValueError("Input text cannot be empty")
 
         try:
-            return self.adapter.detect(payload=payload)
+            return self._adapter.detect(payload=payload)
         except (ValueError, DocpipeException):
             raise
         except Exception as exc:

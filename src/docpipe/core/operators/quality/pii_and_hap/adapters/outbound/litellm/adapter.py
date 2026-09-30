@@ -6,12 +6,17 @@
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel
+
 from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_and_hap_detection_factory import (
     register_pii_and_hap_detection_adapter,
 )
-from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.litellm.config import ADAPTER_NAME
+from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.litellm.config import (
+    ADAPTER_NAME,
+    LiteLLMPIIAndHAPConfig,
+)
 from docpipe.core.operators.quality.pii_and_hap.domain.models import (
     PIIHAPDetectionResponse,
     convert_detection_dicts_to_results,
@@ -56,6 +61,11 @@ class LiteLLMPIIAndHAPAdapter(PIIAndHAPDetectionPort):
         self._prompt_manager = PromptManager(_PROMPT_PATH)
         logger.info("Initialised LiteLLMPIIAndHAPAdapter")
 
+    @staticmethod
+    def get_config_schema() -> type[BaseModel]:
+        """Return the Pydantic config model class for this adapter."""
+        return LiteLLMPIIAndHAPConfig
+
     def validate(self) -> dict[str, Any]:
         """Validate LiteLLM adapter configuration.
 
@@ -69,18 +79,15 @@ class LiteLLMPIIAndHAPAdapter(PIIAndHAPDetectionPort):
 
         Args:
             payload: Dict with ``input`` (str) and ``detectors`` (dict).
+                ``input`` is guaranteed non-empty by the calling service.
 
         Returns:
             PIIHAPDetectionResponse with all detected items.
 
         Raises:
-            ValueError: If ``input`` is empty.
             DocpipeException: If LLM inference fails.
         """
         text = payload.get(OperatorConstants.PIIHAP.INPUT_FIELD, "")
-        if not text:
-            raise ValueError("Input text cannot be empty")
-
         detectors = payload.get("detectors", {})
         hap_threshold = detectors.get("hap", {}).get("threshold", 0.8)
         pii_threshold = detectors.get("pii", {}).get("threshold", 0.5)

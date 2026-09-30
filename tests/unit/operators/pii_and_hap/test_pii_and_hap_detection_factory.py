@@ -31,6 +31,12 @@ def _make_adapter_class(name: str) -> type[PIIAndHAPDetectionPort]:
             self.model_id = model_id
             self.provider_config = provider_config
 
+        @staticmethod
+        def get_config_schema():  # type: ignore[override]
+            from pydantic import BaseModel
+
+            return BaseModel
+
         def detect(self, *, payload):  # type: ignore[override]
             return MagicMock()
 

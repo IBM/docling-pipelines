@@ -85,16 +85,6 @@ def test_validate_fails_when_url_missing():
 # ---------------------------------------------------------------------------
 
 
-def test_detect_raises_on_empty_input(adapter):
-    with pytest.raises(ValueError, match="Input text cannot be empty"):
-        adapter.detect(payload={"input": ""})
-
-
-def test_detect_raises_on_missing_input(adapter):
-    with pytest.raises(ValueError, match="Input text cannot be empty"):
-        adapter.detect(payload={})
-
-
 def test_detect_returns_response_on_success(adapter, mock_text_detection_adapter):
     mock_text_detection_adapter.detect.return_value = {
         "success": True,

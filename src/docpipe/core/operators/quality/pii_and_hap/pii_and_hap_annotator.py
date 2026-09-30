@@ -257,31 +257,18 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
     def _get_piihap_provider_schemas() -> dict[str, Any]:
         """Return per-provider JSON Schema dicts for the provider_config field.
 
-        Imports ``ADAPTER_NAME`` and the config schema class directly from each
-        adapter module so the dict key is always the adapter's own source of truth —
-        no separate constant to keep in sync.
+        Iterates the ``PIIAndHAPDetectionFactory`` registry and calls
+        ``get_config_schema()`` on each registered adapter class — adding a new
+        provider requires only registering the adapter.
         """
         from docpipe.core.operators.operator_utils import OperatorUtils
-        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.litellm.config import (
-            ADAPTER_NAME as LITELLM_ADAPTER_NAME,
-        )
-        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.litellm.config import (
-            LiteLLMPIIAndHAPConfig,
-        )
-        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.watsonx.config import (
-            ADAPTER_NAME as WATSONX_ADAPTER_NAME,
-        )
-        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.watsonx.config import (
-            WatsonxPIIAndHAPConfig,
+        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_and_hap_detection_factory import (
+            PIIAndHAPDetectionFactory,
         )
 
         return {
-            LITELLM_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(
-                schema=LiteLLMPIIAndHAPConfig.model_json_schema()
-            ),
-            WATSONX_ADAPTER_NAME: OperatorUtils.model_schema_to_docpipe(
-                schema=WatsonxPIIAndHAPConfig.model_json_schema()
-            ),
+            name: OperatorUtils.model_schema_to_docpipe(schema=adapter_class.get_config_schema().model_json_schema())
+            for name, adapter_class in PIIAndHAPDetectionFactory._registry.items()
         }
 
     @staticmethod

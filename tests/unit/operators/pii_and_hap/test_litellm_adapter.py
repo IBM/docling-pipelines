@@ -67,16 +67,6 @@ def test_validate_delegates_to_inner_adapter(adapter, mock_llm_adapter):
 # ---------------------------------------------------------------------------
 
 
-def test_detect_raises_on_empty_input(adapter):
-    with pytest.raises(ValueError, match="Input text cannot be empty"):
-        adapter.detect(payload={"input": ""})
-
-
-def test_detect_raises_on_missing_input(adapter):
-    with pytest.raises(ValueError, match="Input text cannot be empty"):
-        adapter.detect(payload={})
-
-
 def test_detect_returns_empty_response_on_empty_llm_reply(adapter, mock_llm_adapter):
     mock_llm_adapter.chat.return_value = ""
     response = adapter.detect(payload={"input": "some text", "detectors": {}})

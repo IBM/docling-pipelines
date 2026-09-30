@@ -70,7 +70,7 @@ def test_init_logs_warnings_from_adapter():
     }
     # Should not raise — warnings are logged only
     service = PIIHAPService(adapter=adapter)
-    assert service.adapter is adapter
+    assert service._adapter is adapter
 
 
 def test_init_raises_docpipe_exception_when_validation_fails():
@@ -85,7 +85,7 @@ def test_init_raises_docpipe_exception_when_validation_fails():
 
 
 def test_init_stores_adapter(service, valid_adapter):
-    assert service.adapter is valid_adapter
+    assert service._adapter is valid_adapter
 
 
 # ---------------------------------------------------------------------------
